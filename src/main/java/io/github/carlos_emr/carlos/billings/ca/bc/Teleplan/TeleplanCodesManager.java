@@ -71,7 +71,7 @@ REM076 **                                                             **
         // Use PathValidationUtils to validate file is in allowed directory or temp
         File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         try {
-            PathValidationUtils.validateExistingPath(f, allowedDir);
+            f = PathValidationUtils.validateExistingPath(f, allowedDir);
         } catch (SecurityException e) {
             // File might be in temp directory from Teleplan API
             if (!PathValidationUtils.isInAllowedTempDirectory(f)) {

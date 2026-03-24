@@ -124,7 +124,7 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             File baseDir = new File(baseDocDir);
             File targetFile = new File(fileName);
             try {
-                PathValidationUtils.validateExistingPath(targetFile, baseDir);
+                targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDir);
             } catch (SecurityException e) {
                 logger.error("Path traversal attempt detected: " + fileName);
                 return null;

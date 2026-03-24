@@ -82,7 +82,7 @@ public class DelImage2Action extends ActionSupport {
         
         try {
             // Validate using PathValidationUtils to ensure the path is within the expected directory
-            PathValidationUtils.validateExistingPath(image, imageDir);
+            image = PathValidationUtils.validateExistingPath(image, imageDir);
 
             // Delete the file
             Path imagePath = image.toPath();

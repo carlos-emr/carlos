@@ -135,8 +135,11 @@ public class EForm extends EFormBase {
         this.formFileName = (String) loaded.get("formFileName");
         this.formCreator = (String) loaded.get("formCreator");
         this.demographicNo = demographicNo;
-        this.showLatestFormOnly = (Boolean) loaded.get("showLatestFormOnly");
-        this.patientIndependent = (Boolean) loaded.get("patientIndependent");
+        // Null-safe unboxing: Boolean.TRUE.equals() returns false for null,
+        // avoiding NPE when the eForm is not found and the HashMap is missing these keys.
+        // The false default is correct for both fields (show all forms, not patient-independent).
+        this.showLatestFormOnly = Boolean.TRUE.equals(loaded.get("showLatestFormOnly"));
+        this.patientIndependent = Boolean.TRUE.equals(loaded.get("patientIndependent"));
         this.roleType = (String) loaded.get("roleType");
     }
 

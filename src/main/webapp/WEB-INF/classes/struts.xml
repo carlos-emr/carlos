@@ -1442,6 +1442,7 @@
         <action name="demographic/SearchDemographic" class="io.github.carlos_emr.carlos.commn.web.SearchDemographicAutoComplete2Action">
             <result name="success">/demographic/autocomplete.jsp</result>
         </action>
+        <action name="demographic/FindNextAvailableSlot" class="io.github.carlos_emr.carlos.commn.web.FindNextAvailableSlot2Action"/>
         <action name="provider/SearchProvider" class="io.github.carlos_emr.carlos.commn.web.SearchProviderAutoComplete2Action"/>
         <action name="demographic/AddRelation" class="io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action">
             <result name="success">/demographic/AddAlternateContact.jsp</result>
@@ -1548,6 +1549,7 @@
             <result name="success">/eform/efmmanageformgroups.jsp</result>
         </action>
         <action name="eform/displayImage" class="io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action"/>
+        <action name="eform/rtlPreventions" class="io.github.carlos_emr.carlos.eform.actions.RtlPreventions2Action"/>
         <action name="billing/CA/BC/associateCodesAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.AssociateCodes2Action">
             <result name="success">/billing/CA/BC/showServiceCodeAssocs.do</result>
         </action>

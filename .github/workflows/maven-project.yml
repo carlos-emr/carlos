@@ -126,9 +126,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .m2-cache
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json') }}
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json', 'local_repo/**') }}
           restore-keys: |
             ${{ runner.os }}-maven-
+
+      - name: Purge stale local_repo artifacts from Maven cache
+        run: |
+          rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
 
       - name: Build dev container (fallback)
         if: steps.pull-image.outputs.pulled != 'true'
@@ -182,7 +186,7 @@ jobs:
         continue-on-error: true
         with:
           path: .m2-cache
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json') }}
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json', 'local_repo/**') }}
           restore-keys: |
             ${{ runner.os }}-maven-
 
@@ -269,6 +273,10 @@ jobs:
           docker exec carlos-tomcat-dev bash -c "
             git config --global --add safe.directory /workspace
           "
+
+      - name: Purge stale local_repo artifacts from Maven cache
+        run: |
+          rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
 
       - name: Run tests
         run: |
@@ -295,7 +303,7 @@ jobs:
         continue-on-error: true
         with:
           path: .m2-cache
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json') }}
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json', 'local_repo/**') }}
           restore-keys: |
             ${{ runner.os }}-maven-
 
@@ -382,6 +390,10 @@ jobs:
           docker exec carlos-tomcat-dev bash -c "
             git config --global --add safe.directory /workspace
           "
+
+      - name: Purge stale local_repo artifacts from Maven cache
+        run: |
+          rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
 
       - name: Compile JSPs
         run: |

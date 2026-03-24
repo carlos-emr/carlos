@@ -72,12 +72,14 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%
     LoggedInInfo loggedInInfo1 = LoggedInInfo.getLoggedInInfoFromSession(request);
 
     if (session.getAttribute("userrole") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        return;
     }
 
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -884,6 +886,13 @@
     </oscar:oscarPropertiesCheck>
     <input type="hidden" value="${ hideReason }" id="hideReason"/>
     <input type="hidden" value="${pageContext.servletContext.contextPath}" id="contextPath" />
+    <input type="hidden" id="scheduleLoggedInProviderNo" value="<%= Encode.forHtmlAttribute(loggedInInfo1.getLoggedInProviderNo()) %>"/>
+    <input type="hidden" id="scheduleCurrentDate" value="<%= Encode.forHtmlAttribute(strYear + "-" + strMonth + "-" + strDay) %>"/>
+    <%-- Provider numbers visible on this schedule view, comma-separated, for the quick-search slot finder --%>
+    <input type="hidden" id="scheduleVisibleProviderNos" value="<%= Encode.forHtmlAttribute(java.util.Arrays.stream(curProvider_no).filter(p -> p != null && !p.isEmpty()).collect(java.util.stream.Collectors.joining(","))) %>"/>
+    <%-- Current schedule view parameters needed to rebuild the navigation URL after finding a slot --%>
+    <input type="hidden" id="scheduleViewAll" value="<%= Encode.forHtmlAttribute(request.getParameter("viewall") != null ? request.getParameter("viewall") : "1") %>"/>
+    <input type="hidden" id="scheduleView" value="<%= Encode.forHtmlAttribute(request.getParameter("view") != null ? request.getParameter("view") : "0") %>"/>
 
     <div id="fixedHeaderWrapper">
     <table id="firstTable" class="noprint">
@@ -1164,6 +1173,22 @@
     <table id="scheduleNavigation">
         <tr id="ivoryBar">
             <td id="dateAndCalendar">
+                <span id="quickSearchWrapper" class="quick-search-wrapper noprint">
+                    <span class="quick-search-input-wrapper">
+                        <input type="text" id="quickSearch" name="quickSearch"
+                               placeholder="<fmt:message key='provider.appointmentProviderAdminDay.quickSearch.placeholder'/>" autocomplete="off"
+                               aria-label="<fmt:message key='provider.appointmentProviderAdminDay.quickSearch.ariaLabel'/>"
+                               aria-autocomplete="list" aria-expanded="false" aria-controls="quickSearchDropdown"
+                               role="combobox">
+                        <button type="button" id="quickSearchClear" class="quick-search-clear"
+                                aria-label="<fmt:message key='provider.appointmentProviderAdminDay.quickSearch.clearTitle'/>"
+                                title="<fmt:message key='provider.appointmentProviderAdminDay.quickSearch.clearTitle'/>"
+                                style="display:none;">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </span>
+                    <div id="quickSearchDropdown" class="quick-search-dropdown" role="listbox" aria-live="polite" aria-hidden="true" style="display:none;"></div>
+                </span>
                 <a class="redArrow"
                    href="providercontrol.jsp?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%=isWeekView?"&provider_no="+provNum:""%>&viewall=<%=viewall%>">
                     <span class="fa-solid fa-backward-step"
@@ -2054,7 +2079,7 @@
                                                         <%
                                                             // Build tooltip variants for privacy-compliant display (dot-name format)
                                                             // Always show reason/notes labels, but handle "null" string from String.valueOf(null)
-                                                            String timeRange = iS + ":" + (iSm > 10 ? "" : "0") + iSm + "-" + iE + ":" + iEm;
+                                                            String timeRange = iS + ":" + (iSm >= 10 ? "" : "0") + iSm + "-" + iE + ":" + (iEm >= 10 ? "" : "0") + iEm;
                                                             String dotTooltipShort = timeRange + " " + Encode.forHtmlAttribute(name) + ((type != null && !type.isEmpty()) ? "&#013;&#010;type: " + Encode.forHtmlAttribute(type) : "");
                                                             String dotReasonDisplay = (reason != null && !"null".equals(reason)) ? reason : "";
                                                             String dotNotesDisplay = (notes != null && !"null".equals(notes)) ? notes : "";
@@ -2492,6 +2517,506 @@
         });
     </script>
     <!-- end of keycode block -->
+
+    <!-- Quick Search Typeahead -->
+    <script>
+
+    /**
+     * Builds the addappointment.jsp URL pre-filled with slot and patient info.
+     * Uses bFirstDisp=false so patient alert and status banners load server-side.
+     * Requires appointment_date in YYYY-MM-DD format.
+     */
+    function buildApptUrl(ctx, demographicNo, formattedName, providerNo, startTime, endTime, duration, appointmentDate) {
+        return ctx + '/appointment/addappointment.jsp'
+            + '?demographic_no='   + encodeURIComponent(demographicNo)
+            + '&name='             + encodeURIComponent(formattedName)
+            + '&provider_no='      + encodeURIComponent(providerNo)
+            + '&bFirstDisp=false'
+            + '&appointment_date=' + encodeURIComponent(appointmentDate)
+            + '&start_time='       + encodeURIComponent(startTime)
+            + '&end_time='         + encodeURIComponent(endTime)
+            + '&duration='         + encodeURIComponent(String(duration))
+            + '&status=t';
+    }
+
+    (function() {
+        'use strict';
+
+        var SEARCH_MIN_LENGTH = 2;
+        var DEBOUNCE_DELAY = 300;
+
+        var input = document.getElementById('quickSearch');
+        var clearBtn = document.getElementById('quickSearchClear');
+        var dropdown = document.getElementById('quickSearchDropdown');
+        var wrapper = document.getElementById('quickSearchWrapper');
+
+        if (!input || !dropdown || !wrapper) return;
+
+        var abortController = null;
+        var debounceTimer = null;
+        var activeIndex = -1;
+
+        var ctx = document.getElementById('contextPath').value;
+        var scheduleProviderNo = document.getElementById('scheduleLoggedInProviderNo').value;
+        var scheduleCurrentDate = document.getElementById('scheduleCurrentDate').value;
+        // var scheduleVisibleProviderNos = document.getElementById('scheduleVisibleProviderNos').value; // Reserved for future multi-provider slot search
+        var scheduleViewAll = document.getElementById('scheduleViewAll').value;
+        var scheduleView = document.getElementById('scheduleView').value;
+
+        <%-- OWASP-encode each i18n message for JavaScript string context --%>
+        <fmt:message var="qsNoPatientsFound"    key="provider.appointmentProviderAdminDay.quickSearch.noPatientsFound"/>
+        <fmt:message var="qsAddNewPatient"      key="provider.appointmentProviderAdminDay.quickSearch.addNewPatient"/>
+        <fmt:message var="qsBadgeMasterFile"    key="provider.appointmentProviderAdminDay.quickSearch.badgeMasterFile"/>
+        <fmt:message var="qsBadgeEChart"        key="provider.appointmentProviderAdminDay.quickSearch.badgeEChart"/>
+        <fmt:message var="qsBadgePrescriptions" key="provider.appointmentProviderAdminDay.quickSearch.badgePrescriptions"/>
+        <fmt:message var="qsBadgeApptTitle"     key="provider.appointmentProviderAdminDay.quickSearch.badgeApptTitle"/>
+        <fmt:message var="qsLabelDob"           key="provider.appointmentProviderAdminDay.quickSearch.labelDob"/>
+        <fmt:message var="qsLabelHin"           key="provider.appointmentProviderAdminDay.quickSearch.labelHin"/>
+        <fmt:message var="qsNoMrpAlert"         key="provider.appointmentProviderAdminDay.quickSearch.noMrpAlert"/>
+        <fmt:message var="qsNoSlotsAlert"       key="provider.appointmentProviderAdminDay.quickSearch.noSlotsAlert"/>
+        <fmt:message var="qsSlotErrorAlert"     key="provider.appointmentProviderAdminDay.quickSearch.slotErrorAlert"/>
+        /* Translated UI strings — OWASP-encoded for JS string context to prevent injection */
+        var msgs = {
+            noPatientsFound:    '${e:forJavaScript(qsNoPatientsFound)}',
+            addNewPatient:      '${e:forJavaScript(qsAddNewPatient)}',
+            badgeMasterFile:    '${e:forJavaScript(qsBadgeMasterFile)}',
+            badgeEChart:        '${e:forJavaScript(qsBadgeEChart)}',
+            badgePrescriptions: '${e:forJavaScript(qsBadgePrescriptions)}',
+            badgeApptTitle:     '${e:forJavaScript(qsBadgeApptTitle)}',
+            labelDob:           '${e:forJavaScript(qsLabelDob)}',
+            labelHin:           '${e:forJavaScript(qsLabelHin)}',
+            noMrpAlert:         '${e:forJavaScript(qsNoMrpAlert)}',
+            noSlotsAlert:       '${e:forJavaScript(qsNoSlotsAlert)}',
+            slotErrorAlert:     '${e:forJavaScript(qsSlotErrorAlert)}'
+        };
+
+        /**
+         * Detect search type from the query string.
+         * - comma present → name (Last, First)
+         * - 8 pure digits → dob (YYYYMMDD format)
+         * - pure digits or digits + separators → phone
+         * - letters followed by digits → HIN
+         * - digit + space + letters → address
+         * - default → name
+         */
+        function detectSearchType(query) {
+            if (query.indexOf(',') !== -1) return 'name';
+            if (/^\d{8}$/.test(query)) return 'dob';
+            if (/^[\d\s\-().+]+$/.test(query)) return 'phone';
+            if (/^[A-Za-z]{2,4}\d{4,}/i.test(query)) return 'hin';
+            if (/^\d+\s+[A-Za-z]/i.test(query)) return 'address';
+            return 'name';
+        }
+
+        function doSearch(query) {
+            if (query.length < SEARCH_MIN_LENGTH) {
+                if (abortController) {
+                    try { abortController.abort(); } catch (e) { /* ignore */ }
+                    abortController = null;
+                }
+                hideDropdown();
+                return;
+            }
+            var searchType = detectSearchType(query);
+            var url = ctx + '/demographic/SearchDemographic.do?jqueryJSON=true'
+                    + '&term=' + encodeURIComponent(query)
+                    + '&searchType=' + encodeURIComponent(searchType);
+
+            if (abortController) {
+                try { abortController.abort(); } catch (e) { /* ignore */ }
+            }
+            abortController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+
+            var fetchOpts = { credentials: 'same-origin' };
+            if (abortController) fetchOpts.signal = abortController.signal;
+
+            fetch(url, fetchOpts)
+                .then(function(r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(function(data) { renderResults(data); })
+                .catch(function(err) {
+                    if (!err || err.name !== 'AbortError') {
+                        console.error('Quick search error:', err);
+                    }
+                });
+        }
+
+        function renderResults(data) {
+            while (dropdown.firstChild) { dropdown.removeChild(dropdown.firstChild); }
+            activeIndex = -1;
+
+            if (!Array.isArray(data) || data.length === 0) {
+                var noResult = document.createElement('div');
+                noResult.className = 'qs-no-results';
+                noResult.textContent = msgs.noPatientsFound;
+                dropdown.appendChild(noResult);
+            } else {
+                data.forEach(function(item, idx) {
+                    dropdown.appendChild(buildResultRow(item, idx));
+                });
+            }
+
+            // "Add New Patient" link at bottom
+            var addDiv = document.createElement('div');
+            addDiv.className = 'qs-add-link';
+            var addA = document.createElement('a');
+            addA.href = 'javascript:void(0)';
+            addA.textContent = msgs.addNewPatient;
+            addA.addEventListener('click', function(e) {
+                e.stopPropagation();
+                popupPage2(ctx + '/demographic/demographicaddarecordhtm.jsp');
+                hideDropdown();
+            });
+            addDiv.appendChild(addA);
+            dropdown.appendChild(addDiv);
+
+            showDropdown();
+        }
+
+        function buildResultRow(item, idx) {
+            var row = document.createElement('div');
+            row.className = 'qs-result-row' + (idx % 2 === 1 ? ' qs-alt' : '');
+            row.setAttribute('role', 'option');
+            row.setAttribute('aria-selected', 'false');
+
+            // Clicking anywhere on row (except badges) opens the E-Chart
+            row.addEventListener('click', function(e) {
+                if (e.target.closest && e.target.closest('.qs-badge')) return;
+                if (item.demographicNo) {
+                    popupPage(710, 1024, ctx + '/oscarEncounter/IncomingEncounter.do'
+                        + '?demographicNo='  + encodeURIComponent(item.demographicNo)
+                        + '&providerNo='     + encodeURIComponent(scheduleProviderNo)
+                        + '&curProviderNo='  + encodeURIComponent(scheduleProviderNo)
+                        + '&curDate='        + encodeURIComponent(scheduleCurrentDate)
+                        + '&encType=&status=');
+                    hideDropdown();
+                }
+            });
+
+            // --- Line 1: bold name + M/E/Rx badges ---
+            var line1 = document.createElement('div');
+            line1.className = 'qs-line1';
+
+            var nameSpan = document.createElement('strong');
+            nameSpan.className = 'qs-patient-name';
+            nameSpan.textContent = item.formattedName || '';
+            if (item.status) {
+                var statusBadge = document.createElement('span');
+                statusBadge.className = 'qs-status-label';
+                statusBadge.textContent = ' (' + item.status + ')';
+                nameSpan.appendChild(statusBadge);
+            }
+            line1.appendChild(nameSpan);
+
+            var badgesDiv = document.createElement('div');
+            badgesDiv.className = 'qs-badges';
+            badgesDiv.appendChild(makeBadge('M', 'qs-badge-m', msgs.badgeMasterFile, function(e) {
+                e.stopPropagation();
+                popupPage(700, 1024, ctx + '/demographic/demographiccontrol.jsp?demographic_no='
+                    + encodeURIComponent(item.demographicNo)
+                    + '&displaymode=edit&dboperation=search_detail');
+                hideDropdown();
+            }));
+            badgesDiv.appendChild(makeBadge('E', 'qs-badge-e', msgs.badgeEChart, function(e) {
+                e.stopPropagation();
+                popupPage(710, 1024, ctx + '/oscarEncounter/IncomingEncounter.do'
+                    + '?demographicNo=' + encodeURIComponent(item.demographicNo)
+                    + '&providerNo=' + encodeURIComponent(scheduleProviderNo)
+                    + '&curProviderNo=' + encodeURIComponent(scheduleProviderNo)
+                    + '&curDate=' + encodeURIComponent(scheduleCurrentDate)
+                    + '&encType=&status=');
+                hideDropdown();
+            }));
+            badgesDiv.appendChild(makeBadge('Rx', 'qs-badge-rx', msgs.badgePrescriptions, function(e) {
+                e.stopPropagation();
+                popupPage(700, 1027, ctx + '/oscarRx/choosePatient.do'
+                    + '?providerNo=' + encodeURIComponent(scheduleProviderNo)
+                    + '&demographicNo=' + encodeURIComponent(item.demographicNo));
+                hideDropdown();
+            }));
+            line1.appendChild(badgesDiv);
+            row.appendChild(line1);
+
+            // --- Line 2: DOB + HIN + Appt badge ---
+            var line2 = document.createElement('div');
+            line2.className = 'qs-line2 qs-muted';
+
+            var dobHin = document.createElement('span');
+            var dobStrong = document.createElement('strong');
+            dobStrong.textContent = msgs.labelDob + ' ';
+            dobHin.appendChild(dobStrong);
+            dobHin.appendChild(document.createTextNode((item.formattedDob || '\u2014') + '\u00a0\u00a0'));
+            var hinStrong = document.createElement('strong');
+            hinStrong.textContent = msgs.labelHin + ' ';
+            dobHin.appendChild(hinStrong);
+            dobHin.appendChild(document.createTextNode(item.hin || '\u2014'));
+            line2.appendChild(dobHin);
+
+            // Only show Appt badge for active patients with a Most Responsible Provider (MRP)
+            var isPatientActive = !item.status || item.status === '' || item.status === 'AC';
+            var hasMrp = item.providerNo && item.providerNo.trim();
+            if (isPatientActive && hasMrp) {
+                var apptBadge = makeBadge('Appt', 'qs-badge-appt', msgs.badgeApptTitle, function(e) {
+                    e.stopPropagation();
+                    openNextAvailableAppt(item, apptBadge);
+                });
+                line2.appendChild(apptBadge);
+            }
+            row.appendChild(line2);
+
+            // --- Line 3: cell/phone + email ---
+            var line3 = document.createElement('div');
+            line3.className = 'qs-line3 qs-muted';
+
+            var hasCell = item.cellPhone && item.cellPhone.trim();
+            var hasPhone = item.phone && item.phone.trim();
+            var hasEmail = item.email && item.email.trim();
+
+            if (hasCell) {
+                appendIconAndText(line3, 'fa-solid fa-mobile-screen-button', item.cellPhone.trim());
+            } else if (hasPhone) {
+                appendIconAndText(line3, 'fa-solid fa-phone', item.phone.trim());
+            }
+            if (hasEmail) {
+                if (hasCell || hasPhone) { line3.appendChild(document.createTextNode('\u00a0\u00a0')); }
+                appendIconAndText(line3, 'fa-solid fa-envelope', item.email.trim());
+            }
+            if (!hasCell && !hasPhone && !hasEmail) {
+                line3.appendChild(document.createTextNode('\u2014'));
+            }
+            row.appendChild(line3);
+
+            // --- Line 4: doctor name ---
+            var doctorName = item.providerName || item.provider || '';
+            if (doctorName) {
+                var line4 = document.createElement('div');
+                line4.className = 'qs-line4 qs-muted';
+                appendIconAndText(line4, 'fa-solid fa-user-doctor', doctorName);
+                row.appendChild(line4);
+            }
+
+            return row;
+        }
+
+        /**
+         * Fetches the next available appointment slot for the patient's MRP (Most Responsible
+         * Provider), stores the slot info in sessionStorage, then navigates the schedule to that
+         * day. On page load the pending slot handler opens the add-appointment popup pre-filled
+         * with the patient, provider, date, time, and duration.
+         *
+         * Only called when the patient is active and has an MRP (badge is hidden otherwise).
+         *
+         * @param {Object}      item    - result row data (demographicNo, formattedName, providerNo, …)
+         * @param {HTMLElement} badgeEl - the Appt badge element (used to show loading state)
+         */
+        function openNextAvailableAppt(item, badgeEl) {
+            var mrpProviderNo = item.providerNo;
+            if (!mrpProviderNo || !mrpProviderNo.trim()) {
+                alert(msgs.noMrpAlert);
+                return;
+            }
+
+            // Show loading state on badge
+            var origText = badgeEl.textContent;
+            badgeEl.textContent = '...';
+            badgeEl.style.opacity = '0.6';
+            badgeEl.style.pointerEvents = 'none';
+
+            var url = ctx + '/demographic/FindNextAvailableSlot.do'
+                + '?providerNos=' + encodeURIComponent(mrpProviderNo)
+                + '&startDate='   + encodeURIComponent(scheduleCurrentDate);
+
+            fetch(url, { credentials: 'same-origin' })
+                .then(function(r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(function(slot) {
+                    if (!slot.found) {
+                        badgeEl.textContent = origText;
+                        badgeEl.style.opacity = '';
+                        badgeEl.style.pointerEvents = '';
+                        alert(msgs.noSlotsAlert);
+                        return;
+                    }
+
+                    // Compute end_time: start + duration - 1 minute (matches schedule slot display)
+                    var startParts = slot.startTime.split(':');
+                    var startMins  = parseInt(startParts[0], 10) * 60 + parseInt(startParts[1], 10);
+                    var endMins    = startMins + slot.duration - 1;
+                    var endHH      = Math.floor(endMins / 60) % 24;
+                    var endMM      = endMins % 60;
+                    var endTime    = (endHH < 10 ? '0' : '') + endHH + ':' + (endMM < 10 ? '0' : '') + endMM;
+
+                    // Format appointment_date as YYYY-MM-DD (required by addappointment.jsp when bFirstDisp=false)
+                    var mm = String(slot.month).padStart(2, '0');
+                    var dd = String(slot.day).padStart(2, '0');
+                    var appointmentDate = slot.year + '-' + mm + '-' + dd;
+
+                    // Store pending appointment in sessionStorage so the page-load handler can open the popup.
+                    // Only non-PHI scheduling coordinates are stored; appointmentDate is derived on load from year/month/day.
+                    try {
+                        sessionStorage.setItem('carlosPendingAppt', JSON.stringify({
+                            demographicNo: item.demographicNo,
+                            providerNo:    slot.providerNo,
+                            startTime:     slot.startTime,
+                            endTime:       endTime,
+                            duration:      slot.duration,
+                            year:          slot.year,
+                            month:         slot.month,
+                            day:           slot.day
+                        }));
+                    } catch (storageErr) {
+                        // sessionStorage unavailable — open popup directly (no schedule navigation)
+                        popupPage(360, 780, buildApptUrl(ctx, item.demographicNo, '',
+                            slot.providerNo, slot.startTime, endTime, slot.duration, appointmentDate));
+                        hideDropdown();
+                        return;
+                    }
+
+                    // Navigate the schedule to the next available day (include provider_no to preserve schedule context)
+                    var navUrl = 'providercontrol.jsp'
+                        + '?year='          + encodeURIComponent(String(slot.year))
+                        + '&month='         + encodeURIComponent(String(slot.month))
+                        + '&day='           + encodeURIComponent(String(slot.day))
+                        + '&view='          + encodeURIComponent(scheduleView)
+                        + '&displaymode=day'
+                        + '&dboperation=searchappointmentday'
+                        + '&viewall='       + encodeURIComponent(scheduleViewAll)
+                        + '&provider_no='   + encodeURIComponent(slot.providerNo);
+                    window.location.href = navUrl;
+                })
+                .catch(function(err) {
+                    badgeEl.textContent = origText;
+                    badgeEl.style.opacity = '';
+                    badgeEl.style.pointerEvents = '';
+                    console.error('FindNextAvailableSlot error:', err);
+                    alert(msgs.slotErrorAlert);
+                });
+
+            hideDropdown();
+        }
+
+        function makeBadge(label, cssClass, title, clickHandler) {
+            var a = document.createElement('a');
+            a.href = 'javascript:void(0)';
+            a.className = 'qs-badge ' + cssClass;
+            a.title = title;
+            a.textContent = label;
+            a.addEventListener('click', clickHandler);
+            return a;
+        }
+
+        function appendIconAndText(parent, iconClass, text) {
+            var icon = document.createElement('i');
+            icon.className = iconClass;
+            parent.appendChild(icon);
+            parent.appendChild(document.createTextNode('\u00a0' + text));
+        }
+
+        function showDropdown() {
+            dropdown.style.display = 'block';
+            dropdown.setAttribute('aria-hidden', 'false');
+            input.setAttribute('aria-expanded', 'true');
+        }
+
+        function hideDropdown() {
+            dropdown.style.display = 'none';
+            dropdown.setAttribute('aria-hidden', 'true');
+            input.setAttribute('aria-expanded', 'false');
+            activeIndex = -1;
+        }
+
+        // Debounced input handler
+        input.addEventListener('input', function() {
+            var query = this.value.trim();
+            clearBtn.style.display = query ? 'flex' : 'none';
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function() { doSearch(query); }, DEBOUNCE_DELAY);
+        });
+
+        // Clear button
+        clearBtn.addEventListener('click', function() {
+            input.value = '';
+            clearBtn.style.display = 'none';
+            hideDropdown();
+            input.focus();
+        });
+
+        // Keyboard navigation
+        input.addEventListener('keydown', function(e) {
+            var rows = dropdown.querySelectorAll('.qs-result-row');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                activeIndex = Math.min(activeIndex + 1, rows.length - 1);
+                updateActive(rows);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeIndex = Math.max(activeIndex - 1, -1);
+                updateActive(rows);
+            } else if (e.key === 'Escape' || e.key === 'Tab') {
+                hideDropdown();
+            } else if (e.key === 'Enter') {
+                if (activeIndex >= 0 && rows[activeIndex]) {
+                    rows[activeIndex].click();
+                }
+            }
+        });
+
+        function updateActive(rows) {
+            rows.forEach(function(r, i) {
+                var isActive = i === activeIndex;
+                r.classList.toggle('qs-active', isActive);
+                r.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                if (isActive) { r.scrollIntoView({ block: 'nearest' }); }
+            });
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!wrapper.contains(e.target)) { hideDropdown(); }
+        });
+
+    })();
+
+    // ── Pending-Appt page-load handler ─────────────────────────────────────
+    // After navigating the schedule to the next available day, this fires and
+    // opens the add-appointment popup pre-filled with the slot time / duration.
+    (function openPendingApptOnLoad() {
+        var pending;
+        try {
+            var raw = sessionStorage.getItem('carlosPendingAppt');
+            if (!raw) return;
+            pending = JSON.parse(raw);
+            sessionStorage.removeItem('carlosPendingAppt');
+        } catch (e) {
+            return; // sessionStorage unavailable or JSON parse error
+        }
+        if (!pending || !pending.startTime) return;
+
+        var ctx2 = document.getElementById('contextPath').value;
+        // Derive appointmentDate from stored year/month/day (not stored directly to avoid PHI concerns)
+        var mm2 = String(pending.month || '').padStart(2, '0');
+        var dd2 = String(pending.day || '').padStart(2, '0');
+        var derivedApptDate = pending.year ? (pending.year + '-' + mm2 + '-' + dd2) : '';
+        var popupUrl = buildApptUrl(ctx2,
+            pending.demographicNo,
+            '',
+            pending.providerNo,
+            pending.startTime,
+            pending.endTime || '',
+            pending.duration,
+            derivedApptDate);
+
+        // Wait for the page to finish rendering before opening the popup
+        window.addEventListener('load', function() {
+            popupPage(360, 780, popupUrl);
+        });
+    })();
+    </script>
+
     </body>
 </html>
 

@@ -105,7 +105,7 @@ public class OscarToOscarHl7V2Handler implements MessageHandler {
             File baseDir = new File(baseDocDir);
             File canonicalFile = new File(fileName).getCanonicalFile();
             try {
-                PathValidationUtils.validateExistingPath(canonicalFile, baseDir);
+                canonicalFile = PathValidationUtils.validateExistingPath(canonicalFile, baseDir);
             } catch (SecurityException e) {
                 logger.error("File path is outside allowed directory. Base: " + baseDocDir + ", File: " + canonicalFile.getPath());
                 return null;

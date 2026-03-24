@@ -87,7 +87,7 @@ public class ExcellerisOntarioHandler implements MessageHandler {
             // Create file object and validate using PathValidationUtils
             File file = new File(fileName);
             try {
-                PathValidationUtils.validateExistingPath(file, docDir);
+                file = PathValidationUtils.validateExistingPath(file, docDir);
             } catch (SecurityException e) {
                 logger.error("Attempted path traversal detected - file outside document directory: " + fileName);
                 throw new SecurityException("Access denied: file outside permitted directory");

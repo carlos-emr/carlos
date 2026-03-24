@@ -1,6 +1,20 @@
-/*  editControl - a WYSIWYG edit control using iFrames and designMode
+/*  editControl2.js - WYSIWYG rich text editor for the Rich Text Letter eForm
     Copyright (C) 2009-2020 Peter Hutten-Czapski
-     Version 1.6 now about 600 lines of code
+    Modernized 2026 by CARLOS EMR Project (2026.3.0)
+
+    This file is deployed from WEB-INF/eform-assets/ to the eForm images directory
+    by EFormAssetDeployer at Tomcat startup. It is loaded by the RTL eForm's form_html
+    via: <script src="../eform/displayImage.do?imagefile=editControl2.js"></script>
+
+    Key architecture notes:
+    - This script builds a WYSIWYG toolbar and editor iframe using document.designMode
+    - Content insertion uses the Selection/Range API (execCommand('insertHtml') is deprecated)
+    - The RTL eForm's sidebar buttons (Patient Name, Allergies, etc.) call printKey()
+      which uses APCache.js to fetch patient data via AJAX, then calls doHtml() to insert it
+    - Template management loads .rtl files via efmformrtl_templates.jsp
+    - The Start() function is called from <body onload="Start()"> in the DB-stored form_html
+
+    Version 1.6 now about 600 lines of code
         NEW in 0.2 button styles, links, select box
         NEW in 0.3 help, date, rule, select all, and clean functions
         NEW in 0.4 code completely rewritten, more functions including images and
@@ -121,47 +135,47 @@ function insertEditControl() {
 	// the class="editControlButton" identifies the elements that will have button function
 	//   -these will change appearance on mouse events and will trigger on mouse click a default action
 
-    var boldButton = '<span class="editControlButton" value="Bold" title="Bold" name="' + cfg_editorname + '" onclick="ex(\'bold\');"><i class="icon-bold"></i></span>';
-    var italicButton =  '<span class="editControlButton" value="Italic" title="Italic" name="' + cfg_editorname + '" onclick="ex(\'italic\');"><i class="icon-italic"></i></span>';
-    var underlinedButton =  '<span class="editControlButton" value="Underline" title="Underline" name="' + cfg_editorname + '" onclick="ex(\'underline\');"><i class="icon-underline"></i></span>';
-    var strikethroughButton = '<span class="editControlButton" title="Strikethrough" name="' + cfg_editorname + '" onclick="ex(\'strikethrough\');"><i class="icon-strikethrough"></i></span>';
-    var superscriptButton = '<span class="editControlButton" value="Underline" title="Superscript" name="' + cfg_editorname + '" onclick="ex(\'superscript\');"><i class="icon-superscript"></i></span>';
-    var subscriptButton = '<span class="editControlButton" title="Subscript" name="' + cfg_editorname + '" onclick="ex(\'subscript\');"><i class="icon-subscript"></i></span>';
-    var leftButton = '<span class="editControlButton" title="Align Left" name="' + cfg_editorname + '" onclick="ex(\'justifyLeft\');"><i class="icon-align-left"></i></span>';
-    var centerButton = '<span class="editControlButton" title="Center Align" name="' + cfg_editorname + '" onclick="ex(\'justifyCenter\');"><i class="icon-align-center"></i></span>';
-    var fullButton = '<span class="editControlButton" title="Justify" name="' + cfg_editorname + '" onclick="ex(\'justifyFull\');"><i class="icon-align-justify"></i></span>';
-    var rightButton = '<span class="editControlButton" title="Align Right" name="' + cfg_editorname + '" onclick="ex(\'justifyRight\');"><i class="icon-align-right"></i></span>';
-	var unorderedlistButton = '<span class="editControlButton" title="List" name="' + cfg_editorname + '" onclick="ex(\'insertUnorderedList\');"><i class="icon-list-ul"></i></span>';
-	var orderedlistButton = '<span class="editControlButton" title="Numbered List" name="' + cfg_editorname + '" onclick="ex(\'insertOrderedList\');"><i class="icon-list-ol"></i></span>';
-	var ruleButton = '<span class="editControlButton" title="Horizontal Rule" name="' + cfg_editorname + '" onclick="ex(\'insertHorizontalRule\');"><i class="icon-ellipsis-horizontal"></i></span>';
+    var boldButton = '<span class="editControlButton" value="Bold" title="Bold" name="' + cfg_editorname + '" onclick="ex(\'bold\');"><i class="fa-solid fa-bold"></i></span>';
+    var italicButton =  '<span class="editControlButton" value="Italic" title="Italic" name="' + cfg_editorname + '" onclick="ex(\'italic\');"><i class="fa-solid fa-italic"></i></span>';
+    var underlinedButton =  '<span class="editControlButton" value="Underline" title="Underline" name="' + cfg_editorname + '" onclick="ex(\'underline\');"><i class="fa-solid fa-underline"></i></span>';
+    var strikethroughButton = '<span class="editControlButton" title="Strikethrough" name="' + cfg_editorname + '" onclick="ex(\'strikethrough\');"><i class="fa-solid fa-strikethrough"></i></span>';
+    var superscriptButton = '<span class="editControlButton" value="Superscript" title="Superscript" name="' + cfg_editorname + '" onclick="ex(\'superscript\');"><i class="fa-solid fa-superscript"></i></span>';
+    var subscriptButton = '<span class="editControlButton" title="Subscript" name="' + cfg_editorname + '" onclick="ex(\'subscript\');"><i class="fa-solid fa-subscript"></i></span>';
+    var leftButton = '<span class="editControlButton" title="Align Left" name="' + cfg_editorname + '" onclick="ex(\'justifyLeft\');"><i class="fa-solid fa-align-left"></i></span>';
+    var centerButton = '<span class="editControlButton" title="Center Align" name="' + cfg_editorname + '" onclick="ex(\'justifyCenter\');"><i class="fa-solid fa-align-center"></i></span>';
+    var fullButton = '<span class="editControlButton" title="Justify" name="' + cfg_editorname + '" onclick="ex(\'justifyFull\');"><i class="fa-solid fa-align-justify"></i></span>';
+    var rightButton = '<span class="editControlButton" title="Align Right" name="' + cfg_editorname + '" onclick="ex(\'justifyRight\');"><i class="fa-solid fa-align-right"></i></span>';
+	var unorderedlistButton = '<span class="editControlButton" title="List" name="' + cfg_editorname + '" onclick="ex(\'insertUnorderedList\');"><i class="fa-solid fa-list-ul"></i></span>';
+	var orderedlistButton = '<span class="editControlButton" title="Numbered List" name="' + cfg_editorname + '" onclick="ex(\'insertOrderedList\');"><i class="fa-solid fa-list-ol"></i></span>';
+	var ruleButton = '<span class="editControlButton" title="Horizontal Rule" name="' + cfg_editorname + '" onclick="ex(\'insertHorizontalRule\');"><i class="fa-solid fa-ellipsis"></i></span>';
 	var selectBlock = '<select name="' + cfg_editorname + '" id="formatblock" onchange="Select(this.id);" style="' + cfg_sstyle +'">'+ cfg_formatblock ;
 	var selectFace = '<select name="' + cfg_editorname + '" id="fontname" onchange="Select(this.id);" style="' + cfg_sstyle +'">'+ cfg_formatface ;
 	var selectSize = '<select name="' + cfg_editorname + '" id="fontsize" onchange="Select(this.id);" style="' + cfg_sstyle +'">'+ cfg_formatfontsize ;
     var selectTemplate = '<select name="' + cfg_editorname + '" id="template" onchange="loadTemplate(this.id);" style="' + cfg_sstyle +'">'+ cfg_formattemplate ;
-	var undoButton = '<span class="editControlButton" title="Undo" name="' + cfg_editorname + '" onclick="ex(\'undo\');"><i class="icon-undo"></i></span>';
-	var redoButton = '<span class="editControlButton" title="Redo" name="' + cfg_editorname + '" onclick="ex(\'redo\');"><i class="icon-repeat"></i></span>';
-	var indentButton = '<span class="editControlButton" title="Indent" name="' + cfg_editorname + '" onclick="ex(\'indent\');"><i class="icon-indent-right"></i></span>';
-	var outdentButton = '<span class="editControlButton" title="Outdent" name="' + cfg_editorname + '" onclick="ex(\'outdent\');"><i class="icon-indent-left"></i></span>';
-	var selectAllButton = '<span class="editControlButton" title="Select All" name="' + cfg_editorname + '" onclick="ex(\'selectAll\');"><i class="icon-tablet"></i></span>';
-    var cleanButton = '<span class="editControlButton" title="Remove Formatting" name="' + cfg_editorname + '" onclick="ex(\'removeFormat\');"><i class="icon-eraser"></i></span>';
-	var tableButton = '<span class="editControlButton" title="Table" name="' + cfg_editorname + '" onclick="doHtml(doTable());"><i class="icon-table"></i></span>';
-	var textcolourButton = '<span class="editControlButton colours" title="Text Colour" name="' + cfg_editorname + '" onclick="exprompt(\'foreColor\',\'Text Colour?[red]\');"><i class="icon-tint"></i></span>';
-	var hilightcolourButton = '<span class="editControlButton highlights" title="Highlight" name="' + cfg_editorname + '" onclick="exprompt(\'backColor\',\'Highlight Colour?[yellow]\');"><i class="icon-check-empty"></i></span>';
-    var insertImageButton = '<span class="editControlButton" title="Insert Image" name="' + cfg_editorname + '" onclick="exprompt(\'insertImage\',\'URL of image?\');"><i class="icon-picture"></i></span>';
-    var insertLinkButton = '<span class="editControlButton" title="Link" name="' + cfg_editorname + '" onclick="exprompt(\'createLink\',\'URL of link?[http://www.srpc.ca]\');"><i class="icon-link"></i></span>';
-	var attachButton = '<span class="editControlButton" title="Attach" name="' + cfg_editorname + '" onclick="popupEformUpload();"><i class="icon-paper-clip"></i></span>';
-	var newpageButton = '<span class="editControlButton" title="Page Break" name="' + cfg_editorname + '" onclick="doHtml(doBreak());"><i class="icon-file"></i></span>';
-	var clockButton = '<span class="editControlButton" title="Time" name="' + cfg_editorname + '" onclick="doHtml(doTime());"><i class="icon-time"></i></span>';
-	var dateButton = '<span class="editControlButton" title="Date" name="' + cfg_editorname + '" onclick="doHtml(doDate());"><i class=" icon-calendar"></i></span>';
-	var helpButton = '<span class="editControlButton" title="Help" name="' + cfg_editorname + '" onclick="window.open (\''+cfg_filesrc+'editor_help.html\',\'mywindow\',\'resizable=1,width=300,height=500\');"><i class=" icon-question-sign"></i></span>';
-	var editButton = '<span class="editControlButton" title="Edit Template" name="' + cfg_editorname + '" onclick="doEdit();"><i class="icon-edit"></i></span>';
-	var exportButton = '<span class="editControlButton" title="Export" name="' + cfg_editorname + '" onclick="doExport();"><i class="icon-save"></i></span>';
-	var insertHeading1Button = '<span class="editControlButton" title="Heading" name="' + cfg_editorname + '" onclick="ex(\'formatBlock\',\'<H1>\');"><i class="icon-h-sign"></i></span>';
-    var cutButton = '<span class="editControlButton" title="Cut" name="' + cfg_editorname + '" onclick="ex(\'cut\');"><i class="icon-cut"></i></span>';
-    var deleteButton = '<span class="editControlButton" title="Delete" name="' + cfg_editorname + '" onclick="ex(\'cut\');"><i class="icon-trash"></i></span>';
+	var undoButton = '<span class="editControlButton" title="Undo" name="' + cfg_editorname + '" onclick="ex(\'undo\');"><i class="fa-solid fa-rotate-left"></i></span>';
+	var redoButton = '<span class="editControlButton" title="Redo" name="' + cfg_editorname + '" onclick="ex(\'redo\');"><i class="fa-solid fa-rotate-right"></i></span>';
+	var indentButton = '<span class="editControlButton" title="Indent" name="' + cfg_editorname + '" onclick="ex(\'indent\');"><i class="fa-solid fa-indent"></i></span>';
+	var outdentButton = '<span class="editControlButton" title="Outdent" name="' + cfg_editorname + '" onclick="ex(\'outdent\');"><i class="fa-solid fa-outdent"></i></span>';
+	var selectAllButton = '<span class="editControlButton" title="Select All" name="' + cfg_editorname + '" onclick="ex(\'selectAll\');"><i class="fa-solid fa-expand"></i></span>';
+    var cleanButton = '<span class="editControlButton" title="Remove Formatting" name="' + cfg_editorname + '" onclick="ex(\'removeFormat\');"><i class="fa-solid fa-eraser"></i></span>';
+	var tableButton = '<span class="editControlButton" title="Table" name="' + cfg_editorname + '" onclick="doHtml(doTable());"><i class="fa-solid fa-table"></i></span>';
+	var textcolourButton = '<span class="editControlButton colours" title="Text Colour" name="' + cfg_editorname + '" onclick="exprompt(\'foreColor\',\'Text Colour?[red]\');"><i class="fa-solid fa-droplet"></i></span>';
+	var hilightcolourButton = '<span class="editControlButton highlights" title="Highlight" name="' + cfg_editorname + '" onclick="exprompt(\'backColor\',\'Highlight Colour?[yellow]\');"><i class="fa-regular fa-square"></i></span>';
+    var insertImageButton = '<span class="editControlButton" title="Insert Image" name="' + cfg_editorname + '" onclick="exprompt(\'insertImage\',\'URL of image?\');"><i class="fa-solid fa-image"></i></span>';
+    var insertLinkButton = '<span class="editControlButton" title="Link" name="' + cfg_editorname + '" onclick="exprompt(\'createLink\',\'URL of link?[http://www.srpc.ca]\');"><i class="fa-solid fa-link"></i></span>';
+	var attachButton = '<span class="editControlButton" title="Attach" name="' + cfg_editorname + '" onclick="popupEformUpload();"><i class="fa-solid fa-paperclip"></i></span>';
+	var newpageButton = '<span class="editControlButton" title="Page Break" name="' + cfg_editorname + '" onclick="doHtml(doBreak());"><i class="fa-solid fa-file"></i></span>';
+	var clockButton = '<span class="editControlButton" title="Time" name="' + cfg_editorname + '" onclick="doHtml(doTime());"><i class="fa-regular fa-clock"></i></span>';
+	var dateButton = '<span class="editControlButton" title="Date" name="' + cfg_editorname + '" onclick="doHtml(doDate());"><i class="fa-regular fa-calendar"></i></span>';
+	var helpButton = '<span class="editControlButton" title="Help" name="' + cfg_editorname + '" onclick="window.open (\''+cfg_filesrc+'editor_help.html\',\'mywindow\',\'resizable=1,width=300,height=500\');"><i class="fa-solid fa-circle-question"></i></span>';
+	var editButton = '<span class="editControlButton" title="Edit Template" name="' + cfg_editorname + '" onclick="doEdit();"><i class="fa-solid fa-pen-to-square"></i></span>';
+	var exportButton = '<span class="editControlButton" title="Export" name="' + cfg_editorname + '" onclick="doExport();"><i class="fa-solid fa-floppy-disk"></i></span>';
+	var insertHeading1Button = '<span class="editControlButton" title="Heading" name="' + cfg_editorname + '" onclick="ex(\'formatBlock\',\'<H1>\');"><i class="fa-solid fa-heading"></i></span>';
+    var cutButton = '<span class="editControlButton" title="Cut" name="' + cfg_editorname + '" onclick="ex(\'cut\');"><i class="fa-solid fa-scissors"></i></span>';
+    var deleteButton = '<span class="editControlButton" title="Delete" name="' + cfg_editorname + '" onclick="ex(\'delete\');"><i class="fa-solid fa-trash"></i></span>';
     // paste deprecated long ago by all browsers
-    //var pasteButton = '<span class="editControlButton" title="Paste" name="' + cfg_editorname + '" onclick="ex(\'paste\');"><i class="icon-paste"></i></span>';
-    var copyButton = '<span class="editControlButton" title="Copy" name="' + cfg_editorname + '" onclick="ex(\'copy\');"><i class="icon-copy"></i></span>';
+    //var pasteButton = '<span class="editControlButton" title="Paste" name="' + cfg_editorname + '" onclick="ex(\'paste\');"><i class="fa-solid fa-paste"></i></span>';
+    var copyButton = '<span class="editControlButton" title="Copy" name="' + cfg_editorname + '" onclick="ex(\'copy\');"><i class="fa-solid fa-copy"></i></span>';
 
 	var separator = '|';
 
@@ -327,7 +341,7 @@ function loadDefaultTemplate() {
     	document.getElementById('template').selectedIndex = 0;
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
-		obj.onload = function() { parseTemplate(); }
+		obj.onload = function() { parseTemplate(); };
 		//for IE put some delay to ensure that the new src is loaded before we parse it
     	if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
 	} else {
@@ -349,7 +363,7 @@ function loadTemplate(selectname){
     	document.getElementById('template').selectedIndex = 0;
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
-		obj.onload = function() { parseTemplate(); }
+		obj.onload = function() { parseTemplate(); };
 		//for IE put some delay to ensure that the new src is loaded before we parse it
     		if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
     	}
@@ -426,21 +440,44 @@ function parseText(obs) {
 	return obs;
 }
 
+/**
+ * Inserts HTML content at the current cursor position in the editor iframe.
+ * This is the primary content insertion mechanism used by all sidebar buttons
+ * (Patient Name, Allergies, Prescriptions, etc.) and the AP cache system.
+ *
+ * Uses the standard Selection/Range API to insert a document fragment at the
+ * current cursor position. Falls back to appending to the body if no selection
+ * exists (e.g., editor was never clicked/focused).
+ *
+ * @param {string} value - HTML string to insert (e.g., "<b>Aleshia Jones</b>")
+ */
 function doHtml(value) {
-	//insert HTML of value
-	if (isIE()){  //if you can't support insertHtml do something else
-		var tmp=window[cfg_editorname].document.body.innerHTML;
-		tmp=tmp+value;  // for IE this means append the text
-		window[cfg_editorname].document.body.innerHTML=tmp;
+	var editorDoc = document.getElementById(cfg_editorname).contentWindow.document;
+
+	// Insert at cursor using the Selection/Range API
+	var sel = editorDoc.getSelection ? editorDoc.getSelection() : null;
+	if (sel && sel.rangeCount > 0) {
+		var range = sel.getRangeAt(0);
+		range.deleteContents();
+		// createContextualFragment parses the HTML string into DOM nodes
+		var frag = range.createContextualFragment(value);
+		range.insertNode(frag);
+		// Move cursor to end of inserted content so subsequent inserts append
+		range.collapse(false);
+		sel.removeAllRanges();
+		sel.addRange(range);
 	} else {
-		document.getElementById(cfg_editorname).contentWindow.document.execCommand("insertHtml", false, value);
+		// No selection/cursor — append to end of document body
+		editorDoc.body.innerHTML += value;
 	}
-	return;
+	// Return focus to the editor iframe so the user can continue typing
+	// immediately after a sidebar button inserts content
+	document.getElementById(cfg_editorname).contentWindow.focus();
 }
 
 function block(blockElements) {
 	for(i=0; i<blockElements.length; i++) {
-		var htm='<div>'+blockElements[i]+'<\div>';
+		var htm='<div>'+blockElements[i]+'</div>';
 		doHtml(htm);
 	}
 }
@@ -483,10 +520,18 @@ void [
 	doTable, doExport, doEdit, doBreak,
 	viewsource, usecss, popup,
 	printKey, submitFaxButton,
-	// Lab-grid and autocomplete functions defined later in the file; used by
-	// external JSP pages and inline onclick handlers that static analysis cannot see.
+	// Functions defined later in the file; used by external JSP pages,
+	// inline onclick handlers, and the DB-stored eForm HTML that static
+	// analysis cannot see. These are NOT dead code — removing them would
+	// break the RTL eForm at runtime.
 	isGenderLookup, Start, htmlLine,
+	// formIsRTL: read by efmshowform_data.jsp to detect RTL eForm type.
+	// formPath: currently unused (commented-out graph link feature) but
+	//   kept for potential future use. See TODO at its declaration.
 	formIsRTL, formPath, getMeasures,
+	// collapseFooter, consultantSearch, populateInputField: called from
+	// inline onclick/onKeyup handlers in the DB-stored form_html.
+	// tempBinHover (not in this list): called from onmouseover in form_html.
 	collapseFooter, consultantSearch, populateInputField
 ];
 
@@ -497,7 +542,7 @@ function doTable() {
 	var cols = parseInt(colstext);
 	var table;
 	if ((rows > 0) && (cols > 0)) {
-		table = '<table style="text-align: left; width: 100%;" border="1" cellpadding="2" cellspacing="2"><tbody>'
+		table = '<table style="text-align: left; width: 100%;" border="1" cellpadding="2" cellspacing="2"><tbody>';
 		for (var i=0; i < rows; i++) {
 			table +='<tr>';
 			for (var j=0; j < cols; j++) {
@@ -885,12 +930,30 @@ function submitFaxButton() {
 		}
 	}
 	
+	/**
+	 * Initializes the Rich Text Letter editor on page load.
+	 * Called from <body onload="Start()"> in the DB-stored form_html.
+	 *
+	 * Performs three setup tasks:
+	 * 1. Loads available letter templates via AJAX from efmformrtl_templates.jsp
+	 * 2. Populates the AP cache from hidden .cacheInit fields injected by the JSP
+	 * 3. Initializes gender pronouns from the cached sex field
+	 * 4. Loads existing letter content into the editor (for saved forms)
+	 * 5. Calls updateAttached() to refresh the attachments panel
+	 *
+	 * Note: updateAttached() is defined in the DB-stored form_html, not here.
+	 */
 	function Start() {
-		
+
+			// Load template <option> elements into the template dropdown
 			$.ajax({
 				url : "efmformrtl_templates.jsp",
 				success : function(data) {
 					$("#template").html(data);
+					loadDefaultTemplate();
+				},
+				error : function(xhr, status, error) {
+					console.error('Failed to load letter templates: ' + status);
 					loadDefaultTemplate();
 				}
 			});
@@ -909,12 +972,21 @@ function submitFaxButton() {
 			}
 				
 			// set the HTML contents of this edit control from the value saved in OSCAR (if any)
-			var contents = document.getElementById('Letter').value
+			var contents = document.getElementById('Letter').value;
 			if (contents.length == 0) {
 				parseTemplate();
 			} else {
+				// Decode HTML entities that saveRTL() encoded before saving.
+				// saveRTL() escapes & " < > ' so the content survives being stored in a
+				// textarea value. We reverse that here so the editor renders actual HTML
+				// (e.g., <br> as a line break, not literal "&lt;br&gt;" text).
+				// Decode in reverse order: entities containing & must be decoded last.
+				contents = contents.replace(/&#39;/g, "'");
+				contents = contents.replace(/&gt;/g, ">");
+				contents = contents.replace(/&lt;/g, "<");
+				contents = contents.replace(/&quot;/g, '"');
+				contents = contents.replace(/&amp;/g, "&");
 				seteditControlContents(cfg_editorname, contents);
-//				seteditControlContents(cfg_editorname, decodeURIComponent(contents));
 				document.getElementById(cfg_editorname).contentWindow.document.designMode = 'on';
 			}
 			maximize();
@@ -1017,6 +1089,9 @@ function submitFaxButton() {
 		}
 		return mystamp;
 	}
+	// Flag read by efmshowform_data.jsp and the eForm framework to identify this
+	// as a Rich Text Letter eForm (vs. a regular eForm). Static analysis may flag
+	// this as "unused" because the read happens in JSP/server-side code, not JS.
 	var formIsRTL = true;
 
 
@@ -1039,11 +1114,26 @@ if (location.search) {
 }
 
 
-// probably wrong fid  TODO
+// TODO: formPath is currently unused — its only two references (graph link URLs)
+// are commented out below in getMeasures(). The hardcoded fid=74 is a legacy
+// upstream value that would be wrong for most installations. If the graph link
+// feature is ever re-enabled, formPath should derive the fid from the URL
+// parameter (gup("fid")) instead of hardcoding it.
 var formPath = vPath + "/eform/efmshowform_data.jsp?fid=74&LabName="
 var measureArray = [];
 var measureDateArray = [];
 
+/**
+ * Retrieves measurement/lab history for a given measurement type and inserts
+ * a formatted summary into the editor. Called by labgrid() and labgrid2()
+ * (the "Lab Grid" and "Vitals" sidebar buttons).
+ *
+ * Makes a synchronous XHR to efmshowform_data.jsp to fetch measurement data
+ * for the current patient, then formats it as "TYPE: value (date), value (date), ..."
+ *
+ * @param {string} measure - Measurement type code (e.g., "HB", "BP", "A1C")
+ * @param {number} max - Maximum number of historical values to display
+ */
 function getMeasures(measure, max) {
     var xmlhttp = new XMLHttpRequest();
     // pathArray was originally used to build newURL; kept for potential future use by callers.
@@ -1116,6 +1206,14 @@ function collapseFooter() {
 //-- Autocomplete  script --
         var searchDropDownFlag = false;
 
+        /**
+         * Searches for a consultant/specialist by name for the letter addressee field.
+         * Makes an XHR request to the provider search endpoint and displays matching
+         * providers in the tempBin dropdown. Selected consultant's address is inserted
+         * into the CopyTo textarea for "Paste Selected" to use.
+         *
+         * @param {string} term - Search term (minimum 2 characters, "lastname, firstname" format)
+         */
         function consultantSearch(term) {
             if (term.length < 2) {
                 document.getElementById('tempBin').innerHTML = "You must enter at least 2 characters of a patients name!";
@@ -1130,14 +1228,24 @@ function collapseFooter() {
 
             //professionalSpecialists  2020-Nov-04
             //request.open('GET', '../oscarEncounter/oscarConsultationRequest/searchprofessionalSpecialists.json?keyword=' + term, true);
-            request.open('GET', '../oscarEncounter/oscarConsultationRequest/searchProfessionalSpecialist.json?keyword='+term, true);
+            request.open('GET', '../oscarEncounter/oscarConsultationRequest/searchProfessionalSpecialist.json?keyword='+encodeURIComponent(term), true);
             request.setRequestHeader("Content-Type", "application/json");
             request.onload = function() {
 
                 if (request.status >= 200 && request.status < 400) {
 
-                    // Request finished. Do processing here.
-                    var data = JSON.parse(this.response);
+                    // Parse JSON response — may fail if session expired and server
+                    // returned an HTML login page with a 200 status
+                    var data;
+                    try {
+                        data = JSON.parse(this.response);
+                    } catch (parseError) {
+                        console.error('Failed to parse consultant search response:', parseError);
+                        var tempBin = document.getElementById('tempBin');
+                        while (tempBin.firstChild) { tempBin.removeChild(tempBin.firstChild); }
+                        tempBin.textContent = 'Search failed. Please try again.';
+                        return;
+                    }
                     //ensure the loader has time to display
                     setTimeout(() => {
                         var tempBin = document.getElementById('tempBin');
@@ -1167,10 +1275,21 @@ function collapseFooter() {
 
 
                 } else {
-                    console.log('error')
+                    console.error('Consultant search failed with status: ' + request.status);
+                    var tempBin = document.getElementById('tempBin');
+                    tempBin.style.display = 'block';
+                    tempBin.textContent = 'Search failed. Please try again.';
                 }
 
             } // end onload
+
+            // Handle network-level failures (DNS, connection refused, timeout)
+            request.onerror = function() {
+                console.error('Consultant search network error');
+                var tempBin = document.getElementById('tempBin');
+                tempBin.style.display = 'block';
+                tempBin.textContent = 'Network error. Please check your connection and try again.';
+            };
 
             request.send();
         }
@@ -1224,6 +1343,9 @@ function collapseFooter() {
             bin.appendChild(img);
         }
 
+        // Called from inline onmouseover/onmouseout in the DB-stored form_html:
+        //   <div id="tempBin" onmouseover="tempBinHover(true)" onmouseout="tempBinHover(false)">
+        // Static analysis flags this as "unused" because the caller is in the database, not in JS.
         function tempBinHover(h) {
             if (h) {
                 searchDropDownFlag = true;

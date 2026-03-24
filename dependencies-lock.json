@@ -10,43 +10,43 @@
   }, {
     "groupId" : "ca.uhn.hapi.fhir",
     "artifactId" : "hapi-fhir-base",
-    "version" : "6.10.5",
+    "version" : "8.4.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:+yroXyyOv20n0FZL7MzFG/yixcn/dBko09lAivI+uJaEMNJUtTGusVZI0krwXJm8ZgyqE6eGWrvPQfnhh8EmJA=="
+    "integrity" : "sha512:yuMn1jI/ZX3khsDDBKzBbMzDVeKk/fDxVHFSXFBc79j3MMzrHOgt2jLZadKI+Ji9rfTP9rftZviM0ay/fX8iYQ=="
   }, {
     "groupId" : "ca.uhn.hapi.fhir",
     "artifactId" : "hapi-fhir-caching-api",
-    "version" : "6.10.5",
+    "version" : "8.4.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:P7sy4EBGDXhLcZPUsS3xCkperUfAmQV/AJpOV9VLTudj9qt42wVGzUSTSX1GqrCBtyTz+7iF4wmpCi6dXnTuhQ=="
+    "integrity" : "sha512:rhV/IsQSsbw99JKwoq9jTZBisUL77TYelQEWwcCTESz4qTT0R0wqI6hlaAJJuWH0I1Eal7lGQ4X7CWSTWbFdNA=="
   }, {
     "groupId" : "ca.uhn.hapi.fhir",
     "artifactId" : "hapi-fhir-structures-dstu3",
-    "version" : "6.10.5",
+    "version" : "8.4.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:TwbsA/lm8DAkBibmgATRxK3WBM/iGZsuO0SV7QI65QGXEDMWM8v4IvkjPfAybFU8NswYIYLI3DT57SGEWBBPKw=="
+    "integrity" : "sha512:KxJ/drvaUY7HoUpaOb3Qh6fSFKa/H1zwLKZQXr96odG2an7AfXXmWoZ+G6GCjYXECMdxnFkvkl/GYeVPe5xpyw=="
   }, {
     "groupId" : "ca.uhn.hapi.fhir",
     "artifactId" : "org.hl7.fhir.dstu3",
-    "version" : "6.7.10",
+    "version" : "6.9.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:bBM1YXeHS0zCspujbitSlNaIjTWeEZWoLAv1vAH+XXb4dQpMzhIN5tPNw/jivU6j//8B/7PCLnhL3qeEfdHVeA=="
+    "integrity" : "sha512:418c8a5fSkA9MYCVMtbSMj5Q5MPkKsktmB9QumetkRswUMrsbkURzHB07fXO8QjdvX0lQWIC89iumDk3OJL4Pg=="
   }, {
     "groupId" : "ca.uhn.hapi.fhir",
     "artifactId" : "org.hl7.fhir.utilities",
-    "version" : "6.7.10",
+    "version" : "6.9.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:7ODgnMYuvS931x9Rx9+xe7YKHtBoUdAATDr74TTPrr/bEiESIRM/uceF9n7MGQufh5wVmZ9gPSx+Oddm64S7aw=="
+    "integrity" : "sha512:GQyoUjS1NifPBtHh64ks9KU3snmWoefyabQFxylMtmX4yu0N4/JAo8MkqrFHVkjrZIz+DQm0yzULlWySze4ohw=="
   }, {
     "groupId" : "ca.uhn.hapi",
     "artifactId" : "hapi-base",
@@ -186,11 +186,11 @@
   }, {
     "groupId" : "com.fasterxml.jackson.datatype",
     "artifactId" : "jackson-datatype-jsr310",
-    "version" : "2.15.3",
+    "version" : "2.17.1",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:HFvebJGiqJ88HyMfThfENQY9kBK6u/y6UJo7JTY7H9mfDc1CNPHgBVnkPT3I5scYNCgscvLr8VSErpAHVMXXVw=="
+    "integrity" : "sha512:9QMLwoIxc0/gY0cSsqMHDjZLFFJHKdDYidF57egGutMbpdGzqrmRGDBvuvUQ4coHuW9ub37UKL9LDjbWZX36pw=="
   }, {
     "groupId" : "com.fasterxml.jackson.jakarta.rs",
     "artifactId" : "jackson-jakarta-rs-base",
@@ -278,15 +278,7 @@
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:vh2lpsB1xCOsvw+I/UoTGVlVDRYBZSUROYVWukXjxn5SfkDw8i4hukBcFYOTf7lYUHc/v5nx7b3vmmIymDnypg=="
-  }, {
-    "groupId" : "com.github.librepdf.openpdf",
-    "artifactId" : "openpdf",
-    "version" : "3.0.3",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:BVXPjChr5sHe8YAOrhpp/866who8xmOaG+JdWra3cAB/Qy12iqaiJDNs6CGq6wmr9VHWUWWl9CydO91iLZNIPw=="
+    "integrity" : "sha512:XqB4iUT6QlHxOAPCdm3r59SoC4hH10EuICbjS9k6yPMW5RkoSFowOfK3KtrbmMVRczdvKNWwmZVUzH5suAOu2w=="
   }, {
     "groupId" : "com.github.librepdf",
     "artifactId" : "openpdf",
@@ -1245,11 +1237,11 @@
   }, {
     "groupId" : "org.apache.artemis",
     "artifactId" : "artemis-jdbc-store",
-    "version" : "2.50.0",
+    "version" : "2.52.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:fUd8iABHgfY/Mxk5RnqqvuWOrnYnJG3h06lurnnu1DAMSzpJqR5kXPqpzE1Xog8Ah7XfvsFuOaIetJ4m5uah0w=="
+    "integrity" : "sha512:0wuWpIU3Zd3fC9BBHADUSjDUW+evsgPDfTSbZYGvmZjaD9/wu5453i0jfqVllXVG0ndnitt5pEEGIkFtmDt8YA=="
   }, {
     "groupId" : "org.apache.artemis",
     "artifactId" : "artemis-journal",
@@ -1261,11 +1253,11 @@
   }, {
     "groupId" : "org.apache.artemis",
     "artifactId" : "artemis-lockmanager-api",
-    "version" : "2.50.0",
+    "version" : "2.52.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:LE09pwf+i+QA/vC/HhQi4M3lg9EPJuMBvVUCVBrLNvvd4sTXIYHIw8lUy+lHlx12oGdItYkNV5vIAeKDDpj5jQ=="
+    "integrity" : "sha512:N2u43bE/UuMsKkmh4q0YF0GjuiDjR7fmVzghBCn6xYMz+mDrplOYLf8yYEWu1BRtDX3TJDvUxFr6Jevvc4pljg=="
   }, {
     "groupId" : "org.apache.artemis",
     "artifactId" : "artemis-selector",
@@ -1277,11 +1269,11 @@
   }, {
     "groupId" : "org.apache.artemis",
     "artifactId" : "artemis-server",
-    "version" : "2.50.0",
+    "version" : "2.52.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:Jfa85RDtFuwjzSVxs/k82uELqyFNmljGuXqckjoo0Rr3tDqqXrgF5rAlyeIIQBtH04EICMInnCZzPGwlKlg7Dg=="
+    "integrity" : "sha512:ARcVPHDvlS0OmlhdfuMEGU6mt1XB1nOl0CYU0iNj7oNhCUTlO9QEH8DbMiHIbn+ZJo3V9NubmRzjNVStdSyGLg=="
   }, {
     "groupId" : "org.apache.commons",
     "artifactId" : "commons-beanutils2",
