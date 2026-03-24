@@ -79,11 +79,13 @@
     DocumentManager documentManager = SpringUtils.getBean(DocumentManager.class);
 
     List<Document> documents;
+    boolean documentLoadFailed = false;
     try {
         documents = documentManager.getDocumentsByDemographicNo(loggedInInfo, demographicNo);
     } catch (Exception e) {
         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Failed to load documents for demographic " + demoNo, e);
         documents = new ArrayList<>();
+        documentLoadFailed = true;
     }
 %>
 <!DOCTYPE html>
@@ -118,7 +120,9 @@
         <div class="section">
             <h4 class="doc">Documents</h4>
             <div class="doc-list">
-                <% if (documents != null && !documents.isEmpty()) {
+                <% if (documentLoadFailed) { %>
+                <em style="color:red;">Error loading documents. Please close this window and try again.</em>
+                <% } else if (documents != null && !documents.isEmpty()) {
                     for (Document doc : documents) { %>
                 <div class="doc-item">
                     <label>

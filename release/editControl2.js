@@ -1216,8 +1216,18 @@ function collapseFooter() {
 
                 if (request.status >= 200 && request.status < 400) {
 
-                    // Request finished. Do processing here.
-                    var data = JSON.parse(this.response);
+                    // Parse JSON response — may fail if session expired and server
+                    // returned an HTML login page with a 200 status
+                    var data;
+                    try {
+                        data = JSON.parse(this.response);
+                    } catch (parseError) {
+                        console.error('Failed to parse consultant search response:', parseError);
+                        var tempBin = document.getElementById('tempBin');
+                        while (tempBin.firstChild) { tempBin.removeChild(tempBin.firstChild); }
+                        tempBin.textContent = 'Search failed. Please try again.';
+                        return;
+                    }
                     //ensure the loader has time to display
                     setTimeout(() => {
                         var tempBin = document.getElementById('tempBin');
@@ -1254,6 +1264,14 @@ function collapseFooter() {
                 }
 
             } // end onload
+
+            // Handle network-level failures (DNS, connection refused, timeout)
+            request.onerror = function() {
+                console.error('Consultant search network error');
+                var tempBin = document.getElementById('tempBin');
+                tempBin.style.display = 'block';
+                tempBin.textContent = 'Network error. Please check your connection and try again.';
+            };
 
             request.send();
         }
