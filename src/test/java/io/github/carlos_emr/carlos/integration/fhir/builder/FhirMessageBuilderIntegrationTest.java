@@ -280,7 +280,11 @@ class FhirMessageBuilderIntegrationTest {
         @Test
         @DisplayName("should contain MessageHeader as first entry")
         void shouldContainMessageHeader_asFirstEntry() {
-            assertThat(json).contains("\"resourceType\": \"MessageHeader\"");
+            Bundle bundle = fhirBundleBuilder.getBundle();
+            assertThat(bundle).isNotNull();
+            assertThat(bundle.getEntry()).isNotEmpty();
+            assertThat(bundle.getEntryFirstRep().getResource()).isNotNull();
+            assertThat(bundle.getEntryFirstRep().getResource().fhirType()).isEqualTo("MessageHeader");
         }
 
         @Test
