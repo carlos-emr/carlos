@@ -1281,7 +1281,7 @@ function collapseFooter() {
                     tempBin.textContent = 'Search failed. Please try again.';
                 }
 
-            } // end onload
+            }; // end onload
 
             // Handle network-level failures (DNS, connection refused, timeout)
             request.onerror = function() {
