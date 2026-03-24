@@ -473,7 +473,6 @@
                 <value>io.github.carlos_emr.carlos.commn.model.MeasurementTypeDeleted</value>
                 <value>io.github.carlos_emr.carlos.commn.model.MsgDemoMap</value>
                 <value>io.github.carlos_emr.carlos.commn.model.MyGroupAccessRestriction</value>
-                <value>io.github.carlos_emr.carlos.commn.model.OnCallQuestionnaire</value>
                 <value>io.github.carlos_emr.carlos.commn.model.OscarCommLocations</value>
                 <value>io.github.carlos_emr.carlos.commn.model.OtherId</value>
                 <value>io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingFavorite</value>

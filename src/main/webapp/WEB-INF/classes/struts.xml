@@ -22,7 +22,7 @@
         <action name="lookupListManagerAction" class="io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action">
             <result name="success">/admin/lookUpLists/</result>
         </action>
-        <action name="admin/oncallClinic" class="io.github.carlos_emr.carlos.admin.reports.SaveOnCallClinic2Action"/>
+
         <action name="web/dashboard/display/DashboardDisplay" class="io.github.carlos_emr.carlos.dashboard.display.DisplayDashboard2Action">
             <result name="success">/web/dashboard/display/DashboardDisplay.jsp</result>
             <result name="unauthorized">/securityError.jsp</result>
@@ -1821,10 +1821,6 @@
                 <param name="allowedTypes">image/jpeg,image/gif</param>
             </interceptor-ref>
             <result name="success">/casemgmt/uploadimage.jsp</result>
-        </action>
-        <action name="OnCallQuestionnaire" class="io.github.carlos_emr.carlos.casemgmt.web.OnCallQuestionnaire2Action">
-            <result name="form">/casemgmt/OnCallQuestionnaireForm.jsp</result>
-            <result name="windowClose">/casemgmt/close.jsp</result>
         </action>
         <action name="oscarReport/reportByTemplate/GenerateReportAction" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateReport2Action">
             <result name="success">/oscarReport/reportByTemplate/resultReport.jsp</result>

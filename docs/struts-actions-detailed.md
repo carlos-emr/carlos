@@ -37,7 +37,6 @@ Administrative functions for system configuration, user management, and maintena
 | admin/ManageFax | io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action | Configures individual fax settings |
 | admin/ManageSites | io.github.carlos_emr.carlos.commn.web.SitesManage2Action | Manages multi-site configurations |
 | admin/MergeRecords | io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action | Merges duplicate demographic records |
-| admin/oncallClinic | io.github.carlos_emr.carlos.admin.reports.SaveOnCallClinic2Action | Manages on-call clinic schedules |
 | admin/oscarStatus | io.github.carlos_emr.carlos.util.OscarStatus2Action | Displays system status and health information |
 | admin/uploadEntryText | io.github.carlos_emr.carlos.login.UploadLoginText2Action | Uploads custom login page text |
 
@@ -496,14 +495,6 @@ Ontario Laboratory Information System integration.
 | olis/Results | io.github.carlos_emr.carlos.olis.OLISResults2Action | Retrieves OLIS lab results |
 | olis/Search | io.github.carlos_emr.carlos.olis.OLISSearch2Action | Searches OLIS database |
 | olis/UploadSimulationData | io.github.carlos_emr.carlos.olis.OLISUploadSimulationData2Action | Uploads OLIS simulation data |
-
-## OnCall Module
-
-On-call questionnaire functionality.
-
-| Action Name | Class Name | Description |
-|-------------|------------|-------------|
-| OnCallQuestionnaire | io.github.carlos_emr.carlos.casemgmt.web.OnCallQuestionnaire2Action | Manages on-call questionnaires |
 
 ## Oscar Billing Module
 
