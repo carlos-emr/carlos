@@ -282,26 +282,6 @@ public class CarlosProperties extends Properties {
         return isPropertyActive("IS_PIN_ENCRYPTED");
     }
 
-    public boolean isSiteSecured() {
-        return isPropertyActive("security_site_control");
-    }
-
-    public boolean isAdminOptionOn() {
-        return isPropertyActive("with_admin_option");
-    }
-
-    public boolean isLogAccessClient() {
-        return isPropertyActive("log_accesses_of_client");
-    }
-
-    public boolean isLogAccessProgram() {
-        return isPropertyActive("log_accesses_of_program");
-    }
-
-    public boolean isAccountLockingEnabled() {
-        return isPropertyActive("ENABLE_ACCOUNT_LOCKING");
-    }
-
     public boolean isOntarioBillingRegion() {
         return ("ON".equals(getProperty("billregion")));
     }
@@ -310,32 +290,8 @@ public class CarlosProperties extends Properties {
         return ("BC".equals(getProperty("billregion")));
     }
 
-    public boolean isAlbertaBillingRegion() {
-        return ("AB".equals(getProperty("billregion")));
-    }
-
     public boolean isCaisiLoaded() {
         return isPropertyActive("caisi");
-    }
-
-    public String getDbType() {
-        return getProperty("db_type");
-    }
-
-    public String getDbUserName() {
-        return getProperty("db_username");
-    }
-
-    public String getDbPassword() {
-        return getProperty("db_password");
-    }
-
-    public String getDbUri() {
-        return getProperty("db_uri");
-    }
-
-    public String getDbDriver() {
-        return getProperty("db_driver");
     }
 
     public static String getBuildDate() {
@@ -411,10 +367,6 @@ public class CarlosProperties extends Properties {
         return isPropertyActive("HL7_A04_GENERATION");
     }
 
-    public boolean isEmeraldHL7A04TransportTaskEnabled() {
-        return isPropertyActive("EMERALD_HL7_A04_TRANSPORT_TASK");
-    }
-
     public String getEmeraldHL7A04TransportAddr() {
         return getProperty("EMERALD_HL7_A04_TRANSPORT_ADDR");
     }
@@ -422,18 +374,6 @@ public class CarlosProperties extends Properties {
     public int getEmeraldHL7A04TransportPort() {
         String prop = getProperty("EMERALD_HL7_A04_TRANSPORT_PORT", "3987"); // default to port 3987
         return Integer.parseInt(prop);
-    }
-
-    public static String getIntakeProgramAccessServiceId() {
-        return carlosProperties.getProperty("form_intake_program_access_service_id");
-    }
-
-    public static String getIntakeProgramCashServiceId() {
-        return carlosProperties.getProperty("form_intake_program_cash_service_id");
-    }
-
-    public static String getIntakeProgramAccessFId() {
-        return carlosProperties.getProperty("form_intake_program_access_fid");
     }
 
     public static String getConfidentialityStatement() {
@@ -445,10 +385,6 @@ public class CarlosProperties extends Properties {
             result = statement;
         }
         return result;
-    }
-
-    public static String getIntakeProgramCashFId() {
-        return carlosProperties.getProperty("form_intake_program_cash_fid");
     }
 
     public static boolean isLdapAuthenticationEnabled() {
