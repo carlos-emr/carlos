@@ -549,7 +549,7 @@ CREATE TABLE IF NOT EXISTS demographic (
   phone varchar(20),
   phone2 varchar(20),
   email varchar(100),
-  myOscarUserName varchar(1),
+  myOscarUserName varchar(255),
   year_of_birth varchar(4),
   month_of_birth varchar(2),
   date_of_birth varchar(2),
@@ -10254,7 +10254,7 @@ CREATE TABLE IF NOT EXISTS SystemPreferences
 (
   id         INT AUTO_INCREMENT PRIMARY KEY,
   name       VARCHAR(40) NULL,
-  value      VARCHAR(40) NULL,
+  value      VARCHAR(255) NULL,
   updateDate DATETIME    NULL
 );
 
