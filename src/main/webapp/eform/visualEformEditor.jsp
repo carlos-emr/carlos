@@ -446,7 +446,7 @@ var EFORM_I18N = {
             var elements = (window.location.pathname.split('/', 2));
             firstElement = (elements.slice(1));
             vPath = ("https://" + location.host + "/" + firstElement + "/");
-            var newURL = vPath + "oscarEncounter/oscarMeasurements/SetupDisplayMeasurementTypes.do";
+            var newURL = vPath + "encounter/oscarMeasurements/SetupDisplayMeasurementTypes.do";
             $.ajax({
                 type: "GET",
                 url: newURL,

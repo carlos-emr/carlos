@@ -1511,9 +1511,9 @@
                     <!-- Specific files to exclude from checkstyle -->
                     <exclude>src/main/webapp/casemgmt/Index2.jsp</exclude>
                     <exclude>src/main/java/oscar/oscarMessenger/util/MsgDemoMap.java</exclude>
-                    <exclude>src/main/java/oscar/oscarEncounter/pageUtil/EctDisplayMsgAction.java</exclude>
-                    <exclude>src/main/webapp/oscarEncounter/Index.jsp</exclude>
-                    <exclude>src/main/java/oscar/oscarEncounter/data/EctPatientData.java</exclude>
+                    <exclude>src/main/java/oscar/encounter/pageUtil/EctDisplayMsgAction.java</exclude>
+                    <exclude>src/main/webapp/encounter/Index.jsp</exclude>
+                    <exclude>src/main/java/oscar/encounter/data/EctPatientData.java</exclude>
                 </configuration>
                 <dependencies>
                     <dependency>
@@ -1725,7 +1725,7 @@
                                     <excludes>
                                         <exclude>**/*.jspf</exclude>
                                         <!-- Exclude the deprecated jsp file, the file is not using now -->
-                                        <exclude>oscarEncounter/oscarConsultationRequest/attachConsultation2.jsp</exclude>
+                                        <exclude>encounter/oscarConsultationRequest/attachConsultation2.jsp</exclude>
                                         <!-- Detect html taglib related errors, exclude for now -->
                                         <exclude>PMmodule/Admin/Bed/Bed.jsp</exclude>
                                         <exclude>PMmodule/Admin/AgencyEdit/bed.jsp</exclude>

@@ -50,268 +50,268 @@
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.title"/></title>
+        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.title"/></title>
         <link rel="stylesheet" type="text/css" href="westernuStyle.css">
     </head>
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0" onload="window.resizeTo(768,768)"
           bgcolor="#eeeeee">
     <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.title"/></h1>
+        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.title"/></h1>
 
         <%@include file="formIntakeHxTitleBar.jsp" %>
 
         <!--Family History-->
-        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistoryTitle"/></h2>
+        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistoryTitle"/></h2>
         <hr/>
         <table>
             <tr>
-                <td class="title" colspan="4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.familyConditions"/>:
+                <td class="title" colspan="4"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.familyConditions"/>:
                 </td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.migraine"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.migraine"/>:</td>
                 <td><input type="text" name="biologicalmigraine"
                            value="<%=props.getProperty("biologicalmigraine","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescmigraine"
                            value="<%=props.getProperty("biologicalDescmigraine","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.neuroDisorder"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.neuroDisorder"/>:</td>
                 <td><input type="text" name="biologicalneurologic"
                            value="<%=props.getProperty("biologicalneurologic","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescneurologic"
                            value="<%=props.getProperty("biologicalDescneurologic","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.asthma"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.asthma"/>:</td>
                 <td><input type="text" name="biologicalasthma" value="<%=props.getProperty("biologicalasthma","")%>"/>
                 </td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescasthma"
                            value="<%=props.getProperty("biologicalDescasthma","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.pheumonia"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.pheumonia"/>:</td>
                 <td><input type="text" name="biologicalpneumonia"
                            value="<%=props.getProperty("biologicalpneumonia","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescpneumonia"
                            value="<%=props.getProperty("biologicalDescpneumonia","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.lungDisease"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.lungDisease"/>:</td>
                 <td><input type="text" name="biologicallungdisease"
                            value="<%=props.getProperty("biologicallungdisease","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDesclungdisease"
                            value="<%=props.getProperty("biologicalDesclungdisease","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.heartDisease"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.heartDisease"/>:</td>
                 <td><input type="text" name="biologicalheartdisease"
                            value="<%=props.getProperty("biologicalheartdisease","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescheartdisease"
                            value="<%=props.getProperty("biologicalDescheartdisease","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.ulcer"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.ulcer"/>:</td>
                 <td><input type="text" name="biologicalulcer" value="<%=props.getProperty("biologicalulcer","")%>"/>
                 </td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDesculcer"
                            value="<%=props.getProperty("biologicalDesculcer","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.bowelDisease"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.bowelDisease"/>:</td>
                 <td><input type="text" name="biologicalboweldisease"
                            value="<%=props.getProperty("biologicalboweldisease","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescboweldisease"
                            value="<%=props.getProperty("biologicalDescboweldisease","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.hepatitis"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.hepatitis"/>:</td>
                 <td><input type="text" name="biologicalhepatitis"
                            value="<%=props.getProperty("biologicalhepatitis","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDeschepatitis"
                            value="<%=props.getProperty("biologicalDeschepatitis","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.thyroid"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.thyroid"/>:</td>
                 <td><input type="text" name="biologicalthyroid" value="<%=props.getProperty("biologicalthyroid","")%>"/>
                 </td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescthyroid"
                            value="<%=props.getProperty("biologicalDescthyroid","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.bloodDisorder"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.bloodDisorder"/>:</td>
                 <td><input type="text" name="biologicalblooddisorder"
                            value="<%=props.getProperty("biologicalblooddisorder","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescblooddisorder"
                            value="<%=props.getProperty("biologicalDescblooddisorder","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.diabetes"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.diabetes"/>:</td>
                 <td><input type="text" name="biologicaldiabetes"
                            value="<%=props.getProperty("biologicaldiabetes","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescdiabetes"
                            value="<%=props.getProperty("biologicalDescdiabetes","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.bloodTransfusion"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.bloodTransfusion"/>:</td>
                 <td><input type="text" name="biologicalbloodtransfusion"
                            value="<%=props.getProperty("biologicalbloodtransfusion","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescbloodtransfusion"
                            value="<%=props.getProperty("biologicalDescbloodtransfusion","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.cancer"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.cancer"/>:</td>
                 <td><input type="text" name="biologicalcancerorleukemia"
                            value="<%=props.getProperty("biologicalcancerorleukemia","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDesccancerorleukemia"
                            value="<%=props.getProperty("biologicalDesccancerorleukemia","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.uri"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.uri"/>:</td>
                 <td><input type="text" name="biologicalURI" value="<%=props.getProperty("biologicalURI","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescURI" value="<%=props.getProperty("biologicalDescURI","")%>"/>
                 </td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.emotional"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.emotional"/>:</td>
                 <td><input type="text" name="biologicalemotional"
                            value="<%=props.getProperty("biologicalemotional","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescemotional"
                            value="<%=props.getProperty("biologicalDescemotional","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.arthritis"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.arthritis"/>:</td>
                 <td><input type="text" name="biologicalarthritis"
                            value="<%=props.getProperty("biologicalarthritis","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescarthritis"
                            value="<%=props.getProperty("biologicalDescarthritis","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.osteoporosis"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.osteoporosis"/>:</td>
                 <td><input type="text" name="biologicalosteoporosis"
                            value="<%=props.getProperty("biologicalosteoporosis","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescosteoporosis"
                            value="<%=props.getProperty("biologicalDescosteoporosis","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.skinProblems"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.skinProblems"/>:</td>
                 <td><input type="text" name="biologicalskin" value="<%=props.getProperty("biologicalskin","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescskin"
                            value="<%=props.getProperty("biologicalDescskin","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.highBP"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.highBP"/>:</td>
                 <td><input type="text" name="biologicalHBP" value="<%=props.getProperty("biologicalHBP","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescHBP" value="<%=props.getProperty("biologicalDescHBP","")%>"/>
                 </td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.learningDisability"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.learningDisability"/>:</td>
                 <td><input type="text" name="biologicallearningdisability"
                            value="<%=props.getProperty("biologicallearningdisability","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDesclearningdisability"
                            value="<%=props.getProperty("biologicalDesclearningdisability","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.schizophrenia"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.schizophrenia"/>:</td>
                 <td><input type="text" name="biologicalschizophrenia"
                            value="<%=props.getProperty("biologicalschizophrenia","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescschizophrenia"
                            value="<%=props.getProperty("biologicalDescschizophrenia","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.alcoholDependency"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.alcoholDependency"/>:</td>
                 <td><input type="text" name="biologicalalcohol" value="<%=props.getProperty("biologicalalcohol","")%>"/>
                 </td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescalcohol"
                            value="<%=props.getProperty("biologicalDescalcohol","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.multipleSclerosis"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.multipleSclerosis"/>:</td>
                 <td><input type="text" name="biologicalMS" value="<%=props.getProperty("biologicalMS","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescMS" value="<%=props.getProperty("biologicalDescMS","")%>"/>
                 </td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.stroke"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.stroke"/>:</td>
                 <td><input type="text" name="biologicalstroke" value="<%=props.getProperty("biologicalstroke","")%>"/>
                 </td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescstroke"
                            value="<%=props.getProperty("biologicalDescstroke","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.cholesterol"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.cholesterol"/>:</td>
                 <td><input type="text" name="biologicalhighcholesterol"
                            value="<%=props.getProperty("biologicalhighcholesterol","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDeschighcholesterol"
                            value="<%=props.getProperty("biologicalDeschighcholesterol","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.depression"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.depression"/>:</td>
                 <td><input type="text" name="biologicaldepression"
                            value="<%=props.getProperty("biologicaldepression","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescdepression"
                            value="<%=props.getProperty("biologicalDescdepression","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistory.drugDependency"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistory.drugDependency"/>:</td>
                 <td><input type="text" name="biologicaldrug" value="<%=props.getProperty("biologicaldrug","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="biologicalDescdrug"
                            value="<%=props.getProperty("biologicalDescdrug","")%>"/></td>
             </tr>

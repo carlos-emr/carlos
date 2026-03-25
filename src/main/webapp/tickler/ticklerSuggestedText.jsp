@@ -61,7 +61,7 @@
 
     <script type="application/javascript">
         function setEmpty(selectbox) {
-            var emptyTxt = "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.AttachDocPopup.empty"/>";
+            var emptyTxt = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.empty"/>";
             var emptyVal = "0";
             var op = document.createElement("option");
             try {

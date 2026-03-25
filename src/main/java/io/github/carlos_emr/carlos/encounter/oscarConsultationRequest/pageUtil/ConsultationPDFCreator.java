@@ -871,7 +871,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * @return the value for the key provided
      */
     private String getResource(String key) {
-        return oscarR.getString("oscarEncounter.oscarConsultationRequest.consultationFormPrint." + key);
+        return oscarR.getString("encounter.oscarConsultationRequest.consultationFormPrint." + key);
     }
 
 

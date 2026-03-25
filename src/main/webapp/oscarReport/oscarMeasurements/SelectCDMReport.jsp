@@ -51,7 +51,7 @@
 
 
 <link rel="stylesheet" type="text/css"
-      href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
+      href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

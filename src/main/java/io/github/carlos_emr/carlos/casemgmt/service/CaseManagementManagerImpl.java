@@ -2025,8 +2025,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
      * to be i18n compliant). If nothing is found in the resource bundle the value
      * is added as a blank in the returned formatted string. This is the default
      * signing line.
-     * ECHART_SIGN_LINE=[${oscarEncounter.class.EctSaveEncounter2Action.msgSigned}
-     * ${DATE} ${oscarEncounter.class.EctSaveEncounter2Action.msgSigBy}
+     * ECHART_SIGN_LINE=[${encounter.class.EctSaveEncounter2Action.msgSigned}
+     * ${DATE} ${encounter.class.EctSaveEncounter2Action.msgSigBy}
      * ${USERSIGNATURE}]\n
      *
      * @param template string with template values used to create the String that is

@@ -50,318 +50,318 @@
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.title"/></title>
+        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.title"/></title>
         <link rel="stylesheet" type="text/css" href="westernuStyle.css">
     </head>
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0" onload="window.resizeTo(768,768)"
           bgcolor="#eeeeee">
     <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.title"/></h1>
+        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.title"/></h1>
 
         <%@include file="formIntakeHxTitleBar.jsp" %>
 
         <!--Medical Conditions-->
-        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.medicalConditionsTitle"/></h2>
+        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.medicalConditionsTitle"/></h2>
         <hr/>
         <table>
             <tr>
-                <td class="title" colspan="4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.hadConditions"/>:</td>
+                <td class="title" colspan="4"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.hadConditions"/>:</td>
             </tr>
 
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.brokenBones"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.brokenBones"/>:</td>
                 <td><input type="text" name="Conditionsbrokenbones"
                            value="<%=props.getProperty("Conditionsbrokenbones","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescbrokenbones"
                            value="<%=props.getProperty("ConditionsDescbrokenbones","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.migraine"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.migraine"/>:</td>
                 <td><input type="text" name="Conditionsmigraine"
                            value="<%=props.getProperty("Conditionsmigraine","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescmigraine"
                            value="<%=props.getProperty("ConditionsDescmigraine","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.neuroDisorder"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.neuroDisorder"/>:</td>
                 <td><input type="text" name="Conditionsneurologicdisorder"
                            value="<%=props.getProperty("Conditionsneurologicdisorder","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescneurologicdisorder"
                            value="<%=props.getProperty("ConditionsDescneurologicdisorder","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.asthma"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.asthma"/>:</td>
                 <td><input type="text" name="Conditionsasthma" value="<%=props.getProperty("Conditionsasthma","")%>"/>
                 </td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescasthma"
                            value="<%=props.getProperty("ConditionsDescasthma","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.pneumonia"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.pneumonia"/>:</td>
                 <td><input type="text" name="Conditionspneumonia"
                            value="<%=props.getProperty("Conditionspneumonia","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescpneumonia"
                            value="<%=props.getProperty("ConditionsDescpneumonia","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.lungDisease"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.lungDisease"/>:</td>
                 <td><input type="text" name="Conditionslungdisease"
                            value="<%=props.getProperty("Conditionslungdisease","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDesclungdisease"
                            value="<%=props.getProperty("ConditionsDesclungdisease","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.heartDisease"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.heartDisease"/>:</td>
                 <td><input type="text" name="Conditionsheartdisease"
                            value="<%=props.getProperty("Conditionsheartdisease","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescheartdisease"
                            value="<%=props.getProperty("ConditionsDescheartdisease","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.ulcer"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.ulcer"/>:</td>
                 <td><input type="text" name="Conditionsulcer" value="<%=props.getProperty("Conditionsulcer","")%>"/>
                 </td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDesculcer"
                            value="<%=props.getProperty("ConditionsDesculcer","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.bowelDisease"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.bowelDisease"/>:</td>
                 <td><input type="text" name="Conditionsboweldisease"
                            value="<%=props.getProperty("Conditionsboweldisease","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescboweldisease"
                            value="<%=props.getProperty("ConditionsDescboweldisease","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.hepatitis"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.hepatitis"/>:</td>
                 <td><input type="text" name="Conditionshepatitis"
                            value="<%=props.getProperty("Conditionshepatitis","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDeschepatitis"
                            value="<%=props.getProperty("ConditionsDeschepatitis","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.hivPositive"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.hivPositive"/>:</td>
                 <td><input type="text" name="ConditionsHIV" value="<%=props.getProperty("ConditionsHIV","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescHIV" value="<%=props.getProperty("ConditionsDescHIV","")%>"/>
                 </td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.thyroidProblem"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.thyroidProblem"/>:</td>
                 <td><input type="text" name="Conditionsthyroid" value="<%=props.getProperty("Conditionsthyroid","")%>"/>
                 </td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescthyroid"
                            value="<%=props.getProperty("ConditionsDescthyroid","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.bloodDisorder"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.bloodDisorder"/>:</td>
                 <td><input type="text" name="Conditionsblooddisorder"
                            value="<%=props.getProperty("Conditionsblooddisorder","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescblooddisorder"
                            value="<%=props.getProperty("ConditionsDescblooddisorder","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.diabetes"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.diabetes"/>:</td>
                 <td><input type="text" name="Conditionsdiabetes"
                            value="<%=props.getProperty("Conditionsdiabetes","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescdiabetes"
                            value="<%=props.getProperty("ConditionsDescdiabetes","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.bloodTransfusion"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.bloodTransfusion"/>:</td>
                 <td><input type="text" name="Conditionsbloodtransfusion"
                            value="<%=props.getProperty("Conditionsbloodtransfusion","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescbloodtransfusion"
                            value="<%=props.getProperty("ConditionsDescbloodtransfusion","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.cancer"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.cancer"/>:</td>
                 <td><input type="text" name="Conditionscancerorleukemia"
                            value="<%=props.getProperty("Conditionscancerorleukemia","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDesccancerorleukemia"
                            value="<%=props.getProperty("ConditionsDesccancerorleukemia","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.sexualDisease"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.sexualDisease"/>:</td>
                 <td><input type="text" name="Conditionssexualdisease"
                            value="<%=props.getProperty("Conditionssexualdisease","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescsexualdisease"
                            value="<%=props.getProperty("ConditionsDescsexualdisease","")%>"/></td>
             </tr>
 
             <tr>
-                <td class="title" colspan="4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.hadConditions"/>:</td>
+                <td class="title" colspan="4"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.hadConditions"/>:</td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.urinary"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.urinary"/>:</td>
                 <td><input type="text" name="ConditionsURI" value="<%=props.getProperty("ConditionsURI","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescURI" value="<%=props.getProperty("ConditionsDescURI","")%>"/>
                 </td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.emotional"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.emotional"/>:</td>
                 <td><input type="text" name="Conditionsemotional"
                            value="<%=props.getProperty("Conditionsemotional","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescemotional"
                            value="<%=props.getProperty("ConditionsDescemotional","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.arthritis"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.arthritis"/>:</td>
                 <td><input type="text" name="Conditionsarthritis"
                            value="<%=props.getProperty("Conditionsarthritis","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescarthritis"
                            value="<%=props.getProperty("ConditionsDescarthritis","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.eatingDisorder"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.eatingDisorder"/>:</td>
                 <td><input type="text" name="Conditionseatingdisorder"
                            value="<%=props.getProperty("Conditionseatingdisorder","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDesceatingdisorder"
                            value="<%=props.getProperty("ConditionsDesceatingdisorder","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.osteoporosis"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.osteoporosis"/>:</td>
                 <td><input type="text" name="Conditionsosteoporosis"
                            value="<%=props.getProperty("Conditionsosteoporosis","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescosteoporosis"
                            value="<%=props.getProperty("ConditionsDescosteoporosis","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.skinProblems"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.skinProblems"/>:</td>
                 <td><input type="text" name="Conditionsskin" value="<%=props.getProperty("Conditionsskin","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescskin"
                            value="<%=props.getProperty("ConditionsDescskin","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.highBP"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.highBP"/>:</td>
                 <td><input type="text" name="ConditionsHighbloodpressure"
                            value="<%=props.getProperty("ConditionsHighbloodpressure","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescHighbloodpressure"
                            value="<%=props.getProperty("ConditionsDescHighbloodpressure","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.learningDisability"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.learningDisability"/>:</td>
                 <td><input type="text" name="Conditionslearningdisability"
                            value="<%=props.getProperty("Conditionslearningdisability","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDesclearningdisability"
                            value="<%=props.getProperty("ConditionsDesclearningdisability","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.schizophrenia"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.schizophrenia"/>:</td>
                 <td><input type="text" name="Conditionsschizophrenia"
                            value="<%=props.getProperty("Conditionsschizophrenia","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescschizophrenia"
                            value="<%=props.getProperty("ConditionsDescschizophrenia","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.alcoholDependency"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.alcoholDependency"/>:</td>
                 <td><input type="text" name="Conditionsalcohol" value="<%=props.getProperty("Conditionsalcohol","")%>"/>
                 </td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescalcohol"
                            value="<%=props.getProperty("ConditionsDescalcohol","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.multipleSclerosis"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.multipleSclerosis"/>:</td>
                 <td><input type="text" name="ConditionsMS" value="<%=props.getProperty("ConditionsMS","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescMS" value="<%=props.getProperty("ConditionsDescMS","")%>"/>
                 </td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.stroke"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.stroke"/>:</td>
                 <td><input type="text" name="Conditionsstroke" value="<%=props.getProperty("Conditionsstroke","")%>"/>
                 </td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescstroke"
                            value="<%=props.getProperty("ConditionsDescstroke","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.highCholesterol"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.highCholesterol"/>:</td>
                 <td><input type="text" name="ConditionsHighcholesterol"
                            value="<%=props.getProperty("ConditionsHighcholesterol","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescHighcholesterol"
                            value="<%=props.getProperty("ConditionsDescHighcholesterol","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.depression"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.depression"/>:</td>
                 <td><input type="text" name="Conditionsdepression"
                            value="<%=props.getProperty("Conditionsdepression","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescdepression"
                            value="<%=props.getProperty("ConditionsDescdepression","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.drugDependancy"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.drugDependancy"/>:</td>
                 <td><input type="text" name="ConditionsDrugdependency"
                            value="<%=props.getProperty("ConditionsDrugdependency","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescDrugdependency"
                            value="<%=props.getProperty("ConditionsDescDrugdependency","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.otherDisease"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.otherDisease"/>:</td>
                 <td><input type="text" name="ConditionsOtherdisease"
                            value="<%=props.getProperty("ConditionsOtherdisease","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.describe"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.describe"/>:</td>
                 <td><input type="text" name="ConditionsDescOtherdisease"
                            value="<%=props.getProperty("ConditionsDescOtherdisease","")%>"/></td>
             </tr>

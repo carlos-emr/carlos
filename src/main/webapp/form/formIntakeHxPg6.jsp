@@ -49,190 +49,190 @@
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.title"/></title>
+        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.title"/></title>
         <link rel="stylesheet" type="text/css" href="westernuStyle.css">
     </head>
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0" onload="window.resizeTo(768,768)"
           bgcolor="#eeeeee">
     <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.title"/></h1>
+        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.title"/></h1>
 
         <%@include file="formIntakeHxTitleBar.jsp" %>
 
         <!--Immunizations-->
-        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.immunizationsTitle"/></h2>
+        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.immunizationsTitle"/></h2>
         <hr/>
         <table>
             <tr>
-                <td class="title" colspan="4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.whenImmunized"/>:</td>
+                <td class="title" colspan="4"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.whenImmunized"/>:</td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.hepatitisBSerum"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.hepatitisBSerum"/>:</td>
                 <td><input type="text" name="ImmunizationHepatitisB"
                            value="<%=props.getProperty("ImmunizationHepatitisB","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="ImmunizationYearHepatitisB"
                            value="<%=props.getProperty("ImmunizationYearHepatitisB","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.tetanusLockjaw"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.tetanusLockjaw"/>:</td>
                 <td><input type="text" name="ImmunizationHadTetanus"
                            value="<%=props.getProperty("ImmunizationHadTetanus","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="ImmunizationYearTetanus"
                            value="<%=props.getProperty("ImmunizationYearTetanus","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.polio"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.polio"/>:</td>
                 <td><input type="text" name="ImmunizationHadPolio"
                            value="<%=props.getProperty("ImmunizationHadPolio","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="ImmunizationYearPolio"
                            value="<%=props.getProperty("ImmunizationYearPolio","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.mmr"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.mmr"/>:</td>
                 <td><input type="text" name="ImmunizationHadMMR"
                            value="<%=props.getProperty("ImmunizationHadMMR","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="ImmunizationYearMMR"
                            value="<%=props.getProperty("ImmunizationYearMMR","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.lastTBTest"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.lastTBTest"/>:</td>
                 <td><input type="text" name="ImmunizationHadTB" value="<%=props.getProperty("ImmunizationHadTB","")%>"/>
                 </td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="ImmunizationYearTB"
                            value="<%=props.getProperty("ImmunizationYearTB","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.rubella"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.rubella"/>:</td>
                 <td><input type="text" name="ImmunizationHadRubella"
                            value="<%=props.getProperty("ImmunizationHadRubella","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="ImmunizationYearRubella"
                            value="<%=props.getProperty("ImmunizationYearRubella","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.varicella"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.varicella"/>:</td>
                 <td><input type="text" name="ImmunizationHadVaricella"
                            value="<%=props.getProperty("ImmunizationHadVaricella","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="ImmunizationYearVaricella"
                            value="<%=props.getProperty("ImmunizationYearVaricella","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.meningitis"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.meningitis"/>:</td>
                 <td><input type="text" name="ImmunizationHadMeningitis"
                            value="<%=props.getProperty("ImmunizationHadMeningitis","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="ImmunizationYearMeningitis"
                            value="<%=props.getProperty("ImmunizationYearMeningitis","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.pneumococcus"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.pneumococcus"/>:</td>
                 <td><input type="text" name="ImmunizationHadPneumococcus"
                            value="<%=props.getProperty("ImmunizationHadPneumococcus","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="ImmunizationYearPneumococcus"
                            value="<%=props.getProperty("ImmunizationYearPneumococcus","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.hadDisease"/>:</td>
+                <td class="title" colspan="4"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.hadDisease"/>:</td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.hepatitisBSerum"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.hepatitisBSerum"/>:</td>
                 <td><input type="text" name="immunizationDiseaseHepatitisB"
                            value="<%=props.getProperty("immunizationDiseaseHepatitisB","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="immunizationDiseaseYearHepatitisB"
                            value="<%=props.getProperty("immunizationDiseaseYearHepatitisB","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.tetanusLockjaw"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.tetanusLockjaw"/>:</td>
                 <td><input type="text" name="immunizationDiseaseTetanus"
                            value="<%=props.getProperty("immunizationDiseaseTetanus","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="immunizationDiseaseYearTetanus"
                            value="<%=props.getProperty("immunizationDiseaseYearTetanus","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.polio"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.polio"/>:</td>
                 <td><input type="text" name="immunizationDiseasePolio"
                            value="<%=props.getProperty("immunizationDiseasePolio","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="immunizationDiseaseYearPolio"
                            value="<%=props.getProperty("immunizationDiseaseYearPolio","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.mmr"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.mmr"/>:</td>
                 <td><input type="text" name="immunizationDiseaseMMR"
                            value="<%=props.getProperty("immunizationDiseaseMMR","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="immunizationDiseaseYearMMR"
                            value="<%=props.getProperty("immunizationDiseaseYearMMR","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.lastTBTest"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.lastTBTest"/>:</td>
                 <td><input type="text" name="immunizationDiseaseTb"
                            value="<%=props.getProperty("immunizationDiseaseTb","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="immunizationDiseaseYearTb"
                            value="<%=props.getProperty("immunizationDiseaseYearTb","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.rubella"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.rubella"/>:</td>
                 <td><input type="text" name="immunizationDiseaseRubella"
                            value="<%=props.getProperty("immunizationDiseaseRubella","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="immunizationDiseaseYearRubella"
                            value="<%=props.getProperty("immunizationDiseaseYearRubella","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.varicella"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.varicella"/>:</td>
                 <td><input type="text" name="immunizationDiseaseVaricella"
                            value="<%=props.getProperty("immunizationDiseaseVaricella","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="immunizationDiseaseYearVaricella"
                            value="<%=props.getProperty("immunizationDiseaseYearVaricella","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.meningitis"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.meningitis"/>:</td>
                 <td><input type="text" name="immunizationDiseaseMeningitis"
                            value="<%=props.getProperty("immunizationDiseaseMeningitis","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="immunizationDiseaseYearMeningitis"
                            value="<%=props.getProperty("immunizationDiseaseYearMeningitis","")%>"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.pneumococcus"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.pneumococcus"/>:</td>
                 <td><input type="text" name="immunizationDiseasePneumococcus"
                            value="<%=props.getProperty("immunizationDiseasePneumococcus","")%>"/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.year"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.year"/>:</td>
                 <td><input type="text" name="immunizationDiseaseYearPneumococcus"
                            value="<%=props.getProperty("immunizationDiseaseYearPneumococcus","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="3"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.immunizationCardOnPerson"/>:</td>
+                <td class="title" colspan="3"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.immunizationCardOnPerson"/>:</td>
                 <td><input type="text" name="HaveImmunizationCard"
                            value="<%=props.getProperty("HaveImmunizationCard","")%>"/></td>
             </tr>

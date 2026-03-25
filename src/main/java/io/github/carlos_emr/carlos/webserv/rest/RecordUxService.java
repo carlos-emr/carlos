@@ -204,7 +204,7 @@ public class RecordUxService extends AbstractServiceImpl {
         }
         // Requires EctSession bean to open the window.  I think it's best to just redo measurements in a better interface in the record with angular
         //if (checkPermissions("_newCasemgmt.measurements", roleName)){
-        //	morelist.add(new MenuItemTo1(2, "Measurements", "../oscarEncounter/oscarMeasurements/SetupHistoryIndex.do?demographic_no="+demographicNo));
+        //	morelist.add(new MenuItemTo1(2, "Measurements", "../encounter/oscarMeasurements/SetupHistoryIndex.do?demographic_no="+demographicNo));
         //}
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.documents", "r", null)) {
@@ -212,10 +212,10 @@ public class RecordUxService extends AbstractServiceImpl {
         }
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.decisionSupportAlerts", "r", null)) {
-            morelist.add(new MenuItemTo1(idCounter++, "DS Guidelines", "../oscarEncounter/decisionSupport/guidelineAction.do?method=list&provider_no=" + loggedInInfo.getLoggedInProviderNo() + "&demographic_no=" + demographicNo));
+            morelist.add(new MenuItemTo1(idCounter++, "DS Guidelines", "../encounter/decisionSupport/guidelineAction.do?method=list&provider_no=" + loggedInInfo.getLoggedInProviderNo() + "&demographic_no=" + demographicNo));
         }
 
-		/*measurements, <a onclick="popupPage(600, 1000,'measurements69','/oscar/oscarEncounter/oscarMeasurements/SetupHistoryIndex.do'); return false;" href="#">Measurements</a>
+		/*measurements, <a onclick="popupPage(600, 1000,'measurements69','/oscar/encounter/oscarMeasurements/SetupHistoryIndex.do'); return false;" href="#">Measurements</a>
 		 <a onclick="popupPage(500, 900,'episode69','/oscar/Episode.do?method=list&amp;demographicNo=69'); return false;" href="#">Episodes</a>
 		 <a onclick="popupPage(500, 900,'pregnancy69','/oscar/Pregnancy.do?method=list&amp;demographicNo=69'); return false;" href="#">Pregnancies</a>
 		 */

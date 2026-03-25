@@ -132,12 +132,12 @@ Follow the 22-step workflow defined in `docs/ui-tests/test-6/test-6-EXECUTION.md
 
 **Correct URL Pattern:**
 ```
-/oscar/oscarEncounter/IncomingEncounter.do?providerNo={providerNo}&appointmentNo=&demographicNo={demographicNo}&curProviderNo=&reason=Tel-Progress+Note&encType=&curDate={YYYY-M-DD}&appointmentDate=&startTime=&status=
+/oscar/encounter/IncomingEncounter.do?providerNo={providerNo}&appointmentNo=&demographicNo={demographicNo}&curProviderNo=&reason=Tel-Progress+Note&encType=&curDate={YYYY-M-DD}&appointmentDate=&startTime=&status=
 ```
 
 **Example:**
 ```
-http://localhost:8080/oscar/oscarEncounter/IncomingEncounter.do?providerNo=999998&appointmentNo=&demographicNo=1373&curProviderNo=&reason=Tel-Progress+Note&encType=&curDate=2026-1-19&appointmentDate=&startTime=&status=
+http://localhost:8080/oscar/encounter/IncomingEncounter.do?providerNo=999998&appointmentNo=&demographicNo=1373&curProviderNo=&reason=Tel-Progress+Note&encType=&curDate=2026-1-19&appointmentDate=&startTime=&status=
 ```
 
 **How to get the correct URL:**
@@ -145,7 +145,7 @@ http://localhost:8080/oscar/oscarEncounter/IncomingEncounter.do?providerNo=99999
    ```javascript
    (element) => { return element.getAttribute('onclick'); }
    ```
-2. The onclick contains: `popupEChart(710,1024,'/oscar/oscarEncounter/IncomingEncounter.do?...')`
+2. The onclick contains: `popupEChart(710,1024,'/oscar/encounter/IncomingEncounter.do?...')`
 3. Extract the URL and navigate directly to it in the same tab
 
 ### E-Chart Tab Switching Issues

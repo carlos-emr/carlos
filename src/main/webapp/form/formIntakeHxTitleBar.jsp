@@ -70,7 +70,7 @@
     if (providerNo != null && !providerNo.isEmpty() && !providerNo.equals("999998")) {
         providerName = providerDao.getProviderName(providerNo);
     } else {
-        providerName = LocaleUtils.getMessage(request.getLocale(), "oscarEncounter.formIntakeHx.notValidated");
+        providerName = LocaleUtils.getMessage(request.getLocale(), "encounter.formIntakeHx.notValidated");
     }
 
 %>
@@ -103,62 +103,62 @@
 <!--Sections Title Bar-->
 <div class="sectionTitleBar">
     <% if ("formIntakeHx.jsp".equals(formLink)) { %>
-    <div class="thisLink"><%}%><a href="formIntakeHx.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.sectionDemographicTitle"/></a><% if ("formIntakeHx.jsp".equals(formLink)) { %>
+    <div class="thisLink"><%}%><a href="formIntakeHx.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.sectionDemographicTitle"/></a><% if ("formIntakeHx.jsp".equals(formLink)) { %>
     </div>
     <%}%> |
     <% if ("formIntakeHxPg2.jsp".equals(formLink)) { %>
-    <div class="thisLink"><%}%><a href="formIntakeHxPg2.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.sectionAllergiesTitle"/></a><% if ("formIntakeHxPg2.jsp".equals(formLink)) { %>
+    <div class="thisLink"><%}%><a href="formIntakeHxPg2.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.sectionAllergiesTitle"/></a><% if ("formIntakeHxPg2.jsp".equals(formLink)) { %>
     </div>
     <%}%> |
     <% if ("formIntakeHxPg3.jsp".equals(formLink)) { %>
-    <div class="thisLink"><%}%><a href="formIntakeHxPg3.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.sectionRxTitle"/></a><% if ("formIntakeHxPg3.jsp".equals(formLink)) { %>
+    <div class="thisLink"><%}%><a href="formIntakeHxPg3.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.sectionRxTitle"/></a><% if ("formIntakeHxPg3.jsp".equals(formLink)) { %>
     </div>
     <%}%> |
     <% if ("formIntakeHxPg4.jsp".equals(formLink)) { %>
-    <div class="thisLink"><%}%><a href="formIntakeHxPg4.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.sectionMedHistoryTitle"/></a><% if ("formIntakeHxPg4.jsp".equals(formLink)) { %>
+    <div class="thisLink"><%}%><a href="formIntakeHxPg4.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.sectionMedHistoryTitle"/></a><% if ("formIntakeHxPg4.jsp".equals(formLink)) { %>
     </div>
     <%}%> |
     <% if ("formIntakeHxPg5.jsp".equals(formLink)) { %>
-    <div class="thisLink"><%}%><a href="formIntakeHxPg5.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.medicalConditionsTitle"/></a><% if ("formIntakeHxPg5.jsp".equals(formLink)) { %>
+    <div class="thisLink"><%}%><a href="formIntakeHxPg5.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.medicalConditionsTitle"/></a><% if ("formIntakeHxPg5.jsp".equals(formLink)) { %>
     </div>
     <%}%> |
     <br/>
     <% if ("formIntakeHxPg6.jsp".equals(formLink)) { %>
-    <div class="thisLink"><%}%><a href="formIntakeHxPg6.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.immunizationsTitle"/></a><% if ("formIntakeHxPg6.jsp".equals(formLink)) { %>
+    <div class="thisLink"><%}%><a href="formIntakeHxPg6.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.immunizationsTitle"/></a><% if ("formIntakeHxPg6.jsp".equals(formLink)) { %>
     </div>
     <%}%> |
     <% if ("formIntakeHxPg7.jsp".equals(formLink)) { %>
-    <div class="thisLink"><%}%><a href="formIntakeHxPg7.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.socialHistoryTitle"/></a><% if ("formIntakeHxPg7.jsp".equals(formLink)) { %>
+    <div class="thisLink"><%}%><a href="formIntakeHxPg7.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.socialHistoryTitle"/></a><% if ("formIntakeHxPg7.jsp".equals(formLink)) { %>
     </div>
     <%}%> |
     <% if ("formIntakeHxPg8.jsp".equals(formLink)) { %>
-    <div class="thisLink"><%}%><a href="formIntakeHxPg8.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.familyHistoryTitle"/></a><% if ("formIntakeHxPg8.jsp".equals(formLink)) { %>
+    <div class="thisLink"><%}%><a href="formIntakeHxPg8.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.familyHistoryTitle"/></a><% if ("formIntakeHxPg8.jsp".equals(formLink)) { %>
     </div>
     <%}%> |
     <% if ("formIntakeHxPg9.jsp".equals(formLink)) { %>
-    <div class="thisLink"><%}%><a href="formIntakeHxPg9.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.currentIssuesTitle"/></a><% if ("formIntakeHxPg9.jsp".equals(formLink)) { %>
+    <div class="thisLink"><%}%><a href="formIntakeHxPg9.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.currentIssuesTitle"/></a><% if ("formIntakeHxPg9.jsp".equals(formLink)) { %>
     </div>
     <%}%> |
     <% if ("formIntakeHxPg10.jsp".equals(formLink)) { %>
     <div class="thisLink"><%}%><a
-            href="formIntakeHxPg10.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.womensHealthTitle"/></a><% if ("formIntakeHxPg10.jsp".equals(formLink)) { %>
+            href="formIntakeHxPg10.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.womensHealthTitle"/></a><% if ("formIntakeHxPg10.jsp".equals(formLink)) { %>
     </div>
     <%}%> |
     <% if ("formIntakeHxPg11.jsp".equals(formLink)) { %>
     <div class="thisLink"><%}%><a
-            href="formIntakeHxPg11.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.sexualHealthTitle"/></a><% if ("formIntakeHxPg11.jsp".equals(formLink)) { %>
+            href="formIntakeHxPg11.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.sexualHealthTitle"/></a><% if ("formIntakeHxPg11.jsp".equals(formLink)) { %>
     </div>
     <%}%>
 </div>
 
 <div class="buttonBar">
-    <input type="submit" value="<fmt:setBundle basename='oscarResources'/><fmt:message key='oscarEncounter.formIntakeHx.save'/>"
+    <input type="submit" value="<fmt:setBundle basename='oscarResources'/><fmt:message key='encounter.formIntakeHx.save'/>"
            onclick="javascript:return onSave();"/>
-    <input type="submit" value="<fmt:setBundle basename='oscarResources'/><fmt:message key='oscarEncounter.formIntakeHx.print'/>"
+    <input type="submit" value="<fmt:setBundle basename='oscarResources'/><fmt:message key='encounter.formIntakeHx.print'/>"
            onclick="javascript:return onPrint();"/>
-    <input type="submit" value="<fmt:setBundle basename='oscarResources'/><fmt:message key='oscarEncounter.formIntakeHx.saveAndExit'/>"
+    <input type="submit" value="<fmt:setBundle basename='oscarResources'/><fmt:message key='encounter.formIntakeHx.saveAndExit'/>"
            onclick="javascript:return onSaveExit();"/>
-    <input type="submit" value="<fmt:setBundle basename='oscarResources'/><fmt:message key='oscarEncounter.formIntakeHx.exit'/>"
+    <input type="submit" value="<fmt:setBundle basename='oscarResources'/><fmt:message key='encounter.formIntakeHx.exit'/>"
            onclick="javascript:return onExit();"/>
 </div>
 

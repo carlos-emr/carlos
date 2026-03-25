@@ -4135,9 +4135,9 @@
                         <td><input readonly="readonly" type="text" size="5" id="height_chart" name="height_chart"
                                    class="text ui-widget-content ui-corner-all"/></td>
                         <td><a href="javascript:void(0);"
-                               onClick="popupPage(300,800,'<%= context %>/oscarEncounter/GraphMeasurements.do?demographic_no=<%=demoNo%>&type=HT');return false;"><img
+                               onClick="popupPage(300,800,'<%= context %>/encounter/GraphMeasurements.do?demographic_no=<%=demoNo%>&type=HT');return false;"><img
                                 border="0"
-                                src="<%= context %>/oscarEncounter/oscarMeasurements/img/chart.gif"/></a>
+                                src="<%= context %>/encounter/oscarMeasurements/img/chart.gif"/></a>
                         </td>
                     </tr>
                     <tr>
@@ -4154,9 +4154,9 @@
                         <td><input readonly="readonly" type="text" size="5" id="weight_chart" name="weight_chart"
                                    class="text ui-widget-content ui-corner-all"/></td>
                         <td><a href="javascript:void(0);"
-                               onClick="popupPage(300,800,'<%= context %>/oscarEncounter/GraphMeasurements.do?demographic_no=<%=demoNo%>&type=WT');return false;"><img
+                               onClick="popupPage(300,800,'<%= context %>/encounter/GraphMeasurements.do?demographic_no=<%=demoNo%>&type=WT');return false;"><img
                                 border="0"
-                                src="<%= context %>/oscarEncounter/oscarMeasurements/img/chart.gif"/></a>
+                                src="<%= context %>/encounter/oscarMeasurements/img/chart.gif"/></a>
                         </td>
                     </tr>
                     <tr>
@@ -4173,9 +4173,9 @@
                         <td><input readonly="readonly" type="text" size="5" id="bp_chart" name="bp_chart"
                                    class="text ui-widget-content ui-corner-all"/></td>
                         <td><a href="javascript:void(0);"
-                               onClick="popupPage(300,800,'<%= context %>/oscarEncounter/GraphMeasurements.do?demographic_no=<%=demoNo%>&type=BP');return false;"><img
+                               onClick="popupPage(300,800,'<%= context %>/encounter/GraphMeasurements.do?demographic_no=<%=demoNo%>&type=BP');return false;"><img
                                 border="0"
-                                src="<%= context %>/oscarEncounter/oscarMeasurements/img/chart.gif"/></a>
+                                src="<%= context %>/encounter/oscarMeasurements/img/chart.gif"/></a>
                         </td>
                     </tr>
                     </tbody>

@@ -39,7 +39,7 @@ echo "Test run directory: ui-test-runs/$TIMESTAMP/test-6"
 
 **MUST USE** `IncomingEncounter.do` as the entry point:
 ```
-/oscar/oscarEncounter/IncomingEncounter.do?providerNo={providerNo}&appointmentNo=&demographicNo={demographicNo}&curProviderNo=&reason=Tel-Progress+Note&encType=&curDate={YYYY-M-DD}&appointmentDate=&startTime=&status=
+/oscar/encounter/IncomingEncounter.do?providerNo={providerNo}&appointmentNo=&demographicNo={demographicNo}&curProviderNo=&reason=Tel-Progress+Note&encType=&curDate={YYYY-M-DD}&appointmentDate=&startTime=&status=
 ```
 
 **For Playwright automation:**

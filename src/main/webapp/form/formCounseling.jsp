@@ -77,7 +77,7 @@
     if (providerNo != null && !providerNo.isEmpty() && !providerNo.equals("999998")) {
         providerName = providerDao.getProviderName(providerNo);
     } else {
-        providerName = LocaleUtils.getMessage(request.getLocale(), "oscarEncounter.formCounseling.notValidated");
+        providerName = LocaleUtils.getMessage(request.getLocale(), "encounter.formCounseling.notValidated");
     }
     props.setProperty("doc_name", providerName);
 %>

@@ -1075,10 +1075,10 @@
                 <tr>
                     <td>
                         <a href="javascript:void()" onclick="saveNoteDialog();return false;">
-                            <img src="<%=request.getContextPath()%>/oscarEncounter/graphics/note-save.png"/>
+                            <img src="<%=request.getContextPath()%>/encounter/graphics/note-save.png"/>
                         </a>
                         <a href="javascript:void()" onclick="closeNoteDialog();return false;">
-                            <img src="<%=request.getContextPath()%>/oscarEncounter/graphics/system-log-out.png"/>
+                            <img src="<%=request.getContextPath()%>/encounter/graphics/system-log-out.png"/>
                         </a>
                     </td>
                     <td style="width:40%" nowrap="nowrap">

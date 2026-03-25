@@ -215,7 +215,7 @@ src/main/webapp/messenger/ @yingbull
 src/main/webapp/mfa/ @yingbull
 src/main/webapp/mobile/ @yingbull
 src/main/webapp/olis/ @yingbull
-src/main/webapp/oscarEncounter/ @yingbull
+src/main/webapp/encounter/ @yingbull
 src/main/webapp/oscarMDS/ @yingbull
 src/main/webapp/oscarPrevention/ @yingbull
 src/main/webapp/oscarReport/ @yingbull

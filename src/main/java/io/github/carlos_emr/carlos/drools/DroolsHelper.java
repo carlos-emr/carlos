@@ -229,7 +229,7 @@ public final class DroolsHelper {
      *       set in {@link CarlosProperties}, attempts to load the DRL file from that directory.
      *       The path is validated via {@link PathValidationUtils#validatePath(String, File)}.</li>
      *   <li><strong>Classpath fallback</strong> -- If no external file is found, loads from the
-     *       classpath at {@code /oscar/oscarEncounter/oscarMeasurements/flowsheets/decisionSupport/}.</li>
+     *       classpath at {@code /oscar/encounter/oscarMeasurements/flowsheets/decisionSupport/}.</li>
      * </ol>
      *
      * @param drlFilename the DRL filename to load (e.g. "bp_check.drl")
@@ -258,7 +258,7 @@ public final class DroolsHelper {
 
             // Priority 2: Fall back to classpath-bundled DRL resource
             if (!fileFound) {
-                String resourcePath = "/oscar/oscarEncounter/oscarMeasurements/flowsheets/decisionSupport/" + drlFilename;
+                String resourcePath = "/oscar/encounter/oscarMeasurements/flowsheets/decisionSupport/" + drlFilename;
                 URL url = classpathAnchor.getResource(resourcePath);
                 if (url == null) {
                     log.warn("Measurement DRL resource not found on classpath: {}", resourcePath);

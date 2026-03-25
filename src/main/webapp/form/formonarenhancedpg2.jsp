@@ -836,7 +836,7 @@
                 document.forms[0].submit.value = "print";
                 var ret = checkAllDates();
                 if (ret == true) {
-                    if (document.forms[0].c_finalEDB.value == "" && !confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formOnar.msgNoEDB"/>")) {
+                    if (document.forms[0].c_finalEDB.value == "" && !confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formOnar.msgNoEDB"/>")) {
                         ret = false;
                     } else {
                         <%
@@ -1675,7 +1675,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                     }
                                 }
                                 if (!(typeof printAr2 == "undefined")) {
-                                    if (document.forms[0].c_finalEDB.value == "" && !confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formOnar.msgNoEDB"/>")) {
+                                    if (document.forms[0].c_finalEDB.value == "" && !confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formOnar.msgNoEDB"/>")) {
                                         return;
                                     }
                                     if (!(typeof printAr1 == "undefined")) {

@@ -71,7 +71,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
             String validation = this.getValidation();
             String contextPath = request.getContextPath();
             if (!allInputIsValid(request, type, typeDesc, typeDisplayName, measuringInstrc)) {
-                response.sendRedirect(contextPath + "/oscarEncounter/oscarMeasurements/AddMeasurementType.jsp");
+                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/AddMeasurementType.jsp");
                 return NONE;
             }
 
@@ -84,7 +84,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
             dao.persist(mt);
 
 
-            String msg = getText("oscarEncounter.oscarMeasurements.AddMeasurementType.successful", "!");
+            String msg = getText("encounter.oscarMeasurements.AddMeasurementType.successful", "!");
             messages.add(msg);
             request.setAttribute("messages", messages);
             MeasurementTypes mts = MeasurementTypes.getInstance();
@@ -104,7 +104,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
         boolean isValid = true;
 
         for (MeasurementType mt : dao.findByType(type)) {
-            addActionError(getText("error.oscarEncounter.Measurements.duplicateTypeName"));
+            addActionError(getText("error.encounter.Measurements.duplicateTypeName"));
             isValid = false;
         }
 

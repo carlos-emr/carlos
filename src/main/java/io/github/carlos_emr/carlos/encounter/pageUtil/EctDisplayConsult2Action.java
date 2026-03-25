@@ -65,13 +65,13 @@ public class EctDisplayConsult2Action extends EctDisplayAction {
         } else {
             //set lefthand module heading and link
             String winName = "Consultation" + bean.demographicNo;
-            String url = "popupPage(700, 960,'" + winName + "','" + request.getContextPath() + "/oscarEncounter/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp?de=" + bean.demographicNo + "')";
-            Dao.setLeftHeading(getText("oscarEncounter.LeftNavBar.Consult"));
+            String url = "popupPage(700, 960,'" + winName + "','" + request.getContextPath() + "/encounter/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp?de=" + bean.demographicNo + "')";
+            Dao.setLeftHeading(getText("encounter.LeftNavBar.Consult"));
             Dao.setLeftURL(url);
 
             //set the right hand heading link\
             winName = "newConsult" + bean.demographicNo;
-            url = "popupPage(700, 960,'" + winName + "','" + request.getContextPath() + "/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=" + bean.demographicNo + "&teamVar=&appNo=" + appointmentNo + "'); return false;";
+            url = "popupPage(700, 960,'" + winName + "','" + request.getContextPath() + "/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=" + bean.demographicNo + "&teamVar=&appNo=" + appointmentNo + "'); return false;";
             Dao.setRightURL(url);
             Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action 
 
@@ -137,7 +137,7 @@ public class EctDisplayConsult2Action extends EctDisplayAction {
                     serviceDateStr = "Error";
                     date = null;
                 }
-                url = "popupPage(700, 960,'" + winName + "','" + request.getContextPath() + "/oscarEncounter/ViewRequest.do?de=" + bean.demographicNo + "&requestId=" + theRequests.ids.get(idx) + "'); return false;";
+                url = "popupPage(700, 960,'" + winName + "','" + request.getContextPath() + "/encounter/ViewRequest.do?de=" + bean.demographicNo + "&requestId=" + theRequests.ids.get(idx) + "'); return false;";
                 
                 item.setLinkTitle(service + "(" + specialist + ") " + serviceDateStr);
                 service = StringUtils.maxLenString(service, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);

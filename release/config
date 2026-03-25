@@ -689,7 +689,7 @@ else
 	# "HOME_DIR", "/billing/download/"
 	# "DOCUMENT_DIR", "/document/" 
 	# "eform_image", "/eform/images/" 
-	# "oscarMeasurement_css_upload_path", "/oscarEncounter/oscarMeasurements/styles/"
+	# "oscarMeasurement_css_upload_path", "/encounter/oscarMeasurements/styles/"
 	# "TMP_DIR", "/export/"
 	# "form_record_path", "/form/records/"
 	# "OMD_hrm","/hrm/"

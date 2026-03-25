@@ -52,91 +52,91 @@
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.title"/></title>
+        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.title"/></title>
         <link rel="stylesheet" type="text/css" href="westernuStyle.css">
     </head>
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0" onload="window.resizeTo(768,768)"
           bgcolor="#eeeeee">
     <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.title"/></h1>
+        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.title"/></h1>
 
         <%@include file="formIntakeHxTitleBar.jsp" %>
 
         <!--Allergies-->
-        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.sectionAllergiesTitle"/></h2>
+        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.sectionAllergiesTitle"/></h2>
         <hr/>
         <table>
             <tr>
-                <td colspan="2" class="title"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.allergicToDrugsYN"/>?</td>
+                <td colspan="2" class="title"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.allergicToDrugsYN"/>?</td>
                 <td><input type="text" name="AllergicYesNo" value="<%=props.getProperty("AllergicYesNo","")%>"/></td>
             </tr>
             <tr>
-                <td colspan="4" class="title"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.allergicDrugNames"/>:</td>
+                <td colspan="4" class="title"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.allergicDrugNames"/>:</td>
             </tr>
             <tr>
                 <td colspan="4">
                     <table>
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.drug1"/>:</td>
+                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.drug1"/>:</td>
                             <td><input type="text" name="DrugAllergy1"
                                        value="<%=props.getProperty("DrugAllergy1","")%>"/></td>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.reactionSymptoms"/>:</td>
+                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.reactionSymptoms"/>:</td>
                             <td><input type="text" name="DrugAllergyRS1"
                                        value="<%=props.getProperty("DrugAllergyRS1","")%>"/></td>
                         </tr>
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.drug2"/>:</td>
+                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.drug2"/>:</td>
                             <td><input type="text" name="DrugAllergy2"
                                        value="<%=props.getProperty("DrugAllergy2","")%>"/></td>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.reactionSymptoms"/>:</td>
+                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.reactionSymptoms"/>:</td>
                             <td><input type="text" name="DrugAllergyRS2"
                                        value="<%=props.getProperty("DrugAllergyRS2","")%>"/></td>
                         </tr>
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.drug3"/>:</td>
+                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.drug3"/>:</td>
                             <td><input type="text" name="DrugAllergy3"
                                        value="<%=props.getProperty("DrugAllergy3","")%>"/></td>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.reactionSymptoms"/>:</td>
+                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.reactionSymptoms"/>:</td>
                             <td><input type="text" name="DrugAllergyRS3"
                                        value="<%=props.getProperty("DrugAllergyRS3","")%>"/></td>
                         </tr>
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.drug4"/>:</td>
+                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.drug4"/>:</td>
                             <td><input type="text" name="DrugAllergy4"
                                        value="<%=props.getProperty("DrugAllergy4","")%>"/></td>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.reactionSymptoms"/>:</td>
+                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.reactionSymptoms"/>:</td>
                             <td><input type="text" name="DrugAllergyRS4"
                                        value="<%=props.getProperty("DrugAllergyRS4","")%>"/></td>
                         </tr>
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.drug5"/>:</td>
+                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.drug5"/>:</td>
                             <td><input type="text" name="DrugAllergy5"
                                        value="<%=props.getProperty("DrugAllergy5","")%>"/></td>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.reactionSymptoms"/>:</td>
+                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.reactionSymptoms"/>:</td>
                             <td><input type="text" name="DrugAllergyRS5"
                                        value="<%=props.getProperty("DrugAllergyRS5","")%>"/></td>
                         </tr>
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.drug6"/>:</td>
+                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.drug6"/>:</td>
                             <td><input type="text" name="DrugAllergy6"
                                        value="<%=props.getProperty("DrugAllergy6","")%>"/></td>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.reactionSymptoms"/>:</td>
+                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.reactionSymptoms"/>:</td>
                             <td><input type="text" name="DrugAllergyRS6"
                                        value="<%=props.getProperty("DrugAllergyRS6","")%>"/></td>
                         </tr>
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.drug7"/>:</td>
+                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.drug7"/>:</td>
                             <td><input type="text" name="DrugAllergy7"
                                        value="<%=props.getProperty("DrugAllergy7","")%>"/></td>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.reactionSymptoms"/>:</td>
+                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.reactionSymptoms"/>:</td>
                             <td><input type="text" name="DrugAllergyRS7"
                                        value="<%=props.getProperty("DrugAllergyRS7","")%>"/></td>
                         </tr>
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.drug8"/>:</td>
+                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.drug8"/>:</td>
                             <td><input type="text" name="DrugAllergy8"
                                        value="<%=props.getProperty("DrugAllergy8","")%>"/></td>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.reactionSymptoms"/>:</td>
+                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.reactionSymptoms"/>:</td>
                             <td><input type="text" name="DrugAllergyRS8"
                                        value="<%=props.getProperty("DrugAllergyRS8","")%>"/></td>
                         </tr>
@@ -144,45 +144,45 @@
                 </td>
             </tr>
             <tr>
-                <td colspan="3" class="title"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.allergyShotYN"/>?</td>
+                <td colspan="3" class="title"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.allergyShotYN"/>?</td>
                 <td><input type="text" name="AllergicShotsYesNo"
                            value="<%=props.getProperty("AllergicShotsYesNo","")%>"/></td>
             </tr>
             <tr>
-                <td colspan="3" class="title"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.allergyNonDrugYN"/>?</td>
+                <td colspan="3" class="title"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.allergyNonDrugYN"/>?</td>
                 <td><input type="text" name="AllergicNonDrugYesNo"
                            value="<%=props.getProperty("AllergicNonDrugYesNo","")%>"/></td>
             </tr>
             <tr>
-                <td colspan="4" class="title"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.allergicNonDrug"/>:</td>
+                <td colspan="4" class="title"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.allergicNonDrug"/>:</td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.allergicNonDrugBeeSting"/></td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.allergicNonDrugBeeSting"/></td>
                 <td><input type="checkbox" name="allergicbee" <%=props.getProperty("allergicbee", "")%>/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.allergicNonDrugRagweedPollen"/></td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.allergicNonDrugRagweedPollen"/></td>
                 <td><input type="checkbox" name="allergicragweed" <%=props.getProperty("allergicragweed", "")%>/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.allergicNonDrugOtherPollen"/></td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.allergicNonDrugOtherPollen"/></td>
                 <td><input type="checkbox"
                            name="allergicOtherPollens" <%=props.getProperty("allergicOtherPollens", "")%>/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.allergicNonDrugGrasses"/></td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.allergicNonDrugGrasses"/></td>
                 <td><input type="checkbox" name="allergicgrasses" <%=props.getProperty("allergicgrasses", "")%>/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.allergicNonDrugDust"/></td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.allergicNonDrugDust"/></td>
                 <td><input type="checkbox" name="allergicdust" <%=props.getProperty("allergicdust", "")%>/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.allergicNonDrugAnimalFur"/></td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.allergicNonDrugAnimalFur"/></td>
                 <td><input type="checkbox" name="allergicanimal" <%=props.getProperty("allergicanimal", "")%>/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.allergicNonDrugOtherAgent"/></td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.allergicNonDrugOtherAgent"/></td>
                 <td><input type="checkbox" name="allergicother" <%=props.getProperty("allergicother", "")%>/></td>
 
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.allergicNonDrugFood"/></td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.allergicNonDrugFood"/></td>
                 <td><input type="checkbox" name="allergicfood" <%=props.getProperty("allergicfood", "")%>/></td>
             </tr>
         </table>

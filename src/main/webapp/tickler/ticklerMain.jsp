@@ -241,7 +241,7 @@
                     serverSide: true,
                     processing: true,
                     searching: true,
-                    lengthMenu: [[25, 50, 100, -1], [25, 50, 100, '<fmt:message key="oscarEncounter.LeftNavBar.AllLabs"/>']],
+                    lengthMenu: [[25, 50, 100, -1], [25, 50, 100, '<fmt:message key="encounter.LeftNavBar.AllLabs"/>']],
                     pageLength: initialPageLength,
                     order: [[4, 'desc']],
                     language: {

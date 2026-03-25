@@ -50,7 +50,7 @@ public class EctDisplayDiagram2Action extends EctDisplayAction {
         }
 
         //set text for lefthand module title
-        Dao.setLeftHeading(getText("oscarEncounter.LeftNavBar.Diagrams"));
+        Dao.setLeftHeading(getText("encounter.LeftNavBar.Diagrams"));
 
         //set link for lefthand module title
         String winName = "Diagrams" + bean.demographicNo;

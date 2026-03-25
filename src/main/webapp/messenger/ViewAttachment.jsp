@@ -380,11 +380,11 @@
                     java.util.Properties prop = UtilXML.getPropText(xmlDoc, "table", "sqlFrom", "name"); //
                     if (prop.getProperty("formAR") != null && prop.getProperty("formAR").equals("AR Form")) {
                 %> &nbsp;|&nbsp; <a
-                        href="<%= request.getContextPath() %>/oscarEncounter/formCommARPg1.jsp?messageid=<%=request.getAttribute("attId")%>">AR1</a>
+                        href="<%= request.getContextPath() %>/encounter/formCommARPg1.jsp?messageid=<%=request.getAttribute("attId")%>">AR1</a>
                     &nbsp;|&nbsp; <a
-                            href="<%= request.getContextPath() %>/oscarEncounter/formCommARPg2.jsp?messageid=<%=request.getAttribute("attId")%>">AR2
+                            href="<%= request.getContextPath() %>/encounter/formCommARPg2.jsp?messageid=<%=request.getAttribute("attId")%>">AR2
                         Pg1</a> &nbsp;|&nbsp; <a
-                            href="<%= request.getContextPath() %>/oscarEncounter/formCommARPg3.jsp?messageid=<%=request.getAttribute("attId")%>">AR2
+                            href="<%= request.getContextPath() %>/encounter/formCommARPg3.jsp?messageid=<%=request.getAttribute("attId")%>">AR2
                         Pg2</a> <%
                         } %>
                 </div>

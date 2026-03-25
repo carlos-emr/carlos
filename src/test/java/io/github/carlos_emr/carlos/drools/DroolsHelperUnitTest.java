@@ -275,7 +275,7 @@ class DroolsHelperUnitTest {
      *
      * <p>In test environments the {@code MEASUREMENT_DS_DIRECTORY} property is typically
      * not set, so the method falls back to loading from the classpath at
-     * {@code /oscar/oscarEncounter/oscarMeasurements/flowsheets/decisionSupport/}.</p>
+     * {@code /oscar/encounter/oscarMeasurements/flowsheets/decisionSupport/}.</p>
      */
     @Nested
     @DisplayName("loadMeasurementRuleBase")

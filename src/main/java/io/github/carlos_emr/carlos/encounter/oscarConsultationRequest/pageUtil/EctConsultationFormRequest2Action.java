@@ -585,12 +585,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 			// upon failure, go to consultation update page with message
 			try {
 	            doHl7Send(loggedInInfo, Integer.parseInt(requestId));
-	            WebUtils.addLocalisedInfoMessage(request, "oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgCreatedUpdateESent");
+	            WebUtils.addLocalisedInfoMessage(request, "encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgCreatedUpdateESent");
             } catch (Exception e) {
                 logger.error("Error contacting remote server.", e);
 
-                WebUtils.addLocalisedErrorMessage(request, "oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgCreatedUpdateESendError");
-                String forward = "/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp" + "?de=" + demographicNo +
+                WebUtils.addLocalisedErrorMessage(request, "encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgCreatedUpdateESendError");
+                String forward = "/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp" + "?de=" + demographicNo +
                         "&requestId=" + requestId;
                 response.sendRedirect(forward);
                 return NONE;
@@ -598,7 +598,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         }
 
         String contextPath = request.getContextPath();
-        String forward = contextPath + "/oscarEncounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp?de=" + demographicNo;
+        String forward = contextPath + "/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp?de=" + demographicNo;
         response.sendRedirect(forward);
         return NONE;
     }

@@ -48,75 +48,75 @@
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.title"/></title>
+        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.title"/></title>
         <link rel="stylesheet" type="text/css" href="westernuStyle.css">
     </head>
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0" onload="window.resizeTo(768,768)"
           bgcolor="#eeeeee">
     <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.title"/></h1>
+        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.title"/></h1>
 
         <%@include file="formIntakeHxTitleBar.jsp" %>
 
         <!--Sexual Health-->
-        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.sexualHealthTitle"/></h2>
+        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.sexualHealthTitle"/></h2>
         <hr/>
         <table>
             <tr>
-                <td class="title" colspan="3"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.sexualHistory"/>:</td>
+                <td class="title" colspan="3"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.sexualHistory"/>:</td>
             </tr>
             <tr>
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.intercourse"/>?</td>
+                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.intercourse"/>?</td>
                 <td><input type="text" name="hadSexualIntercourse"
                            value="<%=props.getProperty("hadSexualIntercourse","")%>"/></td>
             </tr>
             <tr>
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.maleSex"/>?</td>
+                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.maleSex"/>?</td>
                 <td><input type="text" name="sexWithMale" value="<%=props.getProperty("sexWithMale","")%>"/></td>
             </tr>
             <tr>
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.femaleSex"/>?</td>
+                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.femaleSex"/>?</td>
                 <td><input type="text" name="sexWithFemale" value="<%=props.getProperty("sexWithFemale","")%>"/></td>
             </tr>
             <tr>
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.firstIntercourse"/>?</td>
+                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.firstIntercourse"/>?</td>
                 <td><input type="text" name="ageHadSex" value="<%=props.getProperty("ageHadSex","")%>"/></td>
             </tr>
             <tr>
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.numberOfPartners"/>?</td>
+                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.numberOfPartners"/>?</td>
                 <td><input type="text" name="partnersLastYear" value="<%=props.getProperty("partnersLastYear","")%>"/>
                 </td>
             </tr>
             <tr>
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.condomFrequency"/>?</td>
+                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.condomFrequency"/>?</td>
                 <td><input type="text" name="HowOftenUseCondoms"
                            value="<%=props.getProperty("HowOftenUseCondoms","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="3"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.stds"/>:</td>
+                <td class="title" colspan="3"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.stds"/>:</td>
             </tr>
             <tr>
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.hadSTD"/>?</td>
+                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.hadSTD"/>?</td>
                 <td><input type="text" name="hadSTD" value="<%=props.getProperty("hadSTD","")%>"/></td>
             </tr>
             <tr>
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.hpv"/></td>
+                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.hpv"/></td>
                 <td><input type="text" name="hadHPV" value="<%=props.getProperty("hadHPV","")%>"/></td>
             </tr>
             <tr>
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.chlamydia"/></td>
+                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.chlamydia"/></td>
                 <td><input type="text" name="hadchlamydia" value="<%=props.getProperty("hadchlamydia","")%>"/></td>
             </tr>
             <tr>
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.gonorrhea"/></td>
+                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.gonorrhea"/></td>
                 <td><input type="text" name="hadgonorrhea" value="<%=props.getProperty("hadgonorrhea","")%>"/></td>
             </tr>
             <tr>
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.genitalHerpes"/></td>
+                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.genitalHerpes"/></td>
                 <td><input type="text" name="hadHSV2" value="<%=props.getProperty("hadHSV2","")%>"/></td>
             </tr>
             <tr>
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.syphilis"/></td>
+                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.syphilis"/></td>
                 <td><input type="text" name="hadsyphilis" value="<%=props.getProperty("hadsyphilis","")%>"/></td>
             </tr>
         </table>

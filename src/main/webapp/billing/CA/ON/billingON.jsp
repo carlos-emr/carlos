@@ -1406,7 +1406,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                             <%=checkRefBox%> onclick="onClickRefDoc()"/><br/>
                                         <input
                                                 type="text" name="referralCode" class="form-control form-control-sm d-inline-block w-auto" maxlength="6"
-                                                placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"
+                                                placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"
                                                 value="<%=refNo%>">&nbsp;
                                         <input type="text" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgType"/>"
                                                name="referralSpet" class="form-control form-control-sm d-inline-block w-auto" maxlength="2"

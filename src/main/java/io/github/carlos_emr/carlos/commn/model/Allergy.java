@@ -366,17 +366,17 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
     public String getLifeStageDesc() {
         String s = getLifeStage();
         if ("N".equals(s)) {
-            return "Newborn"; //"oscarEncounter.lifestage.opt.newborn"; //  = Newborn: Birth to 28 days
+            return "Newborn"; //"encounter.lifestage.opt.newborn"; //  = Newborn: Birth to 28 days
         } else if ("I".equals(s)) {
-            return "Infant";  // "oscarEncounter.lifestage.opt.infant"; // = Infant: 29 days to 2 years
+            return "Infant";  // "encounter.lifestage.opt.infant"; // = Infant: 29 days to 2 years
         } else if ("C".equals(s)) {
-            return "Child"; //"oscarEncounter.lifestage.opt.child"; // = Child: 2 years to 15 years
+            return "Child"; //"encounter.lifestage.opt.child"; // = Child: 2 years to 15 years
         } else if ("T".equals(s)) {
-            return "Adolescent"; //  "oscarEncounter.lifestage.opt.adolescent"; // = Adolescent: 16 to 17
+            return "Adolescent"; //  "encounter.lifestage.opt.adolescent"; // = Adolescent: 16 to 17
         } else if ("A".equals(s)) {
-            return "Adult";  //"oscarEncounter.lifestage.opt.adult"; // = Adult: 18 years
+            return "Adult";  //"encounter.lifestage.opt.adult"; // = Adult: 18 years
         }
-        return "Not Set"; //"oscarEncounter.lifestage.opt.notset"; // = Not Set
+        return "Not Set"; //"encounter.lifestage.opt.notset"; // = Not Set
     }
 
     public String getOnSetOfReactionDesc() {

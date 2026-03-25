@@ -79,12 +79,12 @@
 
 
             function openAddSpecialist() {
-                popupOscarRx(625, 1024, '<%= request.getContextPath() %>/oscarEncounter/oscarConsultationRequest/config/AddSpecialist.jsp');
+                popupOscarRx(625, 1024, '<%= request.getContextPath() %>/encounter/oscarConsultationRequest/config/AddSpecialist.jsp');
                 return false;
             }
 
             function openEditSpecialist(specId) {
-                popupOscarRx(625, 1024, '<%=request.getContextPath()%>/oscarEncounter/EditSpecialists.do?specId=' + specId);
+                popupOscarRx(625, 1024, '<%=request.getContextPath()%>/encounter/EditSpecialists.do?specId=' + specId);
             }
 
             function checkUncheck(referralId) {

@@ -60,9 +60,9 @@
                                 <td>
                                     <table>
                                         <tr>
-                                            <th align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.form.msgAllAvailableForms"/></th>
+                                            <th align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.form.msgAllAvailableForms"/></th>
                                             <th></th>
-                                            <th align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.form.msgSelectedForms"/></th>
+                                            <th align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.form.msgSelectedForms"/></th>
                                         </tr>
                                         <td><select multiple="true" name="selectedAddTypes"
                                                          size="10" style="width:150">
@@ -80,14 +80,14 @@
                                                 <tr>
                                                     <td><input type="button" name="button" id="add" class="btn function"
                                                                style="width:80px"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.MeasurementsAction.addBtn"/> >>"
+                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.MeasurementsAction.addBtn"/> >>"
                                                     /></td>
                                                 </tr>
                                                 <tr>
                                                     <td>
                                                         <input type="button" name="button" class="btn function"
                                                                id="delete" style="width:80px"
-                                                               value="<< <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarMeasurements.MeasurementsAction.deleteBtn"/>"/>
+                                                               value="<< <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.MeasurementsAction.deleteBtn"/>"/>
                                                     </td>
                                                 </tr>
                                             </table>

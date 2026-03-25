@@ -140,7 +140,7 @@
             </table>
 
 
-            <img src="<%= request.getContextPath() %>/oscarEncounter/GraphMeasurements.do?method=ChartMeds&demographic_no=<%=demographicNo%><%=drugForGraph%>"/>
+            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements.do?method=ChartMeds&demographic_no=<%=demographicNo%><%=drugForGraph%>"/>
 
 
             <fieldset>

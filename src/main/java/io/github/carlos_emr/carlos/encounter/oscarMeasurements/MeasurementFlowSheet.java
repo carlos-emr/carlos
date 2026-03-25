@@ -87,7 +87,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.TargetColour
  * <ul>
  *   <li><strong>Static DRL files</strong> - Pre-written {@code .drl} files loaded from the
  *       filesystem ({@code MEASUREMENT_DS_DIRECTORY} property) or classpath
- *       ({@code /oscar/oscarEncounter/oscarMeasurements/flowsheets/}). The filesystem path
+ *       ({@code /oscar/encounter/oscarMeasurements/flowsheets/}). The filesystem path
  *       takes priority, allowing site-specific rule customization without modifying the
  *       application. Used for both flowsheet-level rules (e.g., {@code diab.drl}) and
  *       per-item rules (e.g., {@code decisionSupport/diab-A1C.drl}).</li>
@@ -586,7 +586,7 @@ public class MeasurementFlowSheet {
      *   <li>If the {@code MEASUREMENT_DS_HTML_DIRECTORY} property is set, attempts to load
      *       the file from that filesystem directory first.</li>
      *   <li>Falls back to the classpath resource at
-     *       {@code /oscar/oscarEncounter/oscarMeasurements/flowsheets/html/}.</li>
+     *       {@code /oscar/encounter/oscarMeasurements/flowsheets/html/}.</li>
      * </ol>
      *
      * @return String the HTML content to display at the top of the flowsheet,
@@ -609,7 +609,7 @@ public class MeasurementFlowSheet {
 
                 // Priority 2: Fall back to classpath resource
                 if (is == null) {
-                    is = MeasurementFlowSheet.class.getResourceAsStream("/oscar/oscarEncounter/oscarMeasurements/flowsheets/html/" + topHTMLFileName);
+                    is = MeasurementFlowSheet.class.getResourceAsStream("/oscar/encounter/oscarMeasurements/flowsheets/html/" + topHTMLFileName);
                     log.debug("loading from stream ");
                 }
 
@@ -634,7 +634,7 @@ public class MeasurementFlowSheet {
      * <p>Uses the same filesystem-first, classpath-fallback resolution as
      * {@link #getTopHTMLStream()}, checking the {@code MEASUREMENT_DS_HTML_DIRECTORY}
      * property first, then falling back to the classpath at
-     * {@code /oscar/oscarEncounter/oscarMeasurements/flowsheets/html/}.</p>
+     * {@code /oscar/encounter/oscarMeasurements/flowsheets/html/}.</p>
      *
      * @param dsHTML String the filename of the HTML file to load
      * @return String the HTML content, or an empty string if the file cannot be found or read
@@ -657,7 +657,7 @@ public class MeasurementFlowSheet {
 
             // Priority 2: Fall back to classpath resource
             if (is == null) {
-                is = MeasurementFlowSheet.class.getResourceAsStream("/oscar/oscarEncounter/oscarMeasurements/flowsheets/html/" + dsHTML);
+                is = MeasurementFlowSheet.class.getResourceAsStream("/oscar/encounter/oscarMeasurements/flowsheets/html/" + dsHTML);
                 log.debug("loading from stream ");
             }
 
@@ -763,7 +763,7 @@ public class MeasurementFlowSheet {
      *       clinics to customize rules without modifying the deployed application.</li>
      *   <li><strong>Classpath fallback</strong> - If the file is not found on the filesystem,
      *       it is loaded from the classpath at
-     *       {@code /oscar/oscarEncounter/oscarMeasurements/flowsheets/}.</li>
+     *       {@code /oscar/encounter/oscarMeasurements/flowsheets/}.</li>
      * </ol>
      *
      * <p>The compiled {@link KieBase} is stored in the {@link #ruleBase} field and the
@@ -793,7 +793,7 @@ public class MeasurementFlowSheet {
 
             // Priority 2: Fall back to classpath resource bundled with the application
             if (!fileFound) {
-                URL url = MeasurementFlowSheet.class.getResource("/oscar/oscarEncounter/oscarMeasurements/flowsheets/" + string);  //TODO: change this so it is configurable;
+                URL url = MeasurementFlowSheet.class.getResource("/oscar/encounter/oscarMeasurements/flowsheets/" + string);  //TODO: change this so it is configurable;
                 if (url == null) {
                     log.warn("DRL resource not found on classpath for flowsheet rule: {}", string);
                     return;

@@ -245,11 +245,11 @@ public class OscarChartPrinter implements java.io.Closeable {
 
         //set up document title and header
         ResourceBundle propResource = ResourceBundle.getBundle("oscarResources");
-        String title = propResource.getString("oscarEncounter.pdfPrint.title") + " " + (String) request.getAttribute("demoName") + "\n";
-        String gender = propResource.getString("oscarEncounter.pdfPrint.gender") + " " + (String) request.getAttribute("demoSex") + "\n";
-        String dob = propResource.getString("oscarEncounter.pdfPrint.dob") + " " + (String) request.getAttribute("demoDOB") + "\n";
-        String age = propResource.getString("oscarEncounter.pdfPrint.age") + " " + (String) request.getAttribute("demoAge") + "\n";
-        String mrp = propResource.getString("oscarEncounter.pdfPrint.mrp") + " " + (String) request.getAttribute("mrp") + "\n";
+        String title = propResource.getString("encounter.pdfPrint.title") + " " + (String) request.getAttribute("demoName") + "\n";
+        String gender = propResource.getString("encounter.pdfPrint.gender") + " " + (String) request.getAttribute("demoSex") + "\n";
+        String dob = propResource.getString("encounter.pdfPrint.dob") + " " + (String) request.getAttribute("demoDOB") + "\n";
+        String age = propResource.getString("encounter.pdfPrint.age") + " " + (String) request.getAttribute("demoAge") + "\n";
+        String mrp = propResource.getString("encounter.pdfPrint.mrp") + " " + (String) request.getAttribute("mrp") + "\n";
         String[] info = new String[]{title, gender, dob, age, mrp};
 
         ClinicData clinicData = new ClinicData();

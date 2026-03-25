@@ -1138,7 +1138,7 @@ function getMeasures(measure, max) {
     var xmlhttp = new XMLHttpRequest();
     // pathArray was originally used to build newURL; kept for potential future use by callers.
     var pathArray = window.location.pathname.split('/'); void pathArray;
-    var newURL = "..//oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?type=" + measure;
+    var newURL = "..//encounter/oscarMeasurements/SetupDisplayHistory.do?type=" + measure;
     xmlhttp.onreadystatechange = function() {
         if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
             var str = xmlhttp.responseText; //local variable
@@ -1227,8 +1227,8 @@ function collapseFooter() {
             var request = new XMLHttpRequest();
 
             //professionalSpecialists  2020-Nov-04
-            //request.open('GET', '../oscarEncounter/oscarConsultationRequest/searchprofessionalSpecialists.json?keyword=' + term, true);
-            request.open('GET', '../oscarEncounter/oscarConsultationRequest/searchProfessionalSpecialist.json?keyword='+encodeURIComponent(term), true);
+            //request.open('GET', '../encounter/oscarConsultationRequest/searchprofessionalSpecialists.json?keyword=' + term, true);
+            request.open('GET', '../encounter/oscarConsultationRequest/searchProfessionalSpecialist.json?keyword='+encodeURIComponent(term), true);
             request.setRequestHeader("Content-Type", "application/json");
             request.onload = function() {
 

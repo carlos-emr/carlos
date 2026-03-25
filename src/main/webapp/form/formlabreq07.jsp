@@ -538,12 +538,12 @@
                                         <%
                                             String demoChartNo = "";
                                             if (oscarProps.getProperty("lab_req_include_chartno", "false").equals("true")) {
-                                                demoChartNo = LocaleUtils.getMessage(request.getLocale(), "oscarEncounter.form.labreq.patientChartNo") + ":" + props.getProperty("patientChartNo", "");
+                                                demoChartNo = LocaleUtils.getMessage(request.getLocale(), "encounter.form.labreq.patientChartNo") + ":" + props.getProperty("patientChartNo", "");
                                             }
                                         %>
                                         <td class="borderGrayBottomRight"
                                             style="border-right: 0px; width: 130px;"><font
-                                                class="subHeading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.form.labreq.patientChartNo"/></font><br/>
+                                                class="subHeading"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.form.labreq.patientChartNo"/></font><br/>
                                             <input type="hidden" style="width: 90%" name="patientChartNo"
                                                    value="<%=demoChartNo%>"/> <%=props.getProperty("patientChartNo", "")%>
                                         </td>

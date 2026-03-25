@@ -73,7 +73,7 @@ public class FrmLabReq07Record extends FrmRecord {
 
                 String uhipStatus = CarlosProperties.getInstance().getProperty("demo_uhip_status", "");
                 if (!uhipStatus.isEmpty() && demographic.getRosterStatus().equals(uhipStatus)) {
-                    props.setProperty("healthNumber", LocaleUtils.getMessage(Locale.getDefault(), "oscarEncounter.form.uhipLbl") + StringUtils.trimToEmpty(demographic.getChartNo()));
+                    props.setProperty("healthNumber", LocaleUtils.getMessage(Locale.getDefault(), "encounter.form.uhipLbl") + StringUtils.trimToEmpty(demographic.getChartNo()));
                     props.setProperty("version", "");
                 } else {
                     props.setProperty("healthNumber", StringUtils.trimToEmpty(demographic.getHin()));
@@ -114,7 +114,7 @@ public class FrmLabReq07Record extends FrmRecord {
                     + existingID;
             props = (new FrmRecordHelp()).getFormRecord(sql);
             String chartNo = props.getProperty("patientChartNo");
-            String chartNoLbl = LocaleUtils.getMessage(Locale.getDefault(), "oscarEncounter.form.labreq.patientChartNo") + ":";
+            String chartNoLbl = LocaleUtils.getMessage(Locale.getDefault(), "encounter.form.labreq.patientChartNo") + ":";
             int beginIdx = chartNo.lastIndexOf(chartNoLbl);
             if (beginIdx >= 0) {
                 chartNo = chartNo.substring(beginIdx + chartNoLbl.length());
@@ -123,7 +123,7 @@ public class FrmLabReq07Record extends FrmRecord {
 
             CarlosProperties oscarProps = CarlosProperties.getInstance();
             if (oscarProps.getBooleanProperty("use_lab_clientreference", "true")) {
-                String additionalInfo = LocaleUtils.getMessage(Locale.getDefault(), "oscarEncounter.form.labreq.clientreference") + ":" + String.valueOf(existingID);
+                String additionalInfo = LocaleUtils.getMessage(Locale.getDefault(), "encounter.form.labreq.clientreference") + ":" + String.valueOf(existingID);
                 props.setProperty("clientRefNo", additionalInfo);
             }
         }

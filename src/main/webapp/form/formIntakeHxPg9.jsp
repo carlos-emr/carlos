@@ -52,58 +52,58 @@
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.title"/></title>
+        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.title"/></title>
         <link rel="stylesheet" type="text/css" href="westernuStyle.css">
     </head>
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0" onload="window.resizeTo(768,768)"
           bgcolor="#eeeeee">
     <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.title"/></h1>
+        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.title"/></h1>
 
         <%@include file="formIntakeHxTitleBar.jsp" %>
         <!--Current Issues-->
-        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.currentIssuesTitle"/></h2>
+        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.currentIssuesTitle"/></h2>
         <hr/>
         <table>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.currentIssues.bodySystemProblems"/></td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.currentIssues.bodySystemProblems"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.currentIssues.general"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.currentIssues.general"/>:</td>
                 <td><textarea rows="5" cols="50" name="General"><%=props.getProperty("General", "")%></textarea></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.currentIssues.nervousSystem"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.currentIssues.nervousSystem"/>:</td>
                 <td><textarea rows="5" cols="50" name="Nervous"><%=props.getProperty("Nervous", "")%></textarea></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.currentIssues.headEarsNoseThroat"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.currentIssues.headEarsNoseThroat"/>:</td>
                 <td><textarea rows="5" cols="50" name="HEENT"><%=props.getProperty("HEENT", "")%></textarea></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.currentIssues.neck"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.currentIssues.neck"/>:</td>
                 <td><textarea rows="5" cols="50" name="Neck"><%=props.getProperty("Neck", "")%></textarea></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.currentIssues.chest"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.currentIssues.chest"/>:</td>
                 <td><textarea rows="5" cols="50" name="Chest"><%=props.getProperty("Chest", "")%></textarea></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.currentIssues.heart"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.currentIssues.heart"/>:</td>
                 <td><textarea rows="5" cols="50" name="Heart"><%=props.getProperty("Heart", "")%></textarea></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.currentIssues.gastro"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.currentIssues.gastro"/>:</td>
                 <td><textarea rows="5" cols="50"
                               name="Gastrointestinal"><%=props.getProperty("Gastrointestinal", "")%></textarea></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.currentIssues.genitals"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.currentIssues.genitals"/>:</td>
                 <td><textarea rows="5" cols="50"
                               name="GenitalsUrinary"><%=props.getProperty("GenitalsUrinary", "")%></textarea></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.currentIssues.psychiatric"/>:</td>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.currentIssues.psychiatric"/>:</td>
                 <td><textarea rows="5" cols="50"
                               name="GeneralPsychiatric"><%=props.getProperty("GeneralPsychiatric", "")%></textarea></td>
             </tr>

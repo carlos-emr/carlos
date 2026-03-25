@@ -89,14 +89,14 @@ public class EctAddMeasuringInstruction2Action extends ActionSupport {
                 isValid = false;
             }
             if (!isValid) {
-                response.sendRedirect(contextPath + "/oscarEncounter/oscarMeasurements/AddMeasuringInstruction.jsp");
+                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/AddMeasuringInstruction.jsp");
                 return NONE;
             }
 
             List<MeasurementType> mts = dao.findByMeasuringInstructionAndTypeDisplayName(measuringInstrc, typeDisplayName);
             if (mts.size() > 0) {
-                addActionError(getText("error.oscarEncounter.Measurements.duplicateTypeName"));
-                response.sendRedirect(contextPath + "/oscarEncounter/oscarMeasurements/AddMeasuringInstruction.jsp");
+                addActionError(getText("error.encounter.Measurements.duplicateTypeName"));
+                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/AddMeasuringInstruction.jsp");
                 return NONE;
             }
 
@@ -118,7 +118,7 @@ public class EctAddMeasuringInstruction2Action extends ActionSupport {
                 requestId = m.getId().toString();
             }
 
-            String msg = getText("oscarEncounter.oscarMeasurements.AddMeasuringInstruction.successful", "!");
+            String msg = getText("encounter.oscarMeasurements.AddMeasuringInstruction.successful", "!");
             messages.add(msg);
             request.setAttribute("messages", messages);
 

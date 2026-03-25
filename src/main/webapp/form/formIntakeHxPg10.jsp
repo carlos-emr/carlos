@@ -52,124 +52,124 @@
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.title"/></title>
+        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.title"/></title>
         <link rel="stylesheet" type="text/css" href="westernuStyle.css">
     </head>
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0" onload="window.resizeTo(768,768)"
           bgcolor="#eeeeee">
     <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.title"/></h1>
+        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.title"/></h1>
 
         <%@include file="formIntakeHxTitleBar.jsp" %>
 
         <!--Womens' Health-->
-        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.womensHealthTitle"/></h2>
+        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.womensHealthTitle"/></h2>
         <hr/>
         <table>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.femalePt"/>:</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.femalePt"/>:</td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.firstPeriod"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.firstPeriod"/>?</td>
                 <td><input type="text" name="firstPeriod" value="<%=props.getProperty("firstPeriod","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.periodFrequency"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.periodFrequency"/>?</td>
                 <td><input type="text" name="monthlyPeriod" value="<%=props.getProperty("monthlyPeriod","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.periodLength"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.periodLength"/>?</td>
                 <td><input type="text" name="periodLength" value="<%=props.getProperty("periodLength","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.periodCramps"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.periodCramps"/>?</td>
                 <td><input type="text" name="severeCramps" value="<%=props.getProperty("severeCramps","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.midcycleBleeding"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.midcycleBleeding"/>?</td>
                 <td><input type="text" name="unusualBleeding" value="<%=props.getProperty("unusualBleeding","")%>"/>
                 </td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.pid"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.pid"/>?</td>
                 <td><input type="text" name="PID" value="<%=props.getProperty("PID","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.ovaryCyst"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.ovaryCyst"/>?</td>
                 <td><input type="text" name="ovarianCyst" value="<%=props.getProperty("ovarianCyst","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.breastCancer"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.breastCancer"/>?</td>
                 <td><input type="text" name="breastCancer" value="<%=props.getProperty("breastCancer","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.breastMass"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.breastMass"/>?</td>
                 <td><input type="text" name="hadBreastLump" value="<%=props.getProperty("hadBreastLump","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.pregnant"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.pregnant"/>?</td>
                 <td><input type="text" name="BeenPregnant" value="<%=props.getProperty("BeenPregnant","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.abortion"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.abortion"/>?</td>
                 <td><input type="text" name="TherapeuticAbortion"
                            value="<%=props.getProperty("TherapeuticAbortion","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.abortionAge"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.abortionAge"/>?</td>
                 <td><input type="text" name="AgeHadAbortion" value="<%=props.getProperty("AgeHadAbortion","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.papTest"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.papTest"/>?</td>
                 <td><input type="text" name="HadPap" value="<%=props.getProperty("HadPap","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.abnormalPap"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.abnormalPap"/>?</td>
                 <td><input type="text" name="AbnormalPap" value="<%=props.getProperty("AbnormalPap","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.lastPap"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.lastPap"/>?</td>
                 <td><input type="text" name="LastPap" value="<%=props.getProperty("LastPap","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.birthControl"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.birthControl"/>?</td>
                 <td><input type="text" name="usedBirthControl" value="<%=props.getProperty("usedBirthControl","")%>"/>
                 </td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.whichBC"/>:</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.whichBC"/>:</td>
             </tr>
             <tr>
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.bc1"/></td>
+                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.bc1"/></td>
                 <td><input type="text" name="birthcontrolUsed1" value="<%=props.getProperty("birthcontrolUsed1","")%>"/>
                 </td>
             </tr>
             <tr>
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.bc2"/></td>
+                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.bc2"/></td>
                 <td><input type="text" name="birthcontrolUsed2" value="<%=props.getProperty("birthcontrolUsed2","")%>"/>
                 </td>
             </tr>
             <tr>
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.bc3"/></td>
+                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.bc3"/></td>
                 <td><input type="text" name="birthcontrolUsed3" value="<%=props.getProperty("birthcontrolUsed3","")%>"/>
                 </td>
             </tr>
             <tr>
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.bc4"/></td>
+                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.bc4"/></td>
                 <td><input type="text" name="birthcontrolUsed4" value="<%=props.getProperty("birthcontrolUsed4","")%>"/>
                 </td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.whichBCNow"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.whichBCNow"/>?</td>
                 <td><input type="text" name="onbirthcontrol" value="<%=props.getProperty("onbirthcontrol","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.bcProblems"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.bcProblems"/>?</td>
                 <td><input type="text" name="problemsBirthControl"
                            value="<%=props.getProperty("problemsBirthControl","")%>"/></td>
             </tr>
             <tr>
-                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.bse"/>?</td>
+                <td class="title" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formIntakeHx.bse"/>?</td>
                 <td><input type="text" name="monthlyBreastSelfExam"
                            value="<%=props.getProperty("monthlyBreastSelfExam","")%>"/></td>
             </tr>

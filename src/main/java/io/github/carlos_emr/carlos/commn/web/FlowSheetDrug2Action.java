@@ -137,7 +137,7 @@ public class FlowSheetDrug2Action extends ActionSupport {
 
         flowSheetDrugDao.persist(cust);
 
-        return "/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + demographicNo + "&template=" + flowsheet;
+        return "/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + demographicNo + "&template=" + flowsheet;
     }
 
     /**
@@ -181,6 +181,6 @@ public class FlowSheetDrug2Action extends ActionSupport {
 
         flowSheetDxDao.persist(cust);
 
-        return "/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + demographicNo + "&template=" + flowsheet;
+        return "/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + demographicNo + "&template=" + flowsheet;
     }
 }

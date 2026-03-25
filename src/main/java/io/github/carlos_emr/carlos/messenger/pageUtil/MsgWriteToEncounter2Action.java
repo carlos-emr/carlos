@@ -155,7 +155,7 @@ public class MsgWriteToEncounter2Action extends ActionSupport {
         // Build redirect URL to encounter module with URI-encoded parameters
         // to prevent malformed URLs from special characters in user/session data
         StringBuilder forward = new StringBuilder(request.getContextPath());
-        forward.append("/oscarEncounter/IncomingEncounter.do");
+        forward.append("/encounter/IncomingEncounter.do");
         forward.append("?providerNo=").append(Encode.forUriComponent(provider));
         forward.append("&appointmentNo=");
         forward.append("&demographicNo=").append(Encode.forUriComponent(demographicNo));

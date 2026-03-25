@@ -87,7 +87,7 @@ public class EctDisplayDecisionSupportAlerts2Action extends EctDisplayAction {
 
             //set lefthand module heading and link
             String winName = "dsalert" + bean.demographicNo;
-            String url = "popupPage(500,950,'" + winName + "','" + request.getContextPath() + "/oscarEncounter/decisionSupport/guidelineAction.do?method=list&provider_no=" + bean.providerNo + "&demographic_no=" + bean.demographicNo + "&parentAjaxId=" + cmd + "'); return false;";
+            String url = "popupPage(500,950,'" + winName + "','" + request.getContextPath() + "/encounter/decisionSupport/guidelineAction.do?method=list&provider_no=" + bean.providerNo + "&demographic_no=" + bean.demographicNo + "&parentAjaxId=" + cmd + "'); return false;";
             Dao.setLeftHeading(getText("global.decisionSupportAlerts"));
             Dao.setLeftURL(url);
 
@@ -172,7 +172,7 @@ public class EctDisplayDecisionSupportAlerts2Action extends EctDisplayAction {
                         NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
                         winName = dsConsequence.getConsequenceType().toString() + bean.demographicNo;
 
-                        url = "popupPage(500,950,'" + winName + "','" + request.getContextPath() + "/oscarEncounter/decisionSupport/guidelineAction.do?method=detail&guidelineId=" + dsGuideline.getId() + "&provider_no=" + bean.providerNo + "&demographic_no=" + bean.demographicNo + "&parentAjaxId=" + cmd + "'); return false;";
+                        url = "popupPage(500,950,'" + winName + "','" + request.getContextPath() + "/encounter/decisionSupport/guidelineAction.do?method=detail&guidelineId=" + dsGuideline.getId() + "&provider_no=" + bean.providerNo + "&demographic_no=" + bean.demographicNo + "&parentAjaxId=" + cmd + "'); return false;";
                         //Date date = (Date)curform.get("formDateAsDate");
                         //String formattedDate = DateUtils.getDate(date,dateFormat,request.getLocale());
                         key = StringUtils.maxLenString(dsConsequence.getText(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES);

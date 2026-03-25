@@ -51,7 +51,7 @@
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 <link rel="stylesheet" type="text/css"
-      href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
+      href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
 <html>
 
     <head>
