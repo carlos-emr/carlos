@@ -752,22 +752,6 @@ CREATE TABLE IF NOT EXISTS document (
 ) ;
 
 --
--- Table structure for table `reportTemplates`
---
-CREATE TABLE IF NOT EXISTS reportTemplates (
-  templateid int(11) NOT NULL auto_increment,
-  templatetitle varchar(80) NOT NULL DEFAULT '',
-  templatedescription text NOT NULL,
-  templatesql text NOT NULL,
-  templatexml text NOT NULL,
-  active tinyint NOT NULL DEFAULT 1,
-  `type` varchar(32) default null,
-  uuid varchar(60),
-  sequence tinyint(1),
-  PRIMARY KEY (templateid)
-);
-
---
 -- Table structure for table `drugs`
 --
 
@@ -6034,6 +6018,7 @@ CREATE TABLE IF NOT EXISTS prescription (
   dates_reprinted text,
   textView text,
   rx_comments text,
+  digital_signature_id INT NULL DEFAULT NULL,
   lastUpdateDate datetime not null,
   PRIMARY KEY  (script_no)
 ) ;
@@ -6355,6 +6340,24 @@ CREATE TABLE IF NOT EXISTS reporttemp (
 ) ;
 
 --
+-- Table structure for table `reportTemplates`
+--
+
+CREATE TABLE IF NOT EXISTS reportTemplates (
+  templateid int(11) NOT NULL auto_increment,
+  templatetitle varchar(80) NOT NULL DEFAULT '',
+  templatedescription text NOT NULL,
+  templatesql text NOT NULL,
+  templatexml text NOT NULL,
+  active tinyint NOT NULL DEFAULT 1,
+  `type` varchar(32) default null,
+  uuid varchar(60),
+  sequence tinyint(1),
+  PRIMARY KEY (templateid)
+);
+
+
+--
 -- Table structure for table `rschedule`
 --
 
@@ -6464,6 +6467,8 @@ CREATE TABLE IF NOT EXISTS security (
   oneIdKey VARCHAR(255),
   oneIdEmail VARCHAR(255),
   delegateOneIdEmail VARCHAR(255),
+  usingMfa BOOL NOT NULL DEFAULT FALSE,
+  mfaSecret VARCHAR(255),
   PRIMARY KEY  (security_no),
   UNIQUE user_name (user_name)
 ) ;
