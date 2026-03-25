@@ -2592,7 +2592,7 @@ insert into `secObjectName` (`objectName`) values ('_admin.auditLogPurge');
 
 INSERT INTO `tickler_category` VALUES (\N, 'To Call In', 'Call this patient in for a follow-up visit', b'1'), (\N, 'Reminder Note', 'Send a reminder note to this patient', b'1'), (\N, 'Follow-up Billing', 'Follow-up Additional Billing', b'1');
 
-insert into `secObjectName` (`objectName`, `description`, `orgapplicable`) values ('_admin.schedule.curprovider_only','allow provider with non-admin role to create schedule templates and assign to themselves', 0);
+insert into `secObjectName` (`objectName`, `description`, `orgapplicable`) values ('_admin.schedule.curprovider_only','non-admin create schedule templates for themselves', 0);
 
 
 INSERT INTO oscar_msg_type VALUES (1,'OSCAR Resident Review', 'OSCAR_REVIEW_TYPE');
