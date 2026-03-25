@@ -526,6 +526,15 @@ function refresh() {
 document.location.reload();
 }
 
+// Listen for refresh requests from billing pages opened in tabs.
+// popupTab() (Oscar.js) sets opener=null for security, so opener.refresh() fails.
+// Producers: billingONSave.jsp, billingDeleteWithoutNo.jsp (ON, BC, CLINICAID).
+// Channel name 'carlos_schedule_refresh' must match across all producers.
+try {
+    var scheduleRefreshChannel = new BroadcastChannel('carlos_schedule_refresh');
+    scheduleRefreshChannel.onmessage = function() { refresh(); };
+} catch(e) { /* BroadcastChannel not supported */ }
+
 function refresh1() {
 var u = self.location.href;
 if(u.lastIndexOf("view=1") > 0) {
