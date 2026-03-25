@@ -72,20 +72,20 @@
     <link rel="stylesheet" href="decisionSupport.css" type="text/css"></link>
 </head>
 <body>
-<div style="font-size: 16px; font-weight: bold;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinelist.youcurrently"/></div>
+<div style="font-size: 16px; font-weight: bold;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.guidelinelist.youcurrently"/></div>
 <c:if test="${not empty demographic_no}">
-    <div style="font-size: 10px;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinelist.demographicno"/> <c:out value="${demographic_no}"/></div>
+    <div style="font-size: 10px;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.guidelinelist.demographicno"/> <c:out value="${demographic_no}"/></div>
 </c:if>
 <br>
 <table class="dsTable">
     <tr>
         <th>Version</th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinelist.title"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinelist.author"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinelist.dateimported"/></th>
+        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.guidelinelist.title"/></th>
+        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.guidelinelist.author"/></th>
+        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.guidelinelist.dateimported"/></th>
         <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarrx.showallergies.status"/></th>
         <c:if test="${not empty demographic_no}">
-            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.guidelinelist.evaluated"/></th>
+            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.guidelinelist.evaluated"/></th>
         </c:if>
 
     </tr>
@@ -99,13 +99,13 @@
             <td>
                 <c:choose>
                     <c:when test="${guideline.status == 'A'}">
-                        <span class="good"><fmt:message key="oscarencounter.guidelinelist.active"/></span>
+                        <span class="good"><fmt:message key="encounter.guidelinelist.active"/></span>
                     </c:when>
                     <c:when test="${guideline.status == 'F'}">
                     <span class="bad">
-                        <fmt:message key="oscarencounter.guidelinelist.failedon"/>
+                        <fmt:message key="encounter.guidelinelist.failedon"/>
                         <fmt:formatDate value="${guideline.dateDecomissioned}" pattern="MMM d, yyyy"/>
-                        <fmt:message key="oscarencounter.guidelinelist.invalid"/>
+                        <fmt:message key="encounter.guidelinelist.invalid"/>
                     </span>
                     </c:when>
                 </c:choose>
@@ -117,14 +117,14 @@
                 <td>
                     <c:choose>
                         <c:when test="${passed}">
-                            <span class="good"><fmt:message key="oscarencounter.guidelinelist.passed"/></span>
+                            <span class="good"><fmt:message key="encounter.guidelinelist.passed"/></span>
                         </c:when>
                         <c:otherwise>
-                            <span class="bad"><fmt:message key="oscarencounter.guidelinelist.failed"/></span>
+                            <span class="bad"><fmt:message key="encounter.guidelinelist.failed"/></span>
                         </c:otherwise>
                     </c:choose>
                     - <a href="${pageContext.request.contextPath}/encounter/decisionSupport/guidelineAction.do?method=detail&guidelineId=${guideline.id}&provider_no=${provider_no}&demographic_no=${demographic_no}">
-                    <fmt:message key="oscarencounter.guidelinelist.moreinfo"/>
+                    <fmt:message key="encounter.guidelinelist.moreinfo"/>
                 </a>
                 </td>
             </c:if>

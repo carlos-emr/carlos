@@ -534,10 +534,10 @@ div.recommendations ul{
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
     <% if (recList.size() > 0){ %>
     <p><a class="DoNotPrint" href="javascript: function myFunction() {return false; }"  onclick="javascript:createAddAll(<%=demographic_no%>, '<%= URLEncoder.encode(temp,"UTF-8") %>', <%=Math.abs( "ADDTHEMALL".hashCode() ) %>)" TITLE="Add all measurements.">
-	    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.templateflowsheet.addall"/>
+	    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.addall"/>
 	</a> </p>
     <p id="add_overdue"><a class="DoNotPrint" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'AddMeasurementData.jsp?demographic_no=<%=demographic_no%><%=recListBuffer.toString()%>&amp;template=<%=temp%>','addMeasurementData<%=Math.abs( "ADDTHEMALL".hashCode() ) %>')" TITLE="Add all overdue measurements.">
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.templateflowsheet.addoverdue"/>
+        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.addoverdue"/>
     </a></p>
     <p id="add_custom" style="display:none"><a class="DoNotPrint" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'AddMeasurementData.jsp?demographic_no=<%=demographic_no%>&amp;measurement=WT&amp;measurement=HT&amp;measurement=BMI&amp;template=<%=temp%>','addMeasurementData<%=Math.abs( "ADDTHEMALL".hashCode() ) %>')" TITLE="Add HT & WT to calculate BMI.">
         Add BMI
@@ -547,7 +547,7 @@ div.recommendations ul{
     <!-- only show disease registry and prescriptions for flowsheets which aren't medical in nature -->
     <% if (mFlowsheet.isMedical()) {%>
     <div class="leftBox">
-        <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.templateflowsheet.currentpatientdxlist"/>  <a class="DoNotPrint"  href="javascript:void(0)" onclick="toggle('dxFullListing'); return false;" style="font-size:x-small;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.templateflowsheet.showhide"/></a></h3>
+        <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.currentpatientdxlist"/>  <a class="DoNotPrint"  href="javascript:void(0)" onclick="toggle('dxFullListing'); return false;" style="font-size:x-small;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.showhide"/></a></h3>
         <div class="wrapper" id="dxFullListing"  >
             <ul>
             <%
@@ -592,7 +592,7 @@ div.recommendations ul{
 
     <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r"  >
         <div class="leftBox">
-            <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.templateflowsheet.currentpatientrxlist"/>  <a class="DoNotPrint" href="javascript:void(0)" onclick="toggle('rxFullListing'); return false;" style="font-size:x-small;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.templateflowsheet.showhide"/></a></h3>
+            <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.currentpatientrxlist"/>  <a class="DoNotPrint" href="javascript:void(0)" onclick="toggle('rxFullListing'); return false;" style="font-size:x-small;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.showhide"/></a></h3>
             <div class="wrapper" id="rxFullListing"  >
 
                 <%
@@ -633,7 +633,7 @@ div.recommendations ul{
 
 
          <div class="leftBox">
-            <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.templateflowsheet.currentpatientallergylist"/>  <a class="DoNotPrint" href="javascript:void(0)" onclick="toggle('allergFullListing'); return false;" style="font-size:x-small;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.templateflowsheet.showhide"/></a></h3>
+            <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.currentpatientallergylist"/>  <a class="DoNotPrint" href="javascript:void(0)" onclick="toggle('allergFullListing'); return false;" style="font-size:x-small;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.showhide"/></a></h3>
             <div class="wrapper" id="allergFullListing"  >
 
                 <%
@@ -660,7 +660,7 @@ div.recommendations ul{
     </security:oscarSec>
     <% } %>
 <div id="print_box">
-   <input type="button" class="DoNotPrint btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.templateflowsheet.print"/>" onclick="javascript:window.print()">
+   <input type="button" class="DoNotPrint btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.print"/>" onclick="javascript:window.print()">
     <a class="btn btn-secondary" href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>">Custom Print</a>
 &nbsp;
 
@@ -671,7 +671,7 @@ div.recommendations ul{
 <% if (warnings.size() > 0 || recomendations.size() > 0  || dsProblems) { %>
 <div class="recommendations">
     <span style="font-size:larger;"><%=flowSheet%> Recommendations</span>
-    <a href="javascript:void(0)" onclick="toggle('recomList'); return false;" style="font-size:x-small;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.templateflowsheet.showhide"/></a>
+    <a href="javascript:void(0)" onclick="toggle('recomList'); return false;" style="font-size:x-small;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.showhide"/></a>
     <ul id="recomList" style="display:none;">
         <% for (String warn : warnings){ %>
         <li style="color: red;"><%=warn%></li>

@@ -51,7 +51,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="OscarEncounter.oscarConsultationRequest.CalendarPopUp.title"/></title>
+        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="Encounter.oscarConsultationRequest.CalendarPopUp.title"/></title>
         <script language="JavaScript">
             <!--
 
