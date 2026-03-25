@@ -1690,7 +1690,8 @@ CREATE TABLE IF NOT EXISTS DigitalSignature
 	providerNo varchar(6) not null, foreign key (providerNo) references provider(provider_no),
 	demographicId int not null, foreign key (demographicId) references demographic(demographic_no),
 	dateSigned datetime not null,
-	signatureImage mediumblob not null
+	signatureImage mediumblob not null,
+  ModuleType ENUM('CONSULTATION', 'E_FORM', 'PRESCRIPTION') null
 );
 
 CREATE TABLE IF NOT EXISTS IntegratorConsent
