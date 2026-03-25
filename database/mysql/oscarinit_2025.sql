@@ -529,6 +529,12 @@ CREATE TABLE IF NOT EXISTS `phr_documents` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- some last minute updates never properly merged
+--
+UPDATE relationships SET deleted = 0 WHERE deleted IS NULL;
+UPDATE `preventions` SET prevention_type = "RSV" WHERE `prevention_type` = "RSVPreF3";
+
+--
 -- Added constraints
 --
 
