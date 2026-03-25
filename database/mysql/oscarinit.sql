@@ -8698,7 +8698,7 @@ CREATE TABLE IF NOT EXISTS `program` (
   `siteSpecificField` varchar(255),
 	emailNotificationAddressesCsv varchar(255),
 	lastReferralNotification datetime,
-  `enableOCAN` tinyint(1) not null,
+  `enableOCAN` tinyint(1) not null DEFAULT 0,
   KEY `program_ikey` (`facilityId`,`lastUpdateDate`)
 );
 
