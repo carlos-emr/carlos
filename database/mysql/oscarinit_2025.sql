@@ -528,4 +528,65 @@ CREATE TABLE IF NOT EXISTS `phr_documents` (
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+--
+-- Added constraints
+--
+
+ALTER TABLE `admission`
+ADD CONSTRAINT `FK9uhg2nwhjhwrpr4nh21ucexyg`
+FOREIGN KEY (`clientstatus_id`) REFERENCES `program_clientstatus` (`clientstatus_id`);
+
+
+ALTER TABLE `casemgmt_issue`
+ADD CONSTRAINT `FK9eqe58ou1bf43kamxcwh8dquh`
+FOREIGN KEY (`issue_id`) REFERENCES `issue` (`issue_id`);
+
+
+ALTER TABLE `casemgmt_issue_notes`
+ADD CONSTRAINT `FKjaxhqj7ritpbh2p9ov3nk54t2` 
+FOREIGN KEY (`id`) REFERENCES `casemgmt_issue` (`id`),
+ADD CONSTRAINT `FKstesao78srug1a650gu46i33o` 
+FOREIGN KEY (`note_id`) REFERENCES `casemgmt_note` (`note_id`);
+
+
+ALTER TABLE `casemgmt_note_ext`
+ADD CONSTRAINT `FKmgvgpkoky8rte7i7igeawga0y` 
+FOREIGN KEY (`note_id`) REFERENCES `casemgmt_note` (`note_id`);
+
+
+ALTER TABLE `default_role_access`
+ADD KEY `FKin3oxi92mkmuf0we80ivhcd8a` (`role_id`),
+ADD KEY `FKhs2yix1qvq9oqmbwsj2w2xgmu` (`access_id`),
+ADD CONSTRAINT `FKhs2yix1qvq9oqmbwsj2w2xgmu` 
+FOREIGN KEY (`access_id`) REFERENCES `access_type` (`access_id`),
+ADD CONSTRAINT `FKin3oxi92mkmuf0we80ivhcd8a` 
+FOREIGN KEY (`role_id`) REFERENCES `secRole` (`role_no`);
+
+
+ALTER TABLE `demographic_merged`
+ADD CONSTRAINT `FKqev6qw9c8jc2f3w40p524h5xd` 
+FOREIGN KEY (`merged_to`) REFERENCES `demographic` (`demographic_no`);
+
+
+ALTER TABLE `program_access_roles`
+ADD CONSTRAINT `FKmwoclnncdj2il9ular8rro7nk` 
+FOREIGN KEY (`id`) REFERENCES `program_access` (`id`);
+
+
+ALTER TABLE `program_functional_user`
+ADD CONSTRAINT `FK288fkfagl2hr1bns9b3qbf8fw` 
+FOREIGN KEY (`user_type_id`) REFERENCES `functional_user_type` (`id`);
+
+
+ALTER TABLE `program_provider`
+ADD CONSTRAINT `FKfg27qvr98onqjiqn6wi3r5obw` 
+FOREIGN KEY (`provider_no`) REFERENCES `provider` (`provider_no`);
+
+
+ALTER TABLE `program_provider_team`
+ADD CONSTRAINT `FKdnvemm0tthasq3eahbiuuefh` 
+FOREIGN KEY (`elt`) REFERENCES `program_team` (`team_id`),
+ADD CONSTRAINT `FKt1tgve2mege16gusn7prwq552` FOREIGN KEY (`id`) 
+REFERENCES `program_provider` (`id`);
+
 
