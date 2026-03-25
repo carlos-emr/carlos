@@ -35,7 +35,7 @@ Implements Font Awesome 6.7.2 Free infrastructure to unblock icon migration work
 **Other Modules (7 files):**
 - administration/index.jsp, appointment/editappointment.jsp
 - email/emailCompose.jsp, hospitalReportManager/inbox.jsp
-- oscarEncounter/oscarMeasurements/Measurements.jsp
+- encounter/oscarMeasurements/Measurements.jsp
 - report/PreventionReport.jsp, share/CalendarPopup.jsp, web/inboxhub/Inboxhub.jsp
 
 ### Testing & Verification

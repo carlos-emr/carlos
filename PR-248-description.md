@@ -114,7 +114,7 @@ Completes the Font Awesome 6.x migration by updating all icon class syntax from 
 - web/inboxhub/InboxhubForm.jsp
 - tickler/ticklerAddWidget.jsp, tickler/ticklerMain.jsp
 
-### oscarEncounter/Measurements (4 files)
+### encounter/Measurements (4 files)
 - Measurements.jsp, TemplateFlowSheetPrint.jsp
 - adminFlowsheet/EditFlowsheet.jsp, adminFlowsheet/UpdateFlowsheet.jsp
 
@@ -196,7 +196,7 @@ Documentation for the prerequisite Font Awesome 6.x infrastructure PR.
 - [ ] Dashboard widgets (arrows-rotate, filter, folder-open)
 - [ ] Drilldown displays (circle-arrow-left, download, info-circle)
 
-**oscarEncounter/Measurements:**
+**encounter/Measurements:**
 - [ ] Flowsheet navigation (backward, arrow-up)
 - [ ] Measurement edit (pencil, trash, lock, unlock)
 - [ ] Visibility toggles (eye, eye-slash)
