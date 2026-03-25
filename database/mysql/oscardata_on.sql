@@ -13666,6 +13666,7 @@ INSERT INTO encounterForm (form_name, form_value) VALUES ('Antenatal Lab Req','.
 insert into encounterForm (form_name,form_value,form_table,hidden) Values('Lab Req 2010','../form/formlabreq10.jsp?demographic_no=','formLabReq10',0);
 insert into encounterForm values ('Position Hazard', '../form/formPositionHazard.jsp?demographic_no=', 'formPositionHazard', '0');
 
+INSERT INTO billing_payment_type (payment_type) VALUES ('ALTERNATE');
 
 insert into billing_on_errorCode values ('ARF', 'Technical service code requires referring physician');
 insert into billing_on_errorCode values ('HCC', 'Not complex/vulnerable');
