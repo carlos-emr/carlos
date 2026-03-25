@@ -8692,7 +8692,7 @@ CREATE TABLE IF NOT EXISTS `program` (
   `capacity_funding` int(10),
   `capacity_space` int(10),
   `lastUpdateUser` varchar(6),
-  lastUpdateDate datetime not null,
+  lastUpdateDate datetime not null DEFAULT CURRENT_TIMESTAMP,
   `enableEncounterTime` tinyint(1),
   `enableEncounterTransportationTime` tinyint(1),
   `siteSpecificField` varchar(255),
@@ -9395,7 +9395,7 @@ CREATE TABLE IF NOT EXISTS  documentDescriptionTemplate (
   description varchar(255) NOT NULL,
   descriptionShortcut varchar(20) NOT NULL,
   provider_no varchar(6),
-  lastUpdated timestamp NOT NULL,
+  lastUpdated timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
 );
 
