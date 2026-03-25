@@ -1,1 +1,1 @@
-ALTER TABLE emailLog ADD COLUMN internalComment BLOB DEFAULT '' AFTER chartDisplayOption;
+ALTER TABLE emailLog ADD COLUMN IF NOT EXISTS internalComment BLOB DEFAULT '' AFTER chartDisplayOption;
