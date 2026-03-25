@@ -612,6 +612,67 @@ CREATE TABLE IF NOT EXISTS demographicaccessory (
   PRIMARY KEY  (demographic_no)
 ) ;
 
+CREATE TABLE IF NOT EXISTS demographicArchive (
+  id bigint(20) auto_increment primary key,
+  demographic_no int(10),
+  title varchar(10),
+  last_name varchar(30),
+  first_name varchar(30),
+  address varchar(60),
+  city varchar(20),
+  province varchar(20),
+  postal varchar(9),
+  phone varchar(20),
+  phone2 varchar(20),
+  email varchar(100),
+  myOscarUserName varchar(255),
+  year_of_birth varchar(4),
+  month_of_birth char(2),
+  date_of_birth char(2),
+  hin varchar(20),
+  ver char(3),
+  roster_status varchar(20),
+  roster_date date,
+  roster_termination_date date,
+  roster_termination_reason varchar(2),
+  `roster_enrolled_to` varchar(20) DEFAULT NULL,
+  patient_status varchar(20),
+  patient_status_date date,
+  date_joined date,
+  chart_no varchar(10),
+  official_lang varchar(60),
+  spoken_lang varchar(60),
+  provider_no varchar(250),
+  sex char(1),
+  end_date date,
+  eff_date date,
+  pcn_indicator varchar(20),
+  hc_type varchar(20),
+  hc_renew_date date,
+  family_doctor varchar(80),
+  alias varchar(70),
+  previousAddress varchar(255),
+  children varchar(255),
+  sourceOfIncome varchar(255),
+  citizenship varchar(40),
+  sin varchar(15),
+  country_of_origin char(4),
+  newsletter varchar(32),
+  anonymous varchar(32),
+  lastUpdateUser varchar(6),
+  lastUpdateDate date,
+  `middleNames` varchar(100) DEFAULT NULL,
+  `residentialAddress` varchar(60) DEFAULT NULL,
+  `residentialCity` varchar(50) DEFAULT NULL,
+  `residentialProvince` varchar(20) DEFAULT NULL,
+  `residentialPostal` varchar(9) DEFAULT NULL,
+  `pref_name` varchar(30) NOT NULL DEFAULT '',
+  genderId int(11) null,
+  pronoun varchar(25) null,
+  pronounId int null,
+  gender varchar(25) null  
+);
+
 --
 -- Table structure for table `demographiccust`
 --
@@ -6663,6 +6724,7 @@ CREATE TABLE IF NOT EXISTS pharmacyInfo (
   `addDate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `status` char(1) DEFAULT '1',
   `serviceLocationIdentifier` varchar(255) DEFAULT NULL,
+  `uid` int(10) NOT NULL FIRST,
   PRIMARY KEY (`recordID`)
 );
 
@@ -6679,9 +6741,6 @@ CREATE TABLE IF NOT EXISTS demographicPharmacy (
    preferredOrder int(10),
    consentToContact tinyint(1)
 ) ;
-
-
-
 
 
 CREATE TABLE IF NOT EXISTS `log` (
@@ -7078,6 +7137,91 @@ CREATE TABLE IF NOT EXISTS demographic_merged(
     INDEX `dem_merged_merge` (merged_to, deleted)
 );
 
+-- Stores EmailLog and EmailConfig data
+CREATE TABLE IF NOT EXISTS emailConfig (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    emailType VARCHAR(20),
+    emailProvider VARCHAR(20),
+    active BOOLEAN DEFAULT FALSE,  -- Set default to false
+    senderFirstName VARCHAR(50),
+    senderLastName VARCHAR(50),
+    senderEmail VARCHAR(255),
+    configDetails VARCHAR(1000)
+);
+CREATE TABLE IF NOT EXISTS emailLog (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    configId BIGINT,
+    fromEmail VARCHAR(255),
+    toEmail VARCHAR(255),
+    subject VARCHAR(1024),
+    body BLOB,
+    status VARCHAR(20),
+    errorMessage VARCHAR(1000),
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    encryptedMessage BLOB,
+    password VARCHAR(50),
+    passwordClue VARCHAR(1024),
+    isEncrypted BOOLEAN DEFAULT FALSE,  -- Set default to false
+    isAttachmentEncrypted BOOLEAN DEFAULT FALSE,  -- Set default to false
+    chartDisplayOption VARCHAR(20),
+	internalComment BLOB DEFAULT '',
+    transactionType VARCHAR(20),
+    demographicNo INT,
+    providerNo varchar(6),
+    additionalParams VARCHAR(1000),
+    FOREIGN KEY (configId) REFERENCES emailConfig (id)
+);
+CREATE TABLE IF NOT EXISTS emailAttachment (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    logId BIGINT,
+    fileName VARCHAR(100),
+    filePath VARCHAR(500),
+    documentType VARCHAR(20),
+    documentId INT,
+    FOREIGN KEY (logId) REFERENCES emailLog (id)
+);
+
+
+CREATE TABLE IF NOT EXISTS `faxes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `filename` varchar(255),
+  `faxline` varchar(11),
+  `destination` varchar(11),
+  `recipient` varchar(255),
+  `status` varchar(32),
+  `statusString` varchar(255),
+  `document` text,
+  `numPages` int(11),
+  `stamp` datetime,
+  `user` varchar(255),
+  `jobId` int(11),
+  `oscarUser` varchar(6),
+  `demographicNo` int(11),
+  sender varchar(255),
+  PRIMARY KEY (`id`),
+  KEY `faxline` (`faxline`),
+  KEY `faxstatus` (`status`)
+); 
+
+CREATE TABLE IF NOT EXISTS `fax_config` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `url` varchar(255) DEFAULT '',
+  `siteUser` varchar(255) DEFAULT '',
+  `passwd` varchar(255) DEFAULT '',
+  `download` tinyint(1) DEFAULT 1,
+  `providerType` varchar(25) DEFAULT 'MIDDLEWARE',
+  `gatewayName` varchar(255) DEFAULT '',
+  `faxUser` varchar(255) DEFAULT '',
+  `faxPasswd` varchar(255) DEFAULT '',
+  `queue` varchar(255) DEFAULT 0,
+  `active` tinyint(1) DEFAULT false,
+  `faxNumber` varchar(10) DEFAULT '',
+  `faxReply` varchar(10) DEFAULT '',
+  `senderEmail` varchar(255) DEFAULT '',
+  `accountName` varchar(55) DEFAULT '',
+  PRIMARY KEY (`id`)
+);
+
 --
 -- New audit table stores hashes of casemanagement notes
 --
@@ -7090,7 +7234,6 @@ CREATE TABLE IF NOT EXISTS hash_audit (
     PRIMARY KEY (pkid)
 ) ;
 
-
 --
 -- table for 3rd bill
 --
@@ -7100,6 +7243,7 @@ CREATE TABLE IF NOT EXISTS `gstControl` (
    id int auto_increment,
    PRIMARY KEY  (id)
 );
+
 
 --
 -- provider -- bill center table
@@ -7609,6 +7753,8 @@ CREATE TABLE IF NOT EXISTS lst_orgcd
   activeyn     VARCHAR(1),
   orderbyindex int,
   codetree      VARCHAR(80),
+  `fullCode` VARCHAR(80) DEFAULT NULL,
+  `codeCsv` VARCHAR(80) DEFAULT NULL,
   primary key (code),
   INDEX `IDX_ORGCD_CODE` (codetree)
 );
@@ -7816,66 +7962,6 @@ CREATE TABLE IF NOT EXISTS `partial_date` (
 	format varchar(10)
 );
 
-CREATE TABLE IF NOT EXISTS demographicArchive (
-  id bigint(20) auto_increment primary key,
-  demographic_no int(10),
-  title varchar(10),
-  last_name varchar(30),
-  first_name varchar(30),
-  address varchar(60),
-  city varchar(20),
-  province varchar(20),
-  postal varchar(9),
-  phone varchar(20),
-  phone2 varchar(20),
-  email varchar(100),
-  myOscarUserName varchar(1),
-  year_of_birth varchar(4),
-  month_of_birth char(2),
-  date_of_birth char(2),
-  hin varchar(20),
-  ver char(3),
-  roster_status varchar(20),
-  roster_date date,
-  roster_termination_date date,
-  roster_termination_reason varchar(2),
-  `roster_enrolled_to` varchar(20) DEFAULT NULL,
-  patient_status varchar(20),
-  patient_status_date date,
-  date_joined date,
-  chart_no varchar(10),
-  official_lang varchar(60),
-  spoken_lang varchar(60),
-  provider_no varchar(250),
-  sex char(1),
-  end_date date,
-  eff_date date,
-  pcn_indicator varchar(20),
-  hc_type varchar(20),
-  hc_renew_date date,
-  family_doctor varchar(80),
-  alias varchar(70),
-  previousAddress varchar(255),
-  children varchar(255),
-  sourceOfIncome varchar(255),
-  citizenship varchar(40),
-  sin varchar(15),
-  country_of_origin char(4),
-  newsletter varchar(32),
-  anonymous varchar(32),
-  lastUpdateUser varchar(6),
-  lastUpdateDate date,
-  `middleNames` varchar(100) DEFAULT NULL,
-  `residentialAddress` varchar(60) DEFAULT NULL,
-  `residentialCity` varchar(50) DEFAULT NULL,
-  `residentialProvince` varchar(20) DEFAULT NULL,
-  `residentialPostal` varchar(9) DEFAULT NULL,
-  `pref_name` varchar(30) NOT NULL DEFAULT '',
-  genderId int(11) null,
-  pronoun varchar(25) null,
-  pronounId int null,
-  gender varchar(25) null  
-);
 
 CREATE TABLE IF NOT EXISTS providerArchive (
   id bigint(20) auto_increment primary key,
@@ -9781,48 +9867,6 @@ CREATE TABLE IF NOT EXISTS ProductLocation (
   PRIMARY KEY  (`id`)
 );
 
-CREATE TABLE IF NOT EXISTS `faxes` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `filename` varchar(255),
-  `faxline` varchar(11),
-  `destination` varchar(11),
-  `recipient` varchar(255),
-  `status` varchar(32),
-  `statusString` varchar(255),
-  `document` text,
-  `numPages` int(11),
-  `stamp` datetime,
-  `user` varchar(255),
-  `jobId` int(11),
-  `oscarUser` varchar(6),
-  `demographicNo` int(11),
-  sender varchar(255),
-  PRIMARY KEY (`id`),
-  KEY `faxline` (`faxline`),
-  KEY `faxstatus` (`status`)
-); 
-
-CREATE TABLE IF NOT EXISTS `fax_config` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `url` varchar(255) DEFAULT '',
-  `siteUser` varchar(255) DEFAULT '',
-  `passwd` varchar(255) DEFAULT '',
-  `gatewayName` varchar(255) DEFAULT '',
-  `faxUser` varchar(255) DEFAULT '',
-  `faxPasswd` varchar(255) DEFAULT '',
-  `queue` varchar(255) DEFAULT 0,
-  `active` tinyint(1) DEFAULT false,
-  `faxNumber` varchar(10) DEFAULT '',
-  `faxReply` varchar(10) DEFAULT '',
-  `senderEmail` varchar(255) DEFAULT '',
-  `accountName` varchar(55) DEFAULT '',
-  `providerType` varchar(25) DEFAULT 'MIDDLEWARE',
-  `download` tinyint(1) DEFAULT 0,
-  PRIMARY KEY (`id`)
-);
-
-
-
 CREATE TABLE IF NOT EXISTS DrugProductTemplate (
         id int NOT NULL auto_increment,
         name varchar(255),
@@ -10787,50 +10831,6 @@ CREATE TABLE IF NOT EXISTS erefer_attachment_data (
     lab_id INT,
     lab_type VARCHAR(20),
     PRIMARY KEY(erefer_attachment_id, lab_id, lab_type)
-);
-
-
--- Stores EmailLog and EmailConfig data
-CREATE TABLE IF NOT EXISTS emailConfig (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    emailType VARCHAR(20),
-    emailProvider VARCHAR(20),
-    active BOOLEAN DEFAULT FALSE,  -- Set default to false
-    senderFirstName VARCHAR(50),
-    senderLastName VARCHAR(50),
-    senderEmail VARCHAR(255),
-    configDetails VARCHAR(1000)
-);
-CREATE TABLE IF NOT EXISTS emailLog (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    configId BIGINT,
-    fromEmail VARCHAR(255),
-    toEmail VARCHAR(255),
-    subject VARCHAR(1024),
-    body BLOB,
-    status VARCHAR(20),
-    errorMessage VARCHAR(1000),
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-    encryptedMessage BLOB,
-    password VARCHAR(50),
-    passwordClue VARCHAR(1024),
-    isEncrypted BOOLEAN DEFAULT FALSE,  -- Set default to false
-    isAttachmentEncrypted BOOLEAN DEFAULT FALSE,  -- Set default to false
-    chartDisplayOption VARCHAR(20),
-    transactionType VARCHAR(20),
-    demographicNo INT,
-    providerNo varchar(6),
-    additionalParams VARCHAR(1000),
-    FOREIGN KEY (configId) REFERENCES emailConfig (id)
-);
-CREATE TABLE IF NOT EXISTS emailAttachment (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    logId BIGINT,
-    fileName VARCHAR(100),
-    filePath VARCHAR(500),
-    documentType VARCHAR(20),
-    documentId INT,
-    FOREIGN KEY (logId) REFERENCES emailLog (id)
 );
 
 CREATE TABLE IF NOT EXISTS specialty (
