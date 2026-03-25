@@ -8675,7 +8675,7 @@ CREATE TABLE IF NOT EXISTS `program` (
   `manOrWoman` varchar(6),
   `transgender`  tinyint(1) not null,
   `firstNation`  tinyint(1) not null,
-  `bedProgramAffiliated` tinyint(1) not null,
+  `bedProgramAffiliated` tinyint(1) not null DEFAULT 0,
   `alcohol` tinyint(1) not null,
   `abstinenceSupport` varchar(20),
   `physicalHealth` tinyint(1) not null,
