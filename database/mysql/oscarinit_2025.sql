@@ -616,10 +616,11 @@ MODIFY COLUMN `faxReply` varchar(10) DEFAULT '' AFTER `gatewayName`;
 -- Alter table structure for table `fax_config`, modified table engine, charset and collate
 --
 
-ALTER TABLE `formRourke2020`
-ENGINE=InnoDB,
-DEFAULT CHARSET=utf8,
-COLLATE=utf8_general_ci;
+-- the following is not supported in strict mode
+-- ALTER TABLE `formRourke2020`
+-- ENGINE=InnoDB,
+-- DEFAULT CHARSET=utf8,
+-- COLLATE=utf8_general_ci;
 
 --
 -- Alter table structure for table `lst_orgcd`, added fullCode and codeCsv
