@@ -71,5 +71,5 @@ $mysql_cmd < oscarinit_2025.sql
 echo 'all done!'
 echo 'the default user is carlosdoc'
 echo 'password carlos2026'
-echo 'pin 2026'
+echo 'pin 1117'
 echo 'For sec reasons these credentials are set to expire in a month!'
