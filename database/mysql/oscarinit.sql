@@ -9811,6 +9811,7 @@ CREATE TABLE IF NOT EXISTS `fax_config` (
   `faxReply` varchar(10) DEFAULT '',
   `senderEmail` varchar(255) DEFAULT '',
   `accountName` varchar(55) DEFAULT '',
+  `providerType` varchar(25) DEFAULT 'MIDDLEWARE',
   `download` tinyint(1) DEFAULT 0,
   PRIMARY KEY (`id`)
 );
