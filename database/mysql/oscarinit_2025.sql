@@ -695,7 +695,7 @@ ALTER TABLE prescription ADD COLUMN digital_signature_id INT NULL DEFAULT NULL;
 --
 -- Alter table structure for table sec, added usingMfa and mfaSecret
 -- 
-ALTER TABLE security ADD usingMfa BOOL NOT NULL;
+ALTER TABLE security ADD usingMfa BOOL NOT NULL DEFAULT FALSE;
 ALTER TABLE security ADD mfaSecret VARCHAR(255);
 
 --
