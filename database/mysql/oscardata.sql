@@ -525,7 +525,7 @@ INSERT INTO encountertemplate VALUES ('VENEREAL WARTS (COND','0001-01-01 00:00:0
 -- Dumping data for table 'groups_tbl'
 --
 
-INSERT INTO groups_tbl VALUES (17,0,'doc');
+-- INSERT INTO groups_tbl VALUES (17,0,'doc');
 
 --
 -- Dumping data for table 'ichppccode'
