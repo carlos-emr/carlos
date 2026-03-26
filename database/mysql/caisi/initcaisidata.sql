@@ -254,6 +254,10 @@ update program set defaultServiceRestrictionDays = 0 where defaultServiceRestric
 update program set enableEncounterTime=0;
 update program set enableEncounterTransportationTime=0;
 
+-- Grant carlosdoc (provider_no=999998) access to all default programs as 'doctor' (caisi_role.id=1)
+-- Without this, the program domain check blocks eChart access when patients have CAISI admissions
+INSERT INTO `program_provider` (`program_id`, `provider_no`, `role_id`, `team_id`)
+SELECT id, '999998', 1, NULL FROM `program` WHERE id BETWEEN 10001 AND 10033;
 
 -- DEFAULT BED TYPE
 INSERT INTO `bed_type` VALUES (1, 'N/A', 1);
