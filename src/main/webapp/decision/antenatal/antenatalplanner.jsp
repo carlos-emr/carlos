@@ -45,7 +45,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Desaprisk" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DesapriskDao" %>
-<%@ page import="io.github.carlos_emr.carlos.db.DBHandler" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%
     DesapriskDao desapriskDao = SpringUtils.getBean(DesapriskDao.class);
@@ -97,31 +96,8 @@
         }
 
 
-        //get the risk data from formAR1
+        // formONAR table removed (deprecated 2026-03-25); risk data from ONAR form no longer available
         String finalEDB = null, wt = null, ht = null;
-
-        ResultSet rsdemo = null;
-        if (!form_no.equals("0")) {
-            //we don't have forms converted at this time
-            rsdemo = DBHandler.GetSQL("select * from formONAR where ID = " + form_no);
-
-            ResultSetMetaData resultsetmetadata = rsdemo.getMetaData();
-            while (rsdemo.next()) {
-                finalEDB = rsdemo.getString("c_finalEDB");
-                wt = rsdemo.getString("pg1_wt");
-                ht = rsdemo.getString("pg1_ht");
-                for (int k = 1; k <= resultsetmetadata.getColumnCount(); k++) {
-                    //String name = resultsetmetadata.getColumnName(k);
-                    //String value = null;
-                    if (resultsetmetadata.getColumnTypeName(k).equalsIgnoreCase("TINY")) {
-                        if (rsdemo.getInt(k) == 1)
-                            riskDataBean.setProperty(resultsetmetadata.getColumnName(k), "checked"); //"55", "risk_cinca"
-
-    %>
-    <input type="hidden" name="<%=resultsetmetadata.getColumnName(k)%>" value="checked">
-    <% }
-    }
-    }
     }
         //get the risk data from table desaprisk for other risk factors
         Desaprisk darp = desapriskDao.search(Integer.parseInt(form_no), Integer.parseInt(demographic_no));
