@@ -7164,7 +7164,7 @@ CREATE TABLE IF NOT EXISTS emailLog (
     isEncrypted BOOLEAN DEFAULT FALSE,  -- Set default to false
     isAttachmentEncrypted BOOLEAN DEFAULT FALSE,  -- Set default to false
     chartDisplayOption VARCHAR(20),
-	internalComment BLOB DEFAULT '',
+    internalComment BLOB,
     transactionType VARCHAR(20),
     demographicNo INT,
     providerNo varchar(6),
