@@ -6724,7 +6724,7 @@ CREATE TABLE IF NOT EXISTS pharmacyInfo (
   `addDate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `status` char(1) DEFAULT '1',
   `serviceLocationIdentifier` varchar(255) DEFAULT NULL,
-  `uid` int(10) NOT NULL FIRST,
+  `uid` int(10) NOT NULL,
   PRIMARY KEY (`recordID`)
 );
 
