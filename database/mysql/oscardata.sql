@@ -1640,7 +1640,7 @@ insert into `secObjPrivilege` values('doctor','_admin.lookupFieldEditor','o',0,9
 insert into `secObjPrivilege` values('doctor','_admin.issueEditor','o',0,999998);
 insert into `secObjPrivilege` values('doctor','_admin.caisiRoles','o',0,999998);
 insert into `secObjPrivilege` values('doctor','_admin.userCreatedForms','o',0,999998);
-insert into `secObjPrivilege` values('doctor','_admin.flowsheet','r',1,'999998');
+insert into `secObjPrivilege` values('doctor','_admin.flowsheet','r',0,'999998');
 
 insert into `secObjPrivilege` values('doctor','_pmm.clientSearch','x',0,999998);
 insert into `secObjPrivilege` values('doctor','_pmm.newClient','x',0,999998);
