@@ -297,13 +297,13 @@ INSERT INTO encounterForm VALUES ('Annual V2','../form/formannualV2.jsp?demograp
 INSERT INTO encounterForm VALUES ('ALPHA','../form/formalpha.jsp?demographic_no=','formAlpha', '0');
 INSERT INTO encounterForm VALUES ('Rourke','../form/formrourke.jsp?demographic_no=','formRourke', '0');
 INSERT INTO encounterForm VALUES ('Rourke2006','../form/formrourke2006.jsp?demographic_no=','formRourke2006', '0');
-INSERT INTO encounterForm VALUES ('T2Diabetes','../form/formtype2diabete.jsp?demographic_no=','formType2Diabetes', '0');
+
 INSERT INTO encounterForm VALUES ('Mental Health','../form/formmentalhealth.jsp?demographic_no=','formMentalHealth', '0');
 INSERT INTO encounterForm VALUES ('PeriMenopausal','../form/formperimenopausal.jsp?demographic_no=','formPeriMenopausal', '0');
 INSERT INTO encounterForm VALUES ('Lab Req','../form/formlabreq.jsp?demographic_no=','formLabReq', '0');
 INSERT INTO encounterForm VALUES ('MMSE','../form/formmmse.jsp?demographic_no=','formMMSE', '0');
 INSERT INTO encounterForm VALUES ('Pall. Care','../form/formpalliativecare.jsp?demographic_no=','formPalliativeCare', '0');
-INSERT INTO encounterForm VALUES ('ADF','../form/formadf.jsp?demographic_no=','formAdf', '0');
+
 INSERT INTO encounterForm VALUES ('ADFv2', '../form/formadfv2.jsp?demographic_no=', 'formAdfV2', '0');
 INSERT INTO encounterForm VALUES ('ImmunAllergies', '../form/formimmunallergy.jsp?demographic_no=', 'formImmunAllergy', '0');
 INSERT INTO encounterForm VALUES ('Falls History', '../form/formfalls.jsp?demographic_no=','formFalls',0);
@@ -325,11 +325,11 @@ INSERT INTO encounterForm VALUES ('Caregiver - SF36', '../form/formSF36caregiver
 INSERT INTO encounterForm VALUES ('Vascular Tracker', '../form/SetupForm.do?formName=VTForm&demographic_no=','formVTForm',0);
 INSERT INTO encounterForm VALUES ('Growth 0-36m', '../form/formGrowth0_36.jsp?demographic_no=','formGrowth0_36',0);
 INSERT INTO encounterForm VALUES ('Letterhead', '../form/formConsultant.jsp?demographic_no=', 'formConsult', 0);
-INSERT INTO `encounterForm`(`form_name`,`form_value`,`form_table`,`hidden`) VALUES ('CHF','../form/formchf.jsp?demographic_no=','formchf',0);
-INSERT INTO `encounterForm`(`form_name`,`form_value`,`form_table`,`hidden`) VALUES ('Health Passport', '../form/formbchp.jsp?demographic_no=', 'formBCHP', 0);
-INSERT INTO `encounterForm` (`form_name`, `form_value`, `form_table`, `hidden`) VALUES ('HMP Form','../form/HSFOForm2.do?demographic_no=','form_hsfo2_visit',1);
-insert into encounterForm (`form_name`, `form_value`, `form_table`, `hidden`) values('Patient Encounter Worksheet','../form/patientEncounterWorksheet.jsp?demographic_no=','',0);
-INSERT INTO `encounterForm`(`form_name`, `form_value`, `form_table`, `hidden`) VALUES ('Growth Charts', '../form/formGrowthChart.jsp?demographic_no=', 'formGrowthChart', 0);
+INSERT INTO encounterForm VALUES ('CHF','../form/formchf.jsp?demographic_no=','formchf',0);
+INSERT INTO encounterForm VALUES ('Health Passport', '../form/formbchp.jsp?demographic_no=', 'formBCHP', 0);
+INSERT INTO encounterForm VALUES ('HMP Form','../form/HSFOForm2.do?demographic_no=','form_hsfo2_visit',1);
+insert into encounterForm values ('Patient Encounter Worksheet','../form/patientEncounterWorksheet.jsp?demographic_no=','',0);
+INSERT INTO encounterForm VALUES ('Growth Charts', '../form/formGrowthChart.jsp?demographic_no=', 'formGrowthChart', 0);
 --
 -- Dumping data for table 'encountertemplate'
 --
