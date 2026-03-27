@@ -76,7 +76,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DrlCompilationIntegrationTest {
 
     /** Classpath base for measurement flowsheet DRL files. */
-    private static final String FLOWSHEETS_BASE = "/oscar/oscarEncounter/oscarMeasurements/flowsheets/";
+    private static final String FLOWSHEETS_BASE = "/oscar/encounter/oscarMeasurements/flowsheets/";
 
     /** Classpath base for decision support DRL files (subfolder of flowsheets). */
     private static final String DS_BASE = FLOWSHEETS_BASE + "decisionSupport/";

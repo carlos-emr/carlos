@@ -73,16 +73,16 @@ public class EctDisplayForm2Action extends EctDisplayAction {
             try {
 
                 String winName = "Forms" + bean.demographicNo;
-                StringBuilder url = new StringBuilder("popupPage(600, 700, '" + winName + "', '" + request.getContextPath() + "/oscarEncounter/formlist.jsp?demographic_no=" + bean.demographicNo + "')");
+                StringBuilder url = new StringBuilder("popupPage(600, 700, '" + winName + "', '" + request.getContextPath() + "/encounter/formlist.jsp?demographic_no=" + bean.demographicNo + "')");
 
                 // set text for lefthand module title
-                Dao.setLeftHeading(getText("oscarEncounter.Index.msgForms"));
+                Dao.setLeftHeading(getText("encounter.Index.msgForms"));
                 // set link for lefthand module title
                 Dao.setLeftURL(url.toString());
 
                 // we're going to display a pop up menu of forms so we set the menu title and id num of menu
                 Dao.setRightHeadingID(menuId);
-                Dao.setMenuHeader(getText("oscarEncounter.LeftNavBar.AddFrm"));
+                Dao.setMenuHeader(getText("encounter.LeftNavBar.AddFrm"));
                 StringBuilder javascript = new StringBuilder("<script type=\"text/javascript\">");
                 String js = "";
                 String serviceDateStr;

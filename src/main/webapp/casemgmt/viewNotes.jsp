@@ -92,7 +92,7 @@
 </div>
 </div>
         <c:choose>
-            <c:when test='${param.title == "oscarEncounter.oMeds.title" || param.title == "oscarEncounter.riskFactors.title" || param.title == "oscarEncounter.famHistory.title"|| param.noheight == "true"}'>
+            <c:when test='${param.title == "encounter.oMeds.title" || param.title == "encounter.riskFactors.title" || param.title == "encounter.famHistory.title"|| param.noheight == "true"}'>
                 <div style='clear:both;' class='topBox-notes'>
             </c:when>
             <c:otherwise>
@@ -163,7 +163,7 @@
 %>
     <span id="spanListNote<%= note.getId() %>">
         <c:choose>
-            <c:when test='${param.title == "oscarEncounter.oMeds.title" || param.title == "oscarEncounter.riskFactors.title" || param.title == "oscarEncounter.famHistory.title" || param.noheight == "true"}'>
+            <c:when test='${param.title == "encounter.oMeds.title" || param.title == "encounter.riskFactors.title" || param.title == "encounter.famHistory.title" || param.noheight == "true"}'>
                 <a class="links"
                    onmouseover="this.className='linkhover'"
                    onmouseout="this.className='links'"

@@ -143,7 +143,7 @@ public class DecisionSupportSummary implements Summary {
 
                     SummaryItemTo1 summaryItem = new SummaryItemTo1(dsGuideline.getId(), dsGuideline.getTitle(), "action", "dsguideline");
 
-                    String url = "../oscarEncounter/decisionSupport/guidelineAction.do?method=detail&guidelineId=" + dsGuideline.getId() + "&provider_no=" + loggedInInfo.getLoggedInProviderNo() + "&demographic_no=" + demographicNo + "&parentAjaxId='); return false;";
+                    String url = "../encounter/decisionSupport/guidelineAction.do?method=detail&guidelineId=" + dsGuideline.getId() + "&provider_no=" + loggedInInfo.getLoggedInProviderNo() + "&demographic_no=" + demographicNo + "&parentAjaxId='); return false;";
 
                     summaryItem.setDate(dsGuideline.getDateStart());
                     summaryItem.setAction(url);

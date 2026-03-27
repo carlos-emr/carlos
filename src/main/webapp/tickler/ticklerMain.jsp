@@ -271,7 +271,7 @@
             <fmt:message key="tickler.ticklerMain.tooltipEdit" var="msgTooltipEdit"/>
             <fmt:message key="tickler.ticklerMain.tooltipAddNote" var="msgTooltipAddNote"/>
             <fmt:message key="tickler.ticklerMain.tooltipViewAttachment" var="msgTooltipViewAttachment"/>
-            <fmt:message key="oscarEncounter.LeftNavBar.AllLabs" var="msgAllLabs"/>
+            <fmt:message key="encounter.LeftNavBar.AllLabs" var="msgAllLabs"/>
             <fmt:message key="tickler.ticklerMain.errorLoadFailed" var="msgErrorLoadFailed"/>
             <fmt:message key="tickler.ticklerMain.errorSaveViewFailed" var="msgErrorSaveViewFailed"/>
             const i18nAllLabs = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgAllLabs"))%>';

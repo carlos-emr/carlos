@@ -233,7 +233,7 @@ public interface MeasurementManager {
         }
 
         URL path_of_resource = MeasurementFlowSheet.class.getClassLoader()
-                .getResource("/oscar/oscarEncounter/oscarMeasurements/flowsheets/html/");
+                .getResource("/oscar/encounter/oscarMeasurements/flowsheets/html/");
         File[] files2 = new File(path_of_resource.getPath()).listFiles();
 
         for (File file2 : files2) {

@@ -77,7 +77,7 @@
 <html>
 <head>
     <title>Chronic Kidney Disease DSA</title>
-    <link rel="stylesheet" href="<%=request.getContextPath()%>/oscarEncounter/decisionSupport/decisionSupport.css"
+    <link rel="stylesheet" href="<%=request.getContextPath()%>/encounter/decisionSupport/decisionSupport.css"
           type="text/css"></link>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
@@ -214,11 +214,11 @@ Order Labs - <a title="Create Lab Requisition" href="javascript:void(0);"
     if (flowsheet.equals("indicators")) {
 %>
 Go to CDM Indicators <a href="javascript:void(0);"
-                        onclick="popupPage(700,1000,'<%=request.getContextPath() %>/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=demographicNo %>&amp;template=diab3');return false;">here</a><br/>
+                        onclick="popupPage(700,1000,'<%=request.getContextPath() %>/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=demographicNo %>&amp;template=diab3');return false;">here</a><br/>
 <% } else if (flowsheet.equals("diabetes")) { %>
 
 Go to Diabetes Flowsheet <a href="javascript:void(0)"
-                            onclick="popupPage(700,1000,'<%=request.getContextPath() %>/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=demographicNo %>&amp;template=diab2');return false;">here</a><br/>
+                            onclick="popupPage(700,1000,'<%=request.getContextPath() %>/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=demographicNo %>&amp;template=diab2');return false;">here</a><br/>
 <% } %>
 
 Go to Disease Registry to mark CKD Screening as resolved/deleted <a href="javascript:void(0);"

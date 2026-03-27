@@ -83,7 +83,7 @@
         }
     </script>
     <link rel="stylesheet" type="text/css"
-          href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
+          href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
     <body topmargin="0" leftmargin="0" vlink="#0000FF"
           onload="window.focus();">
     <% 

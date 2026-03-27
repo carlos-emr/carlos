@@ -154,7 +154,7 @@ public class LabDataController {
      *   <li><b>CML</b>: Routed to /lab/CA/ON/CMLDisplay.jsp for Ontario CML lab results</li>
      *   <li><b>HL7 TEXT</b>: Routes based on discipline/category:
      *     <ul>
-     *       <li>REF_I12: Consultation/referral display via /oscarEncounter/ViewRequest.do</li>
+     *       <li>REF_I12: Consultation/referral display via /encounter/ViewRequest.do</li>
      *       <li>ORU_R01: Observation results via /lab/CA/ALL/viewOruR01.jsp</li>
      *       <li>Other: Generic HL7 display via /lab/CA/ALL/labDisplay.jsp</li>
      *     </ul>
@@ -189,7 +189,7 @@ public class LabDataController {
             else if (labResult.isHL7TEXT()) {
                 String categoryType = labResult.getDiscipline();
                 if ("REF_I12".equals(categoryType)) {
-                    url.append("/oscarEncounter/ViewRequest.do?");
+                    url.append("/encounter/ViewRequest.do?");
                 }
                 else if (!categoryType.isEmpty() && categoryType.startsWith("ORU_R01:")) {
                     url.append("/lab/CA/ALL/viewOruR01.jsp?");

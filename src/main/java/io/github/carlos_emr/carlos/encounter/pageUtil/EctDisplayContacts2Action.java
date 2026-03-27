@@ -177,7 +177,7 @@ public class EctDisplayContacts2Action extends EctDisplayAction {
                         else
                             url = "alert('Cannot Edit');return false;";
                     } else if (contact.getType() == DemographicContact.TYPE_PROFESSIONALSPECIALIST) {
-                        url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/oscarEncounter/EditSpecialists.do?specId=" + contact.getContactId() + "'); return false;";
+                        url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/encounter/EditSpecialists.do?specId=" + contact.getContactId() + "'); return false;";
                     }
 
                 }

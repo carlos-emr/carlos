@@ -223,7 +223,7 @@
         %>
         </form>
         <br>
-        <a href="<%=request.getContextPath() %>/oscarEncounter/oscarConsultationRequest/config/ShowAllServices.jsp">Add/Edit
+        <a href="<%=request.getContextPath() %>/encounter/oscarConsultationRequest/config/ShowAllServices.jsp">Add/Edit
             Professional Specialist</a></center>
     </body>
 </html>

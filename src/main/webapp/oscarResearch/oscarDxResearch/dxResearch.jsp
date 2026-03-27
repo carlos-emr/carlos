@@ -215,7 +215,7 @@
                     </td>
                     <td id="oscarDxHeaderRightColumn" align=right>
 					<span class="HelpAboutLogout"> 
-						<a style="font-size: 10px; font-style: normal;" href="${ ctx }oscarEncounter/About.jsp"
+						<a style="font-size: 10px; font-style: normal;" href="${ ctx }encounter/About.jsp"
                            target="_new">About</a>
 						<a style="font-size: 10px; font-style: normal;" target="_blank"
                            href="http://www.oscarmanual.org/search?SearchableText=&Title=Chart+Interface&portal_type%3Alist=Document">Help</a>

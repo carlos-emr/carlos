@@ -44,7 +44,7 @@
  * - Close window functionality for popup contexts
  *
  * Error Conditions:
- * - Expired oscarEncounter session
+ * - Expired encounter session
  * - Invalid session state
  * - General session-related failures
  *
@@ -72,7 +72,7 @@
 </head>
 <body style="width: 600px">
 <h1>Session Expired</h1>
-<p>Your oscarEncounter session has failed.</p>
+<p>Your encounter session has failed.</p>
 <p>Please go back to oscar and try your request again.</p>
 <p>If this message appears to have been shown for no reason an error
     may have occurred. If this problem persists, please contact Oscar

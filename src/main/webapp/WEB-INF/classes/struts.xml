@@ -136,7 +136,7 @@
             <result name="success">/messenger/ViewMessage.jsp</result>
             <result name="viewFromEncounter">/messenger/ViewMessageFromEncounter.jsp</result>
         </action>
-        <!-- DEPRECATED: This action is used by the legacy encounter page (oscarEncounter/Index.jsp) -->
+        <!-- DEPRECATED: This action is used by the legacy encounter page (encounter/Index.jsp) -->
         <action name="messenger/ViewMessageByPosition" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessageByPosition2Action">
             <result name="success">/messenger/ViewMessage.do</result>
         </action>
@@ -174,7 +174,7 @@
             <result name="success">/messenger/CreateMessage.jsp</result>
         </action>
         <action name="messenger/WriteToEncounter" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgWriteToEncounter2Action">
-            <result name="success">/oscarEncounter/IncomingEncounter.do</result>
+            <result name="success">/encounter/IncomingEncounter.do</result>
         </action>
         <action name="oscarRx/choosePatient" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxChoosePatient2Action">
             <result name="success">/oscarRx/SearchDrug.jsp</result>
@@ -184,10 +184,10 @@
             <result name="success">/oscarRx/ChooseDrug.jsp</result>
             <result name="error">/500.jsp</result>
         </action>
-        <action name="oscarEncounter/IncomingEncounter" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctIncomingEncounter2Action">
+        <action name="encounter/IncomingEncounter" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctIncomingEncounter2Action">
             <result name="failure">/errorpage.jsp</result>
-            <result name="success">/oscarEncounter/Index.jsp</result>
-            <result name="success2">/oscarEncounter/Index2.jsp</result>
+            <result name="success">/encounter/Index.jsp</result>
+            <result name="success2">/encounter/Index2.jsp</result>
             <result name="domain-error">/casemgmt/domain-error.jsp</result>
         </action>
         <action name="documentManager/inboxManage" class="io.github.carlos_emr.carlos.documentManager.actions.DmsInboxManage2Action" method="execute">
@@ -389,7 +389,7 @@
             <result name="success">/form/formXmlUpload.jsp</result>
         </action>
         <action name="form/formname" class="io.github.carlos_emr.carlos.form.Frm2Action">
-            <result name="exit">/oscarEncounter/close.jsp</result>
+            <result name="exit">/encounter/close.jsp</result>
             <result name="print">/form/forwardprint.jsp</result>
             <result name="printAll">/form/createpdf</result>
             <result name="printAllJasperReport">/form/formPdfJasperReport.do</result>
@@ -401,594 +401,594 @@
         <action name="form/forwardshortcutname" class="io.github.carlos_emr.carlos.form.pageUtil.FormForward2Action"/>
         <action name="form/SetupForm" class="io.github.carlos_emr.carlos.form.pageUtil.FrmSetupForm2Action"/>
         <action name="form/SubmitForm" class="io.github.carlos_emr.carlos.form.pageUtil.FrmForm2Action"/>
-        <action name="oscarEncounter/displayLabs" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayLabAction22Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayLabs" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayLabAction22Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayForms" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayForm2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayForms" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayForm2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayEForms" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEForm2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayEForms" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEForm2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayMessages" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayMsg2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayMessages" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayMsg2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayBilling" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayBilling2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayBilling" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayBilling2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayDocuments" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDocs2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayDocuments" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDocs2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayPhotos" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayPhotos2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayPhotos" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayPhotos2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayMeasurements" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayMeasurements2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayMeasurements" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayMeasurements2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayTickler" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayTickler2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayTickler" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayTickler2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayDisease" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDx2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayDisease" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDx2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayPrevention" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayPrevention2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayPrevention" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayPrevention2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayAppointmentHistory" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayAppointmentHistory2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayAppointmentHistory" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayAppointmentHistory2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayConsultation" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayConsult2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayConsultation" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayConsult2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayEconsultation" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEconsult2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayEconsultation" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEconsult2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayEHR" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEHR2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayEHR" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEHR2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayAllergy" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayAllergy2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayAllergy" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayAllergy2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayRx" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayRx2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayRx" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayRx2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayIssues" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayIssues2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayIssues" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayIssues2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayResolvedIssues" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayResolvedIssues2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayResolvedIssues" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayResolvedIssues2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayDecisionSupportAlerts" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDecisionSupportAlerts2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayDecisionSupportAlerts" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDecisionSupportAlerts2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
         <action name="report/printLabDaySheetAction" class="io.github.carlos_emr.carlos.report.pageUtil.printLabDaySheet2Action"/>
-        <action name="oscarEncounter/displayDiagrams" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDiagram2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayDiagrams" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDiagram2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/displayHRM" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayHRM2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayHRM" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayHRM2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="oscarEncounter/decisionSupport/guidelineAction" class="io.github.carlos_emr.carlos.decisionSupport.web.DSGuideline2Action" method="execute">
-            <result name="guidelineList">/oscarEncounter/decisionSupport/guidelineList.jsp</result>
-            <result name="guidelineDetail">/oscarEncounter/decisionSupport/guidelineDetail.jsp</result>
+        <action name="encounter/decisionSupport/guidelineAction" class="io.github.carlos_emr.carlos.decisionSupport.web.DSGuideline2Action" method="execute">
+            <result name="guidelineList">/encounter/decisionSupport/guidelineList.jsp</result>
+            <result name="guidelineDetail">/encounter/decisionSupport/guidelineDetail.jsp</result>
         </action>
-        <action name="oscarEncounter/SaveEncounter" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action">
-            <result name="saveAndStay">/oscarEncounter/Index.jsp?saved=true</result>
+        <action name="encounter/SaveEncounter" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action">
+            <result name="saveAndStay">/encounter/Index.jsp?saved=true</result>
             <result name="failure">/errorpage.jsp</result>
-            <result name="success">/oscarEncounter/TimeOut.jsp</result>
+            <result name="success">/encounter/TimeOut.jsp</result>
             <result name="bill">/billing.do</result>
-            <result name="splitchart">/oscarEncounter/Index.jsp?saved=true&amp;splitchart=true</result>
-            <result name="close">/oscarEncounter/close.jsp</result>
-            <result name="concurrencyError">/oscarEncounter/concurrencyError.jsp</result>
+            <result name="splitchart">/encounter/Index.jsp?saved=true&amp;splitchart=true</result>
+            <result name="close">/encounter/close.jsp</result>
+            <result name="concurrencyError">/encounter/concurrencyError.jsp</result>
         </action>
-        <action name="oscarEncounter/SaveEncounter2" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action">
-            <result name="saveAndStay">/oscarEncounter/Index2.jsp?saved=true</result>
+        <action name="encounter/SaveEncounter2" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action">
+            <result name="saveAndStay">/encounter/Index2.jsp?saved=true</result>
             <result name="failure">/errorpage.jsp</result>
-            <result name="success">/oscarEncounter/TimeOut.jsp</result>
+            <result name="success">/encounter/TimeOut.jsp</result>
             <result name="bill">/billing.do</result>
-            <result name="splitchart">/oscarEncounter/Index2.jsp?saved=true&amp;splitchart=true</result>
-            <result name="close">/oscarEncounter/close.jsp</result>
-            <result name="concurrencyError">/oscarEncounter/concurrencyError.jsp</result>
+            <result name="splitchart">/encounter/Index2.jsp?saved=true&amp;splitchart=true</result>
+            <result name="close">/encounter/close.jsp</result>
+            <result name="concurrencyError">/encounter/concurrencyError.jsp</result>
         </action>
         <action name="oscarConsultationRequest/consultationClinicalData" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationClinicalData2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
+            <result name="success">/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
         </action>
         <action name="econsult" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EConsult2Action"/>
-        <action name="oscarEncounter/IncomingConsultation" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctIncomingConsultation2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/ViewConsultationRequests.jsp</result>
+        <action name="encounter/IncomingConsultation" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctIncomingConsultation2Action">
+            <result name="success">/encounter/oscarConsultationRequest/ViewConsultationRequests.jsp</result>
         </action>
         <action name="previewDocs" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentPreview2Action">
             <result name="fetchDocuments">/documentManager/attachDocument.jsp</result>
         </action>
         <action name="attachDocs" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachDocs2Action">
-            <result name="fetchAll">/oscarEncounter/oscarConsultationRequest/attachConsultation.jsp</result>
+            <result name="fetchAll">/encounter/oscarConsultationRequest/attachConsultation.jsp</result>
         </action>
         <action name="eform/attachDoc" class="io.github.carlos_emr.carlos.eform.EFormAttachDocs2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/attachSuccessfull.jsp</result>
+            <result name="success">/encounter/oscarConsultationRequest/attachSuccessfull.jsp</result>
         </action>
         <action name="eform/logEformError" class="io.github.carlos_emr.carlos.eform.EformLogError2Action"/>
-        <action name="oscarEncounter/ViewConsultation" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequests2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/ViewConsultationRequests.jsp</result>
+        <action name="encounter/ViewConsultation" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequests2Action">
+            <result name="success">/encounter/oscarConsultationRequest/ViewConsultationRequests.jsp</result>
         </action>
-        <action name="oscarEncounter/ViewRequest" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewRequest2Action">
-            <result name="failESend">/oscarEncounter/ViewRequest.do</result>
-            <result name="success">/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
+        <action name="encounter/ViewRequest" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewRequest2Action">
+            <result name="failESend">/encounter/ViewRequest.do</result>
+            <result name="success">/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
         </action>
-        <action name="oscarEncounter/eRefer" class="io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action">
+        <action name="encounter/eRefer" class="io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action">
         </action>
-        <action name="oscarEncounter/RequestConsultation" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
-            <result name="error">/oscarEncounter/ViewRequest.do?error=true</result>
-            <result name="failESend">/oscarEncounter/ViewRequest.do</result>
-            <result name="print">/oscarEncounter/oscarConsultationRequest/ConsultationFormPrint.jsp</result>
-            <result name="printalt">/oscarEncounter/oscarConsultationRequest/ConsultationFormPrint2.jsp</result>
-            <result name="printpdf">/oscarEncounter/oscarConsultationRequest/printPdf.do</result>
-            <result name="printIndivica">/oscarEncounter/oscarConsultationRequest/printPdf2.do</result>
+        <action name="encounter/RequestConsultation" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action">
+            <result name="success">/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
+            <result name="error">/encounter/ViewRequest.do?error=true</result>
+            <result name="failESend">/encounter/ViewRequest.do</result>
+            <result name="print">/encounter/oscarConsultationRequest/ConsultationFormPrint.jsp</result>
+            <result name="printalt">/encounter/oscarConsultationRequest/ConsultationFormPrint2.jsp</result>
+            <result name="printpdf">/encounter/oscarConsultationRequest/printPdf.do</result>
+            <result name="printIndivica">/encounter/oscarConsultationRequest/printPdf2.do</result>
             <result name="fax">/fax/CoverPage.jsp</result>
         </action>
-        <!--action name="oscarEncounter/oscarConsultationRequest/printPdf" class="oscar.oscarEncounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestPrint2Action">
-            <result name="error">/oscarEncounter/ViewRequest.do?error=true</result>
+        <!--action name="encounter/oscarConsultationRequest/printPdf" class="oscar.oscarEncounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestPrint2Action">
+            <result name="error">/encounter/ViewRequest.do?error=true</result>
         </action-->
-        <action name="oscarEncounter/oscarConsultationRequest/printPdf2" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestPrintAction22Action">
-            <result name="error">/oscarEncounter/ViewRequest.do?error=true</result>
+        <action name="encounter/oscarConsultationRequest/printPdf2" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestPrintAction22Action">
+            <result name="error">/encounter/ViewRequest.do?error=true</result>
             <result name="attachform">/form/forwardshortcutname.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarConsultationRequest/ConsultationFormFax" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
-            <result name="error">/oscarEncounter/ViewRequest.do?error=true</result>
+        <action name="encounter/oscarConsultationRequest/ConsultationFormFax" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action">
+            <result name="success">/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
+            <result name="error">/encounter/ViewRequest.do?error=true</result>
             <result name="attachform">/form/forwardshortcutname.jsp</result>
-            <result name="cancel">/oscarEncounter/ViewRequest.do</result>
+            <result name="cancel">/encounter/ViewRequest.do</result>
         </action>
-        <action name="oscarEncounter/oscarConsultation/printAttached" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationPrintDocs2Action">
-            <result name="noprint">/oscarEncounter/oscarConsultationRequest/nothingtoPrint.jsp</result>
+        <action name="encounter/oscarConsultation/printAttached" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationPrintDocs2Action">
+            <result name="noprint">/encounter/oscarConsultationRequest/nothingtoPrint.jsp</result>
         </action>
-        <action name="oscarEncounter/EnableConRequestResponse" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEnableReqResp2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/config/EnableRequestResponse.jsp</result>
+        <action name="encounter/EnableConRequestResponse" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEnableReqResp2Action">
+            <result name="success">/encounter/oscarConsultationRequest/config/EnableRequestResponse.jsp</result>
         </action>
-        <action name="oscarEncounter/ConsultationLookup2Action" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.ConsultationLookup2Action"/>
-        <action name="oscarEncounter/AddService" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddService2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/config/AddService.jsp</result>
+        <action name="encounter/ConsultationLookup2Action" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.ConsultationLookup2Action"/>
+        <action name="encounter/AddService" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddService2Action">
+            <result name="success">/encounter/oscarConsultationRequest/config/AddService.jsp</result>
         </action>
-        <action name="oscarEncounter/ShowAllServices" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllServices2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/config/DisplayService.jsp</result>
+        <action name="encounter/ShowAllServices" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllServices2Action">
+            <result name="success">/encounter/oscarConsultationRequest/config/DisplayService.jsp</result>
         </action>
-        <action name="oscarEncounter/ShowAllInstitutions" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllInstitutions2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/config/DisplayInstitution.jsp</result>
+        <action name="encounter/ShowAllInstitutions" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllInstitutions2Action">
+            <result name="success">/encounter/oscarConsultationRequest/config/DisplayInstitution.jsp</result>
         </action>
-        <action name="oscarEncounter/CpsoSearch" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.CpsoSearch2Action">
+        <action name="encounter/CpsoSearch" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.CpsoSearch2Action">
         </action>
-        <action name="oscarEncounter/AddSpecialist" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddSpecialist2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/config/AddSpecialist.jsp</result>
-            <result name="edited">/oscarEncounter/oscarConsultationRequest/config/EditSpecialists.jsp</result>
+        <action name="encounter/AddSpecialist" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddSpecialist2Action">
+            <result name="success">/encounter/oscarConsultationRequest/config/AddSpecialist.jsp</result>
+            <result name="edited">/encounter/oscarConsultationRequest/config/EditSpecialists.jsp</result>
         </action>
-        <action name="oscarEncounter/AddInstitution" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddInstitution2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/config/AddInstitution.jsp</result>
-            <result name="edited">/oscarEncounter/oscarConsultationRequest/config/EditInstitutions.jsp</result>
+        <action name="encounter/AddInstitution" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddInstitution2Action">
+            <result name="success">/encounter/oscarConsultationRequest/config/AddInstitution.jsp</result>
+            <result name="edited">/encounter/oscarConsultationRequest/config/EditInstitutions.jsp</result>
         </action>
-        <action name="oscarEncounter/AddDepartment" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddDepartment2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/config/AddDepartment.jsp</result>
-            <result name="edited">/oscarEncounter/oscarConsultationRequest/config/EditDepartments.jsp</result>
+        <action name="encounter/AddDepartment" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddDepartment2Action">
+            <result name="success">/encounter/oscarConsultationRequest/config/AddDepartment.jsp</result>
+            <result name="edited">/encounter/oscarConsultationRequest/config/EditDepartments.jsp</result>
         </action>
-        <action name="oscarEncounter/UpdateServiceSpecialists" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDisplayService2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/config/ShowAllServices.jsp</result>
+        <action name="encounter/UpdateServiceSpecialists" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDisplayService2Action">
+            <result name="success">/encounter/oscarConsultationRequest/config/ShowAllServices.jsp</result>
         </action>
-        <action name="oscarEncounter/UpdateInstitutionDepartment" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDisplayInstitution2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/config/ShowAllInstitutions.jsp</result>
+        <action name="encounter/UpdateInstitutionDepartment" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDisplayInstitution2Action">
+            <result name="success">/encounter/oscarConsultationRequest/config/ShowAllInstitutions.jsp</result>
         </action>
-        <action name="oscarEncounter/EditSpecialists" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEditSpecialists2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/config/AddSpecialist.jsp</result>
-            <result name="delete">/oscarEncounter/oscarConsultationRequest/config/EditSpecialists.jsp</result>
+        <action name="encounter/EditSpecialists" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEditSpecialists2Action">
+            <result name="success">/encounter/oscarConsultationRequest/config/AddSpecialist.jsp</result>
+            <result name="delete">/encounter/oscarConsultationRequest/config/EditSpecialists.jsp</result>
         </action>
-        <action name="oscarEncounter/EditInstitutions" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEditInstitutions2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/config/AddInstitution.jsp</result>
-            <result name="delete">/oscarEncounter/oscarConsultationRequest/config/EditInstitutions.jsp</result>
+        <action name="encounter/EditInstitutions" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEditInstitutions2Action">
+            <result name="success">/encounter/oscarConsultationRequest/config/AddInstitution.jsp</result>
+            <result name="delete">/encounter/oscarConsultationRequest/config/EditInstitutions.jsp</result>
         </action>
-        <action name="oscarEncounter/EditDepartments" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEditDepartments2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/config/AddDepartment.jsp</result>
-            <result name="delete">/oscarEncounter/oscarConsultationRequest/config/EditDepartments.jsp</result>
+        <action name="encounter/EditDepartments" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConEditDepartments2Action">
+            <result name="success">/encounter/oscarConsultationRequest/config/AddDepartment.jsp</result>
+            <result name="delete">/encounter/oscarConsultationRequest/config/EditDepartments.jsp</result>
         </action>
-        <action name="oscarEncounter/DelService" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDeleteServices2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/config/DeleteServices.jsp</result>
+        <action name="encounter/DelService" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDeleteServices2Action">
+            <result name="success">/encounter/oscarConsultationRequest/config/DeleteServices.jsp</result>
         </action>
-        <action name="oscarEncounter/InsertTemplate" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctInsertTemplate2Action">
-            <result name="success">/oscarEncounter/InsertTemplate.jsp</result>
-            <result name="success2">/oscarEncounter/InsertTemplate2.jsp</result>
+        <action name="encounter/InsertTemplate" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctInsertTemplate2Action">
+            <result name="success">/encounter/InsertTemplate.jsp</result>
+            <result name="success2">/encounter/InsertTemplate2.jsp</result>
         </action>
         <!--action name="PatientOption" class="oscar.oscarEncounter.search.pageUtil.EctPatientOptions2Action">
             <result name="consult">/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
@@ -1008,163 +1008,163 @@
         <action name="ImmunizationSetDisplay" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmImmunizationSetDisplay2Action">
             <result name="success">/immunizationConfig/ImmunizationSetDisplay.jsp</result>
         </action>
-        <action name="oscarEncounter/immunization/deleteSchedule" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmDeleteImmSchedule2Action">
-            <result name="success">/oscarEncounter/immunization/Schedule.jsp</result>
+        <action name="encounter/immunization/deleteSchedule" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmDeleteImmSchedule2Action">
+            <result name="success">/encounter/immunization/Schedule.jsp</result>
         </action>
-        <action name="oscarEncounter/immunization/initSchedule" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmInitSchedule2Action">
-            <result name="success">/oscarEncounter/immunization/Schedule.jsp</result>
+        <action name="encounter/immunization/initSchedule" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmInitSchedule2Action">
+            <result name="success">/encounter/immunization/Schedule.jsp</result>
         </action>
-        <action name="oscarEncounter/immunization/loadSchedule" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmLoadSchedule2Action">
-            <result name="success">/oscarEncounter/immunization/Schedule.jsp</result>
+        <action name="encounter/immunization/loadSchedule" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmLoadSchedule2Action">
+            <result name="success">/encounter/immunization/Schedule.jsp</result>
         </action>
-        <action name="oscarEncounter/immunization/saveSchedule" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmSaveSchedule2Action">
-            <result name="reload">/oscarEncounter/immunization/Schedule.jsp</result>
-            <result name="configure">/oscarEncounter/immunization/loadConfig.do</result>
+        <action name="encounter/immunization/saveSchedule" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmSaveSchedule2Action">
+            <result name="reload">/encounter/immunization/Schedule.jsp</result>
+            <result name="configure">/encounter/immunization/loadConfig.do</result>
         </action>
-        <action name="oscarEncounter/immunization/loadConfig" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmLoadConfig2Action">
-            <result name="success">/oscarEncounter/immunization/ScheduleConfig.jsp</result>
+        <action name="encounter/immunization/loadConfig" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmLoadConfig2Action">
+            <result name="success">/encounter/immunization/ScheduleConfig.jsp</result>
         </action>
-        <action name="oscarEncounter/immunization/saveConfig" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmSaveConfig2Action">
-            <result name="success">/oscarEncounter/immunization/Schedule.jsp</result>
+        <action name="encounter/immunization/saveConfig" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmSaveConfig2Action">
+            <result name="success">/encounter/immunization/Schedule.jsp</result>
         </action>
-        <action name="oscarEncounter/immunization/config/initConfig" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfig2Action">
-            <result name="success">/oscarEncounter/immunization/config/AdministrateImmunizationSets.jsp</result>
+        <action name="encounter/immunization/config/initConfig" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfig2Action">
+            <result name="success">/encounter/immunization/config/AdministrateImmunizationSets.jsp</result>
         </action>
-        <action name="oscarEncounter/immunization/config/deleteImmunizationSet" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfigDeleteImmuSet2Action">
-            <result name="success">/oscarEncounter/immunization/config/AdministrateImmunizationSets.jsp</result>
+        <action name="encounter/immunization/config/deleteImmunizationSet" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfigDeleteImmuSet2Action">
+            <result name="success">/encounter/immunization/config/AdministrateImmunizationSets.jsp</result>
         </action>
-        <action name="oscarEncounter/immunization/config/CreateInitImmunization" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetInit2Action">
-            <result name="success">/oscarEncounter/immunization/config/CreateImmunizationSetConfig.jsp</result>
+        <action name="encounter/immunization/config/CreateInitImmunization" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetInit2Action">
+            <result name="success">/encounter/immunization/config/CreateImmunizationSetConfig.jsp</result>
         </action>
-        <action name="oscarEncounter/immunization/config/CreateImmunizationSetConfig" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action">
-            <result name="success">/oscarEncounter/immunization/config/AdministrateImmunizationSets.jsp</result>
-            <result name="goBack">/oscarEncounter/immunization/config/CreateImmunizationSetConfig.jsp</result>
+        <action name="encounter/immunization/config/CreateImmunizationSetConfig" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action">
+            <result name="success">/encounter/immunization/config/AdministrateImmunizationSets.jsp</result>
+            <result name="goBack">/encounter/immunization/config/CreateImmunizationSetConfig.jsp</result>
         </action>
-        <action name="oscarEncounter/immunization/config/DeleteImmunizationSets" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmDeleteImmunizationSet2Action">
-            <result name="success">/oscarEncounter/immunization/config/AdministrateImmunizationSets.jsp</result>
+        <action name="encounter/immunization/config/DeleteImmunizationSets" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmDeleteImmunizationSet2Action">
+            <result name="success">/encounter/immunization/config/AdministrateImmunizationSets.jsp</result>
         </action>
-        <action name="oscarEncounter/immunization/config/ImmunizationSetDisplay" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmImmunizationSetDisplay2Action">
-            <result name="success">/oscarEncounter/immunization/config/ImmunizationSetDisplay.jsp</result>
+        <action name="encounter/immunization/config/ImmunizationSetDisplay" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmImmunizationSetDisplay2Action">
+            <result name="success">/encounter/immunization/config/ImmunizationSetDisplay.jsp</result>
         </action>
-        <action name="oscarEncounter/GraphMeasurements" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementGraphAction22Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp</result>
-            <result name="failure">/oscarEncounter/oscarMeasurements/Measurements.jsp</result>
+        <action name="encounter/GraphMeasurements" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementGraphAction22Action">
+            <result name="success">/encounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp</result>
+            <result name="failure">/encounter/oscarMeasurements/Measurements.jsp</result>
         </action>
-        <action name="oscarEncounter/Measurements" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp</result>
-            <result name="failure">/oscarEncounter/oscarMeasurements/Measurements.jsp</result>
+        <action name="encounter/Measurements" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action">
+            <result name="success">/encounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp</result>
+            <result name="failure">/encounter/oscarMeasurements/Measurements.jsp</result>
         </action>
-        <action name="oscarEncounter/Measurements2" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/close.jsp</result>
-            <result name="failure">/oscarEncounter/oscarMeasurements/AddMeasurementData.jsp</result>
+        <action name="encounter/Measurements2" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action">
+            <result name="success">/encounter/oscarMeasurements/close.jsp</result>
+            <result name="failure">/encounter/oscarMeasurements/AddMeasurementData.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/SetupAddMeasurementType" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasurementType2Action">
-            <result name="continue">/oscarEncounter/oscarMeasurements/AddMeasurementType.jsp</result>
+        <action name="encounter/oscarMeasurements/SetupAddMeasurementType" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasurementType2Action">
+            <result name="continue">/encounter/oscarMeasurements/AddMeasurementType.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/AddMeasurementType" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementType2Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/AddMeasurementType.jsp</result>
-            <result name="failure">/oscarEncounter/oscarMeasurements/AddMeasurementType.jsp</result>
+        <action name="encounter/oscarMeasurements/AddMeasurementType" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementType2Action">
+            <result name="success">/encounter/oscarMeasurements/AddMeasurementType.jsp</result>
+            <result name="failure">/encounter/oscarMeasurements/AddMeasurementType.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/SetupDisplayMeasurementTypes" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayMeasurementTypes2Action">
-            <result name="continue">/oscarEncounter/oscarMeasurements/DisplayMeasurementTypes.jsp</result>
+        <action name="encounter/oscarMeasurements/SetupDisplayMeasurementTypes" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayMeasurementTypes2Action">
+            <result name="continue">/encounter/oscarMeasurements/DisplayMeasurementTypes.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/DeleteMeasurementTypes" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementTypes2Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/SetupDisplayMeasurementTypes.do</result>
+        <action name="encounter/oscarMeasurements/DeleteMeasurementTypes" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementTypes2Action">
+            <result name="success">/encounter/oscarMeasurements/SetupDisplayMeasurementTypes.do</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/SetupMeasurements" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupMeasurements2Action">
-            <result name="continue">/oscarEncounter/oscarMeasurements/Measurements.jsp</result>
+        <action name="encounter/oscarMeasurements/SetupMeasurements" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupMeasurements2Action">
+            <result name="continue">/encounter/oscarMeasurements/Measurements.jsp</result>
         </action>
-        <!--action name="oscarEncounter/oscarMeasurements/StreamStyleSheet" class="oscar.oscarEncounter.oscarMeasurements.pageUtil.EctStreamStyleSheet2Action"/-->
-        <action name="oscarEncounter/MeasurementData" class="io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action"/>
-        <action name="oscarEncounter/oscarMeasurements/SetupDisplayHistory" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayHistory2Action">
-            <result name="continue">/oscarEncounter/oscarMeasurements/DisplayHistory.jsp</result>
+        <!--action name="encounter/oscarMeasurements/StreamStyleSheet" class="oscar.oscarEncounter.oscarMeasurements.pageUtil.EctStreamStyleSheet2Action"/-->
+        <action name="encounter/MeasurementData" class="io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action"/>
+        <action name="encounter/oscarMeasurements/SetupDisplayHistory" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayHistory2Action">
+            <result name="continue">/encounter/oscarMeasurements/DisplayHistory.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/SetupHistoryIndex" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupHistoryIndex2Action">
-            <result name="continue">/oscarEncounter/oscarMeasurements/HistoryIndex.jsp</result>
-            <result name="newcontinue">/oscarEncounter/oscarMeasurements/newHistoryIndex.jsp</result>
+        <action name="encounter/oscarMeasurements/SetupHistoryIndex" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupHistoryIndex2Action">
+            <result name="continue">/encounter/oscarMeasurements/HistoryIndex.jsp</result>
+            <result name="newcontinue">/encounter/oscarMeasurements/newHistoryIndex.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/DeleteData" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do</result>
+        <action name="encounter/oscarMeasurements/DeleteData" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action">
+            <result name="success">/encounter/oscarMeasurements/SetupDisplayHistory.do</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/DeleteData2" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/close.jsp</result>
+        <action name="encounter/oscarMeasurements/DeleteData2" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action">
+            <result name="success">/encounter/oscarMeasurements/close.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/SetupAddMeasuringInstruction" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasuringInstruction2Action">
-            <result name="continue">/oscarEncounter/oscarMeasurements/AddMeasuringInstruction.jsp</result>
+        <action name="encounter/oscarMeasurements/SetupAddMeasuringInstruction" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasuringInstruction2Action">
+            <result name="continue">/encounter/oscarMeasurements/AddMeasuringInstruction.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/AddMeasuringInstruction" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasuringInstruction2Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/AddMeasuringInstruction.jsp</result>
-            <result name="failure">/oscarEncounter/oscarMeasurements/AddMeasuringInstruction.jsp</result>
+        <action name="encounter/oscarMeasurements/AddMeasuringInstruction" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasuringInstruction2Action">
+            <result name="success">/encounter/oscarMeasurements/AddMeasuringInstruction.jsp</result>
+            <result name="failure">/encounter/oscarMeasurements/AddMeasuringInstruction.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/SetupStyleSheetList" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupStyleSheetList2Action">
-            <result name="continue">/oscarEncounter/oscarMeasurements/DefineNewMeasurementGroup.jsp</result>
+        <action name="encounter/oscarMeasurements/SetupStyleSheetList" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupStyleSheetList2Action">
+            <result name="continue">/encounter/oscarMeasurements/DefineNewMeasurementGroup.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/SetupGroupList" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupGroupList2Action">
-            <result name="continue">/oscarEncounter/oscarMeasurements/SelectMeasurementGroup.jsp</result>
+        <action name="encounter/oscarMeasurements/SetupGroupList" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupGroupList2Action">
+            <result name="continue">/encounter/oscarMeasurements/SelectMeasurementGroup.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/SelectMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSelectMeasurementGroup2Action">
-            <result name="type">/oscarEncounter/oscarMeasurements/ProcessEditMeasurementGroupAction.jsp</result>
-            <result name="style">/oscarEncounter/oscarMeasurements/EditMeasurementGroupStyle.jsp</result>
-            <result name="delete">/oscarEncounter/oscarMeasurements/SetupGroupList.do</result>
-            <result name="addDSHTML">/oscarEncounter/oscarMeasurements/MeasurementGroupDSadd.jsp</result>
-            <result name="removeDSHTML">/oscarEncounter/oscarMeasurements/MeasurementGroupDSremove.jsp</result>
+        <action name="encounter/oscarMeasurements/SelectMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSelectMeasurementGroup2Action">
+            <result name="type">/encounter/oscarMeasurements/ProcessEditMeasurementGroupAction.jsp</result>
+            <result name="style">/encounter/oscarMeasurements/EditMeasurementGroupStyle.jsp</result>
+            <result name="delete">/encounter/oscarMeasurements/SetupGroupList.do</result>
+            <result name="addDSHTML">/encounter/oscarMeasurements/MeasurementGroupDSadd.jsp</result>
+            <result name="removeDSHTML">/encounter/oscarMeasurements/MeasurementGroupDSremove.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/SetupEditMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupEditMeasurementGroup2Action">
-            <result name="continue">/oscarEncounter/oscarMeasurements/EditMeasurementGroup.jsp</result>
+        <action name="encounter/oscarMeasurements/SetupEditMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupEditMeasurementGroup2Action">
+            <result name="continue">/encounter/oscarMeasurements/EditMeasurementGroup.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/EditMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctEditMeasurementGroup2Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/ProcessEditMeasurementGroupAction.jsp</result>
+        <action name="encounter/oscarMeasurements/EditMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctEditMeasurementGroup2Action">
+            <result name="success">/encounter/oscarMeasurements/ProcessEditMeasurementGroupAction.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/DefineNewMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDefineNewMeasurementGroup2Action">
-            <result name="continue">/oscarEncounter/oscarMeasurements/ProcessAddMeasurementGroupAction.jsp</result>
+        <action name="encounter/oscarMeasurements/DefineNewMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDefineNewMeasurementGroup2Action">
+            <result name="continue">/encounter/oscarMeasurements/ProcessAddMeasurementGroupAction.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/SetupAddMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasurementGroup2Action">
-            <result name="continue">/oscarEncounter/oscarMeasurements/AddMeasurementGroup.jsp</result>
+        <action name="encounter/oscarMeasurements/SetupAddMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasurementGroup2Action">
+            <result name="continue">/encounter/oscarMeasurements/AddMeasurementGroup.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/EditMeasurementStyle" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctEditMeasurementStyle2Action">
-            <result name="continue">/oscarEncounter/oscarMeasurements/SetupGroupList.do</result>
+        <action name="encounter/oscarMeasurements/EditMeasurementStyle" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctEditMeasurementStyle2Action">
+            <result name="continue">/encounter/oscarMeasurements/SetupGroupList.do</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/AddMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementGroup2Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/ProcessEditMeasurementGroupAction.jsp</result>
+        <action name="encounter/oscarMeasurements/AddMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementGroup2Action">
+            <result name="success">/encounter/oscarMeasurements/ProcessEditMeasurementGroupAction.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/DeleteMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementStyleSheet2Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet.do</result>
+        <action name="encounter/oscarMeasurements/DeleteMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementStyleSheet2Action">
+            <result name="success">/encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet.do</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayMeasurementStyleSheet2Action">
-            <result name="continue">/oscarEncounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp</result>
+        <action name="encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayMeasurementStyleSheet2Action">
+            <result name="continue">/encounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/AddMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementStyleSheet2Action">
+        <action name="encounter/oscarMeasurements/AddMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementStyleSheet2Action">
             <interceptor-ref name="actionFileUpload" />
             <interceptor-ref name="defaultStack"/>
-            <result name="success">/oscarEncounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
+            <result name="success">/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/AddMeasurementMap" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementMap2Action">
-            <result name="continue">/oscarEncounter/oscarMeasurements/addMeasurementMap.jsp</result>
-            <result name="success">/oscarEncounter/oscarMeasurements/addMeasurementMap.jsp?outcome=success</result>
-            <result name="failure">/oscarEncounter/oscarMeasurements/addMeasurementMap.jsp?outcome=failure</result>
-            <result name="failedcheck">/oscarEncounter/oscarMeasurements/addMeasurementMap.jsp?outcome=failedcheck</result>
+        <action name="encounter/oscarMeasurements/AddMeasurementMap" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementMap2Action">
+            <result name="continue">/encounter/oscarMeasurements/addMeasurementMap.jsp</result>
+            <result name="success">/encounter/oscarMeasurements/addMeasurementMap.jsp?outcome=success</result>
+            <result name="failure">/encounter/oscarMeasurements/addMeasurementMap.jsp?outcome=failure</result>
+            <result name="failedcheck">/encounter/oscarMeasurements/addMeasurementMap.jsp?outcome=failedcheck</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/NewMeasurementMap" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementMap2Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/newMeasurementMap.jsp?outcome=success</result>
-            <result name="failure">/oscarEncounter/oscarMeasurements/newMeasurementMap.jsp?outcome=failure</result>
-            <result name="failedcheck">/oscarEncounter/oscarMeasurements/newMeasurementMap.jsp?outcome=failedcheck</result>
+        <action name="encounter/oscarMeasurements/NewMeasurementMap" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementMap2Action">
+            <result name="success">/encounter/oscarMeasurements/newMeasurementMap.jsp?outcome=success</result>
+            <result name="failure">/encounter/oscarMeasurements/newMeasurementMap.jsp?outcome=failure</result>
+            <result name="failedcheck">/encounter/oscarMeasurements/newMeasurementMap.jsp?outcome=failedcheck</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/RemoveMeasurementMap" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctRemoveMeasurementMap2Action">
-            <result name="continue">/oscarEncounter/oscarMeasurements/removeMeasurementMap.jsp</result>
-            <result name="success">/oscarEncounter/oscarMeasurements/removeMeasurementMap.jsp?outcome=success</result>
-            <result name="failure">/oscarEncounter/oscarMeasurements/removeMeasurementMap.jsp?outcome=failure</result>
+        <action name="encounter/oscarMeasurements/RemoveMeasurementMap" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctRemoveMeasurementMap2Action">
+            <result name="continue">/encounter/oscarMeasurements/removeMeasurementMap.jsp</result>
+            <result name="success">/encounter/oscarMeasurements/removeMeasurementMap.jsp?outcome=success</result>
+            <result name="failure">/encounter/oscarMeasurements/removeMeasurementMap.jsp?outcome=failure</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/RemapMeasurementMap" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctRemoveMeasurementMap2Action">
-            <result name="continue">/oscarEncounter/oscarMeasurements/remapMeasurementMap.jsp</result>
-            <result name="success">/oscarEncounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=success</result>
-            <result name="failure">/oscarEncounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=failure</result>
-            <result name="failedcheck">/oscarEncounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=failedcheck</result>
+        <action name="encounter/oscarMeasurements/RemapMeasurementMap" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctRemoveMeasurementMap2Action">
+            <result name="continue">/encounter/oscarMeasurements/remapMeasurementMap.jsp</result>
+            <result name="success">/encounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=success</result>
+            <result name="failure">/encounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=failure</result>
+            <result name="failedcheck">/encounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=failedcheck</result>
         </action>
-        <action name="oscarEncounter/ViewAttachment" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctViewAttachment2Action">
-            <result name="success">/oscarEncounter/ViewAttachment.jsp</result>
+        <action name="encounter/ViewAttachment" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctViewAttachment2Action">
+            <result name="success">/encounter/ViewAttachment.jsp</result>
         </action>
         <action name="oscarReport/ShowConsult" class="io.github.carlos_emr.carlos.report.pageUtil.RptShowConsult2Action">
-            <result name="success">/oscarEncounter/oscarConsultationRequest/ConsultationFormPrint.jsp</result>
+            <result name="success">/encounter/oscarConsultationRequest/ConsultationFormPrint.jsp</result>
         </action>
         <action name="oscarReport/FluBilling" class="io.github.carlos_emr.carlos.report.pageUtil.RptFluBilling2Action">
             <result name="success">/oscarReport/oscarReportFluBilling.jsp</result>
@@ -1255,7 +1255,7 @@
         <action name="fax/faxAction" class="io.github.carlos_emr.carlos.fax.action.Fax2Action">
             <result name="preview">/fax/CoverPage.jsp</result>
             <result name="error">/errorpage.jsp</result>
-            <result name="CONSULTATION">/oscarEncounter/ViewRequest.do</result>
+            <result name="CONSULTATION">/encounter/ViewRequest.do</result>
             <result name="EFORM">/eform/efmshowform_data.jsp</result>
             <result name="eFormError">/eform/efmshowform_data.jsp?error=true</result>
         </action>
@@ -1877,7 +1877,7 @@
         </action>
         <action name="provider/CppPreferences" class="io.github.carlos_emr.carlos.provider.web.CppPreferences2Action">
             <result name="form">/provider/cpp_preferences.jsp</result>
-            <result name="exit">/oscarEncounter/close.jsp</result>
+            <result name="exit">/encounter/close.jsp</result>
         </action>
         <action name="searchProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="search"/>
         <action name="getProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="get"/>
@@ -1915,12 +1915,12 @@
             <result name="success">/oscarReport/oscarReportDxReg.jsp</result>
             <result name="editdesc">/oscarReport/editCodeDesc.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction" class="io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp</result>
-            <result name="newflowsheet">/oscarEncounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp</result>
+        <action name="encounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction" class="io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action">
+            <result name="success">/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp</result>
+            <result name="newflowsheet">/encounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp</result>
         </action>
-        <action name="oscarEncounter/oscarMeasurements/FlowSheetDrugAction" class="io.github.carlos_emr.carlos.commn.web.FlowSheetDrug2Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp</result>
+        <action name="encounter/oscarMeasurements/FlowSheetDrugAction" class="io.github.carlos_emr.carlos.commn.web.FlowSheetDrug2Action">
+            <result name="success">/encounter/oscarMeasurements/TemplateFlowSheet.jsp</result>
         </action>
         <action name="documentManager/ManageDocument" class="io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action">
             <result name="success">/documentManager/undocument.jsp</result>
@@ -2002,24 +2002,24 @@
             <result name="error">/errorpage.jsp</result>
         </action>
         <action name="CodeSearch" class="io.github.carlos_emr.carlos.commn.web.CodeSearchService2Action"/>
-        <action name="oscarEncounter/displayEpisodes" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEpisode2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayEpisodes" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEpisode2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -2028,24 +2028,24 @@
             <result name="form">/episode/episodeForm.jsp</result>
             <result name="success">/episode/success.jsp</result>
         </action>
-        <action name="oscarEncounter/displayPregnancies" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayPregnancy2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayPregnancies" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayPregnancy2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
@@ -2061,7 +2061,7 @@
             <result name="pg4">/form/formBCAR2020pg4.jsp</result>
             <result name="pg5">/form/formBCAR2020pg5.jsp</result>
             <result name="pg6">/form/formBCAR2020Attachments.jsp</result>
-            <result name="exit">/oscarEncounter/close.jsp</result>
+            <result name="exit">/encounter/close.jsp</result>
         </action>
         <action name="PageMonitoringService" class="io.github.carlos_emr.carlos.commn.web.PageMonitoring2Action"/>
         <action name="BillingInvoice" class="io.github.carlos_emr.carlos.commn.web.BillingInvoice2Action">
@@ -2084,24 +2084,24 @@
             <result name="success">/billing/CA/ON/genRADesc.jsp</result>
             <result name="failure">/failure.jsp</result>
         </action>
-        <action name="oscarEncounter/displayContacts" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayContacts2Action">
-            <result name="labs">/oscarEncounter/displayLabs.do</result>
-			<result name="forms">/oscarEncounter/displayForms.do</result>
-			<result name="msgs">/oscarEncounter/displayMessages.do</result>
-			<result name="eforms">/oscarEncounter/displayEForms.do</result>
-			<result name="docs">/oscarEncounter/displayDocuments.do</result>
-			<result name="measurements">/oscarEncounter/displayMeasurements.do</result>
-			<result name="tickler">/oscarEncounter/displayTickler.do</result>
-			<result name="Dx">/oscarEncounter/displayDisease.do</result>
-			<result name="preventions">/oscarEncounter/displayPrevention.do</result>
-			<result name="consultation">/oscarEncounter/displayConsultation.do</result>
-			<result name="allergies">/oscarEncounter/displayAllergy.do</result>
-			<result name="unresolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="resolvedIssues">/oscarEncounter/displayIssues.do</result>
-			<result name="Rx">/oscarEncounter/displayRx.do</result>
-			<result name="success">/oscarEncounter/LeftNavBarDisplay.jsp</result>
-			<result name="error">/oscarEncounter/LeftNavBarError.jsp</result>
-			<result name="HRM">/oscarEncounter/displayHRM.do</result>
+        <action name="encounter/displayContacts" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayContacts2Action">
+            <result name="labs">/encounter/displayLabs.do</result>
+			<result name="forms">/encounter/displayForms.do</result>
+			<result name="msgs">/encounter/displayMessages.do</result>
+			<result name="eforms">/encounter/displayEForms.do</result>
+			<result name="docs">/encounter/displayDocuments.do</result>
+			<result name="measurements">/encounter/displayMeasurements.do</result>
+			<result name="tickler">/encounter/displayTickler.do</result>
+			<result name="Dx">/encounter/displayDisease.do</result>
+			<result name="preventions">/encounter/displayPrevention.do</result>
+			<result name="consultation">/encounter/displayConsultation.do</result>
+			<result name="allergies">/encounter/displayAllergy.do</result>
+			<result name="unresolvedIssues">/encounter/displayIssues.do</result>
+			<result name="resolvedIssues">/encounter/displayIssues.do</result>
+			<result name="Rx">/encounter/displayRx.do</result>
+			<result name="success">/encounter/LeftNavBarDisplay.jsp</result>
+			<result name="error">/encounter/LeftNavBarError.jsp</result>
+			<result name="HRM">/encounter/displayHRM.do</result>
 			
 			<result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>

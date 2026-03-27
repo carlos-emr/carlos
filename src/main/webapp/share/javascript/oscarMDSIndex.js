@@ -1309,7 +1309,7 @@ function showThisPatientDocs(patientId, keepPrevious) {
 }
 
 function popupConsultation(segmentId) {
-    const page = contextpath + '/oscarEncounter/ViewRequest.do?segmentId=' + segmentId;
+    const page = contextpath + '/encounter/ViewRequest.do?segmentId=' + segmentId;
     const windowprops = "height=960,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
     const popup = window.open(page, msgConsReq, windowprops);
     if (popup != null) {

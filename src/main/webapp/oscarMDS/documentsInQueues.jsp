@@ -1680,7 +1680,7 @@
         }
 
         function popupConsultation(segmentId) {
-            var page = contextpath + '/oscarEncounter/ViewRequest.do?segmentId=' + segmentId;
+            var page = contextpath + '/encounter/ViewRequest.do?segmentId=' + segmentId;
             var windowprops = "height=960,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
             var popup = window.open(page, msgConsReq, windowprops);
             if (popup != null) {
@@ -2424,7 +2424,7 @@
 
                     <%--                            <td align="right" valign="center" width="30%">--%>
 
-                    <%--                                | <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/oscarEncounter/About.jsp')" style="color: #FFFFFF;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>--%>
+                    <%--                                | <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/About.jsp')" style="color: #FFFFFF;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>--%>
                     <%--                            </td>--%>
                 </tr>
             </table>

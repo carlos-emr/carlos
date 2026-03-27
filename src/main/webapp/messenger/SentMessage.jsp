@@ -123,7 +123,7 @@
             <i class="fa-solid fa-circle-question"></i>
             <a href="javascript:void(0)" onClick ="popupPage(700,960,''+'Messenger sent')"><fmt:message key="app.top1"/></a>
             <i class="fa-solid fa-circle-info" style="margin-left:10px;"></i>
-            <a href="javascript:void(0)"  onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About CARLOS','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')" ><fmt:message key="global.about" /></a>
+            <a href="javascript:void(0)"  onClick="window.open('<%=request.getContextPath()%>/encounter/About.jsp','About CARLOS','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')" ><fmt:message key="global.about" /></a>
         </td>
 			</tr>
 		</table>

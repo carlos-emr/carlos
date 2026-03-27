@@ -392,13 +392,13 @@ layouts/simpleLayout.jsp                    # Simple layout wrapper (no tiles ex
 messenger/Transfer/DocXfer.jsp              # Document transfer (Java refs are to DocXferConfig.xml, not JSP)
 messenger/previewPDF.jsp                    # PDF preview ("previewPDF" matches are JS function names)
 messenger/processAttFrameset.jsp            # Attachment frameset
-oscarEncounter/calculators/BMI.jsp          # BMI calculator
-oscarEncounter/clinicModules.jsp            # Clinic modules page
-oscarEncounter/newEncounter.jsp             # Legacy encounter (struts maps to newEncounterLayout.jsp instead)
-oscarEncounter/oscarConsultationRequest/ConsultationFaxComfirmation.jsp  # Typo in name; no references
-oscarEncounter/oscarConsultationRequest/ConsultationFormFax.jsp          # Struts action maps to ConfirmConsultationRequest.jsp
-oscarEncounter/oscarConsultationRequest/attachConsultation2.jsp
-oscarEncounter/oscarConsultationRequest/displayAttachedFiles.jsp
+encounter/calculators/BMI.jsp          # BMI calculator
+encounter/clinicModules.jsp            # Clinic modules page
+encounter/newEncounter.jsp             # Legacy encounter (struts maps to newEncounterLayout.jsp instead)
+encounter/oscarConsultationRequest/ConsultationFaxComfirmation.jsp  # Typo in name; no references
+encounter/oscarConsultationRequest/ConsultationFormFax.jsp          # Struts action maps to ConfirmConsultationRequest.jsp
+encounter/oscarConsultationRequest/attachConsultation2.jsp
+encounter/oscarConsultationRequest/displayAttachedFiles.jsp
 oscarMDS/SelectProviderSimple.jsp           # Simple provider selector
 oscarReport/CDSOneTimeConsultReport.jsp     # CDS consultation report (only self-referencing form action)
 oscarReport/ConsultationReport.jsp          # Consultation report (only self-referencing form action)

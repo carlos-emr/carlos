@@ -1,0 +1,1128 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+<%@page import="javax.swing.Spring"%>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao"%>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DrugReasonDao"%>
+<%@page import="org.apache.commons.lang3.StringUtils"%>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
+<%long startTime = System.currentTimeMillis();%>
+<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData"%>
+<%@page  import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*,java.net.*"%>
+<%@page import="org.springframework.web.context.support.WebApplicationContextUtils,io.github.carlos_emr.carlos.log.*"%>
+<%@page import="org.springframework.web.context.WebApplicationContext,io.github.carlos_emr.carlos.dxresearch.bean.*"%>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao"%>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetDrugDao,io.github.carlos_emr.carlos.commn.dao.FlowSheetDxDao,io.github.carlos_emr.carlos.utility.MiscUtils"%>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
+<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
+<%@page import="io.github.carlos_emr.CarlosProperties"%>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.FlowSheetItem" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBean" %>
+<%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+
+<%
+	if(session.getAttribute("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");
+    //int demographic_no = Integer.parseInt(request.getParameter("demographic_no"));
+    if(session.getAttribute("userrole") == null )  response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");
+    String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    String demographic_no = request.getParameter("demographic_no");
+    String providerNo = (String) session.getAttribute("user");
+    String temp = request.getParameter("template");
+
+	LoggedInInfo loggedInInfo=LoggedInInfo.getLoggedInInfoFromSession(request);
+%>
+    <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="r" reverse="<%=true%>">
+        "You have no right to access this page!"
+        <%
+    	LogAction.addLog((String) session.getAttribute("user"), LogConst.NORIGHT+LogConst.READ, LogConst.CON_FLOWSHEET,  temp , request.getRemoteAddr(),demographic_no);
+            response.sendRedirect("${ pageContext.request.contextPath }/noRights.html");
+    %>
+    </security:oscarSec>
+
+<%
+	LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_FLOWSHEET,  temp , request.getRemoteAddr(),demographic_no);
+
+
+    int numElementsToShow = 4;
+    Date sdate = null;
+    Date edate = null;
+    if ( request.getParameter("numEle") != null ){
+        try{
+            numElementsToShow = Integer.parseInt(request.getParameter("numEle"));
+        }catch(Exception e){
+      	  MiscUtils.getLogger().debug("might be ok, might no, not sure, some one else left this blank", e);
+        }
+    }
+
+    if (request.getParameter("sdate") != null){
+        try{
+           sdate = UtilDateUtilities.StringToDate(request.getParameter("sdate"));
+        }catch(Exception e){sdate =null;}
+    }
+
+    if(request.getParameter("edate") != null){
+        try{
+           edate = UtilDateUtilities.StringToDate(request.getParameter("edate"));
+        }catch(Exception e){edate = null;}
+    }
+
+
+    long startTimeToGetP = System.currentTimeMillis();
+
+    boolean dsProblems = false;
+
+
+    FlowSheetCustomizationDao flowSheetCustomizationDao = (FlowSheetCustomizationDao) SpringUtils.getBean(FlowSheetCustomizationDao.class);
+    FlowSheetDrugDao flowSheetDrugDao = (FlowSheetDrugDao) SpringUtils.getBean(FlowSheetDrugDao.class);
+	FlowSheetDxDao flowSheetDxDao = (FlowSheetDxDao) SpringUtils.getBean(FlowSheetDxDao.class);
+
+    MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
+
+    List<FlowSheetCustomization> custList = flowSheetCustomizationDao.getFlowSheetCustomizations(temp, loggedInInfo.getLoggedInProviderNo(), Integer.parseInt(demographic_no));
+    MeasurementFlowSheet mFlowsheet = templateConfig.getFlowSheet(temp,custList);
+
+    if (mFlowsheet == null) {
+        request.setAttribute("errorMessage", temp + "Flowsheet not found");
+        return;
+    }
+
+    MeasurementInfo mi = new MeasurementInfo(demographic_no);
+    List<String> measurementLs = mFlowsheet.getVisibleMeasurementList();
+    ArrayList<String> measurements = new ArrayList(measurementLs);
+    long startTimeToGetM = System.currentTimeMillis();
+
+    mi.getMeasurements(measurements);
+
+    try{
+    	mFlowsheet.getMessages(mi);
+    }catch(Exception e){
+    	MiscUtils.getLogger().error("Error getting messages for flowsheet ",e);
+    }
+
+    ArrayList recList = mi.getList();
+
+
+
+    mFlowsheet.sortToCurrentOrder(recList);
+    StringBuffer recListBuffer = new StringBuffer();
+    for(int i = 0; i < recList.size(); i++){
+        recListBuffer.append("&amp;measurement="+response.encodeURL( (String) recList.get(i)));
+    }
+
+
+    String flowSheet = mFlowsheet.getDisplayName();
+    ArrayList<String> warnings = mi.getWarnings();
+    ArrayList<String> recomendations = mi.getRecommendations();
+    ArrayList comments = new ArrayList();
+
+%>
+<!DOCTYPE html>
+<html>
+
+<head>
+<title><%=flowSheet%> - <oscar:nameage demographicNo="<%=demographic_no%>"/></title><!--I18n-->
+
+<script type="text/javascript" src="${ pageContext.request.contextPath }/share/javascript/Oscar.js"></script>
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+<link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+
+
+<script>
+	function getDemographicNo() {
+		return '<%=demographic_no%>';
+	}
+	function getContextPath() {
+		return '<%=request.getContextPath()%>';
+	}
+
+	function refreshEncounter() {
+	      self.opener.location.reload();
+	}
+</script>
+<oscar:customInterface name="renal" section="diab"/>
+
+<style media="all">
+    :root *:not(h1,h2,h3,h4) {
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+        font-size: 12px;
+        overscroll-behavior: none;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    div.ImmSet { background-color: #ffffff;clear:left;margin-top:10px;}
+    div.ImmSet h2 {  }
+    div.ImmSet h2 span { font-size:smaller; }
+    div.ImmSet ul {  }
+    div.ImmSet li {  }
+    div.ImmSet li a { text-decoration:none; color:blue;}
+    div.ImmSet li a:hover { text-decoration:none; color:red; }
+    div.ImmSet li a:visited { text-decoration:none; color:blue;}
+
+</style>
+
+<style media="print">
+.DoNotPrint {
+	display: none;
+}
+
+.noborder{
+    border: 0 solid #FFF;
+}
+
+div.headPrevention {
+    width:22em;
+}
+
+div.headPrevention a:active { color:black; }
+div.headPrevention a:hover { color:black; }
+div.headPrevention a:link { color:black; }
+div.headPrevention a:visited { color:black; }
+</style>
+<style media="screen">
+    .DoNotScreen{ display:none;}
+
+    div.panel {
+        background-color:whitesmoke;
+        padding:5px;
+margin-top:5px;
+        width:100%;
+        border-radius: 4px;
+    }
+    div.headPrevention {
+        width:12em;
+        background-color: silver;
+        box-shadow: 0 2px 4px 0 rgba(38,40,42,0.3);
+        border-radius: 4px;
+}
+
+
+div.headPrevention a:active { color:black; }
+div.headPrevention a:hover { color:black; }
+div.headPrevention a:link { color:black; }
+div.headPrevention a:visited { color:black; }
+
+div.headPrevention p {
+    font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+    margin:0;
+    padding: 4px;
+    background-color:transparent;
+}
+
+</style>
+
+<script type="text/javascript">
+
+    function isValidDate(dateString) {
+    	  var regEx = /^\d{4}-\d{2}-\d{2}$/;
+    	  if(!dateString.match(regEx)) return false;  // Invalid format
+    	  var d = new Date(dateString);
+    	  var dNum = d.getTime();
+    	  if(!dNum && dNum !== 0) return false; // NaN value, Invalid date
+    	  return d.toISOString().slice(0,10) === dateString;
+    	}
+
+
+    function clearDifferentElements(){
+    	document.getElementById('numEle').value = '';
+    	document.getElementById('flowsheetStartDate').value = '';
+    	document.getElementById('flowsheetEndDate').value = '';
+    	 loadDifferentElements();
+
+    }
+   function loadDifferentElements(){
+       //console.log("hapy");
+        var numEle = document.getElementById('numEle').value;
+        var sdate = document.getElementById('flowsheetStartDate').value;
+        var edate = document.getElementById('flowsheetEndDate').value;
+
+        if(numEle.length>0 && (isNaN(numEle) || parseInt(numEle) <= 0)) {
+        	alert("# of Elements needs to be a number greater than 0")
+        	return;
+        }
+
+        if(sdate.length > 0 && !isValidDate(sdate)) {
+        	alert("Start Date must be a valid date in yyyy-mm-dd format");
+        	return;
+        }
+
+        if(edate.length > 0 && !isValidDate(edate)) {
+        	alert("End Date must be a valid date in yyyy-mm-dd format");
+        	return;
+        }
+
+
+        //get selected elements
+        var selectedItems = [];
+        let elements = document.getElementsByName("selected_item");
+
+        for (var i = 0, len = elements.length; i < len; i++) {
+            if(elements[i].checked) {
+                selectedItems.push(elements[i].value);
+            }
+        }
+        var selectedItemsStr = "";
+
+        if(selectedItems.length>0) {
+        	selectedItemsStr = "&selectedItems=" + encodeURIComponent(selectedItems.join(','));
+        }
+
+        var url = 'TemplateFlowSheet.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>';
+        if(numEle.length > 0){
+        	url = url + '&numEle='+numEle;
+        }
+        if(sdate.length > 0) {
+        	url = url + '&sdate='+sdate;
+        }
+        if(edate.length > 0) {
+        	url = url + '&edate='+edate;
+        }
+        url = url + selectedItemsStr;
+
+        window.location = url;
+        /*
+        if( numEle.length > 0){
+            window.location = 'TemplateFlowSheet.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>&numEle='+numEle + selectedItemsStr;
+            //console.log("one");
+        }else if (sdate.length > 0 && edate.length > 0){
+            window.location = 'TemplateFlowSheet.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>&sdate='+sdate+'&edate='+edate + selectedItemsStr;
+            //console.log("two");
+        }else{
+            window.location = 'TemplateFlowSheet.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>' + selectedItemsStr;
+        }
+		*/
+    }
+
+
+    function fsPopup(width,height,url,window) {
+    	<%
+    		SecurityManager securityMgr = new SecurityManager();
+    		if(securityMgr.hasWriteAccess("_flowsheet."+mFlowsheet.getName(),roleName$)) {
+    	%>
+
+    	return popup(width,height,url,window);
+    	<%}%>
+    }
+</script>
+
+
+<style>
+table {
+    width:100%;
+}
+    div#prevention-list {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        align-items: stretch;
+    }
+
+div.leftBox{
+    width:90%;
+    margin-bottom: 5px;
+    margin-left:3px;
+    margin-right:3px;
+    float: left;
+    background-color: transparent;
+    box-shadow: 0 2px 4px 0 rgba(38,40,42,0.3);
+    border-radius: 0 0 4px 4px ;
+}
+
+span.footnote {
+    background-color: #ccccee;
+    border: 1px solid #000;
+    width: 4px;
+}
+
+div.leftBox h3 {
+    background-color: silver;
+    font-weight:bold;
+    font-size: 13px;
+    margin:0;
+    padding:5px;
+    line-height: initial;
+    border: 1px silver solid;
+    border-radius: 4px 4px 0 0;
+}
+div.leftBox h3 a {
+    display:block;
+}
+
+div.leftBox div.wrapper {
+    padding:5px;
+    border-radius: 0 0 4px 4px;
+    border: 1px silver solid;
+    border-top: none;
+}
+
+div.leftBox ul{
+    list-style:none;
+    list-style-type:none;
+    list-style-position:outside;
+    padding-left:1px;
+    margin-left:1px;
+    margin-top:0;
+    padding-top:1px;
+    margin-bottom:0;
+    padding-bottom:0;
+}
+
+div.leftBox li {
+    padding-right: 15px;
+    white-space: nowrap;
+}
+
+div.headPrevention a {
+    text-decoration:none;
+}
+
+div.preventionProcedure{
+    width:9em;
+    float:left;
+    margin-left:3px;
+    margin-bottom:3px;
+    background-color: transparent;
+    box-shadow: 0 2px 4px 0 rgba(38,40,42,0.3);
+    border-radius: 4px;
+}
+
+div.preventionProcedure p {
+    background: #F0F0E7;
+    margin: 0;
+    padding: 0 4px;
+    border-radius: 4px;
+}
+
+div.preventionSection {
+    width: 100%;
+    display: flex;
+    gap: 3px;
+    flex-direction: row;
+}
+
+div.preventionSet {
+    border: thin solid grey;
+    clear:left;
+}
+
+
+
+div.recommendations ul{
+    padding-left:15px;
+    margin-left:1px;
+    margin-top:0;
+    padding-top:1px;
+    margin-bottom:0;
+    padding-bottom:0;
+}
+
+
+</style>
+
+</head>
+
+<body class="BodyStyle" >
+<div class="container">
+<table  class="MainTable" id="scrollNumber1" >
+<tr class="MainTableTopRow">
+    <td class="MainTableTopRowLeftColumn"  >
+        <h4><%=flowSheet%></h4>
+    </td>
+    <td class="MainTableTopRowRightColumn" style="text-align: center;">
+        <h4><oscar:nameage demographicNo="<%=demographic_no%>"/></h4>
+    </td>
+</tr>
+    <tr>
+    <td colspan="2">
+        <table class="TopStatusBar">
+            <tr>
+                <td>
+
+                    <span class="DoNotPrint">
+
+                    <a href="TemplateFlowSheet.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>&show=lastOnly">Last Only</a>
+                    &nbsp;
+                    <a href="TemplateFlowSheet.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>&show=outOfRange">Only out of Range</a>
+                     &nbsp;
+                    <a href="TemplateFlowSheet.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>&show=overdue">Only overdue</a>
+                    &nbsp;
+                    <a href="TemplateFlowSheet.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>">All</a>
+                  </span>
+                </td>
+             </tr>
+             <tr>
+             	<td>
+               		<div class="DoNotPrint" style="display:flex; gap:3px; flex-direction: row;">
+                        <div class="mb-3">
+                   <label for="numEle"> #Of Elements</label>
+                        <input type="text" size="3" id="numEle" value="<%=request.getParameter("numEle") != null ? request.getParameter("numEle") : "" %>"/>
+                        </div>
+                        <div class="mb-3">
+                   <label for="flowsheetStartDate"> Start Date</label>
+                        <input type="date" size="10" id="flowsheetStartDate" value="<%=request.getParameter("sdate") != null ? request.getParameter("sdate") : "" %>" />
+                        </div>
+                        <div class="mb-3">
+                   <label for="flowsheetEndDate"> End Date</label>
+                        <input type="date" size="10" id="flowsheetEndDate" value="<%=request.getParameter("edate") != null ? request.getParameter("edate") : "" %>"/>
+                        </div>
+                        <div class="button-group">
+                            <label>&nbsp;</label>
+                    <input type="button" class="btn btn-secondary" value="go" onclick="loadDifferentElements()"/>
+                        </div>
+                        <div class="button-group">
+                            <label>&nbsp;</label>
+                    <input type="button" class="btn btn-secondary" value="clear" onclick="clearDifferentElements()"/>
+                        </div>
+
+                    </div>
+                </td>
+
+            </tr>
+        </table>
+    </td>
+</tr>
+<tr>
+<td class="MainTableLeftColumn" style="vertical-align:top; width:170px;">
+	<security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
+    <% if (recList.size() > 0){ %>
+    <p><a class="DoNotPrint" href="javascript: function myFunction() {return false; }"  onclick="javascript:createAddAll(<%=demographic_no%>, '<%= URLEncoder.encode(temp,"UTF-8") %>', <%=Math.abs( "ADDTHEMALL".hashCode() ) %>)" TITLE="Add all measurements.">
+	    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.addall"/>
+	</a> </p>
+    <p id="add_overdue"><a class="DoNotPrint" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'AddMeasurementData.jsp?demographic_no=<%=demographic_no%><%=recListBuffer.toString()%>&amp;template=<%=temp%>','addMeasurementData<%=Math.abs( "ADDTHEMALL".hashCode() ) %>')" TITLE="Add all overdue measurements.">
+        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.addoverdue"/>
+    </a></p>
+    <p id="add_custom" style="display:none"><a class="DoNotPrint" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'AddMeasurementData.jsp?demographic_no=<%=demographic_no%>&amp;measurement=WT&amp;measurement=HT&amp;measurement=BMI&amp;template=<%=temp%>','addMeasurementData<%=Math.abs( "ADDTHEMALL".hashCode() ) %>')" TITLE="Add HT & WT to calculate BMI.">
+        Add BMI
+    </a></p>
+    <%}%>
+    </security:oscarSec>
+    <!-- only show disease registry and prescriptions for flowsheets which aren't medical in nature -->
+    <% if (mFlowsheet.isMedical()) {%>
+    <div class="leftBox">
+        <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.currentpatientdxlist"/>  <a class="DoNotPrint"  href="javascript:void(0)" onclick="toggle('dxFullListing'); return false;" style="font-size:x-small;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.showhide"/></a></h3>
+        <div class="wrapper" id="dxFullListing"  >
+            <ul>
+            <%
+
+                dxResearchBeanHandler dxResearchBeanHand = new dxResearchBeanHandler(demographic_no);
+                Vector patientDx = dxResearchBeanHand.getDxResearchBeanVector();
+
+                int lim =15;
+                for ( int i = 0; i < patientDx.size(); i++){
+                    dxResearchBean code = (dxResearchBean)patientDx.get(i);  // code.getEnd_date() code.getStart_date()
+                    String desc = code.getDescription();
+                    desc = org.apache.commons.lang3.StringUtils.abbreviate(desc,lim) ;
+                    HashMap<String,String> dxMap = flowSheetDxDao.getFlowSheetDxMap( temp, Integer.parseInt(demographic_no));
+
+                    String pDx = dxMap.get(code.getType()+""+code.getDxSearchCode());
+
+            %>
+            <li>
+                    <% if (pDx == null){ %>
+                     <form method="post" action="FlowSheetDrugAction.do" style="display:inline;">
+                         <input type="hidden" name="method" value="dxSave"/>
+                         <input type="hidden" name="flowsheet" value="<%=temp%>"/>
+                         <input type="hidden" name="demographic" value="<%=demographic_no%>"/>
+                         <input type="hidden" name="dxCode" value="<%=code.getDxSearchCode()%>"/>
+                         <input type="hidden" name="dxCodeType" value="<%=code.getType()%>"/>
+                         <a href="javascript:void(0);" onclick="this.closest('form').submit();">
+                    <%}else{%>
+                     <span title="<%=code.getDescription()%>"  style="background-color: yellow;">
+                    <%}%>
+                - <%=desc%>
+                    <% if (pDx == null){ %>
+                         </a>
+                     </form>
+                    <%}else{%>
+                     </span>
+                    <%}%>
+            </li>
+            <%  }%>
+            </ul>
+        </div>
+    </div>
+
+    <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r"  >
+        <div class="leftBox">
+            <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.currentpatientrxlist"/>  <a class="DoNotPrint" href="javascript:void(0)" onclick="toggle('rxFullListing'); return false;" style="font-size:x-small;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.showhide"/></a></h3>
+            <div class="wrapper" id="rxFullListing"  >
+
+                <%
+                    RxPrescriptionData prescriptData = new RxPrescriptionData();
+                    RxPrescriptionData.Prescription [] arr = {};
+                    arr = prescriptData.getUniquePrescriptionsByPatient(Integer.parseInt(demographic_no));
+                    if (arr.length > 0){%>
+                <ul>
+                    <%for (int i = 0; i < arr.length; i++){
+                        String rxD = arr[i].getRxDate().toString();
+                        //String rxP = arr[i].getRxDisplay();
+                        String rxP = arr[i].getFullOutLine().replaceAll(";"," ");
+                        rxP = rxP + "   " + arr[i].getEndDate();
+                        String styleColor = "";
+                        if(arr[i].isCurrent()){
+                    %>
+                    <li title="<%=rxD%> - <%=rxP%>">
+                            <form method="post" action="FlowSheetDrugAction.do" style="display:inline;">
+                                <input type="hidden" name="method" value="save"/>
+                                <input type="hidden" name="flowsheet" value="<%=temp%>"/>
+                                <input type="hidden" name="demographic" value="<%=demographic_no%>"/>
+                                <input type="hidden" name="atcCode" value="<%=arr[i].getAtcCode()%>"/>
+                                <a href="javascript:void(0);" onclick="this.closest('form').submit();">
+                                - <%= org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12)%>
+                                </a>
+                            </form>
+                    </li>
+                    <%  }
+                    }%>
+                </ul>
+                <%}%>
+
+
+
+            </div>
+        </div>
+
+
+
+         <div class="leftBox">
+            <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.currentpatientallergylist"/>  <a class="DoNotPrint" href="javascript:void(0)" onclick="toggle('allergFullListing'); return false;" style="font-size:x-small;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.showhide"/></a></h3>
+            <div class="wrapper" id="allergFullListing"  >
+
+                <%
+			Allergy[] allergies;
+                    allergies = RxPatientData.getPatient(loggedInInfo, Integer.parseInt(demographic_no)).getActiveAllergies();
+
+
+                    if (allergies.length > 0){%>
+                <ul>
+                    <%for (int i = 0; i < allergies.length; i++){
+                        String rxD = ""+allergies[i].getEntryDate();
+                        String rxP = allergies[i].getDescription();
+                    %>
+                    <li title="<%=rxD%> - <%=rxP%>">
+                            - <%= org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12)%>
+                    </li>
+                    <%}%>
+                </ul>
+                <%}%>
+            </div>
+        </div>
+
+
+    </security:oscarSec>
+    <% } %>
+<div id="print_box">
+   <input type="button" class="DoNotPrint btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.print"/>" onclick="javascript:window.print()">
+    <a class="btn btn-secondary" href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>">Custom Print</a>
+&nbsp;
+
+</div>
+</td>
+
+<td class="MainTableRightColumn" style="vertical-align:top;">
+<% if (warnings.size() > 0 || recomendations.size() > 0  || dsProblems) { %>
+<div class="recommendations">
+    <span style="font-size:larger;"><%=flowSheet%> Recommendations</span>
+    <a href="javascript:void(0)" onclick="toggle('recomList'); return false;" style="font-size:x-small;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.showhide"/></a>
+    <ul id="recomList" style="display:none;">
+        <% for (String warn : warnings){ %>
+        <li style="color: red;"><%=warn%></li>
+        <%}%>
+        <% for (String warn : recomendations ){%>
+        <li style="color: black;"><%=warn%></li>
+        <%}%>
+        <!--li style="color: red;">6 month TD overdue</li>
+  <li>12 month MMR due in 2 months</li-->
+        <% if (dsProblems){ %>
+        <li style="color: red;">Decision Support Had Errors Running.</li>
+        <% } %>
+    </ul>
+</div>
+<% }
+
+	out.print(mFlowsheet.getTopHTMLStream());
+%>
+
+<div id="prevention-list">
+<%
+	//set add link array
+	String[] addAllLink = new String[measurements.size()];
+	int mCount=0;
+
+    EctMeasurementTypeBeanHandler mType = new EctMeasurementTypeBeanHandler();
+    long startTimeToLoopAndPrint = System.currentTimeMillis();
+    for (String measure:measurements){
+        Map h2 = mFlowsheet.getMeasurementFlowSheetInfo(measure);
+        FlowSheetItem item =  mFlowsheet.getFlowSheetItem(measure);
+
+        String hidden= "";
+        if (item.isHide()){
+            hidden= "display:none;";
+        }
+
+
+        if (h2.get("measurement_type") != null ){
+            Hashtable h = new Hashtable();
+            EctMeasurementTypesBean mtypeBean = mType.getMeasurementType(measure);//mFlowsheet.getMeasurementInfo(measure);
+
+            if(mtypeBean!=null) {
+                h.put("name",mtypeBean.getTypeDisplayName());
+                h.put("desc",mtypeBean.getTypeDesc());
+
+
+
+            }
+            String prevName = (String) h.get("name");
+            ArrayList<EctMeasurementsDataBean> alist = mi.getMeasurementData(measure);
+            String extraColour = "";
+            if(mi.hasRecommendation(measure)){
+                extraColour = "style=\"background-color: "+mFlowsheet.getRecommendationColour()+"\" ";
+            }else if(mi.hasWarning(measure)){
+                extraColour = "style=\"background-color: "+mFlowsheet.getWarningColour()+"\" ";
+            }
+
+            if (request.getParameter("show") !=null && request.getParameter("show").equals("overdue") && StringUtils.isEmpty(extraColour) ){
+                hidden= "display:none;";
+            }
+
+            if(request.getParameter("selectedItems") !=null) {
+            	String selectedItems = request.getParameter("selectedItems");
+            	List<String> selectedItemsArray = Arrays.asList(selectedItems.split(","));
+            	if(!selectedItemsArray.contains(prevName)) {
+            		 hidden= "display:none;";
+            	}
+
+            }
+
+            //measurement_type="EDGI"
+            //display_name="Autonomic Neuropathy"
+            //guideline="Erectile Dysfunction, hastrointestinal disturbance"
+            //graphable="no"
+            //value_name="Answer"
+%>
+<div class="preventionSection" id="<%=measure%>"  style="overflow: auto;<%=hidden%>" >
+    <div class="headPrevention">
+
+        <p class="noborder" <%=extraColour%> title="fade=[on] header=[<%=h2.get("display_name")%>] body=[<%=wrapWithSpanIfNotNull(mi.getWarning(measure),"red")%><%=wrapWithSpanIfNotNull(mi.getRecommendation(measure),"red")%><%=h2.get("guideline")%>]"   >
+        <input type="checkbox" name="selected_item" value="<%= h.get("name")%>"/>
+            <%if(h2.get("graphable") != null && ((String) h2.get("graphable")).equals("yes")){%>
+            <%if (alist != null && alist.size() > 1) { %>
+               <img class="DoNotPrint" src="img/chart.gif" alt="Plot"  onclick="window.open('${ pageContext.request.contextPath }/encounter/GraphMeasurements.do?demographic_no=<%=demographic_no%>&type=<%=measure%>');"/>
+            <%}else{%>
+               <img class="DoNotPrint" src="img/chart.gif" alt="Plot"/>
+            <%}%>
+           <%}%>
+
+		   <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
+            <a class="noborder" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'AddMeasurementData.jsp?measurement=<%= response.encodeURL( measure) %>&amp;demographic_no=<%=demographic_no%>&amp;template=<%= URLEncoder.encode(temp,"UTF-8") %>','addMeasurementData<%=Math.abs( ((String) h.get("name")).hashCode() ) %>')">
+           </security:oscarSec>
+                <span  class="noborder" style="font-weight:bold;"><%=h2.get("display_name")%></span>
+
+           <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
+            </a>
+			</security:oscarSec>
+
+        </p>
+    </div>
+    <%  int k = 0;
+        for (EctMeasurementsDataBean mdb:alist){
+            mFlowsheet.runRulesForMeasurement(LoggedInInfo.getLoggedInInfoFromSession(request), mdb);
+            Hashtable hdata = new Hashtable();//(Hashtable) alist.get(k);
+            hdata.put("age",mdb.getDataField());
+            hdata.put("prevention_date",UtilDateUtilities.DateToString(mdb.getDateObservedAsDate()));
+            hdata.put("id",""+mdb.getId());
+            String com = mdb.getComments();
+            boolean comb = false;
+            if (com != null && !com.trim().equals("")){
+                comments.add(com);
+                comb = true;
+            }else{
+                com ="";
+            }
+            String hider = "";
+
+            int num =numElementsToShow;
+            if (request.getParameter("show") !=null && request.getParameter("show").equals("lastOnly")){
+                num =1;
+            }
+            Date itDate = mdb.getDateObservedAsDate();
+
+            // Check if item passes date filter first
+            boolean passesDateFilter = true;
+            if(sdate != null && itDate.before(sdate)) {
+                passesDateFilter = false;
+                hider = "style=\"display:none\"";
+            }
+            if(edate != null && itDate.after(edate)) {
+                passesDateFilter = false;
+                hider = "style=\"display:none\"";
+            }
+            // Only count items that pass the date filter for the element limit
+            if(passesDateFilter) {
+                k++;
+                if(k > num) {
+                    hider = "style=\"display:none;\"";
+                }
+            }
+
+            String indColour = "";
+            if ( mdb.getIndicationColour() != null ){
+                indColour = "style=\"background-color:"+mFlowsheet.getIndicatorColour(mdb.getIndicationColour())+"\"";
+            }
+
+            if (request.getParameter("show") !=null && request.getParameter("show").equals("outOfRange") && indColour.equals("")){
+                hider = "style=\"display:none;\"";
+            }
+
+    %>
+    <div class="preventionProcedure" <%=hider%>
+    onclick="javascript:fsPopup(760,670,'AddMeasurementData.jsp?measurement=<%= response.encodeURL( measure) %>&amp;id=<%=hdata.get("id")%>&amp;demographic_no=<%=demographic_no%>&amp;template=<%= URLEncoder.encode(temp,"UTF-8") %>','addMeasurementData')"
+    >
+        <p <%=indColour%> title="fade=[on] header=[<%=hdata.get("age")%> -- Date:<%=hdata.get("prevention_date")%>] body=[<%=com%>&lt;br/&gt;Entered By:<%=mdb.getProviderFirstName()%> <%=mdb.getProviderLastName()%>]"><%=h2.get("value_name")%>: <%=hdata.get("age")%> <br/>
+            <%=hdata.get("prevention_date")%>&nbsp;<%=mdb.getNumMonthSinceObserved()%>M
+            <%if (comb) {%>
+            <span class="footnote"><%=comments.size()%></span>
+            <%}%>
+
+
+        </p>
+    </div>
+    <%}%>
+</div><!-- preventionSection -->
+<%
+	//creating add all link array
+	addAllLink[mCount]=measure;
+	mCount++;
+
+    }else{
+    String prevType = (String) h2.get("prevention_type");
+    long startPrevType = System.currentTimeMillis();
+    ArrayList<Map<String,Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevType, Integer.parseInt(demographic_no));
+    // Reverse to display newest first (matching measurements/drugs display order)
+    // The query returns ASC order for Prevention page compatibility
+    Collections.reverse(alist);
+
+%>
+
+
+<div class="preventionSection" style="<%=hidden%>" >
+    <div class="headPrevention">
+        <p title="fade=[on] header=[<%=h2.get("display_name")%>] body=[<%=wrapWithSpanIfNotNull(mi.getWarning(measure),"red")%><%=wrapWithSpanIfNotNull(mi.getRecommendation(measure),"red")%><%=h2.get("guideline")%>]">
+            <a href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/oscarPrevention/AddPreventionData.jsp?prevention=<%= response.encodeURL( prevType) %>&amp;demographic_no=<%=demographic_no%>','addPreventionData<%=Math.abs( prevType.hashCode() ) %>')">
+                <span title="<%=h2.get("guideline")%>" style="font-weight:bold;"><%=h2.get("display_name")%></span>
+            </a>
+            &nbsp;
+
+            <br/>
+        </p>
+    </div>
+    <%
+        out.flush();
+        int prevCount = 0;
+        for (int k = 0; k < alist.size(); k++){
+      	  	Map<String,Object> hdata = alist.get(k);
+            String com = PreventionData.getPreventionComment(""+hdata.get("id"));
+            boolean comb = false;
+            if (com != null ){
+                comments.add(com);
+                comb = true;
+            }else{
+                com ="";
+            }
+            String hider = "";
+
+            int num = numElementsToShow;
+            if (request.getParameter("show") != null && request.getParameter("show").equals("lastOnly")) {
+                num = 1;
+            }
+            Date prevDate = (Date) hdata.get("prevention_date_asDate");
+
+            // Check if item passes date filter first
+            boolean passesDateFilter = true;
+            if (sdate != null && prevDate != null && prevDate.before(sdate)) {
+                passesDateFilter = false;
+                hider = "style=\"display:none\"";
+            }
+            if (edate != null && prevDate != null && prevDate.after(edate)) {
+                passesDateFilter = false;
+                hider = "style=\"display:none\"";
+            }
+            // Only count items that pass the date filter for the element limit
+            if (passesDateFilter) {
+                prevCount++;
+                if (prevCount > num) {
+                    hider = "style=\"display:none;\"";
+                }
+            }
+    %>
+    <div class="preventionProcedure" <%=hider%> onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/oscarPrevention/AddPreventionData.jsp?id=<%=hdata.get("id")%>&amp;demographic_no=<%=demographic_no%>','addPreventionData')" >
+        <p <%=r(hdata.get("refused"))%> title="fade=[on] header=[<%=hdata.get("age")%> -- Date:<%=hdata.get("prevention_date")%>] body=[<%=com%>]" >Age: <%=hdata.get("age")%> <br/>
+            <!--<%=refused(hdata.get("refused"))%>-->Date: <%=hdata.get("prevention_date")%>
+            <%if (comb) {%>
+            <span class="footnote"><%=comments.size()%></span>
+            <%}%>
+        </p>
+    </div>
+    <%}%>
+</div>
+
+<%
+	}
+
+}
+%>
+
+<script language="javascript">
+function toggle(id){
+    var el = document.getElementById(id);
+    if(window.getComputedStyle(el).display === "block") {
+        el.style.display="none";
+    } else {
+        el.style.display="block";
+    }
+}
+function createAddAll(d,t,h){
+
+	//most likely will remove this and create qs above to account for prevention
+	var newMtype;
+	newMtype='<%for(int i=0;i<mCount;i++){
+   				out.print("&measurement="+ addAllLink[i]);
+   				}%>';
+
+	return fsPopup(760,670,'AddMeasurementData.jsp?demographic_no='+d+'&template='+t+newMtype,'addMeasurementData'+h);
+}
+</script>
+
+<%
+    RxPrescriptionData prescriptData = new RxPrescriptionData();
+    RxPrescriptionData.Prescription [] arr = {};
+
+    List<FlowSheetDrug> atcCodes = flowSheetDrugDao.getFlowSheetDrugs(temp,Integer.parseInt(demographic_no));
+    for(FlowSheetDrug fsd : atcCodes){
+            arr = prescriptData.getPrescriptionScriptsByPatientATC(Integer.parseInt(demographic_no),fsd.getAtcCode());
+
+%>
+
+<div class="preventionSection"  >
+    <div class="headPrevention">
+        <p title="fade=[on] header=[ddddd] body=[ddddddddsdfsdf]">
+            <!-- a href="javascript: function myFunction() {return false; }"  -->
+                <span title="dd" style="font-weight:bold;"><%=arr[0].getGenericName()%></span>
+            <!-- /a -->
+            &nbsp;
+            <br/>
+        </p>
+    </div>
+    <%
+        out.flush();
+        for (RxPrescriptionData.Prescription pres : arr){
+    %>
+    <div class="preventionProcedure"  onclick="javascript:fsPopup(465,635,'','addPreventionData')" >
+        <p <%=""/*r(hdata.get("refused"))*/%> title="fade=[on] header=[<%=""/*hdata.get("age")*/%> -- Date:<%=""/*hdata.get("prevention_date")*/%>] body=[<%=""/*com*/%>]" ><%=pres.getBrandName()%> <br/>
+            Date: <%=pres.getRxDate()%>
+            <%-- if (comb) {%>
+            <span class="footnote"><%=comments.size()%></span>
+            <%} --%>
+        </p>
+    </div>
+    <%}%>
+</div>
+
+<%}%>
+
+</div>
+<%
+if(temp.equals("diab2") || temp.equals("chf")) {
+%>
+
+
+<div class="card card-body">
+	<!-- drug reason -->
+	 <h3>Associated Rx History</h3>
+	 <br/>
+<%
+	String code = "";
+	if(temp.equals("diab2"))
+		code = "250";
+	if(temp.equals("chf"))
+		code = "428";
+	DrugReasonDao drugReasonDao = SpringUtils.getBean(DrugReasonDao.class);
+	DrugDao drugDao = SpringUtils.getBean(DrugDao.class);
+	List<DrugReason> reasons = drugReasonDao.getReasonsByIcd9CodeAndDemographicNo(code,Integer.parseInt(demographic_no));
+	//group them by drug
+	Map<String,Drug> uniqueDrugs = new HashMap<String,Drug>();
+	List<Drug> allDrugs = new ArrayList<Drug>();
+	for(DrugReason reason : reasons) {
+		Drug d = drugDao.find(reason.getDrugId());
+		allDrugs.add(d);
+		if(!StringUtils.isEmpty(d.getRegionalIdentifier())) {
+			uniqueDrugs.put(d.getRegionalIdentifier(),d);
+		} else if(!StringUtils.isEmpty(d.getCustomName())) {
+			uniqueDrugs.put(d.getCustomName(),d);
+		}
+	}
+	%><table width="50%"><%
+	for(String key : uniqueDrugs.keySet()) {
+		%>
+			<tr>
+				<td>
+
+					<!-- get all drugs of this type in our list, and sort by prescript date -->
+					<%
+						List<Drug> thisDrug = new ArrayList<Drug>();
+						for(Drug d : allDrugs) {
+							if(d.getRegionalIdentifier() != null && key.equals(d.getRegionalIdentifier()) || d.getCustomName() != null && key.equals(d.getCustomName())) {
+								thisDrug.add(d);
+							}
+						}
+					%>
+					<%=thisDrug.get(0).getBrandName() != null ? thisDrug.get(0).getBrandName() : thisDrug.get(0).getCustomName() %>
+					<br/>
+					<ul>
+					<%
+						thisDrug.sort(Drug.START_DATE_COMPARATOR);
+						Collections.reverse(thisDrug);
+						for(Drug d : thisDrug) {
+							%>
+								<li><%=d.getRxDate() %></li>
+							<%
+						}
+					%>
+					</ul>
+				</td>
+			</tr>
+		<%
+	}
+
+	%></table><%
+%>
+</div>
+
+<% } %>
+
+<div class="card card-body">
+    <h3>Comments</h3>
+    <ol>
+        <% for (int i = 0; i < comments.size(); i++){
+            String str = (String) comments.get(i);
+        %>
+        <li><%=Encode.forHtmlContent(str)%></li>
+        <% }%>
+    </ol>
+</div>
+</td>
+</tr>
+<tr>
+    <td class="MainTableBottomRowLeftColumn">
+        &nbsp;
+    </td>
+    <td class="MainTableBottomRowRightColumn" style="vertical-align:top;">
+        &nbsp;
+    </td>
+</tr>
+</table>
+<script type="text/javascript" src="${ pageContext.request.contextPath }/share/javascript/boxover.js"></script>
+
+<script>
+function idExists(id) {
+    var element = document.getElementById(id);
+    if (typeof(element) != 'undefined' && element != null) {
+        return true;
+    }
+    return false;
+}
+
+//if WT, HT and BMI exists then allow the link
+if(idExists("WT") && idExists("HT" ) && idExists("BMI")){
+    document.getElementById('add_custom').style.display = 'block'; // show
+}
+</script>
+</div>
+</body>
+</html>
+
+<%!String refused(Object re){
+        String ret = "Given";
+        if (re instanceof java.lang.String){
+
+            if (re != null && re.equals("1")){
+                ret = "Refused";
+            }
+        }
+        return ret;
+    }
+    String r(Object re){
+        String ret = "";
+        if (re instanceof java.lang.String){
+            if (re != null && re.equals("1")){
+                ret = "style=\"background: #FFDDDD;\"";
+            }else if(re !=null && re.equals("2")){
+                ret = "style=\"background: #FFCC24;\"";
+            }
+        }
+        return ret;
+    }
+    String wrapWithSpanIfNotNull(String s,String colour){
+        String ret = "";
+        String q = "\"";
+        if (s != null){
+            ret = "<span style='color:"+colour+"'>"+s+"</span> </br>";
+        }
+        return ret;
+    }
+
+
+
+
+
+
+
+    %>

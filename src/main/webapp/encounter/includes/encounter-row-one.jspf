@@ -1,0 +1,45 @@
+<%-- Row One: Social History, Family History, Medical History --%>
+<div class="encounter-card card mb-1" id="rowOne">
+    <div class="card-header d-flex align-items-center">
+        <div class="flex-grow-1 d-flex gap-3">
+            <span><fmt:message key="encounter.Index.socialFamHist"/>:</span>
+            <input type="hidden" name="shInput"/>
+            <span>
+                <c:choose>
+                    <c:when test="${fn:length(otherMedLabel) > 1}"><c:out value="${otherMedLabel}"/>:</c:when>
+                    <c:otherwise><fmt:message key="encounter.Index.otherMed"/>:</c:otherwise>
+                </c:choose>
+            </span>
+            <span>
+                <c:choose>
+                    <c:when test="${fn:length(medHistLabel) > 1}"><c:out value="${medHistLabel}"/>:</c:when>
+                    <c:otherwise><fmt:message key="encounter.Index.medHist"/>:</c:otherwise>
+                </c:choose>
+            </span>
+        </div>
+        <div class="resize-controls">
+            <a href="javascript:rowOneX();" title="<fmt:message key="encounter.Index.tooltipClose"/>"><fmt:message key="encounter.Index.x"/></a> |
+            <a href="javascript:rowOneSmall();" title="<fmt:message key="encounter.Index.tooltipSmall"/>"><fmt:message key="encounter.Index.s"/></a> |
+            <a href="javascript:rowOneNormal();" title="<fmt:message key="encounter.Index.tooltipNormal"/>"><fmt:message key="encounter.Index.n"/></a> |
+            <a href="javascript:rowOneLarge();" title="<fmt:message key="encounter.Index.tooltipLarge"/>"><fmt:message key="encounter.Index.l"/></a> |
+            <a href="javascript:rowOneFull();" title="<fmt:message key="encounter.Index.tooltipFull"/>"><fmt:message key="encounter.Index.f"/></a> |
+            <a href="javascript:reset();" title="<fmt:message key="encounter.Index.tooltipReset"/>"><fmt:message key="encounter.Index.r"/></a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row g-0">
+            <div class="col-4">
+                <textarea name="shTextarea" tabindex="1" wrap="hard" cols="28"
+                          style="height:<e:forHtmlAttribute value='${rowOneSize}'/>;overflow:auto"><c:out value="${bean.socialHistory}"/></textarea>
+            </div>
+            <div class="col-4">
+                <textarea name="fhTextarea" tabindex="2" wrap="hard" cols="28"
+                          style="height:<e:forHtmlAttribute value='${rowOneSize}'/>;overflow:auto"><c:out value="${bean.familyHistory}"/></textarea>
+            </div>
+            <div class="col-4">
+                <textarea name="mhTextarea" tabindex="3" wrap="hard" cols="28"
+                          style="height:<e:forHtmlAttribute value='${rowOneSize}'/>;overflow:auto"><c:out value="${bean.medicalHistory}"/></textarea>
+            </div>
+        </div>
+    </div>
+</div>

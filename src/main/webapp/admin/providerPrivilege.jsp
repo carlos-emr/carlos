@@ -304,7 +304,7 @@
     <script>
         jQuery(document).ready(function () {
             jQuery('#addtbl').DataTable({
-                "lengthMenu": [[8, 16, 32, -1], [8, 16, 32, "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.LeftNavBar.AllLabs"/>"]],
+                "lengthMenu": [[8, 16, 32, -1], [8, 16, 32, "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.LeftNavBar.AllLabs"/>"]],
                 "order": [],
                 "language": {
                     "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>.json"

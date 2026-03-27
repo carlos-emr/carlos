@@ -557,7 +557,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to DelService (EctConDeleteServices2Action)")
         void shouldBlock_forGetToDelService() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/oscarEncounter/DelService.do");
+            when(request.getRequestURI()).thenReturn("/carlos/encounter/DelService.do");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);

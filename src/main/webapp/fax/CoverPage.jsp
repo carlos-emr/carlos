@@ -204,7 +204,7 @@
                     <td id="oscarFaxHeaderCenterColumn"><e:forHtml value="${ transactionType }" /></td>
                     <td id="oscarFaxHeaderRightColumn" align=right>
 						<span class="HelpAboutLogout"> 
-							<a style="font-size: 10px; font-style: normal;" href="${ ctx }oscarEncounter/About.jsp"
+							<a style="font-size: 10px; font-style: normal;" href="${ ctx }encounter/About.jsp"
                                target="_new">About</a>
 							<a style="font-size: 10px; font-style: normal;" target="_blank"
                                href="http://www.oscarmanual.org/search?SearchableText=&Title=Chart+Interface&portal_type%3Alist=Document">Help</a>
@@ -218,7 +218,7 @@
 		
 			<c:set var="formAction" value="${ctx}/fax/faxAction.do" />
 			<c:if test="${ transactionType eq 'CONSULTATION' }">
-				<c:set var="formAction" value="${ctx}/oscarEncounter/oscarConsultationRequest/ConsultationFormFax.do" />
+				<c:set var="formAction" value="${ctx}/encounter/oscarConsultationRequest/ConsultationFormFax.do" />
 			</c:if>
 			
 			<form id="coverPageForm" class="d-flex flex-wrap align-items-center gap-2" action='${ formAction }' onsubmit="return submitForm(event)" method="post" novalidate>

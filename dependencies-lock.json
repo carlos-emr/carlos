@@ -272,62 +272,6 @@
     "optional" : false,
     "integrity" : "sha512:ak529k22lHqP1DCq+VRYn/k+WKRVFbfX2LPZlrBBSh6rRgD6olc8zroC3xwa2UkhjFSvQFFEUa7y3MbjkY24sQ=="
   }, {
-    "groupId" : "com.github.librepdf.openpdf",
-    "artifactId" : "openpdf-fonts-extra",
-    "version" : "3.0.3",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:mVBQmNOXRPl0tyOtmGlqKzjSOQ71s6lgll5MKKH0fQQ1PWNMOuNNagUjD1Bnn8RV1h9Thq4tbq/nX2KMHKjxWg=="
-  }, {
-    "groupId" : "com.github.librepdf.openpdf",
-    "artifactId" : "openpdf-html",
-    "version" : "3.0.3",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:vh2lpsB1xCOsvw+I/UoTGVlVDRYBZSUROYVWukXjxn5SfkDw8i4hukBcFYOTf7lYUHc/v5nx7b3vmmIymDnypg=="
-  }, {
-    "groupId" : "com.github.librepdf.openpdf",
-    "artifactId" : "openpdf-kotlin",
-    "version" : "3.0.3",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:pMv8ZnL4rV6v9EQtRVuPvpdjN4QnTvoYgILczYFpYFyex3rVLRhUqkG09JD0lY1xeNSNsaN6dUp5P7JmUxPhfg=="
-  }, {
-    "groupId" : "com.github.librepdf.openpdf",
-    "artifactId" : "openpdf-renderer",
-    "version" : "3.0.3",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:H9wPOh65gaHJn3i8c5bvkWHbSCmkBBsh6S9tRvgJap3cqrXSofdZE2TMoWMhiT4kZT6PcSaApYab6Y4+o37lsQ=="
-  }, {
-    "groupId" : "com.github.librepdf.openpdf",
-    "artifactId" : "openpdf",
-    "version" : "3.0.3",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:BVXPjChr5sHe8YAOrhpp/866who8xmOaG+JdWra3cAB/Qy12iqaiJDNs6CGq6wmr9VHWUWWl9CydO91iLZNIPw=="
-  }, {
-    "groupId" : "com.github.librepdf.openpdf",
-    "artifactId" : "pdf-swing",
-    "version" : "3.0.3",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:W0nVD9UVczQ31WCvo7wCqgdMpVhxbj5XLctbRicCHGSk0u0vJbgrZgsk1UwcpxBuEkCmGJnXp3vWztrVi+cS/Q=="
-  }, {
-    "groupId" : "com.github.librepdf.openpdf",
-    "artifactId" : "pdf-toolbox",
-    "version" : "3.0.3",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:xh4XoV9+d2IM1p6oAaQNAA8ksHptMhzrNLm41xWwa3Du5w0Lxvd97T3JePJWlYIRO0Dpz/k4l1XnYWCrYPoD4Q=="
-  }, {
     "groupId" : "com.github.librepdf",
     "artifactId" : "openpdf-html",
     "version" : "3.0.3",
@@ -342,7 +286,7 @@
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:k6ChjLktgFoDTRbYu9zuEvDSLLwcXeMl3yQ4bZMiarGpKe6SDRzfOd6GgMk8ODU97UzzKAmysBEJ6YPtGSeJtg=="
+    "integrity" : "sha512:J5UUjN6qTBVNHm/wZbWTqDJzvueKOn7s7vJpbgLhTc6HaE8E1qEnQ0az2XMzL2Lqn9YwDKaqqiR6+KuWEFUnvg=="
   }, {
     "groupId" : "com.github.librepdf",
     "artifactId" : "openrtf",
@@ -358,7 +302,7 @@
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:UV+Mfq1Qz+xkGu2cgUL0f9N9PVkjBijDwhghzRaItamQ9pVlmEpNAwqnFOuFY55m3Oi6YdzBoQk2KYXrzNvMtQ=="
+    "integrity" : "sha512:fiXBLMWhIZZiGGp6MBg3zZU1wOAYiM/TU/gU17e9YdHePhNIPM0F0dimSeMUTM8CMN4khJyM809pvRJAaUuY/Q=="
   }, {
     "groupId" : "com.github.virtuald",
     "artifactId" : "curvesapi",
@@ -366,7 +310,7 @@
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:waur/7IyGRRL+9h3csyFULacPYEAaNMmhvav1fVUfV4uYcATUGgLA8M90TsME0QWhu8GQPgbI3jcXQ5VJWFQFQ=="
+    "integrity" : "sha512:dysG29MQqKBqDC02Oa0tFsVKeLy4RSdLMD0UBpnrsVxkHU4HjyinVGf8BbWz01vCwF9/xEMk3LHJb3b5A3iCLg=="
   }, {
     "groupId" : "com.google.code.findbugs",
     "artifactId" : "jsr305",
@@ -2459,14 +2403,6 @@
     "optional" : false,
     "integrity" : "sha512:o91oOzV+B1Irs+ODfcJk3eSGOMG5aryPK/nv81FhfOskb/OKDOD4WoFwfoEaDV/SksCfqEh9iagwcEOv9HlpCQ=="
   }, {
-    "groupId" : "org.dom4j",
-    "artifactId" : "dom4j",
-    "version" : "2.2.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:nmnYxTuC1i1lidVsaGFFWWOsZOocdKc7Lmd75Sl8EE6hrCbrhxrJLy7lQRazARMESBBwriGlcNOyQb4cwTOQqw=="
-  }, {
     "groupId" : "org.drools",
     "artifactId" : "drools-base",
     "version" : "10.1.0",
@@ -2916,14 +2852,6 @@
     "optional" : false,
     "integrity" : "sha512:gWQtt2NY+/Ex3+nC8dnCgPwjtr/eahai022sxJChoq9OD7Srtc14AFcYux0VikL9aDTNK/5hbsWWJd8BlR8keA=="
   }, {
-    "groupId" : "org.jetbrains.kotlin",
-    "artifactId" : "kotlin-stdlib",
-    "version" : "2.3.10",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:hTK575wP8iSuy1Iff7YlHp7zdTfkioT4/QnhRmaJuW61x7INCz9vO+424OAZEf0NgFd3JfbzI/oyyFYULU++vQ=="
-  }, {
     "groupId" : "org.jetbrains",
     "artifactId" : "annotations",
     "version" : "26.1.0",
@@ -2931,14 +2859,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:8czeWBQ7OM59BksemADNhMQ40/mScnYgoTboYVH+KDnhCnf9KhQk/U51FqpEZcrhaSucwNV/01xBZRyQxZGtAA=="
-  }, {
-    "groupId" : "org.jfree",
-    "artifactId" : "jcommon",
-    "version" : "1.0.24",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:eFd97jLToTD8Dwr5THzMm4/WJQkubna+hte5VzCW+RXemyMa5O9M7NimGBisUwwHkd3jN3YSIofg8IbJckwrcg=="
   }, {
     "groupId" : "org.jfree",
     "artifactId" : "jfreechart",
@@ -3411,14 +3331,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:P3XGF/szCM4P9Z518G1a5XE33X24yykEhUoxeffmKeWQEF7zhB4I8WAASu4C80HVlJIlvKeb/V9jMeGisW2zlQ=="
-  }, {
-    "groupId" : "org.swinglabs",
-    "artifactId" : "pdf-renderer",
-    "version" : "1.0.5",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:urXSaGh82l/2WmfYVYvI1IqWhqtdqK5eswgADAFXxqnjoq2uGRQcS9o8HynmpvtcVgnhk+Y8n0W5qAP9SEvdRg=="
   }, {
     "groupId" : "org.tomitribe",
     "artifactId" : "tomitribe-http-signatures",

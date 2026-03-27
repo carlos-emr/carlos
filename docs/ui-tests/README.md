@@ -347,7 +347,7 @@ server start
 | Search Results | `/demographic/demographiccontrol.jsp?search_mode=search_name&keyword=...` | ⚠️ |
 | Patient Record | `/demographic/demographiccontrol.jsp?demographic_no=3&displaymode=edit` | ✅ |
 | Appointments | `/appointment/appointmentcontrol.jsp` | Not tested |
-| E-Chart | `/oscarEncounter/Index.jsp` | Not tested |
+| E-Chart | `/encounter/Index.jsp` | Not tested |
 | Prescriptions | `/oscarRx/choosePatient.do` | Not tested |
 
 ## Troubleshooting

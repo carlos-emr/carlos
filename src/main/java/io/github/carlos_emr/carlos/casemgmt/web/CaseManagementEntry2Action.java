@@ -741,7 +741,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
                 String providerName = providerDao.getProviderName(providerNo);
 
-                String signature = "[" + props.getString("oscarEncounter.class.EctSaveEncounterAction.msgSigned") + " " + dt.format(now) + " " + props.getString("oscarEncounter.class.EctSaveEncounterAction.msgSigBy") + " " + providerName + "]";
+                String signature = "[" + props.getString("encounter.class.EctSaveEncounterAction.msgSigned") + " " + dt.format(now) + " " + props.getString("encounter.class.EctSaveEncounterAction.msgSigBy") + " " + providerName + "]";
                 note.setNote(note.getNote() + "\n" + signature);
             }
 
@@ -984,7 +984,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 issueNames.append(cIssue.getIssue().getDescription() + "\n");
             }
 
-            strNote += "\n" + new SimpleDateFormat("dd-MMM-yyyy", request.getLocale()).format(new Date()) + " " + props.getString("oscarEncounter.removedIssue.Msg") + ":\n" + issueNames.toString();
+            strNote += "\n" + new SimpleDateFormat("dd-MMM-yyyy", request.getLocale()).format(new Date()) + " " + props.getString("encounter.removedIssue.Msg") + ":\n" + issueNames.toString();
             note.setNote(strNote);
             removed = true;
         } else {
@@ -1009,7 +1009,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
             // if we have removed an issue add it to message body
             if (issueNames.length() > 0) {
-                strNote += "\n" + new SimpleDateFormat("dd-MMM-yyyy", request.getLocale()).format(new Date()) + " " + props.getString("oscarEncounter.removedIssue.Msg") + ":\n" + issueNames.toString();
+                strNote += "\n" + new SimpleDateFormat("dd-MMM-yyyy", request.getLocale()).format(new Date()) + " " + props.getString("encounter.removedIssue.Msg") + ":\n" + issueNames.toString();
                 note.setNote(strNote);
             }
 
@@ -1432,7 +1432,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy H:mm", Locale.ENGLISH);
             Date dateObserve = formatter.parse(observationDate);
             if (dateObserve.getTime() > now.getTime()) {
-                request.setAttribute("DateError", props.getString("oscarEncounter.futureDate.Msg"));
+                request.setAttribute("DateError", props.getString("encounter.futureDate.Msg"));
                 note.setObservation_date(now);
             } else note.setObservation_date(dateObserve);
         } else if (note.getObservation_date() == null) {
@@ -1677,7 +1677,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy H:mm", request.getLocale());
             Date dateObserve = formatter.parse(observationDate);
             if (dateObserve.getTime() > now.getTime()) {
-                request.setAttribute("DateError", props.getString("oscarEncounter.futureDate.Msg"));
+                request.setAttribute("DateError", props.getString("encounter.futureDate.Msg"));
                 note.setObservation_date(now);
             } else note.setObservation_date(dateObserve);
         } else if (note.getObservation_date() == null) {
@@ -2599,7 +2599,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         request.setAttribute("history", history);
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
-        request.setAttribute("title", props.getString("oscarEncounter.noteHistory.title"));
+        request.setAttribute("title", props.getString("encounter.noteHistory.title"));
         return "showHistory";
     }
 
@@ -2641,7 +2641,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 if (idx < arrIssues.length - 1) title.append(", ");
             }
         }
-        title.append(" " + props.getString("oscarEncounter.history.title"));
+        title.append(" " + props.getString("encounter.history.title"));
         request.setAttribute("title", title.toString());
 
         return "showHistory";
@@ -2763,7 +2763,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         for (int idx = 0; idx < noteIds.length; ++idx) {
             if (this.caseManagementMgr.getNote(noteIds[idx]).isLocked()) {
-                textStr = this.caseManagementMgr.getNote(noteIds[idx]).getObservation_date().toString() + " " + this.caseManagementMgr.getNote(noteIds[idx]).getProviderName() + " " + props.getString("oscarEncounter.noteBrowser.msgNoteLocked");
+                textStr = this.caseManagementMgr.getNote(noteIds[idx]).getObservation_date().toString() + " " + this.caseManagementMgr.getNote(noteIds[idx]).getProviderName() + " " + props.getString("encounter.noteBrowser.msgNoteLocked");
             } else {
 
                 textStr = this.caseManagementMgr.getNote(noteIds[idx]).getNote();

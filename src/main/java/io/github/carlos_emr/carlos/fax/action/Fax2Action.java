@@ -103,7 +103,7 @@ public class Fax2Action extends ActionSupport {
 
         if (TransactionType.CONSULTATION.name().equalsIgnoreCase(transactionType)) {
             try {
-                response.sendRedirect(request.getContextPath() + "/oscarEncounter/ViewRequest.do?de=" + demographicNo + "&requestId=" + transactionId);
+                response.sendRedirect(request.getContextPath() + "/encounter/ViewRequest.do?de=" + demographicNo + "&requestId=" + transactionId);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

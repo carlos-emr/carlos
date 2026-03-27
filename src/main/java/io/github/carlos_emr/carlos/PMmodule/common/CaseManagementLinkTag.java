@@ -76,7 +76,7 @@ public class CaseManagementLinkTag extends TagSupport {
             builder.append(req.getServerPort());
             builder.append(req.getContextPath()).append("/");
 
-            builder.append("oscarEncounter/IncomingEncounter.do").append("?");
+            builder.append("encounter/IncomingEncounter.do").append("?");
             builder.append("providerNo=").append(providerNo).append("&");
             builder.append("appointmentNo=").append(0).append("&");
             builder.append("demographicNo=").append(demographicNo).append("&");

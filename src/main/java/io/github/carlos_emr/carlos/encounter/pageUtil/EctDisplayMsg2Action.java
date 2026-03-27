@@ -52,7 +52,7 @@ public class EctDisplayMsg2Action extends EctDisplayAction {
             return true; //Oscar message link won't show up on new CME screen.
         } else {
             //set text for lefthand module title
-            Dao.setLeftHeading(getText("oscarEncounter.LeftNavBar.Messages"));
+            Dao.setLeftHeading(getText("encounter.LeftNavBar.Messages"));
 
             //set link for lefthand module title
             String winName = "ViewMsg" + bean.demographicNo;

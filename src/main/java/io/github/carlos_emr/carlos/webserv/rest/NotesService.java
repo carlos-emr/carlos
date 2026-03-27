@@ -540,7 +540,7 @@ public class NotesService extends AbstractServiceImpl {
         Date observationDate = note.getObservationDate();
         if (observationDate != null && !observationDate.equals("")) {
             if (observationDate.getTime() > now.getTime()) {
-                //request.setAttribute("DateError", props.getProperty("oscarEncounter.futureDate.Msg"));
+                //request.setAttribute("DateError", props.getProperty("encounter.futureDate.Msg"));
                 caseMangementNote.setObservation_date(now);
             } else {
                 caseMangementNote.setObservation_date(observationDate);
@@ -855,7 +855,7 @@ public class NotesService extends AbstractServiceImpl {
         Date observationDate = note.getObservationDate();
         if (observationDate != null && !observationDate.equals("")) {
             if (observationDate.getTime() > now.getTime()) {
-                //request.setAttribute("DateError", props.getProperty("oscarEncounter.futureDate.Msg"));
+                //request.setAttribute("DateError", props.getProperty("encounter.futureDate.Msg"));
                 caseMangementNote.setObservation_date(now);
             } else {
                 caseMangementNote.setObservation_date(observationDate);

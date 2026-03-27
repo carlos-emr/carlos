@@ -99,9 +99,9 @@ public class CkdNotificationManager {
 
         String flowsheet = CarlosProperties.getInstance().getProperty("ckd_flowsheet", "indicators");
         if (flowsheet.equals("indicators")) {
-            message += "Go to CDM Indicators <a href=\"javascript:void(0);\" onclick=\"popupPage(700,1000,'../oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + demographicNo + "&amp;template=diab3');return false;\">here</a><br/>";
+            message += "Go to CDM Indicators <a href=\"javascript:void(0);\" onclick=\"popupPage(700,1000,'../encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + demographicNo + "&amp;template=diab3');return false;\">here</a><br/>";
         } else if (flowsheet.equals("diabetes")) {
-            message += "Go to Diabetes Flowsheet <a href=\"javascript:void(0)\" onclick=\"popupPage(700,1000,'../oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + demographicNo + "&amp;template=diab2');return false;\">here</a><br/>";
+            message += "Go to Diabetes Flowsheet <a href=\"javascript:void(0)\" onclick=\"popupPage(700,1000,'../encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + demographicNo + "&amp;template=diab2');return false;\">here</a><br/>";
         }
 
         Dxresearch screeningDx = null;

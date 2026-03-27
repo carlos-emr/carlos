@@ -218,7 +218,7 @@
             var page = "" + varpage;
             windowprops = "height=700,width=800,location=no,"
                 + "scrollbars=yes,menubars=no,toolbars=no,resizable=yes,top=0,left=0";
-            window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupPage2Window"/>", windowprops);
+            window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.popupPage2Window"/>", windowprops);
         }
 
         var awnd = null;

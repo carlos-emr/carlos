@@ -49,7 +49,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <link rel="stylesheet" type="text/css"
-      href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
+      href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
 <html lang="en">
 
     <head>

@@ -56,7 +56,7 @@ public class EctDisplayIssues2Action extends EctDisplayAction {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         // set lefthand module heading and link
-        navBarDisplayDAO.setLeftHeading(getText("oscarEncounter.NavBar.unresolvedIssues"));
+        navBarDisplayDAO.setLeftHeading(getText("encounter.NavBar.unresolvedIssues"));
 
         navBarDisplayDAO.setLeftURL("$('check_issue').value='';document.caseManagementViewForm.submit();");
 

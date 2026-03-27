@@ -1,0 +1,114 @@
+<%-- Row Three: Encounter notes, template autocomplete, consumption, action buttons --%>
+<div class="encounter-card card mb-1" id="rowThree">
+    <div class="card-header d-flex align-items-center">
+        <div class="flex-grow-1 d-flex align-items-center gap-2">
+            <%-- Encounter history link --%>
+            <a href="#"
+               onclick="popupPage(600,700,'<fmt:message key="encounter.Index.popupPage2Window"/>','${ctx}/report/reportecharthistory.jsp?demographic_no=${bean.demographicNo}');return false;">
+                <fmt:message key="global.encounter"/>:
+                <e:forHtmlContent value="${bean.patientLastName}"/>,
+                <e:forHtmlContent value="${bean.patientFirstName}"/>
+            </a>
+
+            <%-- Split chart link --%>
+            <c:if test="${hasSplitChart}">
+                &nbsp;&nbsp;&nbsp;
+                <a href="#" onclick="showpic('splitChartLayer','splitChartId');" id="splitChartId">Split Chart</a>
+            </c:if>
+
+            <%-- Template autocomplete input (Scriptaculous Autocompleter initialized in encounter.js loader()) --%>
+            <input id="enTemplate" tabindex="6" autocomplete="off" size="25" type="text" value=""
+                   onkeypress="return grabEnterGetTemplate(event)"/>
+            <div class="enTemplate_name_auto_complete" id="enTemplate_list" style="display: none"></div>
+            <input type="hidden" name="enInput"/>
+        </div>
+
+        <%-- Consumption indicator --%>
+        <div class="d-flex align-items-center gap-1 me-2" style="font-size: 9px; font-variant: small-caps; font-weight: bold;">
+            <span><c:out value="${consumption}"/>%</span>
+            <div style="width: 80px; height: 12px; background-color: white; border: 1px solid #ccc; border-radius: 2px; overflow: hidden;">
+                <div style="width: <e:forHtmlAttribute value='${consumption}'/>%; height: 100%; background-color: <e:forHtmlAttribute value='${consumptionColor}'/>;" ></div>
+            </div>
+        </div>
+
+        <%-- Resize controls --%>
+        <div class="resize-controls">
+            <a href="javascript:rowThreeX();" title="<fmt:message key="encounter.Index.tooltipClose"/>"><fmt:message key="encounter.Index.x"/></a> |
+            <a href="javascript:rowThreeSmall();" title="<fmt:message key="encounter.Index.tooltipSmall"/>"><fmt:message key="encounter.Index.s"/></a> |
+            <a href="javascript:rowThreeNormal();" title="<fmt:message key="encounter.Index.tooltipNormal"/>"><fmt:message key="encounter.Index.n"/></a> |
+            <a href="javascript:rowThreeMedium();" title="<fmt:message key="encounter.Index.tooltipMedium"/>"><fmt:message key="encounter.Index.m"/></a> |
+            <a href="javascript:rowThreeLarge();" title="<fmt:message key="encounter.Index.tooltipLarge"/>"><fmt:message key="encounter.Index.l"/></a> |
+            <a href="javascript:rowThreeFull();" title="<fmt:message key="encounter.Index.tooltipFull"/>"><fmt:message key="encounter.Index.f"/></a> |
+            <a href="javascript:reset();" title="<fmt:message key="encounter.Index.tooltipReset"/>"><fmt:message key="encounter.Index.r"/></a>
+        </div>
+    </div>
+    <div class="card-body">
+        <textarea name="enTextarea" tabindex="7" wrap="hard" cols="90"
+                  style="height:<e:forHtmlAttribute value='${rowThreeSize}'/>;overflow:auto"><c:out value="${encounterText}"/></textarea>
+    </div>
+</div>
+
+<%-- Action buttons --%>
+<div class="encounter-actions d-flex justify-content-between align-items-center">
+    <div>
+        <input type="hidden" name="subject" value="<e:forHtmlAttribute value='${bean.reason}'/>">
+        <c:if test="${consumption >= 50}">
+            <input type="submit" name="buttonPressed" value="Split Chart"
+                   class="btn btn-sm btn-secondary" onclick="return onSplit();">
+        </c:if>
+    </div>
+    <div class="d-flex gap-1 align-items-center">
+        <oscar:oscarPropertiesCheck property="CPP" value="yes">
+            <input type="button" class="btn btn-sm btn-secondary" value="CPP"
+                   onclick="document.forms['encForm'].btnPressed.value='Save'; popupPage(700, 960, 'cpp', 'encounterCPP.jsp'); document.forms['encForm'].submit();"/>
+        </oscar:oscarPropertiesCheck>
+
+        <input type="button" class="btn btn-sm btn-secondary"
+               value="<fmt:message key="global.btnPrint"/>"
+               onclick="document.forms['encForm'].btnPressed.value='Save'; popupPage(700, 960, 'print', 'encounterPrint.jsp');"/>
+
+        <input type="hidden" name="btnPressed" value="">
+
+        <%-- Save/Sign buttons - security controlled --%>
+        <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="w">
+            <% if (!bPrincipalControl || (bPrincipalControl && bPrincipalDisplay)) { %>
+            <input type="button" class="btn btn-sm btn-primary"
+                   value="<fmt:message key="encounter.Index.btnSave"/>"
+                   onclick="document.forms['encForm'].btnPressed.value='Save'; document.forms['encForm'].submit();">
+            <input type="button" class="btn btn-sm btn-primary"
+                   value="<fmt:message key="encounter.Index.btnSignSave"/>"
+                   onclick="document.forms['encForm'].btnPressed.value='Sign,Save and Exit'; document.forms['encForm'].submit();">
+            <oscar:oscarPropertiesCheck property="billregion" value="BC">
+                <input type="button" class="btn btn-sm btn-primary"
+                       value="<fmt:message key="encounter.Index.btnSignSaveBill"/>"
+                       onclick="document.forms['encForm'].btnPressed.value='Sign,Save and Bill'; document.forms['encForm'].submit();">
+            </oscar:oscarPropertiesCheck>
+            <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart.verifyButton" rights="w">
+                <input type="button" class="btn btn-sm btn-primary"
+                       value="<fmt:message key="encounter.Index.btnSign"/>"
+                       onclick="document.forms['encForm'].btnPressed.value='Verify and Sign'; document.forms['encForm'].submit();">
+            </security:oscarSec>
+            <% } %>
+        </security:oscarSec>
+
+        <input type="button" class="btn btn-sm btn-secondary" name="buttonPressed"
+               value="<fmt:message key="global.btnExit"/>"
+               onclick="document.forms['encForm'].btnPressed.value='Exit'; if (closeEncounterWindow()) {document.forms['encForm'].submit();}">
+
+        <%-- Hidden form state fields --%>
+        <input type="hidden" name="rowOneSize" value="<e:forHtmlAttribute value='${rowOneSize}'/>">
+        <input type="hidden" name="rowTwoSize" value="<e:forHtmlAttribute value='${rowTwoSize}'/>">
+        <input type="hidden" name="presBoxSize" value="<e:forHtmlAttribute value='${presBoxSize}'/>">
+        <input type="hidden" name="rowThreeSize" value="<e:forHtmlAttribute value='${rowThreeSize}'/>">
+        <input type="hidden" name="status" value="t"/>
+        <input type="hidden" name="appointment_no" value="${bean.appointmentNo}"/>
+    </div>
+</div>
+
+<%-- Auto-submit on split chart save --%>
+<c:if test="${bSplit}">
+    <script>
+        document.forms['encForm'].btnPressed.value = 'Save';
+        document.forms['encForm'].submit();
+    </script>
+</c:if>
