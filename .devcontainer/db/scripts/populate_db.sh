@@ -22,6 +22,7 @@ mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-01-02
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-01-26-tickler-indexes.sql
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-02-10-fax-provider-type.sql
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-02-14-facility-integrator-removal.sql
+mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-03-25-security-mfa-default.sql
 echo 'Loading demo data for development...'
 mysql -u root -p"$DB_PASSWORD" oscar < /scripts/development.sql
 echo 'Preparing demographic names for development environment...'

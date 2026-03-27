@@ -7,8 +7,6 @@
 INSERT INTO `Icd9Synonym` VALUES ('172', 'Skin Cancer', '1'), ('173', 'basal cell carcinoma', '2'), ('2429', 'Hyperthyroid', '3'), ('2449', 'Hypothyroid', '4'), ('2564', 'polycystic ovarian syndrome', '5'), ('2720', 'Hypercholesterolemia', '6'), ('2722', 'Mixed hyperlipidemia', '7'), ('2724', 'Cholesterol', '8'), ('274', 'Gout', '9'), ('2768', 'hypokalemia', '10'), ('2778', 'Retinitis pigmentosa', '11'), ('2901', 'Dementia', '12'), ('2963', 'Depression/Mood', '13'), ('2967', 'Bipolar', '14'), ('3000', 'Anxiety', '15'), ('3003', 'OCD', '16'), ('30981', 'PTSD', '17'), ('3339', 'Restless leg syndrome', '18'), ('3540', 'carpal tunnel syndrome', '19'), ('356', 'Neuropathy/Neuropathic pain', '20'), ('401', 'Hypertension', '21'), ('4140', 'CAD', '22'), ('4273', 'Atrial Fibrilation', '23'), ('453', 'Deep vein thrombosis', '24'), ('4781', 'Nasal congestion', '25'), ('4912', 'COPD', '26'), ('530', 'Barret\'s esophagus', '27'), ('53081', 'GERD/Reflux', '28'), ('555', 'Cholitis/Crohn\'s', '29'), ('5718', 'Fatty liver', '30'), ('59651', 'Overactive bladder', '31'), ('600', 'Enlarged prostate', '32'), ('607', 'ED/Libido', '33'), ('627', 'Menopause', '34'), ('6929', 'Dermatitis/Eczema', '35'), ('6960', 'Psoriatic arthritis', '36'), ('715', 'Arthritis/Osteoarthritis', '37'), ('722', 'degenerative disc disorder', '38'), ('7245', 'Back Pain', '39'), ('72885', 'Muscle Spasms', '40'), ('7291', 'Fibromyalgia', '41'), ('73390', 'osteopenia', '42'), ('7506', 'Hiatis Hernia', '43'), ('7804', 'Dizziness', '44'), ('7805', 'sleep', '45'), ('78051', 'Sleep apnea', '46'), ('78052', 'insomnia', '47'), ('78605', 'Difficulty breathing', '48'), ('7865', 'Chest pain', '49'), ('78841', 'Frequent Urination', '50'), ('8470', 'whiplash', '51'), ('O54', 'Herpes', '52'), ('V433', 'Aortic valve replacement', '53'), ('V450', 'Cardiac pace maker', '54');
 
 --
-
---
 -- Dumping data for table 'clinic'
 --
 
@@ -299,14 +297,13 @@ INSERT INTO encounterForm VALUES ('Annual V2','../form/formannualV2.jsp?demograp
 INSERT INTO encounterForm VALUES ('ALPHA','../form/formalpha.jsp?demographic_no=','formAlpha', '0');
 INSERT INTO encounterForm VALUES ('Rourke','../form/formrourke.jsp?demographic_no=','formRourke', '0');
 INSERT INTO encounterForm VALUES ('Rourke2006','../form/formrourke2006.jsp?demographic_no=','formRourke2006', '0');
-INSERT INTO encounterForm VALUES ('T2Diabetes','../form/formtype2diabete.jsp?demographic_no=','formType2Diabetes', '0');
+
 INSERT INTO encounterForm VALUES ('Mental Health','../form/formmentalhealth.jsp?demographic_no=','formMentalHealth', '0');
 INSERT INTO encounterForm VALUES ('PeriMenopausal','../form/formperimenopausal.jsp?demographic_no=','formPeriMenopausal', '0');
 INSERT INTO encounterForm VALUES ('Lab Req','../form/formlabreq.jsp?demographic_no=','formLabReq', '0');
 INSERT INTO encounterForm VALUES ('MMSE','../form/formmmse.jsp?demographic_no=','formMMSE', '0');
 INSERT INTO encounterForm VALUES ('Pall. Care','../form/formpalliativecare.jsp?demographic_no=','formPalliativeCare', '0');
-INSERT INTO encounterForm VALUES ('AR','../form/formar.jsp?demographic_no=','formAR', '0');
-INSERT INTO encounterForm VALUES ('ADF','../form/formadf.jsp?demographic_no=','formAdf', '0');
+
 INSERT INTO encounterForm VALUES ('ADFv2', '../form/formadfv2.jsp?demographic_no=', 'formAdfV2', '0');
 INSERT INTO encounterForm VALUES ('ImmunAllergies', '../form/formimmunallergy.jsp?demographic_no=', 'formImmunAllergy', '0');
 INSERT INTO encounterForm VALUES ('Falls History', '../form/formfalls.jsp?demographic_no=','formFalls',0);
@@ -328,13 +325,11 @@ INSERT INTO encounterForm VALUES ('Caregiver - SF36', '../form/formSF36caregiver
 INSERT INTO encounterForm VALUES ('Vascular Tracker', '../form/SetupForm.do?formName=VTForm&demographic_no=','formVTForm',0);
 INSERT INTO encounterForm VALUES ('Growth 0-36m', '../form/formGrowth0_36.jsp?demographic_no=','formGrowth0_36',0);
 INSERT INTO encounterForm VALUES ('Letterhead', '../form/formConsultant.jsp?demographic_no=', 'formConsult', 0);
-INSERT INTO `encounterForm`(`form_name`,`form_value`,`form_table`,`hidden`) VALUES ('CHF','../form/formchf.jsp?demographic_no=','formchf',0);
-INSERT INTO `encounterForm`(`form_name`,`form_value`,`form_table`,`hidden`) VALUES ('Health Passport', '../form/formbchp.jsp?demographic_no=', 'formBCHP', 0);
-insert into encounterForm values ('ON AR Enhanced','../form/formonarenhanced.jsp?demographic_no=','formONAREnhancedRecord',0);
-INSERT INTO `encounterForm` (`form_name`, `form_value`, `form_table`, `hidden`) VALUES ('HMP Form','../form/HSFOForm2.do?demographic_no=','form_hsfo2_visit',1);
-INSERT INTO encounterForm VALUES ('Student Intake Hx','../form/formIntakeHx.jsp?demographic_no=','formIntakeHx', '0');
-insert into encounterForm (`form_name`, `form_value`, `form_table`, `hidden`) values('Patient Encounter Worksheet','../form/patientEncounterWorksheet.jsp?demographic_no=','',0);
-INSERT INTO `encounterForm`(`form_name`, `form_value`, `form_table`, `hidden`) VALUES ('Growth Charts', '../form/formGrowthChart.jsp?demographic_no=', 'formGrowthChart', 0);
+INSERT INTO encounterForm VALUES ('CHF','../form/formchf.jsp?demographic_no=','formchf',0);
+INSERT INTO encounterForm VALUES ('Health Passport', '../form/formbchp.jsp?demographic_no=', 'formBCHP', 0);
+INSERT INTO encounterForm VALUES ('HMP Form','../form/HSFOForm2.do?demographic_no=','form_hsfo2_visit',1);
+insert into encounterForm values ('Patient Encounter Worksheet','../form/patientEncounterWorksheet.jsp?demographic_no=','',0);
+INSERT INTO encounterForm VALUES ('Growth Charts', '../form/formGrowthChart.jsp?demographic_no=', 'formGrowthChart', 0);
 --
 -- Dumping data for table 'encountertemplate'
 --
@@ -1345,7 +1340,7 @@ insert into ProviderPreference (providerNo, startHour, endHour, everyMin, myGrou
 -- Dumping data for table 'provider'
 --
 
-INSERT INTO provider VALUES ('999998','openodoc','doctor','doctor',null,'','','','0001-01-01','','','','','','','','1','','','','','','','','',now(),'0001-01-01','');
+INSERT INTO provider VALUES ('999998','carlosdoc','doctor','doctor',null,'','','','0001-01-01','','','','','','','','1','','','','','','','','',now(),'0001-01-01','');
 
 --
 -- Dumping data for table 'quickList'
@@ -1426,7 +1421,7 @@ INSERT INTO scheduletemplatecode (code,description,duration,color,confirm,bookin
 -- Dumping data for table 'security'
 --
 
-INSERT INTO security(security_no,user_name,password,provider_no,pin,forcePasswordReset) VALUES (128,'openodoc','{bcrypt}$2b$12$9mdpjGHFmuVrW7uv7HlZter.6Gdqx.V/i.ba52e9VP6ZYnwJR6h96','999998','2025',1);
+INSERT INTO security(security_no,user_name,password,provider_no,pin,forcePasswordReset) VALUES (128,'carlosdoc','{bcrypt}$2b$10$hznRKLQEhHbNIUdr5jDjRuBvIQffgkSsXBI.Tn7n5r0Se/Zlc/GLS','999998','1117',1);
 
 --
 -- Dumping data for table 'specialistsJavascript'
@@ -1645,7 +1640,7 @@ insert into `secObjPrivilege` values('doctor','_admin.lookupFieldEditor','o',0,9
 insert into `secObjPrivilege` values('doctor','_admin.issueEditor','o',0,999998);
 insert into `secObjPrivilege` values('doctor','_admin.caisiRoles','o',0,999998);
 insert into `secObjPrivilege` values('doctor','_admin.userCreatedForms','o',0,999998);
-insert into `secObjPrivilege` values('doctor','_admin.flowsheet','r',1,'999998');
+insert into `secObjPrivilege` values('doctor','_admin.flowsheet','r',0,'999998');
 
 insert into `secObjPrivilege` values('doctor','_pmm.clientSearch','x',0,999998);
 insert into `secObjPrivilege` values('doctor','_pmm.newClient','x',0,999998);
@@ -2597,7 +2592,7 @@ insert into `secObjectName` (`objectName`) values ('_admin.auditLogPurge');
 
 INSERT INTO `tickler_category` VALUES (\N, 'To Call In', 'Call this patient in for a follow-up visit', b'1'), (\N, 'Reminder Note', 'Send a reminder note to this patient', b'1'), (\N, 'Follow-up Billing', 'Follow-up Additional Billing', b'1');
 
-insert into `secObjectName` (`objectName`, `description`, `orgapplicable`) values ('_admin.schedule.curprovider_only','allow provider with non-admin role to create schedule templates and assign to themselves', 0);
+insert into `secObjectName` (`objectName`, `description`, `orgapplicable`) values ('_admin.schedule.curprovider_only','non-admin create schedule templates for themselves', 0);
 
 
 INSERT INTO oscar_msg_type VALUES (1,'OSCAR Resident Review', 'OSCAR_REVIEW_TYPE');

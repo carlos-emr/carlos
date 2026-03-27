@@ -91,17 +91,8 @@ public class EctDisplayPregnancy2Action extends EctDisplayAction {
                 Dao.addPopUpUrl("popupPage(700,1000,'" + winName + "', '" + request.getContextPath() + "/Pregnancy.do?method=create&code=34801009&codetype=SnomedCore&demographicNo=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "')");
                 Dao.addPopUpText("Ectopic");
 
-                //check to see if they have an onar2005 form
-                if (CarlosProperties.getInstance().getProperty("billregion", "ON").equals("ON")) {
-                    EctFormData.PatientForm[] pforms = EctFormData.getPatientForms(bean.demographicNo, "formONAR");
-                    EctFormData.PatientForm[] eforms = EctFormData.getPatientForms(bean.demographicNo, "formONAREnhancedRecord");
-
-                    if (pforms.length > 0 && eforms.length == 0) {
-                        Dao.addPopUpUrl("popupPage(700,1000,'" + winName + "', '" + request.getContextPath() + "/Pregnancy.do?method=migrate&demographicNo=" + bean.demographicNo + "')");
-                        Dao.addPopUpText("Migration tool");
-
-                    }
-                }
+                // formONAR and formONAREnhancedRecord tables removed (deprecated 2026-03-25)
+                // Migration tool popup removed as legacy ONAR tables no longer exist
 
 
                 //check for an existing pregnancy
