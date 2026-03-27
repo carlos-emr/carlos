@@ -271,6 +271,12 @@
             <fmt:message key="tickler.ticklerMain.tooltipEdit" var="msgTooltipEdit"/>
             <fmt:message key="tickler.ticklerMain.tooltipAddNote" var="msgTooltipAddNote"/>
             <fmt:message key="tickler.ticklerMain.tooltipViewAttachment" var="msgTooltipViewAttachment"/>
+            <fmt:message key="oscarEncounter.LeftNavBar.AllLabs" var="msgAllLabs"/>
+            <fmt:message key="tickler.ticklerMain.errorLoadFailed" var="msgErrorLoadFailed"/>
+            <fmt:message key="tickler.ticklerMain.errorSaveViewFailed" var="msgErrorSaveViewFailed"/>
+            const i18nAllLabs = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgAllLabs"))%>';
+            const i18nErrorLoadFailed = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgErrorLoadFailed"))%>';
+            const i18nErrorSaveViewFailed = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgErrorSaveViewFailed"))%>';
             const i18nEditTickler = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgTooltipEdit"))%>';
             const i18nAddNote = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgTooltipAddNote"))%>';
             const i18nViewAttachment = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgTooltipViewAttachment"))%>';
@@ -294,7 +300,7 @@
                     serverSide: true,
                     processing: true,
                     searching: true,
-                    lengthMenu: [[25, 50, 100, -1], [25, 50, 100, '<fmt:message key="oscarEncounter.LeftNavBar.AllLabs"/>']],
+                    lengthMenu: [[25, 50, 100, -1], [25, 50, 100, i18nAllLabs]],
                     pageLength: initialPageLength,
                     order: [[4, 'desc']],
                     language: {
@@ -307,7 +313,7 @@
                             console.error('[ticklerMain] DataTables AJAX error (HTTP ' + xhr.status + '):', error, thrown);
                             jQuery('#ticklerResults_wrapper').prepend(
                                 '<div class="alert alert-danger alert-dismissible">' +
-                                '<fmt:message key="tickler.ticklerMain.errorLoadFailed"/> (HTTP ' + xhr.status + ')' +
+                                i18nErrorLoadFailed + ' (HTTP ' + xhr.status + ')' +
                                 '</div>'
                             );
                         },
@@ -624,7 +630,7 @@
                     .fail(function (jqXHR, textStatus, errorThrown) {
                         console.error('[ticklerMain] saveView failed (HTTP ' + jqXHR.status + '):', textStatus, errorThrown);
                         jQuery("#saveViewButton").addClass('btn-danger').removeClass('btn-primary')
-                            .attr('title', '<fmt:message key="tickler.ticklerMain.errorSaveViewFailed"/>');
+                            .attr('title', i18nErrorSaveViewFailed);
                     });
             }
 
