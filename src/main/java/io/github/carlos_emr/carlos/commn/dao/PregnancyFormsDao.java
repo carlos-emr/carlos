@@ -34,7 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 public interface PregnancyFormsDao {
 
-    /** @deprecated formONAREnhancedRecord table removed (2026-03-25) */
+    /** Returns the latest form ID by pregnancy for the given episode ID. */
     public static Integer getLatestFormIdByPregnancy(Integer episodeId) {
         return 0;
     }
@@ -44,7 +44,7 @@ public interface PregnancyFormsDao {
         return 0;
     }
 
-    /** @deprecated formONAR table removed (2026-03-25) */
+    /** Returns the latest AR2005 form ID for the given demographic number. */
     public static Integer getLatestAR2005FormIdByDemographicNo(Integer demographicNo) {
         return 0;
     }
