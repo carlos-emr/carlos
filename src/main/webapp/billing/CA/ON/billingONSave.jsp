@@ -22,6 +22,20 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    billingONSave.jsp - Ontario billing save and post-save routing.
+
+    Processes billing form submissions (Save, Save & Add Another, Settle & Print Invoice,
+    Save & Print Invoice). After saving, refreshes the opener schedule page via
+    BroadcastChannel (fallback when opener is null due to tab-based billing).
+    Routes to the next screen based on submit action and workload management settings.
+
+    Schedule refresh pattern: tries self.opener.refresh() first (popup windows),
+    falls back to BroadcastChannel 'carlos_schedule_refresh' for tab-based billing.
+    See schedulePage.js.jsp for the listener side.
+
+    @since 2006 (original)
+--%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
@@ -35,6 +49,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptStatusData" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingSavePrep" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
@@ -119,14 +134,14 @@
 
 <% if (request.getParameter("submit") != null && "Save & Add Another Bill".equals(request.getParameter("submit"))) { %>
 <script LANGUAGE="JavaScript">
-    self.opener.refresh();
-    self.location.href = "<%=request.getParameter("url_back")%>";
+    try { if (self.opener && self.opener.refresh) { self.opener.refresh(); } else { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); } } catch(e) { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); }
+    self.location.href = "<%= Encode.forJavaScript(request.getParameter("url_back")) %>";
 </script>
 <% }
 
     if (request.getParameter("submit") != null && "Save".equals(request.getParameter("submit"))) { %>
 <script LANGUAGE="JavaScript">
-    self.opener.refresh();
+    try { if (self.opener && self.opener.refresh) { self.opener.refresh(); } else { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); } } catch(e) { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); }
 </script>
 <% }
 
@@ -151,14 +166,14 @@
             String urlBack = request.getParameter("url_back")+"&curBillForm="+wrkloadmanagement;
 
     %>
-    self.opener.refresh();
-    self.location.href = "<%=urlBack%>";
+    try { if (self.opener && self.opener.refresh) { self.opener.refresh(); } else { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); } } catch(e) { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); }
+    self.location.href = "<%= Encode.forJavaScript(urlBack) %>";
 
     <%}else{%>
     self.close();
 
     <% if(!"Save".equals(request.getParameter("submit"))) { %>
-    self.opener.refresh();
+    try { if (self.opener && self.opener.refresh) { self.opener.refresh(); } else { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); } } catch(e) { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); }
     <% } %>
     <% }%>
 </script>
@@ -179,7 +194,7 @@
 
     popupPage(700, 720, 'billingON3rdInv.jsp?billingNo=<%=billingNo%>');
     self.close();
-    self.opener.refresh();
+    try { if (self.opener && self.opener.refresh) { self.opener.refresh(); } else { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); } } catch(e) { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); }
 </script>
 <% } %>
 

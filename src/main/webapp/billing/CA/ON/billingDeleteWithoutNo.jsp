@@ -22,6 +22,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    billingDeleteWithoutNo.jsp - Ontario billing removal (unbill).
+    Soft-deletes billing records by setting status to 'D' and rolls back
+    the appointment status. Refreshes the schedule page via BroadcastChannel.
+    @since 2006 (original)
+--%>
 <%
     String curUser_no = (String) session.getAttribute("user");
 %>
@@ -54,10 +60,6 @@
             this.focus();
         }
 
-        function closeit() {
-            //self.opener.refresh();
-            //self.close();
-        }
 
         //-->
     </script>
@@ -129,19 +131,17 @@
             }
     %>
     <p>
-    <h1>Successful Addition of a billing Record.</h1>
+    <h1>Successfully removed billing record.</h1>
 
     <script LANGUAGE="JavaScript">
         self.close();
-        self.opener.refresh();
+        try { if (self.opener && self.opener.refresh) { self.opener.refresh(); } else { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); } } catch(e) { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); }
     </script>
     <%
-        //  break; //get only one billing_no
-        //  }//end of while
     } else {
     %>
     <p>
-    <h1>Sorry, addition has failed.</h1>
+    <h1>Sorry, removal has failed.</h1>
 
     <%
             }

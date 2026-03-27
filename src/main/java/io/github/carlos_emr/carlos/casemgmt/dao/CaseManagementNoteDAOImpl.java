@@ -437,6 +437,15 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         currentSession().flush();
     }
 
+    /**
+     * Saves a case management note, handling both new and existing (detached) entities.
+     *
+     * <p>New notes (null or zero ID) are persisted; existing notes (positive ID) are
+     * merged back into the persistence context. A UUID and update_date are assigned
+     * automatically if not already set.</p>
+     *
+     * @param note CaseManagementNote the note entity to save; must not be null
+     */
     @Override
     @Transactional(readOnly = false)
     public void saveNote(CaseManagementNote note) {
@@ -447,10 +456,27 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         if (note.getUpdate_date() == null) {
             note.setUpdate_date(new Date());
         }
-        currentSession().persist(note);
+        // Callers (e.g. saveCaseManagementNote) may pass detached entities with
+        // existing IDs — merge reattaches them. persist is for new notes only.
+        // updateNote() also exists but callers historically use saveNote for both.
+        if (note.getId() != null && note.getId() > 0) {
+            currentSession().merge(note);
+        } else {
+            currentSession().persist(note);
+        }
         currentSession().flush();
     }
 
+    /**
+     * Saves a case management note and returns the managed entity.
+     *
+     * <p>For new notes (null or zero ID), the original instance is persisted and returned.
+     * For existing notes (positive ID), the detached entity is merged and the newly managed
+     * instance is returned — callers should use the returned reference, not the original.</p>
+     *
+     * @param note CaseManagementNote the note entity to save; must not be null
+     * @return Object the managed CaseManagementNote instance after persist or merge
+     */
     @Override
     @Transactional(readOnly = false)
     public Object saveAndReturn(CaseManagementNote note) {
@@ -461,8 +487,12 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         if (note.getUpdate_date() == null) {
             note.setUpdate_date(new Date());
         }
-        currentSession().persist(note);
-        return note;
+        if (note.getId() != null && note.getId() > 0) {
+            return currentSession().merge(note);
+        } else {
+            currentSession().persist(note);
+            return note;
+        }
     }
 
     @Override
