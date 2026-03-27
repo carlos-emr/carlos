@@ -32,8 +32,6 @@ import io.github.carlos_emr.carlos.commn.dao.EpisodeDao;
 import io.github.carlos_emr.carlos.commn.model.Episode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
