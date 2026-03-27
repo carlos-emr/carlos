@@ -1993,7 +1993,7 @@
             <result name="error">/hospitalReportManager/displayHRMReport.jsp</result>
         </action>
         <action name="tickler/EditTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action">
-            <result name="close">/closenreload.jsp</result>
+            <result name="close">/tickler/ticklerEditSuccess.jsp</result>
             <result name="failure">/failure.jsp</result>
             <result name="error">/errorpage.jsp</result>
         </action>

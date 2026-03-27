@@ -12,7 +12,7 @@
     - global.js (legacy focus/refresh helpers)
     - jQuery 3.7.1
     - Bootstrap 5.3.3 (JS bundle + CSS)
-    - jQuery UI 1.14.2 CSS
+    - jQuery UI 1.14.2 CSS (JS must be included page-specifically where dialogs/widgets are needed)
     - Font Awesome 6.7.2 (icon library)
     - searchBox.css (shared search/form styles)
     - global.css (CARLOS design tokens and common classes)

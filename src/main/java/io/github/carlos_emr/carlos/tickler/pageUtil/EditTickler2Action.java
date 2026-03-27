@@ -74,7 +74,18 @@ public class EditTickler2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         String ticklerNoStr = request.getParameter("ticklerNo");
-        Integer ticklerNo = Integer.parseInt(ticklerNoStr);
+        if (ticklerNoStr == null || ticklerNoStr.trim().isEmpty()) {
+            addActionError(getText("tickler.ticklerEdit.arg.error"));
+            return "failure";
+        }
+        Integer ticklerNo;
+        try {
+            ticklerNo = Integer.parseInt(ticklerNoStr.trim());
+        } catch (NumberFormatException e) {
+            logger.error("Invalid ticklerNo parameter: '{}'", ticklerNoStr);
+            addActionError(getText("tickler.ticklerEdit.arg.error"));
+            return "failure";
+        }
 
         String status = request.getParameter("status");
         String priority = request.getParameter("priority");
@@ -82,8 +93,7 @@ public class EditTickler2Action extends ActionSupport {
         String serviceDate = request.getParameter("xml_appointment_date");
         String parentAjaxId = request.getParameter("parentAjaxId");
 
-        if ((ticklerNo == null)
-                || (status == null)
+        if ((status == null)
                 || (priority == null)
                 || (serviceDate == null)
                 || (assignedTo == null)) {
@@ -173,6 +183,7 @@ public class EditTickler2Action extends ActionSupport {
                 isUpdate = true;
             } catch (java.text.ParseException e) {
                 logger.error("Service Date cannot be parsed:", e);
+                addActionError(getText("tickler.ticklerEdit.arg.error"));
                 return "error";
             }
         }
@@ -182,7 +193,13 @@ public class EditTickler2Action extends ActionSupport {
         }
 
         if (isComment || isUpdate) {
-            ticklerManager.updateTickler(loggedInInfo, t);
+            try {
+                ticklerManager.updateTickler(loggedInInfo, t);
+            } catch (Exception e) {
+                logger.error("Failed to update tickler: ticklerNo={}, providerNo={}", ticklerNo, providerNo, e);
+                addActionError(getText("tickler.ticklerEdit.arg.error"));
+                return "error";
+            }
         }
 
         if (emailFailed) {
@@ -201,6 +218,11 @@ public class EditTickler2Action extends ActionSupport {
     public String updateTextSuggest() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "u", null)) {
+            throw new RuntimeException("missing required sec object (_tickler)");
+        }
+
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         if (activeText == null) {
