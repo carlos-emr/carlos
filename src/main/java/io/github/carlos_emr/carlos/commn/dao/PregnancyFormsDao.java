@@ -31,56 +31,21 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.login.DBHelp;
-
-import java.sql.ResultSet;
-import java.sql.SQLException;
 
 public interface PregnancyFormsDao {
 
+    /** @deprecated formONAREnhancedRecord table removed (2026-03-25) */
     public static Integer getLatestFormIdByPregnancy(Integer episodeId) {
-        String sql = "SELECT id from formONAREnhancedRecord WHERE episodeId=" + episodeId + " ORDER BY formEdited DESC";
-        ResultSet rs = DBHelp.searchDBRecord(sql);
-        try {
-            if (rs.next()) {
-                Integer id = rs.getInt("id");
-                return id;
-            }
-        } catch (SQLException e) {
-            MiscUtils.getLogger().error("Error", e);
-            return 0;
-        }
         return 0;
     }
 
+    /** @deprecated formONAREnhancedRecord table removed (2026-03-25) */
     public static Integer getLatestFormIdByDemographicNo(Integer demographicNo) {
-        String sql = "SELECT id from formONAREnhancedRecord WHERE demographic_no=" + demographicNo + " ORDER BY formEdited DESC";
-        ResultSet rs = DBHelp.searchDBRecord(sql);
-        try {
-            if (rs.next()) {
-                Integer id = rs.getInt("id");
-                return id;
-            }
-        } catch (SQLException e) {
-            MiscUtils.getLogger().error("Error", e);
-            return 0;
-        }
         return 0;
     }
 
+    /** @deprecated formONAR table removed (2026-03-25) */
     public static Integer getLatestAR2005FormIdByDemographicNo(Integer demographicNo) {
-        String sql = "SELECT id from formONAR WHERE demographic_no=" + demographicNo + " ORDER BY formEdited DESC";
-        ResultSet rs = DBHelp.searchDBRecord(sql);
-        try {
-            if (rs.next()) {
-                Integer id = rs.getInt("id");
-                return id;
-            }
-        } catch (SQLException e) {
-            MiscUtils.getLogger().error("Error", e);
-            return 0;
-        }
         return 0;
     }
 }

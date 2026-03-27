@@ -376,17 +376,7 @@
                 <div style="font-size: 8pt; margin-top: 15px;"><input
                         type=submit value="Save Attachments"/> <a
                         href="javascript:expandAll();">Expand All</a> &nbsp;|&nbsp; <a
-                        href="javascript:collapseAll();">Collapse All</a> <%
-                    java.util.Properties prop = UtilXML.getPropText(xmlDoc, "table", "sqlFrom", "name"); //
-                    if (prop.getProperty("formAR") != null && prop.getProperty("formAR").equals("AR Form")) {
-                %> &nbsp;|&nbsp; <a
-                        href="<%= request.getContextPath() %>/encounter/formCommARPg1.jsp?messageid=<%=request.getAttribute("attId")%>">AR1</a>
-                    &nbsp;|&nbsp; <a
-                            href="<%= request.getContextPath() %>/encounter/formCommARPg2.jsp?messageid=<%=request.getAttribute("attId")%>">AR2
-                        Pg1</a> &nbsp;|&nbsp; <a
-                            href="<%= request.getContextPath() %>/encounter/formCommARPg3.jsp?messageid=<%=request.getAttribute("attId")%>">AR2
-                        Pg2</a> <%
-                        } %>
+                        href="javascript:collapseAll();">Collapse All</a> 
                 </div>
             </form>
         </td>

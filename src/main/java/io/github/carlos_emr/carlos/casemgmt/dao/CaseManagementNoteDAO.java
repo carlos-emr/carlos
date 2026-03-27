@@ -109,8 +109,20 @@ public interface CaseManagementNoteDAO {
 
     public void updateNote(CaseManagementNote note);
 
+    /**
+     * Saves a case management note, handling both new and existing (detached) entities.
+     *
+     * @param note CaseManagementNote the note entity to save; must not be null
+     */
     public void saveNote(CaseManagementNote note);
 
+    /**
+     * Saves a case management note and returns the managed entity. For existing notes,
+     * callers should use the returned reference as merge may return a different instance.
+     *
+     * @param note CaseManagementNote the note entity to save; must not be null
+     * @return Object the managed CaseManagementNote instance after persist or merge
+     */
     public Object saveAndReturn(CaseManagementNote note);
 
     public List<CaseManagementNote> search(CaseManagementSearchBean searchBean);

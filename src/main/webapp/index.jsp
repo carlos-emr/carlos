@@ -642,7 +642,7 @@ body {
 
                             <div class="input-wrapper mb-3 ${ login_error }">
                               <input type="password" name="password" id="password" placeholder="<fmt:message key="Logon.passWord"/>" autocomplete="current-password" class="form-control toggle-input" required>
-                              <button type="button"
+                              <button type="button" tabindex="-1"
                                       id="toggleBtn"
                                       class="toggle-btn"
                                       aria-label="Show Password"
@@ -657,7 +657,7 @@ body {
                                   <!-- The input starts with the secure-text class -->
                                   <input type="text" id="pin" class="form-control secure-text toggle-input" name="pin" autocomplete="one-time-code"
                                                inputmode="numeric"  placeholder="<fmt:message key="admin.securityrecord.formPIN"/>">
-                                    <button type="button"
+                                    <button type="button" tabindex="-1"
                                       id="togglePin"
                                       class="toggle-btn"
                                       aria-label="Show PIN"

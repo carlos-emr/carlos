@@ -22,5 +22,15 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
-<jsp:forward page="billingON.jsp"/>
+<%--
+    billingOB.jsp - Ontario Billing redirect stub.
+    Redirects to billingON.jsp preserving query parameters.
+    Uses sendRedirect (not jsp:forward) to avoid Tomcat 11 response
+    truncation during RequestDispatcher.forward() for large JSPs.
+    @since 2006 (original), redirect conversion 2026-03-24
+--%>
+<%
+    String qs = request.getQueryString();
+    String url = request.getContextPath() + "/billing/CA/ON/billingON.jsp" + (qs != null ? "?" + qs : "");
+    response.sendRedirect(response.encodeRedirectURL(url));
+%>

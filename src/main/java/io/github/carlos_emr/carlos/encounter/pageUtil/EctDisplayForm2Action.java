@@ -167,20 +167,8 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                             item.setLinkTitle(fullTitle + " " + serviceDateStr);
 
 
-                            //sorry I have to do this, since the "hidden" field, doesn't mean hidden.
-                            //this is a fix so that when they've migrated to the enhanced form, the
-                            //regular one is hidden. It's still accessible from the list mode off
-                            //the tab header though, if they really need to get to it.
-                            boolean dontAdd = false;
-                            if (table.equals("formONAR")) {
-                                //check to see if we have an enhanced one
-                                EctFormData.PatientForm[] pf = EctFormData.getPatientFormsFromLocalAndRemote(loggedInInfo, bean.demographicNo, "formONAREnhancedRecord");
-                                if (pf.length > 0) {
-                                    dontAdd = true;
-                                }
-                            }
-                            if (!dontAdd)
-                                Dao.addItem(item);
+                            // formONAR and formONAREnhancedRecord tables removed (deprecated 2026-03-25)
+                            Dao.addItem(item);
                         }
                     }
 

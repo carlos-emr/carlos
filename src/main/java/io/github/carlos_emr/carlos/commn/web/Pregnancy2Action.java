@@ -180,15 +180,7 @@ public class Pregnancy2Action extends ActionSupport {
         e.setDescription(mod.getDescription());
         episodeDao.persist(e);
 
-        //start up a new ar on enhanced form
-        try {
-            FrmONAREnhancedRecord f = new FrmONAREnhancedRecord();
-            Properties p = f.getFormRecord(loggedInInfo, demographicNo, 0);
-            p.setProperty("episodeId", String.valueOf(e.getId()));
-            f.saveFormRecord(p);
-        } catch (SQLException ee) {
-            MiscUtils.getLogger().error("Error", ee);
-        }
+        // formONAREnhancedRecord table removed (deprecated 2026-03-25); ONAR form creation disabled
 
         return SUCCESS;
     }

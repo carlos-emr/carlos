@@ -220,15 +220,6 @@
 
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0"
           onload="window.resizeTo(807,833)">
-    <!--
-            @oscar.formDB Table="formAdf"
-            @oscar.formDB Field="ID" Type="int(10)" Null="NOT NULL" Key="PRI" Default="" Extra="auto_increment"
-            @oscar.formDB Field="demographic_no" Type="int(10)" Null="NOT NULL" Default="'0'"
-            @oscar.formDB Field="provider_no" Type="int(10)" Null="" Default="NULL"
-            @oscar.formDB Field="formCreated" Type="date" Null="" Default="NULL"
-            @oscar.formDB Field="formEdited" Type="timestamp"
-            -->
-
 
     <div class="title">Rh Immune Globulin Injection Reporting Form</div>
 

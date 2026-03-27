@@ -206,185 +206,9 @@ CREATE TABLE IF NOT EXISTS `formintakea` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `formintakeb`
+-- Table `formintakeb` DEPRECATED as it causes ERROR 1118
 --
 
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE IF NOT EXISTS `formintakeb` (
-  `ID` bigint(11) NOT NULL AUTO_INCREMENT,
-  `demographic_no` bigint(11) NOT NULL DEFAULT 0,
-  `provider_no` bigint(11) DEFAULT 0,
-  `formCreated` date DEFAULT '0001-01-01',
-  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `dateAssessment` varchar(24) DEFAULT '',
-  `assessStartTime` varchar(24) DEFAULT '',
-  `dateEnteredSeaton` varchar(24) DEFAULT '',
-  `dateExitedSeaton` varchar(24) DEFAULT '',
-  `clientSurname` varchar(50) DEFAULT '',
-  `clientFirstName` varchar(50) DEFAULT '',
-  `month` char(2) DEFAULT '',
-  `day` char(2) DEFAULT '',
-  `year` varchar(4) DEFAULT '',
-  `cbox_speakEnglish` char(1) DEFAULT '',
-  `cbox_speakFrench` char(1) DEFAULT '',
-  `cbox_speakSpanish` char(1) DEFAULT '',
-  `cbox_speakOther` char(1) DEFAULT '',
-  `speakOther` varchar(50) DEFAULT '',
-  `howHearAboutSeaton` varchar(255) DEFAULT '',
-  `whereBeforeSeaton` varchar(255) DEFAULT '',
-  `radio_hasIDInFile` varchar(24) DEFAULT '',
-  `cbox_assistWithSINCard` char(1) DEFAULT '',
-  `cbox_assistWithImmigrant` char(1) DEFAULT '',
-  `cbox_assistWithHealthCard` char(1) DEFAULT '',
-  `cbox_assistWithRefugee` char(1) DEFAULT '',
-  `cbox_assistWithBirthCert` char(1) DEFAULT '',
-  `cbox_assistWithNone` char(1) DEFAULT '',
-  `cbox_assistWithCitizenCard` char(1) DEFAULT '',
-  `cbox_assistWithOther` char(1) DEFAULT '',
-  `assistWithOther` varchar(50) DEFAULT '',
-  `commentsOnID` varchar(255) DEFAULT '',
-  `radio_haveHealthCoverage` varchar(24) DEFAULT '',
-  `cbox_haveOHIP` char(1) DEFAULT '',
-  `cbox_haveODSP` char(1) DEFAULT '',
-  `cbox_haveODB` char(1) DEFAULT '',
-  `cbox_haveOther1` char(1) DEFAULT '',
-  `haveOther` varchar(70) DEFAULT '',
-  `radio_haveMentalProblem` varchar(24) DEFAULT '',
-  `cbox_haveSchizophrenia` char(1) DEFAULT '',
-  `radio_caredForSchizophrenia` varchar(24) DEFAULT '',
-  `cbox_haveManic` char(1) DEFAULT '',
-  `radio_caredForManic` varchar(24) DEFAULT '',
-  `cbox_haveDepression` char(1) DEFAULT '',
-  `radio_caredForDepression` varchar(24) DEFAULT '',
-  `cbox_haveAnxiety` char(1) DEFAULT '',
-  `radio_caredForAnxiety` varchar(24) DEFAULT '',
-  `cbox_haveOther2` char(1) DEFAULT '',
-  `radio_caredForOther` varchar(24) DEFAULT '',
-  `doctor1NameAddr` varchar(255) DEFAULT '',
-  `doctor1Phone` varchar(24) DEFAULT '',
-  `dateLastDoctor1Contact` varchar(24) DEFAULT '',
-  `doctor2NameAddr` varchar(255) DEFAULT '',
-  `doctor2Phone` varchar(24) DEFAULT '',
-  `dateLastDoctor2Contact` varchar(24) DEFAULT '',
-  `radio_needAssistWithMedication` varchar(24) DEFAULT '',
-  `cbox_rememberToTakeMedication` char(1) DEFAULT '',
-  `cbox_getMoreMedication` char(1) DEFAULT '',
-  `cbox_storeMedication` char(1) DEFAULT '',
-  `cbox_needHelpInOther` char(1) DEFAULT '',
-  `cbox_takePrescribedMedication` char(1) DEFAULT '',
-  `commentsOnNeedHelp` varchar(255) DEFAULT '',
-  `radio_doYouDrink` varchar(24) DEFAULT '',
-  `drinksPerDay` char(3) DEFAULT '',
-  `drinksPerWeek` varchar(4) DEFAULT '',
-  `drinksPerMonth` varchar(5) DEFAULT '',
-  `radio_howMuchDrink` varchar(24) DEFAULT '',
-  `radio_drinkThese` varchar(24) DEFAULT '',
-  `radio_seenDoctorRegAlcohol` varchar(24) DEFAULT '',
-  `radio_wantHelpQuit` varchar(24) DEFAULT '',
-  `commentsOnAlcohol` varchar(255) DEFAULT '',
-  `radio_useDrugs` varchar(24) DEFAULT '',
-  `radio_drugUseFrequency` varchar(24) DEFAULT '',
-  `radio_wantHelpQuitDrug` varchar(24) DEFAULT '',
-  `commentsOnStreetDrugs` varchar(255) DEFAULT '',
-  `housingInterested` varchar(70) DEFAULT '',
-  `radio_wantAppmt` varchar(24) DEFAULT '',
-  `clientLastAddress` varchar(255) DEFAULT '',
-  `clientLastAddressPayRent` varchar(255) DEFAULT '',
-  `dateLivedThere` varchar(24) DEFAULT '',
-  `livedWithWhom` varchar(120) DEFAULT '',
-  `radio_livedInSubsidized` varchar(24) DEFAULT '',
-  `radio_owedRent` varchar(24) DEFAULT '',
-  `whereOweRent` varchar(255) DEFAULT '',
-  `amtOwing` varchar(16) DEFAULT '',
-  `commentsOnHousing` varchar(255) DEFAULT '',
-  `yearsOfEducation` varchar(4) DEFAULT '',
-  `cbox_haveHighSchool` char(1) DEFAULT '',
-  `cbox_haveCollege` char(1) DEFAULT '',
-  `cbox_haveUniversity` char(1) DEFAULT '',
-  `cbox_haveOther3` char(1) DEFAULT '',
-  `radio_interestBackToSchool` varchar(24) DEFAULT '',
-  `radio_requireReferralToESL` varchar(24) DEFAULT '',
-  `commentsOnEducation` varchar(255) DEFAULT '',
-  `radio_currentlyEmployed` varchar(24) DEFAULT '',
-  `howLongEmployed` char(3) DEFAULT '',
-  `howLongUnemployed` char(3) DEFAULT '',
-  `usualOccupation` varchar(70) DEFAULT '',
-  `radio_interestedInTraining` varchar(24) DEFAULT '',
-  `commentsOnEmployment` varchar(255) DEFAULT '',
-  `mainSourceOfIncome` varchar(70) DEFAULT '',
-  `cbox_OW` char(1) DEFAULT '',
-  `cbox_ODSP` char(1) DEFAULT '',
-  `cbox_employment` char(1) DEFAULT '',
-  `cbox_UI` char(1) DEFAULT '',
-  `cbox_OAS` char(1) DEFAULT '',
-  `cbox_CPP` char(1) DEFAULT '',
-  `cbox_other` char(1) DEFAULT '',
-  `howMuchYouReceive` varchar(12) DEFAULT '',
-  `radio_havePublicTrustee` varchar(24) DEFAULT '',
-  `publicTrusteeInfo` varchar(255) DEFAULT '',
-  `radio_entitledToOtherIncome` varchar(24) DEFAULT '',
-  `typeOfIncome` varchar(120) DEFAULT '',
-  `radio_everMadeAppforOtherIncome` varchar(24) DEFAULT '',
-  `everMadeAppforOtherIncome` varchar(120) DEFAULT '',
-  `whenMadeAppforOtherIncome` varchar(24) DEFAULT '',
-  `commentsOnFinance` varchar(255) DEFAULT '',
-  `radio_everBeenJailed` varchar(24) DEFAULT '',
-  `historyOfJail` varchar(50) DEFAULT '',
-  `radio_needAssistInLegal` varchar(24) DEFAULT '',
-  `needAssistInLegal` varchar(255) DEFAULT '',
-  `commentsOnLegalIssues` varchar(255) DEFAULT '',
-  `radio_citizen` varchar(24) DEFAULT '',
-  `radio_yourCanadianStatus` varchar(24) DEFAULT '',
-  `yourCanadianStatus` varchar(50) DEFAULT '',
-  `radio_sponsorshipBreakdown` varchar(24) DEFAULT '',
-  `whySponsorshipBreakdown` varchar(255) DEFAULT '',
-  `sponsorName` varchar(50) DEFAULT '',
-  `needHelpWithImmigration` varchar(50) DEFAULT '',
-  `commentsOnImmigration` varchar(255) DEFAULT '',
-  `radio_involvedOtherAgencies` varchar(24) DEFAULT '',
-  `agency1Name` varchar(70) DEFAULT '',
-  `contact1Name` varchar(50) DEFAULT '',
-  `contact1Phone` varchar(24) DEFAULT '',
-  `assistProvided1` varchar(120) DEFAULT '',
-  `dateLastContact1` varchar(24) DEFAULT '',
-  `agency2Name` varchar(70) DEFAULT '',
-  `contact2Name` varchar(50) DEFAULT '',
-  `contact2Phone` varchar(24) DEFAULT '',
-  `assistProvided2` varchar(120) DEFAULT '',
-  `dateLastContact2` varchar(24) DEFAULT '',
-  `agency3Name` varchar(70) DEFAULT '',
-  `contact3Name` varchar(50) DEFAULT '',
-  `contact3Phone` varchar(24) DEFAULT '',
-  `assistProvided3` varchar(120) DEFAULT '',
-  `dateLastContact3` varchar(24) DEFAULT '',
-  `agency4Name` varchar(70) DEFAULT '',
-  `contact4Name` varchar(50) DEFAULT '',
-  `contact4Phone` varchar(24) DEFAULT '',
-  `assistProvided4` varchar(120) DEFAULT '',
-  `dateLastContact4` varchar(24) DEFAULT '',
-  `radio_mentalIllness` varchar(24) DEFAULT '',
-  `radio_drinking` varchar(24) DEFAULT '',
-  `radio_drugUse` varchar(24) DEFAULT '',
-  `radio_healthProblem` varchar(24) DEFAULT '',
-  `radio_behaviorProblem` varchar(24) DEFAULT '',
-  `radio_need60DaysSeatonServices` varchar(24) DEFAULT '',
-  `completedBy1` varchar(50) DEFAULT '',
-  `completedBy2` varchar(50) DEFAULT '',
-  `assessCompleteTime` varchar(50) DEFAULT '',
-  `followupAppmts` varchar(120) DEFAULT '',
-  `cbox_pamphletIssued` char(1) DEFAULT '',
-  `cbox_hostel` char(1) DEFAULT '',
-  `cbox_rotaryClub` char(1) DEFAULT '',
-  `cbox_annexHarm` char(1) DEFAULT '',
-  `cbox_longTermProgram` char(1) DEFAULT '',
-  `cbox_birchmountResidence` char(1) DEFAULT '',
-  `cbox_oNeillHouse` char(1) DEFAULT '',
-  `cbox_fortYork` char(1) DEFAULT '',
-  `cbox_downsviewDells` char(1) DEFAULT '',
-  PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
 -- Table structure for table `formintakec`
@@ -705,31 +529,24 @@ CREATE TABLE IF NOT EXISTS `phr_documents` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Alter table structure for table `SystemPreferences`, modified length of value column
+-- some last minute updates never properly merged
 --
-
-ALTER TABLE `SystemPreferences`
-MODIFY COLUMN `value` VARCHAR(255) NULL;
+UPDATE relationships SET deleted = 0 WHERE deleted IS NULL;
+UPDATE `preventions` SET prevention_type = "RSV" WHERE `prevention_type` = "RSVPreF3";
 
 --
--- Alter table structure for table `admission`, added constraints
+-- Added constraints
 --
 
 ALTER TABLE `admission`
 ADD CONSTRAINT `FK9uhg2nwhjhwrpr4nh21ucexyg`
 FOREIGN KEY (`clientstatus_id`) REFERENCES `program_clientstatus` (`clientstatus_id`);
 
---
--- Alter table structure for table `casemgmt_issue`, added constraints
---
 
 ALTER TABLE `casemgmt_issue`
 ADD CONSTRAINT `FK9eqe58ou1bf43kamxcwh8dquh`
 FOREIGN KEY (`issue_id`) REFERENCES `issue` (`issue_id`);
 
--- 
--- Alter table structure for table `casemgmt_issue_notes`, added constraints
---
 
 ALTER TABLE `casemgmt_issue_notes`
 ADD CONSTRAINT `FKjaxhqj7ritpbh2p9ov3nk54t2` 
@@ -737,17 +554,11 @@ FOREIGN KEY (`id`) REFERENCES `casemgmt_issue` (`id`),
 ADD CONSTRAINT `FKstesao78srug1a650gu46i33o` 
 FOREIGN KEY (`note_id`) REFERENCES `casemgmt_note` (`note_id`);
 
---
--- Alter table structure for table `casemgmt_note_ext`, added constraints
---
 
 ALTER TABLE `casemgmt_note_ext`
 ADD CONSTRAINT `FKmgvgpkoky8rte7i7igeawga0y` 
 FOREIGN KEY (`note_id`) REFERENCES `casemgmt_note` (`note_id`);
 
---
--- Alter table structure for table `casemgmt_note`, added keys and constraints
---
 
 ALTER TABLE `default_role_access`
 ADD KEY `FKin3oxi92mkmuf0we80ivhcd8a` (`role_id`),
@@ -757,88 +568,26 @@ FOREIGN KEY (`access_id`) REFERENCES `access_type` (`access_id`),
 ADD CONSTRAINT `FKin3oxi92mkmuf0we80ivhcd8a` 
 FOREIGN KEY (`role_id`) REFERENCES `secRole` (`role_no`);
 
---
--- Alter table structure for table `demographic`, modified column sequence
---
-
-ALTER TABLE `demographic`
-MODIFY COLUMN `pref_name` VARCHAR(30) NOT NULL DEFAULT '' AFTER `residentialPostal`;
-
---
--- Alter table structure for table `demographicArchive`, modified length of myOscarUserName column
---
-
-ALTER TABLE `demographicArchive`
-MODIFY COLUMN `myOscarUserName` VARCHAR(255);
-
---
--- Alter table structure for table `demographic_merged`, added constraints
---
 
 ALTER TABLE `demographic_merged`
 ADD CONSTRAINT `FKqev6qw9c8jc2f3w40p524h5xd` 
 FOREIGN KEY (`merged_to`) REFERENCES `demographic` (`demographic_no`);
 
---
--- Alter table structure for table `demographic_merged`, modified column sequence
---
-
-ALTER TABLE `fax_config`
-MODIFY COLUMN `download` tinyint(1) DEFAULT 1,
-MODIFY COLUMN `gatewayName` varchar(255) DEFAULT '' AFTER `download`,
-MODIFY COLUMN `faxReply` varchar(10) DEFAULT '' AFTER `gatewayName`;
-
---
--- Alter table structure for table `fax_config`, modified table engine, charset and collate
---
-
-ALTER TABLE `formRourke2020`
-ENGINE=InnoDB,
-DEFAULT CHARSET=utf8,
-COLLATE=utf8_general_ci;
-
---
--- Alter table structure for table `lst_orgcd`, added fullCode and codeCsv
---
-
-ALTER TABLE `lst_orgcd`
-ADD COLUMN `fullCode` VARCHAR(80) DEFAULT NULL,
-ADD COLUMN `codeCsv` VARCHAR(80) DEFAULT NULL;
-
---
--- Alter table structure for table `pharmacyInfo`, added uid
---
-
-ALTER TABLE `pharmacyInfo`
-ADD COLUMN `uid` int(10) NOT NULL FIRST;
-
---
--- Alter table structure for table `program_access_roles`, added constraints
---
 
 ALTER TABLE `program_access_roles`
 ADD CONSTRAINT `FKmwoclnncdj2il9ular8rro7nk` 
 FOREIGN KEY (`id`) REFERENCES `program_access` (`id`);
 
---
--- Alter table structure for table `program_functional_user`, added constraints
--- 
 
 ALTER TABLE `program_functional_user`
 ADD CONSTRAINT `FK288fkfagl2hr1bns9b3qbf8fw` 
 FOREIGN KEY (`user_type_id`) REFERENCES `functional_user_type` (`id`);
 
---
--- Alter table structure for table `program_provider`, added constraints
---
 
 ALTER TABLE `program_provider`
 ADD CONSTRAINT `FKfg27qvr98onqjiqn6wi3r5obw` 
 FOREIGN KEY (`provider_no`) REFERENCES `provider` (`provider_no`);
 
---
--- Alter table structure for table `program_provider_team`, added constraints
--- 
 
 ALTER TABLE `program_provider_team`
 ADD CONSTRAINT `FKdnvemm0tthasq3eahbiuuefh` 
@@ -846,36 +595,4 @@ FOREIGN KEY (`elt`) REFERENCES `program_team` (`team_id`),
 ADD CONSTRAINT `FKt1tgve2mege16gusn7prwq552` FOREIGN KEY (`id`) 
 REFERENCES `program_provider` (`id`);
 
---
--- Update table structure for table `relationships` by setting deleted to "0" if deleted is NULL
--- set to "RSVPreF3"
--- 
-UPDATE relationships SET deleted = 0 WHERE deleted IS NULL;
 
---
--- Alter table structure for table DigitalSignature, modified signatureImage column and added ModuleType
--- 
-ALTER TABLE DigitalSignature MODIFY COLUMN signatureImage MEDIUMBLOB;
-ALTER TABLE DigitalSignature ADD COLUMN ModuleType ENUM('CONSULTATION', 'E_FORM', 'PRESCRIPTION') null;
-
---
--- Alter table structure for table emailLog, modified signatureImage column and added ModuleType
--- 
-ALTER TABLE emailLog ADD COLUMN internalComment BLOB DEFAULT '' AFTER chartDisplayOption;
-
---
--- Alter table structure for table prescription, added digital_signature_id
--- 
-ALTER TABLE prescription ADD COLUMN digital_signature_id INT NULL DEFAULT NULL;
-
---
--- Alter table structure for table sec, added usingMfa and mfaSecret
--- 
-ALTER TABLE security ADD usingMfa BOOL NOT NULL;
-ALTER TABLE security ADD mfaSecret VARCHAR(255);
-
---
--- Update table structure for table `preventions` by setting prevention_type to "RSV" if previously
--- set to "RSVPreF3"
--- 
-UPDATE `preventions` SET prevention_type = "RSV" WHERE `prevention_type` = "RSVPreF3";
