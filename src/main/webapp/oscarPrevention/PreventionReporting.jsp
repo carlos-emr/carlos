@@ -31,7 +31,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*, java.text.SimpleDateFormat,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.data.*,io.github.carlos_emr.carlos.prevention.pageUtil.*,java.net.*,io.github.carlos_emr.carlos.eform.*" %>
-<%@page import="io.github.carlos_emr.OscarProperties"%>
+<%@page import="io.github.carlos_emr.CarlosProperties"%>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
@@ -42,10 +42,10 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExt" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
@@ -229,7 +229,7 @@
     <div style="margin-top:10px;">
         <form name="frmBatchBill" action="" method="post">
             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
-            <input type="hidden" name="clinic_view" value="<%=OscarProperties.getInstance().getProperty("clinic_view","")%>">
+            <input type="hidden" name="clinic_view" value="<%=CarlosProperties.getInstance().getProperty("clinic_view","")%>">
 
             <div style="background:#f5f5f5; padding:8px 15px; border:1px solid #ddd; border-radius:3px; margin-bottom:10px;">
                 <span style="margin-right:15px;">Total patients: <strong><%=list.size()%></strong></span>

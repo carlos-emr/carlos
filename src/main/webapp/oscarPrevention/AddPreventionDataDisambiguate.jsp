@@ -51,7 +51,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

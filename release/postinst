@@ -1,10 +1,10 @@
 #!/bin/bash
 # postinst
 # a script file for CARLOS EMR that installs and tweaks the necessary files
-#===================================================================
-# Copyright Peter Hutten-Czapski 2012-2021 released under the GPL v2
-# v 19.16
-#===================================================================
+#====================================================================
+# Copyright Peter Hutten-Czapski 2012-2026 released under the GPL v2+
+# v 0.1
+#====================================================================
 
 #set -e
 
@@ -12,13 +12,16 @@
 . /usr/share/debconf/confmodule
 
 # PROGRAM matches the war and properties
+# These defaults will be overridden by make_CARLOS_deb.sh
 PROGRAM=carlos
 PACKAGE=carlos-emr
+VERSION=0.1
+PREVIOUS=19
+REVISION=1~1
 db_name=oscar_15
-VERSION=19
-PREVIOUS=15
-REVISION=4~944
-buildDateTime="May 14, 2019 8:55:27 PM"
+buildDateTime="March 14, 2026"
+
+
 if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
         TOMCAT=tomcat10
         TOMCAT_USER=tomcat
@@ -59,9 +62,6 @@ DOCUMENT_DIR=${SRC}OscarDocument/${PROGRAM}/document/
 HL7_COMPLETED_DIR=${SRC}OscarDocument/${PROGRAM}/document/
 JAVA=/usr/lib/jvm/java-8-openjdk-amd64/
 newdate=2019-04-18
-
-#for debug
-#SRC=~/Documents/oscar12-1.6/usr/share/OscarEMR/
 
 LOG_FILE=${SRC}Oscar${VERSION}install.log
 
@@ -1045,5 +1045,4 @@ echo "#########" `date` "#########"  >>$LOG_FILE
 		exit 1
 	;;
 esac
-
 

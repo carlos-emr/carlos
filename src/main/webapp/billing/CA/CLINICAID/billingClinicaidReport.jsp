@@ -242,7 +242,7 @@
         <td width="5%"></td>
         <td width="80%" align="left">
             <p><b><font face="Verdana, Arial" color="#FFFFFF" size="3"><a
-                    href="billingReportCenter.jsp">OSCARbilling</a></font></b></p>
+                    href="billingReportCenter.jsp">CARLOS Billing</a></font></b></p>
         </td>
         <td align="right"><a href=#
                              onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport')">

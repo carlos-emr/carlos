@@ -30,9 +30,9 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
 
-//import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.bind.annotation.XmlSeeAlso;
+//import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlSeeAlso;
 
 
 /**

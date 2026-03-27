@@ -47,9 +47,9 @@ import io.github.carlos_emr.carlos.managers.ProviderManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestUtil;
 
-import javax.annotation.PostConstruct;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.*;
 import java.util.function.Supplier;
@@ -110,7 +110,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *
  * @since 2007-12-21 (Migrated to Struts2 2024-12-06, lab macro methods enhanced 2026-02-17)
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 

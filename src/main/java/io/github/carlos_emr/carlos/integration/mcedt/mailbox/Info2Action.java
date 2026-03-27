@@ -37,8 +37,8 @@ import java.util.ArrayList;
 
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import ca.ontario.health.edt.*;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -46,7 +46,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.mcedt.DelegateFactory;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtMessageCreator;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 

@@ -32,9 +32,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-import javax.persistence.Query;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import org.springframework.stereotype.Repository;
@@ -128,59 +128,6 @@ public class FormsDao {
     @NativeSql("formBCAR2007")
     public List<Object[]> selectBcFormAr2007(String beginEdd, String endEdd, int limit, int offset) {
         String sql = "select demographic_no, c_EDD, c_surname,c_givenName, pg1_ageAtEDD, pg1_dateOfBirth, pg1_langPref, c_phn, pg1_gravida, pg1_term, c_phone, ar2_doula, ar2_doulaNo, provider_no from formBCAR2007 where c_EDD >= ? and c_EDD <= ? order by c_EDD desc, ID desc";
-        Query query = entityManager.createNativeQuery(sql);
-        query.setParameter(1, beginEdd);
-        query.setParameter(2, endEdd);
-        query.setMaxResults(limit);
-        query.setFirstResult(offset);
-
-        return query.getResultList();
-    }
-
-    @NativeSql("formONAR")
-    public Object select_maxformar_id(String dateStart, String dateEnd) {
-        String sql = "select max(ID) from formONAR where c_finalEDB >= ? and c_finalEDB <= ? group by demographic_no";
-        Query query = entityManager.createNativeQuery(sql);
-        query.setParameter(1, dateStart);
-        query.setParameter(2, dateEnd);
-
-        List<Object> results = query.getResultList();
-
-        if (!results.isEmpty())
-            return results.get(0);
-
-        return "0";
-    }
-
-    @NativeSql("formONAREnhancedRecord")
-    public List<Integer> select_maxformar_id2(String dateStart, String dateEnd) {
-        String sql = "select max(ID) from formONAREnhancedRecord where c_finalEDB >= ? and c_finalEDB <= ? group by demographic_no";
-        Query query = entityManager.createNativeQuery(sql);
-        query.setParameter(1, dateStart);
-        query.setParameter(2, dateEnd);
-
-        List<Integer> results = query.getResultList();
-
-
-        return results;
-    }
-
-
-    @NativeSql("formONAR")
-    public List<Object[]> select_formar(String beginEdd, String endEdd, int limit, int offset) {
-        String sql = "select ID, demographic_no, c_finalEDB, concat(c_lastname,\",\",c_firstname) as c_pName, pg1_age, c_gravida, c_term, pg1_homePhone, provider_no from formONAR where c_finalEDB >= ? and c_finalEDB <= ? order by c_finalEDB desc";
-        Query query = entityManager.createNativeQuery(sql);
-        query.setParameter(1, beginEdd);
-        query.setParameter(2, endEdd);
-        query.setMaxResults(limit);
-        query.setFirstResult(offset);
-
-        return query.getResultList();
-    }
-
-    @NativeSql("formONAR")
-    public List<Object[]> select_formar2(String beginEdd, String endEdd, int limit, int offset) {
-        String sql = "select ID, demographic_no, c_finalEDB, concat(c_lastName,\",\",c_firstName) as c_pName, pg1_age, c_gravida, c_term, pg1_homePhone, provider_no from formONAREnhancedRecord where c_finalEDB >= ? and c_finalEDB <= ? order by c_finalEDB desc";
         Query query = entityManager.createNativeQuery(sql);
         query.setParameter(1, beginEdd);
         query.setParameter(2, endEdd);

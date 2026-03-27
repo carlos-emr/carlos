@@ -34,7 +34,7 @@ import java.util.HashMap;
 
 import javax.security.auth.callback.Callback;
 import javax.security.auth.callback.CallbackHandler;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.cxf.binding.soap.SoapFault;
 import org.apache.cxf.binding.soap.SoapMessage;
@@ -44,7 +44,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.wss4j.common.WSS4JConstants;
 import org.apache.wss4j.dom.handler.WSHandlerConstants;
 import org.springframework.beans.factory.annotation.Autowired;
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;

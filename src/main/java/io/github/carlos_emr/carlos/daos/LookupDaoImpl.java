@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.db.DBPreparedHandler;
 import io.github.carlos_emr.carlos.db.DBPreparedHandlerParam;
 
@@ -373,7 +373,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
             SaveAsOrgCode(GetCode(tableId, id), tableId);
         }
         if ("PRP".equals(tableId)) {
-            OscarProperties prp = OscarProperties.getInstance();
+            CarlosProperties prp = CarlosProperties.getInstance();
             LookupCodeValue prpCd = GetCode(tableId, id);
             if (prp.getProperty(prpCd.getDescription()) != null)
                 prp.remove(prpCd.getDescription());
@@ -615,7 +615,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
                     "FROM LstOrgcd o WHERE o.codecsv like ?1", oldCsv);
             for (LstOrgcd l : o) {
                 l.setActiveyn(0);
-                currentSession().update(l);
+                currentSession().merge(l);
             }
         }
     }

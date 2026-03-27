@@ -42,12 +42,12 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetDrugDao,io.github.carlos_emr.carlos.commn.dao.FlowSheetDxDao,io.github.carlos_emr.carlos.utility.MiscUtils"%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
-<%@page import="io.github.carlos_emr.OscarProperties"%>
+<%@page import="io.github.carlos_emr.CarlosProperties"%>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
@@ -67,7 +67,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 
 <%
-	if(session.getValue("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");
+	if(session.getAttribute("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");
     //int demographic_no = Integer.parseInt(request.getParameter("demographic_no"));
     if(session.getAttribute("userrole") == null )  response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");
     String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

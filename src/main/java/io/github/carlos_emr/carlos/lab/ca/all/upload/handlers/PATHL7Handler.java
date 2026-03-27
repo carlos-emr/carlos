@@ -51,7 +51,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults;
 
@@ -77,12 +77,12 @@ public class PATHL7Handler implements MessageHandler {
             }
 
             // Base directory - validate using PathValidationUtils
-            String baseDir = OscarProperties.getInstance().getDocumentDirectory();
+            String baseDir = CarlosProperties.getInstance().getDocumentDirectory();
             java.io.File baseDirFile = new java.io.File(baseDir);
             java.io.File targetFile = new java.io.File(fileName);
 
             // Validate the existing file is within the allowed directory
-            PathValidationUtils.validateExistingPath(targetFile, baseDirFile);
+            targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDirFile);
 
             if (!targetFile.exists() || !targetFile.isFile()) {
                 logger.error("File does not exist or is not a regular file: " + fileName);

@@ -33,15 +33,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Date;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
 
-import javax.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -52,7 +52,7 @@ import io.github.carlos_emr.carlos.managers.OscarLogManager;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsentTypeTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -126,11 +126,11 @@ public class ConsentService extends AbstractServiceImpl {
             logger.info("Successfully retrieved {} consent types", consentTypes.size());
             return response;
             
-        } catch (javax.ws.rs.WebApplicationException e) {
+        } catch (jakarta.ws.rs.WebApplicationException e) {
             throw e;
         } catch (Exception e) {
             logger.error("Error retrieving consent types: {}", e.getMessage(), e);
-            throw new javax.ws.rs.WebApplicationException(javax.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR);
+            throw new jakarta.ws.rs.WebApplicationException(jakarta.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -150,7 +150,7 @@ public class ConsentService extends AbstractServiceImpl {
             ConsentType consent = patientConsentManager.getConsentTypeByConsentTypeId(id);
             if (consent == null) {
                 logger.warn("Consent type not found: {}", id);
-                throw new javax.ws.rs.WebApplicationException(javax.ws.rs.core.Response.Status.NOT_FOUND);
+                throw new jakarta.ws.rs.WebApplicationException(jakarta.ws.rs.core.Response.Status.NOT_FOUND);
             }
 
             ConsentTypeTo1 consentTypeTo1 = new ConsentTypeTo1();
@@ -165,11 +165,11 @@ public class ConsentService extends AbstractServiceImpl {
             logger.info("Successfully retrieved consent type: {}", id);
             return consentTypeTo1;
             
-        } catch (javax.ws.rs.WebApplicationException e) {
+        } catch (jakarta.ws.rs.WebApplicationException e) {
             throw e;
         } catch (Exception e) {
             logger.error("Error retrieving consent type {}: {}", id, e.getMessage(), e);
-            throw new javax.ws.rs.WebApplicationException(javax.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR);
+            throw new jakarta.ws.rs.WebApplicationException(jakarta.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -178,19 +178,19 @@ public class ConsentService extends AbstractServiceImpl {
      * Adds a new consent type.
      * 
      * @param consentType The consent type to add
-     * @return GenericRESTResponse indicating success or failure
+     * @return RestResponse indicating success or failure
      */
     @POST
     @Path("/consentType")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse addConsentType(ConsentTypeTo1 consentType) {
+    public RestResponse<String> addConsentType(ConsentTypeTo1 consentType) {
         try {
             logger.debug("Adding consent type");
 
             if (consentType == null) {
                 logger.warn("Consent type data is null");
-                throw new javax.ws.rs.WebApplicationException(
+                throw new jakarta.ws.rs.WebApplicationException(
                     Response.Status.BAD_REQUEST);
             }
 
@@ -205,16 +205,16 @@ public class ConsentService extends AbstractServiceImpl {
             patientConsentManager.addConsentType(getLoggedInInfo(), ct);
 
             logger.info("Successfully added consent type: {}", consentType.getName());
-            return new GenericRESTResponse(true, "Consent type added successfully.");
+            return RestResponse.successResponse("Consent type added successfully.");
 
-        } catch (javax.ws.rs.WebApplicationException e) {
+        } catch (jakarta.ws.rs.WebApplicationException e) {
             // propagate JAX-RS errors (e.g. 400 Bad Request)
             throw e;
         } catch (Exception e) {
             // log full stack trace internally
             logger.error("Error adding consent type {}", consentType, e);
             // return a generic message to the client
-            return new GenericRESTResponse(false,
+            return RestResponse.errorResponse(
                 "An error occurred while processing your request.");
         }
     }

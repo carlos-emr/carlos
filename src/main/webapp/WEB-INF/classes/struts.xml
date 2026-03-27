@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.0//EN" "https://struts.apache.org/dtds/struts-6.0.dtd">
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
 <struts>
     <constant name="struts.mapper.action.prefix.enabled" value="false"/>
 	<constant name="struts.action.extension" value="do" />
     <constant name="struts.devMode" value="${struts.devMode}"/>
     <constant name="struts.objectFactory" value="spring"/>
     <constant name="struts.enable.SlashesInActionNames" value="true" />
+    <constant name="struts.mapper.alwaysSelectFullNamespace" value="false" />
+    <constant name="struts.actionConfig.fallbackToEmptyNamespace" value="true" />
     <constant name="struts.serve.static" value="true" />
     <constant name="struts.serve.static.browserCache" value="true" />
     <constant name="struts.action.excludePattern" value=".*\.(css|js|png|jpg|gif)$|^/ws/.*|^/servlet/.*" />
@@ -20,7 +22,7 @@
         <action name="lookupListManagerAction" class="io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action">
             <result name="success">/admin/lookUpLists/</result>
         </action>
-        <action name="admin/oncallClinic" class="io.github.carlos_emr.carlos.admin.reports.SaveOnCallClinic2Action"/>
+
         <action name="web/dashboard/display/DashboardDisplay" class="io.github.carlos_emr.carlos.dashboard.display.DisplayDashboard2Action">
             <result name="success">/web/dashboard/display/DashboardDisplay.jsp</result>
             <result name="unauthorized">/securityError.jsp</result>
@@ -1132,7 +1134,7 @@
             <result name="continue">/oscarEncounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp</result>
         </action>
         <action name="oscarEncounter/oscarMeasurements/AddMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementStyleSheet2Action">
-            <interceptor-ref name="fileUpload" />
+            <interceptor-ref name="actionFileUpload" />
             <interceptor-ref name="defaultStack"/>
             <result name="success">/oscarEncounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
         </action>
@@ -1337,7 +1339,7 @@
         </action>
         <action name="dxCodeSearchJSON" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxCodeSearchJSON2Action"/>
         <action name="oscarResearch/oscarDxResearch/dxResearchLoadAssociations" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchLoadAssociations2Action">
-            <interceptor-ref name="fileUpload" />
+            <interceptor-ref name="actionFileUpload" />
             <interceptor-ref name="defaultStack"/>
             <result name="success">/oscarResearch/oscarDxResearch/dxResearchSelectAssociations.jsp</result>
         </action>
@@ -1440,6 +1442,7 @@
         <action name="demographic/SearchDemographic" class="io.github.carlos_emr.carlos.commn.web.SearchDemographicAutoComplete2Action">
             <result name="success">/demographic/autocomplete.jsp</result>
         </action>
+        <action name="demographic/FindNextAvailableSlot" class="io.github.carlos_emr.carlos.commn.web.FindNextAvailableSlot2Action"/>
         <action name="provider/SearchProvider" class="io.github.carlos_emr.carlos.commn.web.SearchProviderAutoComplete2Action"/>
         <action name="demographic/AddRelation" class="io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action">
             <result name="success">/demographic/AddAlternateContact.jsp</result>
@@ -1449,7 +1452,7 @@
             <result name="success">/demographic/AddAlternateContact.jsp</result>
         </action>
         <action name="form/importUpload" class="io.github.carlos_emr.carlos.demographic.pageUtil.ImportDemographicDataAction42Action">
-            <interceptor-ref name="fileUpload" />
+            <interceptor-ref name="actionFileUpload" />
             <interceptor-ref name="defaultStack"/>
             <result name="success">/demographic/demographicImport.jsp</result>
         </action>
@@ -1546,6 +1549,7 @@
             <result name="success">/eform/efmmanageformgroups.jsp</result>
         </action>
         <action name="eform/displayImage" class="io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action"/>
+        <action name="eform/rtlPreventions" class="io.github.carlos_emr.carlos.eform.actions.RtlPreventions2Action"/>
         <action name="billing/CA/BC/associateCodesAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.AssociateCodes2Action">
             <result name="success">/billing/CA/BC/showServiceCodeAssocs.do</result>
         </action>
@@ -1572,7 +1576,7 @@
             <result name="success">/lab/CA/ALL/uploadComplete.jsp</result>
         </action>
         <action name="lab/CA/ALL/insideLabUpload" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.InsideLabUpload2Action">
-            <interceptor-ref name="fileUpload" />
+            <interceptor-ref name="actionFileUpload" />
             <interceptor-ref name="defaultStack"/>
             <result name="success">/lab/CA/ALL/testUploader.jsp</result>
             <result name="input">/lab/CA/ALL/testUploader.jsp</result>
@@ -1813,14 +1817,10 @@
         <action name="OscarChartPrint" class="io.github.carlos_emr.carlos.casemgmt.web.EChartPrint2Action"/>
         <action name="ClientImage" class="io.github.carlos_emr.carlos.casemgmt.web.ClientImage2Action" method="execute">
             <interceptor-ref name="defaultStack"/>
-            <interceptor-ref name="fileUpload">
+            <interceptor-ref name="actionFileUpload">
                 <param name="allowedTypes">image/jpeg,image/gif</param>
             </interceptor-ref>
             <result name="success">/casemgmt/uploadimage.jsp</result>
-        </action>
-        <action name="OnCallQuestionnaire" class="io.github.carlos_emr.carlos.casemgmt.web.OnCallQuestionnaire2Action">
-            <result name="form">/casemgmt/OnCallQuestionnaireForm.jsp</result>
-            <result name="windowClose">/casemgmt/close.jsp</result>
         </action>
         <action name="oscarReport/reportByTemplate/GenerateReportAction" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateReport2Action">
             <result name="success">/oscarReport/reportByTemplate/resultReport.jsp</result>
@@ -1868,8 +1868,8 @@
         <action name="provider/providerSignatureImage" class="io.github.carlos_emr.carlos.provider.web.ProviderSignatureImage2Action"/>
         <action name="provider/providerSignatureStamp" class="io.github.carlos_emr.carlos.provider.web.ProviderSignatureStamp2Action">
             <interceptor-ref name="defaultStack">
-                <param name="fileUpload.allowedTypes">image/png,image/jpeg,image/gif</param>
-                <param name="fileUpload.maximumSize">2097152</param>
+                <param name="actionFileUpload.allowedTypes">image/png,image/jpeg,image/gif</param>
+                <param name="actionFileUpload.maximumSize">2097152</param>
             </interceptor-ref>
             <result name="input" type="httpheader">
                 <param name="status">400</param>
@@ -2111,7 +2111,7 @@
         <action name="renal/Renal" class="io.github.carlos_emr.carlos.renal.web.Renal2Action"/>
         <action name="admin/GenerateTraceAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTrace2Action"/>
         <action name="admin/GenerateTraceabilityReportAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTraceabilityReport2Action">
-            <interceptor-ref name="fileUpload" />
+            <interceptor-ref name="actionFileUpload" />
             <interceptor-ref name="defaultStack"/>
         </action>
         <action name="mcedt/mcedt" class="io.github.carlos_emr.carlos.integration.mcedt.Resource2Action">

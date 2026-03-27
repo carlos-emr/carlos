@@ -1,4 +1,4 @@
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -32,11 +32,11 @@
 
 <!DOCTYPE html>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -54,7 +54,7 @@
 
 <html>
 <head>
-    <title>OSCAR Fax</title>
+    <title>CARLOS Fax</title>
 
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
     <link rel="stylesheet" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css" type="text/css"/>
@@ -199,7 +199,7 @@
 
             <table id="oscarFaxHeader">
                 <tr>
-                    <td id="oscarFaxHeaderLeftColumn"><h1>OSCAR Fax</h1></td>
+                    <td id="oscarFaxHeaderLeftColumn"><h1>CARLOS Fax</h1></td>
 
                     <td id="oscarFaxHeaderCenterColumn"><e:forHtml value="${ transactionType }" /></td>
                     <td id="oscarFaxHeaderRightColumn" align=right>
@@ -393,7 +393,7 @@
                                 <div class="col-sm-12">
                                     <label for="commentsTextArea">Comments</label>
                                     <textarea class="form-control" name="comments" id="commentsTextArea"
-                                              rows="5"><%= OscarProperties.getInstance().getProperty("DEFAULT_FAX_COVERPAGE_COMMENT", "") %></textarea>
+                                              rows="5"><%= CarlosProperties.getInstance().getProperty("DEFAULT_FAX_COVERPAGE_COMMENT", "") %></textarea>
                                 </div>
                             </div>
                         </div>

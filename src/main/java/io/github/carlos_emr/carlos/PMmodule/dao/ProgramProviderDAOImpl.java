@@ -215,7 +215,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
         }
 
         programProviderByProviderProgramIdCache.remove(makeCacheKey(pp.getProviderNo(), pp.getProgramId()));
-        currentSession().saveOrUpdate(pp);
+        currentSession().merge(pp);
 
         if (log.isDebugEnabled()) {
             log.debug("saveProgramProvider: id=" + pp.getId());
@@ -232,7 +232,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
         ProgramProvider pp = getProgramProvider(id);
         if (pp != null) {
             programProviderByProviderProgramIdCache.remove(makeCacheKey(pp.getProviderNo(), pp.getProgramId()));
-            currentSession().delete(pp);
+            currentSession().remove(pp);
         }
 
         if (log.isDebugEnabled()) {
@@ -252,7 +252,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
             while (it.hasNext()) {
                 ProgramProvider pp = (ProgramProvider) it.next();
                 programProviderByProviderProgramIdCache.remove(makeCacheKey(pp.getProviderNo(), pp.getProgramId()));
-                currentSession().delete(pp);
+                currentSession().remove(pp);
             }
         }
 
@@ -364,6 +364,6 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
     @Override
     public void updateProviderRole(ProgramProvider pp, Long roleId) {
         pp.setRoleId(roleId);
-        currentSession().update(pp);
+        currentSession().merge(pp);
     }
 }

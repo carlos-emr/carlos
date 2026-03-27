@@ -81,7 +81,7 @@
 <%@ taglib uri="/WEB-INF/msg-tag.tld" prefix="oscarmessage" %>
 <!--/messenger Code block -->
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -214,7 +214,7 @@
 
 <%@ page import="java.lang.*, java.util.*,java.net.*,io.github.carlos_emr.*" %>
 <%
-    java.util.Properties oscarVariables = OscarProperties.getInstance();
+    java.util.Properties oscarVariables = CarlosProperties.getInstance();
 %>
 
 <jsp:useBean id="scheduleHolidayBean" class="java.util.Hashtable"

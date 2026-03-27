@@ -43,7 +43,7 @@ import java.util.TimerTask;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * Class HL7A04TransportTask
@@ -51,7 +51,7 @@ import io.github.carlos_emr.OscarProperties;
 public class EmeraldHL7A04TransportTask extends TimerTask {
 
     private static final Logger logger = MiscUtils.getLogger();
-    private OscarProperties oscarProperties = OscarProperties.getInstance();
+    private CarlosProperties oscarProperties = CarlosProperties.getInstance();
 
     private String dirName;
     private String sentDir;

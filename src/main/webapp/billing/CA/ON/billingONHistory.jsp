@@ -53,7 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     BillingONPaymentDao billingOnPaymentDao = SpringUtils.getBean(BillingONPaymentDao.class);
     BillingONCHeader1Dao bCh1Dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
@@ -61,7 +61,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
 <html>
@@ -214,7 +214,7 @@
 
             <% if (obj.getStatus().compareTo("B") == 0 || obj.getStatus().compareTo("S") == 0) { %>
             <td align="center">&nbsp;</td>
-            <% } else if (OscarProperties.getInstance().getBooleanProperty("warnOnDeleteBill", "true")) { %>
+            <% } else if (CarlosProperties.getInstance().getBooleanProperty("warnOnDeleteBill", "true")) { %>
             <td align="center"><a
                     href="#"
                     onClick="onUnbilled('<%=obj.getId()%>','<%=obj.getStatus()%>');return false;">Unbill</a>

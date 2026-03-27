@@ -54,8 +54,8 @@
 <%@ page import="java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*"
          errorPage="/errorpage.jsp" %>
 <%@ page import="org.owasp.csrfguard.CsrfGuard" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>

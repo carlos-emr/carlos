@@ -32,8 +32,8 @@
 <%@page errorPage="/errorpage.jsp" %>
 <%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/caisirole-tag.tld" prefix="caisirole" %>
 

@@ -32,7 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao" %>
-<%@page import="io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page
         import="java.sql.*, java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.SxmlMisc, io.github.carlos_emr.carlos.providers.data.ProviderBillCenter"
         errorPage="/errorpage.jsp" %>
@@ -42,7 +42,7 @@
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
-        <title>Clinic NBR Management Start Time : <%=OscarProperties.getInstance().getStartTime()%>
+        <title>Clinic NBR Management Start Time : <%=CarlosProperties.getInstance().getStartTime()%>
         </title>
         <script type="text/javascript">
             function toggleButtons(visible) {

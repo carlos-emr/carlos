@@ -52,7 +52,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.immunization.data.EctImmConfigData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">

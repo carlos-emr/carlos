@@ -36,7 +36,9 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
-import javax.persistence.*;
+import io.github.carlos_emr.carlos.commn.model.converter.TicklerPriorityConverter;
+import io.github.carlos_emr.carlos.commn.model.converter.TicklerStatusConverter;
+import jakarta.persistence.*;
 
 import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.Fetch;
@@ -86,7 +88,7 @@ public class Tickler extends AbstractModel<Integer> {
     private String message;
 
     @Column(length = 1)
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = TicklerStatusConverter.class)
     private STATUS status = STATUS.A;
 
     @Column(name = "creation_date")
@@ -105,7 +107,7 @@ public class Tickler extends AbstractModel<Integer> {
     private String creator;
 
     @Column(length = 6)
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = TicklerPriorityConverter.class)
     private PRIORITY priority = PRIORITY.Normal;
 
     @Column(name = "task_assigned_to")
@@ -118,18 +120,15 @@ public class Tickler extends AbstractModel<Integer> {
     @JoinColumn(name = "category_id", referencedColumnName = "id", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
-    @BatchSize(size = 25)
     private TicklerCategory ticklerCategory;
 
     @OneToMany(fetch = FetchType.LAZY)
     @JoinColumn(name = "tickler_no", referencedColumnName = "tickler_no")
-    @NotFound(action = NotFoundAction.IGNORE)
     private Set<TicklerUpdate> updates = new HashSet<TicklerUpdate>();
 
     @OneToMany(fetch = FetchType.EAGER)
     @JoinColumn(name = "tickler_no", referencedColumnName = "tickler_no")
     @OrderBy("updateDate ASC")
-    @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
     @BatchSize(size = 25)
     private Set<TicklerComment> comments = new HashSet<TicklerComment>();
@@ -139,7 +138,6 @@ public class Tickler extends AbstractModel<Integer> {
     @JoinColumn(name = "demographic_no", referencedColumnName = "demographic_no", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
-    @BatchSize(size = 25)
     private Demographic demographic;
 
 
@@ -147,21 +145,18 @@ public class Tickler extends AbstractModel<Integer> {
     @JoinColumn(name = "creator", referencedColumnName = "provider_no", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
-    @BatchSize(size = 25)
     private Provider provider;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "task_assigned_to", referencedColumnName = "provider_no", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
-    @BatchSize(size = 25)
     private Provider assignee;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "program_id", referencedColumnName = "id", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
-    @BatchSize(size = 25)
     private Program program;
 
 

@@ -29,11 +29,11 @@
 
 --%>
 
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c"%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%
 String curProvider_no = (String)session.getAttribute("user");
@@ -284,7 +284,11 @@ String curProvider_no = (String)session.getAttribute("user");
 						<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgManageEFrm"/>
 					</a></li>
 
-					<li><a href="${ctx}/eform/efmimagemanager.jsp"  class="contentLink defaultImageUpload">
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.eform" rights="w" reverse="<%=false%>">
+				<li><a href="javascript:void(0);" onclick="window.open('${ctx}/eform/visualEformEditor.jsp', '_blank'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.visual.editor.title"/></a></li>
+				</security:oscarSec>
+
+				<li><a href="${ctx}/eform/efmimagemanager.jsp"  class="contentLink defaultImageUpload">
 						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnUploadImage"/>
 					</a></li>
 					<li><a href="${ctx}/eform/efmmanageformgroups.jsp" class="contentLink defaultFormsGroups">
@@ -347,10 +351,6 @@ String curProvider_no = (String)session.getAttribute("user");
 					</li>
 					<li><a href="${ctx}/oscarReport/oscarReportCatchment.jsp"
 						class="contentLink">PCN</a></li>
-					<oscar:oscarPropertiesCheck property="OnCallClinic" value="yes">
-					<li><a href="${ctx}/oscarReport/oscarOnCallClinic.jsp"
-						class="contentLink">OSCAR On Call Clinic</a></li>
-					</oscar:oscarPropertiesCheck>
 					<li><a href="${ctx}/oscarReport/FluBilling.do?orderby="
 						class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
 					<li><a href="${ctx}/oscarReport/obec.jsp" class="contentLink">Overnight

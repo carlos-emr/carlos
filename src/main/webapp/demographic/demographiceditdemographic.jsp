@@ -47,7 +47,7 @@
     }
 %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.Gender" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -56,7 +56,7 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 <%@page import="java.util.HashSet" %>
 <%@page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean" scope="session"/>
 <%
     String demographic$ = request.getParameter("demographic_no");
@@ -81,7 +81,7 @@
         import="java.util.*, java.net.*,java.text.DecimalFormat, io.github.carlos_emr.*, io.github.carlos_emr.carlos.demographic.data.ProvinceNames, io.github.carlos_emr.carlos.waitinglist.WaitingList, io.github.carlos_emr.carlos.report.data.DemographicSets,io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.OtherIdManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
@@ -107,7 +107,7 @@
     ScheduleTemplateCodeDao scheduleTemplateCodeDao = SpringUtils.getBean(ScheduleTemplateCodeDao.class);
     WaitingListDao waitingListDao = SpringUtils.getBean(WaitingListDao.class);
     WaitingListNameDao waitingListNameDao = SpringUtils.getBean(WaitingListNameDao.class);
-    OscarProperties oscarProps = OscarProperties.getInstance();
+    CarlosProperties oscarProps = CarlosProperties.getInstance();
     String privateConsentEnabledProperty = oscarProps.getProperty("privateConsentEnabled");
     boolean privateConsentEnabled = (privateConsentEnabledProperty != null && privateConsentEnabledProperty.equals("true"));
     ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
@@ -131,7 +131,7 @@
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
 
@@ -276,7 +276,7 @@
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/check_hin.js"></script>
 
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/nhpup_1.1.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath() %>/js/popup.js"></script>
 
         <% if (isMobileOptimized) { %>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/mobile/editdemographicstyle.css">
@@ -510,7 +510,7 @@
 
             function checkONReferralNo() {
                 <%
-		String skip = OscarProperties.getInstance().getProperty("SKIP_REFERRAL_NO_CHECK","false");
+		String skip = CarlosProperties.getInstance().getProperty("SKIP_REFERRAL_NO_CHECK","false");
 		if(!skip.equals("true")) {
 	%>
                 var referralNo = document.updatedelete.r_doctor_ohip.value;
@@ -1682,7 +1682,7 @@
                                                                         <span class="info"><%=MyDateFormat.getMyStandardDate(demographic.getEndDate())%></span>
                                                                     </li>
 
-                                                                    <%if (!"true".equals(OscarProperties.getInstance().getProperty("phu.hide", "false"))) { %>
+                                                                    <%if (!"true".equals(CarlosProperties.getInstance().getProperty("phu.hide", "false"))) { %>
                                                                     <li><span class="label">
 								<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPHU"/>:</span>
                                                                         <span class="info"><c:out
@@ -2663,7 +2663,7 @@
                                                         <td align="left">
                                                             <% String province = demographic.getProvince(); %>
                                                             <%
-                                                                if ("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled", "false"))) {
+                                                                if ("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled", "false"))) {
                                                             %>
                                                             <select name="province" id="province"></select>
                                                             <br/>
@@ -2938,7 +2938,7 @@
                                                             <%
                                                                 String residentialProvince = demographic.getResidentialProvince(); %>
                                                             <%
-                                                                if ("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled", "false"))) {
+                                                                if ("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled", "false"))) {
                                                             %>
                                                             <select name="residentialProvince"
                                                                     id="residentialProvince"></select>
@@ -4119,7 +4119,7 @@
                                                         </td>
                                                     </tr>
                                                     <tr>
-                                                        <%if (!"true".equals(OscarProperties.getInstance().getProperty("phu.hide", "false"))) { %>
+                                                        <%if (!"true".equals(CarlosProperties.getInstance().getProperty("phu.hide", "false"))) { %>
                                                         <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPHU"/>:</b>
                                                         </td>
                                                         <td align="left">
@@ -4856,14 +4856,14 @@
                                                         </security:oscarSec>
                                                         <oscar:oscarPropertiesCheck value="BC" property="billregion">
                                                             <security:oscarSec roleName="<%=roleName$%>" objectName="_careconnect" rights="r">
-                                                                <c:set value="${ OscarProperties.getInstance()['BC_CARECONNECT_URL'] }" var="url" scope="page"/>
+                                                                <c:set value="${ CarlosProperties.getInstance()['BC_CARECONNECT_URL'] }" var="url" scope="page"/>
                                                                 <c:if test="${ not empty url }">
                                                                     <script type="text/javascript" src="${ctx}/careconnect/careconnect.js"></script>
                                                                     <input type="button" class="btn-toolbar-secondary"
                                                                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCareConnect"/>"
                                                                            onclick="callCareConnect('<%= Encode.forJavaScriptAttribute((String) pageContext.getAttribute("url")) %>', '<%= Encode.forJavaScriptAttribute(demographic.getHin()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getFirstName()) %>',
                                                                                    '<%= Encode.forJavaScriptAttribute(demographic.getLastName()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getFormattedDob()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getSex()) %>',
-                                                                                   '<%= Encode.forJavaScriptAttribute(OscarProperties.getInstance().getProperty("BC_CARECONNECT_REGION", "")) %>' )"/>
+                                                                                   '<%= Encode.forJavaScriptAttribute(CarlosProperties.getInstance().getProperty("BC_CARECONNECT_REGION", "")) %>' )"/>
                                                                 </c:if>
                                                             </security:oscarSec>
                                                         </oscar:oscarPropertiesCheck>
@@ -5009,7 +5009,7 @@ if (privateConsentEnabled) {
 <%!
 
     public String getDisabled(String fieldName) {
-        String val = OscarProperties.getInstance().getProperty("demographic.edit." + fieldName, "");
+        String val = CarlosProperties.getInstance().getProperty("demographic.edit." + fieldName, "");
         if (val != null && val.equals("disabled")) {
             return " disabled=\"disabled\" ";
         }

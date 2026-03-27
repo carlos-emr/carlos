@@ -51,7 +51,11 @@ public class ProgramClientStatusDAOImpl extends AbstractHibernateDao implements 
     }
 
     public void saveProgramClientStatus(ProgramClientStatus status) {
-        currentSession().saveOrUpdate(status);
+        if (status.getId() == null) {
+            currentSession().persist(status);
+        } else {
+            currentSession().merge(status);
+        }
     }
 
     public ProgramClientStatus getProgramClientStatus(String id) {
@@ -66,7 +70,7 @@ public class ProgramClientStatusDAOImpl extends AbstractHibernateDao implements 
     }
 
     public void deleteProgramClientStatus(String id) {
-        currentSession().delete(getProgramClientStatus(id));
+        currentSession().remove(getProgramClientStatus(id));
     }
 
     public boolean clientStatusNameExists(Integer programId, String statusName) {

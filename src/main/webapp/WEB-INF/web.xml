@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<web-app version="3.0" xmlns="http://java.sun.com/xml/ns/javaee"
+<web-app version="6.0" xmlns="https://jakarta.ee/xml/ns/jakartaee"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd">
+         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd">
 
   <display-name>CARLOS</display-name>
   <absolute-ordering />
@@ -56,8 +56,10 @@
          requests it handles, so filters placed after it in the chain are never invoked for
          Struts action (.do) responses. Placing these filters here ensures:
            1. CSRFGuard validates tokens on all Struts action POST requests
-           2. CsrfGuardScriptInjectionFilter wraps the response BEFORE Struts renders,
-              so csrfguard.js is injected into Struts-rendered HTML pages
+           2. CsrfGuardScriptInjectionFilter skips .do REQUEST dispatch (Tomcat 11 unwraps
+              wrappers during forward), but runs on the FORWARD dispatch to the JSP where
+              it wraps the response and injects csrfguard.js. The FORWARD dispatcher also
+              prevents the default 8KB response buffer from truncating large JSP pages.
            3. LogoutBroadcastFilter wraps the response BEFORE Struts renders,
               so the logout broadcast script is injected into Struts-rendered HTML pages
               (e.g. Inboxhub.do, DisplayMessages.do)
@@ -70,6 +72,8 @@
     <filter-mapping>
         <filter-name>CsrfGuardScriptInjectionFilter</filter-name>
         <url-pattern>/*</url-pattern>
+        <dispatcher>REQUEST</dispatcher>
+        <dispatcher>FORWARD</dispatcher>
     </filter-mapping>
     <filter-mapping>
         <filter-name>LogoutBroadcastFilter</filter-name>
@@ -302,6 +306,11 @@
 		<servlet-name>UploadDocument</servlet-name>
 		<servlet-class>io.github.carlos_emr.DocumentMgtUploadServlet</servlet-class>
 		<load-on-startup>0</load-on-startup>
+		<multipart-config>
+			<max-file-size>52428800</max-file-size>
+			<max-request-size>52428800</max-request-size>
+			<file-size-threshold>1048576</file-size-threshold>
+		</multipart-config>
 	</servlet>
 	<servlet>
 		<servlet-name>pdfCreator</servlet-name>
@@ -342,6 +351,11 @@
 		<servlet-name>UploadTeleplanServlet</servlet-name>
 		<servlet-class>io.github.carlos_emr.carlos.billings.ca.bc.MSP.DocumentTeleplanReportUploadServlet</servlet-class>
 		<load-on-startup>0</load-on-startup>
+		<multipart-config>
+			<max-file-size>52428800</max-file-size>
+			<max-request-size>52428800</max-request-size>
+			<file-size-threshold>1048576</file-size-threshold>
+		</multipart-config>
 	</servlet>
 	<servlet>
 		<servlet-name>ScatterPlotChartServlet</servlet-name>
@@ -351,6 +365,11 @@
 		<servlet-name>DocumentUploadServlet</servlet-name>
 		<servlet-class>io.github.carlos_emr.DocumentUploadServlet</servlet-class>
 		<load-on-startup>0</load-on-startup>
+		<multipart-config>
+			<max-file-size>52428800</max-file-size>
+			<max-request-size>52428800</max-request-size>
+			<file-size-threshold>1048576</file-size-threshold>
+		</multipart-config>
 	</servlet>
 	<servlet>
 		<servlet-name>PatientListByAppt</servlet-name>
@@ -383,6 +402,11 @@
 			<param-value>false</param-value>
 		</init-param>
 
+		<multipart-config>
+			<max-file-size>52428800</max-file-size>
+			<max-request-size>52428800</max-request-size>
+			<file-size-threshold>1048576</file-size-threshold>
+		</multipart-config>
 	</servlet>
 
   <servlet-mapping>

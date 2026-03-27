@@ -44,7 +44,7 @@
                  io.github.carlos_emr.carlos.lab.LabRequestReportLink,
                  io.github.carlos_emr.carlos.mds.data.ReportStatus,
                  io.github.carlos_emr.carlos.log.*,
-                 io.github.carlos_emr.OscarProperties,
+                 io.github.carlos_emr.CarlosProperties,
                  org.apache.commons.codec.binary.Base64,
                  io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao,
                  io.github.carlos_emr.carlos.commn.model.Hl7TextInfo,
@@ -62,11 +62,11 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProperties" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -83,7 +83,7 @@
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     String segmentID = request.getParameter("segmentID");
     String providerNo = request.getParameter("providerNo");
     String searchProviderNo = request.getParameter("searchProviderNo");

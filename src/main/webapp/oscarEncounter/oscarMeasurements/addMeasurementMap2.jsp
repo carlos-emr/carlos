@@ -29,11 +29,11 @@
 
 --%>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ page
-        import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.util.StringUtils,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
+        import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.util.StringUtils,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
 

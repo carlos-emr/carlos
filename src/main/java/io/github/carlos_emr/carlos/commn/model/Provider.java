@@ -30,6 +30,8 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.util.Comparator;
 import java.util.Date;
@@ -37,6 +39,8 @@ import java.util.Date;
 /**
  * This is the object class that relates to the provider table. Any customizations belong here.
  */
+@Entity
+@Table(name = "provider")
 public class Provider extends AbstractModel<String> implements Comparable<Provider> {
 
     public static final String SYSTEM_PROVIDER_NO = "-1";

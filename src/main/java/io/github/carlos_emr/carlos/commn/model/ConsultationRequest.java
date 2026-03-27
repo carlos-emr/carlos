@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import org.apache.commons.lang3.StringUtils;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.Date;

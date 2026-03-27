@@ -31,10 +31,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.math.BigInteger;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import org.springframework.stereotype.Repository;
@@ -124,7 +123,7 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
             q.setParameter(1, apptStatus.getStatus() + "%");
             Object result = q.getSingleResult();
 
-            iUsuage = ((BigInteger) result).intValue();
+            iUsuage = ((Number) result).intValue();
             if (iUsuage > 0) {
                 iUsuage = i;
                 break;

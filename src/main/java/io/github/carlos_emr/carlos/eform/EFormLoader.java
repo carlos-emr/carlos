@@ -30,13 +30,15 @@
 
 package io.github.carlos_emr.carlos.eform;
 
-import io.github.carlos_emr.OscarProperties;
-import org.apache.commons.digester3.Digester;
+import io.github.carlos_emr.CarlosProperties;
+import jakarta.xml.bind.JAXBContext;
+import jakarta.xml.bind.Unmarshaller;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.eform.data.DatabaseAP;
 import io.github.carlos_emr.carlos.eform.data.EForm;
+import io.github.carlos_emr.carlos.eform.data.EFormApConfig;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -168,32 +170,24 @@ public class EFormLoader {
      *Call ap like so: <input type="text" oscarDB=patient_name size="20">*/
 
     public static void parseXML() {
-        Digester digester = new Digester();
-        digester.push(_instance); // Push controller servlet onto the stack
-        digester.setValidating(false);
-
-        digester.addObjectCreate("eformap-config/databaseap", DatabaseAP.class);
-        //digester.addSetProperties("eformap-config/databaseap");
-        digester.addBeanPropertySetter("eformap-config/databaseap/ap-name", "apName");
-        digester.addBeanPropertySetter("eformap-config/databaseap/ap-sql", "apSQL");
-        digester.addBeanPropertySetter("eformap-config/databaseap/ap-output", "apOutput");
-        digester.addBeanPropertySetter("eformap-config/databaseap/ap-insql", "apInSQL");
-        digester.addBeanPropertySetter("eformap-config/databaseap/archive", "archive");
-        digester.addBeanPropertySetter("eformap-config/databaseap/ap-json-output", "apJsonOutput");
-        digester.addSetNext("eformap-config/databaseap", "addDatabaseAP");
         try {
-            Properties op = OscarProperties.getInstance();
+            Properties op = CarlosProperties.getInstance();
             String configpath = op.getProperty("eform_databaseap_config");
-            InputStream fs = null;
+            InputStream fs;
             if (configpath == null) {
                 EFormLoader eLoader = new EFormLoader();
                 ClassLoader loader = eLoader.getClass().getClassLoader();
-                fs = loader.getResourceAsStream("/oscar/eform/apconfig.xml");
+                fs = loader.getResourceAsStream("oscar/eform/apconfig.xml");
             } else {
                 fs = new FileInputStream(configpath);
             }
-            digester.parse(fs);
+            JAXBContext ctx = JAXBContext.newInstance(EFormApConfig.class);
+            Unmarshaller unmarshaller = ctx.createUnmarshaller();
+            EFormApConfig config = (EFormApConfig) unmarshaller.unmarshal(fs);
             fs.close();
+            for (DatabaseAP ap : config.getDatabaseAPs()) {
+                addDatabaseAP(ap);
+            }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }

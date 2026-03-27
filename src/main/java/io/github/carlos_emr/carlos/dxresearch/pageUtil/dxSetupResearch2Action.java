@@ -30,9 +30,9 @@
 
 package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListItemsHandler;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler;
 import io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class dxSetupResearch2Action extends ActionSupport {

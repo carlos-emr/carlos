@@ -35,9 +35,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import org.apache.logging.log4j.Logger;
@@ -49,14 +49,14 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillRecipient;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreference;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreferencesDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
@@ -70,7 +70,7 @@ public final class BillingView2Action
     public String execute() throws IOException,
             ServletException {
 
-        Properties oscarVars = OscarProperties.getInstance();
+        Properties oscarVars = CarlosProperties.getInstance();
 
         if (oscarVars.getProperty("billregion").equals("ON")) {
             String newURL = "/billing/CA/ON/billingOB2.jsp";

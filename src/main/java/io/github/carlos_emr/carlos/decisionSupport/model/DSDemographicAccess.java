@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.ServiceCodeValidationLogic;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet;
@@ -660,7 +660,7 @@ public class DSDemographicAccess {
             logger.debug("PAYER:MSP ");
             ServiceCodeValidationLogic bcCodeValidation = null;
             BillingONCHeader1Dao billingONCHeader1Dao = null;
-            String billregion = OscarProperties.getInstance().getProperty("billregion", "");
+            String billregion = CarlosProperties.getInstance().getProperty("billregion", "");
             if (billregion.equalsIgnoreCase("BC")) {
                 bcCodeValidation = new ServiceCodeValidationLogic();
             } else if (billregion.equalsIgnoreCase("ON")) {

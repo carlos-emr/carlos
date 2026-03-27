@@ -29,7 +29,7 @@
 
 --%>
 
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
@@ -62,7 +62,7 @@
 
 %>
 
-<%if (OscarProperties.getInstance().getProperty("rx_enhance") != null && OscarProperties.getInstance().getProperty("rx_enhance").equals("true")) { %>
+<%if (CarlosProperties.getInstance().getProperty("rx_enhance") != null && CarlosProperties.getInstance().getProperty("rx_enhance").equals("true")) { %>
 <script type="text/javascript">
 
     var errorMsg = "Failed";

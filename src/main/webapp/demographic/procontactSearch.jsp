@@ -234,7 +234,7 @@
         <c:forEach var="contact" items="${contacts}" varStatus="i">
             <%
                 ProfessionalContact contact = (ProfessionalContact) pageContext.getAttribute("contact");
-                javax.servlet.jsp.jstl.core.LoopTagStatus i = (javax.servlet.jsp.jstl.core.LoopTagStatus) pageContext.getAttribute("i");
+                jakarta.servlet.jsp.jstl.core.LoopTagStatus i = (jakarta.servlet.jsp.jstl.core.LoopTagStatus) pageContext.getAttribute("i");
                 String bgColor = i.getIndex() % 2 == 0 ? "#EEEEFF" : "ivory";
                 String strOnClick;
                 strOnClick = "selectResult('" + contact.getSystemId() + "_" + contact.getId() + "','" + StringEscapeUtils.escapeEcmaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";

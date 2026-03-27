@@ -32,14 +32,14 @@ package io.github.carlos_emr.carlos.sec;
 
 import java.io.IOException;
 
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public abstract class SecurityTokenManager {
 
@@ -50,7 +50,7 @@ public abstract class SecurityTokenManager {
             return instance;
         }
 
-        String managerName = OscarProperties.getInstance().getProperty("sec.token.manager");
+        String managerName = CarlosProperties.getInstance().getProperty("sec.token.manager");
         if (managerName != null) {
             try {
                 instance = (SecurityTokenManager) Class.forName(managerName).newInstance();

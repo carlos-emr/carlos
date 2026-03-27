@@ -32,14 +32,14 @@ package io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil;
 
 import java.util.ArrayList;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
 /**
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class RemoveClinicalReportFromHistory2Action extends ActionSupport {

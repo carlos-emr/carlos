@@ -39,8 +39,8 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Properties;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
@@ -52,7 +52,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billactivity;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MspErrorCodes;
 import io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanAPI;
@@ -68,7 +68,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 /**
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ManageTeleplan2Action extends ActionSupport {
@@ -166,9 +166,9 @@ public class ManageTeleplan2Action extends ActionSupport {
         File file = tr.getFile();
 
         // Use PathValidationUtils to validate file is in allowed directory or temp
-        File allowedDir = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         try {
-            PathValidationUtils.validateExistingPath(file, allowedDir);
+            file = PathValidationUtils.validateExistingPath(file, allowedDir);
         } catch (SecurityException e) {
             // File might be in temp directory from Teleplan API
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
@@ -239,9 +239,9 @@ public class ManageTeleplan2Action extends ActionSupport {
         File file = tr.getFile();
 
         // Use PathValidationUtils to validate file is in allowed directory or temp
-        File allowedDir = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         try {
-            PathValidationUtils.validateExistingPath(file, allowedDir);
+            file = PathValidationUtils.validateExistingPath(file, allowedDir);
         } catch (SecurityException e) {
             // File might be in temp directory from Teleplan API
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
@@ -328,7 +328,7 @@ public class ManageTeleplan2Action extends ActionSupport {
     public String getSequenceNumber()
             throws Exception {
         log.debug("getSequenceNumber");
-        OscarProperties prop = OscarProperties.getInstance();
+        CarlosProperties prop = CarlosProperties.getInstance();
         String datacenter = prop.getProperty("dataCenterId", "");
         if (datacenter.length() != 5) {
             //this.addMessages() //TODO:ADD MESSAGE ABOUT DATA CENTER NOT BEING CORRECT
@@ -402,7 +402,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         Billactivity b = (Billactivity) l.get(0);
         String filename = b.getOhipfilename();
 
-        OscarProperties prop = OscarProperties.getInstance();
+        CarlosProperties prop = CarlosProperties.getInstance();
         String datacenter = prop.getProperty("HOME_DIR", "");
 
         File f = new File(datacenter, filename);
@@ -499,7 +499,7 @@ public class ManageTeleplan2Action extends ActionSupport {
             throws Exception {
         log.debug("checkElig");
         String demographicNo = request.getParameter("demographic");
-        OscarProperties prop = OscarProperties.getInstance();
+        CarlosProperties prop = CarlosProperties.getInstance();
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
         Demographic demo = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);
 
@@ -541,9 +541,9 @@ public class ManageTeleplan2Action extends ActionSupport {
             File file = tr.getFile();
 
             // Use PathValidationUtils to validate file is in allowed directory or temp
-            File allowedDir = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"));
+            File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
             try {
-                PathValidationUtils.validateExistingPath(file, allowedDir);
+                file = PathValidationUtils.validateExistingPath(file, allowedDir);
             } catch (SecurityException e) {
                 // File might be in temp directory from Teleplan API
                 if (!PathValidationUtils.isInAllowedTempDirectory(file)) {

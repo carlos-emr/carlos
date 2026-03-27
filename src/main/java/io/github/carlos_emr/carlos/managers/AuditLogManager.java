@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.stereotype.Service;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 
 @Service
@@ -53,20 +53,20 @@ public class AuditLogManager {
 
     Logger logger = MiscUtils.getLogger();
 
-    String minDays = OscarProperties.getInstance().getProperty("log.purge.minDays", String.valueOf(365 * 10));
-    String mysqldump = OscarProperties.getInstance().getProperty("log.purge.mysqldump");
-    String outputDirectory = OscarProperties.getInstance().getProperty("log.purge.outputdir");
-    String daysFromNowToRemove = OscarProperties.getInstance().getProperty("log.purge.daysfromnowtopurge");
+    String minDays = CarlosProperties.getInstance().getProperty("log.purge.minDays", String.valueOf(365 * 10));
+    String mysqldump = CarlosProperties.getInstance().getProperty("log.purge.mysqldump");
+    String outputDirectory = CarlosProperties.getInstance().getProperty("log.purge.outputdir");
+    String daysFromNowToRemove = CarlosProperties.getInstance().getProperty("log.purge.daysfromnowtopurge");
 
-    String user = OscarProperties.getInstance().getProperty("db_username");
-    String password = OscarProperties.getInstance().getProperty("db_password");
-    String dbName = OscarProperties.getInstance().getProperty("db_name").substring(0, OscarProperties.getInstance().getProperty("db_name").indexOf("?"));
+    String user = CarlosProperties.getInstance().getProperty("db_username");
+    String password = CarlosProperties.getInstance().getProperty("db_password");
+    String dbName = CarlosProperties.getInstance().getProperty("db_name").substring(0, CarlosProperties.getInstance().getProperty("db_name").indexOf("?"));
 
 
     public int purgeAuditLog(LoggedInInfo loggedInInfo, Date endDateToPurge) throws Exception {
 
         if (outputDirectory == null || outputDirectory.isEmpty()) {
-            outputDirectory = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+            outputDirectory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         }
         if (mysqldump == null) {
             logger.warn("No mysqldump command has been defined. Please set log.purge.mysqldump in the properties file");

@@ -44,11 +44,11 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Properties;
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.awt.Color;
 import org.openpdf.text.*;
@@ -60,7 +60,7 @@ import io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.form.graphic.FrmGraphicFactory;
 import io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphic;
 import io.github.carlos_emr.carlos.form.pdfservlet.FrmPDFPostValueProcessor;
@@ -110,10 +110,10 @@ public class EFormPDFServlet extends HttpServlet {
      *
      * @param req HttpServletRequest the incoming request
      * @param res HttpServletResponse the outgoing response
-     * @throws javax.servlet.ServletException if a servlet error occurs
+     * @throws jakarta.servlet.ServletException if a servlet error occurs
      * @throws java.io.IOException if an I/O error occurs
      */
-    public void doGet(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
+    public void doGet(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
         doPost(req, res);
     }
@@ -127,10 +127,10 @@ public class EFormPDFServlet extends HttpServlet {
      *
      * @param req HttpServletRequest containing e-form field values and configuration parameters
      * @param res HttpServletResponse to write the generated PDF to
-     * @throws javax.servlet.ServletException if a servlet error occurs
+     * @throws jakarta.servlet.ServletException if a servlet error occurs
      * @throws java.io.IOException if an I/O error occurs
      */
-    public void doPost(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
+    public void doPost(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
 
         ByteArrayOutputStream baosPDF = null;
@@ -266,7 +266,7 @@ public class EFormPDFServlet extends HttpServlet {
             addDocumentProps(document, title, props);
 
             // create a reader for a certain document
-            String propFilename = OscarProperties.getInstance().getEformImageDirectory() + "/" + template;
+            String propFilename = CarlosProperties.getInstance().getEformImageDirectory() + "/" + template;
 
             try {
                 reader = new PdfReader(propFilename);
@@ -370,7 +370,7 @@ public class EFormPDFServlet extends HttpServlet {
             return ret;
         }
         
-        String propFilename = OscarProperties.getInstance().getEformImageDirectory() + "/" + cfgFilename;
+        String propFilename = CarlosProperties.getInstance().getEformImageDirectory() + "/" + cfgFilename;
         InputStream is = null;
 
         try {

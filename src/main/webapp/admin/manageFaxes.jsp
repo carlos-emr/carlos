@@ -228,7 +228,7 @@
                         $('#' + status).text("CANCELLED");
                     } else {
                         $("#cancel_" + jobId).prop("disabled", true).css("color", "red").css("font-weight", "bold").text("error");
-                        alert("OSCAR WAS UNABLE TO CANCEL THE FAX");
+                        alert("CARLOS WAS UNABLE TO CANCEL THE FAX");
                     }
                 }
             });

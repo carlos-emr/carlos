@@ -28,8 +28,8 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -41,7 +41,7 @@
 <%@page import="io.github.carlos_emr.carlos.managers.DashboardManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Dashboard" %>
 <%@ page import="java.util.Properties" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.List" %>
@@ -51,7 +51,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%
     GregorianCalendar cal = new GregorianCalendar();
@@ -64,7 +64,7 @@
     AppManager appManager = SpringUtils.getBean(AppManager.class);
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean isMobileOptimized = session.getAttribute("mobileOptimized") != null;
-    Properties oscarVariables = OscarProperties.getInstance();
+    Properties oscarVariables = CarlosProperties.getInstance();
     String prov = (oscarVariables.getProperty("billregion", "")).trim().toUpperCase();
     String resourcebaseurl = oscarVariables.getProperty("resource_base_url");
     String curUser_no = (String) session.getAttribute("user");
@@ -83,7 +83,7 @@
 <table id="firstTable" class="noprint">
     <tr>
         <td class="icon-container">
-            <img alt="OSCAR EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19">
+            <img alt="CARLOS EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19">
         </td>
         <td id="firstMenu">
             <ul id="navlist">
@@ -207,7 +207,7 @@
                             </security:oscarSec>
                         </caisi:isModuleLoad>
                         <%
-                            boolean hide_eConsult = OscarProperties.getInstance().isPropertyActive("hide_eConsult_link");
+                            boolean hide_eConsult = CarlosProperties.getInstance().isPropertyActive("hide_eConsult_link");
                             if ("on".equalsIgnoreCase(prov) && !hide_eConsult) {
                         %>
                         <li id="econ">

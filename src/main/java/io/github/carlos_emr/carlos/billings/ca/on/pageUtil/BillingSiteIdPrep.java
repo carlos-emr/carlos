@@ -23,7 +23,7 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.appt.JdbcApptImpl;
 
 public class BillingSiteIdPrep {
@@ -31,7 +31,7 @@ public class BillingSiteIdPrep {
     JdbcApptImpl dbObj = new JdbcApptImpl();
 
     public String[] getSiteList() {
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         String[] ret = props.getProperty("scheduleSiteID", "").split("\\|");
         return ret;
     }

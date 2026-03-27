@@ -32,18 +32,18 @@ package io.github.carlos_emr.carlos.eform;
 
 import java.io.IOException;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
@@ -70,7 +70,7 @@ public class EFormAttachDocs2Action
         if (StringUtils.isEmpty(requestId)) {
             return SUCCESS;
         }
-        if (!OscarProperties.getInstance().isPropertyActive("consultation_indivica_attachment_enabled")) {
+        if (!CarlosProperties.getInstance().isPropertyActive("consultation_indivica_attachment_enabled")) {
             String[] arrDocs = attachedDocs;
 
             EFormAttachDocs Doc = new EFormAttachDocs(provNo, demoNo, requestId, arrDocs);

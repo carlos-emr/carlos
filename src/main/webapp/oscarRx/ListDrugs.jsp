@@ -31,13 +31,13 @@
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ page import="io.github.carlos_emr.OscarProperties,io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties,io.github.carlos_emr.carlos.log.*" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,
                 io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink,
                 io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
@@ -204,7 +204,7 @@
             <th ><b><fmt:message key="SearchDrug.msgPrescription"/></b></th>
 			<%if(securityManager.hasWriteAccess("_rx",roleName$,true)) {%>
             <th ><b><fmt:message key="SearchDrug.msgReprescribe"/></b></th>
-            	<%if(!OscarProperties.getInstance().getProperty("rx.delete_drug.hide","false").equals("true")) {%>
+            	<%if(!CarlosProperties.getInstance().getProperty("rx.delete_drug.hide","false").equals("true")) {%>
             	<th ><b><fmt:message key="SearchDrug.msgDelete"/></b></th>
             <% 	}	 
 			}            
@@ -217,7 +217,7 @@
             <% } %>
             <th ><fmt:message key="SearchDrug.msgLocationPrescribed"/></th>
             <th title="<fmt:message key="SearchDrug.msgHideCPP_help"/>"><fmt:message key="SearchDrug.msgHideCPP"/></th>
-            <%if(OscarProperties.getInstance().getProperty("rx.enable_internal_dispensing","false").equals("true")) {%>
+            <%if(CarlosProperties.getInstance().getProperty("rx.enable_internal_dispensing","false").equals("true")) {%>
              <th ><fmt:message key="SearchDrug.msgDispense"/></th>
              <%} %>
              <th ></th>
@@ -354,7 +354,7 @@
                 </div>
             </td>
 
-			<%if(!OscarProperties.getInstance().getProperty("rx.delete_drug.hide","false").equals("true")) { %>
+			<%if(!CarlosProperties.getInstance().getProperty("rx.delete_drug.hide","false").equals("true")) { %>
             <td>
 
                 <a id="del_<%=prescriptIdInt%>" name="delete" <%=styleColor%> href="javascript:void(0);"
@@ -441,7 +441,7 @@
 				<input type="checkbox" id="hidecpp_<%=prescriptIdInt%>" <%=checked%>/>
 			</td>
 			
-			<%if(OscarProperties.getInstance().getProperty("rx.enable_internal_dispensing","false").equals("true")) {%>
+			<%if(CarlosProperties.getInstance().getProperty("rx.enable_internal_dispensing","false").equals("true")) {%>
 			<td >
 				<%
 					if(prescriptDrug.getDispenseInternal() != null && prescriptDrug.getDispenseInternal() == true ) {

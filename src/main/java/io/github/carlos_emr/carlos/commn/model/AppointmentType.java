@@ -27,7 +27,7 @@
 
 package io.github.carlos_emr.carlos.commn.model;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 
 @Entity
 @Table(name = "appointmentType")

@@ -27,17 +27,17 @@
 
 package io.github.carlos_emr.carlos.PMmodule.web.admin;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import io.github.carlos_emr.carlos.commons.KeyConstants;
 import io.github.carlos_emr.carlos.model.security.NoAccessException;
 import io.github.carlos_emr.carlos.services.security.SecurityManager;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class AdminHome2Action extends ActionSupport {
@@ -112,7 +112,7 @@ public class AdminHome2Action extends ActionSupport {
             request.getSession().setAttribute(KeyConstants.MENU_REPORT, KeyConstants.ACCESS_NULL);
 
         //System Admin
-        if (OscarProperties.getInstance().isAdminOptionOn() && sec.hasReadAccess("_admin", request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user"))) {
+        if (CarlosProperties.getInstance().isAdminOptionOn() && sec.hasReadAccess("_admin", request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user"))) {
             request.getSession().setAttribute(KeyConstants.MENU_ADMIN, KeyConstants.ACCESS_VIEW);
         } else
             request.getSession().setAttribute(KeyConstants.MENU_ADMIN, KeyConstants.ACCESS_NULL);

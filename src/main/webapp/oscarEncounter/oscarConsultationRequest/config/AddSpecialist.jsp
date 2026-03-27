@@ -31,7 +31,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EFormDao" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -48,8 +48,8 @@
 %>
 
 <%@ page import="java.util.ResourceBundle" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddSpecialistForm" %>
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -61,7 +61,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Department" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.EForm" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%
     InstitutionDao institutionDao = SpringUtils.getBean(InstitutionDao.class);
@@ -72,19 +72,19 @@
     List<EForm> eforms = eformDao.findAll(true);
     pageContext.setAttribute("eforms", eforms);
 
-    String referralNoMsg = OscarProperties.getInstance().getProperty("referral_no.msg", "Must be an integer");
+    String referralNoMsg = CarlosProperties.getInstance().getProperty("referral_no.msg", "Must be an integer");
     pageContext.setAttribute("referralNoMsg", referralNoMsg);
 
     ConsultationServiceDao specialtyDao = SpringUtils.getBean(ConsultationServiceDao.class);
     List<ConsultationServices> specialties = specialtyDao.findActive();
     pageContext.setAttribute("specialties", specialties);
 
-    java.util.Properties oscarVariables = OscarProperties.getInstance();
+    java.util.Properties oscarVariables = CarlosProperties.getInstance();
 
     // CPSO_SEARCH feature flag — defaults to true when absent so Ontario deployments
     // work out of the box.  Set to false/no/off in carlos.properties for non-Ontario
     // installations (e.g. BC, international) to hide the widget and suppress API calls.
-    String cpsoSearchRaw = OscarProperties.getInstance().getProperty("CPSO_SEARCH", "true").trim();
+    String cpsoSearchRaw = CarlosProperties.getInstance().getProperty("CPSO_SEARCH", "true").trim();
     boolean cpsoSearchEnabled = !"false".equalsIgnoreCase(cpsoSearchRaw)
             && !"no".equalsIgnoreCase(cpsoSearchRaw)
             && !"off".equalsIgnoreCase(cpsoSearchRaw)

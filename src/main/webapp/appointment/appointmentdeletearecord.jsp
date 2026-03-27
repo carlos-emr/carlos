@@ -33,7 +33,7 @@
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>

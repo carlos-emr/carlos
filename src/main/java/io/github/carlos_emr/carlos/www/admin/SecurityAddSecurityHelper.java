@@ -30,8 +30,8 @@ package io.github.carlos_emr.carlos.www.admin;
 
 import java.util.Date;
 
-import javax.servlet.ServletRequest;
-import javax.servlet.jsp.PageContext;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.jsp.PageContext;
 
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Security;

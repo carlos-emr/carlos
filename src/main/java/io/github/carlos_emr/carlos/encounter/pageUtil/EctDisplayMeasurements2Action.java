@@ -41,14 +41,14 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -87,7 +87,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
             ArrayList<String> flowsheets = MeasurementTemplateFlowSheetConfig.getInstance().getUniveralFlowsheets();
 
-            if (!OscarProperties.getInstance().getBooleanProperty("new_flowsheet_enabled", "true")) {
+            if (!CarlosProperties.getInstance().getBooleanProperty("new_flowsheet_enabled", "true")) {
                 flowsheets.remove("diab3");
             }
 

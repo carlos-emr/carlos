@@ -50,7 +50,7 @@
 <%@page errorPage="/errorpage.jsp" %>
 <%@ page
         import="java.util.*, io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.on.CML.*,io.github.carlos_emr.carlos.lab.LabRequestReportLink,io.github.carlos_emr.carlos.db.*,java.sql.*,io.github.carlos_emr.carlos.log.*,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,io.github.carlos_emr.carlos.casemgmt.model.*" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%
 

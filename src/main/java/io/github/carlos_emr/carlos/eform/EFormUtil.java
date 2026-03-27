@@ -58,7 +58,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.data.EFormBase;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
@@ -68,7 +68,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import javax.persistence.PersistenceException;
+import jakarta.persistence.PersistenceException;
 import java.io.File;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -210,7 +210,7 @@ public class EFormUtil {
     }
 
     public static ArrayList<String> listImages() {
-        String imagePath = OscarProperties.getInstance().getEformImageDirectory();
+        String imagePath = CarlosProperties.getInstance().getEformImageDirectory();
         logger.debug("Img Path: " + imagePath);
         File dir = new File(imagePath);
         String[] files = dir.list();
@@ -1179,7 +1179,7 @@ public class EFormUtil {
     }
 
     public static ArrayList<String> listRichTextLetterTemplates() {
-        String imagePath = OscarProperties.getInstance().getEformImageDirectory();
+        String imagePath = CarlosProperties.getInstance().getEformImageDirectory();
         MiscUtils.getLogger().debug("Img Path: " + imagePath);
         File dir = new File(imagePath);
         String[] files = getRichTextLetterTemplates(dir);

@@ -1,0 +1,713 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                           http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/tx
+                           http://www.springframework.org/schema/tx/spring-tx.xsd
+                           http://www.springframework.org/schema/context
+                           http://www.springframework.org/schema/context/spring-context.xsd
+                           http://www.springframework.org/schema/aop
+                           http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+    <!--
+        Full Spring Test Context Configuration
+
+        This configuration file sets up a complete Spring context for integration testing
+        that closely mimics the production environment while using an in-memory H2 database.
+
+        Key Components:
+        - H2 in-memory database configured with MySQL compatibility mode
+        - Dual Hibernate SessionFactory and JPA EntityManagerFactory configuration
+        - Transaction management with automatic rollback for test isolation
+        - Manual bean definitions to avoid circular dependencies
+        - Mock security components for bypassing authentication
+
+        Database Configuration:
+        - Uses H2 with MODE=MySQL for MySQL compatibility
+        - DATABASE_TO_LOWER=TRUE to handle case-insensitive table/column names
+        - Connection pooling via Apache DBCP
+
+        Entity Management:
+        - Supports both .hbm.xml mappings (legacy) and JPA annotations
+        - Explicit entity listing in persistence.xml to prevent scanning issues
+        - Custom OscarMySQL5Dialect adapted for H2
+
+        Transaction Management:
+        - @Transactional support with automatic rollback
+        - Proper isolation between test methods
+        - EntityManager flush/clear support for testing detached entities
+    -->
+
+    <aop:aspectj-autoproxy proxy-target-class="true"/>
+    <context:annotation-config/>
+    <tx:annotation-driven proxy-target-class="true"/>
+
+    <!-- Properties -->
+    <bean id="propertyConfigurer" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+        <property name="properties">
+            <props>
+                <prop key="db_driver">org.h2.Driver</prop>
+                <prop key="db_uri">jdbc:h2:mem:testdb</prop>
+                <prop key="db_name">;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE;IGNORECASE=TRUE;NON_KEYWORDS=VALUE,VIEW,HOUR,KEY,TYPE,FILE,USER,YEAR,MONTH,DAY,COMMENT,ORDER</prop>
+                <prop key="db_username">sa</prop>
+                <prop key="db_password"></prop>
+                <prop key="db_max_active">10</prop>
+                <prop key="db_max_idle">5</prop>
+                <prop key="db_max_wait">10000</prop>
+                <prop key="db_validationQuery">SELECT 1</prop>
+                <prop key="db_remove_abandoned">false</prop>
+                <prop key="db_remove_abandoned_timeout">300</prop>
+                <prop key="db_log_abandoned">false</prop>
+                <prop key="hibernate.dialect">org.hibernate.dialect.H2Dialect</prop>
+                <prop key="hibernate.show_sql">false</prop>
+                <prop key="hibernate.generate_statistics">false</prop>
+                <prop key="casemgmt.note.password.enabled">false</prop>
+                <prop key="pmm.refer.temporaryAdmission.enabled">false</prop>
+                <prop key="pmm.client.search.outside.of.domain.enabled">false</prop>
+            </props>
+        </property>
+    </bean>
+
+    <!-- DataSource -->
+    <bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close">
+        <property name="driverClassName" value="${db_driver}" />
+        <property name="url" value="${db_uri}${db_name}" />
+        <property name="username" value="${db_username}" />
+        <property name="password" value="${db_password}" />
+        <property name="defaultAutoCommit" value="true" />
+        <property name="maxTotal" value="${db_max_active}" />
+        <property name="maxIdle" value="${db_max_idle}" />
+        <property name="maxWaitMillis" value="${db_max_wait}" />
+        <property name="testOnBorrow" value="true" />
+        <property name="validationQuery" value="${db_validationQuery}" />
+        <property name="poolPreparedStatements" value="false" />
+    </bean>
+
+    <!-- Transaction-aware DataSource proxy for Hibernate/JPA mixed-mode support.
+         During the Hibernate→JPA migration, legacy HibernateDaoSupport DAOs and modern
+         JPA EntityManager DAOs coexist. JpaTransactionManager manages the JDBC Connection,
+         and this proxy ensures standalone SessionFactory Sessions share the SAME Connection
+         so that all writes participate in a single Spring-managed transaction. -->
+    <bean id="transactionAwareDataSource"
+          class="org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy">
+        <constructor-arg ref="dataSource" />
+    </bean>
+
+    <!-- Initialize lookup tables after SessionFactory creates schema -->
+    <bean id="databaseInitializer" class="org.springframework.jdbc.datasource.init.DataSourceInitializer" depends-on="sessionFactory">
+        <property name="dataSource" ref="dataSource"/>
+        <property name="databasePopulator">
+            <bean class="org.springframework.jdbc.datasource.init.ResourceDatabasePopulator">
+                <property name="scripts">
+                    <list>
+                        <value>classpath:test-lookup-tables.sql</value>
+                    </list>
+                </property>
+                <property name="sqlScriptEncoding" value="UTF-8"/>
+            </bean>
+        </property>
+    </bean>
+
+    <!-- JPA EntityManagerFactory - creates schema for all HBM mappings -->
+    <bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+        <property name="dataSource" ref="dataSource" />
+        <property name="persistenceProvider">
+            <bean class="org.hibernate.jpa.HibernatePersistenceProvider" />
+        </property>
+        <!-- Scan all packages with entities -->
+        <property name="packagesToScan">
+            <list>
+                <value>io.github.carlos_emr.carlos</value>
+            </list>
+        </property>
+        <!-- Include HBM mappings for entities that need them -->
+        <property name="mappingResources">
+            <list>
+                <value>io/github/carlos_emr/carlos/commn/model/Provider.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/commn/model/Demographic.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/Program.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramClientStatus.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramTeam.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramQueue.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramProvider.hbm.xml</value>
+                <!-- Secuserrole.hbm.xml creates secUserRole table with auto-increment id column.
+                     SecUserRole.hbm.xml is excluded from EMF to avoid table conflict (composite key schema).
+                     SecUserRole.hbm.xml is still in sessionFactory for DAOs that use composite key reads. -->
+                <value>com/quatro/model/security/Secuserrole.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramAccess.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/AccessType.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_issue.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/issue.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note_ext.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note_link.hbm.xml</value>
+                <value>com/quatro/model/security/Secrole.hbm.xml</value>
+                <value>com/quatro/model/security/SecProvider.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramFunctionalUser.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/FunctionalUserType.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramClientRestriction.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/DefaultRoleAccess.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ClientReferral.hbm.xml</value>
+                <!-- Security model mappings for Hibernate migration tests -->
+                <value>com/quatro/model/security/Secobjectname.hbm.xml</value>
+                <value>com/quatro/model/security/Secobjprivilege.hbm.xml</value>
+                <value>com/quatro/model/security/UserAccessValue.hbm.xml</value>
+                <!-- CaseManagement additional mappings -->
+                <value>io/github/carlos_emr/carlos/casemgmt/model/ClientImage.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_cpp.hbm.xml</value>
+                <!-- PMmodule additional mappings -->
+                <value>io/github/carlos_emr/carlos/PMmodule/model/Agency.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramSignature.hbm.xml</value>
+                <!-- Lookup / organization code mappings for LIKE-semantics tests -->
+                <value>com/quatro/model/LstOrgcd.hbm.xml</value>
+            </list>
+        </property>
+        <property name="jpaVendorAdapter">
+            <bean class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+                <property name="database" value="H2" />
+                <property name="showSql" value="false" />
+                <property name="generateDdl" value="true" />
+            </bean>
+        </property>
+        <property name="jpaProperties">
+            <props>
+                <prop key="hibernate.dialect">${hibernate.dialect}</prop>
+                <prop key="hibernate.show_sql">true</prop>
+                <prop key="hibernate.format_sql">true</prop>
+                <!-- Schema creation managed by EntityManagerFactory -->
+                <prop key="hibernate.hbm2ddl.auto">create</prop>
+                <!-- Use SpringSessionContext so HibernateDaoSupport DAOs share the same session -->
+                <prop key="hibernate.current_session_context_class">org.springframework.orm.jpa.hibernate.SpringSessionContext</prop>
+                <prop key="hibernate.flushMode">AUTO</prop>
+                <prop key="org.hibernate.flushMode">AUTO</prop>
+                <prop key="jakarta.persistence.flush-mode">AUTO</prop>
+                <prop key="hibernate.transaction.flush_before_completion">true</prop>
+                <prop key="hibernate.transaction.auto_close_session">false</prop>
+                <prop key="hibernate.cache.use_second_level_cache">false</prop>
+                <prop key="hibernate.id.new_generator_mappings">true</prop>
+                <prop key="hibernate.archive.autodetection">class,hbm</prop>
+                <prop key="hibernate.ejb.metamodel.population">enabled</prop>
+            </props>
+        </property>
+    </bean>
+
+    <!-- Standalone Hibernate SessionFactory for HibernateDaoSupport DAOs - uses schema from EntityManagerFactory.
+         Uses transactionAwareDataSource so Sessions share the same JDBC Connection as
+         the JPA EntityManager, enabling both to participate in a single Spring transaction. -->
+    <bean id="sessionFactory" class="org.springframework.orm.jpa.hibernate.LocalSessionFactoryBean" depends-on="entityManagerFactory">
+        <property name="dataSource" ref="transactionAwareDataSource" />
+        <!-- Explicitly list @Entity annotated classes needed for tests -->
+        <property name="annotatedClasses">
+            <list>
+                <value>io.github.carlos_emr.carlos.commn.model.Tickler</value>
+                <value>io.github.carlos_emr.carlos.commn.model.TicklerUpdate</value>
+                <value>io.github.carlos_emr.carlos.commn.model.TicklerCategory</value>
+                <value>io.github.carlos_emr.carlos.commn.model.TicklerComment</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CustomFilter</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Admission</value>
+                <value>io.github.carlos_emr.carlos.commn.model.OscarLog</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Facility</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DemographicMerged</value>
+                <value>io.github.carlos_emr.carlos.form.model.FormRourke2009</value>
+                <!-- Healthcare domain entities for manager/DAO integration tests -->
+                <value>io.github.carlos_emr.carlos.commn.model.Allergy</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Appointment</value>
+                <value>io.github.carlos_emr.carlos.commn.model.AppointmentArchive</value>
+                <value>io.github.carlos_emr.carlos.commn.model.AppointmentStatus</value>
+                <value>io.github.carlos_emr.carlos.commn.model.AppointmentType</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Drug</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Prescription</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Measurement</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MeasurementMap</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Prevention</value>
+                <value>io.github.carlos_emr.carlos.commn.model.PreventionExt</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Hl7TextInfo</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Hl7TextMessage</value>
+                <value>io.github.carlos_emr.carlos.commn.model.PatientLabRouting</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ConsultationRequest</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ConsultationResponse</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ScheduleDate</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ScheduleHoliday</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ScheduleTemplate</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode</value>
+                <value>io.github.carlos_emr.carlos.commn.model.LookupList</value>
+                <value>io.github.carlos_emr.carlos.commn.model.LookupListItem</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DemographicContact</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ConsultationServices</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ConsultDocs</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MyGroup</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey</value>
+                <!-- Billing entities for Phase 1 DAO integration tests -->
+                <value>io.github.carlos_emr.carlos.commn.model.BillingONCHeader1</value>
+                <value>io.github.carlos_emr.carlos.commn.model.BillingONItem</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Billing</value>
+                <value>io.github.carlos_emr.carlos.commn.model.BillingService</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.model.BillingDetail</value>
+                <!-- EForm entities -->
+                <value>io.github.carlos_emr.carlos.commn.model.EFormData</value>
+                <!-- Document entities -->
+                <value>io.github.carlos_emr.carlos.commn.model.Document</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DocumentReview</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MeasurementsExt</value>
+                <!-- MeasurementType for Measurement query tests -->
+                <value>io.github.carlos_emr.carlos.commn.model.MeasurementType</value>
+                <!-- CtlDocument entities for DocumentDao JPQL join tests -->
+                <value>io.github.carlos_emr.carlos.commn.model.CtlDocument</value>
+                <!-- ProviderLabRoutingModel for InboxResultsDao native SQL tests -->
+                <value>io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel</value>
+                <!-- EFormDocs for DocumentDao findDocsAndEFormDocsByFdid tests -->
+                <value>io.github.carlos_emr.carlos.commn.model.EFormDocs</value>
+                <!-- SystemPreferences for InboxResultsDao date search config -->
+                <value>io.github.carlos_emr.carlos.commn.model.SystemPreferences</value>
+                <!-- Security entities for SecurityDao integration tests -->
+                <value>io.github.carlos_emr.carlos.commn.model.Security</value>
+                <!-- HRM entities for HRMDocumentDao integration tests -->
+                <value>io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument</value>
+                <value>io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentSubClass</value>
+                <value>io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic</value>
+                <value>io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider</value>
+                <value>io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentComment</value>
+                <value>io.github.carlos_emr.carlos.hospitalReportManager.model.HRMCategory</value>
+                <!-- Scheduling entities for ScheduleDao integration tests -->
+                <value>io.github.carlos_emr.carlos.commn.model.RSchedule</value>
+                <!-- Phase 3 batch: Property, DemographicExt, SystemMessage, etc. -->
+                <value>io.github.carlos_emr.carlos.commn.model.Property</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DemographicExt</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DemographicCust</value>
+                <value>io.github.carlos_emr.carlos.commn.model.PharmacyInfo</value>
+                <value>io.github.carlos_emr.carlos.commn.model.SystemMessage</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CtlDocClass</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CtlDocType</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MessageTbl</value>
+                <!-- Phase 4: Expanded entity registrations for batch-migrated tests -->
+                <!-- BC Billing entities -->
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.BillingNotes</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS00</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS21</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS22</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS23</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS25</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanSubmissionLink</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.WcbNoiCode</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.WcbBpCode</value>
+                <value>io.github.carlos_emr.carlos.entities.Billingmaster</value>
+                <value>io.github.carlos_emr.carlos.entities.WCB</value>
+                <!-- ON Billing entities -->
+                <value>io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONDiskName</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONFavourite</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONFilename</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONHeader</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONProc</value>
+                <!-- CA Billing entities -->
+                <value>io.github.carlos_emr.carlos.billing.CA.model.BillActivity</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.model.BillingInr</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.model.GstControl</value>
+                <!-- PMmodule entities -->
+                <value>io.github.carlos_emr.carlos.PMmodule.model.Criteria</value>
+                <value>io.github.carlos_emr.carlos.PMmodule.model.CriteriaSelectionOption</value>
+                <value>io.github.carlos_emr.carlos.PMmodule.model.CriteriaType</value>
+                <value>io.github.carlos_emr.carlos.PMmodule.model.CriteriaTypeOption</value>
+                <value>io.github.carlos_emr.carlos.PMmodule.model.VacancyClientMatch</value>
+                <value>io.github.carlos_emr.carlos.PMmodule.model.Vacancy</value>
+                <value>io.github.carlos_emr.carlos.PMmodule.model.VacancyTemplate</value>
+                <!-- HRM entities -->
+                <value>io.github.carlos_emr.carlos.hospitalReportManager.model.HRMProviderConfidentialityStatement</value>
+                <value>io.github.carlos_emr.carlos.hospitalReportManager.model.HRMSubClass</value>
+                <!-- Common entities - Billing related -->
+                <value>io.github.carlos_emr.carlos.commn.model.BillingCdmServiceCodes</value>
+                <value>io.github.carlos_emr.carlos.commn.model.BillingONExt</value>
+                <value>io.github.carlos_emr.carlos.commn.model.BillingONPayment</value>
+                <value>io.github.carlos_emr.carlos.commn.model.BillingPaymentType</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Billingreferral</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CtlBillingServiceAgeRules</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CtlBillingServiceSexRules</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CtlBillingType</value>
+                <value>io.github.carlos_emr.carlos.commn.model.RaDetail</value>
+                <!-- Common entities - Clinical -->
+                <value>io.github.carlos_emr.carlos.commn.model.CdsClientFormData</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ClinicNbr</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CtlFrequency</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CtlSpecialInstructions</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DataExport</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DemographicAccessory</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DemographicQueryFavourite</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DesAnnualReviewPlan</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Desaprisk</value>
+                <value>io.github.carlos_emr.carlos.commn.model.EncounterForm</value>
+                <value>io.github.carlos_emr.carlos.commn.model.FileUploadCheck</value>
+                <value>io.github.carlos_emr.carlos.commn.model.FlowSheetDrug</value>
+                <value>io.github.carlos_emr.carlos.commn.model.FlowSheetUserCreated</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Immunizations</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MdsZMN</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MeasurementCSSLocation</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MessageList</value>
+                <value>io.github.carlos_emr.carlos.commn.model.PageMonitor</value>
+                <value>io.github.carlos_emr.carlos.commn.model.PrintResourceLog</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ProviderFacility</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ProviderInboxItem</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ProviderPreference</value>
+                <value>io.github.carlos_emr.carlos.commn.model.QuickList</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ReportAgeSex</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ReportLetters</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ReportTableFieldCaption</value>
+                <value>io.github.carlos_emr.carlos.commn.model.SecurityToken</value>
+                <value>io.github.carlos_emr.carlos.commn.model.View</value>
+                <!-- Additional entities for existing tests -->
+                <value>io.github.carlos_emr.carlos.commn.model.UserProperty</value>
+                <value>io.github.carlos_emr.carlos.commn.model.BillCenter</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CountryCode</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DemographicArchive</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DemographicSets</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Dxresearch</value>
+                <value>io.github.carlos_emr.carlos.commn.model.EChart</value>
+                <value>io.github.carlos_emr.carlos.commn.model.EFormGroup</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Favorite</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Groups</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Icd9</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Icd9Synonym</value>
+                <value>io.github.carlos_emr.carlos.commn.model.IncomingLabRules</value>
+                <value>io.github.carlos_emr.carlos.commn.model.IncomingLabRulesType</value>
+                <value>io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ProviderData</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Queue</value>
+                <value>io.github.carlos_emr.carlos.commn.model.QueueDocumentLink</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Site</value>
+                <value>io.github.carlos_emr.carlos.commn.model.TicklerLink</value>
+                <value>io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest</value>
+                <value>io.github.carlos_emr.carlos.commn.model.EncounterTemplate</value>
+                <value>io.github.carlos_emr.carlos.commn.model.EncounterWindow</value>
+                <value>io.github.carlos_emr.carlos.commn.model.FunctionalCentre</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Ichppccode</value>
+                <value>io.github.carlos_emr.carlos.commn.model.PublicKey</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ProviderBillCenter</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ProviderSite</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ReportTemp</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ServiceSpecialists</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Specialty</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CtlBillingService</value>
+                <value>io.github.carlos_emr.carlos.commn.model.EForm</value>
+                <value>io.github.carlos_emr.carlos.casemgmt.model.ProviderExt</value>
+                <!-- Phase 5: Complete entity registration for all integration tests -->
+                <!-- BC Billing - additional entities -->
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.BillingHistory</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.BillingPrivateTransactions</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.BillingStatusTypes</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.BillingTrayFee</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.BillRecipients</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.CtlServiceCodesDxCodes</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Link</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Message</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Msh</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Obr</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Obx</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Orc</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Pid</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAdjCodes</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanC12</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanRefusalCode</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanResponseLog</value>
+                <!-- ON Billing - additional entities -->
+                <value>io.github.carlos_emr.carlos.billing.CA.ON.model.Billing3rdPartyAddress</value>
+                <!-- Common - billing related additions -->
+                <value>io.github.carlos_emr.carlos.commn.model.BatchEligibility</value>
+                <value>io.github.carlos_emr.carlos.commn.model.BillingONEAReport</value>
+                <value>io.github.carlos_emr.carlos.commn.model.BillingONPremium</value>
+                <value>io.github.carlos_emr.carlos.commn.model.BillingONRepo</value>
+                <!-- Common - clinical additions -->
+                <value>io.github.carlos_emr.carlos.commn.model.CaisiAccessType</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CdsClientForm</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CdsFormOption</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CdsHospitalisationDays</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ClientLink</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Clinic</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ClinicLocation</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ConfigImmunization</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Contact</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CssStyle</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CtlDiagCode</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CtlRelationships</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Dashboard</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DemographicPharmacy</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DiagnosticCode</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DigitalSignature</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Diseases</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DocumentDescriptionTemplate</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DrugReason</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DxAssociation</value>
+                <value>io.github.carlos_emr.carlos.commn.model.EFormValue</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Episode</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Favorites</value>
+                <value>io.github.carlos_emr.carlos.commn.model.FavoritesPrivilege</value>
+                <value>io.github.carlos_emr.carlos.commn.model.FaxClientLog</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Flowsheet</value>
+                <value>io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization</value>
+                <value>io.github.carlos_emr.carlos.commn.model.FlowSheetDx</value>
+                <value>io.github.carlos_emr.carlos.commn.model.GroupNoteLink</value>
+                <value>io.github.carlos_emr.carlos.commn.model.HashAudit</value>
+                <value>io.github.carlos_emr.carlos.commn.model.HnrDataValidation</value>
+                <value>io.github.carlos_emr.carlos.commn.model.IndicatorTemplate</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Institution</value>
+                <value>io.github.carlos_emr.carlos.commn.model.IssueGroup</value>
+                <value>io.github.carlos_emr.carlos.commn.model.JointAdmission</value>
+                <value>io.github.carlos_emr.carlos.commn.model.LabPatientPhysicianInfo</value>
+                <value>io.github.carlos_emr.carlos.commn.model.LabReportInformation</value>
+                <value>io.github.carlos_emr.carlos.commn.model.LabRequestReportLink</value>
+                <value>io.github.carlos_emr.carlos.commn.model.LabTestResults</value>
+                <value>io.github.carlos_emr.carlos.commn.model.LogLetters</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MdsOBR</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MdsZMC</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MeasurementGroup</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MeasurementTypeDeleted</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MsgDemoMap</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MyGroupAccessRestriction</value>
+                <value>io.github.carlos_emr.carlos.commn.model.OscarCommLocations</value>
+                <value>io.github.carlos_emr.carlos.commn.model.OtherId</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingFavorite</value>
+                <value>io.github.carlos_emr.carlos.commn.model.QuickListUser</value>
+                <value>io.github.carlos_emr.carlos.commn.model.RaHeader</value>
+                <value>io.github.carlos_emr.carlos.commn.model.RecycleBin</value>
+                <value>io.github.carlos_emr.carlos.commn.model.RemoteAttachments</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ReportConfig</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ReportFilter</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ReportItem</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ReportProvider</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ReportTemplates</value>
+                <value>io.github.carlos_emr.carlos.commn.model.ScratchPad</value>
+                <value>io.github.carlos_emr.carlos.commn.model.SecPrivilege</value>
+                <value>io.github.carlos_emr.carlos.commn.model.SnomedCore</value>
+                <value>io.github.carlos_emr.carlos.commn.model.SpecialistsJavascript</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Validations</value>
+                <value>io.github.carlos_emr.carlos.commn.model.WaitingList</value>
+                <value>io.github.carlos_emr.carlos.commn.model.WaitingListName</value>
+                <!-- Decision support -->
+                <value>io.github.carlos_emr.carlos.decisionSupport.model.DSGuidelineProviderMapping</value>
+            </list>
+        </property>
+        <property name="mappingResources">
+            <list>
+                <value>io/github/carlos_emr/carlos/commn/model/Provider.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/commn/model/Demographic.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/Program.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramClientStatus.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramTeam.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramQueue.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramProvider.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/SecUserRole.hbm.xml</value>
+                <value>com/quatro/model/security/Secuserrole.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramAccess.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/AccessType.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_issue.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/issue.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note_ext.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note_link.hbm.xml</value>
+                <value>com/quatro/model/security/Secrole.hbm.xml</value>
+                <value>com/quatro/model/security/SecProvider.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramFunctionalUser.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/FunctionalUserType.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramClientRestriction.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/DefaultRoleAccess.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ClientReferral.hbm.xml</value>
+                <!-- Security model mappings for Hibernate migration tests -->
+                <value>com/quatro/model/security/Secobjectname.hbm.xml</value>
+                <value>com/quatro/model/security/Secobjprivilege.hbm.xml</value>
+                <value>com/quatro/model/security/UserAccessValue.hbm.xml</value>
+                <!-- CaseManagement additional mappings -->
+                <value>io/github/carlos_emr/carlos/casemgmt/model/ClientImage.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_cpp.hbm.xml</value>
+                <!-- PMmodule additional mappings -->
+                <value>io/github/carlos_emr/carlos/PMmodule/model/Agency.hbm.xml</value>
+                <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramSignature.hbm.xml</value>
+                <!-- Lookup DAO entity mappings -->
+                <value>com/quatro/model/LookupTableDefValue.hbm.xml</value>
+                <value>com/quatro/model/FieldDefValue.hbm.xml</value>
+                <!-- Lookup / organization code mappings for LIKE-semantics tests -->
+                <value>com/quatro/model/LstOrgcd.hbm.xml</value>
+            </list>
+        </property>
+        <property name="hibernateProperties">
+            <props>
+                <prop key="hibernate.dialect">org.hibernate.dialect.H2Dialect</prop>
+                <prop key="hibernate.show_sql">true</prop>
+                <prop key="hibernate.format_sql">true</prop>
+                <!-- Schema already created by EntityManagerFactory - use validate to avoid conflicts -->
+                <prop key="hibernate.hbm2ddl.auto">none</prop>
+                <prop key="hibernate.current_session_context_class">org.springframework.orm.jpa.hibernate.SpringSessionContext</prop>
+                <prop key="hibernate.cache.use_second_level_cache">false</prop>
+                <!-- Allow HibernateDaoSupport DAOs to write within JPA-managed transactions.
+                     The JDBC Connection IS transactional (managed by JpaTransactionManager via
+                     TransactionAwareDataSourceProxy), but Hibernate's Session doesn't know about
+                     the JPA transaction. This tells Hibernate to trust the Connection's transaction
+                     state instead of requiring a Hibernate-level transaction. -->
+                <prop key="hibernate.allow_update_outside_transaction">true</prop>
+            </props>
+        </property>
+    </bean>
+
+    <!-- HibernateTemplate replacement (Spring 7 removed org.springframework.orm.hibernate5.HibernateTemplate) -->
+    <bean id="hibernateTemplate" class="io.github.carlos_emr.carlos.test.base.HibernateTemplate">
+        <property name="sessionFactory" ref="sessionFactory" />
+        <property name="checkWriteOperations" value="false" />
+    </bean>
+
+    <!-- TransactionManager - JpaTransactionManager coordinates both JPA EntityManager and Hibernate Session -->
+    <bean id="transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+        <property name="entityManagerFactory" ref="entityManagerFactory" />
+        <property name="defaultTimeout" value="60" />
+        <property name="nestedTransactionAllowed" value="true" />
+    </bean>
+
+    <!-- Enable annotation-driven transactions -->
+    <tx:annotation-driven transaction-manager="transactionManager" />
+
+    <!--
+        Component scan for all @Repository DAOs.
+        SpringUtils calls in DAOs are only in methods (not constructors/field initializers),
+        so component scanning is safe — beans instantiate without triggering SpringUtils.
+        This replaces ~260 manual DAO bean definitions.
+        Managers/services and non-@Repository DAOs are still defined manually below.
+    -->
+    <context:component-scan base-package="io.github.carlos_emr.carlos" use-default-filters="false">
+        <context:include-filter type="annotation" expression="org.springframework.stereotype.Repository"/>
+    </context:component-scan>
+
+    <!-- ===================================================================== -->
+    <!-- Non-@Repository DAOs (require manual bean definitions)                -->
+    <!-- ===================================================================== -->
+
+    <!-- DemographicDao (extends AbstractHibernateDao, no @Repository) -->
+    <bean id="demographicDao" class="io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl" autowire="byName" />
+
+    <!-- Other non-@Repository DAOs -->
+    <bean id="allergyDao" class="io.github.carlos_emr.carlos.commn.dao.AllergyDaoImpl" autowire="byName" />
+    <bean id="drugDao" class="io.github.carlos_emr.carlos.commn.dao.DrugDaoImpl" autowire="byName" />
+    <bean id="preventionDao" class="io.github.carlos_emr.carlos.commn.dao.PreventionDaoImpl" autowire="byName" />
+    <bean id="inboxResultsDao" class="io.github.carlos_emr.carlos.commn.dao.InboxResultsDaoImpl" autowire="byName" />
+    <bean id="populationReportDao" class="io.github.carlos_emr.carlos.commn.dao.PopulationReportDaoImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+    </bean>
+
+    <!-- Case Management DAOs (no @Repository) -->
+    <bean id="CaseManagementIssueDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAOImpl" autowire="byName" />
+    <bean id="caseManagementIssueDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAOImpl" autowire="byName" />
+    <bean id="CaseManagementNoteDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAOImpl" autowire="byName" />
+    <bean id="caseManagementNoteDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAOImpl" autowire="byName" />
+    <bean id="CaseManagementTmpSaveDao" class="io.github.carlos_emr.carlos.commn.dao.CaseManagementTmpSaveDaoImpl" autowire="byName" />
+    <bean id="caseManagementTmpSaveDao" class="io.github.carlos_emr.carlos.commn.dao.CaseManagementTmpSaveDaoImpl" autowire="byName" />
+    <bean id="CaseManagementNoteExtDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAOImpl" autowire="byName" />
+    <bean id="CaseManagementNoteLinkDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAOImpl" autowire="byName" />
+    <bean id="CaseManagementCPPDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementCPPDAOImpl" autowire="byName" />
+    <bean id="IssueDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.IssueDAOImpl" autowire="byName" />
+    <bean id="RoleProgramAccessDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.RoleProgramAccessDAOImpl" autowire="byName" />
+    <bean id="clientImageDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.ClientImageDAOImpl" autowire="byName" />
+
+    <!-- Security DAOs (no @Repository) -->
+    <bean id="secroleDao" class="io.github.carlos_emr.carlos.daos.security.SecroleDaoImpl" autowire="byName" />
+    <bean id="secobjprivilegeDao" class="io.github.carlos_emr.carlos.daos.security.SecobjprivilegeDaoImpl" autowire="byName" />
+    <bean id="secUserRoleDao" class="io.github.carlos_emr.carlos.daos.security.SecuserroleDaoImpl" autowire="byName" />
+    <bean id="userAccessDao" class="io.github.carlos_emr.carlos.daos.security.UserAccessDaoImpl" autowire="byName" />
+    <bean id="secObjectNameDao" class="io.github.carlos_emr.carlos.daos.security.SecObjectNameDaoImpl" autowire="byName" />
+    <bean id="secProviderDao" class="io.github.carlos_emr.carlos.daos.security.SecProviderDaoImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+    </bean>
+    <bean id="providerDAO" class="io.github.carlos_emr.carlos.daos.ProviderDAOImpl" autowire="byName" />
+    <bean id="lookupDao" class="io.github.carlos_emr.carlos.daos.LookupDaoImpl" autowire="byName" />
+
+    <!-- PMmodule DAOs (no @Repository, extends AbstractHibernateDao) -->
+    <bean id="programDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDaoImpl" autowire="byName" />
+    <bean id="programQueueDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramQueueDaoImpl" autowire="byName" />
+    <bean id="clientReferralDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ClientReferralDAOImpl" autowire="byName" />
+    <bean id="agencyDao" class="io.github.carlos_emr.carlos.PMmodule.dao.AgencyDaoImpl" autowire="byName" />
+    <bean id="programAccessDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAOImpl" autowire="byName" />
+    <bean id="ProgramAccessDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAOImpl" autowire="byName" />
+    <bean id="programProviderDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAOImpl" autowire="byName" />
+    <bean id="ProgramProviderDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAOImpl" autowire="byName" />
+    <bean id="providerDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoImpl" autowire="byName" />
+    <bean id="programTeamDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramTeamDAOImpl" autowire="byName" />
+    <bean id="programSignatureDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramSignatureDaoImpl" autowire="byName" />
+    <bean id="programClientRestrictionDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramClientRestrictionDAOImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+        <property name="demographicDao" ref="demographicDao" />
+        <property name="programDao" ref="programDao" />
+        <property name="providerDao" ref="providerDao" />
+    </bean>
+    <bean id="defaultRoleAccessDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.DefaultRoleAccessDAOImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+    </bean>
+    <bean id="formsDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.FormsDAOImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+    </bean>
+    <bean id="pmSecUserRoleDao" class="io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDaoImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+    </bean>
+    <bean id="programFunctionalUserDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramFunctionalUserDAOImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+    </bean>
+    <bean id="programClientStatusDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramClientStatusDAOImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+    </bean>
+
+    <!-- ===================================================================== -->
+    <!-- Managers and Services (not discovered by @Repository scan)            -->
+    <!-- ===================================================================== -->
+
+    <bean id="ticklerManager" class="io.github.carlos_emr.carlos.managers.TicklerManagerImpl" autowire="byName" />
+    <bean id="securityInfoManager" class="io.github.carlos_emr.carlos.test.mocks.MockSecurityInfoManager" />
+    <bean id="nioFileManager" class="io.github.carlos_emr.carlos.managers.NioFileManagerImpl" autowire="byName" />
+    <bean id="clientRestrictionManager" class="io.github.carlos_emr.carlos.PMmodule.service.ClientRestrictionManagerImpl" autowire="byName" />
+    <bean id="admissionManager" class="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManagerImpl" autowire="byType" />
+    <bean id="oscarSuperManager" class="io.github.carlos_emr.carlos.service.OscarSuperManagerImpl" autowire="byName" />
+
+    <bean id="programManager" class="io.github.carlos_emr.carlos.PMmodule.service.ProgramManagerImpl" autowire="byName">
+        <property name="enabled" value="${pmm.refer.temporaryAdmission.enabled}" />
+    </bean>
+
+    <bean id="rolesManager" class="io.github.carlos_emr.carlos.services.security.RolesManagerImpl" autowire="byName">
+        <property name="secroleDao" ref="secroleDao" />
+        <property name="secobjprivilegeDao" ref="secobjprivilegeDao" />
+    </bean>
+
+    <!-- Mock beans needed to avoid static initialization failures in production classes.
+         Uses MockBeanFactory since Mockito.mock() factory-method doesn't work with constructor-arg in newer Mockito. -->
+    <bean id="dashboardManager" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
+        <property name="mockType" value="io.github.carlos_emr.carlos.managers.DashboardManager" />
+    </bean>
+    <bean id="demographicManager" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
+        <property name="mockType" value="io.github.carlos_emr.carlos.managers.DemographicManager" />
+    </bean>
+    <bean id="defaultNoteService" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
+        <property name="mockType" value="io.github.carlos_emr.carlos.casemgmt.service.impl.DefaultNoteService" />
+    </bean>
+
+    <bean id="caseManagementManager" class="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManagerImpl" autowire="byName">
+        <property name="caseManagementNoteDAO" ref="CaseManagementNoteDAO" />
+        <property name="caseManagementNoteExtDAO" ref="CaseManagementNoteExtDAO" />
+        <property name="caseManagementNoteLinkDAO" ref="CaseManagementNoteLinkDAO" />
+        <property name="caseManagementIssueDAO" ref="CaseManagementIssueDAO" />
+        <property name="caseManagementTmpSaveDao" ref="CaseManagementTmpSaveDao" />
+        <property name="caseManagementCPPDAO" ref="CaseManagementCPPDAO" />
+        <property name="issueDAO" ref="IssueDAO" />
+        <property name="demographicDao" ref="demographicDao" />
+        <property name="roleProgramAccessDAO" ref="RoleProgramAccessDAO" />
+        <property name="rolesManager" ref="rolesManager" />
+        <property name="admissionManager" ref="admissionManager" />
+        <property name="enabled" value="${casemgmt.note.password.enabled}" />
+        <property name="programManager" ref="programManager" />
+        <property name="programProviderDao" ref="programProviderDAO" />
+        <property name="programAccessDAO" ref="programAccessDAO" />
+    </bean>
+
+</beans>

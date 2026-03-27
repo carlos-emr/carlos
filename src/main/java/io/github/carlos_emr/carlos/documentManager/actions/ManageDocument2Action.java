@@ -30,17 +30,15 @@
 
 package io.github.carlos_emr.carlos.documentManager.actions;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import org.openpdf.text.pdf.PdfReader;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
-import org.apache.pdfbox.io.MemoryUsageSetting;
-import org.apache.pdfbox.io.RandomAccessFile;
-import org.apache.pdfbox.io.ScratchFile;
-import org.apache.pdfbox.pdfparser.PDFParser;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.io.IOUtils;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
@@ -68,10 +66,10 @@ import org.apache.commons.io.FilenameUtils;
 import org.owasp.encoder.Encode;
 
 import javax.imageio.ImageIO;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
@@ -82,7 +80,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.*;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
@@ -126,8 +124,8 @@ public class ManageDocument2Action extends ActionSupport {
     private final ProviderInboxRoutingDao providerInboxRoutingDAO = SpringUtils.getBean(ProviderInboxRoutingDao.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    private static final String DOCUMENT_DIR = OscarProperties.getInstance().getDocumentDirectory();
-    private static final String DOCUMENT_CACHE_DIR = OscarProperties.getInstance().getDocumentCacheDirectory();
+    private static final String DOCUMENT_DIR = CarlosProperties.getInstance().getDocumentDirectory();
+    private static final String DOCUMENT_CACHE_DIR = CarlosProperties.getInstance().getDocumentCacheDirectory();
 
     private static final Map<String, ActionHandler> ACTIONS = new HashMap<>();
 
@@ -671,10 +669,7 @@ public class ManageDocument2Action extends ActionSupport {
         Path pngFile = Paths.get(getDocumentCacheDir(), d.getDocfilename() + "_" + pageNum + ".png");
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            PDFParser parser = new PDFParser(new RandomAccessFile(pdfPath.toFile(), "rw"), new ScratchFile(MemoryUsageSetting.setupTempFileOnly()));
-            parser.parse();
-
-            try (PDDocument pdf = parser.getPDDocument()) {
+            try (PDDocument pdf = Loader.loadPDF(pdfPath.toFile(), IOUtils.createTempFileOnlyStreamCache())) {
                 // Validate page number is within bounds
                 if (pageNum == null) {
                     log.error("Page number is null for document " + d.getDocfilename());
@@ -821,7 +816,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String doc_no = request.getParameter("doc_no");
-        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         // File documentDir = new File(docdownload);
         Document d = documentDao.getDocument(doc_no);
         String filePath = docdownload + d.getDocfilename();
@@ -1058,7 +1053,7 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("Invalid filename");
         }
 
-        String savePath = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         if (!savePath.endsWith(File.separator)) {
             savePath += File.separator;
         }
@@ -1127,7 +1122,7 @@ public class ManageDocument2Action extends ActionSupport {
         File f1 = new File(sourceFilePath);
 
         // Validate source file is within INCOMINGDOCUMENT_DIR to prevent path traversal
-        String incomingDocDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         if (incomingDocDir != null && !incomingDocDir.isEmpty()) {
             File incomingDir = new File(incomingDocDir);
             f1 = PathValidationUtils.validateExistingPath(f1, incomingDir);
@@ -1242,7 +1237,7 @@ public class ManageDocument2Action extends ActionSupport {
         String filePath = IncomingDocUtil.getIncomingDocumentFilePathName(queueId, pdfDir, sanitizedPdfName);
         
         // Validate canonical path to ensure file is within allowed directory
-        String incomingDocDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         if (incomingDocDir == null || incomingDocDir.isEmpty()) {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR not configured");
         }
@@ -1250,7 +1245,7 @@ public class ManageDocument2Action extends ActionSupport {
         // Validate file path using PathValidationUtils
         File baseDir = new File(incomingDocDir);
         File file = new File(filePath);
-        PathValidationUtils.validateExistingPath(file, baseDir);
+        file = PathValidationUtils.validateExistingPath(file, baseDir);
 
         Locale locale = request.getLocale();
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", locale);
@@ -1264,7 +1259,7 @@ public class ManageDocument2Action extends ActionSupport {
         response.setContentType("application/pdf");
         response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(sanitizedPdfName + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf") + "\"");
 
-        try (PDDocument reader = PDDocument.load(file)) {
+        try (PDDocument reader = Loader.loadPDF(file)) {
             // Validate page number is within bounds
             int pageIndex = pageNumber - 1;
             int totalPages = reader.getNumberOfPages();
@@ -1300,7 +1295,7 @@ public class ManageDocument2Action extends ActionSupport {
      */
     public int countNumOfPages(String fileName) {
         int numOfPage = 0;
-        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
         if (!docdownload.endsWith(File.separator)) {
             docdownload += File.separator;
@@ -1308,7 +1303,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         String filePath = docdownload + fileName;
 
-        try (PDDocument reader = PDDocument.load(new File(filePath))) {
+        try (PDDocument reader = Loader.loadPDF(new File(filePath))) {
             numOfPage = reader.getNumberOfPages();
         } catch (IOException e) {
             MiscUtils.getLogger().error("Failed to count pages for document: {}", fileName, e);
@@ -1353,7 +1348,7 @@ public class ManageDocument2Action extends ActionSupport {
         String filePath = IncomingDocUtil.getIncomingDocumentFilePathName(queueId, pdfDir, sanitizedPdfName);
         
         // Validate canonical path to ensure file is within allowed directory
-        String incomingDocDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         if (incomingDocDir == null || incomingDocDir.isEmpty()) {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR not configured");
         }
@@ -1361,7 +1356,7 @@ public class ManageDocument2Action extends ActionSupport {
         // Validate file path using PathValidationUtils
         File baseDir = new File(incomingDocDir);
         File file = new File(filePath);
-        PathValidationUtils.validateExistingPath(file, baseDir);
+        file = PathValidationUtils.validateExistingPath(file, baseDir);
 
         String contentType = "application/pdf";
         response.setContentType(contentType);
@@ -1501,7 +1496,7 @@ public class ManageDocument2Action extends ActionSupport {
         String incomingDocPath = IncomingDocUtil.getIncomingDocumentFilePath(queueId, pdfDir);
         
         // Validate canonical path to ensure file is within allowed directory
-        String incomingDocDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         if (incomingDocDir == null || incomingDocDir.isEmpty()) {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR not configured");
         }
@@ -1511,12 +1506,12 @@ public class ManageDocument2Action extends ActionSupport {
         File documentDir = new File(incomingDocPath);
         File documentCacheDir = getDocumentCacheDir(incomingDocPath);
         File file = new File(documentDir, sanitizedPdfName);
-        PathValidationUtils.validateExistingPath(file, baseDir);
+        file = PathValidationUtils.validateExistingPath(file, baseDir);
 
         // Re-validate file path at point of use for static analysis visibility
         File validatedFile = PathValidationUtils.validateExistingPath(file, baseDir);
 
-        try (PDDocument document = PDDocument.load(validatedFile)) {
+        try (PDDocument document = Loader.loadPDF(validatedFile)) {
             PDFRenderer renderer = new PDFRenderer(document);
 
             // Validate page number is within bounds
@@ -1602,7 +1597,7 @@ public class ManageDocument2Action extends ActionSupport {
         // Get all allowed directories
         File documentDir = new File(DOCUMENT_DIR);
         File documentCacheDir = new File(getDocumentCacheDir());
-        String incomingDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        String incomingDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         File incomingDirFile = new File(incomingDir);
         File incomingCacheDir = getDocumentCacheDir(incomingDir);
 
@@ -1611,7 +1606,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         for (File allowedDir : allowedDirs) {
             try {
-                PathValidationUtils.validateExistingPath(file, allowedDir);
+                file = PathValidationUtils.validateExistingPath(file, allowedDir);
                 return; // Valid if we get here without exception
             } catch (SecurityException e) {
                 // File not in this directory, try next

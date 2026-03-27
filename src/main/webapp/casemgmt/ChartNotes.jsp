@@ -28,7 +28,24 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    ChartNotes.jsp — Renders the clinical notes panel inside the encounter page.
 
+    Loaded via jsp:include from newCaseManagementView.jsp. Displays filtered and
+    sorted clinical notes for a patient, with inline editing, issue assignment,
+    and template insertion.
+
+    The 1 MB buffer (page directive + response.setBufferSize) prevents Tomcat 11
+    from truncating large AJAX forward responses. Without it, the
+    CsrfGuardScriptInjectionFilter's CaptureResponseWrapper can overflow the
+    default 8 KB JSP buffer during forward dispatch, causing silent truncation
+    of the notes HTML.
+
+    @since 2006-01-01
+--%>
+
+<%@page buffer="1024kb" %>
+<% response.setBufferSize(1024 * 1024); %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
@@ -58,7 +75,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -93,7 +110,7 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
     String demoNo = request.getParameter("demographicNo");
-    String privateConsentEnabledProperty = OscarProperties.getInstance().getProperty("privateConsentEnabled");
+    String privateConsentEnabledProperty = CarlosProperties.getInstance().getProperty("privateConsentEnabled");
     boolean privateConsentEnabled = privateConsentEnabledProperty != null && privateConsentEnabledProperty.equals("true");
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     Demographic demographic = demographicManager.getDemographic(loggedInInfo, Integer.parseInt(demoNo));
@@ -107,7 +124,7 @@
     ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
 
     boolean showConsentsThisTime = false;
-    String[] privateConsentPrograms = OscarProperties.getInstance().getProperty("privateConsentPrograms", "").split(",");
+    String[] privateConsentPrograms = CarlosProperties.getInstance().getProperty("privateConsentPrograms", "").split(",");
     ProgramProvider pp = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
     if (pp != null) {
         for (int x = 0; x < privateConsentPrograms.length; x++) {
@@ -154,7 +171,7 @@
 <script src="<c:out value="${ctx}"/>/share/javascript/carlos-ajax.js" type="text/javascript"></script>
 <!-- vanilla JS autocomplete select box (replaces Scriptaculous Autocompleter.SelectBox) -->
 <script src="<c:out value="${ctx}"/>/share/javascript/select.js" type="text/javascript"></script>
-<script type="text/javascript" src="<c:out value="${ctx}/js/newCaseManagementView.js.jsp"/>"></script>
+<script type="text/javascript" src="<c:out value="${ctx}/js/newCaseManagementView.js.jsp"/>?v=<%= System.currentTimeMillis() %>"></script>
 <script type="text/javascript">
     ctx = "<c:out value="${ctx}"/>";
     imgPrintgreen.src = ctx + "/oscarEncounter/graphics/printerGreen.png"; //preload green print image so firefox will update properly
@@ -167,7 +184,7 @@
     </caisi:isModuleLoad>
 
     <%
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     String requireIssue = props.getProperty("caisi.require_issue","true");
     if(requireIssue != null && requireIssue.equals("false")) {
     //require issue is false%>
@@ -184,7 +201,7 @@
 
     strToday = "<%=strToday%>";
 
-    notesIncrement = parseInt("<%=OscarProperties.getInstance().getProperty("num_loaded_notes", "20") %>");
+    notesIncrement = parseInt("<%=CarlosProperties.getInstance().getProperty("num_loaded_notes", "20") %>");
 
     jQuery(document).ready(function () {
         notesLoader(0, notesIncrement, demographicNo);
@@ -487,7 +504,7 @@
     <input type="hidden" name="appointmentDate" value="<%=apptDate%>"/>
     <input type="hidden" name="start_time" value="<%=startTime%>"/>
     <input type="hidden" name="billRegion"
-                 value="<%=(OscarProperties.getInstance().getProperty("billregion","")).trim().toUpperCase()%>"/>
+                 value="<%=(CarlosProperties.getInstance().getProperty("billregion","")).trim().toUpperCase()%>"/>
     <input type="hidden" name="apptProvider" value="<%=apptProv%>"/>
     <input type="hidden" name="providerview" value="<%=provView%>"/>
     <input type="hidden" name="toBill" id="toBill" value="false">
@@ -557,21 +574,25 @@
                         </svg>
                     </button>
                     <%
-
-                        if (facility.isEnableGroupNotes()) {
+                        try {
+                        if (facility != null && facility.isEnableGroupNotes()) {
                     %>
                     <input tabindex="16" type='image'
                            src="<c:out value="${ctx}/oscarEncounter/graphics/group-gnote.png"/>" id="groupNoteImg"
                            onclick="event.preventDefault();event.stopPropagation();return selectGroup(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnGroupNote"/>'>
                     <% }
-                        if (facility.isEnablePhoneEncounter()) {
+                        if (facility != null && facility.isEnablePhoneEncounter()) {
                     %>
                     <input tabindex="25" type='image' src="<c:out value="${ctx}/oscarEncounter/graphics/attach.png"/>"
                            id="attachNoteImg"
                            onclick="event.preventDefault();event.stopPropagation();return assign(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnAttachNote"/>'>
-                    <% } %>
+                    <% }
+                        } catch (Exception facilityEx) {
+                            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Facility check error in ChartNotes.jsp", facilityEx);
+                        }
+                    %>
                     <input tabindex="17" type='image'
                            src="<c:out value="${ctx}/oscarEncounter/graphics/media-floppy.png"/>" id="saveImg"
                            onclick="event.preventDefault();event.stopPropagation();return saveNoteAjax('save', 'list');"
@@ -663,6 +684,9 @@
 <%
     } catch (Exception e) {
         MiscUtils.getLogger().error("Unexpected error.", e);
+    }
+    try { out.flush(); } catch (java.io.IOException flushEx) {
+        MiscUtils.getLogger().debug("Failed to flush ChartNotes.jsp output", flushEx);
     }
 %>
 

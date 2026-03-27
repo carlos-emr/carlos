@@ -27,12 +27,21 @@
 
 package io.github.carlos_emr.carlos.PMmodule.web.reports.custom;
 
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlElementWrapper;
 import java.util.ArrayList;
 import java.util.List;
 
+@XmlAccessorType(XmlAccessType.NONE)
 public class DataSource {
+    @XmlElement(name = "type")
     private String type;
+    @XmlElementWrapper(name = "forms")
+    @XmlElement(name = "form")
     private List<Form> forms = new ArrayList<Form>();
+    @XmlElement(name = "bean")
     private String bean;
 
 

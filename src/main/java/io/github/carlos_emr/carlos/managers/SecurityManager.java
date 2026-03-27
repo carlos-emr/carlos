@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 
 import java.util.Date;
@@ -87,7 +87,7 @@ public class SecurityManager {
 
     public boolean checkPasswordAgainstPrevious(String newPassword, String providerNo) {
         //check previous passwords policy if the password is being changed
-        String previousPasswordPolicy = OscarProperties.getInstance().getProperty("password.pastPasswordsToNotUse", "0");
+        String previousPasswordPolicy = CarlosProperties.getInstance().getProperty("password.pastPasswordsToNotUse", "0");
         try {
             Security dbSecurity = securityDao.getByProviderNo(providerNo);
 
@@ -227,7 +227,7 @@ public class SecurityManager {
 
     public List<Security> findAllOrderByUserName(LoggedInInfo loggedInInfo) {
 
-        List<Security> results = securityDao.findAllOrderBy("user_name");
+        List<Security> results = securityDao.findAllOrderBy("userName");
 
         LogAction.addLogSynchronous(loggedInInfo, "SecurityManager.findAllOrderByUserName", "");
 

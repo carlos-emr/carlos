@@ -35,7 +35,7 @@ import java.util.Collection;
 import java.util.Hashtable;
 import java.util.List;
 
-import org.apache.commons.collections.KeyValue;
+import org.apache.commons.collections4.KeyValue;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 

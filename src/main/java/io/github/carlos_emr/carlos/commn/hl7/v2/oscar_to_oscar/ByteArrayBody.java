@@ -33,8 +33,8 @@ package io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar;
 import java.io.IOException;
 import java.io.OutputStream;
 
-import org.apache.http.entity.mime.MIME;
-import org.apache.http.entity.mime.content.AbstractContentBody;
+import org.apache.hc.client5.http.entity.mime.AbstractContentBody;
+import org.apache.hc.core5.http.ContentType;
 
 public class ByteArrayBody extends AbstractContentBody {
 
@@ -42,7 +42,7 @@ public class ByteArrayBody extends AbstractContentBody {
     private String fileName;
 
     public ByteArrayBody(byte[] byteArray, String fileName) {
-        super("application/octet-stream");
+        super(ContentType.APPLICATION_OCTET_STREAM);
         this.byteArray = byteArray;
         this.fileName = fileName;
     }
@@ -53,20 +53,14 @@ public class ByteArrayBody extends AbstractContentBody {
         outputStream.flush();
     }
 
+    @Override
     public String getFilename() {
         return (fileName);
     }
 
-    public String getCharset() {
-        return null;
-    }
-
+    @Override
     public long getContentLength() {
         return (byteArray.length);
-    }
-
-    public String getTransferEncoding() {
-        return (MIME.ENC_BINARY);
     }
 
 }

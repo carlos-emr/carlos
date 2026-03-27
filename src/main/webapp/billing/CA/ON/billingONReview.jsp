@@ -32,11 +32,11 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%! boolean bMultisites = IsPropertiesOn.isMultisitesEnable(); %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ page errorPage="/errorpage.jsp"
          import="java.util.*,java.math.*,java.net.*,java.sql.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.appt.*" %>
@@ -44,7 +44,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*, java.util.Properties" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
@@ -286,10 +286,10 @@
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <head>
-    <title>OscarBilling</title>
+    <title>CARLOS Billing</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
@@ -1052,7 +1052,7 @@
             <%
                 String tempLoc = "";
                 if (!bMultisites) {
-                    OscarProperties props = OscarProperties.getInstance();
+                    CarlosProperties props = CarlosProperties.getInstance();
                     boolean bMoreAddr = props.getProperty("scheduleSiteID", "").equals("") ? false : true;
                     if (bMoreAddr) {
                         tempLoc = request.getParameter("siteId").trim();
@@ -1115,7 +1115,7 @@
 
                 } else {
                     String siteID = request.getParameter("siteId");
-                    OscarProperties props2 = OscarProperties.getInstance();
+                    CarlosProperties props2 = CarlosProperties.getInstance();
                     if (props2.getProperty("clinicSatelliteCity") != null) {
                         //compare the site id with clinicSatelliteCity to get the current address index
                         //in properties file  clinicSatelliteCity and scheduleSiteID must have same value
@@ -1136,7 +1136,7 @@
                         clinicAddress = strClinicAddr;
                     }
                 }
-                OscarProperties props = OscarProperties.getInstance();
+                CarlosProperties props = CarlosProperties.getInstance();
                 String tempLoc = props.getProperty("BILLING_NOTE", "");
             %>
         </td>
@@ -1174,7 +1174,7 @@
                                         fname = p.getFirstName();
                                         payeename = fname + " " + lname;
 
-                                        Properties prop = OscarProperties.getInstance();
+                                        Properties prop = CarlosProperties.getInstance();
                                         String payee = prop.getProperty("PAYEE", "");
                                         payee = payee.trim();
                                         if (payee.length() > 0) {

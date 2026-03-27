@@ -99,7 +99,7 @@
 
 
 <%
-    String labReqVer = io.github.carlos_emr.OscarProperties.getInstance().getProperty("onare_labreqver", "07");
+    String labReqVer = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("onare_labreqver", "07");
     if (labReqVer.equals("")) {
         labReqVer = "07";
     }
@@ -117,7 +117,7 @@
     String xml_appointment_date = request.getParameter("xml_appointment_date") == null ? "8888-12-31" : request.getParameter("xml_appointment_date");
 %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <html>
     <head>
@@ -877,7 +877,7 @@
                                 long ONE_DAY_IN_MS = (1000 * 60 * 60 * 24);
                                 long daysDifference = millisDifference / (ONE_DAY_IN_MS);
 
-                                String numDaysUntilWarn = OscarProperties.getInstance().getProperty("tickler_warn_period");
+                                String numDaysUntilWarn = CarlosProperties.getInstance().getProperty("tickler_warn_period");
                                 long ticklerWarnDays = Long.parseLong(numDaysUntilWarn);
                                 boolean ignoreWarning = (ticklerWarnDays < 0);
 
@@ -902,7 +902,7 @@
                                     type="checkbox" name="checkbox"
                                     value="<%=t.getId()%>"></TD>
                             <TD ROWSPAN="1" class="<%=cellColour%>">
-                                <%if (Boolean.parseBoolean(OscarProperties.getInstance().getProperty("tickler_edit_enabled"))) {%>
+                                <%if (Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("tickler_edit_enabled"))) {%>
                                 <a href=#
                                    onClick="popupPage(600,800, '<%= request.getContextPath() %>/tickler/ticklerEdit.jsp?tickler_no=<%=t.getId()%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.editTickler"/></a>
                                 <% } %>
@@ -988,7 +988,7 @@
                             </td>
                         </tr>
                         <%
-                            boolean ticklerEditEnabled = Boolean.parseBoolean(OscarProperties.getInstance().getProperty("tickler_edit_enabled"));
+                            boolean ticklerEditEnabled = Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("tickler_edit_enabled"));
                             Set<TicklerComment> tcomments = t.getComments();
                             if (ticklerEditEnabled && !tcomments.isEmpty()) {
                                 for (TicklerComment tc : tcomments) {

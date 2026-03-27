@@ -14,14 +14,14 @@
 
 package io.github.carlos_emr.carlos.billing.CA.ON.util;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public enum EDTFolder {
     INBOX, OUTBOX, SENT, ARCHIVE;
     String path;
 
     private EDTFolder() {
-        this.path = OscarProperties.getInstance().getProperty("ONEDT_" + name());
+        this.path = CarlosProperties.getInstance().getProperty("ONEDT_" + name());
     }
 
     public String getPath() {

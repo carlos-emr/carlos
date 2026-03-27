@@ -59,7 +59,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementD
  * </ol>
  *
  * <h3>Drools migration note</h3>
- * <p>Originally written for Drools 2.0, migrated to Drools 7.74.1 (KIE API).
+ * <p>Originally written for Drools 2.0, migrated to Drools 10.0.0 (KIE API).
  * The legacy {@code RuleBase} / {@code WorkingMemory} API has been replaced by
  * {@link org.kie.api.KieBase} / {@link org.kie.api.runtime.KieSession}.</p>
  *

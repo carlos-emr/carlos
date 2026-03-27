@@ -38,15 +38,15 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ViewDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.View" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="java.util.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
 <%
@@ -69,7 +69,7 @@
 %>
 
 <%
-    String labReqVer = io.github.carlos_emr.OscarProperties.getInstance().getProperty("onare_labreqver", "07");
+    String labReqVer = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("onare_labreqver", "07");
     if (labReqVer.isEmpty()) {
         labReqVer = "07";
     }
@@ -797,7 +797,8 @@
                         %>
                         <select id="assignedTo" class="form-select" name="assignedTo">
                             <%
-                                boolean ticklerDefaultAssignedProvier = OscarProperties.getInstance().isPropertyActive("tickler_default_assigned_provider");
+                                // Check for property to default assigned providers and if present - default to user logged in
+                                boolean ticklerDefaultAssignedProvier = CarlosProperties.getInstance().isPropertyActive("tickler_default_assigned_provider");
                                 if (ticklerDefaultAssignedProvier) {
                                     if ("all".equals(assignedTo)) {
                                         assignedTo = user_no;
@@ -921,6 +922,10 @@
                 </div>
             </div>
         </form>
+
+        <p class="yesprint">
+            <%=CarlosProperties.getConfidentialityStatement()%>
+        </p>
 
         <div id="note-form" title="<fmt:message key='tickler.ticklerMain.noteDialogTitle'/>" style="display:none;">
             <form>

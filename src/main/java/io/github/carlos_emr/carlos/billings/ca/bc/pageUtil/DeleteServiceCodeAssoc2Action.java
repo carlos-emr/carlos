@@ -29,9 +29,9 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class DeleteServiceCodeAssoc2Action extends ActionSupport {

@@ -57,7 +57,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -277,9 +277,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                 hashAuditDao.persist(hashAudit);
             }
 
-            OscarProperties properties = OscarProperties.getInstance();
+            CarlosProperties properties = CarlosProperties.getInstance();
             if (properties == null) {
-                throw new NullPointerException("OscarProperties instance is null");
+                throw new NullPointerException("CarlosProperties instance is null");
             }
 
             if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
@@ -755,7 +755,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         // place to do this -- rwd
         caseManagementCPPDAO.saveCPP(cpp);
 
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
             eChartDao.saveCPPIntoEchart(cpp, providerNo);
         }
@@ -828,7 +828,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         cpp.setOngoingConcerns(ongoing);
         caseManagementCPPDAO.saveCPP(cpp);
 
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
             eChartDao.updateEchartOngoing(cpp);
         }
@@ -863,7 +863,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             cpp.setOngoingConcerns(newOngoing);
             caseManagementCPPDAO.saveCPP(cpp);
 
-            OscarProperties properties = OscarProperties.getInstance();
+            CarlosProperties properties = CarlosProperties.getInstance();
             if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
                 eChartDao.updateEchartOngoing(cpp);
             }
@@ -894,7 +894,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             cpp.setOngoingConcerns(newOngoing);
             caseManagementCPPDAO.saveCPP(cpp);
 
-            OscarProperties properties = OscarProperties.getInstance();
+            CarlosProperties properties = CarlosProperties.getInstance();
             if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
                 eChartDao.updateEchartOngoing(cpp);
             }
@@ -919,7 +919,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         cpp.setOngoingConcerns(ongoing);
         caseManagementCPPDAO.saveCPP(cpp);
 
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
             eChartDao.updateEchartOngoing(cpp);
         }
@@ -1225,7 +1225,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     @Override
     public CaseManagementTmpSave getTmpSave(String providerNo, String demographicNo, String programId) {
         // If maxTmpSave is "true", "yes", "on", it is treated as active
-        if (OscarProperties.getInstance().isPropertyActive("maxTmpSave")) {
+        if (CarlosProperties.getInstance().isPropertyActive("maxTmpSave")) {
             Calendar cal = Calendar.getInstance();
             cal.add(Calendar.DAY_OF_MONTH, -14);
             Date twoWeeksAgo = cal.getTime();
@@ -1249,7 +1249,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
 
         // There is a temporary note, but does it have any content besides the tag?
-        if (obj != null && OscarProperties.getInstance().isPropertyActive("encounter.remove_empty_tmp_notes")
+        if (obj != null && CarlosProperties.getInstance().isPropertyActive("encounter.remove_empty_tmp_notes")
                 && !caseManagementTmpSaveDao.noteHasContent(obj.getId())) {
             logger.debug("Empty Tmp note found for providers: {}, demographic: {}, program: {}", providerNo, demographicNo, programId);
 
@@ -1369,7 +1369,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
 
         // filter notes based on facility
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             filteredNotes = notesFacilityFiltering(loggedInInfo, filteredNotes);
         }
 
@@ -1468,7 +1468,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
 
         // filter notes based on facility
-        // if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY",
+        // if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY",
         // "true")) {
         // filteredNotes = notesFacilityFiltering(filteredNotes);
         // }
@@ -1700,7 +1700,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
 
         // filter issues based on facility
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             filteredIssues = issuesFacilityFiltering(loggedInInfo, filteredIssues);
         }
 
@@ -2113,10 +2113,10 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
                 if (type == this.SIGNATURE_SIGNED) {
                     // TODO: In the future pull this from a USER/PROGRAM preference.
-                    signLine = OscarProperties.getInstance().getProperty("ECHART_SIGN_LINE");
+                    signLine = CarlosProperties.getInstance().getProperty("ECHART_SIGN_LINE");
                     signature = getTemplateSignature(signLine, resourceBundle, map);
                 } else if (type == this.SIGNATURE_VERIFY) {
-                    signLine = OscarProperties.getInstance().getProperty("ECHART_VERSIGN_LINE");
+                    signLine = CarlosProperties.getInstance().getProperty("ECHART_VERSIGN_LINE");
                     signature = getTemplateSignature(signLine, resourceBundle, map);
                 } else {
                     throw new IllegalArgumentException("No Signature type defined");
@@ -2224,7 +2224,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         note.setProviderNo(providerNo);
         note.setDemographic_no(demographicNo);
 
-        if (!OscarProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
+        if (!CarlosProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
             OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
             String encounterText = "";
             try {
@@ -2314,7 +2314,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         Long old_note_id = note.getId(); // saved for use with annotation
 
-        boolean inCaisi = OscarProperties.getInstance().isCaisiLoaded();
+        boolean inCaisi = CarlosProperties.getInstance().isCaisiLoaded();
 
         String role = null;
         String team = null;

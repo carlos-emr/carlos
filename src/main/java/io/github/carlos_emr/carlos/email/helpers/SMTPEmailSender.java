@@ -5,8 +5,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
 
-import javax.mail.MessagingException;
-import javax.mail.internet.MimeMessage;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;

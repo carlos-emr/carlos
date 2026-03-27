@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.commn.exception.UserSessionNotFoundException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Service;
 
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpSession;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;

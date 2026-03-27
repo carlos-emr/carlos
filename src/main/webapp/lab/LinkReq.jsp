@@ -38,7 +38,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.EFormGroup" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EFormDataDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EFormGroupDao" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.LabRequestReportLinkDao" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -127,7 +127,7 @@
             formType.add(1);
         }
 
-        String eformGroupName = OscarProperties.getInstance().getProperty("lab_req_eform_group", "");
+        String eformGroupName = CarlosProperties.getInstance().getProperty("lab_req_eform_group", "");
 
         if (!StringUtils.isEmpty(eformGroupName)) {
             for (EFormGroup eformGroupItem : eformGroupDao.getByGroupName(eformGroupName)) {

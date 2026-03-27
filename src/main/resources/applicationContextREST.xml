@@ -65,7 +65,7 @@
                     <bean class="com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector"/>
                 </constructor-arg>
                 <constructor-arg>
-                    <bean class="com.fasterxml.jackson.module.jaxb.JaxbAnnotationIntrospector">
+                    <bean class="com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationIntrospector">
                         <constructor-arg>
                             <bean class="com.fasterxml.jackson.databind.type.TypeFactory" factory-method="defaultInstance"/>
                         </constructor-arg>
@@ -87,7 +87,7 @@
     </bean>
 
     <!-- Jackson 2 JAX-RS provider -->
-    <bean id="jsonProvider" class="com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider">
+    <bean id="jsonProvider" class="com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider">
         <property name="mapper" ref="jacksonObjectMapper"/>
     </bean>
 
@@ -189,6 +189,8 @@
             <bean class="io.github.carlos_emr.carlos.webserv.rest.MeasurementService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.DocumentService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.ConsentService" autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.EFormService" autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.EFormsService" autowire="byName"/>
         </jaxrs:serviceBeans>
 
         <jaxrs:providers>

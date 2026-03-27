@@ -30,11 +30,11 @@
 --%>
 
 <%
-    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.carlos.waitinglist.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <html>

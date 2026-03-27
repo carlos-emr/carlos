@@ -42,7 +42,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.commons.text.StringEscapeUtils;
 import org.apache.logging.log4j.Logger;
@@ -58,7 +58,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
@@ -111,7 +111,7 @@ public class EctDisplayDecisionSupportAlerts2Action extends EctDisplayAction {
 
 
             //ORN CKD Pilot Code
-            if (OscarProperties.getInstance().getProperty("ORN_PILOT", "yes").equalsIgnoreCase("yes") && (OscarProperties.getInstance().getProperty("ckd_notification_scheme", "dsa").equals("dsa") || OscarProperties.getInstance().getProperty("ckd_notification_scheme", "dsa").equals("all"))) {
+            if (CarlosProperties.getInstance().getProperty("ORN_PILOT", "yes").equalsIgnoreCase("yes") && (CarlosProperties.getInstance().getProperty("ckd_notification_scheme", "dsa").equals("dsa") || CarlosProperties.getInstance().getProperty("ckd_notification_scheme", "dsa").equals("all"))) {
                 CkdScreener ckdScreener = new CkdScreener();
                 List<String> reasons = new ArrayList<String>();
                 boolean match = ckdScreener.screenDemographic(Integer.parseInt(bean.demographicNo), reasons, null);
@@ -159,7 +159,7 @@ public class EctDisplayDecisionSupportAlerts2Action extends EctDisplayAction {
 
 
             for (DSGuideline dsGuideline : dsGuidelines) {
-                if (OscarProperties.getInstance().getProperty("dsa.skip." + dsGuideline.getTitle().replaceAll(" ", "_"), "false").equals("true")) {
+                if (CarlosProperties.getInstance().getProperty("dsa.skip." + dsGuideline.getTitle().replaceAll(" ", "_"), "false").equals("true")) {
                     continue;
                 }
                 try {

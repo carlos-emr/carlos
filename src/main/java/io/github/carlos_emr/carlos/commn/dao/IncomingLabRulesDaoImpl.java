@@ -32,7 +32,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.IncomingLabRules;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -93,10 +93,7 @@ public class IncomingLabRulesDaoImpl extends AbstractDaoImpl<IncomingLabRules> i
     @SuppressWarnings("unchecked")
     public List<Object[]> findRules(String providerNo) {
         // assume archive represents boolean with 0 == false and 1 == true
-        Query q = entityManager.createQuery("FROM IncomingLabRules i, " + Provider.class.getSimpleName() + " p " +
-                "WHERE i.archive <> '1' " + // non-archived rules
-                "AND i.providerNo = :providerNo " +
-                "AND p.id = i.frwdProviderNo");
+        Query q = entityManager.createQuery("SELECT i, p FROM IncomingLabRules i, " + Provider.class.getSimpleName() + " p WHERE i.archive <> '1' AND i.providerNo = :providerNo AND p.id = i.frwdProviderNo");
         q.setParameter("providerNo", providerNo);
         return q.getResultList();
     }

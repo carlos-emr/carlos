@@ -39,8 +39,8 @@ package io.github.carlos_emr.carlos.prevention.pageUtil;
 
 import java.io.IOException;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.openpdf.text.DocumentException;
 import org.apache.logging.log4j.Logger;
@@ -61,7 +61,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * @see PreventionDisplayConfig
  * @since 2007-03-14
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class PreventionPrint2Action extends ActionSupport {

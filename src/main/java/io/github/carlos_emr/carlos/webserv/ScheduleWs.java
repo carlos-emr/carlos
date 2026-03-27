@@ -34,8 +34,8 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 
-import javax.jws.WebParam;
-import javax.jws.WebService;
+import jakarta.jws.WebParam;
+import jakarta.jws.WebService;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.cxf.annotations.GZIP;

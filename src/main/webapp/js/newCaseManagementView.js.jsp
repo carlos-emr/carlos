@@ -31,10 +31,10 @@
     <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo"%>
     <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
     <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO"%>
-    <%@page import="io.github.carlos_emr.OscarProperties"%>
+    <%@page import="io.github.carlos_emr.CarlosProperties"%>
     <%@page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
     <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour"%>
-    <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+    <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
     var numNotes = 0;   //How many saved notes do we have?
     var ctx;        //url context
@@ -265,8 +265,13 @@
 
         return true;
     }
+    /**
+     * Initializes the active note textarea after it is loaded via AJAX.
+     * Resizes the textarea to fit content, scrolls it into view, binds
+     * wheel passthrough and input.autosize handlers, and sets focus.
+     * Called from ChartNotesAjax.jsp on initial note load.
+     */
     function setupNotes() {
-        //need to set focus after rounded is called
         adjustCaseNote();
         var noteEl = document.getElementById(caseNote);
         if (!noteEl) return;
@@ -277,6 +282,12 @@
         scrollToNote();
 
         enableNotePassthroughScroll($caseNoteElement);
+
+        // Auto-expand textarea as user types or presses Enter
+        $caseNoteElement.off('input.autosize').on('input.autosize', function() {
+            adjustCaseNote();
+        });
+
         $caseNoteElement.focus();
     }
 
@@ -307,18 +318,7 @@
         });
     }
 
-    function enableNavBarPassthroughScroll() {
-        jQuery('#leftNavBar, #rightNavBar').off('wheel.navpassthrough').on('wheel.navpassthrough', function(e) {
-            var wrapper = document.getElementById('encMainDivWrapper');
-            if (wrapper) {
-                wrapper.scrollTop += e.originalEvent.deltaY;
-                e.preventDefault();
-            }
-        });
-    }
-
     jQuery(function() {
-        enableNavBarPassthroughScroll();
 
         // Keyboard shortcuts
         jQuery(document).on('keydown', function(e) {
@@ -463,13 +463,18 @@
         }
     }
 
-    var notesOffset = 0;
-    var notesIncrement = 20;
-    var notesRetrieveOk = false;
-    var notesCurrentTop = null;
+    // --- Notes pagination state ---
+    var notesOffset = 0;              // current offset into the full notes list
+    var notesIncrement = 20;          // batch size for each pagination fetch
+    var notesRetrieveOk = false;      // true when the last fetch returned non-empty results
+    var notesCurrentTop = null;       // ID of topmost note element before pagination insert
     var notesScrollCheckInterval = null;
-    const MAXNOTES = 1000000;
+    const MAXNOTES = 1000000;         // upper bound to stop pagination
 
+    /**
+     * Triggered when the user scrolls to the top of the notes wrapper.
+     * Loads the next batch of older notes (inserted at top of the list).
+     */
     function notesIncrementAndLoadMore() {
         if (notesRetrieveOk && $("encMainDivWrapper").scrollTop === 0) {
             if ($("encMainDivWrapper").scrollHeight > $("encMainDivWrapper").getHeight()) {
@@ -495,15 +500,15 @@
     }
 
     /**
-
-     Responsible for loading notes on the eChart
-     @param {offset}
-     Offset from the beginning of the notes
-     @param {numToReturn}
-     Number of notes to load
-     @param {demoNo}
-     Demographic number to loads notes for
-
+     * Fetches a batch of clinical notes via AJAX and inserts them at the top of #encMainDiv.
+     *
+     * On initial load (offset === 0), scrolls to the bottom to show the most recent notes.
+     * On pagination loads (offset > 0), preserves the current scroll position so the user
+     * can continue reading older notes without being snapped away.
+     *
+     * @param {number} offset - Zero-based offset into the patient's note list (0 = newest batch)
+     * @param {number} numToReturn - Maximum number of notes to fetch in this batch
+     * @param {number} demoNo - Demographic (patient) number to load notes for
      */
     function notesLoader(offset, numToReturn, demoNo) {
         $("notesLoading").show();
@@ -528,12 +533,14 @@
                 },
                 onComplete: function () {
                     $("notesLoading").hide();
-                    $("encMainDivWrapper").scrollTop = 10;
-
-                    <%--if (notesCurrentTop != null) {--%>
-                    <%--	$(notesCurrentTop).scrollIntoView();--%>
-                    <%--}--%>
-                    <%--scrollDownInnerBar();--%>
+                    // Only scroll to bottom on initial load (most recent notes);
+                    // pagination loads (offset > 0) preserve scroll position
+                    if (offset === 0) {
+                        var wrapper = $("encMainDivWrapper");
+                        if (wrapper) {
+                            wrapper.scrollTop = wrapper.scrollHeight;
+                        }
+                    }
                 }
             });
     }
@@ -1889,7 +1896,14 @@ function updateCPPNote() {
     }
 
     var sigCache = "";
-// place Note text in textarea for editing and add save, sign etc buttons for this note
+
+    /**
+     * Opens an existing clinical note for editing. Replaces the read-only note
+     * display with a textarea, checks/acquires the concurrent edit lock, and
+     * binds keyup, paste, input.autosize, and wheel passthrough handlers.
+     *
+     * @param {Event} e - The click event on the note element
+     */
     function editNote(e) {
         var el = Event.element(e);
         var payload;
@@ -2007,6 +2021,7 @@ function updateCPPNote() {
 		// Let the paste happen first, then resize
 		setTimeout(adjustCaseNote, 0);
 	});
+        jQuery('#' + caseNote).off('input.autosize').on('input.autosize', adjustCaseNote);
         enableNotePassthroughScroll(jQuery('#' + caseNote));
         initTemplateFeatures();
         Element.observe(caseNote, 'click', getActiveText);
@@ -2879,10 +2894,17 @@ function updateCPPNote() {
         $("encType").value = "";
     }
 
-//we insert a new note div with textarea etc
-//newNoteIdx guarantees unique id for successive calls to newNote
-    var newNoteCounter = 0;
-    var reason;
+    var newNoteCounter = 0; // incremented to generate unique IDs for successive new notes
+    var reason;             // pre-populated reason text (e.g. from appointment reason code)
+
+    /**
+     * Creates a new clinical note with a fresh textarea. Generates a unique note ID
+     * using newNoteCounter, inserts the textarea into #encMainDiv, and binds keyup,
+     * paste, input.autosize, and wheel passthrough handlers. Pre-populates with the
+     * appointment reason text if available.
+     *
+     * @param {Event|null} e - The triggering event, or null if called programmatically
+     */
     function newNote(e) {
         if (e != null)
             Event.stop(e);
@@ -2921,6 +2943,7 @@ function updateCPPNote() {
             // Let the paste happen first, then resize
             setTimeout(adjustCaseNote, 0);
         });
+            jQuery('#' + caseNote).off('input.autosize').on('input.autosize', adjustCaseNote);
             enableNotePassthroughScroll(jQuery('#' + caseNote));
             initTemplateFeatures();
             Element.observe(caseNote, 'click', getActiveText);
@@ -3050,8 +3073,17 @@ function autoSave() {
         return false;
     }
 
-    var caseNote = "";  //contains id of note text area; system permits only 1 text area at a time to be created
-    var numChars = 0;
+    var caseNote = "";  // ID of the active note textarea; only one editable textarea exists at a time
+    var numChars = 0;   // character count at last resize check, used to detect significant changes
+
+    /**
+     * Keyup handler for the active note textarea. Checks for lost edit locks,
+     * then triggers adjustCaseNote() on newlines or when the character count has
+     * changed significantly (>=78 added or >=10 deleted). This provides coarse
+     * auto-resize on keyup; the input.autosize handler provides per-keystroke resize.
+     *
+     * @param {KeyboardEvent} e - The keyup event
+     */
     function monitorCaseNote(e) {
 
         //if we have lost the lock on the note alert the user
@@ -3082,45 +3114,43 @@ function autoSave() {
 
     }
 
-//resize case note text area to fill available viewport height, growing if content exceeds it
+    /**
+     * Auto-resizes the active note textarea to fit all content (no internal scrollbar),
+     * then scrolls #encMainDivWrapper so the cursor line stays visible.
+     *
+     * Uses scrollHeight to determine actual content height, with a minimum of 20 lines.
+     * Cursor tracking estimates vertical position by counting newlines before the cursor;
+     * this is approximate and may lag on soft-wrapped paragraphs.
+     */
     function adjustCaseNote() {
-        var MAXCHARS = 78;
-        var $note = jQuery("#" + caseNote);
-        if (!$note.length) return;
+        var note = document.getElementById(caseNote);
+        if (!note) return;
 
-        var payload = $note.val();
-        var numLines = 0;
-
-        // Use jQuery to get the computed line-height of the element
-        var lineHeightCSS = $note.css('line-height');
-        var lineHeight = parseFloat(lineHeightCSS);
-        if (isNaN(lineHeight) || lineHeight <= 0) {
-            lineHeight = parseFloat($note.css('font-size')) * 1.2;
-            if (isNaN(lineHeight) || lineHeight <= 0) lineHeight = 16;
-        }
-
-        var arrLines = payload.split("\n");
-
-        //we count each new line char and add a line for lines longer than max length
-        for (var idx = 0; idx < arrLines.length; ++idx) {
-            if (arrLines[idx].length >= MAXCHARS) {
-                numLines += Math.ceil(arrLines[idx].length / MAXCHARS);
-            } else
-                ++numLines;
-        }
-        //add a buffer
-        numLines += 2;
-
-        // Calculate the content height in pixels
-        var contentHeight = Math.ceil(lineHeight * numLines);
-
-        // Minimum height: 20 lines so the note area is always usable
+        // Minimum height: 20 lines
+        var lineHeight = parseFloat(getComputedStyle(note).lineHeight) || 16;
         var minHeight = Math.ceil(lineHeight * 20);
-        var noteHeight = Math.max(contentHeight, minHeight);
-        $note.css('height', noteHeight + 'px');
+
+        // Shrink to min first so scrollHeight reflects actual content
+        note.style.height = minHeight + 'px';
+        // Expand to fit all content (no internal textarea scrollbar)
+        var contentHeight = note.scrollHeight;
+        note.style.height = Math.max(contentHeight, minHeight) + 'px';
+
+        // Scroll wrapper so the cursor line is visible at the bottom
+        var wrapper = document.getElementById('encMainDivWrapper');
+        if (wrapper) {
+            // Estimate cursor Y position within the textarea
+            var textBeforeCursor = note.value.substring(0, note.selectionEnd);
+            var linesBeforeCursor = textBeforeCursor.split('\n').length;
+            var cursorY = note.offsetTop + (linesBeforeCursor * lineHeight);
+            var wrapperBottom = wrapper.scrollTop + wrapper.clientHeight;
+            if (cursorY > wrapperBottom - lineHeight) {
+                wrapper.scrollTop = cursorY - wrapper.clientHeight + lineHeight * 2;
+            }
+        }
 
         // Update character count
-        numChars = $note.val().length;
+        numChars = note.value.length;
     }
 
     function autoCompleteHideMenu(element, update) {

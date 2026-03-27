@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 
@@ -107,7 +107,7 @@ public class ExtractBean extends Object implements Serializable {
     }
 
     public void dbQuery() {
-        String dataCenterId = OscarProperties.getInstance().getProperty("dataCenterId");
+        String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
         try {
 
             if (vsFlag == 0) {

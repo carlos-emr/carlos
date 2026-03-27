@@ -44,13 +44,13 @@
 %>
 
 <%@ page
-        import="io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.OscarProperties, java.util.Date, io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+        import="io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.CarlosProperties, java.util.Date, io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.FrmLabReqPreSetDao, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmMentalHealthForm42Record" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -76,7 +76,7 @@
         java.util.Properties props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
 
         props = ((FrmMentalHealthForm42Record) rec).getFormCustRecord(props, provNo);
-        OscarProperties oscarProps = OscarProperties.getInstance();
+        CarlosProperties oscarProps = CarlosProperties.getInstance();
 
         if (request.getParameter("labType") != null) {
             if (formId == 0) {

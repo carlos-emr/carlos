@@ -53,7 +53,7 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FilenameUtils;
 
@@ -71,7 +71,7 @@ import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
 import io.github.carlos_emr.carlos.providers.data.ProviderData;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * @author Ronnie
@@ -196,7 +196,7 @@ public class Util {
 
         // Validate that the resolved path is within the allowed directory
         try {
-            PathValidationUtils.validateExistingPath(f, baseDir);
+            f = PathValidationUtils.validateExistingPath(f, baseDir);
         } catch (SecurityException e) {
             logger.error("Error! Attempted path traversal attack detected for file: " + filename);
             return false;
@@ -207,7 +207,7 @@ public class Util {
 
     static public boolean cleanFile(String filename) {
         File f = new File(filename);
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
 
         // Try configured directories first (strict validation, no temp fallback)
         String[] allowedDirProperties = {"TMP_DIR", "DOCUMENT_DIR"};
@@ -276,7 +276,7 @@ public class Util {
 
             // Validate the file path using PathValidationUtils
             try {
-                PathValidationUtils.validateExistingPath(requestedFile, documentDir);
+                requestedFile = PathValidationUtils.validateExistingPath(requestedFile, documentDir);
             } catch (SecurityException e) {
                 logger.error("Path traversal attempt detected for file: " + fileName);
                 return;

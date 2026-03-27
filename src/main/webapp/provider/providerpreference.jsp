@@ -46,11 +46,11 @@
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
@@ -1251,7 +1251,7 @@
             <div class="pref-row">
                 <div class="pref-label">Regional Billing Settings</div>
                 <div class="pref-value pref-links"><%
-                    String br = OscarProperties.getInstance().getProperty("billregion");
+                    String br = CarlosProperties.getInstance().getProperty("billregion");
                     if ("BC".equals(br)) {
                 %><a href="<%=request.getContextPath()%>/billing/CA/BC/viewBillingPreferencesAction.do?providerNo=<%=Encode.forUriComponent(providerNo)%>"
                      class="pref-link" target="_blank" rel="noopener noreferrer">

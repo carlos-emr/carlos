@@ -32,7 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%
-    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 
     String styleClass = "data2";
 %>
@@ -40,8 +40,8 @@
         import="java.util.*,io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.waitinglist.bean.*" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBean" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%
     String wlid = (String) request.getAttribute("WLId");
     if (wlid == null) {

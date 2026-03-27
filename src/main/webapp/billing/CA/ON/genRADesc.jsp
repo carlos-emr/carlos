@@ -24,7 +24,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -178,7 +178,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>OSCAR Project</title>
+    <title>CARLOS EMR</title>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
     <script LANGUAGE="JavaScript">
         <!--

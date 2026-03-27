@@ -36,7 +36,7 @@
 ## Core Context
 
 **Domain**: Canadian healthcare EMR system with multi-jurisdictional compliance (BC, ON, generic)
-**Stack**: Java 21, Spring 5.3.39, Struts 6.8.0, Hibernate 5.x, Maven 3, Tomcat 9.0.97, MariaDB/MySQL
+**Stack**: Java 21, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
 
@@ -82,12 +82,17 @@ gh pr create                 # GitHub pull request creation
 
 The project includes two OWASP Encoder libraries (`pom.xml`):
 - **`encoder`** (1.4.0) — Java static methods: `Encode.forHtml()`, etc.
-- **`encoder-jsp`** (1.4.0) — JSP EL functions: `${e:forHtml()}`, etc.
+- **`encoder-jakarta-jsp`** (1.4.0) — JSP EL functions: `${e:forHtml()}`, etc. (Jakarta EE edition)
 
 **Taglib declaration** (required once per JSP that uses EL functions):
 ```jsp
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 ```
+
+> **Note**: The project uses `encoder-jakarta-jsp` (Jakarta EE), **not** the legacy `encoder-jsp`.
+> The Jakarta edition registers its TLD under `owasp.encoder.jakarta`, not the legacy URI
+> `https://www.owasp.org/index.php/OWASP_Java_Encoder_Project`. Using the wrong URI will
+> cause JSPC compilation failures in CI.
 
 **Quick-Reference — All Encoding Contexts:**
 
@@ -186,21 +191,16 @@ public class Example2Action extends ActionSupport {
 2. **Method-Based**: Route via `method` parameter (e.g., `SystemMessage2Action`)
 3. **Inheritance-Based**: Extend `EctDisplayAction` for encounter components
 
-### Struts 6.8.0 Compatibility Notes
+### Struts 7.1.1 Notes
 
-**Expected Deprecation Warnings**: When building, you will see compiler warnings about deprecated `com.opensymphony.xwork2.*` classes. This is **expected and acceptable**.
-
-- The `com.opensymphony.xwork2.*` packages are deprecated in Struts 6.x but remain **fully functional** due to bug WW-5494
-- All 458 *2Action files continue to use these packages without modification
-- No import statement changes are required
-- These packages will be removed in Struts 7.x (which requires Jakarta EE migration)
-- To suppress warnings, add `<showDeprecation>false</showDeprecation>` to maven-compiler-plugin
+All 458 *2Action files use `org.apache.struts2.ActionSupport` (the Struts 7 package location).
+The deprecated `com.opensymphony.xwork2.*` packages from Struts 6.x were migrated to
+`org.apache.struts2.*` as part of the Jakarta EE migration.
 
 **Migration History**:
-- Struts 2.5.33 → 6.8.0 (January 2026, PR #88)
-- Security fix for CVE-2025-64775 (disk exhaustion DoS vulnerability)
-- Configuration-only migration with zero Action class changes
-- Added Caffeine 3.1.8 cache dependency (required by Struts 6.x)
+- Struts 2.5.33 → 6.8.0 (January 2026, PR #88) — security fix for CVE-2025-64775
+- Struts 6.8.0 → 7.1.1 (March 2026) — Jakarta EE namespace migration, `com.opensymphony.xwork2.*` → `org.apache.struts2.*`
+- Caffeine 3.2.3 cache dependency required by Struts for internal caching
 
 ## Healthcare Domain Context
 
@@ -409,7 +409,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 
 **Standards & Protocols**:
 - **HL7 v2/v3**: Full message processing with MSH, PID, OBX, ORC, OBR segment handlers
-- **FHIR R4**: HAPI FHIR 5.4.0 with resource filters and healthcare provider context
+- **FHIR R4**: HAPI FHIR 6.10.5 with resource filters and healthcare provider context
 - **SNOMED CT**: Clinical terminology with core dataset loading
 - **ICD-9/ICD-10**: Diagnosis coding systems fully integrated
 - **ATC Codes**: Anatomical Therapeutic Chemical classification for medications
@@ -428,12 +428,11 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 
 ## Drools Decision Support System
 
-**Version**: Drools 7.74.1.Final (KIE API), migrated from Drools 2.0 in PR #423
-**MVEL**: `mvel2:2.5.2.Final` (overridden from 2.4.x for Java 21 compatibility; 2.4.x references `java.lang.Compiler` removed in JDK 16)
+**Version**: Drools 10.1.0 (KIE API, executable model), upgraded from 7.74.1.Final for Jakarta EE compatibility
 **Documentation**: Full architecture, DRL file reference, and known bugs in `docs/drools-decision-support-system.md`
 
 **Key Classes**:
-- `DroolsHelper` — compiles DRL to `KieBase` via `KieHelper` (standalone, no global KIE repository pollution)
+- `DroolsHelper` — compiles DRL to `KieBase` via standard KIE API (`KieServices`/`KieFileSystem`/`KieBuilder`)
 - `RuleBaseFactory` — thread-safe `QueueCache` of compiled `KieBase` objects (24h TTL, SHA-256 keyed)
 - `DroolsCompilationException` — checked exception for DRL compilation failures
 - `RuleBaseCreator` — generates DRL from `DSCondition` objects, compiles and caches
@@ -445,29 +444,29 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 ## Technology Stack Details
 
 ### Core Technologies
-- **Java 21** with modern language features and JAXB compatibility
-- **Spring Framework 5.3.39**: IoC container, MVC, AOP, Security, transaction management
-- **Hibernate 5.6.15**: ORM framework with custom MySQL dialect (`OscarMySQL5Dialect`)
+- **Java 21** with modern language features and Jakarta XML Binding
+- **Spring Framework 7.0.6**: IoC container, MVC, AOP, Security, transaction management (Jakarta EE 11)
+- **Spring Security 7.0.4**: Crypto module for password hashing
+- **Hibernate 7.2.7**: ORM framework with custom MySQL dialect (`OscarMySQL5Dialect`)
 - **Maven 3**: Build management with 200+ healthcare-specific dependencies
-- **Apache Tomcat 9.0.97**: Web application server with debugging enabled
+- **Apache Tomcat 11.0**: Web application server with debugging enabled (Jakarta EE 11)
 - **MariaDB/MySQL**: Database with custom connection tracking (`OscarTrackingBasicDataSource`)
 
 ### Web Technologies
-- **Struts 6.8.0**: Modern actions (2Action pattern) coexisting with legacy Struts 1.x
-  - Upgraded from 2.5.33 (January 2026) - Fixes CVE-2025-64775 disk exhaustion DoS vulnerability
-  - Requires Caffeine 3.1.8 cache dependency for internal caching
-  - Maintains backward compatibility with `com.opensymphony.xwork2.*` packages via WW-5494 bug
-  - All 458 *2Action files remain unchanged - no import modifications needed
-- **Apache CXF 3.6.9**: Web services framework for healthcare integrations
+- **Struts 7.1.1**: Modern actions (2Action pattern) using `org.apache.struts2.ActionSupport`
+  - Upgraded from 6.8.0 (March 2026) - Jakarta EE namespace migration
+  - All 458 *2Action files migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*`
+  - Requires Caffeine 3.2.3 cache dependency for internal caching
+- **Apache CXF 4.1.5**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
 - **JSP/JSTL**: View layer with extensive medical form templates
 - **Bootstrap 5.3.0**: Modern UI framework loaded from CDN for responsive design
 - **JavaScript/CSS/jQuery**: Frontend with healthcare-specific UI components
 - **Vanilla JavaScript**: Progressively replacing jQuery dependencies where possible
 
 ### Security Libraries
-- **OWASP CSRFGuard 4.5**: CSRF protection with auto-injected tokens (see `docs/csrf-protection-architecture.md`)
+- **OWASP CSRFGuard 4.5 (Jakarta edition)**: CSRF protection with auto-injected tokens (see `docs/csrf-protection-architecture.md`)
 - **OWASP Encoder** (`encoder` 1.4.0): `Encode.*` static methods for Java code and JSP scriptlets
-- **OWASP Encoder JSP** (`encoder-jsp` 1.4.0): `${e:forHtml()}` EL functions — preferred for JSP output encoding
+- **OWASP Encoder JSP** (`encoder-jakarta-jsp` 1.4.0): `${e:forHtml()}` EL functions — preferred for JSP output encoding (taglib URI: `owasp.encoder.jakarta`)
 - **BCrypt**: Password hashing for provider authentication
 - **Bouncy Castle**: Cryptographic functions for PHI protection
 
@@ -1115,7 +1114,8 @@ void shouldReturnTickler_whenValidIdProvided() {
 }
 
 // 3. Add negative test cases for edge cases and error conditions
-=======
+```
+
 For detailed examples and test development workflow, see **[Test Writing Guide](docs/test/test-writing-guide.md)**.
 
 **Test Execution Commands:**

@@ -38,7 +38,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
@@ -263,7 +263,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     public List<EFormData> findByFormId(Integer formId) {
 
         Query query = entityManager.createQuery(
-                "select x from " + modelClass.getSimpleName() + " x where x.formId = ?1 and x.current = 1");
+                "select x from " + modelClass.getSimpleName() + " x where x.formId = ?1 and x.current = true");
         query.setParameter(1, formId);
 
         @SuppressWarnings("unchecked")
@@ -276,7 +276,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     public List<Integer> findDemographicNosByFormId(Integer formId) {
 
         Query query = entityManager.createQuery("select x.demographicId from " + modelClass.getSimpleName()
-                + " x where x.formId = ?1 and x.current = 1");
+                + " x where x.formId = ?1 and x.current = true");
         query.setParameter(1, formId);
 
         @SuppressWarnings("unchecked")
@@ -317,7 +317,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     public List<Integer> findAllCurrentFdidByFormId(Integer formId) {
 
         Query query = entityManager.createQuery(
-                "select distinct x.id from " + modelClass.getSimpleName() + " x where x.formId = ?1 and x.current = 1");
+                "select distinct x.id from " + modelClass.getSimpleName() + " x where x.formId = ?1 and x.current = true");
         query.setParameter(1, formId);
 
         @SuppressWarnings("unchecked")
@@ -330,7 +330,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     public List<EFormData> findByFormIdProviderNo(List<String> providerNo, Integer formId) {
 
         Query query = entityManager.createQuery("select x from " + modelClass.getSimpleName()
-                + " x where x.formId = ?1 and x.providerNo in (?2) and x.current = 1");
+                + " x where x.formId = ?1 and x.providerNo in (?2) and x.current = true");
         // query.setParameter(1,fid);
         query.setParameter(1, formId);
         query.setParameter(2, providerNo);
@@ -378,7 +378,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
             return null;
 
         Query query = entityManager.createQuery("select x from " + modelClass.getSimpleName()
-                + " x where x.current=1 and x.formId in (?1) and x.formDate>=?2 and x.formDate<?3");
+                + " x where x.current=true and x.formId in (?1) and x.formDate>=?2 and x.formDate<?3");
         query.setParameter(1, fids);
         query.setParameter(2, dateStart);
         query.setParameter(3, dateEnd);
@@ -527,7 +527,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     @Override
     public Integer getLatestFdid(Integer fid, Integer demographicNo) {
         Query query = entityManager.createQuery("select max(x.id) from " + modelClass.getSimpleName()
-                + " x where x.current=1 and x.formId = ?1 and x.demographicId = ?2");
+                + " x where x.current=true and x.formId = ?1 and x.demographicId = ?2");
         query.setParameter(1, fid);
         query.setParameter(2, demographicNo);
 

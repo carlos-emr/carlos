@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -50,11 +50,11 @@
 <%@page import="io.github.carlos_emr.carlos.encounter.data.*,java.net.*" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <link rel="stylesheet" type="text/css" media="print" href="print.css"/>
 <link rel="stylesheet" type="text/css" href="encounterPrintStyles.css"/>

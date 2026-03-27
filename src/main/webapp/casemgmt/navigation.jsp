@@ -35,7 +35,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <% long loadPage = System.currentTimeMillis(); %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
@@ -48,9 +48,9 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%
     String province = ((String) oscarVariables.getProperty("billregion", "")).trim().toUpperCase();
     EctSessionBean bean = null;
@@ -299,10 +299,10 @@
                 <caisirole:SecurityAccess accessName="oscarcomm" accessType="access" providerNo="<%=bean.providerNo%>"
                                           demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
 
-                    <% if (OscarProperties.getInstance().getProperty("oscarcomm", "").equals("on")) { %>
+                    <% if (CarlosProperties.getInstance().getProperty("oscarcomm", "").equals("on")) { %>
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/oscarEncounter/RemoteAttachments.jsp');return false;">OscarComm</a>
+                               onClick="popupPage('<%=bsurl%>/oscarEncounter/RemoteAttachments.jsp');return false;">CARLOS Messenger</a>
                         </td>
                     </tr>
                     <% } %>

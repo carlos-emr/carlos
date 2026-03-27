@@ -42,7 +42,7 @@
 <%@page import="java.util.List" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao,io.github.carlos_emr.carlos.commn.model.Drug,io.github.carlos_emr.carlos.utility.MiscUtils,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao,io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

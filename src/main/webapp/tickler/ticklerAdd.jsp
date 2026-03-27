@@ -79,7 +79,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="java.util.ArrayList" %>
 <%@ page import="java.util.Calendar" %>
 <%@ page import="java.util.Collections" %>
@@ -91,7 +91,7 @@
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -134,7 +134,7 @@
 
     Boolean writeToEncounter = false;
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    Boolean caisiEnabled = OscarProperties.getInstance().isPropertyActive("caisi");
+    Boolean caisiEnabled = CarlosProperties.getInstance().isPropertyActive("caisi");
     Integer defaultProgramId = null;
     List<ProgramProvider> programProviders = new ArrayList<ProgramProvider>();
 
@@ -657,7 +657,7 @@
         <%
             String searchMode = request.getParameter("search_mode");
             if (searchMode == null || searchMode.isEmpty()) {
-                searchMode = OscarProperties.getInstance().getProperty("default_search_mode", "search_name");
+                searchMode = CarlosProperties.getInstance().getProperty("default_search_mode", "search_name");
             }
             ChartNo = bFirstDisp ? "" : request.getParameter("chart_no") == null ? "" : request.getParameter("chart_no");
         %>

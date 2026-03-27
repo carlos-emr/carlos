@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 public class VisitReportData {
@@ -66,7 +66,7 @@ public class VisitReportData {
         Arrays.fill(retVisit, "0");
 
         List<Object[]> billingCounts;
-        boolean isNewBilling = OscarProperties.getInstance().getBooleanProperty("isNewONbilling", "true");
+        boolean isNewBilling = CarlosProperties.getInstance().getBooleanProperty("isNewONbilling", "true");
         if (isNewBilling) {
             BillingONCHeader1Dao dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
             billingCounts = dao.countBillingVisitsByCreator(providerNo, ConversionUtils.fromDateString(dateBegin), ConversionUtils.fromDateString(dateEnd));
@@ -102,7 +102,7 @@ public class VisitReportData {
         Arrays.fill(retVisit, "0");
 
         List<Object[]> billingCounts;
-        boolean isNewBilling = OscarProperties.getInstance().getBooleanProperty("isNewONbilling", "true");
+        boolean isNewBilling = CarlosProperties.getInstance().getBooleanProperty("isNewONbilling", "true");
         if (isNewBilling) {
             BillingONCHeader1Dao dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
             billingCounts = dao.countBillingVisitsByProvider(providerNo, ConversionUtils.fromDateString(dateBegin), ConversionUtils.fromDateString(dateEnd));

@@ -33,22 +33,22 @@ package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 import java.io.IOException;
 import java.util.ArrayList;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ConsultationPrintDocs2Action extends ActionSupport {
@@ -69,7 +69,7 @@ public class ConsultationPrintDocs2Action extends ActionSupport {
         //ArrayList docs = EDocUtil.listDocs( demoNo, reqId, EDocUtil.ATTACHED);        
         String[] docs = request.getParameterValues("docNo");
         ArrayList alist = new ArrayList();
-        String path = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String path = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
         for (int i = 0; i < docs.length; i++)
             alist.add(path + docs[i]);

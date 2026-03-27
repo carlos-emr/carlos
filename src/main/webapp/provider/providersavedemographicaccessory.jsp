@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="java.sql.*, java.util.*, java.net.*, io.github.carlos_emr.*"

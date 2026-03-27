@@ -53,7 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmBCAR2020Record" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 
@@ -88,7 +88,7 @@
         <link rel="stylesheet" type="text/css" media="all"
               href="<%=request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
         <link rel="stylesheet" href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css">
-        <link rel="stylesheet" href="<%=request.getContextPath()%>/css/bootstrap-select.min.css"/>
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/css/multiselect-dropdown.css"/>
         <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui.structure-1.14.2.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui.theme-1.14.2.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath()%>/css/formBCAR2020.css">
@@ -99,13 +99,11 @@
                 src="<%=request.getContextPath()%>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/formBCAR2020Record.js"></script>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
-                type="text/javascript"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js" type="text/javascript"></script>
 
-        <!-- Checkbox multi-select -->
         <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js" type="text/javascript"></script>
-        <script src="<%=request.getContextPath() %>/js/bootstrap-select.min.js" type="text/javascript"></script>
+        <script src="<%=request.getContextPath() %>/js/multiselect-dropdown.js" type="text/javascript"></script>
 
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"
                 type="text/javascript"></script>
@@ -180,7 +178,7 @@
     <body bgproperties="fixed">
     <div id="maincontent" class="flex-container">
 
-        <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+        <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
         <c:if test="${param.warning eq 'history'}">
             <script type="text/javascript">
@@ -604,9 +602,8 @@
                                                             Ethnicity
                                                         </div>
                                                         <div class="div-right">
-                                                            <select class="selectpicker" id="ethnicitySelectPicker"
-                                                                    multiple data-selected-text-format="count > 1"
-                                                                    data-header="Select Ethnicity" data-width="80px">
+                                                            <select class="multiselect-dropdown" id="ethnicitySelectPicker"
+                                                                    multiple data-header="Select Ethnicity" data-width="80px">
                                                                 <option value="Indigenous/Aboriginal">
                                                                     Indigenous/Aboriginal
                                                                 </option>

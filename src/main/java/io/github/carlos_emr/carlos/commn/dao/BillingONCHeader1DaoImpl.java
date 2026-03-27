@@ -32,7 +32,6 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -44,7 +43,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -62,7 +61,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingStatusPrep;
 import io.github.carlos_emr.carlos.util.ParamAppender;
@@ -109,7 +108,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         query.setParameter(1, providerNo);
         query.setParameter(2, startDate);
         query.setParameter(3, endDate);
-        BigInteger bint = (BigInteger) query.getSingleResult();
+        Number bint = (Number) query.getSingleResult();
         return bint.intValue();
     }
 
@@ -125,7 +124,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
                              String curUser) {
         BillingONCHeader1 header1 = null;
         Provider prov = providerDao.getProvider(provider);
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         ArrayList<String> codes = new ArrayList<String>();
         ArrayList<String> dxCodes = new ArrayList<String>();
 
@@ -146,7 +145,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
                              Date serviceDate, String curUser) {
         BillingONCHeader1 header1 = null;
         Provider prov = providerDao.getProvider(provider);
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         ArrayList<String> codes = new ArrayList<String>();
         ArrayList<String> dxCodes = new ArrayList<String>();
 
@@ -169,7 +168,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
                               String clinicRefCode, Date serviceDate, String curUser) {
         BillingONCHeader1 header1 = null;
         Provider prov = providerDao.getProvider(provider);
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
 
         String total = calcTotal(codes, serviceDate);
         for (String demographic : demographic_nos) {
@@ -185,7 +184,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
     }
 
     private BillingONCHeader1 assembleHeader1(Provider prov, Integer demographic, String clinicRefCode,
-                                              Date serviceDate, String total, String curUser, OscarProperties properties) {
+                                              Date serviceDate, String total, String curUser, CarlosProperties properties) {
 
         BillingONCHeader1 header1 = new BillingONCHeader1();
         header1.setTranscId(BillingDataHlp.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
@@ -526,7 +525,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
     public List<Object[]> countBillingVisitsByProvider(String providerNo, Date dateBegin, Date dateEnd) {
         String sql = "SELECT b.visitType, count(b) FROM BillingONCHeader1 b "
                 + "WHERE b.status <> 'D' "
-                + "AND b.appointmentNo <> '0' "
+                + "AND b.appointmentNo <> 0 "
                 + "AND b.apptProviderNo = ?1 "
                 + "AND b.billingDate >= ?2 "
                 + "AND b.billingDate <= ?3 "
@@ -542,7 +541,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
     public List<Object[]> countBillingVisitsByCreator(String providerNo, Date dateBegin, Date dateEnd) {
         String sql = "SELECT b.visitType, count(b) FROM BillingONCHeader1 b "
                 + "WHERE b.status <> 'D' "
-                + "AND b.appointmentNo <> '0' "
+                + "AND b.appointmentNo <> 0 "
                 + "AND b.creator = ?1 "
                 + "AND b.billingDate >= ?2 "
                 + "AND b.billingDate <= ?3 "
@@ -667,7 +666,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
     @Override
     public List<Object[]> findBillingsAndDemographicsById(Integer id) {
-        String sql = "FROM BillingONCHeader1 b, Demographic d WHERE b.id = ?1 AND b.demographicNo = d.DemographicNo";
+        String sql = "SELECT b, d FROM BillingONCHeader1 b, Demographic d WHERE b.id = ?1 AND b.demographicNo = d.DemographicNo";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, id);
         return query.getResultList();
@@ -677,7 +676,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
     public List<BillingONCHeader1> findByMagic(List<String> payPrograms, String statusType, String providerNo,
                                                Date startDate, Date endDate, Integer demoNo, String visitLocation, Date paymentStartDate,
                                                Date paymentEndDate) {
-        ParamAppender app = new ParamAppender("FROM BillingONCHeader1 h, BillingONPayment bp ");
+        ParamAppender app = new ParamAppender("SELECT h FROM BillingONCHeader1 h, BillingONPayment bp ");
         app.and("h.id = bp.billingNo");
         app.and("h.payProgram in (:payPrograms)", "payPrograms", payPrograms);
         app.and("h.status = :status", "status", statusType);
@@ -735,7 +734,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
     public List<Object[]> findByMagic2(List<String> payPrograms, String statusType, String providerNo, Date startDate,
                                        Date endDate, Integer demoNo, List<String> serviceCodes, String dx, String visitType, String visitLocation,
                                        Date paymentStartDate, Date paymentEndDate, String claimNo) {
-        String base = "FROM BillingONCHeader1 ch1, BillingONItem bi";
+        String base = "SELECT ch1, bi FROM BillingONCHeader1 ch1, BillingONItem bi";
         if (paymentStartDate != null || paymentEndDate != null) {
             base += ", BillingONPayment bp ";
         }
@@ -837,7 +836,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
     @Override
     public List<Object[]> findBillingsAndDemographicsByDemoIdAndDates(Integer demoNo, String payProgram, Date fromDate,
                                                                       Date toDate) {
-        ParamAppender app = new ParamAppender("FROM BillingONCHeader1 bch, Demographic d");
+        ParamAppender app = new ParamAppender("SELECT bch, d FROM BillingONCHeader1 bch, Demographic d");
         app.and("bch.demographicNo = d.DemographicNo");
         app.and("bch.demographicNo = :demoNo", "demoNo", demoNo);
         app.and("bch.payProgram = :payProgram", "payProgram", payProgram);
@@ -852,13 +851,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
     @Override
     public List<Object[]> findDemographicsAndBillingsByDxAndServiceDates(List<String> dxCodes, Date from, Date to) {
-        String sql = "FROM Demographic d, BillingONCHeader1 bc, BillingONItem bi " +
-                "WHERE bc.demographicNo = d.DemographicNo " +
-                "AND bc.id = bi.ch1Id " +
-                "AND bi.dx in (?1) " +
-                "AND bi.serviceDate >= ?2 and bi.serviceDate <= ?3 " +
-                "GROUP BY d.demographicNo, bi.dx " +
-                "ORDER BY d.demographicNo, bi.serviceDate";
+        String sql = "SELECT d, bc, bi FROM Demographic d, BillingONCHeader1 bc, BillingONItem bi WHERE bc.demographicNo = d.DemographicNo AND bc.id = bi.ch1Id AND bi.dx in (?1) AND bi.serviceDate >= ?2 and bi.serviceDate <= ?3 GROUP BY d.demographicNo, bi.dx ORDER BY d.demographicNo, bi.serviceDate";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, dxCodes);
         query.setParameter(2, from);

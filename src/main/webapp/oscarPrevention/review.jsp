@@ -68,7 +68,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
 <%@page import="org.hl7.fhir.dstu3.model.Bundle" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -334,7 +334,7 @@
 <html>
 
     <head>
-        <title>OSCAR Prevention Review Screen</title><!--I18n-->
+        <title>CARLOS Prevention Review Screen</title><!--I18n-->
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
 

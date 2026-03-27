@@ -60,7 +60,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.providers.data.ProviderBillCenter;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
@@ -896,7 +896,7 @@ public class JdbcBillingCreateBillingFile {
     // readin billingNo
     public void readInBillingNo() {
         String home_dir;
-        home_dir = OscarProperties.getInstance().getProperty("HOME_DIR");
+        home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
         propBillingNo = new Properties();
         RandomAccessFile raf = null;
         try {
@@ -939,7 +939,7 @@ public class JdbcBillingCreateBillingFile {
     // rename OHIP file
     public void renameFile() {
         String home_dir;
-        home_dir = OscarProperties.getInstance().getProperty("HOME_DIR");
+        home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
         File file = new File(home_dir + ohipFilename);
 
         // new filename
@@ -957,7 +957,7 @@ public class JdbcBillingCreateBillingFile {
     public void writeFile(String value1) {
         try {
             String home_dir;
-            home_dir = OscarProperties.getInstance().getProperty("HOME_DIR");
+            home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
             FileOutputStream out = new FileOutputStream(home_dir + ohipFilename);
             PrintStream p = new PrintStream(out);
             p.println(value1);
@@ -974,7 +974,7 @@ public class JdbcBillingCreateBillingFile {
     public void writeHtml(String htmlvalue1) {
         try {
             String home_dir1;
-            home_dir1 = OscarProperties.getInstance().getProperty("HOME_DIR");
+            home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
 
             FileOutputStream out1 = new FileOutputStream(home_dir1 + htmlFilename);
             PrintStream p1 = new PrintStream(out1);

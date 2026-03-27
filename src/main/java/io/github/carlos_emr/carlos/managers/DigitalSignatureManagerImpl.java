@@ -31,7 +31,7 @@ import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -172,7 +172,7 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
         }
 
         String stampFilename = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
-        File imageFolder = new File(OscarProperties.getInstance().getEformImageDirectory());
+        File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
 
         try {
             File stampFile = PathValidationUtils.validatePath(stampFilename, imageFolder);

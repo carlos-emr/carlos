@@ -35,7 +35,7 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
-<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;

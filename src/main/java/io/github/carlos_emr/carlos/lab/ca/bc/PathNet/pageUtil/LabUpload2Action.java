@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.lab.ca.bc.PathNet.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -38,14 +38,14 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.Connection;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.HL7.Message;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.nio.file.Files;
 import java.text.SimpleDateFormat;
@@ -159,7 +159,7 @@ public class LabUpload2Action extends ActionSupport {
             //retrieve the file data
             // ByteArrayOutputStream baos = new ByteArrayOutputStream();
             //InputStream stream = file.getInputStream();
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
 
             //properties must exist
             String place = props.getProperty("DOCUMENT_DIR");

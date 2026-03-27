@@ -74,19 +74,19 @@
 <%@page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ConsentType" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 
 
 <%
-    java.util.Properties oscarVariables = OscarProperties.getInstance();
+    java.util.Properties oscarVariables = CarlosProperties.getInstance();
 
     DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
     DemographicExtArchiveDao demographicExtArchiveDao = SpringUtils.getBean(DemographicExtArchiveDao.class);
@@ -239,7 +239,7 @@
                 demographic.setPatientStatusDate(null);
             }
 
-            if (OscarProperties.getInstance().getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
+            if (CarlosProperties.getInstance().getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
                 // Retrieve and set patient consents.
                 PatientConsentManager patientConsentManager = SpringUtils.getBean(PatientConsentManager.class);
                 List<ConsentType> consentTypes = patientConsentManager.getActiveConsentTypes();
@@ -264,7 +264,7 @@
             }
 
             //DemographicExt
-            String proNo = (String) session.getValue("user");
+            String proNo = (String) session.getAttribute("user");
             String demoNo = request.getParameter("demographic_no");
             int demographicNo = Integer.parseInt(demoNo);
             List<DemographicExt> extensions = new ArrayList<DemographicExt>();
@@ -276,11 +276,11 @@
             extensions.add(new DemographicExt(request.getParameter("cytolNum_id"), proNo, demographicNo, "cytolNum", request.getParameter("cytolNum")));
             extensions.add(new DemographicExt(request.getParameter("ethnicity_id"), proNo, demographicNo, "ethnicity", request.getParameter("ethnicity")));
             extensions.add(new DemographicExt(request.getParameter("area_id"), proNo, demographicNo, "area", request.getParameter("area")));
-            if ("true".equals(OscarProperties.getInstance().getProperty("FIRST_NATIONS_MODULE", "false"))) {
+            if ("true".equals(CarlosProperties.getInstance().getProperty("FIRST_NATIONS_MODULE", "false"))) {
                 extensions.add(new DemographicExt(request.getParameter("statusNum_id"), proNo, demographicNo, "statusNum", request.getParameter("statusNum")));
                 extensions.add(new DemographicExt(request.getParameter("fNationCom_id"), proNo, demographicNo, "fNationCom", request.getParameter("fNationCom")));
                 extensions.add(new DemographicExt(request.getParameter("labelfNationCom_id"), proNo, demographicNo, "labelfNationCom", request.getParameter("labelfNationCom")));
-                if ("false".equals(OscarProperties.getInstance().getProperty("showBandNumberOnly", "true"))) {
+                if ("false".equals(CarlosProperties.getInstance().getProperty("showBandNumberOnly", "true"))) {
                     extensions.add(new DemographicExt(request.getParameter("fNationFamilyPosition_id"), proNo, demographicNo, "fNationFamilyPosition", request.getParameter("fNationFamilyPosition")));
                     extensions.add(new DemographicExt(request.getParameter("fNationFamilyNumber_id"), proNo, demographicNo, "fNationFamilyNumber", request.getParameter("fNationFamilyNumber")));
                 }
@@ -392,7 +392,7 @@
 
             //add to waiting list if the waiting_list parameter in the property file is set to true
             io.github.carlos_emr.carlos.waitinglist.WaitingList wL = io.github.carlos_emr.carlos.waitinglist.WaitingList.getInstance();
-            if (wL.getFound() && OscarProperties.getInstance().getBooleanProperty("DEMOGRAPHIC_WAITING_LIST", "true")) {
+            if (wL.getFound() && CarlosProperties.getInstance().getBooleanProperty("DEMOGRAPHIC_WAITING_LIST", "true")) {
                 WLWaitingListUtil.updateWaitingListRecord(
                         request.getParameter("list_id"), request.getParameter("waiting_list_note"),
                         request.getParameter("demographic_no"), request.getParameter("waiting_list_referral_date"));

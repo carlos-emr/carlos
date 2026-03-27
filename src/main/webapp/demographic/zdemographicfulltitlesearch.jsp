@@ -57,14 +57,14 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="java.lang.*" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="org.owasp.encoder.Encode" %>
 
 <%
     boolean fromMessenger = request.getParameter("fromMessenger") == null ? false : (request.getParameter("fromMessenger")).equalsIgnoreCase("true") ? true : false;
     String roleName = session.getAttribute("userrole") + "," + session.getAttribute("user");
 %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -281,7 +281,7 @@
         <% String searchMode = request.getParameter("search_mode");
             String keyWord = request.getParameter("keyword");
             if (searchMode == null || searchMode.equals("")) {
-                searchMode = OscarProperties.getInstance().getProperty("default_search_mode", "search_name");
+                searchMode = CarlosProperties.getInstance().getProperty("default_search_mode", "search_name");
             }
             if (keyWord == null) {
                 keyWord = "";

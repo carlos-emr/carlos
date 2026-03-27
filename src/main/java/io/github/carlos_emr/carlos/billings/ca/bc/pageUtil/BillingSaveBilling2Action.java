@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPBillingNote;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
@@ -48,14 +48,14 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingHistoryDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingNote;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
@@ -87,7 +87,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
         Date curDate = new Date();
         String billingid = "";
         ArrayList<String> billingIds = new ArrayList<String>();
-        String dataCenterId = OscarProperties.getInstance().getProperty("dataCenterId");
+        String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
         String billingMasterId = "";
 
         if (bean.getApptNo() == null || bean.getApptNo().equalsIgnoreCase("null")) {

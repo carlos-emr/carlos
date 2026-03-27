@@ -34,20 +34,20 @@ import java.io.InputStream;
 import java.util.Hashtable;
 import java.util.Iterator;
 
-import org.apache.commons.collections.OrderedMap;
-import org.apache.commons.collections.map.LinkedMap;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.util.EntityUtils;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
+import org.apache.commons.collections4.OrderedMap;
+import org.apache.commons.collections4.map.LinkedMap;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.filter.ElementFilter;
 import org.jdom2.input.SAXBuilder;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * @author jaygallagher
@@ -56,11 +56,11 @@ public class OntarioMD {
 
 
     static public boolean hasIncomingRequestor() {
-        return OscarProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR");
+        return CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR");
     }
 
     static public String getIncomingRequestor() {
-        return OscarProperties.getInstance().getProperty("ONTARIO_MD_INCOMINGREQUESTOR");
+        return CarlosProperties.getInstance().getProperty("ONTARIO_MD_INCOMINGREQUESTOR");
     }
 
     //HACKED SOAP CALL.  THIS SHOULD BE REPLACED BUT IT'S SO SIMPLE
@@ -73,7 +73,7 @@ public class OntarioMD {
 
         String soapMsg = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap:Body><ns1:getSession xmlns:ns1=\"urn:OMDAutomatedAuthentication\"><username>" + username + "</username><password>" + password + "</password><incomingRequestor>" + incomingRequestor + "</incomingRequestor></ns1:getSession></soap:Body></soap:Envelope> ";
 
-        StringEntity entity = new StringEntity(soapMsg, "UTF-8");
+        StringEntity entity = new StringEntity(soapMsg, java.nio.charset.StandardCharsets.UTF_8);
         post.setEntity(entity);
 
         try (CloseableHttpClient httpclient = HttpClients.createDefault();
@@ -86,9 +86,6 @@ public class OntarioMD {
 
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
-        } finally {
-            // Release current connection to the connection pool
-            post.releaseConnection();
         }
         return h;
     }

@@ -36,9 +36,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.List;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanC12Dao;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS00Dao;
@@ -55,12 +55,12 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS25;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GenTa2Action extends ActionSupport {
@@ -96,7 +96,7 @@ public class GenTa2Action extends ActionSupport {
 
         String forwardPage = "S21";
 
-        String filepath = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String filepath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
         FileInputStream file = new FileInputStream(filepath + filename);
         BufferedReader input = new BufferedReader(new InputStreamReader(file));

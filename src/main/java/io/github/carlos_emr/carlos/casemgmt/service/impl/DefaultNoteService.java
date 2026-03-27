@@ -39,7 +39,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.common.EChartNoteEntry;
@@ -188,7 +188,7 @@ public class DefaultNoteService implements NoteService {
         intTime = System.currentTimeMillis();
 
         List<Map<String, Object>> bills = null;
-        if (OscarProperties.getInstance().getProperty("billregion", "").equalsIgnoreCase("ON")) {
+        if (CarlosProperties.getInstance().getProperty("billregion", "").equalsIgnoreCase("ON")) {
             bills = billingONCHeader1Dao.getInvoicesMeta(Integer.parseInt(demoNo));
             for (Map<String, Object> h1 : bills) {
                 EChartNoteEntry e = new EChartNoteEntry();

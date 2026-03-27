@@ -30,16 +30,16 @@ package io.github.carlos_emr.carlos.commn.model;
 import java.util.Date;
 import java.util.zip.CRC32;
 
-import javax.persistence.Entity;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.PreRemove;
-import javax.persistence.PreUpdate;
-import javax.persistence.Temporal;
-import javax.persistence.TemporalType;
+import io.github.carlos_emr.carlos.commn.model.converter.HnrDataValidationTypeConverter;
+import jakarta.persistence.Convert;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PreRemove;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 import io.github.carlos_emr.carlos.integration.mchcv.HCValidationFactory;
@@ -77,7 +77,7 @@ public class HnrDataValidation extends AbstractModel<Integer> {
      */
     private String validatorProviderNo = null;
     private boolean valid = false;
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = HnrDataValidationTypeConverter.class)
     private Type validationType = null;
     private long validationCrc = -1;
 

@@ -32,6 +32,30 @@
 */
 
 
+/*
+ * Encounter Page Layout
+ * =====================
+ * The encounter page uses a two-level flex layout:
+ *
+ *   body.encounter-layout          (flex column: header + navigation-layout)
+ *     #header                      (sticky header bar, natural height ~50px)
+ *     #navigation-layout           (flex row filling remaining height, scrollable)
+ *       #leftNavBar   (order:1)    (left sidebar — CPP boxes, 20%)
+ *       #content      (order:2)    (center column — notes area, 60%, sticky)
+ *       #rightNavBar  (order:3)    (right sidebar — issues/eforms, 20%)
+ *
+ * The body owns viewport height; #navigation-layout fills the space below the header
+ * via flex:1. The center column uses position:sticky so it stays pinned while the
+ * sidebars scroll via #navigation-layout's overflow-y:auto.
+ */
+body.encounter-layout {
+    overflow: hidden;
+    height: 100vh;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+}
+
 :root * {
     font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
     font-size: 12px;
@@ -152,6 +176,7 @@ fieldset {
     background-color: transparent;
     border: 1px solid #cccccc !important;
     margin: 0;
+    position: relative;
 }
 
 fieldset legend {
@@ -182,6 +207,7 @@ textarea.txtArea {
     font-size: inherit;
     padding: 2px 5px;
     overflow: hidden;
+    resize: none;
 }
 
 textarea.unsigned-textarea, textarea.edit-textarea {
@@ -311,9 +337,12 @@ h3 {
     font-family: inherit;
 }
 
+/* Fills remaining height below #header; scrolls sidebars vertically */
 #navigation-layout {
     margin: auto 15px !important;
-    height: 100vh;
+    flex: 1;            /* fill remaining body height after header */
+    min-height: 0;      /* allow flex child to shrink below content size */
+    overflow-y: auto;   /* sidebar scroll container */
     display: flex;
     flex-direction: row;
     gap: 3px;
@@ -330,6 +359,7 @@ h3 {
     z-index: 10000 !important;
 }
 
+/* Left sidebar: CPP (Cumulative Patient Profile) boxes and clinical panels */
 div#leftNavBar {
     order: 1;
     display: flex;
@@ -339,13 +369,13 @@ div#leftNavBar {
     padding-bottom: 20px;
 }
 
+/* Right sidebar: issues, eForms, and encounter-specific panels */
 #rightNavBar {
     order: 3;
     display: flex;
     flex-direction: column;
     flex-grow: 1;
     flex-basis: 20%;
-    height: 100%;
     padding-bottom: 20px;
 }
 
@@ -360,12 +390,15 @@ div#notCPP {
     height: 70%;
 }
 
+/* Center column: notes area. Sticky so it stays pinned while sidebars scroll. */
 #content {
     order: 2;
     display: flex;
     flex-direction: column;
     flex-grow: 1;
-    height: 100%;
+    height: 100%;       /* relative to #navigation-layout */
+    position: sticky;   /* pins center column while sidebars scroll */
+    top: 0;
     flex-basis: 60%;
     align-content: end;
     width: 100%;
@@ -452,18 +485,14 @@ div.topBox h3 {
 }
 
 #cppBoxes .topBox-notes {
-    height: 100%;
-    max-height: 75px;
-    overflow-y: auto;
+    height: auto;
     border-left: 1px solid #cccccc;
     border-right: 1px solid #cccccc;
     border-bottom: 1px solid #cccccc;
 }
 
 #rightNavBar .topBox-notes {
-    height: 100%;
-    max-height: 500px;
-    overflow-y: auto;
+    height: auto;
 }
 
 div.topBox-notes ul li a {
@@ -483,9 +512,12 @@ div#encMainDiv {
     gap: 5px;
 }
 
+/* Notes scroll container. overscroll-behavior:contain prevents wheel events
+   from leaking to the parent #navigation-layout when notes hit scroll bounds. */
 div#encMainDivWrapper {
     padding: 15px 15px 10px 10px;
     overflow-y: auto;
+    overscroll-behavior: contain;
     border: thin solid #cccccc;
     margin: 0;
     background-color: whitesmoke;
@@ -969,7 +1001,6 @@ div.newNote pre {
 
 div.expandedBox, div.cppBox {
     clear: both;
-    overflow: auto;
 }
 
 div.expandedBox {
@@ -1051,6 +1082,11 @@ div#issueNoteAssign {
     color: #800;
     margin: 0;
     padding: 0;
+}
+
+#enTemplate_list {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    border-radius: 0 0 4px 4px;
 }
 
 div.passwd,div.passwdErr {

@@ -37,7 +37,7 @@
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    if (session.getValue("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logout.htm");
+    if (session.getAttribute("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logout.htm");
     if (session.getAttribute("userrole") == null)
         response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -53,13 +53,13 @@
 
 %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>

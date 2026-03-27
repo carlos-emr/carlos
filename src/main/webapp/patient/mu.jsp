@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getValue("patient") == null) response.sendRedirect("logout.jsp");
+    if (session.getAttribute("patient") == null) response.sendRedirect("logout.jsp");
 %>
 
 <html>

@@ -73,7 +73,7 @@
     String action = request.getParameter("action");
     String last_name = "", first_name = "", mygroup = "";
 %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <html>
     <head>

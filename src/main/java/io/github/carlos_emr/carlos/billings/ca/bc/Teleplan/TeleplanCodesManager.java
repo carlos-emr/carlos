@@ -41,7 +41,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 
 /**
@@ -69,9 +69,9 @@ REM076 **                                                             **
      */
     public List parse(File f) throws Exception {
         // Use PathValidationUtils to validate file is in allowed directory or temp
-        File allowedDir = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         try {
-            PathValidationUtils.validateExistingPath(f, allowedDir);
+            f = PathValidationUtils.validateExistingPath(f, allowedDir);
         } catch (SecurityException e) {
             // File might be in temp directory from Teleplan API
             if (!PathValidationUtils.isInAllowedTempDirectory(f)) {

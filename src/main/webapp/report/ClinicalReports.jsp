@@ -60,12 +60,12 @@
 <%@ page import="io.github.carlos_emr.carlos.report.ClinicalReports.Numerator" %>
 <%@ page import="io.github.carlos_emr.carlos.report.ClinicalReports.Denominator" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
 <%
-    String provider = (String) session.getValue("user");
+    String provider = (String) session.getAttribute("user");
 
     String numeratorId = (String) request.getAttribute("numeratorId");
     String denominatorId = (String) request.getAttribute("denominatorId");
@@ -635,9 +635,9 @@
 
                     Hashtable forView = new Hashtable();
                     if (request.getAttribute("extraValues") != null) {
-                        List<org.apache.commons.collections.keyvalue.DefaultKeyValue> extraValues = (List) request.getAttribute("extraValues");
+                        List<org.apache.commons.collections4.keyvalue.DefaultKeyValue> extraValues = (List) request.getAttribute("extraValues");
 
-                        for (org.apache.commons.collections.keyvalue.DefaultKeyValue kv : extraValues) {
+                        for (org.apache.commons.collections4.keyvalue.DefaultKeyValue kv : extraValues) {
                             String[] temp = new String[outputfields.length + 1];
                             System.arraycopy(outputfields, 0, temp, 0, outputfields.length);
                             temp[outputfields.length] = "" + kv.getKey();

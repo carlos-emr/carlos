@@ -30,13 +30,13 @@
 
 package io.github.carlos_emr.carlos.login;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import javax.servlet.ServletContextEvent;
-import javax.servlet.ServletContextListener;
+import jakarta.servlet.ServletContextEvent;
+import jakarta.servlet.ServletContextListener;
 import java.io.File;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
@@ -52,7 +52,7 @@ import java.util.Objects;
  */
 public class Startup implements ServletContextListener {
 	private static final Logger logger = MiscUtils.getLogger();
-	private OscarProperties p = OscarProperties.getInstance();
+	private CarlosProperties p = CarlosProperties.getInstance();
 
     public void contextInitialized(ServletContextEvent sc) {
         logger.info("Starting OSCAR application ");

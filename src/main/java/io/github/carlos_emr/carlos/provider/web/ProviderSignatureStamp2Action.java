@@ -27,8 +27,8 @@
  */
 package io.github.carlos_emr.carlos.provider.web;
 
-import com.opensymphony.xwork2.ActionSupport;
-import io.github.carlos_emr.OscarProperties;
+import org.apache.struts2.ActionSupport;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -44,8 +44,8 @@ import org.owasp.encoder.Encode;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -258,7 +258,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
             try {
                 File imageFolder = getImageFolder();
                 File sigFile = new File(imageFolder, expectedName);
-                PathValidationUtils.validateExistingPath(sigFile, imageFolder);
+                sigFile = PathValidationUtils.validateExistingPath(sigFile, imageFolder);
                 if (sigFile.exists() && !sigFile.delete()) {
                     MiscUtils.getLogger().warn("Could not delete signature file for provider {}: {}", providerNo, sigFile.getAbsolutePath());
                 }
@@ -303,7 +303,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
             try {
                 File imageFolder = getImageFolder();
                 File sigFile = new File(imageFolder, expectedName);
-                PathValidationUtils.validateExistingPath(sigFile, imageFolder);
+                sigFile = PathValidationUtils.validateExistingPath(sigFile, imageFolder);
                 if (sigFile.exists()) {
                     exists = true;
                     imageUrl = request.getContextPath() + "/provider/providerSignatureImage.do";
@@ -328,7 +328,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
     }
 
     private static File getImageFolder() throws IOException {
-        File imageFolder = new File(OscarProperties.getInstance().getEformImageDirectory() + "/");
+        File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory() + "/");
         if (!imageFolder.exists() && !imageFolder.mkdirs()) {
             throw new IOException("Could not create eform image directory: " + imageFolder.getAbsolutePath());
         }

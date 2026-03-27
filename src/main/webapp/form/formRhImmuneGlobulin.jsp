@@ -48,7 +48,7 @@
         import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*" %>
 <%@ page
         import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.workflow.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
 <%--
@@ -220,15 +220,6 @@
 
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0"
           onload="window.resizeTo(807,833)">
-    <!--
-            @oscar.formDB Table="formAdf"
-            @oscar.formDB Field="ID" Type="int(10)" Null="NOT NULL" Key="PRI" Default="" Extra="auto_increment"
-            @oscar.formDB Field="demographic_no" Type="int(10)" Null="NOT NULL" Default="'0'"
-            @oscar.formDB Field="provider_no" Type="int(10)" Null="" Default="NULL"
-            @oscar.formDB Field="formCreated" Type="date" Null="" Default="NULL"
-            @oscar.formDB Field="formEdited" Type="timestamp"
-            -->
-
 
     <div class="title">Rh Immune Globulin Injection Reporting Form</div>
 

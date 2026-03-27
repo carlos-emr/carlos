@@ -1102,7 +1102,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
      *       with {@code >=} and {@code <=} operators.</li>
      *   <li><strong>Greater than (e.g., "&gt;6" or ">6"):</strong> Fires when months exceed
      *       the threshold. Handles both XML-escaped and literal {@code >} characters.</li>
-     *   <li><strong>Less than (e.g., "&lt;3" or "<3"):</strong> Fires when months are below
+     *   <li><strong>Less than (e.g., "&lt;3" or "&lt;3"):</strong> Fires when months are below
      *       the threshold. Handles both XML-escaped and literal {@code <} characters.</li>
      *   <li><strong>Exact match (e.g., "-1"):</strong> Fires when months equals the value
      *       exactly. A value of {@code -1} typically indicates "never recorded".</li>

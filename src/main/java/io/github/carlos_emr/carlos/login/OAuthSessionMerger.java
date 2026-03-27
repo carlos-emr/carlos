@@ -38,7 +38,7 @@ package io.github.carlos_emr.carlos.login;
 import io.github.carlos_emr.carlos.commn.dao.ServiceRequestTokenDao;
 import io.github.carlos_emr.carlos.commn.model.ServiceRequestToken;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 

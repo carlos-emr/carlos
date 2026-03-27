@@ -34,7 +34,7 @@
 
 <%@page import="java.util.Enumeration, org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -66,7 +66,7 @@
     String frmName = "caseManagementEntryForm" + request.getParameter("demographicNo");
     CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean) session.getAttribute(frmName);
 
-    String encTimeMandatoryValue = OscarProperties.getInstance().getProperty("ENCOUNTER_TIME_MANDATORY", "false");
+    String encTimeMandatoryValue = CarlosProperties.getInstance().getProperty("ENCOUNTER_TIME_MANDATORY", "false");
 
     CppPreferencesUIBean cppPreferences = new CppPreferencesUIBean(loggedInInfo.getLoggedInProviderNo());
     cppPreferences.loadValues();
@@ -79,16 +79,13 @@
             Encounter
         </title>
         <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
-        <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/encounterStyles.css" type="text/css">
+        <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/encounterStyles.css?v=<%= System.currentTimeMillis() %>" type="text/css">
 
         <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/library/jquery/jquery-ui-1.14.2.min.css"/>
         <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}/css/oscarRx.css" />">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all" href="<c:out value="${ctx}"/>/share/calendar/calendar.css"
               title="win2k-cold-1">
-        <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/js/messenger/messenger.css"/>
-        <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/js/messenger/messenger-theme-future.css"/>
-        <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/encounterStyles.css" type="text/css">
         <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/css/print.css" media="print">
 
         <script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-3.7.1.min.js"/>"></script>
@@ -98,10 +95,11 @@
         <!-- jQuery.noConflict() frees $ for the Prototype shim; use jQuery() or jQuery.ajax() for jQuery calls -->
         <script src="<c:out value="${ctx}"/>/share/javascript/prototype-compat.js" type="text/javascript"></script>
         <script src="<c:out value="${ctx}"/>/share/javascript/carlos-ajax.js" type="text/javascript"></script>
+        <!-- CSRFGuard must load AFTER prototype-compat.js so its XHR.send() interception
+             takes final precedence for automatic CSRF token injection -->
+        <script src="<c:out value="${ctx}/csrfguard"/>"></script>
 
-        <script type="text/javascript" src="<c:out value="${ctx}"/>/js/messenger/messenger.js"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}"/>/js/messenger/messenger-theme-future.js"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}"/>/casemgmt/newEncounterLayout.js.jsp"></script>
+        <script type="text/javascript" src="<c:out value="${ctx}"/>/casemgmt/newEncounterLayout.js.jsp?v=<%= System.currentTimeMillis() %>"></script>
 
             <%-- for popup menu of forms --%>
         <script src="<c:out value="${ctx}"/>/share/javascript/popupmenu.js" type="text/javascript"></script>
@@ -121,7 +119,7 @@
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/screen.js"/>"></script>
 
         <!-- vanilla JS autocomplete select box (replaces Scriptaculous Autocompleter.SelectBox) -->
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/select.js"/>"></script>
+        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/select.js"/>?v=<%= System.currentTimeMillis() %>"></script>
 
         <script type="text/javascript">
             var Colour = {
@@ -157,7 +155,7 @@
             <%-- Javascripts for the BC Care Connect Button --%>
         <oscar:oscarPropertiesCheck value="BC" property="billregion">
             <security:oscarSec roleName="<%=roleName%>" objectName="_careconnect" rights="r">
-                <c:set value="${ OscarProperties.getInstance()['BC_CARECONNECT_URL'] }" var="careconnecturl"
+                <c:set value="${ CarlosProperties.getInstance()['BC_CARECONNECT_URL'] }" var="careconnecturl"
                        scope="application"/>
                 <c:if test="${ not empty careconnecturl }">
                     <script type="text/javascript"
@@ -393,11 +391,11 @@
         <% } %>
 
         <!-- Instead of importing cme.js using the CME tag (as done in Oscar19/OscarPro), we are opting to directly import cme.js without utilizing the CME tag. -->
-        <% if ("ocean".equals(OscarProperties.getInstance().get("cme_js"))) {
+        <% if ("ocean".equals(CarlosProperties.getInstance().get("cme_js"))) {
             int randomNo = new Random().nextInt();%>
         <script id="mainScript"
                 src="${ pageContext.request.contextPath }/js/custom/ocean/cme.js?no-cache=<%=randomNo%>&autoRefresh=true"
-                ocean-host=<%=Encode.forUriComponent(OscarProperties.getInstance().getProperty("ocean_host"))%>></script>
+                ocean-host=<%=Encode.forUriComponent(CarlosProperties.getInstance().getProperty("ocean_host"))%>></script>
         <% } %>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -608,7 +606,7 @@
 
         </script>
     </head>
-    <body id="body">
+    <body id="body" class="encounter-layout">
     <jsp:include page="/images/spinner.jsp" flush="true"/>
     <div id="header">
         <jsp:include page="newEncounterHeader.jsp"/>
@@ -896,7 +894,7 @@
     <div id="encounterModal"></div>
     <%
         String apptNo = request.getParameter("appointmentNo");
-        if (OscarProperties.getInstance().getProperty("resident_review", "false").equalsIgnoreCase("true") &&
+        if (CarlosProperties.getInstance().getProperty("resident_review", "false").equalsIgnoreCase("true") &&
                 loggedInInfo.getLoggedInProvider().getProviderType().equals("resident") && !"null".equalsIgnoreCase(apptNo) && !"".equalsIgnoreCase(apptNo)) {
             ProviderDataDao providerDao = SpringUtils.getBean(ProviderDataDao.class);
             List<ProviderData> providerList = providerDao.findAllBilling("1");

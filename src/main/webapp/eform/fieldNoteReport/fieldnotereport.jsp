@@ -33,7 +33,7 @@
 <%@ page import="java.util.*, java.text.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%
     Calendar c = Calendar.getInstance();

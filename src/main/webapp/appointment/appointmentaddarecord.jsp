@@ -65,8 +65,8 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.WaitingListName" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <html>
     <head>
@@ -200,7 +200,7 @@
 
 
                 // turn off reminder of "remove patient from the waiting list"
-                OscarProperties pros = OscarProperties.getInstance();
+                CarlosProperties pros = CarlosProperties.getInstance();
                 String strMWL = pros.getProperty("MANUALLY_CLEANUP_WL");
                 if (strMWL != null && strMWL.equalsIgnoreCase("yes")) {
                     ;

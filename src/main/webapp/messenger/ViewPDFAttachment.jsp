@@ -72,8 +72,8 @@
         import="io.github.carlos_emr.carlos.messenger.docxfer.send.*, io.github.carlos_emr.carlos.messenger.docxfer.util.*, io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="java.util.*, org.w3c.dom.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.Doc2PDF" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -124,11 +124,11 @@
 
 <table class="MainTable" id="scrollNumber1" name="encounterTable">
     <tr class="MainTableTopRow">
-        <td class="MainTableTopRowLeftColumn">Oscar Messenger</td>
+        <td class="MainTableTopRowLeftColumn">CARLOS Messenger</td>
         <td class="MainTableTopRowRightColumn">
             <table class="TopStatusBar">
                 <tr>
-                    <td>OSCAR Messenger Attachment</td>
+                    <td>CARLOS Messenger Attachment</td>
                     <td></td>
                     <td style="text-align: right"><a
                             href="javascript:popupStart(300,400,'About.jsp')">About</a> | <a

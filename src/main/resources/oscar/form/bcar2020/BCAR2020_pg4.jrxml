@@ -1,592 +1,328 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Created with Jaspersoft Studio version 6.13.0.final using JasperReports Library version 6.3.0  -->
-<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="bcar2020" pageWidth="612" pageHeight="792" columnWidth="555" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="b9997476-3eb5-48e8-b3a7-28b4b42bd333">
-	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record"/>
-	<import value="org.apache.commons.lang3.StringUtils"/>
+<jasperReport name="bcar2020" pageWidth="612" pageHeight="792" columnWidth="555" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="b9997476-3eb5-48e8-b3a7-28b4b42bd333">
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record" />
+	<import value="org.apache.commons.lang3.StringUtils" />
 	<parameter name="background_image" class="java.lang.String">
 		<parameterDescription><![CDATA[The background image of the current page]]></parameterDescription>
 	</parameter>
-	<parameter name="c_1st3rdTrimesterNutrition" class="java.lang.String"/>
-	<parameter name="c_1st3rdTrimesterWeightGain" class="java.lang.String"/>
-	<parameter name="c_1st3rdTrimesterPhysicalActivity" class="java.lang.String"/>
-	<parameter name="c_1st3rdTrimesterOccupation" class="java.lang.String"/>
-	<parameter name="c_1st3rdTrimesterPersonalSafety" class="java.lang.String"/>
-	<parameter name="c_1st3rdTrimesterSupportSystem" class="java.lang.String"/>
-	<parameter name="c_1st3rdTrimesterMentalHealth" class="java.lang.String"/>
-	<parameter name="c_1st3rdTrimesterSubstanceUse" class="java.lang.String"/>
-	<parameter name="c_1st3rdTrimesterSexualActivity" class="java.lang.String"/>
-	<parameter name="c_1st3rdTrimesterImmunization" class="java.lang.String"/>
-	<parameter name="c_1st3rdTrimesterVBAC" class="java.lang.String"/>
-	<parameter name="c_1stTrimesterNausea" class="java.lang.String"/>
-	<parameter name="c_1stTrimesterSafety" class="java.lang.String"/>
-	<parameter name="c_1stTrimesterOralHealth" class="java.lang.String"/>
-	<parameter name="c_1stTrimesterExposures" class="java.lang.String"/>
-	<parameter name="c_1stTrimesterTravel" class="java.lang.String"/>
-	<parameter name="c_1stTrimesterGeneticScreening" class="java.lang.String"/>
-	<parameter name="c_1stTrimesterEarlyLoss" class="java.lang.String"/>
-	<parameter name="c_1stTrimesterRoutine" class="java.lang.String"/>
-	<parameter name="c_1stTrimesterBreastfeeding" class="java.lang.String"/>
-	<parameter name="c_1stTrimesterQualityEducation" class="java.lang.String"/>
-	<parameter name="c_1stTrimesterPublicServices" class="java.lang.String"/>
-	<parameter name="c_2ndTrimesterBleeding" class="java.lang.String"/>
-	<parameter name="c_2ndTrimesterPretermLabour" class="java.lang.String"/>
-	<parameter name="c_2ndTrimesterPROM" class="java.lang.String"/>
-	<parameter name="c_2ndTrimesterLifestyle" class="java.lang.String"/>
-	<parameter name="c_2ndTrimesterGestationalDiab" class="java.lang.String"/>
-	<parameter name="c_2ndTrimesterPrenatalClasses" class="java.lang.String"/>
-	<parameter name="c_2ndTrimesterBirthOptions" class="java.lang.String"/>
-	<parameter name="c_2ndTrimesterBirthPlan" class="java.lang.String"/>
-	<parameter name="c_2ndTrimesterBreastfeeding" class="java.lang.String"/>
-	<parameter name="c_2ndTrimesterPostpartumContra" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterFetalMovement" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterEmergencyContact" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterECV" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterIndicationsInduction" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterSignsLabour" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterBirthPlan" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterPotentialInterventions" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterGenitalHerpes" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterGBSScreening" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterCordBloodBanking" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterErythromycin" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterVitaminK" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterNewbornCare" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterBreastfeeding" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterPostpartumCare" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterPostpartumContraception" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterDischargePlanning" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterInfantSleep" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterWorkPlan" class="java.lang.String"/>
-	<parameter name="c_3rdTrimesterEPDSScreening" class="java.lang.String"/>
+	<parameter name="c_1st3rdTrimesterNutrition" class="java.lang.String" />
+	<parameter name="c_1st3rdTrimesterWeightGain" class="java.lang.String" />
+	<parameter name="c_1st3rdTrimesterPhysicalActivity" class="java.lang.String" />
+	<parameter name="c_1st3rdTrimesterOccupation" class="java.lang.String" />
+	<parameter name="c_1st3rdTrimesterPersonalSafety" class="java.lang.String" />
+	<parameter name="c_1st3rdTrimesterSupportSystem" class="java.lang.String" />
+	<parameter name="c_1st3rdTrimesterMentalHealth" class="java.lang.String" />
+	<parameter name="c_1st3rdTrimesterSubstanceUse" class="java.lang.String" />
+	<parameter name="c_1st3rdTrimesterSexualActivity" class="java.lang.String" />
+	<parameter name="c_1st3rdTrimesterImmunization" class="java.lang.String" />
+	<parameter name="c_1st3rdTrimesterVBAC" class="java.lang.String" />
+	<parameter name="c_1stTrimesterNausea" class="java.lang.String" />
+	<parameter name="c_1stTrimesterSafety" class="java.lang.String" />
+	<parameter name="c_1stTrimesterOralHealth" class="java.lang.String" />
+	<parameter name="c_1stTrimesterExposures" class="java.lang.String" />
+	<parameter name="c_1stTrimesterTravel" class="java.lang.String" />
+	<parameter name="c_1stTrimesterGeneticScreening" class="java.lang.String" />
+	<parameter name="c_1stTrimesterEarlyLoss" class="java.lang.String" />
+	<parameter name="c_1stTrimesterRoutine" class="java.lang.String" />
+	<parameter name="c_1stTrimesterBreastfeeding" class="java.lang.String" />
+	<parameter name="c_1stTrimesterQualityEducation" class="java.lang.String" />
+	<parameter name="c_1stTrimesterPublicServices" class="java.lang.String" />
+	<parameter name="c_2ndTrimesterBleeding" class="java.lang.String" />
+	<parameter name="c_2ndTrimesterPretermLabour" class="java.lang.String" />
+	<parameter name="c_2ndTrimesterPROM" class="java.lang.String" />
+	<parameter name="c_2ndTrimesterLifestyle" class="java.lang.String" />
+	<parameter name="c_2ndTrimesterGestationalDiab" class="java.lang.String" />
+	<parameter name="c_2ndTrimesterPrenatalClasses" class="java.lang.String" />
+	<parameter name="c_2ndTrimesterBirthOptions" class="java.lang.String" />
+	<parameter name="c_2ndTrimesterBirthPlan" class="java.lang.String" />
+	<parameter name="c_2ndTrimesterBreastfeeding" class="java.lang.String" />
+	<parameter name="c_2ndTrimesterPostpartumContra" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterFetalMovement" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterEmergencyContact" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterECV" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterIndicationsInduction" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterSignsLabour" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterBirthPlan" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterPotentialInterventions" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterGenitalHerpes" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterGBSScreening" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterCordBloodBanking" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterErythromycin" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterVitaminK" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterNewbornCare" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterBreastfeeding" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterPostpartumCare" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterPostpartumContraception" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterDischargePlanning" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterInfantSleep" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterWorkPlan" class="java.lang.String" />
+	<parameter name="c_3rdTrimesterEPDSScreening" class="java.lang.String" />
 	<queryString>
 		<![CDATA[]]>
 	</queryString>
-	<background>
-		<band height="792" splitType="Stretch">
-			<image>
-				<reportElement mode="Transparent" x="0" y="0" width="612" height="792" isRemoveLineWhenBlank="true" backcolor="#000000" uuid="7a3c6eed-42d8-4cac-9b37-0b3ad6239468"/>
-				<imageExpression><![CDATA[$P{background_image}]]></imageExpression>
-			</image>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="23" y="510" width="6" height="6" backcolor="#000000" uuid="b18ff040-cc26-4029-9c20-383ebc286ac7">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterNutrition}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="23" y="521" width="6" height="6" backcolor="#000000" uuid="b7e2e1d0-cb5c-4491-9546-38a51c154d00">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterWeightGain}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="23" y="533" width="6" height="6" backcolor="#000000" uuid="e940afa3-5875-4a47-9fc2-fb21c301226d">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterPhysicalActivity}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="158" y="510" width="6" height="6" backcolor="#000000" uuid="8221f82e-b9cf-4e16-80a9-b10165b033c4">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterOccupation}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="158" y="521" width="6" height="6" backcolor="#000000" uuid="40471402-ec53-4a6b-af70-9a55db60b7dc">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterPersonalSafety}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="158" y="533" width="6" height="6" backcolor="#000000" uuid="51ec3589-94e2-4144-9149-084eea31ec61">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterSupportSystem}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="293" y="510" width="6" height="6" backcolor="#000000" uuid="d069f2cc-55e4-455d-9cd2-1436a82cd9c9">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterMentalHealth}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="293" y="521" width="6" height="6" backcolor="#000000" uuid="08e74603-080e-4ef9-9091-2b7efc845425">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterSubstanceUse}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="293" y="533" width="6" height="6" backcolor="#000000" uuid="0974e1f2-4bda-4369-8804-f4c39e3c41e0">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterSexualActivity}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="428" y="510" width="6" height="6" backcolor="#000000" uuid="c1268d1a-1e92-4981-9662-6a5a78ce4ccc">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterImmunization}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="428" y="521" width="6" height="6" backcolor="#000000" uuid="fad65ca6-d088-4aee-971d-37e50616a62b">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterVBAC}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="23" y="570" width="6" height="6" backcolor="#000000" uuid="682ea360-483a-43f2-80d6-c3410bea29aa">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1stTrimesterNausea}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="23" y="581" width="6" height="6" backcolor="#000000" uuid="7a5e8ce2-3bef-48aa-9b16-0cecd2a9064a">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1stTrimesterSafety}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="23" y="601" width="6" height="6" backcolor="#000000" uuid="5edbbb7c-0ed1-4e86-b8ed-aa36a68d4794">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1stTrimesterOralHealth}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="158" y="570" width="6" height="6" backcolor="#000000" uuid="1404f188-de06-48d0-9a25-c60ee328747d">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1stTrimesterExposures}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="158" y="590" width="6" height="6" backcolor="#000000" uuid="0bd25ad1-14a0-415f-a9b9-62603965ddc4">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1stTrimesterTravel}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="158" y="601" width="6" height="6" backcolor="#000000" uuid="de70a94e-ea8a-4afb-8442-0f064e3e8a5f">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1stTrimesterGeneticScreening}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="293" y="570" width="6" height="6" backcolor="#000000" uuid="3ce3effd-8e81-490a-a3a0-2d992df8c091">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1stTrimesterEarlyLoss}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="293" y="590" width="6" height="6" backcolor="#000000" uuid="483c0bda-c5a3-48b4-b8e2-b732bb74c231">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1stTrimesterRoutine}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="428" y="570" width="6" height="6" backcolor="#000000" uuid="17b90df4-4a35-4e38-bcce-90e7ca5275e6">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1stTrimesterBreastfeeding}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="428" y="581" width="6" height="6" backcolor="#000000" uuid="52d7cb0b-a2df-4182-8f7a-2ebcdbace387">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1stTrimesterQualityEducation}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="428" y="592" width="6" height="6" backcolor="#000000" uuid="6d8d15cf-a284-4e65-9522-dc6284e0d9db">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_1stTrimesterPublicServices}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="23" y="630" width="6" height="6" backcolor="#000000" uuid="01cccb9d-d934-4e86-8a31-b8973f59a237">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_2ndTrimesterBleeding}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="23" y="641" width="6" height="6" backcolor="#000000" uuid="41153f6e-479e-43c8-ae93-58bf78c2639f">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_2ndTrimesterPretermLabour}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="23" y="652" width="6" height="6" backcolor="#000000" uuid="4ef556ab-bfd8-48fa-8593-3a731814f7d1">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_2ndTrimesterPROM}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="158" y="630" width="6" height="6" backcolor="#000000" uuid="a7c5a151-cc32-4566-9ae1-76f351cd25d4">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_2ndTrimesterLifestyle}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="158" y="641" width="6" height="6" backcolor="#000000" uuid="5b669458-8d9d-4421-b27a-beaa043e46a7">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_2ndTrimesterGestationalDiab}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="158" y="652" width="6" height="6" backcolor="#000000" uuid="291d2580-01ae-40d9-9239-c9297990c637">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_2ndTrimesterPrenatalClasses}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="293" y="630" width="6" height="6" backcolor="#000000" uuid="845c7f68-8aa9-4f1d-b768-56814c12ca7f">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_2ndTrimesterBirthOptions}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="293" y="650" width="6" height="6" backcolor="#000000" uuid="3e8aee81-4062-401d-84df-662e12717dd8">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_2ndTrimesterBirthPlan}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="428" y="630" width="6" height="6" backcolor="#000000" uuid="f55217ab-c604-4ef6-97e0-a42ccaa7d634">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_2ndTrimesterBreastfeeding}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="428" y="659" width="6" height="6" backcolor="#000000" uuid="4be80082-827e-4bb4-a3f5-06a5e3abc4b2">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_2ndTrimesterPostpartumContra}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="23" y="688" width="6" height="6" backcolor="#000000" uuid="04336775-b8c1-46f6-be94-b1e1bf91f26f">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterFetalMovement}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="23" y="699" width="6" height="6" backcolor="#000000" uuid="eff5e8f0-35bf-4d3e-8979-c1ea0135c30f">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterEmergencyContact}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="23" y="710" width="6" height="6" backcolor="#000000" uuid="b9523d59-c885-4382-b270-5efc7023f775">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterECV}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="23" y="730" width="6" height="6" backcolor="#000000" uuid="10f65236-889f-41bf-bafa-e311d130df1f">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterIndicationsInduction}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="23" y="742" width="6" height="6" backcolor="#000000" uuid="ff25b20b-4b9a-43ee-8522-8bb1a1815753">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterSignsLabour}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="158" y="688" width="6" height="6" backcolor="#000000" uuid="22acd7c2-5c73-4249-a585-0bc0aeab5153">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterBirthPlan}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="158" y="708" width="6" height="6" backcolor="#000000" uuid="134dd4cb-9a32-4939-b11b-e3bc537327a0">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterPotentialInterventions}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="158" y="728" width="6" height="6" backcolor="#000000" uuid="6d423b51-7101-4599-9514-0b1b87360e3c">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterGenitalHerpes}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="158" y="739" width="6" height="6" backcolor="#000000" uuid="7f2f88b7-13fb-45c1-a739-98c6e78c49d2">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterGBSScreening}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="158" y="750" width="6" height="6" backcolor="#000000" uuid="54647d02-db8d-4c1e-a0f3-7176f9c14c7a">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterCordBloodBanking}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="293" y="688" width="6" height="6" backcolor="#000000" uuid="457a70bd-fb9e-42e8-af44-ee565ce0afc8">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterErythromycin}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="293" y="708" width="6" height="6" backcolor="#000000" uuid="4566c217-1a15-4c49-8157-ba7d424e6fc6">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterVitaminK}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="293" y="719" width="6" height="6" backcolor="#000000" uuid="377b8867-58a2-4d68-9117-3d8ba296b7c1">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterNewbornCare}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="293" y="739" width="6" height="6" backcolor="#000000" uuid="7e20b83d-f8b0-4fe4-8816-af062ca86e1a">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterBreastfeeding}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="428" y="688" width="6" height="6" backcolor="#000000" uuid="738397c3-e8a7-48f6-aeca-bdba21d850dc">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterPostpartumCare}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="428" y="699" width="6" height="6" backcolor="#000000" uuid="220e24ea-d4f2-42fd-90c3-4a2f1d7b5c79">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterPostpartumContraception}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="428" y="710" width="6" height="6" backcolor="#000000" uuid="97cc59aa-8c63-467e-a2ea-3661617d8bfe">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterDischargePlanning}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="428" y="721" width="6" height="6" backcolor="#000000" uuid="b0876ff7-2ed5-47c4-96e8-843a85d94948">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterInfantSleep}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="428" y="732" width="6" height="6" backcolor="#000000" uuid="1580bbed-7bb1-4fcd-bb3c-18482c31ee1a">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterWorkPlan}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement mode="Opaque" x="428" y="743" width="6" height="6" backcolor="#000000" uuid="01ed9a08-2828-4b38-805c-bd54ba5aaeb6">
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<printWhenExpression><![CDATA[$P{c_3rdTrimesterEPDSScreening}.equals("X")]]></printWhenExpression>
-				</reportElement>
-				<textElement>
-					<font size="6"/>
-				</textElement>
-			</textField>
-		</band>
+	<background height="792" splitType="Stretch">
+		<element kind="image" uuid="7a3c6eed-42d8-4cac-9b37-0b3ad6239468" mode="Transparent" x="0" y="0" width="612" height="792" backcolor="#000000" isRemoveLineWhenBlank="true">
+			<expression><![CDATA[$P{background_image}]]></expression>
+		</element>
+		<element kind="textField" uuid="b18ff040-cc26-4029-9c20-383ebc286ac7" mode="Opaque" x="23" y="510" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterNutrition}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="b7e2e1d0-cb5c-4491-9546-38a51c154d00" mode="Opaque" x="23" y="521" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterWeightGain}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="e940afa3-5875-4a47-9fc2-fb21c301226d" mode="Opaque" x="23" y="533" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterPhysicalActivity}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="8221f82e-b9cf-4e16-80a9-b10165b033c4" mode="Opaque" x="158" y="510" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterOccupation}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="40471402-ec53-4a6b-af70-9a55db60b7dc" mode="Opaque" x="158" y="521" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterPersonalSafety}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="51ec3589-94e2-4144-9149-084eea31ec61" mode="Opaque" x="158" y="533" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterSupportSystem}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="d069f2cc-55e4-455d-9cd2-1436a82cd9c9" mode="Opaque" x="293" y="510" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterMentalHealth}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="08e74603-080e-4ef9-9091-2b7efc845425" mode="Opaque" x="293" y="521" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterSubstanceUse}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="0974e1f2-4bda-4369-8804-f4c39e3c41e0" mode="Opaque" x="293" y="533" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterSexualActivity}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="c1268d1a-1e92-4981-9662-6a5a78ce4ccc" mode="Opaque" x="428" y="510" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterImmunization}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="fad65ca6-d088-4aee-971d-37e50616a62b" mode="Opaque" x="428" y="521" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1st3rdTrimesterVBAC}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="682ea360-483a-43f2-80d6-c3410bea29aa" mode="Opaque" x="23" y="570" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1stTrimesterNausea}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="7a5e8ce2-3bef-48aa-9b16-0cecd2a9064a" mode="Opaque" x="23" y="581" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1stTrimesterSafety}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="5edbbb7c-0ed1-4e86-b8ed-aa36a68d4794" mode="Opaque" x="23" y="601" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1stTrimesterOralHealth}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="1404f188-de06-48d0-9a25-c60ee328747d" mode="Opaque" x="158" y="570" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1stTrimesterExposures}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="0bd25ad1-14a0-415f-a9b9-62603965ddc4" mode="Opaque" x="158" y="590" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1stTrimesterTravel}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="de70a94e-ea8a-4afb-8442-0f064e3e8a5f" mode="Opaque" x="158" y="601" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1stTrimesterGeneticScreening}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="3ce3effd-8e81-490a-a3a0-2d992df8c091" mode="Opaque" x="293" y="570" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1stTrimesterEarlyLoss}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="483c0bda-c5a3-48b4-b8e2-b732bb74c231" mode="Opaque" x="293" y="590" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1stTrimesterRoutine}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="17b90df4-4a35-4e38-bcce-90e7ca5275e6" mode="Opaque" x="428" y="570" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1stTrimesterBreastfeeding}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="52d7cb0b-a2df-4182-8f7a-2ebcdbace387" mode="Opaque" x="428" y="581" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1stTrimesterQualityEducation}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="6d8d15cf-a284-4e65-9522-dc6284e0d9db" mode="Opaque" x="428" y="592" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_1stTrimesterPublicServices}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="01cccb9d-d934-4e86-8a31-b8973f59a237" mode="Opaque" x="23" y="630" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_2ndTrimesterBleeding}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="41153f6e-479e-43c8-ae93-58bf78c2639f" mode="Opaque" x="23" y="641" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_2ndTrimesterPretermLabour}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="4ef556ab-bfd8-48fa-8593-3a731814f7d1" mode="Opaque" x="23" y="652" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_2ndTrimesterPROM}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="a7c5a151-cc32-4566-9ae1-76f351cd25d4" mode="Opaque" x="158" y="630" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_2ndTrimesterLifestyle}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="5b669458-8d9d-4421-b27a-beaa043e46a7" mode="Opaque" x="158" y="641" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_2ndTrimesterGestationalDiab}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="291d2580-01ae-40d9-9239-c9297990c637" mode="Opaque" x="158" y="652" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_2ndTrimesterPrenatalClasses}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="845c7f68-8aa9-4f1d-b768-56814c12ca7f" mode="Opaque" x="293" y="630" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_2ndTrimesterBirthOptions}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="3e8aee81-4062-401d-84df-662e12717dd8" mode="Opaque" x="293" y="650" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_2ndTrimesterBirthPlan}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="f55217ab-c604-4ef6-97e0-a42ccaa7d634" mode="Opaque" x="428" y="630" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_2ndTrimesterBreastfeeding}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="4be80082-827e-4bb4-a3f5-06a5e3abc4b2" mode="Opaque" x="428" y="659" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_2ndTrimesterPostpartumContra}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="04336775-b8c1-46f6-be94-b1e1bf91f26f" mode="Opaque" x="23" y="688" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterFetalMovement}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="eff5e8f0-35bf-4d3e-8979-c1ea0135c30f" mode="Opaque" x="23" y="699" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterEmergencyContact}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="b9523d59-c885-4382-b270-5efc7023f775" mode="Opaque" x="23" y="710" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterECV}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="10f65236-889f-41bf-bafa-e311d130df1f" mode="Opaque" x="23" y="730" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterIndicationsInduction}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="ff25b20b-4b9a-43ee-8522-8bb1a1815753" mode="Opaque" x="23" y="742" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterSignsLabour}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="22acd7c2-5c73-4249-a585-0bc0aeab5153" mode="Opaque" x="158" y="688" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterBirthPlan}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="134dd4cb-9a32-4939-b11b-e3bc537327a0" mode="Opaque" x="158" y="708" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterPotentialInterventions}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="6d423b51-7101-4599-9514-0b1b87360e3c" mode="Opaque" x="158" y="728" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterGenitalHerpes}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="7f2f88b7-13fb-45c1-a739-98c6e78c49d2" mode="Opaque" x="158" y="739" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterGBSScreening}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="54647d02-db8d-4c1e-a0f3-7176f9c14c7a" mode="Opaque" x="158" y="750" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterCordBloodBanking}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="457a70bd-fb9e-42e8-af44-ee565ce0afc8" mode="Opaque" x="293" y="688" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterErythromycin}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="4566c217-1a15-4c49-8157-ba7d424e6fc6" mode="Opaque" x="293" y="708" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterVitaminK}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="377b8867-58a2-4d68-9117-3d8ba296b7c1" mode="Opaque" x="293" y="719" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterNewbornCare}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="7e20b83d-f8b0-4fe4-8816-af062ca86e1a" mode="Opaque" x="293" y="739" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterBreastfeeding}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="738397c3-e8a7-48f6-aeca-bdba21d850dc" mode="Opaque" x="428" y="688" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterPostpartumCare}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="220e24ea-d4f2-42fd-90c3-4a2f1d7b5c79" mode="Opaque" x="428" y="699" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterPostpartumContraception}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="97cc59aa-8c63-467e-a2ea-3661617d8bfe" mode="Opaque" x="428" y="710" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterDischargePlanning}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="b0876ff7-2ed5-47c4-96e8-843a85d94948" mode="Opaque" x="428" y="721" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterInfantSleep}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="1580bbed-7bb1-4fcd-bb3c-18482c31ee1a" mode="Opaque" x="428" y="732" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterWorkPlan}.equals("X")]]></printWhenExpression>
+		</element>
+		<element kind="textField" uuid="01ed9a08-2828-4b38-805c-bd54ba5aaeb6" mode="Opaque" x="428" y="743" width="6" height="6" backcolor="#000000" fontSize="6.0" blankWhenNull="true">
+			<property name="com.jaspersoft.studio.unit.width" value="px" />
+			<property name="com.jaspersoft.studio.unit.height" value="px" />
+			<printWhenExpression><![CDATA[$P{c_3rdTrimesterEPDSScreening}.equals("X")]]></printWhenExpression>
+		</element>
 	</background>
 </jasperReport>

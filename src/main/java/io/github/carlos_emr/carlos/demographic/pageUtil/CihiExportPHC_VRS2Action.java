@@ -49,7 +49,7 @@ import cdscihiphcvrs.PatientRecordDocument.PatientRecord;
 import cdscihiphcvrs.ProblemListDocument.ProblemList;
 import cdscihiphcvrs.ProcedureDocument.Procedure;
 import cdscihiphcvrs.RiskFactorsDocument.RiskFactors;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -64,7 +64,7 @@ import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.ImportExportMeasurements;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.Measurements;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
@@ -76,8 +76,8 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -206,7 +206,7 @@ public class CihiExportPHC_VRS2Action extends ActionSupport {
     }
 
     public String getFile() {
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         String zipName = request.getParameter("zipFile");
         String dir = properties.getProperty("DOCUMENT_DIR");
         Util.downloadFile(zipName, dir, response);
@@ -216,7 +216,7 @@ public class CihiExportPHC_VRS2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         Clinic clinic = clinicDAO.getClinic();
         List<DataExport> dataExportList = dataExportDAO.findAllByType(DataExportDao.CIHI_OMD4);
         dataExportList.addAll(dataExportDAO.findAllByType(DataExportDao.CIHI_PHC_VRS));
@@ -877,7 +877,7 @@ public class CihiExportPHC_VRS2Action extends ActionSupport {
 
 /*
 	private void buildProcedure2(Demographic demo, PatientRecord patientRecord) {
-            OscarProperties properties = OscarProperties.getInstance();
+            CarlosProperties properties = CarlosProperties.getInstance();
             Calendar cal = Calendar.getInstance();
             Date procedureDate;
             boolean hasIssue;
@@ -1246,7 +1246,7 @@ public class CihiExportPHC_VRS2Action extends ActionSupport {
 
         //copy zip to document directory
         File zipFile = new File(tmpDir, zipName);
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         File destDir = new File(properties.getProperty("DOCUMENT_DIR"));
         org.apache.commons.io.FileUtils.copyFileToDirectory(zipFile, destDir);
 

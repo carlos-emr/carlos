@@ -31,7 +31,7 @@ Ontario, Canada
 <!DOCTYPE html>
 <%
     //Lists forms available to add to patient
-    if (session.getValue("user") == null) {
+    if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
     String demographic_no = request.getParameter("demographic_no");
@@ -52,8 +52,8 @@ Ontario, Canada
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c"%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%
     String user = (String) session.getAttribute("user");

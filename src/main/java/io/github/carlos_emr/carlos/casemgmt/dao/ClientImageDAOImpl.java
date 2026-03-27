@@ -67,9 +67,9 @@ public class ClientImageDAOImpl extends AbstractHibernateDao implements ClientIm
             existing.setImage_data(clientImage.getImage_data());
             existing.setImage_type(clientImage.getImage_type());
             existing.setUpdate_date(new Date());
-            currentSession().saveOrUpdate(existing);
+            currentSession().merge(existing);
         } else {
-            currentSession().saveOrUpdate(clientImage);
+            currentSession().persist(clientImage);
         }
 
         // update cache
@@ -80,7 +80,7 @@ public class ClientImageDAOImpl extends AbstractHibernateDao implements ClientIm
     public void deleteClientImage(Integer clientId) {
         ClientImage clientImage = getClientImage(clientId);
         if (clientImage != null) {
-            currentSession().delete(clientImage);
+            currentSession().remove(clientImage);
             dataCache.remove(clientId);
         }
     }

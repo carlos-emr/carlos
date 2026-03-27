@@ -37,7 +37,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 
 import io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgrImpl;
@@ -49,7 +49,7 @@ import io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgr
  */
 public final class ApptStatusData {
 
-    OscarProperties pros = OscarProperties.getInstance();
+    CarlosProperties pros = CarlosProperties.getInstance();
     String strEditable = pros.getProperty("ENABLE_EDIT_APPT_STATUS");
     String apptStatus = null;
     String[] aStatus = {"t", "T", "H", "P", "E", "N", "C", "B", "tS", "TS", "HS", "PS", "ES", "NS", "CS", "BS", "tV", "TV", "HV", "PV", "EV", "NV", "CV", "BV"};

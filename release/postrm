@@ -1,21 +1,24 @@
 #!/bin/sh
 # postrm
 # a script file for CARLOS EMR that uninstalls and tweaks the necessary files
-#=================================================================
-# Copyright Peter Hutten-Czapski 2012-20 released under the GPL v2
-# v 19.11
-#=================================================================
+#==================================================================
+# Copyright Peter Hutten-Czapski 2012-26 released under the GPL v2+
+# v 0.1
+#==================================================================
 
 # Source debconf library.
 . /usr/share/debconf/confmodule
 
 # PROGRAM matches the war and properties name
+# These defaults will be overridden by make_CARLOS_deb.sh
 PROGRAM=carlos
 PACKAGE=carlos-emr
+VERSION=0.1
+PREVIOUS=19
+REVISION=1~1
 db_name=oscar_15
-VERSION=19
-PREVIOUS=15
-REVISION=4~944
+buildDateTime="March 14, 2026"
+
 if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
         TOMCAT=tomcat10
         TOMCAT_USER=tomcat
@@ -37,7 +40,7 @@ if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
  fi
 C_HOME=/usr/share/${TOMCAT}/
 C_BASE=/var/lib/${TOMCAT}/
-SRC=/usr/share/${PACKAGE}/
+SRC=/var/lib/${PACKAGE}/
 db_password=""
 DOCS=${SRC}/OscarDocument/
 
@@ -175,6 +178,17 @@ case "$1" in
         rm -f /etc/systemd/system/${TOMCAT}.service.d/override.conf 2>>$LOG_FILE
         systemctl daemon-reload
     fi
+    # Remove ReadWritePaths entries added by the config script to fallback service files
+    # (only applies when /etc/systemd/system/tomcat9.service.d/ did not exist at install time)
+    if [ -f /lib/systemd/system/tomcat9.service ] ; then
+        sed -i '/ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//d' /lib/systemd/system/tomcat9.service 2>>$LOG_FILE || true
+        sed -i '/ReadWritePaths=\/tmp\//d' /lib/systemd/system/tomcat9.service 2>>$LOG_FILE || true
+    fi
+    if [ -f /etc/systemd/system/multi-user.target.wants/tomcat9.service ] ; then
+        sed -i '/ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//d' /etc/systemd/system/multi-user.target.wants/tomcat9.service 2>>$LOG_FILE || true
+        sed -i '/ReadWritePaths=\/tmp\//d' /etc/systemd/system/multi-user.target.wants/tomcat9.service 2>>$LOG_FILE || true
+    fi
+    systemctl daemon-reload 2>>$LOG_FILE || true
 
     # remove property files and the oscar schema
     echo "Dropping ${db_name}"
@@ -194,11 +208,11 @@ case "$1" in
 
 
     #remove the eform library and HRM files added in postinst so as to clear for a new install
-    if [ -e "${SRC}/OscarDocument/oscar/eform/images" ]; then
-	    echo "Deleting ${SRC}/OscarDocument/oscar/eform/images"
-	    rm -f -r ${SRC}/OscarDocument/oscar/eform/images/*.*
-	    echo "Deleting ${SRC}/OscarDocument/oscar/hrm/OMD"
-	    rm -f -r ${SRC}/OscarDocument/oscar/hrm/OMD/*.*
+    if [ -e "${SRC}OscarDocument/${PROGRAM}/eform/images" ]; then
+	    echo "Deleting ${SRC}OscarDocument/${PROGRAM}/eform/images"
+	    rm -f -r ${SRC}OscarDocument/${PROGRAM}/eform/images/*.*
+	    echo "Deleting ${SRC}OscarDocument/${PROGRAM}/hrm/OMD"
+	    rm -f -r ${SRC}OscarDocument/${PROGRAM}/hrm/OMD/*.*
     fi 
 
     # delete all OscarDocuments and files in /usr/share/carlos-emr
@@ -228,4 +242,3 @@ esac
 
 
 exit 0
-

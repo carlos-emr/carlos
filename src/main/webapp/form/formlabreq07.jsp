@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -48,7 +48,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page
-        import="io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.OscarProperties, java.util.Date, io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+        import="io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.CarlosProperties, java.util.Date, io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.FrmLabReqPreSetDao, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
@@ -56,7 +56,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordHelp" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -90,7 +90,7 @@
 
         MiscUtils.getLogger().debug("properties : " + props);
 
-        OscarProperties oscarProps = OscarProperties.getInstance();
+        CarlosProperties oscarProps = CarlosProperties.getInstance();
 
         if (request.getParameter("labType") != null) {
             if (formId == 0) {

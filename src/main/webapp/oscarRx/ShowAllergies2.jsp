@@ -34,9 +34,9 @@
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page language="java" import="io.github.carlos_emr.OscarProperties" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ page language="java" import="io.github.carlos_emr.CarlosProperties" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@page import="java.util.List" %>
@@ -67,7 +67,7 @@
 %>
 
 <%
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     RxSessionBean bean = null;
     PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
 %>

@@ -1,0 +1,22 @@
+<html>
+<head>
+<title>Blank Document Template</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+body {
+    font-size: 12pt;
+    font-family: "Times New Roman", Times, serif;
+    background-color: #FFFFFF;
+    margin: 1em;
+}
+</style>
+<style type="text/css" media="print">
+* { color: #000000; }
+.DoNotPrint { display: none; }
+@page { margin: 2cm; }
+</style>
+</head>
+<body contenteditable onLoad="document.designMode = 'on';">
+
+</body>
+</html>

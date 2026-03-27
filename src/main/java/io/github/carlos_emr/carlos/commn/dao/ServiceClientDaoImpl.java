@@ -35,7 +35,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ServiceClient;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import org.springframework.stereotype.Repository;
 

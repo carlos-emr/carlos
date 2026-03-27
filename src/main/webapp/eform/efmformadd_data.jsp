@@ -36,7 +36,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.EForm" %>
 
-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%--
 	Addition of a floating global toolbar specifically for activation of the
 	Fax and eDocument functions.
@@ -95,7 +95,7 @@
     /**
      * TODO: Move all JSP scriptlet code from efmshowform_data.jsp and efmformadd_data.jsp to the ShowEFormAction.java (create if necessary) action file.
      */
-    String provider_no = (String) session.getValue("user");
+    String provider_no = (String) session.getAttribute("user");
     String demographic_no = request.getParameter("demographic_no");
     String appointment_no = request.getParameter("appointment");
     String fid = request.getParameter("fid");
@@ -122,7 +122,7 @@
     }
 
     thisEForm.setContextPath(request.getContextPath());
-    thisEForm.setImagePath();
+    thisEForm.setImagePath(request.getContextPath());
     thisEForm.setDatabaseAPs();
     thisEForm.setOscarOPEN(request.getRequestURI());
     thisEForm.setAction();

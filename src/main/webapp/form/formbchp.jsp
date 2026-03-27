@@ -56,15 +56,15 @@
     String historyet = request.getParameter("historyet") == null ? "" : ("&historyet=" + request.getParameter("historyet"));
 
     if (true) {
-        out.clear();
+        out.clearBuffer();
         if (formId == 0) {
-            pageContext.forward("formbchppg1.jsp?demographic_no=" + demoNo + "&formId=" + formId);
+            request.getRequestDispatcher("formbchppg1.jsp?demographic_no=" + demoNo + "&formId=" + formId).include(request, response);
         } else {
             FrmRecord rec = (new FrmRecordFactory()).factory("BCHP");
             java.util.Properties props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
 
-            pageContext.forward("formbchp" + props.getProperty("c_lastVisited", "pg1")
-                    + ".jsp?demographic_no=" + demoNo + "&formId=" + formId + historyet);
+            request.getRequestDispatcher("formbchp" + props.getProperty("c_lastVisited", "pg1")
+                    + ".jsp?demographic_no=" + demoNo + "&formId=" + formId + historyet).include(request, response);
         }
 
         return;

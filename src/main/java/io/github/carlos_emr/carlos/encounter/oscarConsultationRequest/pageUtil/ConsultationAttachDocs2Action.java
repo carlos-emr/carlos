@@ -36,9 +36,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.openpdf.text.DocumentException;
 import com.sun.xml.messaging.saaj.util.ByteOutputStream;
@@ -56,7 +56,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
@@ -66,7 +66,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
@@ -87,7 +87,7 @@ import org.apache.struts2.ServletActionContext;
  *
  * @see ConsultationPDFCreator
  * @see ImagePDFCreator
- * @see DocumentAttachmentManager
+ * @see io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager
  * @since 2003-07-22
  */
 public class ConsultationAttachDocs2Action extends ActionSupport {
@@ -412,7 +412,7 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
 
         try {
             // Get the configured document directory
-            String documentDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+            String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
             if (documentDir == null || documentDir.trim().isEmpty()) {
                 logger.error("DOCUMENT_DIR not configured in properties");
                 return null;

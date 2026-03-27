@@ -29,11 +29,11 @@
 
 --%>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ page
-        import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.OscarProperties" %>
+        import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementMap" %>
 
 <%
@@ -101,7 +101,7 @@
                                                                                                         name="type"
                                                                                                         value=""> <input
         type="hidden" name="provider_no"
-        value="<%= session.getValue("user") %>">
+        value="<%= session.getAttribute("user") %>">
     <table width="100%" height="100%" border="0">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRow" colspan="9" align="left">

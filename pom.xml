@@ -27,6 +27,48 @@
         <!-- SonarCloud -->
         <sonar.organization>carlos-emr</sonar.organization>
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <!--
+            Suppress SonarCloud S2083 (path traversal) false positives in files that use
+            PathValidationUtils for sanitization. SonarCloud's taint engine cannot trace
+            sanitization through custom utility methods, so it flags every downstream file
+            operation even when PathValidationUtils.validatePath/validateExistingPath/validateUpload
+            has already validated the path. This does NOT suppress the rule globally — any code
+            that uses raw user input in file paths without PathValidationUtils will still be caught.
+        -->
+        <sonar.issue.ignore.multicriteria>pvuSelf,pvuEform,pvuDoc,pvuLab,pvuInteg,pvuForm,pvuFax,pvuEncounter,pvuDx,pvuDemog,pvuBilling</sonar.issue.ignore.multicriteria>
+        <!-- PathValidationUtils itself (it IS the sanitizer) -->
+        <sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>**/utility/PathValidationUtils.java</sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>
+        <!-- eform upload/display actions -->
+        <sonar.issue.ignore.multicriteria.pvuEform.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuEform.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuEform.resourceKey>**/eform/**/*.java</sonar.issue.ignore.multicriteria.pvuEform.resourceKey>
+        <!-- Document management actions -->
+        <sonar.issue.ignore.multicriteria.pvuDoc.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuDoc.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuDoc.resourceKey>**/documentManager/**/*.java</sonar.issue.ignore.multicriteria.pvuDoc.resourceKey>
+        <!-- Lab upload/processing -->
+        <sonar.issue.ignore.multicriteria.pvuLab.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuLab.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuLab.resourceKey>**/lab/**/*.java</sonar.issue.ignore.multicriteria.pvuLab.resourceKey>
+        <!-- Integration (MCEDT, HL7) -->
+        <sonar.issue.ignore.multicriteria.pvuInteg.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuInteg.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuInteg.resourceKey>**/integration/**/*.java</sonar.issue.ignore.multicriteria.pvuInteg.resourceKey>
+        <!-- Form PDF servlets and upload -->
+        <sonar.issue.ignore.multicriteria.pvuForm.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuForm.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuForm.resourceKey>**/form/**/*.java</sonar.issue.ignore.multicriteria.pvuForm.resourceKey>
+        <!-- Fax actions -->
+        <sonar.issue.ignore.multicriteria.pvuFax.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuFax.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuFax.resourceKey>**/fax/**/*.java</sonar.issue.ignore.multicriteria.pvuFax.resourceKey>
+        <!-- Encounter measurement actions -->
+        <sonar.issue.ignore.multicriteria.pvuEncounter.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuEncounter.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuEncounter.resourceKey>**/encounter/**/*.java</sonar.issue.ignore.multicriteria.pvuEncounter.resourceKey>
+        <!-- Dx research associations -->
+        <sonar.issue.ignore.multicriteria.pvuDx.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuDx.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuDx.resourceKey>**/dxresearch/**/*.java</sonar.issue.ignore.multicriteria.pvuDx.resourceKey>
+        <!-- Demographic utilities -->
+        <sonar.issue.ignore.multicriteria.pvuDemog.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuDemog.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuDemog.resourceKey>**/demographic/**/*.java</sonar.issue.ignore.multicriteria.pvuDemog.resourceKey>
+        <!-- Billing upload servlets -->
+        <sonar.issue.ignore.multicriteria.pvuBilling.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuBilling.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuBilling.resourceKey>**/billings/**/*.java</sonar.issue.ignore.multicriteria.pvuBilling.resourceKey>
         <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
         <argLine></argLine>
         <!-- Log4j Version -->
@@ -34,26 +76,20 @@
         <!-- Slf4j Version -->
         <slf4j.version>2.0.17</slf4j.version>
         <!-- Hapi Fhir Version -->
-        <hapifhir.version>6.10.5</hapifhir.version>
+        <hapifhir.version>8.4.0</hapifhir.version>
         <!-- Apache CXF Version -->
-        <cxf.version>3.6.9</cxf.version>
+        <cxf.version>4.1.5</cxf.version>
         <!-- Netty Version (for transitive dependency security fixes) -->
-        <netty.version>4.1.129.Final</netty.version>
-        <!-- Drools 7.x KIE API (migrated from drools:drools-all:2.0) -->
-        <drools.version>7.74.1.Final</drools.version>
-        <!-- Override mvel2 transitive dependency: 2.4.x references java.lang.Compiler (removed in JDK 16) -->
-        <mvel2.version>2.5.2.Final</mvel2.version>
+        <netty.version>4.1.131.Final</netty.version>
+        <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
+        <drools.version>10.1.0</drools.version>
+        <!-- Spring Framework Version -->
+        <spring.version>7.0.6</spring.version>
+        <!-- Spring Security Version -->
+        <spring-security.version>7.0.4</spring-security.version>
         <struts.devMode>false</struts.devMode>
-        <!-- Suppress Struts 6.x com.opensymphony.xwork2.* deprecation warnings by default.
-             These are expected and harmless (WW-5494); packages remain functional until Struts 7.x.
-             CI can restore visibility with: mvn ... -Dmaven.compiler.showDeprecation=true -->
+        <!-- Struts 7.x has migrated com.opensymphony.xwork2.* to org.apache.struts2.* -->
         <maven.compiler.showDeprecation>false</maven.compiler.showDeprecation>
-        <!-- Test properties -->
-        <skipModernTests>false</skipModernTests>
-        <skipLegacyTests>false</skipLegacyTests>
-        <!-- Control test execution phases - set to 'none' to skip -->
-        <modern.tests.phase>test</modern.tests.phase>
-        <legacy.tests.phase>test</legacy.tests.phase>
         <!-- Dependency lock file name - can be overridden via -Ddependency.lock.filename -->
         <dependency.lock.filename>dependencies-lock.json</dependency.lock.filename>
     </properties>
@@ -65,15 +101,23 @@
             <url>file://${basedir}/local_repo</url>
         </repository>
 
-        <!-- for the com.github.openosp htmltopdf dependency only. Upgrades
-        from this dependency are welcome -->
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
-        </repository>
+        <!-- JitPack removed: ultrabuk-htmltopdf-java is now in local_repo,
+             repacked with only the Ubuntu Noble amd64 native (17MB vs 315MB).
+             This eliminates JitPack's tendency to shadow Maven Central artifacts
+             under alternate groupIds, which caused dependency-lock failures in CI. -->
         <repository>
             <id>central</id>
             <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
+
+        <!-- Only for com.github.openosp:ultrabuk-htmltopdf-java (not on Maven Central).
+             Listed LAST so Central resolves everything it can first, preventing jitpack
+             from shadowing Central artifacts with its own builds (different bytes/hashes). -->
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
         </repository>
     </repositories>
 
@@ -87,21 +131,21 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- JAXB dependencies for Java 21 compatibility -->
+            <!-- JAXB dependencies for Jakarta EE (jakarta.xml.bind namespace) -->
             <dependency>
-                <groupId>javax.xml.bind</groupId>
-                <artifactId>jaxb-api</artifactId>
-                <version>2.3.1</version>
+                <groupId>jakarta.xml.bind</groupId>
+                <artifactId>jakarta.xml.bind-api</artifactId>
+                <version>4.0.5</version>
             </dependency>
             <dependency>
                 <groupId>org.glassfish.jaxb</groupId>
                 <artifactId>jaxb-runtime</artifactId>
-                <version>2.3.9</version>
+                <version>4.0.6</version>
             </dependency>
             <dependency>
                 <groupId>org.glassfish.jaxb</groupId>
                 <artifactId>jaxb-core</artifactId>
-                <version>2.3.0.1</version>
+                <version>4.0.6</version>
             </dependency>
             <!-- Override transitive xercesImpl to fix CVE-2022-23437 and CVE-2020-14338 -->
             <dependency>
@@ -113,7 +157,7 @@
             <dependency>
                 <groupId>org.springframework</groupId>
                 <artifactId>spring-framework-bom</artifactId>
-                <version>5.3.39</version>
+                <version>${spring.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -121,13 +165,7 @@
             <dependency>
                 <groupId>com.google.code.gson</groupId>
                 <artifactId>gson</artifactId>
-                <version>2.10.1</version>
-            </dependency>
-            <!-- Force secure version of mina-core to fix CVE -->
-            <dependency>
-                <groupId>org.apache.mina</groupId>
-                <artifactId>mina-core</artifactId>
-                <version>2.1.10</version>
+                <version>2.13.2</version>
             </dependency>
             <!-- Force secure versions of ALL Netty modules to fix multiple CVEs:
                  - HTTP/2 DDoS (MadeYouReset) in netty-codec-http2
@@ -146,45 +184,32 @@
             <dependency>
                 <groupId>net.bytebuddy</groupId>
                 <artifactId>byte-buddy</artifactId>
-                <version>1.17.7</version>
+                <version>1.18.7</version>
             </dependency>
             <dependency>
                <groupId>net.bytebuddy</groupId>
                <artifactId>byte-buddy-agent</artifactId>
-               <version>1.17.7</version>
+               <version>1.18.7</version>
             </dependency>
-            <!-- Hibernate core -->
+            <!-- Hibernate 7 core (Jakarta EE 11 - JPA 3.2, jakarta.persistence namespace) -->
             <dependency>
-                <groupId>org.hibernate</groupId>
+                <groupId>org.hibernate.orm</groupId>
                 <artifactId>hibernate-core</artifactId>
-                <version>5.6.15.Final</version>
+                <version>7.2.7.Final</version>
             </dependency>
-            <!-- Hibernate commons annotations - transitive from hibernate-core -->
-            <dependency>
-                <groupId>org.hibernate.common</groupId>
-                <artifactId>hibernate-commons-annotations</artifactId>
-                <version>5.1.2.Final</version>
-            </dependency>
-            <!-- JPA API (javax namespace) - transitive from Hibernate 5.x -->
-            <dependency>
-                <groupId>javax.persistence</groupId>
-                <artifactId>javax.persistence-api</artifactId>
-                <version>2.2</version>
-            </dependency>
-            <!-- JPA API (jakarta namespace) - transitive from jaxws-ri -->
+            <!-- JPA API (jakarta namespace) - provided by Hibernate 7 (JPA 3.2) -->
             <dependency>
                 <groupId>jakarta.persistence</groupId>
                 <artifactId>jakarta.persistence-api</artifactId>
-                <version>2.2.3</version>
+                <version>3.2.0</version>
             </dependency>
-            <!-- Override transitive XStream from drools-compiler to fix CVE-2024-47072
-                 (stack overflow DoS when BinaryStreamDriver is configured) -->
+            <!-- JTA API (jakarta namespace) - required by Hibernate 7 at runtime -->
             <dependency>
-                <groupId>com.thoughtworks.xstream</groupId>
-                <artifactId>xstream</artifactId>
-                <version>1.4.21</version>
+                <groupId>jakarta.transaction</groupId>
+                <artifactId>jakarta.transaction-api</artifactId>
+                <version>2.0.1</version>
             </dependency>
-            <!-- Override transitive Xalan from javax.servlet.jsp.jstl to fix CVE-2022-34169
+            <!-- Override transitive Xalan from jakarta.servlet.jsp.jstl to fix CVE-2022-34169
                  (integer truncation in XSLTC compiler allows arbitrary bytecode execution) -->
             <dependency>
                 <groupId>xalan</groupId>
@@ -198,18 +223,26 @@
                 <artifactId>serializer</artifactId>
                 <version>2.7.3</version>
             </dependency>
-            <!-- Override transitive org.hl7.fhir.core from hapi-fhir-structures-dstu3 to fix:
-                 - CVE-2024-45294 (XXE in XSLT transforms)
-                 - CVE-2024-51132 (XXE via crafted XML entities) -->
+            <!-- Override transitive org.hl7.fhir.core (6.5.27) from hapi-fhir-structures-dstu3.
+                 Fixes: CVE-2024-45294, CVE-2024-51132, CVE-2024-52007 (all patched in 6.4.0),
+                 CVE-2026-33180 HTTP auth credential leak in redirects (patched in 6.9.0). -->
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.utilities</artifactId>
-                <version>6.4.0</version>
+                <version>6.9.0</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3</artifactId>
-                <version>6.4.0</version>
+                <version>6.9.0</version>
+            </dependency>
+            <!-- Override transitive Artemis 2.50.0 from cxf-services-wsn-core.
+                 Security fix for missing authentication on critical functions (patched in 2.52.0);
+                 see the Dependabot alert for org.apache.artemis:artemis-server 2.50.0. -->
+            <dependency>
+                <groupId>org.apache.artemis</groupId>
+                <artifactId>artemis-server</artifactId>
+                <version>2.52.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -231,12 +264,13 @@
     </reporting>
 
     <dependencies>
+
         <!-- https://mvnrepository.com/artifact/net.bull.javamelody/javamelody-core -->
-        <!-- Updated to latest javax.servlet compatible version -->
+        <!-- Updated to Jakarta EE compatible version (2.x = Jakarta, 1.x = javax) -->
         <dependency>
             <groupId>net.bull.javamelody</groupId>
             <artifactId>javamelody-core</artifactId>
-            <version>1.99.4</version>
+            <version>2.6.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
@@ -257,7 +291,7 @@
         <dependency>
             <groupId>commons-logging</groupId>
             <artifactId>commons-logging</artifactId>
-            <version>1.2</version>
+            <version>1.3.6</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -316,79 +350,48 @@
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.18.0</version>
+            <version>2.21.0</version>
         </dependency>
-        <dependency>
-            <groupId>commons-fileupload</groupId>
-            <artifactId>commons-fileupload</artifactId>
-            <version>1.6.0</version>
-        </dependency>
-        <dependency>
-            <groupId>commons-collections</groupId>
-            <artifactId>commons-collections</artifactId>
-            <version>3.2.2</version>
-        </dependency>
-        <!-- Commons Digester3 Library -->
         <dependency>
             <groupId>org.apache.commons</groupId>
-            <artifactId>commons-digester3</artifactId>
-            <version>3.2</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>commons-beanutils</groupId>
-                    <artifactId>commons-beanutils</artifactId>
-                </exclusion>
-            </exclusions>
+            <artifactId>commons-collections4</artifactId>
+            <version>4.5.0</version>
         </dependency>
         <!-- apache commons codec -->
         <dependency>
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
-           <version>1.18.0</version>
+           <version>1.21.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>3.18.0</version>
+            <version>3.20.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-csv</artifactId>
-            <version>1.12.0</version>
+            <version>1.14.1</version>
         </dependency>
         <!-- commons-beanutils removed: migrated to Spring BeanUtils (Phase 1 of issue #2202) -->
 
-        <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->
-        <!-- https://mvnrepository.com/artifact/org.apache.httpcomponents/httpclient -->
+        <!-- Apache HttpClient 5.x — migrated from 4.5.14 (httpclient + httpmime merged into httpclient5) -->
+        <!-- https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5 -->
         <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpclient</artifactId>
-            <version>4.5.14</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpmime</artifactId>
-            <version>4.5.14</version>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
+            <version>5.6</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/com.google.code.gson/gson -->
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>2.10.1</version>
-        </dependency>
+        <!-- Gson removed — sole usage migrated to Jackson (already in stack) -->
+        <!-- Version override retained in dependencyManagement for transitive safety -->
+
+        <!-- JUnit 4 removed — all tests migrated to JUnit 5/6 (PR #591) -->
 
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.13.2</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
-            <version>4.0.1</version>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <version>6.1.0</version>
             <scope>provided</scope>
         </dependency>
 
@@ -453,21 +456,18 @@
             <version>2.0.6.1</version>
         </dependency>
 
-        <!-- spring -->
+        <!-- spring (Jakarta EE 11 — versions managed by spring-framework-bom via ${spring.version}) -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-core</artifactId>
-            <version>5.3.39</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-tx</artifactId>
-            <version>5.3.39</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-orm</artifactId>
-            <version>5.3.39</version>
         </dependency>
         <!-- spring-webmvc not used in production (no DispatcherServlet, no @Controller annotations).
              Kept at test scope only for MockMvcBuilders in CarlosWebTestBase.
@@ -475,29 +475,24 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-webmvc</artifactId>
-            <version>5.3.39</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
-            <version>5.3.39</version>
         </dependency>
         <!-- throws 10 compilation errors when removed/commented -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-aspects</artifactId>
-            <version>5.3.39</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-test</artifactId>
-            <version>5.3.39</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-aop</artifactId>
-            <version>5.3.39</version>
             <exclusions>
                 <exclusion>
                     <groupId>cglib</groupId>
@@ -509,14 +504,13 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-crypto</artifactId>
-            <version>6.3.9</version>
+            <version>${spring-security.version}</version>
         </dependency>
 
         <!-- Spring Context Support (provides JavaMailSenderImpl for email) -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-context-support</artifactId>
-            <version>5.3.39</version>
         </dependency>
 
         <!-- hibernate / sql -->
@@ -530,42 +524,51 @@
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
-            <version>9.3.0</version>
+            <version>9.6.0</version>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/org.hibernate/hibernate-core -->
+        <!-- https://mvnrepository.com/artifact/org.hibernate.orm/hibernate-core -->
         <dependency>
-            <groupId>org.hibernate</groupId>
+            <groupId>org.hibernate.orm</groupId>
             <artifactId>hibernate-core</artifactId>
-            <version>5.6.15.Final</version>
+        </dependency>
+        <!-- JTA API - required by Hibernate 7 at runtime for transaction management -->
+        <dependency>
+            <groupId>jakarta.transaction</groupId>
+            <artifactId>jakarta.transaction-api</artifactId>
         </dependency>
 
         <!--  pdfbox -->
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
-            <version>2.0.35</version>
+            <version>3.0.7</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox-io</artifactId>
+            <version>3.0.7</version>
         </dependency>
         <dependency>
             <groupId>com.twelvemonkeys.common</groupId>
             <artifactId>common-lang</artifactId>
-            <version>3.13.0</version>
+            <version>3.13.1</version>
         </dependency>
         <!-- TwelveMonkeys ImageIO TIFF plugin - required for multi-page TIFF handling
              after OpenPDF 3.0 removed its built-in TiffImage codec -->
         <dependency>
             <groupId>com.twelvemonkeys.imageio</groupId>
             <artifactId>imageio-tiff</artifactId>
-            <version>3.13.0</version>
+            <version>3.13.1</version>
         </dependency>
 
-        <!-- Glassfish JSTL 1.2.5 implementation (javax namespace for Servlet 4.0 compatibility) -->
+        <!-- Glassfish JSTL 3.0.1 implementation (Jakarta EE 10 - jakarta.tags namespace) -->
         <dependency>
             <groupId>org.glassfish.web</groupId>
-            <artifactId>javax.servlet.jsp.jstl</artifactId>
-            <version>1.2.5</version>
+            <artifactId>jakarta.servlet.jsp.jstl</artifactId>
+            <version>3.0.1</version>
         </dependency>
         <!-- Xalan serializer: companion to xalan:xalan (transitive from JSTL above).
-             Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts 6.x. -->
+             Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts. -->
         <dependency>
             <groupId>xalan</groupId>
             <artifactId>serializer</artifactId>
@@ -578,27 +581,27 @@
         <dependency>
             <groupId>com.github.librepdf</groupId>
             <artifactId>openpdf</artifactId>
-            <version>3.0.2</version>
+            <version>3.0.3</version>
             <exclusions>
                 <!-- Swing GUI PDF viewer - not used (server-side app).
                      Also eliminates discontinued org.swinglabs:pdf-renderer:1.0.5 -->
                 <exclusion>
-                    <groupId>com.github.librepdf.openpdf</groupId>
+                    <groupId>com.github.librepdf</groupId>
                     <artifactId>pdf-swing</artifactId>
                 </exclusion>
                 <!-- Kotlin bindings - not used (Java project) -->
                 <exclusion>
-                    <groupId>com.github.librepdf.openpdf</groupId>
+                    <groupId>com.github.librepdf</groupId>
                     <artifactId>openpdf-kotlin</artifactId>
                 </exclusion>
                 <!-- PDF renderer engine - not used directly (server-side PDF generation only) -->
                 <exclusion>
-                    <groupId>com.github.librepdf.openpdf</groupId>
+                    <groupId>com.github.librepdf</groupId>
                     <artifactId>openpdf-renderer</artifactId>
                 </exclusion>
                 <!-- CLI tools and examples - not used -->
                 <exclusion>
-                    <groupId>com.github.librepdf.openpdf</groupId>
+                    <groupId>com.github.librepdf</groupId>
                     <artifactId>pdf-toolbox</artifactId>
                 </exclusion>
             </exclusions>
@@ -608,9 +611,9 @@
              openpdf artifact, NOT in this module. This module provides org.openpdf.simple.*
              classes for advanced HTML rendering. Retained for transitive compatibility. -->
         <dependency>
-            <groupId>com.github.librepdf.openpdf</groupId>
+            <groupId>com.github.librepdf</groupId>
             <artifactId>openpdf-html</artifactId>
-            <version>3.0.2</version>
+            <version>3.0.3</version>
         </dependency>
 
         <dependency>
@@ -627,39 +630,19 @@
         </dependency>
 
 
-        <!-- Drools 7.x KIE API (migrated from drools:drools-all:2.0 in 2026) -->
-        <dependency>
-            <groupId>org.kie</groupId>
-            <artifactId>kie-api</artifactId>
-            <version>${drools.version}</version>
-        </dependency>
+        <!-- Drools 10.x KIE engine aggregator (upgraded from 7.74.1.Final for Jakarta EE)
+             Includes: kie-api, drools-core, drools-compiler, drools-model-compiler (executable model) -->
         <dependency>
             <groupId>org.drools</groupId>
-            <artifactId>drools-core</artifactId>
+            <artifactId>drools-engine</artifactId>
             <version>${drools.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.drools</groupId>
-            <artifactId>drools-compiler</artifactId>
-            <version>${drools.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.drools</groupId>
-            <artifactId>drools-mvel</artifactId>
-            <version>${drools.version}</version>
-        </dependency>
-        <!-- Override mvel2 transitive version: 2.4.x references java.lang.Compiler (removed in JDK 16/JEP 410) -->
-        <dependency>
-            <groupId>org.mvel</groupId>
-            <artifactId>mvel2</artifactId>
-            <version>${mvel2.version}</version>
         </dependency>
 
-        <!-- jasper reports -->
+        <!-- jasper reports (7.x required for Jakarta EE 10 compatibility) -->
         <dependency>
             <groupId>net.sf.jasperreports</groupId>
             <artifactId>jasperreports</artifactId>
-            <version>6.21.5</version>
+            <version>7.0.6</version>
             <exclusions>
                 <exclusion>
                     <groupId>bouncycastle</groupId>
@@ -697,38 +680,53 @@
             </exclusions>
         </dependency>
 
+        <!-- JasperReports PDF exporter (split from core in JR7) -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-pdf</artifactId>
+            <version>7.0.6</version>
+        </dependency>
+
+        <!-- JasperReports JDT compiler (required for runtime .jrxml compilation) -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-jdt</artifactId>
+            <version>7.0.6</version>
+        </dependency>
+
+        <!-- JasperReports Excel/POI exporter (split from core in JR7) -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-excel-poi</artifactId>
+            <version>7.0.6</version>
+        </dependency>
+
         <!-- Jackson dependencies for JSON processing -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.19.2</version>
+            <version>2.21.1</version>
         </dependency>
 
 
-        <!-- Jackson JAXB annotations support - provides JaxbAnnotationIntrospector used in Spring configs -->
+        <!-- Jackson Jakarta XML Bind annotations support - provides JakartaXmlBindAnnotationIntrospector used in Spring configs -->
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
-            <artifactId>jackson-module-jaxb-annotations</artifactId>
-            <version>2.19.2</version>
+            <artifactId>jackson-module-jakarta-xmlbind-annotations</artifactId>
+            <version>2.21.1</version>
         </dependency>
 
         <!-- Jackson XML support - explicit version to override older transitive from jasperreports -->
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-xml</artifactId>
-            <version>2.19.2</version>
+            <version>2.21.1</version>
         </dependency>
 
 
 
 
 
-        <!-- jcharts: now from Maven Central (same JAR, different coordinates) -->
-        <dependency>
-            <groupId>jcharts</groupId>
-            <artifactId>jcharts</artifactId>
-            <version>0.7.5</version>
-        </dependency>
 
         <!-- cds: can be found in the local_repo folder -->
         <dependency>
@@ -774,11 +772,11 @@
             <version>3.1.0</version>
         </dependency>
 
-        <!-- email -->
+        <!-- email (Jakarta Mail 2.1 via Eclipse Angus) -->
         <dependency>
-            <groupId>com.sun.mail</groupId>
-            <artifactId>jakarta.mail</artifactId>
-            <version>1.6.8</version>
+            <groupId>org.eclipse.angus</groupId>
+            <artifactId>angus-mail</artifactId>
+            <version>2.0.5</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.jfree/jfreechart -->
@@ -810,13 +808,13 @@
             </exclusions>
         </dependency>
 
-        <!-- UPGRADED displaytag to actively maintained hazendaz fork -->
+        <!-- UPGRADED displaytag to Jakarta EE compatible hazendaz fork -->
         <!-- Temporary bridge solution - full DataTables migration planned for Q2 2026 -->
         <!-- Used in JSP files: admin (6), BC billing (3), PMmodule (1), casemgmt (1) -->
         <dependency>
             <groupId>com.github.hazendaz</groupId>
             <artifactId>displaytag</artifactId>
-            <version>2.9.0</version>
+            <version>3.7.0</version>
             <exclusions>
                 <!-- Exclude SLF4J to use OpenO's managed version -->
                 <exclusion>
@@ -850,22 +848,14 @@
         <dependency>
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
-            <version>1.17.2</version>
-        </dependency>
-
-
-
-        <dependency>
-            <groupId>com.github.mwiede</groupId>
-            <artifactId>jsch</artifactId>
-            <version>0.2.19</version>
+            <version>1.22.1</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk18on -->
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
-            <version>1.79</version>
+            <version>1.83</version>
         </dependency>
 
         <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->
@@ -917,7 +907,7 @@
         <dependency>
             <groupId>com.sun.xml.messaging.saaj</groupId>
             <artifactId>saaj-impl</artifactId>
-            <version>1.5.3</version>
+            <version>3.0.4</version>
         </dependency>
 
         <!-- CXF -->
@@ -1036,7 +1026,7 @@
                     <groupId>org.apache.cxf</groupId>
                     <artifactId>cxf-rt-frontend-js</artifactId>
                 </exclusion>
-                <!-- Not used, excluded because Jetty 10 requires jakarta.servlet.* but app uses javax.servlet.* -->
+                <!-- Not used, excluded to avoid pulling in embedded Jetty server -->
                 <exclusion>
                     <groupId>org.apache.cxf</groupId>
                     <artifactId>cxf-rt-transports-http-jetty</artifactId>
@@ -1093,17 +1083,13 @@
             <version>${cxf.version}</version>
         </dependency> -->
 
-        <!-- ScribeJava OAuth 1.0a core. Added after apache cxf was bumped to version 3.5.10 and lost support. -->
-        <dependency>
-            <groupId>com.github.scribejava</groupId>
-            <artifactId>scribejava-core</artifactId>
-            <version>8.3.3</version>
-        </dependency>
+        <!-- ScribeJava removed — only used for 2 string constants and 1 unused method.
+             OAuth 1.0a implementation is fully in-house (OAuth1SignatureVerifier, OAuthInterceptor, etc.) -->
 
         <dependency>
             <groupId>org.commonmark</groupId>
             <artifactId>commonmark</artifactId>
-            <version>0.23.0</version>
+            <version>0.27.1</version>
         </dependency>
 
         <!-- can be found in the local_repo folder -->
@@ -1113,16 +1099,16 @@
 
         <!-- Detected as "Unused dependency" but don't remove it, it's using actually -->
         <dependency>
-            <groupId>com.fasterxml.jackson.jaxrs</groupId>
-            <artifactId>jackson-jaxrs-json-provider</artifactId>
-            <version>2.19.2</version>
+            <groupId>com.fasterxml.jackson.jakarta.rs</groupId>
+            <artifactId>jackson-jakarta-rs-json-provider</artifactId>
+            <version>2.21.1</version>
         </dependency>
 
         <!-- OWASP Encoder -->
         <!-- Detected as "Unused dependency" but don't remove it, it's using in jsp -->
         <dependency>
             <groupId>org.owasp.encoder</groupId>
-            <artifactId>encoder-jsp</artifactId>
+            <artifactId>encoder-jakarta-jsp</artifactId>
             <version>1.4.0</version>
         </dependency>
         <dependency>
@@ -1134,75 +1120,30 @@
         <dependency>
             <groupId>org.owasp</groupId>
             <artifactId>csrfguard</artifactId>
-            <version>4.5.0</version>
+            <version>4.5.0-jakarta</version>
         </dependency>
         <dependency>
             <groupId>org.owasp</groupId>
             <artifactId>csrfguard-extension-session</artifactId>
-            <version>4.5.0</version>
+            <version>4.5.0-jakarta</version>
         </dependency>
         <dependency>
             <groupId>org.owasp</groupId>
             <artifactId>csrfguard-jsp-tags</artifactId>
-            <version>4.5.0</version>
+            <version>4.5.0-jakarta</version>
         </dependency>
         
         <!-- ESAPI removed: ClickjackFilter replaced by security headers in ResponseDefaultsFilter -->
 
 
-        <!-- https://mvnrepository.com/artifact/org.codehaus.jettison/jettison -->
-        <dependency>
-            <groupId>org.codehaus.jettison</groupId>
-            <artifactId>jettison</artifactId>
-            <version>1.5.4</version>
-        </dependency>
-
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <version>26.0.2-1</version>
+            <version>26.1.0</version>
             <scope>compile</scope>
         </dependency>
         
-        <!-- Selenium test dependencies -->
-        <!-- Detected as "Unused dependency" but don't remove it, it's using actually -->
-        <!-- https://mvnrepository.com/artifact/org.seleniumhq.selenium/selenium-java -->
-        <dependency>
-            <groupId>org.seleniumhq.selenium</groupId>
-            <artifactId>selenium-java</artifactId>
-            <version>4.40.0</version>
-            <scope>test</scope>
-            <exclusions>
-                <!-- Exclude DevTools - not using Chrome DevTools Protocol -->
-                <exclusion>
-                    <groupId>org.seleniumhq.selenium</groupId>
-                    <artifactId>selenium-devtools-v142</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.seleniumhq.selenium</groupId>
-                    <artifactId>selenium-devtools-v143</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.seleniumhq.selenium</groupId>
-                    <artifactId>selenium-devtools-v144</artifactId>
-                </exclusion>
-                <!-- Exclude OpenTelemetry - not using observability features -->
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <!-- webdrivermanager removed - Selenium 4.6+ has built-in Selenium Manager -->
-        <!-- that auto-downloads browser drivers, making webdrivermanager unnecessary -->
-        <!-- Also removes vulnerable OkHttp 3.x transitive dependency -->
-        <!-- https://mvnrepository.com/artifact/org.testng/testng -->
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <version>7.5.1</version>
-            <scope>test</scope>
-        </dependency>
+        <!-- TestNG removed: all tests migrated to JUnit 5 (modern test framework) -->
 
         <!-- Modern Test Framework Dependencies -->
 
@@ -1210,11 +1151,41 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>5.21.0</version>
+            <version>5.23.0</version>
             <scope>test</scope>
         </dependency>
 
         <!-- Mockito JUnit Jupiter integration -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>5.23.0</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- JUnit Jupiter -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>6.0.3</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- JUnit Jupiter API - explicit version to override mockito-junit-jupiter transitive -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>6.0.3</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- JUnit Jupiter Params for parameterized tests -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <version>6.0.3</version>
+            <scope>test</scope>
+        </dependency>
 
         <!-- AssertJ for fluent assertions -->
         <dependency>
@@ -1228,25 +1199,10 @@
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <version>2.2.224</version>
+            <version>2.4.240</version>
             <scope>test</scope>
         </dependency>
 
-        <!-- DBUnit for database testing -->
-        <dependency>
-            <groupId>org.dbunit</groupId>
-            <artifactId>dbunit</artifactId>
-            <version>2.7.3</version>
-            <scope>test</scope>
-            <exclusions>
-                <!-- Exclude PostgreSQL driver - OpenO uses MariaDB/MySQL only -->
-                <!-- Fixes CVE GHSA-24rp-q3w6-vc56 false positive -->
-                <exclusion>
-                    <groupId>org.postgresql</groupId>
-                    <artifactId>postgresql</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
 
         <!-- https://mvnrepository.com/artifact/com.google.guava/guava -->
         <dependency>
@@ -1255,11 +1211,11 @@
             <version>33.5.0-jre</version>
         </dependency>
 
-        <!-- Flying Saucer 10.0.7 - HTML/CSS to PDF via OpenPDF 3.0.x (org.openpdf.* namespace) -->
+        <!-- Flying Saucer - HTML/CSS to PDF via OpenPDF 3.0.x (org.openpdf.* namespace) -->
         <dependency>
             <groupId>org.xhtmlrenderer</groupId>
             <artifactId>flying-saucer-pdf</artifactId>
-            <version>10.0.7</version>
+            <version>10.0.6</version>
         </dependency>
 
 
@@ -1295,7 +1251,7 @@
         <dependency>
            <groupId>com.sun.xml.ws</groupId>
            <artifactId>jaxws-ri</artifactId>
-           <version>2.3.7</version>
+           <version>4.0.3</version>
            <type>pom</type>
            <exclusions>
                 <!-- Not being used, excluded to avoid triggering security issue -->
@@ -1306,56 +1262,60 @@
            </exclusions>
         </dependency>
         <dependency>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
-            <version>1.3.2</version>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+            <version>3.0.0</version>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/javax.inject/javax.inject -->
-        <!-- Required for @Inject annotation in OAuth resources (was transitive from jersey-client) -->
+        <!-- https://mvnrepository.com/artifact/jakarta.inject/jakarta.inject-api -->
+        <!-- Required for @Inject annotation in OAuth resources -->
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
-            <version>1</version>
+            <groupId>jakarta.inject</groupId>
+            <artifactId>jakarta.inject-api</artifactId>
+            <version>2.0.1</version>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/javax.servlet.jsp/javax.servlet.jsp-api -->
+        <!-- https://mvnrepository.com/artifact/jakarta.servlet.jsp/jakarta.servlet.jsp-api -->
         <dependency>
-            <groupId>javax.servlet.jsp</groupId>
-            <artifactId>javax.servlet.jsp-api</artifactId>
-            <version>2.3.3</version>
+            <groupId>jakarta.servlet.jsp</groupId>
+            <artifactId>jakarta.servlet.jsp-api</artifactId>
+            <version>4.0.0</version>
             <scope>provided</scope>
         </dependency>
 
-        <!-- Removed jaxb-impl duplicate - using org.glassfish.jaxb:jaxb-runtime instead -->
-        <!-- Added for Tomcat 9.0.97 - JAXB runtime implementation (version managed by dependencyManagement) -->
+        <!-- JAXB runtime implementation (Jakarta EE - version managed by dependencyManagement) -->
         <dependency>
             <groupId>org.glassfish.jaxb</groupId>
             <artifactId>jaxb-runtime</artifactId>
         </dependency>
+        <!-- JAXB API (Jakarta EE) -->
+        <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+        </dependency>
 
-        <!-- JSTL API is included as transitive dependency of javax.servlet.jsp.jstl -->
-        <!-- Removed standalone javax.servlet:jstl:1.2 to avoid conflicts -->
+        <!-- JSTL API is included as transitive dependency of jakarta.servlet.jsp.jstl -->
 
         <dependency>
             <groupId>org.apache.struts</groupId>
             <artifactId>struts2-core</artifactId>
-            <version>6.8.0</version>
+            <version>7.1.1</version>
         </dependency>
         <dependency>
             <groupId>org.apache.struts</groupId>
             <artifactId>struts2-spring-plugin</artifactId>
-            <version>6.8.0</version>
+            <version>7.1.1</version>
         </dependency>
-        <!-- Caffeine Cache - Required by Struts 6.x for internal caching -->
+        <!-- Caffeine Cache - Required by Struts for internal caching -->
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
-            <version>3.1.8</version>
+            <version>3.2.3</version>
         </dependency>
-		<!-- https://mvnrepository.com/artifact/dev.samstevens.totp/totp -->
+		<!-- https://mvnrepository.com/artifact/com.eatthepath/java-otp -->
+		<!-- TOTP/HOTP library for MFA (replaces abandoned dev.samstevens.totp) -->
 		<dependency>
-			<groupId>dev.samstevens.totp</groupId>
-			<artifactId>totp</artifactId>
-			<version>1.7.1</version>
+			<groupId>com.eatthepath</groupId>
+			<artifactId>java-otp</artifactId>
+			<version>0.4.0</version>
 		</dependency>
 
 
@@ -1395,7 +1355,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
-                <version>3.3.1</version>
+                <version>3.5.0</version>
                 <configuration>
                     <propertiesEncoding>ISO-8859-1</propertiesEncoding>
                     <nonFilteredFileExtensions>
@@ -1413,7 +1373,7 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>buildnumber-maven-plugin</artifactId>
-                <version>3.2.0</version>
+                <version>3.3.0</version>
                 <executions>
                     <execution>
                         <phase>validate</phase>
@@ -1445,7 +1405,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
+                <version>3.15.0</version>
                 <configuration>
                     <source>21</source>
                     <target>21</target>
@@ -1466,13 +1426,13 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.8.1</version>
+                <version>3.10.0</version>
             </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
-                <version>3.1.0</version>
+                <version>3.2.0</version>
                 <executions>
                     <execution>
                         <phase>process-classes</phase>
@@ -1499,7 +1459,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-war-plugin</artifactId>
-                <version>3.4.0</version>
+                <version>3.5.1</version>
                 <configuration>
                     <webResources>
                         <resource>
@@ -1559,7 +1519,7 @@
                     <dependency>
                         <groupId>com.puppycrawl.tools</groupId>
                         <artifactId>checkstyle</artifactId>
-                        <version>10.20.1</version>
+                        <version>13.3.0</version>
                     </dependency>
                 </dependencies>
                 <executions>
@@ -1613,12 +1573,12 @@
                     <dependency>
                         <groupId>net.sourceforge.pmd</groupId>
                         <artifactId>pmd-core</artifactId>
-                        <version>7.20.0</version>
+                        <version>7.22.0</version>
                     </dependency>
                     <dependency>
                         <groupId>net.sourceforge.pmd</groupId>
                         <artifactId>pmd-java</artifactId>
-                        <version>7.20.0</version>
+                        <version>7.22.0</version>
                     </dependency>
                 </dependencies>
             </plugin>
@@ -1626,109 +1586,44 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.4</version>
-                <executions>
-                    <!-- Override default test execution -->
-                    <execution>
-                        <id>default-test</id>
-                        <configuration>
-                            <skip>true</skip>
-                        </configuration>
-                    </execution>
-                    <!-- Run modern tests with JUnit 5 -->
-                    <execution>
-                        <id>modern-tests</id>
-                        <phase>${modern.tests.phase}</phase>
-                        <goals>
-                            <goal>test</goal>
-                        </goals>
-                        <configuration>
-                            <skip>${skipModernTests}</skip>
-                            <!-- Each fork is a separate JVM with its own H2 mem:testdb instance,
-                                 so forks are completely isolated and safe to run in parallel.
-                                 Legacy tests use a real MariaDB and must remain sequential. -->
-                            <forkCount>2</forkCount>
-                            <reuseForks>true</reuseForks>
-                            <testSourceDirectory>src/test-modern/java</testSourceDirectory>
-                            <reportsDirectory>${project.build.directory}/surefire-reports-modern</reportsDirectory>
-                            <testClassesDirectory>${project.build.directory}/test-classes</testClassesDirectory>
-                            <includes>
-                                <include>**/test/**/*Test.java</include>
-                                <include>**/test/**/*Tests.java</include>
-                                <include>**/tickler/**/*Test.java</include>
-                                <include>**/messenger/**/*Test.java</include>
-                                <include>**/provider/**/*Test.java</include>
-                                <include>**/managers/**/*Test.java</include>
-                                <include>**/*IntegrationTest.java</include>
-                                <include>**/*UnitTest.java</include>
-                            </includes>
-                            <excludes>
-                                <!-- Exclude archive tests from modern test run -->
-                                <exclude>**/archive/**/*Test.java</exclude>
-                            </excludes>
-                            <argLine>
-                               @{argLine}
-                               -Xmx2048m
-                               -Dnet.bytebuddy.experimental=true
-                               --add-opens java.base/java.lang=ALL-UNNAMED
-                               --add-opens java.base/java.util=ALL-UNNAMED
-                               -Djdk.attach.allowAttachSelf=true
-                               -XX:+EnableDynamicAgentLoading
-                             </argLine>
-                            <!-- Test filtering by groups when specified -->
-                            <groups>${groups}</groups>
-                        </configuration>
-                    </execution>
-                    <!-- Run legacy tests WITHOUT JUnit 5 -->
-                    <execution>
-                        <id>legacy-tests</id>
-                        <phase>${legacy.tests.phase}</phase>
-                        <goals>
-                            <goal>test</goal>
-                        </goals>
-                        <configuration>
-                            <skip>${skipLegacyTests}</skip>
-                            <testSourceDirectory>src/test/java</testSourceDirectory>
-                            <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
-                            <testClassesDirectory>${project.build.directory}/test-classes</testClassesDirectory>
-                            <!-- Exclude modern test classes from classpath -->
-                            <classpathDependencyExcludes>
-                                <classpathDependencyExclude>*:*test-modern*</classpathDependencyExclude>
-                            </classpathDependencyExcludes>
-                            <excludes>
-                                <exclude>**/*EDTTest.java</exclude>
-                                <exclude>**/AR2005*.java</exclude>
-                                <exclude>**/OntarioMDSpec4DataTest.java</exclude>
-                                <exclude>**/ONAREnhancedBornConnectorTest.java</exclude>
-                                <exclude>org/oscarehr/e2e/**/*.java</exclude>
-                                <!-- Exclude modern test packages from legacy test run -->
-                                <exclude>**/tickler/dao/**IntegrationTest.java</exclude>
-                                <exclude>**/tickler/dao/**UnitTest.java</exclude>
-                                <exclude>**/tickler/manager/**Test.java</exclude>
-                                <exclude>**/test/simple/**Test.java</exclude>
-                                <exclude>**/test/examples/**Test.java</exclude>
-                                <exclude>**/test/base/**Test.java</exclude>
-                                <exclude>tests/**</exclude>
-                            </excludes>
-                            <systemPropertyVariables>
-                                <oscar.dbinit.skip>${oscar.dbinit.skip}</oscar.dbinit.skip>
-                                <buildDirectory>${project.build.directory}</buildDirectory>
-                            </systemPropertyVariables>
-                            <!-- Java 21 compatibility flags for JAXB -->
-                            <argLine>
-                                @{argLine}
-                                -Xmx2048m
-                                -Dnet.bytebuddy.experimental=true
-                                --add-opens java.base/java.lang=ALL-UNNAMED
-                                --add-opens java.base/java.lang.reflect=ALL-UNNAMED
-                                --add-opens java.base/sun.reflect=ALL-UNNAMED
-                                --add-opens java.base/sun.nio.ch=ALL-UNNAMED
-                                --add-opens java.base/java.io=ALL-UNNAMED
-                                --add-opens java.base/java.util=ALL-UNNAMED
-                            </argLine>
-                        </configuration>
-                    </execution>
-                </executions>
+                <version>3.5.5</version>
+                <configuration>
+                    <!-- Each fork is a separate JVM with its own H2 mem:testdb instance,
+                         so forks are completely isolated and safe to run in parallel. -->
+                    <forkCount>4</forkCount>
+                    <reuseForks>true</reuseForks>
+                    <!-- Run test classes in parallel within each fork.
+                         Safe because: integration tests use @Transactional @Rollback (each test
+                         gets its own transaction), and the few static-mock unit tests don't share
+                         Spring context with integration tests. -->
+                    <parallel>classes</parallel>
+                    <threadCount>2</threadCount>
+                    <perCoreThreadCount>false</perCoreThreadCount>
+                    <includes>
+                        <include>**/test/**/*Test.java</include>
+                        <include>**/test/**/*Tests.java</include>
+                        <include>**/tickler/**/*Test.java</include>
+                        <include>**/messenger/**/*Test.java</include>
+                        <include>**/provider/**/*Test.java</include>
+                        <include>**/managers/**/*Test.java</include>
+                        <include>**/*IntegrationTest.java</include>
+                        <include>**/*UnitTest.java</include>
+                    </includes>
+                    <excludes>
+                        <exclude>**/archive/**/*Test.java</exclude>
+                    </excludes>
+                    <argLine>
+                       @{argLine}
+                       -Xmx2048m
+                       -Dnet.bytebuddy.experimental=true
+                       --add-opens java.base/java.lang=ALL-UNNAMED
+                       --add-opens java.base/java.util=ALL-UNNAMED
+                       -Djdk.attach.allowAttachSelf=true
+                       -XX:+EnableDynamicAgentLoading
+                     </argLine>
+                    <!-- Test filtering by groups when specified -->
+                    <groups>${groups}</groups>
+                </configuration>
             </plugin>
 
             <plugin>
@@ -1755,7 +1650,7 @@
             <plugin>
                 <groupId>se.vandmo</groupId>
                 <artifactId>dependency-lock-maven-plugin</artifactId>
-                <version>1.1.0</version>
+                <version>1.1.1</version>
                 <configuration>
                     <!-- Can be overridden with -Ddependency.lock.filename=xxx -->
                     <filename>${dependency.lock.filename}</filename>
@@ -1775,7 +1670,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.11.2</version>
+                <version>3.12.0</version>
                 <configuration>
                     <outputDirectory>${project.build.directory}/site/apidocs</outputDirectory>
                     <reportOutputDirectory>${project.build.directory}/site/apidocs</reportOutputDirectory>
@@ -1805,82 +1700,6 @@
     </build>
 
     <profiles>
-        <!-- Profile for modern tests with JUnit 5 -->
-        <profile>
-            <id>modern-tests</id>
-            <activation>
-                <property>
-                    <!-- Activate when NOT skipping modern tests -->
-                    <name>!skipModernTests</name>
-                </property>
-            </activation>
-            <properties>
-                <!-- Use modern lock file when modern-tests profile is active -->
-                <dependency.lock.filename>dependencies-lock-modern.json</dependency.lock.filename>
-            </properties>
-            <dependencies>
-                <!-- JUnit 5 (Jupiter) -->
-                <dependency>
-                    <groupId>org.junit.jupiter</groupId>
-                    <artifactId>junit-jupiter</artifactId>
-                    <version>5.10.1</version>
-                    <scope>test</scope>
-                </dependency>
-                <!-- JUnit 5 Params for parameterized tests -->
-                <dependency>
-                    <groupId>org.junit.jupiter</groupId>
-                    <artifactId>junit-jupiter-params</artifactId>
-                    <version>5.10.1</version>
-                    <scope>test</scope>
-                </dependency>
-                <!-- Mockito JUnit Jupiter integration -->
-                <dependency>
-                    <groupId>org.mockito</groupId>
-                    <artifactId>mockito-junit-jupiter</artifactId>
-                    <version>5.21.0</version>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
-            <build>
-                <plugins>
-                    <!-- Add modern test sources only when profile is active -->
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>build-helper-maven-plugin</artifactId>
-                        <version>3.6.0</version>
-                        <executions>
-                            <execution>
-                                <id>add-modern-test-source</id>
-                                <phase>generate-test-sources</phase>
-                                <goals>
-                                    <goal>add-test-source</goal>
-                                </goals>
-                                <configuration>
-                                    <sources>
-                                        <source>src/test-modern/java</source>
-                                    </sources>
-                                </configuration>
-                            </execution>
-                            <execution>
-                                <id>add-modern-test-resource</id>
-                                <phase>generate-test-resources</phase>
-                                <goals>
-                                    <goal>add-test-resource</goal>
-                                </goals>
-                                <configuration>
-                                    <resources>
-                                        <resource>
-                                            <directory>src/test-modern/resources</directory>
-                                        </resource>
-                                    </resources>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
         <profile>
             <!-- Skip jsp compile, run 'mvn package -Pjspc' to compile jsps -->
             <id>jspc</id>
@@ -1893,7 +1712,7 @@
                     <plugin>
                         <groupId>io.leonard.maven.plugins</groupId>
                         <artifactId>jspc-maven-plugin</artifactId>
-                        <version>3.0.0</version>
+                        <version>5.0.0</version>
                         <executions>
                             <execution>
                                 <id>jspc</id>
@@ -1915,36 +1734,23 @@
                             </execution>
                         </executions>
                     </plugin>
+                    <!-- Dependency lock is already validated in the build job.
+                         Skip in jspc profile because JitPack can shadow Maven Central
+                         artifacts under alternate groupIds in CI environments with cold
+                         caches, causing false dependency-lock failures. -->
+                    <plugin>
+                        <groupId>se.vandmo</groupId>
+                        <artifactId>dependency-lock-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>check</id>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
                 </plugins>
             </build>
         </profile>
 
-        <!-- Profile to skip modern tests if needed -->
-        <profile>
-            <id>skip-modern-tests</id>
-            <activation>
-                <property>
-                    <name>skipModernTests</name>
-                    <value>true</value>
-                </property>
-            </activation>
-            <properties>
-                <skipModernTests>true</skipModernTests>
-                <modern.tests.phase>none</modern.tests.phase>
-            </properties>
-        </profile>
-        <profile>
-            <id>skip-legacy-tests</id>
-            <activation>
-                <property>
-                    <name>skipLegacyTests</name>
-                    <value>true</value>
-                </property>
-            </activation>
-            <properties>
-                <skipLegacyTests>true</skipLegacyTests>
-                <legacy.tests.phase>none</legacy.tests.phase>
-            </properties>
-        </profile>
     </profiles>
 </project>

@@ -28,7 +28,7 @@
  */
 package io.github.carlos_emr.carlos.integration.dhir;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 
 public class SubmitImmunization2Action extends ActionSupport {
     public String execute() throws Exception {

@@ -33,7 +33,7 @@ package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 import java.util.GregorianCalendar;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.commons.text.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;

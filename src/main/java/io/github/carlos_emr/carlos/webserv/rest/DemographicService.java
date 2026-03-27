@@ -35,16 +35,16 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -99,7 +99,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.WaitingListNameTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
 
 
@@ -635,7 +635,7 @@ public class DemographicService extends AbstractServiceImpl {
         req.setActive(true);
         //caisi
         boolean outOfDomain = true;
-        if (OscarProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1) {
+        if (CarlosProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1) {
             outOfDomain = false;
         }
         req.setOutOfDomain(outOfDomain);
@@ -681,7 +681,7 @@ public class DemographicService extends AbstractServiceImpl {
         DemographicSearchRequest req = convertFromJSON(json);
         //caisi
         boolean outOfDomain = true;
-        if (OscarProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1) {
+        if (CarlosProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1) {
             outOfDomain = false;
         }
         req.setOutOfDomain(outOfDomain);

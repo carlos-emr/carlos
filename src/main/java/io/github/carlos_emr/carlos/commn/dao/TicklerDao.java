@@ -40,10 +40,19 @@ import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 
 public interface TicklerDao extends AbstractDao<Tickler> {
 
+    /**
+     * Finds a Tickler by its ID.
+     */
     public Tickler find(Integer id);
 
+    /**
+     * Finds active ticklers for patients based on demographic numbers and a message.
+     */
     public List<Tickler> findActiveByMessageForPatients(List<Integer> demographicNos, String remString);
 
+    /**
+     * Finds active ticklers by demographic number and message.
+     */
     public List<Tickler> findActiveByDemographicNoAndMessage(Integer demoNo, String message);
 
     public List<Tickler> findActiveByDemographicNo(Integer demoNo);
@@ -52,23 +61,44 @@ public interface TicklerDao extends AbstractDao<Tickler> {
 
     public List<Tickler> findByTicklerNoAssignedTo(Integer ticklerNo, String assignedTo, Integer demoNo);
 
+    /**
+     * Retrieves a list of Tickler objects based on demographic ID, assigned task, and message.
+     */
     public List<Tickler> findByDemographicIdTaskAssignedToAndMessage(Integer demographicNo, String taskAssignedTo,
                                                                      String message);
 
+    /**
+     * Searches for ticklers based on demographic number and status within a date range.
+     */
     public List<Tickler> search_tickler_bydemo(Integer demographicNo, String status, Date beginDate, Date endDate);
 
+    /**
+     * Searches for ticklers based on demographic number and end date.
+     */
     public List<Tickler> search_tickler(Integer demographicNo, Date endDate);
 
     public List<Tickler> listTicklers(Integer demographicNo, Date beginDate, Date endDate);
 
+    /**
+     * Returns the count of active ticklers for the specified provider.
+     */
     public int getActiveTicklerCount(String providerNo);
 
+    /**
+     * Returns the count of active ticklers for a given demographic number.
+     */
     public int getActiveTicklerByDemoCount(Integer demographicNo);
 
     public List<Tickler> getTicklers(CustomFilter filter, int offset, int limit);
 
+    /**
+     * Retrieves a list of tickler DTOs based on the specified filter criteria.
+     */
     public List<Tickler> getTicklers(CustomFilter filter);
 
+    /**
+     * Returns the count of tickler DTOs matching the specified filter criteria.
+     */
     public int getNumTicklers(CustomFilter filter);
 
     /**

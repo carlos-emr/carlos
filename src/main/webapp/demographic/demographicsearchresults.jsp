@@ -51,10 +51,10 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
@@ -88,7 +88,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExt" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
@@ -121,8 +121,8 @@
     java.util.ResourceBundle oscarResources = ResourceBundle.getBundle("oscarResources", request.getLocale());
     String noteReason = oscarResources.getString("oscarEncounter.noteReason.TelProgress");
 
-    if (OscarProperties.getInstance().getProperty("disableTelProgressNoteTitleInEncouterNotes") != null
-            && OscarProperties.getInstance().getProperty("disableTelProgressNoteTitleInEncouterNotes").equals("yes")) {
+    if (CarlosProperties.getInstance().getProperty("disableTelProgressNoteTitleInEncouterNotes") != null
+            && CarlosProperties.getInstance().getProperty("disableTelProgressNoteTitleInEncouterNotes").equals("yes")) {
         noteReason = "";
     }
 
@@ -297,8 +297,8 @@
                 <%
                     String providerNo = loggedInInfo.getLoggedInProviderNo();
                     boolean outOfDomain = true;
-                    if (OscarProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1) {
-                        if (!"true".equals(OscarProperties.getInstance().getProperty("pmm.client.search.outside.of.domain.enabled", "true"))) {
+                    if (CarlosProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1) {
+                        if (!"true".equals(CarlosProperties.getInstance().getProperty("pmm.client.search.outside.of.domain.enabled", "true"))) {
                             outOfDomain = false;
                         }
                         if (request.getParameter("outofdomain") != null && request.getParameter("outofdomain").equals("true")) {
@@ -318,7 +318,7 @@
                     List<Demographic> demoList = null;
 
                     if (keyword != null && keyword.length() == 0) {
-                        int mostRecentPatientListSize = Integer.parseInt(OscarProperties.getInstance().getProperty("MOST_RECENT_PATIENT_LIST_SIZE", "3"));
+                        int mostRecentPatientListSize = Integer.parseInt(CarlosProperties.getInstance().getProperty("MOST_RECENT_PATIENT_LIST_SIZE", "3"));
                         List<Integer> results = oscarLogDao.getRecentDemographicsAccessedByProvider(providerNo, 0, mostRecentPatientListSize);
                         demoList = new ArrayList<Demographic>();
                         for (Integer r : results) {
@@ -490,7 +490,7 @@
 
     List<Demographic> doSearch(DemographicDao demographicDao, String searchMode, String ptstatus, String keyword, int limit, int offset, String orderBy, String providerNo, boolean outOfDomain) {
         List<Demographic> demoList = null;
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         String pstatus = props.getProperty("inactive_statuses", "IN, DE, IC, ID, MO, FI");
         pstatus = pstatus.replaceAll("'", "").replaceAll("\\s", "");
         List<String> stati = Arrays.asList(pstatus.split(","));

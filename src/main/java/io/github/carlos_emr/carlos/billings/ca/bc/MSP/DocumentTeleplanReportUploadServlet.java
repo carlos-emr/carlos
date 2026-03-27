@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -32,179 +32,61 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Iterator;
-import java.util.List;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.Properties;
 
-import javax.servlet.RequestDispatcher;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Part;
 
-import org.apache.commons.fileupload.DiskFileUpload;
-import org.apache.commons.fileupload.FileItem;
-import org.apache.commons.fileupload.FileUploadException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.DocumentBean;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class DocumentTeleplanReportUploadServlet extends HttpServlet {
-    final static int BUFFER = 2048;
 
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
 
-
-        byte data[] = new byte[BUFFER];
-        byte data1[] = new byte[BUFFER / 2];
-        byte data2[] = new byte[BUFFER / 2];
-        byte enddata[] = new byte[2];
-
-
-        HttpSession session = request.getSession(true);
-        String backupfilepath = ((String) session.getAttribute("homepath")) != null ? ((String) session.getAttribute("homepath")) : "null";
-
-
         String foldername = "", fileheader = "", forwardTo = "";
 
-        String userHomePath = System.getProperty("user.home", "user.dir");
-        MiscUtils.getLogger().debug(userHomePath);
-
-        Properties ap = OscarProperties.getInstance();
+        Properties ap = CarlosProperties.getInstance();
 
         forwardTo = ap.getProperty("TA_FORWARD");
         foldername = ap.getProperty("DOCUMENT_DIR");
 
-        //
         if (forwardTo == null || forwardTo.length() < 1) return;
 
-
-        //		 Create a new file upload handler
-        DiskFileUpload upload = new DiskFileUpload();
+        File documentDir = new File(foldername);
 
         try {
-            //		 Parse the request
-            List items = upload.parseRequest(request);
-//          Process the uploaded items
-            Iterator iter = items.iterator();
-            while (iter.hasNext()) {
-                FileItem item = (FileItem) iter.next();
+            for (Part part : request.getParts()) {
+                String submittedFilename = part.getSubmittedFileName();
+                if (submittedFilename == null || submittedFilename.isEmpty()) {
+                    continue;
+                }
 
-                if (item.isFormField()) {
-                    //String name = item.getFieldName();
-                    //String value = item.getString(); 
+                File savedFile = PathValidationUtils.validatePath(submittedFilename, documentDir);
+                fileheader = savedFile.getName();
 
-                } else {
-                    String pathName = item.getName();
-                    String[] fullFile = pathName.split("[/|\\\\]");
-                    File savedFile = new File(foldername, fullFile[fullFile.length - 1]);
-
-                    fileheader = fullFile[fullFile.length - 1];
-
-                    item.write(savedFile);
+                try (InputStream in = part.getInputStream()) {
+                    Files.copy(in, savedFile.toPath());
                 }
             }
-        } catch (FileUploadException e) {
-            // TODO Auto-generated catch block
-            MiscUtils.getLogger().error("Error", e);
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().error("Path validation failed for uploaded Teleplan file", e);
         } catch (Exception e) {
-            // TODO Auto-generated catch block
             MiscUtils.getLogger().error("Error", e);
         }
-        //
-
-
-        // function = request.getParameter("function");
-        // function_id = request.getParameter("functionid");
-        // filedesc = request.getParameter("filedesc");
-        // creator = request.getParameter("creator");
-        
-  /*      ServletInputStream sis = request.getInputStream();
-        BufferedOutputStream dest = null;
-        FileOutputStream fos = null;
-        boolean bwri = false;
-        boolean bfbo = true;
-        boolean benddata = false;
-        boolean bf = false;
-        byte boundary[] = temp.getBytes();
-        
-        while (bf?true:((count = sis.readLine(data, 0, BUFFER)) != -1)) {
-            bf = false;
-            benddata = false;
-            if(count==2 && data[0]==13 && data[1]==10) {
-                enddata[0] = 13;
-                enddata[1] = 10;
-                for(int i=0;i<BUFFER;i++) data[i]=0;
-                
-                count = sis.readLine(data, 0, BUFFER);
-                if(count==2 && data[0]==13 && data[1]==10) {
-                    dest.write(enddata, 0, 2);
-                    bf = true;
-                    continue;
-                } else {
-                    benddata = true;
-                }
-            }
-            String s = new String(data,2,temp.length());
-            if(temp.equals(s)) {
-                if(benddata) break;
-                if((c =sis.readLine(data1, 0, BUFFER)) != -1) {
-                    filename = new String(data1);
-                    if(filename.length()>2 && filename.indexOf("filename")!=-1) {
-                        filename = filename.substring(filename.lastIndexOf('\\')+1,filename.lastIndexOf('\"'));
-
-                        fileheader = filename;
-                        fos = new FileOutputStream(foldername+ filename);
-                        dest = new BufferedOutputStream(fos, BUFFER);
-                    }
-                    c =sis.readLine(data2, 0, BUFFER);
-                    if((c =sis.readLine(data2, 0, BUFFER)) != -1) {
-                        bwri = bfbo?true:false;
-                    }
-                }
-                bfbo = bfbo?false:true;
-                for(int i=0;i<BUFFER;i++) data[i]=0;
-                continue;
-            } //end period
-            
-            if(benddata) {
-                benddata = false;
-                dest.write(enddata, 0, 2);
-                for(int i=0;i<2;i++) enddata[i]=0;
-            }
-            if(bwri) {
-                dest.write(data, 0, count);
-                for(int i=0;i<BUFFER;i++) data[i]=0;
-            }
-        } //end while
-        //dest.flush();
-        dest.close();
-        sis.close();
-    */
 
         DocumentBean documentBean = new DocumentBean();
-
         request.setAttribute("documentBean", documentBean);
-
-
         documentBean.setFilename(fileheader);
-
-        //  documentBean.setFileDesc(filedesc);
-
-        //  documentBean.setFoldername(foldername);
-
-        //  documentBean.setFunction(function);
-
-        //  documentBean.setFunctionID(function_id);
-
-        //  documentBean.setCreateDate(fileheader);
-
-        //  documentBean.setDocCreator(creator);
-
-
-        // Call the output page.
 
         RequestDispatcher dispatch = getServletContext().getRequestDispatcher(forwardTo);
         dispatch.forward(request, response);

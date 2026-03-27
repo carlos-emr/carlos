@@ -24,7 +24,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@page import="io.github.carlos_emr.carlos.util.DateUtils,io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="java.util.Properties,java.util.Date,java.util.List,java.util.ArrayList,java.math.BigDecimal" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao,io.github.carlos_emr.carlos.commn.model.BillingONPayment" %>
@@ -39,14 +39,14 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.Billing3rdPartPrep" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%
@@ -64,7 +64,7 @@
     Properties prop3rdPart = privateObj.get3rdPartBillProp(invoiceNoStr);
     Properties prop3rdPayMethod = privateObj.get3rdPayMethod();
     Properties propGst = privateObj.getGst(invoiceNoStr);
-    OscarProperties oscarProp = OscarProperties.getInstance();
+    CarlosProperties oscarProp = CarlosProperties.getInstance();
     boolean isMulitSites = oscarProp.getBooleanProperty("multisites", "on");
 
 
@@ -92,7 +92,7 @@
 
     ClinicDAO clinicDao = (ClinicDAO) SpringUtils.getBean(ClinicDAO.class);
     Clinic clinic = clinicDao.getClinic();
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
 
     Properties gstProp = new Properties();
     GstControl2Action db = new GstControl2Action();
@@ -360,7 +360,7 @@
         <td><%=providerFormattedName%>
         </td>
 
-        <% Properties prop = OscarProperties.getInstance();
+        <% Properties prop = CarlosProperties.getInstance();
             String payee = prop.getProperty("PAYEE", "");
             payee = payee.trim();
             if (payee.length() > 0) {

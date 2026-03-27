@@ -24,14 +24,14 @@
 
 package io.github.carlos_emr.carlos.billing.CA.ON.web;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ServletActionContext;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Logger;
@@ -190,7 +190,7 @@ public class MoveMOHFiles2Action extends ActionSupport {
             for (EDTFolder folder : EDTFolder.values()) {
                 File edtFolderFile = new File(folder.getPath());
                 try {
-                    PathValidationUtils.validateExistingPath(file, edtFolderFile);
+                    file = PathValidationUtils.validateExistingPath(file, edtFolderFile);
                     result = true;
                     break;
                 } catch (SecurityException e) {

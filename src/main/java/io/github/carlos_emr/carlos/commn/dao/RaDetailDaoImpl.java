@@ -38,7 +38,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
@@ -221,7 +221,7 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
 
     @Override
     public List<Object[]> search_raprovider(Integer raHeaderNo) {
-        Query query = entityManager.createQuery("from RaDetail r, Provider p where p.OhipNo=r.providerOhipNo and r.raHeaderNo=?1 group by r.providerOhipNo");
+        Query query = entityManager.createQuery("select r, p from RaDetail r, Provider p where p.OhipNo=r.providerOhipNo and r.raHeaderNo=?1 group by r.providerOhipNo");
 
         query.setParameter(1, raHeaderNo);
 

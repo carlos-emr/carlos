@@ -30,7 +30,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -51,7 +51,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DocumentDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Document" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%
     DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
@@ -60,8 +60,8 @@
 
 <%
     String filename = "", filetype = "", doc_no = "";
-    String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
-    String downloadMethod = OscarProperties.getInstance().getProperty("DOCUMENT_DOWNLOAD_METHOD");
+    String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+    String downloadMethod = CarlosProperties.getInstance().getProperty("DOCUMENT_DOWNLOAD_METHOD");
     session.setAttribute("docdownload", docdownload);
     if (request.getParameter("document") != null) {
         filename = request.getParameter("document");

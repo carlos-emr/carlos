@@ -38,7 +38,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.zip.GZIPInputStream;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.model.Clinic;

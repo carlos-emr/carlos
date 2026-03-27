@@ -32,7 +32,7 @@ package io.github.carlos_emr;
 
 import java.util.Properties;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Dictionary helper class for storing and retrieving strings.

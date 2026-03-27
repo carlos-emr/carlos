@@ -104,7 +104,7 @@
 <%@ page import="java.util.Properties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <!DOCTYPE html>

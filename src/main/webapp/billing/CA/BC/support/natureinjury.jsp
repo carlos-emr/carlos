@@ -35,7 +35,7 @@
 <html>
     <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>OSCAR Nature of Injury</title>
+    <title>CARLOS Nature of Injury</title>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/oscar.css">
     </head>
     <%

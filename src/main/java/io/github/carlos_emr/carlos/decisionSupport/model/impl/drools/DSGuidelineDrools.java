@@ -31,10 +31,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.persistence.DiscriminatorValue;
-import javax.persistence.Entity;
-import javax.persistence.PostUpdate;
-import javax.persistence.Transient;
+import jakarta.persistence.DiscriminatorValue;
+import jakarta.persistence.Entity;
+import jakarta.persistence.PostUpdate;
+import jakarta.persistence.Transient;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -109,7 +109,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.RuleBaseCrea
  * <p>Compiled {@link KieBase} instances are cached in {@link RuleBaseFactory} using a key of
  * the form {@code "DSGuidelineDrools:<id>"} (or {@code "DSGuidelineDrools:<title>"} when the
  * entity has no persisted ID). The cache has a 24-hour TTL. When the entity is updated via JPA,
- * the {@link #afterSave()} callback (annotated with {@link javax.persistence.PostUpdate @PostUpdate})
+ * the {@link #afterSave()} callback (annotated with {@link jakarta.persistence.PostUpdate @PostUpdate})
  * invalidates the cached entry, forcing recompilation on the next evaluation.</p>
  *
  * <h3>Evaluation Flow</h3>

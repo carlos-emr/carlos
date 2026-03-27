@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 public class EctDisplayEHR2Action extends EctDisplayAction {
 

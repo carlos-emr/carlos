@@ -38,7 +38,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
@@ -320,12 +320,7 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
 
 
     public List<Object[]> findSomethingByBillingId(Integer billingNo) {
-        String sql = "FROM BillingService bs, Wcb w, Billing b " +
-                "WHERE w.billingNo = b.id " +
-                "AND w.billingNo = ?1 " +
-                "AND w.status = 'O' " +
-                "AND b.status IN ('O', 'W') " +
-                "AND bs.serviceCode = w.feeItem";
+        String sql = "SELECT bs, w, b FROM BillingService bs, Wcb w, Billing b WHERE w.billingNo = b.id AND w.billingNo = ?1 AND w.status = 'O' AND b.status IN ('O', 'W') AND bs.serviceCode = w.feeItem";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, billingNo);
         return query.getResultList();
@@ -376,21 +371,7 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
     }
 
     public List<Object[]> findBillingServiceAndCtlBillingServiceByMagic(String serviceType, String serviceGroup, Date billReferenceDate) {
-        String sql = "FROM BillingService b, CtlBillingService c " +
-                "WHERE c.serviceCode = b.serviceCode " +
-                "AND c.status='A' " +
-                "AND c.serviceType = ?1" +
-                "AND c.serviceGroup = ?2" +
-                "AND b.billingserviceDate in (" +
-                "	SELECT MAX(b2.billingserviceDate) FROM BillingService b2 " +
-                "	WHERE b2.billingserviceDate <= ?3 " +
-                "	AND b2.serviceCode = b.serviceCode " +
-                ") " +
-                "AND b.billingserviceNo = (" +
-                "	SELECT MAX(b3.billingserviceNo) FROM BillingService b3 " +
-                "	WHERE b3.billingserviceDate = b.billingserviceDate " +
-                "	AND b3.serviceCode = b.serviceCode" +
-                ") ORDER BY c.serviceOrder";
+        String sql = "SELECT b, c FROM BillingService b, CtlBillingService c WHERE c.serviceCode = b.serviceCode AND c.status='A' AND c.serviceType = ?1 AND c.serviceGroup = ?2 AND b.billingserviceDate in (SELECT MAX(b2.billingserviceDate) FROM BillingService b2 WHERE b2.billingserviceDate <= ?3 AND b2.serviceCode = b.serviceCode) AND b.billingserviceNo = (SELECT MAX(b3.billingserviceNo) FROM BillingService b3 WHERE b3.billingserviceDate = b.billingserviceDate AND b3.serviceCode = b.serviceCode) ORDER BY c.serviceOrder";
 
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, serviceType);

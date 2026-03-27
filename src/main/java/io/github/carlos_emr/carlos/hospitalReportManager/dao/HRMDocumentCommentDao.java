@@ -15,7 +15,7 @@ package io.github.carlos_emr.carlos.hospitalReportManager.dao;
 
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentComment;
@@ -30,7 +30,7 @@ public class HRMDocumentCommentDao extends AbstractDaoImpl<HRMDocumentComment> {
 
     @SuppressWarnings("unchecked")
     public List<HRMDocumentComment> getCommentsForDocument(Integer documentId) {
-        String sql = "select x from " + this.modelClass.getName() + " x where x.hrmDocumentId=?1 and x.deleted=0 order by commentTime desc";
+        String sql = "select x from " + this.modelClass.getName() + " x where x.hrmDocumentId=?1 and x.deleted=false order by commentTime desc";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, documentId);
         return query.getResultList();

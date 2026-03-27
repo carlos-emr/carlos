@@ -27,8 +27,8 @@
  */
 package io.github.carlos_emr.carlos.provider.web;
 
-import com.opensymphony.xwork2.ActionSupport;
-import io.github.carlos_emr.OscarProperties;
+import org.apache.struts2.ActionSupport;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -38,8 +38,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.struts2.ServletActionContext;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -88,7 +88,7 @@ public class ProviderSignatureImage2Action extends ActionSupport {
         }
         String signatureName = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
 
-        File imageFolder = new File(OscarProperties.getInstance().getEformImageDirectory());
+        File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
         if (!imageFolder.exists()) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return NONE;

@@ -30,7 +30,7 @@
 
 --%>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

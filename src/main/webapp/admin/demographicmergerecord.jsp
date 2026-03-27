@@ -31,7 +31,7 @@
 --%>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -102,7 +102,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%
     List<Demographic> demoList = null;  //demographicDao.getDemographicByProvider( "55");
@@ -118,8 +118,8 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     String providerNo = loggedInInfo.getLoggedInProviderNo();
     boolean outOfDomain = true;
-    if (OscarProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1) {
-        if (!"true".equals(OscarProperties.getInstance().getProperty("pmm.client.search.outside.of.domain.enabled", "true"))) {
+    if (CarlosProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1) {
+        if (!"true".equals(CarlosProperties.getInstance().getProperty("pmm.client.search.outside.of.domain.enabled", "true"))) {
             outOfDomain = false;
         }
         if (request.getParameter("outofdomain") != null && request.getParameter("outofdomain").equals("true")) {

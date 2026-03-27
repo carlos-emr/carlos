@@ -33,7 +33,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import org.springframework.stereotype.Repository;
@@ -76,13 +76,7 @@ public class EFormDocsDaoImpl extends AbstractDaoImpl<EFormDocs> implements EFor
     }
 
     public List<Object[]> findLabs(Integer fdid) {
-        String sql = "FROM EFormDocs cd, PatientLabRouting plr " +
-                "WHERE plr.labNo = cd.documentNo " +
-                "AND cd.fdid = ?1" +
-                "AND cd.docType = ?2" +
-                "AND cd.deleted IS NULL " +
-                "ORDER BY cd.documentNo";
-        Query q = entityManager.createQuery(sql);
+        Query q = entityManager.createQuery("SELECT cd, plr FROM EFormDocs cd, PatientLabRouting plr WHERE plr.labNo = cd.documentNo AND cd.fdid = ?1 AND cd.docType = ?2 AND cd.deleted IS NULL ORDER BY cd.documentNo");
         q.setParameter(1, fdid);
         q.setParameter(2, EFormDocs.DOCTYPE_LAB);
         return q.getResultList();

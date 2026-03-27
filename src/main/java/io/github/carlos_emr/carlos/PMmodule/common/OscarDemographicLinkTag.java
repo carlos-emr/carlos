@@ -27,12 +27,12 @@
 
 package io.github.carlos_emr.carlos.PMmodule.common;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
-import javax.servlet.jsp.JspException;
-import javax.servlet.jsp.JspTagException;
-import javax.servlet.jsp.PageContext;
-import javax.servlet.jsp.tagext.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.jsp.JspException;
+import jakarta.servlet.jsp.JspTagException;
+import jakarta.servlet.jsp.PageContext;
+import jakarta.servlet.jsp.tagext.Tag;
 
 public class OscarDemographicLinkTag implements Tag {
 
@@ -71,7 +71,7 @@ public class OscarDemographicLinkTag implements Tag {
             } else {
                 p = p.substring(0, p.indexOf("/providers"));
                 p += "/demographic/demographiccontrol.jsp?displaymode=edit&dboperation=search_detail&demographic_no=" + demographicNo;
-                String temps = "<a href=\"javascript.void(0);\" onclick=\"window.open('" + p + "','demographic');return false;\">OSCAR Master File</a>";
+                String temps = "<a href=\"javascript:void(0);\" onclick=\"window.open('" + p + "','demographic');return false;\">CARLOS Master File</a>";
                 pc.getOut().print(temps);
             }
 

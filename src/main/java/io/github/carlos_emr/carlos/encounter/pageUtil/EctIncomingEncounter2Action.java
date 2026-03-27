@@ -40,9 +40,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.daos.DefaultIssueDao;
@@ -69,7 +69,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.carlos.model.security.Secrole;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.encounter.data.EctProviderData;
@@ -82,13 +82,10 @@ import org.owasp.encoder.Encode;
 import java.util.Properties;
 import java.util.Vector;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class EctIncomingEncounter2Action extends ActionSupport {
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
-
 
     private static Logger log = MiscUtils.getLogger();
     private CaseManagementNoteDAO caseManagementNoteDao = SpringUtils.getBean(CaseManagementNoteDAO.class);
@@ -96,6 +93,8 @@ public class EctIncomingEncounter2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() throws IOException, ServletException {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String demoNo = request.getParameter("demographicNo");
@@ -111,7 +110,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
-        if (!"true".equals(OscarProperties.getInstance().getProperty("program_domain.show_echart", "false"))) {
+        if (!"true".equals(CarlosProperties.getInstance().getProperty("program_domain.show_echart", "false"))) {
             if (!caseManagementMgr.isClientInProgramDomain(loggedInInfo.getLoggedInProviderNo(), demoNo)
                     && !caseManagementMgr.isClientReferredInProgramDomain(loggedInInfo.getLoggedInProviderNo(),
                     demoNo)) {
@@ -213,7 +212,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
             long notesCount = caseManagementNoteDao.getNotesCountByDemographicId(bean.getDemographicNo());
             if (notesCount == 0
-                    && OscarProperties.getInstance().getProperty("wl_default_issue", "false").equals("true")) {
+                    && CarlosProperties.getInstance().getProperty("wl_default_issue", "false").equals("true")) {
                 // assign default issues for a feature: WL: default issues assignment
                 String wlProgramId = (String) request.getSession().getAttribute(SessionConstants.CURRENT_PROGRAM_ID);
                 DefaultIssueDao defaultIssueDao = SpringUtils.getBean(DefaultIssueDao.class);
@@ -269,7 +268,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
      * Moves data-fetching logic from JSP scriptlets into the Action layer.
      */
     private void setEncounterAttributes(HttpServletRequest request, EctSessionBean bean, LoggedInInfo loggedInInfo) {
-        OscarProperties oscarProps = OscarProperties.getInstance();
+        CarlosProperties oscarProps = CarlosProperties.getInstance();
 
         // Patient age as integer string
         String pAge = Integer.toString(new UtilDateUtilities().calcAge(
@@ -341,7 +340,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         String encounterText = buildEncounterText(bean, bSplit, bTruncate, nEctLen);
         request.setAttribute("encounterText", encounterText);
 
-        // OscarProperties labels
+        // CarlosProperties labels
         request.setAttribute("otherMedLabel", oscarProps.getProperty("otherMedications", ""));
         request.setAttribute("medHistLabel", oscarProps.getProperty("medicalHistory", ""));
         request.setAttribute("ongoingConcernsLabel", oscarProps.getProperty("ongoingConcerns", ""));

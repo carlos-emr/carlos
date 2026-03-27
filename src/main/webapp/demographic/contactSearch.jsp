@@ -163,7 +163,7 @@
         <c:forEach var="contact" items="${ contacts }" varStatus="i">
             <%
                 Contact contact = (Contact) pageContext.getAttribute("contact");
-                javax.servlet.jsp.jstl.core.LoopTagStatus i = (javax.servlet.jsp.jstl.core.LoopTagStatus) pageContext.getAttribute("i");
+                jakarta.servlet.jsp.jstl.core.LoopTagStatus i = (jakarta.servlet.jsp.jstl.core.LoopTagStatus) pageContext.getAttribute("i");
                 String bgColor = i.getIndex() % 2 == 0 ? "#EEEEFF" : "ivory";
 
                 String strOnClick;

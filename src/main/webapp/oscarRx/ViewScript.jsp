@@ -28,7 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="io.github.carlos_emr.carlos.providers.data.*, io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
@@ -43,8 +43,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%! boolean bMultisites = IsPropertiesOn.isMultisitesEnable(); %>
 <%
@@ -97,7 +97,7 @@
             Vector vecAddress = null;
             Vector vecAddressPhone = null;
             Vector vecAddressFax = null;
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             if (bMultisites) {
                 String appt_no = (String) session.getAttribute("cur_appointment_no");
                 String location = null;

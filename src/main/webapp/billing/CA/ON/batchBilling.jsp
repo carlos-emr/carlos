@@ -31,7 +31,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String user_no = "";
@@ -52,8 +52,8 @@
     int curDay = now.get(Calendar.DAY_OF_MONTH);
     String nowDate = String.valueOf(curYear) + "/" + String.valueOf(curMonth) + "/" + String.valueOf(curDay);
     String nowTime = now.get(Calendar.HOUR_OF_DAY) + ":" + now.get(Calendar.MINUTE) + ":" + now.get(Calendar.SECOND);
-    String clinicview = OscarProperties.getInstance().getProperty("clinic_view");
-    String Clinic_no = OscarProperties.getInstance().getProperty("clinic_no");
+    String clinicview = CarlosProperties.getInstance().getProperty("clinic_view");
+    String Clinic_no = CarlosProperties.getInstance().getProperty("clinic_no");
     String servicecode = request.getParameter("service_code");
 
     BatchBillingDAO batchBillingDAO = (BatchBillingDAO) SpringUtils.getBean(BatchBillingDAO.class);

@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingHistory;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
@@ -59,9 +59,7 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
         // billingMasterNo;
 
         // attempt to rewrite a left join with a cross product...
-        Query query = entityManager.createQuery("FROM BillingHistory bh, "
-                + BillingPaymentType.class.getSimpleName()
-                + " bpt WHERE (bh.paymentTypeId = bpt.id OR bpt.id IS NULL) AND bh.billingMasterNo = :bmn");
+        Query query = entityManager.createQuery("SELECT bh, bpt FROM BillingHistory bh, BillingPaymentType bpt WHERE (bh.paymentTypeId = bpt.id OR bpt.id IS NULL) AND bh.billingMasterNo = :bmn");
         query.setParameter("bmn", billingMasterNo);
         return query.getResultList();
     }
@@ -76,18 +74,13 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
     public List<Object[]> findBillingHistoryByBillingMasterNo(Integer billingMasterNo) {
         // "from billingmaster bm, billing_history bh left join billing_payment_type bt on bh.payment_type_id = bt.id
         //     where bh.billingmaster_no = bm.billingmaster_no and bm.billing_no = " + billingNo;
-        Query query = entityManager.createQuery("FROM "
-                + Billingmaster.class.getSimpleName() + " bm, "
-                + "BillingHistory bh, "
-                + BillingPaymentType.class.getSimpleName()
-                + " bpt WHERE (bh.paymentTypeId = bpt.id OR bpt.id IS NULL ) " +
-                "AND bm.billingmasterNo = bh.billingMasterNo AND bm.billingmasterNo = :bmn");
+        Query query = entityManager.createQuery("SELECT bm, bh, bpt FROM Billingmaster bm, BillingHistory bh, BillingPaymentType bpt WHERE (bh.paymentTypeId = bpt.id OR bpt.id IS NULL ) AND bm.billingmasterNo = bh.billingMasterNo AND bm.billingmasterNo = :bmn");
         query.setParameter("bmn", billingMasterNo);
         return query.getResultList();
     }
 
     public Double getTotalPaidFromHistory(Integer bmn, boolean ignoreIA) {
-        String historyQry = "SELECT SUM(bh.amountReceived) FROM BillingHistory bh where bh.billingMasterNo = :bmn";
+        String historyQry = "SELECT SUM(CAST(bh.amountReceived AS double)) FROM BillingHistory bh where bh.billingMasterNo = :bmn";
         if (ignoreIA) {
             historyQry += " and bh.paymentTypeId <> " + MSPReconcile.PAYTYPE_IA;
         }
@@ -98,11 +91,11 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
             return 0.0;
         }
 
-        String d = (String) result.get(0);
+        Object d = result.get(0);
         if (d == null) {
             return 0.0;
         }
 
-        return Double.valueOf(d);
+        return ((Number) d).doubleValue();
     }
 }

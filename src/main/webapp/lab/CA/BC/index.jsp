@@ -92,11 +92,11 @@
 
     }
 %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>OSCAR oscarPathNET - Patient Linking</title>
+        <title>CARLOS PathNET - Patient Linking</title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/oscar.css">
         <script language="JavaScript">
             var demo;

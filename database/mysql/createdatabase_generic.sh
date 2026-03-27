@@ -62,14 +62,14 @@ echo "loading icd${ICD}_issue_groups.sql..."
 $mysql_cmd < icd${ICD}_issue_groups.sql
 echo 'loading measurementMapData.sql...'
 $mysql_cmd < measurementMapData.sql
-echo 'loading expire_openodoc.sql'
-$mysql_cmd < expire_openodoc.sql
+echo 'expiring carlosdoc credentials (set to expire in 1 month for security)'
+echo "update security set date_ExpireDate=DATE_ADD(CURDATE(), INTERVAL 1 MONTH), b_ExpireSet=1 where user_name='carlosdoc'" | $mysql_cmd
 
 echo "loading oscarinit_2025.sql"
 $mysql_cmd < oscarinit_2025.sql
 
 echo 'all done!'
-echo 'the default user is openodoc'
-echo 'password openo2025'
-echo 'pin 2025'
+echo 'the default user is carlosdoc'
+echo 'password carlos2026'
+echo 'pin 1117'
 echo 'For sec reasons these credentials are set to expire in a month!'

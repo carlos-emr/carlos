@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.demographic.data;
 
 import java.util.ArrayList;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class ProvinceNames extends ArrayList<String> {
 
@@ -44,7 +44,7 @@ public class ProvinceNames extends ArrayList<String> {
     static ProvinceNames pNames = new ProvinceNames();
 
     private ProvinceNames() {
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         if (props.getProperty("province_names") == null || props.getProperty("province_names").equals("")) {
             isDefined = false;
             return;

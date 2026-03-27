@@ -32,11 +32,11 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -67,7 +67,7 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
     pageContext.setAttribute("demographic_no", request.getParameter("demographic_no"));
-    String labReqVer = io.github.carlos_emr.OscarProperties.getInstance().getProperty("onare_labreqver", "07");
+    String labReqVer = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("onare_labreqver", "07");
     if (labReqVer.equals("")) {
         labReqVer = "07";
     }
@@ -210,7 +210,7 @@ Order Labs - <a title="Create Lab Requisition" href="javascript:void(0);"
                 onclick="generateLabReq(<%=demographicNo %>);return false;">Lab Requisition</a>
 <br/><br/>
 <%
-    String flowsheet = io.github.carlos_emr.OscarProperties.getInstance().getProperty("ckd_flowsheet", "indicators");
+    String flowsheet = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("ckd_flowsheet", "indicators");
     if (flowsheet.equals("indicators")) {
 %>
 Go to CDM Indicators <a href="javascript:void(0);"

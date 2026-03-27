@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getValue("patient") == null) response.sendRedirect("logout.jsp");
+    if (session.getAttribute("patient") == null) response.sendRedirect("logout.jsp");
     String form_name = "ar1_99_12";
     String user_no = (String) session.getAttribute("user");
     String demographic_no = (String) session.getAttribute("demo_no");

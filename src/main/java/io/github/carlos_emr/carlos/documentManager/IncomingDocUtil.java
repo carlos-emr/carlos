@@ -28,7 +28,7 @@
 package io.github.carlos_emr.carlos.documentManager;
 
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.openpdf.text.Document;
 import org.openpdf.text.pdf.PdfCopy;
 import org.openpdf.text.pdf.PdfName;
@@ -230,7 +230,7 @@ public final class IncomingDocUtil {
         File file = new File(filePathName, pdfName);
         
         // Validate the final path is within bounds
-        String baseDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        String baseDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         if (!isPathWithinBounds(baseDir, file.getPath())) {
             throw new SecurityException("Attempted path traversal detected in file path");
         }
@@ -261,7 +261,7 @@ public final class IncomingDocUtil {
         File file = new File(filePathName, pdfName);
         
         // Validate the final path is within bounds
-        String baseDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        String baseDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         if (!isPathWithinBounds(baseDir, file.getPath())) {
             throw new SecurityException("Attempted path traversal detected in file path");
         }
@@ -284,7 +284,7 @@ public final class IncomingDocUtil {
     public static String getIncomingDocumentDeletedFilePath(String queueId, String pdfDir) {
         String filePath;
 
-        filePath = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        filePath = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         if (filePath == null || filePath.isEmpty()) {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR property not configured");
         }
@@ -307,11 +307,11 @@ public final class IncomingDocUtil {
                 || pdfDir.equals("Refile"))) {
             
             try {
-                File baseDir = new File(OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
+                File baseDir = new File(CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
                 File deletedPathDir = new File(filePath, pdfDir + "_deleted");
 
                 // Validate path is within bounds using PathValidationUtils
-                PathValidationUtils.validateExistingPath(deletedPathDir, baseDir);
+                deletedPathDir = PathValidationUtils.validateExistingPath(deletedPathDir, baseDir);
 
                 File canonicalDeletedDir = deletedPathDir.getCanonicalFile();
 
@@ -343,7 +343,7 @@ public final class IncomingDocUtil {
     public static String getIncomingDocumentFilePath(String queueId, String pdfDir) {
         String filePath;
 
-        filePath = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        filePath = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         
         if (filePath == null || filePath.isEmpty()) {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR property not configured");
@@ -388,7 +388,7 @@ public final class IncomingDocUtil {
         String filePath = getIncomingDocumentFilePath(queueId, pdfDir);
         
         // Get the base directory for validation
-        String baseDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        String baseDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         if (baseDir == null || baseDir.isEmpty()) {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR property not configured");
         }
@@ -403,7 +403,7 @@ public final class IncomingDocUtil {
         // Validate path is within bounds using PathValidationUtils
         try {
             File baseDirFile = new File(baseDir);
-            PathValidationUtils.validateExistingPath(filePathDir, baseDirFile);
+            filePathDir = PathValidationUtils.validateExistingPath(filePathDir, baseDirFile);
 
             File canonicalDir = filePathDir.getCanonicalFile();
 
@@ -600,7 +600,7 @@ public final class IncomingDocUtil {
         }
 
         boolean success;
-        if (!OscarProperties.getInstance().getBooleanProperty("INCOMINGDOCUMENT_RECYCLEBIN", "true")) {
+        if (!CarlosProperties.getInstance().getBooleanProperty("INCOMINGDOCUMENT_RECYCLEBIN", "true")) {
             if (validatedDeleteFile != null) {
                 success = validatedDeleteFile.delete();
                 if (!success) {
@@ -813,7 +813,7 @@ public final class IncomingDocUtil {
 
         File deletef = new File(deletePathName);
 
-        if (OscarProperties.getInstance().getBooleanProperty("INCOMINGDOCUMENT_RECYCLEBIN", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("INCOMINGDOCUMENT_RECYCLEBIN", "true")) {
             success = f.renameTo(deletef);
             if (!success) {
                 throw new Exception("Error in renaming file from:" + filePathName + " to " + deletePathName);

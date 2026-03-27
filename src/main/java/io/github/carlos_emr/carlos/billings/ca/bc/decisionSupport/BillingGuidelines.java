@@ -49,7 +49,7 @@ import java.io.InputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * Class used to Manage BillingGuidelines.
@@ -88,7 +88,7 @@ public class BillingGuidelines {
     }
 
     static public BillingGuidelines getInstance() {
-        String tmpRegion = OscarProperties.getInstance().getProperty("billregion", "");
+        String tmpRegion = CarlosProperties.getInstance().getProperty("billregion", "");
         if (measurementTemplateFlowSheetConfig.billingGuideLines == null || !tmpRegion.equals(region)) {
             region = tmpRegion;
             measurementTemplateFlowSheetConfig.loadGuidelines(region);
@@ -114,14 +114,14 @@ public class BillingGuidelines {
         }
 
         //load external billing rule files
-        String fileLocation = OscarProperties.getInstance().getProperty("decision_support_dir");
+        String fileLocation = CarlosProperties.getInstance().getProperty("decision_support_dir");
         if (fileLocation != null && !fileLocation.isEmpty()) {
 
             if (!fileLocation.endsWith("/")) {
                 fileLocation = fileLocation + "/";
             }
 
-            String[] filenamesLocal = OscarProperties.getInstance().getProperty("decision_support_files").split(",");
+            String[] filenamesLocal = CarlosProperties.getInstance().getProperty("decision_support_files").split(",");
             if (filenamesLocal != null) {
                 for (String filename : filenamesLocal) {
                     filenamesList.put(fileLocation + filename, !DEFAULT_LOCATION);

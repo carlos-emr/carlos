@@ -30,8 +30,8 @@
 
 package io.github.carlos_emr.carlos.report.pageUtil;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.poi.hssf.usermodel.HSSFRow;
 import org.apache.poi.hssf.usermodel.HSSFSheet;
@@ -64,7 +64,7 @@ import org.openpdf.text.Paragraph;
  * @see GenerateEnvelopes2Action
  * @since 2006-09-25
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GeneratePatientSpreadSheetList2Action extends ActionSupport {

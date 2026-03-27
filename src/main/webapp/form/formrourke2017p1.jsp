@@ -55,7 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRourke2017Record" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);

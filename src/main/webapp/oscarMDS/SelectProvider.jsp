@@ -35,7 +35,7 @@
         import="io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingFavoritesDao, io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingFavorite" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao, io.github.carlos_emr.carlos.commn.model.Provider" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <html>
 <head>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>

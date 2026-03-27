@@ -36,7 +36,7 @@
 	output: opener.param.substring("&formdatebox=".length()) = year1 + "-" + month1 + "-" + day1
   */
 --%>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page
@@ -45,7 +45,7 @@
 <%
     String urlfrom = request.getParameter("urlfrom") == null ? "" : request.getParameter("urlfrom");
     String param = request.getParameter("param") == null ? "" : request.getParameter("param");
-//to prepare calendar display  
+//to prepare calendar display
     int year = Integer.parseInt(request.getParameter("year"));
     int month = Integer.parseInt(request.getParameter("month"));
     int delta = request.getParameter("delta") == null ? 0 : Integer.parseInt(request.getParameter("delta")); //add or minus month
@@ -60,25 +60,35 @@
     int todayDate = cal.get(Calendar.DATE);
     boolean bTodayDate = false;
 %>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <meta charset="UTF-8">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>CALENDAR</title>
     <% if (session.getAttribute("mobileOptimized") != null) { %>
     <meta name="viewport"
-          content="initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, width=device-width"/>
+          content="initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, width=device-width">
     <% } %>
-    <LINK REL="StyleSheet" HREF="<%= request.getContextPath() %>/web.css" TYPE="text/css">
-    <style type="text/css">
+    <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
+    <style>
         td, th {
             font-size: 14px;
         }
+        .circle {
+            background: lightblue;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: inline-block;
+            line-height: 25px;
+            text-align: center;
+            text-decoration: none;
+        }
     </style>
-    <script language="JavaScript">
-        <!--
-
+    <script>
         function typeInDate(year1, month1, day1) {
 
             <%
@@ -92,11 +102,9 @@
             <%  }  %>
             self.close();
         }
-
-        //-->
     </script>
 </head>
-<body bgcolor="ivory" onLoad="setfocus()" leftmargin="0" rightmargin="0">
+<body onload="setfocus()">
 <%
     ResourceBundle oscarRec = ResourceBundle.getBundle("oscarResources");
     String jan = oscarRec.getString("share.CalendarPopUp.msgJan");
@@ -121,12 +129,12 @@
     int[][] dateGrid = aDate.getMonthDateGrid();
 %>
 
-<table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
+<table style="width:100%">
     <tr>
-        <td align="left">
+        <td style="text-align:left">
             <h2>&nbsp;<%=arrayMonth[month-1]%>&nbsp;<%=year%>&nbsp;</h2>
         </td>
-        <td align="right"><h2>
+        <td style="text-align:right"><h2>
             <a href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=-12">
                 <i class="fa-solid fa-angles-left" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgLastYear"/>"></i>
             </a>
@@ -143,38 +151,29 @@
     </tr>
 </table>
 
-<table width="100%" border="0" cellspacing="0" cellpadding="2">
-    <tr align="center" bgcolor="#FFFFFF">
+<table style="width:100%">
+    <tr style="text-align:center">
         <th>
             <%
                 for (int i = 0; i < 12; i++) {
             %> <a
-                href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=i+1%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>"><font
-                SIZE="2" <%=(i+1)==month?"color='red'":""%>><%=arrayMonth[i]%>
+                href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=i+1%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>"
+                <%=(i+1)==month?"style=\"color:red\"":""%>><span style="font-size:smaller"><%=arrayMonth[i]%></span>
         </a>
             <% } %>
         </th>
     </tr>
 </table>
 
-<table width="100%" border="0" cellspacing="1" cellpadding="2"
-       class="table">
-    <tr align="center">
-        <th width="14%"><font color="red"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgSun"/></font>
-            </td>
-        <th width="14%"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgMon"/></font>
-            </td>
-        <th width="14%"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgTue"/></font>
-            </td>
-        <th width="14%"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgWed"/></font>
-            </td>
-        <th width="14%"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgThu"/></font>
-            </td>
-        <th width="14%">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgFri"/>
-            </td>
-        <th width="14%"><font color="green"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgSat"/></font>
-            </td>
+<table style="width:100%" class="table">
+    <tr style="text-align:center">
+        <th style="width:14%"><span style="color:red"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgSun"/></span></th>
+        <th style="width:14%"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgMon"/></th>
+        <th style="width:14%"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgTue"/></th>
+        <th style="width:14%"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgWed"/></th>
+        <th style="width:14%"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgThu"/></th>
+        <th style="width:14%"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgFri"/></th>
+        <th style="width:14%"><span style="color:green"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgSat"/></span></th>
     </tr>
 
     <%
@@ -189,9 +188,9 @@
                         bTodayDate = true;
                     }
     %>
-    <td align="center" bgcolor='<%=bTodayDate?"gold":"white"%>'><a
+    <td style="text-align:center"><a class='<%=bTodayDate?"circle":""%>'
             href="#"
-            onClick="typeInDate(<%=year%>,<%=month%>,<%= dateGrid[i][j] %>)">
+            onclick="typeInDate(<%=year%>,<%=month%>,<%= dateGrid[i][j] %>)">
         <%= dateGrid[i][j] %>
     </a></td>
     <%
@@ -203,10 +202,10 @@
 
 </table>
 
-<table width="100%" border="0" cellspacing="0" cellpadding="0">
+<table style="width:100%">
     <tr>
-        <td align="right"><input type="button" class="btn btn-link"
-                                 name="Cancel" value="Cancel" onClick="window.close()"></td>
+        <td style="text-align:right"><input type="button" class="btn btn-link"
+                                 name="Cancel" value="Cancel" onclick="window.close()"></td>
     </tr>
 </table>
 

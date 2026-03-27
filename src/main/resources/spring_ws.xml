@@ -73,6 +73,11 @@
 	<!-- Managed WS Beans -->
 	<!-- The WS classes are turned into spring beans to allow autowiring etc, then the endpoints reference them -->
  	<context:component-scan base-package="io.github.carlos_emr.carlos.webserv"/>
+
+	<!-- WebServiceContext placeholder - CXF injects the real instance at endpoint init time.
+	     Spring 7 processes @Resource eagerly, so we need a bean definition to satisfy DI. -->
+	<bean id="jakarta.xml.ws.WebServiceContext"
+	      class="org.apache.cxf.jaxws.context.WebServiceContextImpl"/>
 	
 	<bean id="authenticationInWSS4JInterceptor" class="io.github.carlos_emr.carlos.webserv.AuthenticationInWSS4JInterceptor" autowire="byType" />
 	<bean id="oscarUsernameTokenValidator" class="io.github.carlos_emr.carlos.webserv.OscarUsernameTokenValidator" autowire="byType" />
@@ -180,7 +185,7 @@
 		<jaxrs:providers>
 		    <ref bean="jaxb"/>
 			<ref bean="jsonProvider"/>
-			<bean class="com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider"/>
+			<bean class="com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider"/>
 		</jaxrs:providers>
 		
 	
@@ -222,6 +227,8 @@
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.LabService" autowire="byName" />
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.MeasurementService" autowire="byName" />
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.ConsentService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.EFormService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.EFormsService" autowire="byName"/>
 		</jaxrs:serviceBeans>
 
 		<jaxrs:extensionMappings>
@@ -276,7 +283,7 @@
         <!-- If you rely on JAXB-style annotations (@XmlRootElement, etc.) -->
         <!-- This lets Jackson 2 understand them -->
         <property name="annotationIntrospector">
-            <bean class="com.fasterxml.jackson.module.jaxb.JaxbAnnotationIntrospector">
+            <bean class="com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationIntrospector">
                 <constructor-arg>
                     <bean class="com.fasterxml.jackson.databind.type.TypeFactory" factory-method="defaultInstance"/>
                 </constructor-arg>
@@ -284,8 +291,8 @@
         </property>
     </bean>
 
-    <!-- Jackson 2 JAX-RS provider -->
-    <bean id="jsonProvider" class="com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider">
+    <!-- Jackson 2 Jakarta RS provider -->
+    <bean id="jsonProvider" class="com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider">
         <property name="mapper" ref="jacksonObjectMapper"/>
     </bean>
 

@@ -30,12 +30,12 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import java.util.List;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -45,11 +45,11 @@ import io.github.carlos_emr.carlos.integration.mchcv.HCValidator;
 import io.github.carlos_emr.carlos.integration.mchcv.OnlineHCValidator;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PatientDetailStatusTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 
 @Path("/patientDetailStatusService")
@@ -59,7 +59,7 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
     @Autowired
     private DemographicManager demographicManager;
 
-    private OscarProperties oscarProperties = OscarProperties.getInstance();
+    private CarlosProperties oscarProperties = CarlosProperties.getInstance();
     private Logger logger = MiscUtils.getLogger();
 
 
@@ -110,16 +110,15 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
 
     @GET
     @Path("/isUniqueHC")
-    public GenericRESTResponse isUniqueHC(@QueryParam("hin") String healthCardNo, @QueryParam("demographicNo") Integer demographicNo) {
-        GenericRESTResponse response = new GenericRESTResponse();
+    public RestResponse<String> isUniqueHC(@QueryParam("hin") String healthCardNo, @QueryParam("demographicNo") Integer demographicNo) {
         if (healthCardNo != null && !healthCardNo.trim().isEmpty() && demographicNo != null) {
             List<Demographic> demos = demographicManager.searchByHealthCard(getLoggedInInfo(), healthCardNo);
             if (demos != null) {
                 if (demos.size() > 1 || (demos.size() == 1 && !demos.get(0).getDemographicNo().equals(demographicNo))) {
-                    response.setSuccess(false);
+                    return RestResponse.errorResponse("Health card number is not unique");
                 }
             }
         }
-        return response;
+        return RestResponse.successResponse(null);
     }
 }

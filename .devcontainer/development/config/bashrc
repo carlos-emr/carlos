@@ -42,15 +42,17 @@ if ! shopt -oq posix; then
   fi
 fi
 
-# Short welcome banner
-echo ""
-echo "========================================="
-echo "  CARLOS EMR Development Environment"
-echo "========================================="
-echo "  Type 'help-dev' for commands reference"
-echo "  Type 'make help' for build options"
-echo "========================================="
-echo ""
+# Short welcome banner (only when a real terminal is attached)
+if [ -t 1 ]; then
+    echo ""
+    echo "========================================="
+    echo "  CARLOS EMR Development Environment"
+    echo "========================================="
+    echo "  Type 'help-dev' for commands reference"
+    echo "  Type 'make help' for build options"
+    echo "========================================="
+    echo ""
+fi
 
 # Aliases for common tasks
 alias ll='ls -alF'

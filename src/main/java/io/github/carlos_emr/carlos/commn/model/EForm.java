@@ -27,7 +27,7 @@
 
 package io.github.carlos_emr.carlos.commn.model;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.io.Serializable;
 import java.util.Comparator;
 import java.util.Date;
@@ -80,6 +80,7 @@ public class EForm extends AbstractModel<Integer> implements Serializable {
     @Column(name = "patient_independent")
     private boolean patientIndependent;
 
+    @Column(name = "roleType")
     private String roleType;
 
     private boolean stable;

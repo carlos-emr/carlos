@@ -42,13 +42,13 @@ import io.github.carlos_emr.carlos.messenger.data.MsgAddressBookMaker;
 import io.github.carlos_emr.carlos.messenger.data.MsgProviderData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 

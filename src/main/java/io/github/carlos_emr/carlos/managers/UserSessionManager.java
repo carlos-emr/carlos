@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.exception.UserSessionNotFoundException;
 
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpSession;
 
 /**
  * Manages user sessions.  Provides methods to register, unregister, and retrieve user sessions based on a user sec code.

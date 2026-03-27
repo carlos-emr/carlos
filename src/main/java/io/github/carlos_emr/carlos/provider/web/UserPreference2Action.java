@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.provider.web;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.entities.Provider;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -46,8 +46,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
 import io.github.carlos_emr.carlos.managers.SecurityManager;

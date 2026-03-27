@@ -38,9 +38,9 @@
 	Comment: The Pharmacists Clinic, Faculty of Pharmaceutical Sciences, University of British Columbia.
 --%>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName2$ = session.getAttribute("userrole") + "," + session.getAttribute("user");

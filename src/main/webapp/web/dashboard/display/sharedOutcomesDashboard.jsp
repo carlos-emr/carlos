@@ -29,7 +29,7 @@
 
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.managers.DashboardManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
@@ -55,12 +55,12 @@
         window.onbeforeunload = function () {
             //outcomesWindow.close();
             //return "You sure?";
-            outcomesWindow.postMessage({'response': 'CLOSE'}, '<%=OscarProperties.getInstance().getProperty("shared_outcomes_dashboard_host") %>');
+            outcomesWindow.postMessage({'response': 'CLOSE'}, '<%=CarlosProperties.getInstance().getProperty("shared_outcomes_dashboard_host") %>');
         };
 
 
         window.unload = function () {
-            outcomesWindow.postMessage({'response': 'CLOSE'}, '<%=OscarProperties.getInstance().getProperty("shared_outcomes_dashboard_host") %>');
+            outcomesWindow.postMessage({'response': 'CLOSE'}, '<%=CarlosProperties.getInstance().getProperty("shared_outcomes_dashboard_host") %>');
         };
 
         function launchOutcomesDashboard1(outcomesHostName) {
@@ -71,7 +71,7 @@
 
             var oTimer = function () {
                 outcomesTimeout = setTimeout(function () {
-                    outcomesWindow.postMessage({'response': 'CONNECT'}, '<%=OscarProperties.getInstance().getProperty("shared_outcomes_dashboard_host") %>');
+                    outcomesWindow.postMessage({'response': 'CONNECT'}, '<%=CarlosProperties.getInstance().getProperty("shared_outcomes_dashboard_host") %>');
                     console.log('sending CONNECT');
                     oTimer();
                 }, 500);
@@ -135,7 +135,7 @@
     </style>
 </head>
 <body>
-<h5>OSCAR EMR - Keep window open to interact with Common Provider Dashboard window.</h5>
+<h5>CARLOS EMR - Keep window open to interact with Common Provider Dashboard window.</h5>
 <input type="button" value="close" onClick="window.close()"/>
 <iframe id="drillDownFrame" style="width:100%;height:100%"></iframe>
 

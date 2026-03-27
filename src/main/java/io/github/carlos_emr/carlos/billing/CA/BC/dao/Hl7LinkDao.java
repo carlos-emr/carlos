@@ -32,7 +32,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Link;
 import io.github.carlos_emr.carlos.commn.NativeSql;
@@ -50,21 +50,14 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
     }
 
     public List<Object[]> findLabs() {
-        String sql = "FROM Hl7Pid pid, Hl7Link link, Hl7Obr obr, Demographic demo " +
-                "WHERE link.demographicNo = demo.id " +
-                "AND pid.id = obr.pidId " +
-                "AND ( link.status = 'P' OR link.status IS NULL ) " +
-                "AND link.id = pid.id";
+        String sql = "SELECT pid, link, obr, demo FROM Hl7Pid pid, Hl7Link link, Hl7Obr obr, Demographic demo WHERE link.demographicNo = demo.id AND pid.id = obr.pidId AND ( link.status = 'P' OR link.status IS NULL ) AND link.id = pid.id";
 
         Query q = entityManager.createQuery(sql);
         return q.getResultList();
     }
 
     public List<Object[]> findMagicLinks() {
-        String sql = "FROM Demographic demo, Hl7Pid pid, Hl7Link link " +
-                "WHERE pid.id = link.id " +
-                "AND demo.Hin = pid.externalId " +
-                "AND link.id IS NULL";
+        String sql = "SELECT demo, pid, link FROM Demographic demo, Hl7Pid pid, Hl7Link link WHERE pid.id = link.id AND demo.Hin = pid.externalId AND link.id IS NULL";
         Query q = entityManager.createQuery(sql);
         return q.getResultList();
     }
@@ -96,14 +89,7 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
     }
 
     public List<Object[]> findReportsByProvider(String providerNo) {
-        String sql = "FROM Hl7Link hl7_link, Demographic demographic, Hl7Pid hl7_pid, Hl7Obr hl7_obr, Hl7Message hl7_message, Provider provider " +
-                "WHERE demographic.ProviderNo = provider.ProviderNo " +
-                "AND hl7_link.id = hl7_obr.pidId " +
-                "AND hl7_link.id = hl7_pid.id " +
-                "AND demographic.ProviderNo = :providerNo " +
-                "AND hl7_message.id = hl7_pid.messageId " +
-                "AND demographic.DemographicNo = hl7_link.demographicNo " +
-                "AND hl7_link.status != 'P'";
+        String sql = "SELECT hl7_link, demographic, hl7_pid, hl7_obr, hl7_message, provider FROM Hl7Link hl7_link, Demographic demographic, Hl7Pid hl7_pid, Hl7Obr hl7_obr, Hl7Message hl7_message, Provider provider WHERE demographic.ProviderNo = provider.ProviderNo AND hl7_link.id = hl7_obr.pidId AND hl7_link.id = hl7_pid.id AND demographic.ProviderNo = :providerNo AND hl7_message.id = hl7_pid.messageId AND demographic.DemographicNo = hl7_link.demographicNo AND hl7_link.status != 'P'";
         Query query = entityManager.createQuery(sql);
         query.setParameter("providerNo", providerNo);
         return query.getResultList();

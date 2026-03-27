@@ -50,7 +50,7 @@
 %>
 
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -64,7 +64,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>OSCAR Jobs</title>
+        <title>CARLOS Jobs</title>
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <script src="<%=request.getContextPath() %>/js/global.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>

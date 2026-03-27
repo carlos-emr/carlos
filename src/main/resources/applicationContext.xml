@@ -139,6 +139,7 @@
     <bean id="oscarLogDao" class="io.github.carlos_emr.carlos.commn.dao.OscarLogDaoImpl" autowire="byName" />
     <bean id="providerPreferenceDao" class="io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDaoImpl" autowire="byName" />
     <bean id="EFormDao" class="io.github.carlos_emr.carlos.commn.dao.EFormDaoImpl" autowire="byName" />
+    <bean id="eFormAssetDeployer" class="io.github.carlos_emr.carlos.eform.EFormAssetDeployer" />
     <bean id="encounterFormDao" class="io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoImpl" autowire="byName" />
     <bean id="systemMessageDao" class="io.github.carlos_emr.carlos.commn.dao.SystemMessageDaoImpl" autowire="byName" />
     <bean id="billingPaymentTypeDao" class="io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDaoImpl" autowire="byName" />

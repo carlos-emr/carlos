@@ -34,14 +34,14 @@
 <%@page import="io.github.carlos_emr.carlos.prescript.pageUtil.AllergyHelperBean" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.pageUtil.AllergyDisplay" %>
 <%@page import="java.util.List" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     RxPatientData.Patient patient = null;
@@ -61,7 +61,7 @@
 %>
 
 <%
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 %>
 
@@ -569,7 +569,7 @@
                             <%
                                 String sBack = "SearchDrug.jsp";
 
-                                if ("yes".equalsIgnoreCase(OscarProperties.getInstance().getProperty("RX3"))) {
+                                if ("yes".equalsIgnoreCase(CarlosProperties.getInstance().getProperty("RX3"))) {
                                     sBack = "SearchDrug3.jsp";
                                 }
                             %> <input type=button class="ControlPushButton"

@@ -1,4 +1,4 @@
-<%@ page import="io.github.carlos_emr.OscarProperties" %><%--
+<%@ page import="io.github.carlos_emr.CarlosProperties" %><%--
 
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -22,12 +22,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%
-    if (session.getValue("user") == null)
+    if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
 
     String user_no;

@@ -36,7 +36,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -346,7 +346,7 @@ public class RxSessionBean implements java.io.Serializable {
 
         //Check to see if Allergy checking property is on and if atccode is not null and if atccode is not "" or "null"
 
-        if (OscarProperties.getInstance().getBooleanProperty("RX_ALLERGY_CHECKING", "yes") && atccode != null && !atccode.equals("") && !atccode.equals("null")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("RX_ALLERGY_CHECKING", "yes") && atccode != null && !atccode.equals("") && !atccode.equals("null")) {
             logger.debug("Checking allergy reaction : " + atccode);
             if (allergyWarnings.containsKey(atccode)) {
 
