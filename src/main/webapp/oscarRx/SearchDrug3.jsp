@@ -201,7 +201,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <script type="text/javascript" src="${ctx}/js/checkDate.js"></script>
 
 
-        <%-- YUI autocomplete library removed — replaced by jQuery UI autocomplete --%>
+        <%-- jQuery UI for autocomplete --%>
 		<link rel="stylesheet" type="text/css" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
 		<script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 		<link rel="stylesheet" type="text/css" href="${ctx}/library/jquery/jquery-ui-1.14.2.min.css"/>
