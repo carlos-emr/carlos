@@ -33,6 +33,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
@@ -206,6 +207,13 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 		<script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 		<link rel="stylesheet" type="text/css" href="${ctx}/library/jquery/jquery-ui-1.14.2.min.css"/>
 
+        <%-- Pre-declare i18n messages that contain newline sequences so they can be safely embedded
+             in JavaScript string literals using OWASP forJavaScript() encoding --%>
+        <fmt:setBundle basename="oscarResources"/>
+        <fmt:message key="SearchDrug.js.confirmChangeDrugName" var="msg_confirmChangeDrugName"/>
+        <fmt:message key="SearchDrug.js.confirmCustomNote" var="msg_confirmCustomNote"/>
+        <fmt:message key="SearchDrug.js.confirmCustomDrug" var="msg_confirmCustomDrug"/>
+
         <script type="text/javascript">
             let selectedReRxIDs = [];
             // i18n message strings for JavaScript alerts and confirm dialogs
@@ -213,10 +221,10 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
                 handlerNotRemoved: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.handlerNotRemoved"/>',
                 confirmMedRecComplete: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.confirmMedRecComplete"/>',
                 medRecCompleted: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.medRecCompleted"/>',
-                confirmChangeDrugName: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.confirmChangeDrugName"/>',
+                confirmChangeDrugName: '${e:forJavaScript(msg_confirmChangeDrugName)}',
                 confirmDeletePrescriptions: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.confirmDeletePrescriptions"/>',
-                confirmCustomNote: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.confirmCustomNote"/>',
-                confirmCustomDrug: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.confirmCustomDrug"/>',
+                confirmCustomNote: '${e:forJavaScript(msg_confirmCustomNote)}',
+                confirmCustomDrug: '${e:forJavaScript(msg_confirmCustomDrug)}',
                 startDateWrongFormat: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.startDateWrongFormat"/>',
                 startDateInvalidYear: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.startDateInvalidYear"/>',
                 startDateInvalidMonth: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.startDateInvalidMonth"/>',
