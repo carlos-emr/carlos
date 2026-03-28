@@ -161,7 +161,7 @@ PathValidationUtils.validateExistingPath(file, baseDir);
 - **Forms DAOs**: `io.github.carlos_emr.carlos.commn.dao.forms.*`
 - **Models**: `io.github.carlos_emr.carlos.commn.model.*`
 - **Exception**: `ProviderDao` at `io.github.carlos_emr.carlos.dao.ProviderDao`
-- **Test Utilities**: Remain at `org.oscarehr.common.dao.*` for backward compatibility
+- **Test Utilities**: Mirror production structure at `io.github.carlos_emr.carlos.commn.dao.*`
 
 ## Struts2 Migration Pattern ("2Action")
 
@@ -474,22 +474,21 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 Multiple modular application contexts:
 - `applicationContext.xml` - Core Spring configuration
 - `applicationContextREST.xml` - REST APIs with OAuth 1.0a
-- `applicationContextHRM.xml` - Hospital Report Manager
 - `applicationContextCaisi.xml` - CAISI community integration
 - `applicationContextFax.xml`, `applicationContextJobs.xml` - Specialized modules
 
 ## REST API & Web Services
 
-### OAuth 1.0a Authentication (Migration in Progress)
-- **Current Migration**: CXF OAuth2 → ScribeJava OAuth1.0a
-- **New Classes**: `OscarOAuthDataProvider`, `OAuth1Executor`, `OAuth1Utils`
+### OAuth 1.0a Authentication
+- **Implementation**: Fully in-house OAuth 1.0a (ScribeJava was evaluated but removed — only used for 2 string constants)
+- **Key Classes**: `OscarOAuthDataProvider`, `OAuth1SignatureVerifier`, `OAuthInterceptor`, `OAuth1ParamParser`
+- **Configuration**: `applicationContextREST.xml` defines token request/authorize/access-token endpoints
 - **Healthcare Context**: Provider-specific credentials with facility integration
-- **Services Migrated**: ProviderService, ConsentService with enhanced error handling
 
 ### Core API Services (25+ endpoints)
 - **DemographicService**: Patient demographics with HIN management
 - **ScheduleService**: Appointment scheduling with reason codes and billing types
-- **PrescriptionService**: Medication management with ATC codes and interaction checking
+- **RxWebService / RxLookupService**: Medication management with ATC codes and interaction checking
 - **LabService**: Laboratory results with HL7 integration
 - **PreventionService**: Immunization tracking with provincial schedules
 - **ConsultationWebService**: Referral management and specialist communication
@@ -682,7 +681,7 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 - **Security Configuration**:
   - `web.xml` - Filter chain with CSRFGuard 4.5 CSRF protection (see `docs/csrf-protection-architecture.md`)
   - Privacy statement filters and audit logging
-  - Multi-factor authentication and SAML 2.0 support
+  - Multi-factor authentication support
 - `pom.xml` - Maven with 200+ healthcare-specific dependencies
 
 ## Development Environment
