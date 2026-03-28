@@ -233,6 +233,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.unstagedReRxMultiple"      var="msg_unstagedReRxMultiple"/>
         <fmt:message key="SearchDrug.js.saveWarning"               var="msg_saveWarning"/>
         <fmt:message key="SearchDrug.js.savePrompt"                var="msg_savePrompt"/>
+        <fmt:message key="oscarRx.Preview.EditRx"                  var="msg_editRx"/>
 
         <script type="text/javascript">
             let selectedReRxIDs = [];
@@ -1252,7 +1253,8 @@ function renderRxStage() {
                 method: 'post',
                 parameters: data,
                 onSuccess: function (transport) {
-                    var json = JSON.parse(transport.responseText);
+                    var json = null;
+                    try { json = JSON.parse(transport.responseText); } catch(e) { checkboxRevertStatus(element); return; }
                     if (json != null && (json.success === 'true' || json.success === true)) {
                         callReplacementWebService('ListDrugs.jsp','drugProfile');
                     } else {
@@ -1521,7 +1523,8 @@ function renderRxStage() {
             var url=ctx + "/oscarRx/deleteRx.do";
             data += "&parameterValue=DeleteRxOnCloseRxBox";
             CarlosAjax.request(url, {method: 'post',parameters:data,onSuccess:function(transport){
-                     var json=JSON.parse(transport.responseText);
+                     var json = null;
+                     try { json = JSON.parse(transport.responseText); } catch(e) { return; }
                      if(json!=null){
                              var id=json.drugId;
                              var rxDate="rxDate_"+ id;
@@ -1598,7 +1601,8 @@ function renderRxStage() {
        requestHeaders: { 'Accept': 'application/json' },
        onSuccess:function(transport){
          if (!transport.responseText) return;
-         var json = JSON.parse(transport.responseText);
+         var json = null;
+         try { json = JSON.parse(transport.responseText); } catch(e) { return; }
          if (json != null && json.results && json.results.length > 0) {
            // Pick the first allergy warning found
            var allergy = json.results[0];
@@ -1615,13 +1619,14 @@ function renderRxStage() {
          CarlosAjax.request(url,{method: 'post',postBody:data,
            onSuccess:function(transport){
                  if (!transport.responseText) return;
-                 var json=JSON.parse(transport.responseText);
+                 var json = null;
+                 try { json = JSON.parse(transport.responseText); } catch(e) { return; }
 
                 if(json!=null && json.vec && json.vec.length > 0){
                     var str = "Inactive Drug Since: "+new Date(json.vec[0].time).toDateString();
                     document.getElementById('inactive_'+json.id).innerHTML = str;
-                } else if(json!=null && json.id) {
-                    document.getElementById('inactive_'+json.id).innerHTML = '';
+                } else {
+                    document.getElementById('inactive_'+id).innerHTML = '';
                 }
             }});
    }
@@ -1672,7 +1677,8 @@ function renderRxStage() {
         var demoNo='<%=patient.getDemographicNo()%>';
         var data="drugId="+encodeURIComponent(id)+"&reason="+encodeURIComponent(reason)+"&comment="+encodeURIComponent(comment)+"&demoNo="+demoNo+"&drugSpecial="+encodeURIComponent(drugSpecial)+"&rand="+ Math.floor(Math.random()*10001);
             CarlosAjax.request(url,{method: 'post',postBody:data,onSuccess:function(transport){
-                  var json=JSON.parse(transport.responseText);
+                  var json = null;
+                  try { json = JSON.parse(transport.responseText); } catch(e) { return; }
                   document.getElementById('discontinueUI').style.display="none";
                   document.getElementById('rxDate_'+json.id).style.textDecoration='line-through';
                   document.getElementById('reRx_'+json.id).style.textDecoration='line-through';
@@ -1791,25 +1797,22 @@ function popForm2(scriptId){
             else {
                 url= ctx + "/oscarRx/ViewScript2.jsp?scriptId="+scriptId;
             }
-            fetch(url, {credentials: 'same-origin', headers: {'X-Requested-With': 'XMLHttpRequest'}})
-                .then(function(r) { return r.text(); })
-                .then(function(html) {
-                    var modalBody = document.getElementById('carlosModalBody');
-                    modalBody.innerHTML = html;
-                    var modalDialog = document.querySelector('#carlosModal .modal-dialog');
-                    modalDialog.style.maxWidth = '980px';
-                    var editRxMsg = '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.Preview.EditRx"/>';
-                    var closeBtn = document.getElementById('carlosModalCloseBtn');
-                    closeBtn.textContent = editRxMsg;
-                    closeBtn.onclick = updateDeleteOnCloseRxBox;
-                    var modalEl = document.getElementById('carlosModal');
-                    var existingModal = bootstrap.Modal.getInstance(modalEl);
-                    if (existingModal) existingModal.dispose();
-                    new bootstrap.Modal(modalEl).show();
-                })
-                .catch(function(err) {
-                    console.error('popForm2: failed to load Rx preview', err);
-                });
+            var modalBody = document.getElementById('carlosModalBody');
+            modalBody.innerHTML = '';
+            var iframe = document.createElement('iframe');
+            iframe.style.cssText = 'width:100%;height:890px;border:none;display:block;';
+            iframe.src = url;
+            modalBody.appendChild(iframe);
+            var modalDialog = document.querySelector('#carlosModal .modal-dialog');
+            modalDialog.style.maxWidth = '980px';
+            var editRxMsg = '${e:forJavaScript(msg_editRx)}';
+            var closeBtn = document.getElementById('carlosModalCloseBtn');
+            closeBtn.textContent = editRxMsg;
+            closeBtn.onclick = updateDeleteOnCloseRxBox;
+            var modalEl = document.getElementById('carlosModal');
+            var existingModal = bootstrap.Modal.getInstance(modalEl);
+            if (existingModal) existingModal.dispose();
+            new bootstrap.Modal(modalEl).show();
         }
         catch(er){
             oscarLog(er);
@@ -2400,7 +2403,8 @@ function updateQty(element){
         CarlosAjax.request(url, {method: 'POST',parameters:data,
           requestHeaders: { 'Accept': 'application/json' },
           onSuccess:function(transport){
-                var json=JSON.parse(transport.responseText);
+                var json = null;
+                try { json = JSON.parse(transport.responseText); } catch(e) { return; }
                 document.getElementById(methodStr).textContent=json.method;
                 document.getElementById(routeStr).textContent=json.route;
                 document.getElementById(frequencyStr).textContent=json.frequency;
@@ -2450,7 +2454,8 @@ function updateQty(element){
         CarlosAjax.request(url, {method: 'POST',parameters:instruction,synchronous:true,
           requestHeaders: { 'Accept': 'application/json' },
           onSuccess:function(transport){
-                var json=JSON.parse(transport.responseText);
+                var json = null;
+                try { json = JSON.parse(transport.responseText); } catch(e) { return; }
                 if(json.policyViolations != null && json.policyViolations.length>0) {
                        for(var x=0;x<json.policyViolations.length;x++) {
                                alert(json.policyViolations[x]);

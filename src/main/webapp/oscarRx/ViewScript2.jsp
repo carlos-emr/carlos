@@ -799,7 +799,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <tr>
                                             <td style="padding-bottom: 0"><span><input type=button
                                                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgPrint"/>"
-                                                                                       class="ControlPushButton"
+                                                                                       class="btn btn-secondary"
                                                                                        style="width: 210px"
                                                                                        onClick="javascript:printIframe();"/></span>
                                             </td>
@@ -808,7 +808,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                             <td style="padding-top: 0"><span><input type=button
                                                     <%=reprint.equals("true") ? "disabled='true'" : ""%>
                                                                                     value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgPrintAndPaste"/>"
-                                                                                    class="ControlPushButton"
+                                                                                    class="btn btn-primary"
                                                                                     style="width: 210px"
                                                                                     onClick="printPaste2Parent(true, false, true);"/></span>
                                             </td>
@@ -840,13 +840,13 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 					%>
                                         <tr>
 						<td style="padding-top: 0; padding-bottom: 0"><span><input type=button value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgFax"/>"
-										 class="ControlPushButton" id="faxButton" style="width: 210px"
+										 class="btn btn-secondary" id="faxButton" style="width: 210px"
 										 onClick="sendFax();" <%=isFaxDisabled%>/></span>
                                             </td>
                                         </tr>
                                         <tr>
                             <td style="padding-top: 0"><span><input type=button value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgFaxAndPaste"/>"
-                                    class="ControlPushButton" id="faxPasteButton" style="width: 210px"
+                                    class="btn btn-primary" id="faxPasteButton" style="width: 210px"
                                     onClick="printPaste2Parent(false, true, true);sendFax();" <%=isFaxDisabled%>/></span>
 
                                             </td>
@@ -856,7 +856,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <tr>
                                             <td><span><input type=button
                                                              value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgCreateNewRx"/>"
-                                                             class="ControlPushButton"
+                                                             class="btn btn-secondary"
                                                              style="width: 210px"
                                                              onClick="resetStash();resetReRxDrugList();try{var m=parent.document.getElementById('carlosModal');if(m){bootstrap.Modal.getInstance(m)?.hide();}}catch(e){}"/></span>
                                             </td>
@@ -864,7 +864,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <tr>
                                             <td><span><input type=button
                                                              value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgBackToOscar"/>"
-                                                             class="ControlPushButton" style="width: 210px"
+                                                             class="btn btn-secondary" style="width: 210px"
                                                              onClick="javascript:clearPending('close');parent.window.close();"/></span>
                                             </td>
                                         </tr>
@@ -880,7 +880,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                 <textarea id="additionalNotes" style="width: 200px"
                                                           onchange="javascript:addNotes();"></textarea>
                                                 <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgAdditionalRxNotes"/>"
-                                                       onclick="javascript:addNotes();"/>
+                                                       class="btn btn-secondary" onclick="javascript:addNotes();"/>
                                             </td>
                                         </tr>
 
