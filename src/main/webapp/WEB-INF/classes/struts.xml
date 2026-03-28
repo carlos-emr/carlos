@@ -14,6 +14,11 @@
     <constant name="struts.custom.i18n.resources" value="oscarResources"/>
     <constant name="struts.custom.i18n.resources" value="oscarResources,MessageResources_mcedt"/>
     <constant name="struts.multipart.maxSize" value="524288000" />
+    <!-- Use stream-based multipart parser (reads from getInputStream()) instead of the default
+         jakarta parser (reads from getParts()). Required because CarlosCsrfGuardFilter wraps
+         multipart requests with MultiReadHttpServletRequest for CSRF token extraction, and
+         getParts() on the wrapped request fails since the underlying stream was consumed. -->
+    <constant name="struts.multipart.parser" value="jakarta-stream" />
     <!-- Default package extending struts-default -->
 	<package name="default" namespace="/" extends="struts-default">
         <action name="logout" class="io.github.carlos_emr.carlos.login.Logout2Action">
@@ -74,7 +79,11 @@
         <action name="lab/CA/ALL/createLabLabel" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.CreateLabLabel2Action">
             <result name="complete">/lab/CA/ALL/labDisplay.jsp</result>
         </action>
-        <action name="MeasurementHL7Uploader" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.hl7.MeasurementHL7Uploader2Action"/>
+        <action name="MeasurementHL7Uploader" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.hl7.MeasurementHL7Uploader2Action">
+            <result name="input" type="httpheader">
+                <param name="status">400</param>
+            </result>
+        </action>
         <action name="Home" class="io.github.carlos_emr.carlos.PMmodule.web.Home2Action">
             <result name="home">/PMmodule/layout_quatro.jsp</result>
         </action>
@@ -387,6 +396,7 @@
         </action>
         <action name="form/xmlUpload" class="io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action">
             <result name="success">/form/formXmlUpload.jsp</result>
+            <result name="input">/form/formXmlUpload.jsp</result>
         </action>
         <action name="form/formname" class="io.github.carlos_emr.carlos.form.Frm2Action">
             <result name="exit">/encounter/close.jsp</result>
@@ -1407,6 +1417,7 @@
             <result name="success">/billing/CA/ON/billingEAreport.jsp</result>
             <result name="outside">/billing/CA/ON/billingLreport.jsp</result>
             <result name="error">/billing/CA/ON/billingOBECEA.jsp</result>
+            <result name="input">/billing/CA/ON/billingOBECEA.jsp</result>
         </action>
         <action name="oscarWaitingList/SetupDisplayPatientWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action">
             <result name="continue">/oscarWaitingList/DisplayPatientWaitingList.jsp</result>
@@ -1490,6 +1501,7 @@
         <action name="eform/uploadHtml" class="io.github.carlos_emr.carlos.eform.upload.HtmlUpload2Action">
             <result name="success">/eform/partials/upload.jsp</result>
             <result name="fail">/eform/partials/upload.jsp</result>
+            <result name="input">/eform/partials/upload.jsp</result>
         </action>
         <action name="eform/editForm" class="io.github.carlos_emr.carlos.eform.actions.HtmlEdit2Action">
             <result name="success">/eform/efmformmanageredit.jsp</result>
@@ -1498,6 +1510,7 @@
         <action name="eform/imageUpload" class="io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action">
             <result name="success">/eform/partials/upload_image.jsp</result>
             <result name="error">/eform/partials/upload_image.jsp</result>
+            <result name="input">/eform/partials/upload_image.jsp</result>
         </action>
         <action name="eform/delEForm" class="io.github.carlos_emr.carlos.eform.actions.DelEForm2Action">
             <result name="success">/eform/efmformmanager.jsp</result>
@@ -1505,6 +1518,7 @@
         <action name="eform/manageEForm" class="io.github.carlos_emr.carlos.eform.actions.ManageEForm2Action">
             <result name="fail">/eform/partials/import.jsp</result>
             <result name="success">/eform/partials/import.jsp</result>
+            <result name="input">/eform/partials/import.jsp</result>
         </action>
         <action name="eform/addEForm" class="io.github.carlos_emr.carlos.eform.actions.AddEForm2Action">
             <result name="close">/eform/efmshowform_data.jsp</result>
@@ -1571,9 +1585,11 @@
         </action>
         <action name="lab/labUpload" class="io.github.carlos_emr.carlos.lab.ca.bc.PathNet.pageUtil.LabUpload2Action">
             <result name="success">/lab/CA/BC/LabUpload.jsp</result>
+            <result name="input">/lab/CA/BC/LabUpload.jsp</result>
         </action>
         <action name="lab/newLabUpload" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabUpload2Action">
             <result name="success">/lab/CA/ALL/uploadComplete.jsp</result>
+            <result name="input">/lab/CA/ALL/uploadComplete.jsp</result>
         </action>
         <action name="lab/CA/ALL/insideLabUpload" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.InsideLabUpload2Action">
             <interceptor-ref name="actionFileUpload" />
@@ -1583,16 +1599,20 @@
         </action>
         <action name="lab/CA/ALL/oruR01Upload" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.OruR01Upload2Action">
             <result name="result">/common/genericResultPage.jsp</result>
+            <result name="input">/lab/CA/ALL/sendOruR01.jsp</result>
         </action>
         <action name="lab/CMLlabUpload" class="io.github.carlos_emr.carlos.lab.ca.on.CML.Upload.LabUpload2Action">
             <result name="success">/lab/CA/ON/uploadComplete.jsp</result>
+            <result name="input">/lab/CA/ON/uploadComplete.jsp</result>
         </action>
         <action name="billing/CA/ON/benefitScheduleUpload" class="io.github.carlos_emr.carlos.billings.ca.on.OHIP.ScheduleOfBenefitsUpload2Action">
             <result name="forceUpdate">/billing/CA/ON/benefitScheduleChange.do</result>
             <result name="success">/billing/CA/ON/ScheduleOfBenefitsUpload.jsp</result>
+            <result name="input">/billing/CA/ON/ScheduleOfBenefitsUpload.jsp</result>
         </action>
         <action name="admin/uploadEntryText" class="io.github.carlos_emr.carlos.login.UploadLoginText2Action">
             <result name="success">/admin/uploadEntryText.jsp</result>
+            <result name="input">/admin/uploadEntryText.jsp</result>
         </action>
         <action name="billing/CA/ON/benefitScheduleChange" class="io.github.carlos_emr.carlos.billings.ca.on.OHIP.ScheduleOfBenefitsUpdate2Action">
             <result name="success">/billing/CA/ON/ScheduleOfBenefitsUpload.jsp</result>
@@ -1841,6 +1861,7 @@
         </action>
         <action name="oscarReport/reportByTemplate/uploadTemplates" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.UploadTemplates2Action">
             <result name="success">/oscarReport/reportByTemplate/addEditTemplate.jsp</result>
+            <result name="input">/oscarReport/reportByTemplate/addEditTemplate.jsp</result>
         </action>
         <action name="oscarReport/reportByTemplate/rbtGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTGetGroup2Action">
             <result name="success">/oscarReport/reportByTemplate/templateGroups.jsp</result>
@@ -1933,7 +1954,11 @@
         <action name="documentManager/SplitDocument" class="io.github.carlos_emr.carlos.documentManager.actions.SplitDocument2Action">
             <result name="success">/oscarMDS/Splitclose.jsp</result>
         </action>
-        <action name="documentManager/documentUpload" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentUpload2Action"/>
+        <action name="documentManager/documentUpload" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentUpload2Action">
+            <result name="input" type="httpheader">
+                <param name="status">400</param>
+            </result>
+        </action>
         <action name="appointment/apptStatusSetting" class="io.github.carlos_emr.carlos.appt.status.web.AppointmentStatus2Action" method="execute">
             <result name="success">/appointment/appointmentstatussetting.jsp</result>
             <result name="edit">/appointment/appointmentstatusedit.jsp</result>
@@ -2154,6 +2179,7 @@
         <action name="mcedt/addUpload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action">
             <result name="success">/mcedt/mailbox/index.jsp?tab=upload</result>
             <result name="failure">/mcedt/mailbox/addUpload.jsp</result>
+            <result name="input">/mcedt/mailbox/addUpload.jsp</result>
             <result name="cancel">/mcedt/kaimcedt.do</result>
         </action>
         <action name="mcedt/kaichpass" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.User2Action">

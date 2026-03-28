@@ -35,6 +35,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
@@ -60,8 +62,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.GregorianCalendar;
+import java.util.List;
 
-public class OruR01Upload2Action extends ActionSupport {
+public class OruR01Upload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -158,6 +161,17 @@ public class OruR01Upload2Action extends ActionSupport {
         }
 
         return (demographic);
+    }
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            if (this.form == null) {
+                this.form = new OruR01Upload2Form();
+            }
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.form.setUploadFile(new File(uploaded.getAbsolutePath()));
+        }
     }
 
     private OruR01Upload2Form form;

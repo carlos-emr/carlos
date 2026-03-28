@@ -29,7 +29,8 @@
 package io.github.carlos_emr.carlos.app;
 
 import org.apache.commons.io.IOUtils;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import jakarta.servlet.ReadListener;
 import jakarta.servlet.ServletInputStream;
@@ -40,15 +41,43 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * HttpServletRequestWrapper that allows for multiple reads of multipart/form-data
+ * HttpServletRequestWrapper that allows for multiple reads of multipart/form-data.
+ *
+ * <p>Also parses multipart text form fields so that {@link #getParameter(String)} works
+ * at the filter level. Without this, Tomcat 11 returns {@code null} for
+ * {@code getParameter()} on multipart requests processed outside a
+ * {@code @MultipartConfig}-annotated servlet — which breaks CSRFGuard token extraction.</p>
  */
 public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(MultiReadHttpServletRequest.class);
+
     private ByteArrayOutputStream cachedBytes;
 
     /** Maximum request body size (500 MB) to prevent memory exhaustion. Matches struts.multipart.maxSize. */
     static final long MAX_BODY_SIZE = 500L * 1024 * 1024;
+
+    /** Lazily parsed multipart text form field parameters. {@code null} means not yet parsed. */
+    private Map<String, List<String>> multipartParams;
+
+    private static final Pattern FIELD_NAME_PATTERN =
+            Pattern.compile("\\bname=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE);
+
+    private static final byte[] HEADER_BODY_SEPARATOR = "\r\n\r\n".getBytes(StandardCharsets.ISO_8859_1);
 
     /**
      * Wraps the given request to allow multiple reads of the body.
@@ -71,7 +100,6 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         if (cachedBytes == null) {
             cacheInputStream();
         }
-
         return new CachedServletInputStream(cachedBytes);
     }
 
@@ -91,6 +119,108 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         return new BufferedReader(new InputStreamReader(getInputStream(), encoding));
     }
 
+    /**
+     * Returns the value of a request parameter. For multipart/form-data requests, this
+     * parses text form fields from the cached body since Tomcat 11 does not make them
+     * available via {@code getParameter()} at the filter level.
+     *
+     * @param name the parameter name
+     * @return the first value, or {@code null} if not found
+     */
+    @Override
+    public String getParameter(String name) {
+        // Check multipart-parsed params first (these are invisible to the wrapped request)
+        Map<String, List<String>> parsed = getParsedMultipartParams();
+        List<String> values = parsed.get(name);
+        if (values != null && !values.isEmpty()) {
+            return values.get(0);
+        }
+        return super.getParameter(name);
+    }
+
+    @Override
+    public Map<String, String[]> getParameterMap() {
+        Map<String, List<String>> parsed = getParsedMultipartParams();
+        if (parsed.isEmpty()) {
+            return super.getParameterMap();
+        }
+        // Multipart params first (consistent with getParameter() priority), then wrapped request
+        Map<String, String[]> merged = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> entry : parsed.entrySet()) {
+            merged.put(entry.getKey(), entry.getValue().toArray(new String[0]));
+        }
+        for (Map.Entry<String, String[]> entry : super.getParameterMap().entrySet()) {
+            merged.putIfAbsent(entry.getKey(), entry.getValue());
+        }
+        return Collections.unmodifiableMap(merged);
+    }
+
+    @Override
+    public Enumeration<String> getParameterNames() {
+        Map<String, List<String>> parsed = getParsedMultipartParams();
+        if (parsed.isEmpty()) {
+            return super.getParameterNames();
+        }
+        Set<String> names = new LinkedHashSet<>();
+        Enumeration<String> origNames = super.getParameterNames();
+        while (origNames.hasMoreElements()) {
+            names.add(origNames.nextElement());
+        }
+        names.addAll(parsed.keySet());
+        return Collections.enumeration(names);
+    }
+
+    @Override
+    public String[] getParameterValues(String name) {
+        Map<String, List<String>> parsed = getParsedMultipartParams();
+        List<String> values = parsed.get(name);
+        if (values != null) {
+            return values.toArray(new String[0]);
+        }
+        return super.getParameterValues(name);
+    }
+
+    /**
+     * Lazily parses multipart text form fields from the cached body.
+     * Triggers input stream caching if not already done (CSRFGuard calls
+     * {@code getParameter()} before any stream reads).
+     *
+     * @return parsed parameters (never {@code null}; empty map for non-multipart requests)
+     */
+    private Map<String, List<String>> getParsedMultipartParams() {
+        if (multipartParams != null) {
+            return multipartParams;
+        }
+
+        String contentType = getContentType();
+        if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("multipart/")) {
+            multipartParams = Collections.emptyMap();
+            return multipartParams;
+        }
+
+        // Ensure the input stream has been cached -- getParameter() may be called before
+        // getInputStream(), e.g. by CSRFGuard's CsrfValidator at the filter level.
+        if (cachedBytes == null) {
+            try {
+                cacheInputStream();
+            } catch (IOException e) {
+                LOGGER.error("Failed to cache multipart input stream for parameter extraction "
+                        + "(URI: {}). CSRF token extraction will fail for this request.",
+                        getRequestURI(), e);
+                multipartParams = Collections.emptyMap();
+                return multipartParams;
+            }
+        }
+
+        try {
+            multipartParams = parseMultipartFormFields(cachedBytes.toByteArray(), contentType);
+        } catch (Exception e) {
+            LOGGER.warn("Failed to parse multipart form fields", e);
+            multipartParams = Collections.emptyMap();
+        }
+        return multipartParams;
+    }
+
     private void cacheInputStream() throws IOException {
         cachedBytes = new ByteArrayOutputStream();
         try {
@@ -105,6 +235,149 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             cachedBytes = null;
             throw e;
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Multipart form field parser
+    // ------------------------------------------------------------------
+
+    /**
+     * Parses text form fields (fields without a {@code filename} attribute) from a
+     * multipart/form-data body. File upload parts are skipped.
+     *
+     * <p>This exists because Tomcat 11 does not expose multipart form fields via
+     * {@code getParameter()} at the filter level (requires {@code @MultipartConfig}
+     * on the target servlet). CSRFGuard calls {@code getParameter(tokenName)} to
+     * validate tokens, so the CSRF token embedded in the multipart body must be
+     * extractable.</p>
+     *
+     * @param body        the raw request body bytes
+     * @param contentType the Content-Type header value (must start with "multipart/")
+     * @return a map of field name to list of values (text fields only)
+     */
+    static Map<String, List<String>> parseMultipartFormFields(byte[] body, String contentType) {
+        String boundary = extractBoundary(contentType);
+        if (boundary == null) {
+            return Collections.emptyMap();
+        }
+
+        Map<String, List<String>> params = new LinkedHashMap<>();
+        byte[] boundaryMarker = ("--" + boundary).getBytes(StandardCharsets.ISO_8859_1);
+
+        int pos = indexOf(body, boundaryMarker, 0);
+        if (pos < 0) {
+            return Collections.emptyMap();
+        }
+
+        while (pos >= 0) {
+            pos += boundaryMarker.length;
+            if (pos + 2 > body.length) {
+                break;
+            }
+
+            // Final boundary ends with "--"
+            if (body[pos] == '-' && body[pos + 1] == '-') {
+                break;
+            }
+
+            // Skip CRLF after boundary marker
+            if (pos + 1 < body.length && body[pos] == '\r' && body[pos + 1] == '\n') {
+                pos += 2;
+            }
+
+            // Find the blank line separating headers from body
+            int headerEnd = indexOf(body, HEADER_BODY_SEPARATOR, pos);
+            if (headerEnd < 0) {
+                break;
+            }
+
+            String headers = new String(body, pos, headerEnd - pos, StandardCharsets.ISO_8859_1);
+            int bodyStart = headerEnd + HEADER_BODY_SEPARATOR.length;
+
+            // Find the next boundary
+            int nextBoundary = indexOf(body, boundaryMarker, bodyStart);
+            if (nextBoundary < 0) {
+                break;
+            }
+
+            // Part body ends before the CRLF that precedes the next boundary
+            int bodyEnd = nextBoundary - 2;
+            if (bodyEnd < bodyStart) {
+                bodyEnd = bodyStart;
+            }
+
+            // Only extract text fields (parts WITHOUT a filename attribute)
+            String name = extractFieldName(headers);
+            if (name != null && !hasFilename(headers)) {
+                String value = new String(body, bodyStart, bodyEnd - bodyStart, StandardCharsets.UTF_8);
+                params.computeIfAbsent(name, k -> new ArrayList<>()).add(value);
+            }
+
+            pos = nextBoundary;
+        }
+
+        return params;
+    }
+
+    /**
+     * Extracts the boundary parameter from a multipart Content-Type header.
+     *
+     * @param contentType e.g. {@code "multipart/form-data; boundary=----WebKit..."}
+     * @return the boundary string, or {@code null} if not found
+     */
+    private static String extractBoundary(String contentType) {
+        for (String part : contentType.split(";")) {
+            String trimmed = part.trim();
+            if (trimmed.toLowerCase(Locale.ROOT).startsWith("boundary=")) {
+                String boundary = trimmed.substring("boundary=".length()).trim();
+                if (boundary.startsWith("\"") && boundary.endsWith("\"") && boundary.length() >= 2) {
+                    boundary = boundary.substring(1, boundary.length() - 1);
+                }
+                return boundary;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Extracts the {@code name} attribute from a Content-Disposition header.
+     *
+     * @param headers the raw part headers
+     * @return the field name, or {@code null} if not found
+     */
+    private static String extractFieldName(String headers) {
+        Matcher matcher = FIELD_NAME_PATTERN.matcher(headers);
+        return matcher.find() ? matcher.group(1) : null;
+    }
+
+    /**
+     * Checks whether the part headers contain a {@code filename} attribute,
+     * indicating a file upload rather than a text form field.
+     */
+    private static boolean hasFilename(String headers) {
+        return headers.toLowerCase(Locale.ROOT).contains("filename=");
+    }
+
+    /**
+     * Finds the first occurrence of {@code target} in {@code source} starting from {@code fromIndex}.
+     *
+     * @return the index of the first match, or {@code -1} if not found
+     */
+    private static int indexOf(byte[] source, byte[] target, int fromIndex) {
+        int searchLimit = source.length - target.length;
+        for (int i = fromIndex; i <= searchLimit; i++) {
+            boolean match = true;
+            for (int j = 0; j < target.length; j++) {
+                if (source[i + j] != target[j]) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /* An inputstream which reads the cached request body */

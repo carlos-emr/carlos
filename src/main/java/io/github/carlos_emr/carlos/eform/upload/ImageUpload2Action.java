@@ -32,6 +32,8 @@ package io.github.carlos_emr.carlos.eform.upload;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -47,8 +49,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.util.List;
 
-public class ImageUpload2Action extends ActionSupport {
+public class ImageUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -129,6 +132,19 @@ public class ImageUpload2Action extends ActionSupport {
 
     private File image;
 
+    /**
+     * Receives uploaded files from the Struts 7.x {@code ActionFileUploadInterceptor}.
+     */
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.image = new File(uploaded.getAbsolutePath());
+            this.imageFileContentType = uploaded.getContentType();
+            this.imageFileName = uploaded.getOriginalName();
+        }
+    }
+
     public File getImage() {
         return image;
     }
@@ -138,8 +154,8 @@ public class ImageUpload2Action extends ActionSupport {
         this.image = image;
     }
 
-    private String imageFileName;    
-    private String imageFileContentType; 
+    private String imageFileName;
+    private String imageFileContentType;
 
     @StrutsParameter
     public void setImageFileName(String imageFileName) {
