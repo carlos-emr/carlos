@@ -28,6 +28,35 @@ Ontario, Canada
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    addappointment.jsp - Add/Create Appointment Form
+
+    Purpose:
+        Renders the appointment creation and editing form with patient selection,
+        scheduling details, and appointment metadata entry.
+
+    Features:
+        - Server-side patient name resolution via demographic_no (avoids PHI in URLs)
+        - Patient keyword search with demographic autocomplete
+        - Appointment type templates with auto-fill support
+        - Double-booking and group appointment detection
+        - Multi-site location support
+        - Patient status, alert, and do-not-book banners
+
+    Parameters:
+        - provider_no      : Target provider number
+        - year             : Appointment year
+        - month            : Appointment month (1-based)
+        - day              : Appointment day
+        - start_time       : Appointment start time (HHmm)
+        - end_time         : Appointment end time (HHmm)
+        - duration         : Appointment duration in minutes
+        - demographic_no   : Patient demographic number (optional — used for prefill and server-side name lookup)
+        - bFirstDisp       : "true" when opening blank form; "false" when prefilling from badge/worklist
+        - appointment_no   : Existing appointment number for edit mode
+
+    @since CARLOS 2026.03
+--%>
 <!DOCTYPE HTML>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -1161,10 +1190,16 @@ Ontario, Canada
                                         String demoNoForName = StringUtils.trimToNull(request.getParameter("demographic_no"));
                                         if (demoNoForName != null) {
                                             try {
-                                                DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
+                                                // demographicDao is declared in the outer scriptlet scope (line ~157) — do not redeclare
                                                 Demographic demForName = demographicDao.getDemographic(demoNoForName);
                                                 if (demForName != null) {
-                                                    name = StringUtils.defaultString(demForName.getFullName());
+                                                    // Build name from individual fields to guard against null values
+                                                    // (getFullName() concatenates raw DB values and can produce "null, null")
+                                                    String ln = StringUtils.defaultString(demForName.getLastName()).trim();
+                                                    String fn = StringUtils.defaultString(demForName.getFirstName()).trim();
+                                                    if (!ln.isEmpty() || !fn.isEmpty()) {
+                                                        name = ln.isEmpty() ? fn : fn.isEmpty() ? ln : ln + ", " + fn;
+                                                    }
                                                 }
                                             } catch (Exception lookupEx) {
                                                 MiscUtils.getLogger().warn("addappointment.jsp: could not resolve patient name for demographic_no={}", demoNoForName, lookupEx);
