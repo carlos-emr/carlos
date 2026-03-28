@@ -31,6 +31,7 @@
 
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -43,67 +44,66 @@ String curProvider_no = (String)session.getAttribute("user");
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request" />
 
 <div class="col-3 d-print-none" id="side">
-   
-    <!--Sidebar content--> 
-		<div class="accordion" id="adminNav">
-		
-			<div class="accordion-group nav nav-tabs">
-			
-			<div class="accordion-heading p-2" style="margin-bottom:0px;color:#000">
-			<a href="${ctx}/administration/"><i class="fa-solid fa-gear"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.page.title"/></a>
-			</div>
+
+    <!--Sidebar content-->
+	<div class="accordion" id="adminNav">
+
+		<div class="p-2" style="margin-bottom:0px;color:#000">
+		<a href="${ctx}/administration/"><i class="fa-solid fa-gear"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.page.title"/></a>
+		</div>
 
 <!-- #USER MANAGEMENT -->
 <security:oscarSec roleName="<%=roleName$%>"
 	objectName="_admin,_admin.userAdmin,_admin.provider"
-	rights="r" reverse="<%=false%>">			
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UserManagement"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseOne" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>					
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/provideraddarecordhtm.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddProvider"/></a></li>
-					
-					
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/providersearchrecordshtm.jsp">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchProvider"/>
-					</a></li>
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/securityaddarecord.jsp">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddLogin"/>
-					</a></li>
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/securitysearchrecordshtm.jsp">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchLogin"/>
-					</a></li>
-			
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/providerRole.jsp">
-					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.assignRole"/></a></li>
-						
-					<security:oscarSec roleName="<%=roleName$%>"
-						objectName="_admin,_admin.unlockAccount" rights="r">
-						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/unLock.jsp">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.unlockAcct"/></a></li>
-					</security:oscarSec>
-				</ul>
-				</div>
-				</div>
+	rights="r" reverse="<%=false%>">
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UserManagement"/>
+			</button>
+			</h2>
+			<div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/provideraddarecordhtm.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddProvider"/></a></li>
+
+
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/providersearchrecordshtm.jsp">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchProvider"/>
+				</a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/securityaddarecord.jsp">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddLogin"/>
+				</a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/securitysearchrecordshtm.jsp">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchLogin"/>
+				</a></li>
+
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/providerRole.jsp">
+				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.assignRole"/></a></li>
+
+				<security:oscarSec roleName="<%=roleName$%>"
+					objectName="_admin,_admin.unlockAccount" rights="r">
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/unLock.jsp">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.unlockAcct"/></a></li>
+				</security:oscarSec>
+			</ul>
+			</div>
+			</div>
+			</div>
 </security:oscarSec>
 <!-- #USER MANAGEMENT END -->
 
 <!-- #BILLING -->
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.invoices,_admin,_admin.billing" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.billing"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseTwo" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.billing"/>
+			</button>
+			</h2>
+			<div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
 		            <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.billing" rights="r" reverse="<%=false%>">
 		            
 		            <oscar:oscarPropertiesCheck property="billregion" value="BC">
@@ -220,7 +220,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					
 					<oscar:oscarPropertiesCheck property="rma_enabled" value="true" defaultVal="false">
 						<li>
-							<a href='#'	class="xlink" rel="${ctx}/admin/clinicNbrManage.jsp">Manage Clinic NBR Codes</a>
+							<a href='#'	class="xlink" rel="${ctx}/admin/clinicNbrManage.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageClinicNbrCodes"/></a>
 						</li>
 					</oscar:oscarPropertiesCheck>
 					
@@ -233,49 +233,50 @@ String curProvider_no = (String)session.getAttribute("user");
 		                        <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/billing/CA/ON/managePaymentType.do'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePaymentType"/></a></li>
 		                </oscar:oscarPropertiesCheck>
 
-                    <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/admin/billingSettings.jsp'>Settings</a></li>
-				</ul>
-				</div>
-				</div>
+                    <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/admin/billingSettings.jsp'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.billingSettings"/></a></li>
+			</ul>
+			</div>
+			</div>
+			</div>
 </security:oscarSec>
 <!-- #BILLING END-->
 
 <!-- #LABS/INBOX -->
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin," rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.LabsInbox"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				
-				<div id="collapseThree" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/lab/CA/ALL/testUploader.jsp" ><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
-					<oscar:oscarPropertiesCheck property="OLD_LAB_UPLOAD" value="yes" defaultVal="false">
-						<li><a href="${ctx}/lab/CA/BC/LabUpload.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oldLabUpload"/></a></li>
-					</oscar:oscarPropertiesCheck>
-					<li><a href="${ctx}/admin/labforwardingrules.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.labFwdRules"/></a></li>
-					
-					<li><a href="${ctx}/admin/addQueue.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.AddNewQueue"/></a></li>
-				</ul>
-				</div>
-				</div>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.LabsInbox"/>
+			</button>
+			</h2>
+			<div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/lab/CA/ALL/testUploader.jsp" ><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
+				<oscar:oscarPropertiesCheck property="OLD_LAB_UPLOAD" value="yes" defaultVal="false">
+					<li><a href="${ctx}/lab/CA/BC/LabUpload.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oldLabUpload"/></a></li>
+				</oscar:oscarPropertiesCheck>
+				<li><a href="${ctx}/admin/labforwardingrules.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.labFwdRules"/></a></li>
+
+				<li><a href="${ctx}/admin/addQueue.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.AddNewQueue"/></a></li>
+			</ul>
+			</div>
+			</div>
+			</div>
 </security:oscarSec>
 <!-- #LABS/INBOX END -->	
 
 <!--  #FORMS/EFORMS -->	
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseForms" aria-expanded="false" aria-controls="collapseForms">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.FormsEforms"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseForms" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseForms" aria-expanded="false" aria-controls="collapseForms">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.FormsEforms"/>
+			</button>
+			</h2>
+			<div id="collapseForms" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
 					<li><a href="${ctx}/form/setupSelect.do" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSelectForm"/></a></li>
 					
 					<li><a href="${ctx}/form/formXmlUpload.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnImportFormData"/></a></li>
@@ -304,8 +305,9 @@ String curProvider_no = (String)session.getAttribute("user");
 							<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.encounter.consult.appointmentIntructions"/>
 						</a>
 					</li>
-					
+
 				</ul>
+				</div>
 				</div>
 				</div>
 </security:oscarSec>
@@ -313,15 +315,14 @@ String curProvider_no = (String)session.getAttribute("user");
 
 <!-- #REPORTS-->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.reporting" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseFive" aria-expanded="false" aria-controls="collapseFive">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oscarReport"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				
-				<div id="collapseFive" class="accordion-body collapse">
-				<div class="accordion-inner">
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFive" aria-expanded="false" aria-controls="collapseFive">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oscarReport"/>
+			</button>
+			</h2>
+			<div id="collapseFive" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
 			
 				<ul>
 				
@@ -350,11 +351,10 @@ String curProvider_no = (String)session.getAttribute("user");
 						</a>
 					</li>
 					<li><a href="${ctx}/oscarReport/oscarReportCatchment.jsp"
-						class="contentLink">PCN</a></li>
+						class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.pcnReport"/></a></li>
 					<li><a href="${ctx}/oscarReport/FluBilling.do?orderby="
 						class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
-					<li><a href="${ctx}/oscarReport/obec.jsp" class="contentLink">Overnight
-							Batch</a></li>
+					<li><a href="${ctx}/oscarReport/obec.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.overnightBatch"/></a></li>
 								
 					<caisi:isModuleLoad moduleName="caisi">		
 						<li><a href="javascript:void(0);"
@@ -398,12 +398,12 @@ String curProvider_no = (String)session.getAttribute("user");
 					</li>	
 -->
 					<li>
-					<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/ckdScreeningReportSubmit.jsp">CKD Screening Report (async)</a>
+					<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/ckdScreeningReportSubmit.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ckdScreeningReport"/></a>
 					</li>	
 					
 					<li>
 						<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/preImplementationSubmit.jsp">
-							Pre-Implementation Report
+							<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.preImplementationReport"/>
 						</a>
 					</li>
 					<li>
@@ -429,40 +429,41 @@ String curProvider_no = (String)session.getAttribute("user");
 
 				</div>
 				</div>
+				</div>
 	</security:oscarSec>
 <!-- #REPORTS END -->	
 
 <!-- #ECHART -->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.encounter" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseSix" aria-expanded="false" aria-controls="collapseSix">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.eChart"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseSix" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/providertemplate.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnInsertTemplate"/></a></li>
-				</ul>
-				</div>
-				</div>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSix" aria-expanded="false" aria-controls="collapseSix">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.eChart"/>
+			</button>
+			</h2>
+			<div id="collapseSix" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/providertemplate.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnInsertTemplate"/></a></li>
+			</ul>
+			</div>
+			</div>
+			</div>
 	</security:oscarSec>
 <!-- #ECHART END-->	
 
 <!-- #Schedule Management -->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.schedule,_admin.schedule.curprovider_only" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseSeven" aria-expanded="false" aria-controls="collapseSeven">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ScheduleManagement"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				
-				<div id="collapseSeven" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSeven" aria-expanded="false" aria-controls="collapseSeven">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ScheduleManagement"/>
+			</button>
+			</h2>
+			<div id="collapseSeven" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
 					<li><a href="javascript:void(0);"
 						class="xlink" rel="${ctx}/schedule/scheduletemplatesetting.jsp"
 						title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleSetting"/></a></li>
@@ -494,21 +495,22 @@ String curProvider_no = (String)session.getAttribute("user");
 				</ul>
 				</div>
 				</div>
+				</div>
 	</security:oscarSec>
 <!-- #Schedule Management END-->
 
 <!-- #CAISI - TODO: Should this move under system management?-->
 <caisi:isModuleLoad moduleName="caisi">
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.caisi" 	rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseCAISI" aria-expanded="false" aria-controls="collapseCAISI">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.caisi"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseCAISI" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCAISI" aria-expanded="false" aria-controls="collapseCAISI">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.caisi"/>
+			</button>
+			</h2>
+			<div id="collapseCAISI" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
 					<li><a href="javascript:void(0);"
 						class="xlink" rel="${ctx}/SystemMessage.do">
 						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.systemMessage"/>
@@ -530,18 +532,19 @@ String curProvider_no = (String)session.getAttribute("user");
 				</ul>
 				</div>
 				</div>
+				</div>
 	</security:oscarSec>
 
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.caisi" rights="r" reverse="<%=true%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseCAISI2" aria-expanded="false" aria-controls="collapseCAISI2">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.caisi"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseCAISI2" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCAISI2" aria-expanded="false" aria-controls="collapseCAISI2">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.caisi"/>
+			</button>
+			</h2>
+			<div id="collapseCAISI2" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
 					<security:oscarSec roleName="<%=roleName$%>"
 						objectName="_admin.systemMessage" rights="r" reverse="<%=false%>">
 						<li><a href="javascript:void(0);"
@@ -575,22 +578,23 @@ String curProvider_no = (String)session.getAttribute("user");
 					</security:oscarSec>
 				</ul>
 				</div>
-				</div>	
+				</div>
+				</div>
 	</security:oscarSec>
 </caisi:isModuleLoad>
 <!-- #CAISI END-->
 
 <!-- #SYSTEM Management-->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.measurements,_admin.document,_admin.flowsheet" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseEight" aria-expanded="false" aria-controls="collapseEight">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SystemManagement"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseEight" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEight" aria-expanded="false" aria-controls="collapseEight">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SystemManagement"/>
+			</button>
+			</h2>
+			<div id="collapseEight" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r" reverse="<%=false%>">
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/admin/providerAddRole.jsp">
@@ -719,63 +723,63 @@ String curProvider_no = (String)session.getAttribute("user");
 				</ul>
 				</div>
 				</div>
+				</div>
 	</security:oscarSec>
 <!-- #SYSTEM Management END-->
 
 <!-- #Fax Management -->
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax" rights="r" reverse="<%=false%>">
-	<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseFifteen" aria-expanded="false" aria-controls="collapseFifteen">
-				Faxes
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				
-				<div id="collapseFifteen" class="accordion-body collapse">
-					<div class="accordion-inner">
-						<ul>
-							<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax" rights="w" reverse="<%=false%>">
-								<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/configureFax.jsp">Configure Fax</a></li>
-							</security:oscarSec>
-							<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/manageFaxes.jsp">Manage Faxes</a></li>
-						</ul>
-					</div>
-				</div>		
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFifteen" aria-expanded="false" aria-controls="collapseFifteen">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.faxes"/>
+			</button>
+			</h2>
+			<div id="collapseFifteen" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax" rights="w" reverse="<%=false%>">
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/configureFax.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.configureFax"/></a></li>
+				</security:oscarSec>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/manageFaxes.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageFaxes"/></a></li>
+			</ul>
+			</div>
+			</div>
+			</div>
 </security:oscarSec>
 
 <!-- #Email Management -->
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.email" rights="r" reverse="<%=false%>">
-	<div class="accordion-heading">
-		<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseSeventeen" aria-expanded="false" aria-controls="collapseSeventeen">
-			Emails
-			<i class="fa-solid fa-chevron-right"></i>
-		</a>
-	</div>
-				
-	<div id="collapseSeventeen" class="accordion-body collapse">
-		<div class="accordion-inner">
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSeventeen" aria-expanded="false" aria-controls="collapseSeventeen">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.emails"/>
+			</button>
+			</h2>
+			<div id="collapseSeventeen" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
 			<ul>
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/configureEmail.jsp">Configure Email</a></li>
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/configureEmail.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.configureEmail"/></a></li>
 				</security:oscarSec>
-				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ManageEmails.do?method=showEmailManager">Manage Emails</a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ManageEmails.do?method=showEmailManager"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageEmails"/></a></li>
 			</ul>
-		</div>
-	</div>		
+			</div>
+			</div>
+			</div>
 </security:oscarSec>
 
 <!-- #SYSTEM REPORTS-->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseNine" aria-expanded="false" aria-controls="collapseNine">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SystemReports"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				
-				<div id="collapseNine" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNine" aria-expanded="false" aria-controls="collapseNine">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SystemReports"/>
+			</button>
+			</h2>
+			<div id="collapseNine" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
 				
 				<security:oscarSec roleName="<%=roleName$%>"
 					objectName="_admin,_admin.securityLogReport" rights="r">
@@ -792,7 +796,8 @@ String curProvider_no = (String)session.getAttribute("user");
 				
 
 							
-				</ul>	
+				</ul>
+				</div>
 				</div>
 				</div>
 	</security:oscarSec>
@@ -800,24 +805,24 @@ String curProvider_no = (String)session.getAttribute("user");
 
 <!-- #INTEGRATION-->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseTen" aria-expanded="false" aria-controls="collapseTen">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.Integration"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseTen" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
-					<li>API/Connections
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTen" aria-expanded="false" aria-controls="collapseTen">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.Integration"/>
+			</button>
+			</h2>
+			<div id="collapseTen" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+					<li><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.apiConnections"/>
 						<ul>
-						<li>&nbsp;<a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/api/clients.jsp">REST Clients</a></li>
+						<li>&nbsp;<a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/api/clients.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.restClients"/></a></li>
 						</ul>
 					</li>
 <%--					<li><a href='javascript:void(0);' class="xlink" rel='${ctx}/lab/CA/ALL/sendOruR01.jsp'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.sendOruR01"/></a></li>--%>
 					
 					<caisi:isModuleLoad moduleName="HRM">
-						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hospitalReportManager.jsp">Hospital Report Manager (HRM) Status</a></li>
+						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hospitalReportManager.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.hrmStatus"/></a></li>
 					</caisi:isModuleLoad>
 
 					<%
@@ -835,7 +840,7 @@ String curProvider_no = (String)session.getAttribute("user");
 		                                {
 		                        %>
 		                        <li><a href='javascript:void(0);'
-		                                class="xlink" rel="${ctx}/admin/RecommitHSFO2.do?method=showSchedule">schedule HSFO2 XML resubmit</a></li>
+		                                class="xlink" rel="${ctx}/admin/RecommitHSFO2.do?method=showSchedule"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.hsfo2Submit"/></a></li>
 		                        <%
 		                                }
 		                        %>		
@@ -849,20 +854,21 @@ String curProvider_no = (String)session.getAttribute("user");
 				</ul>
 				</div>
 				</div>
+				</div>
 	</security:oscarSec>
 <!-- #INTEGRATION END -->
 	
 <!-- #Data Management -->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.backup" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseTwelve" aria-expanded="false" aria-controls="collapseTwelve">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DataManagement"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseTwelve" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwelve" aria-expanded="false" aria-controls="collapseTwelve">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DataManagement"/>
+			</button>
+			</h2>
+			<div id="collapseTwelve" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
 <%--					<li><a href='javascript:void(0);'--%>
 <%--						class="xlink" rel="${ctx}/admin/adminbackupdownload.jsp"><fmt:message--%>
 <%--						key="admin.admin.btnAdminBackupDownload" /></a></li>--%>
@@ -885,6 +891,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				</ul>
 				</div>
 				</div>
+				</div>
 	</security:oscarSec>
 <!-- #Data Management END-->
 
@@ -893,28 +900,28 @@ String curProvider_no = (String)session.getAttribute("user");
 <!-- #Hamilton Public Health -->
 <oscar:oscarPropertiesCheck property="admin.hph" value="true">
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseThirteen" aria-expanded="false" aria-controls="collapseThirteen">
-				Hamilton Public Health
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseThirteen" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/hamiltonPublicHealth/setProviderAvailability.jsp">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.setProviderAvailabilities"/>
-					</a></li>
-				</ul>
-				</div>
-				</div>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThirteen" aria-expanded="false" aria-controls="collapseThirteen">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.hamiltonPublicHealth"/>
+			</button>
+			</h2>
+			<div id="collapseThirteen" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/hamiltonPublicHealth/setProviderAvailability.jsp">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.setProviderAvailabilities"/>
+				</a></li>
+			</ul>
+			</div>
+			</div>
+			</div>
 	</security:oscarSec>
 </oscar:oscarPropertiesCheck>
 <!-- #Hamilton Public Health END-->
 
-		</div> <!-- ACCORDION GROUP END -->	
-		</div> <!-- ACCORDION END -->
+	</div> <!-- ACCORDION END -->
 	
 </div><!-- SIDE END -->
 
@@ -932,11 +939,11 @@ function popupPage(vheight,vwidth,varpage) { //open a new popup window
 }
 
 $(document).ready(function(){
-	$(".accordion-heading").click(function(e) {
+	$(".accordion-header").click(function(e) {
 		if($(this).hasClass('selected-heading')) {
-			$('.accordion-heading ').removeClass('selected-heading');
+			$('.accordion-header ').removeClass('selected-heading');
 		}else{
-        	$('.accordion-heading').not(this).removeClass('selected-heading');
+        	$('.accordion-header').not(this).removeClass('selected-heading');
         	$(this).addClass('selected-heading');
 		}
 	});
