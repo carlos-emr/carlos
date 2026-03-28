@@ -28,6 +28,31 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+
+<%--
+    SearchDrug3.jsp — Prescription Drug Search and Rx Writing Interface
+
+    Purpose:
+    Provides the interactive drug search, Rx staging, and prescription writing UI for CARLOS EMR.
+    Displays the patient's current and archived drug profile, supports ReRx (re-prescribing),
+    allergy checking, inactive drug detection, and previewing/printing prescriptions via ViewScript2.jsp.
+
+    Features:
+    - Drug search by brand name, ingredient, or natural health product using jQuery UI autocomplete
+    - ReRx (re-prescribe) checkbox selection with allergy and inactive drug warnings
+    - Drug staging via AJAX (rePrescribeMulti, renderRxStage)
+    - Rx script preview in a Bootstrap modal (iframe loading ViewScript2.jsp)
+    - Discontinue and other medication management actions
+    - i18n support for all visible UI text via JSTL fmt:message with OWASP JS-safe encoding
+
+    Parameters (request):
+    - demographic_no  : Patient demographic ID (required)
+    - providerNo      : Provider number for session context
+    - scriptId        : Prescription script ID for preview (used by popForm2)
+    - pharmacyId      : Pharmacy ID for print/fax (optional, passed to ViewScript2.jsp)
+
+    @since 2001-01-01 (original OSCAR/McMaster); CARLOS fork maintained 2026+
+--%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib prefix="s" uri="/struts-tags" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -1622,9 +1647,9 @@ function renderRxStage() {
                  var json = null;
                  try { json = JSON.parse(transport.responseText); } catch(e) { return; }
 
-                if(json!=null && json.vec && json.vec.length > 0){
-                    var str = "Inactive Drug Since: "+new Date(json.vec[0].time).toDateString();
-                    document.getElementById('inactive_'+json.id).innerHTML = str;
+                if(json!=null && json.results && json.results.length > 0 && json.results[0].time != null){
+                    var str = "Inactive Drug Since: "+new Date(json.results[0].time).toDateString();
+                    document.getElementById('inactive_'+id).innerHTML = str;
                 } else {
                     document.getElementById('inactive_'+id).innerHTML = '';
                 }
@@ -1783,19 +1808,17 @@ function clearPending(actionValue) {
 }
 function popForm2(scriptId){
         try{
-            var url;
+            var url = ctx + "/oscarRx/ViewScript2.jsp?scriptId="+scriptId;
             var calcs = jQuery("#Calcs").val();
             if( calcs != null && calcs != "" ) {
-                var pharmacy = JSON.parse(calcs);
-                if( pharmacy != null ) {
-                    url= ctx + "/oscarRx/ViewScript2.jsp?scriptId="+scriptId+"&pharmacyId="+pharmacy.id;
+                try {
+                    var pharmacy = JSON.parse(calcs);
+                    if( pharmacy != null && pharmacy.id != null ) {
+                        url= ctx + "/oscarRx/ViewScript2.jsp?scriptId="+scriptId+"&pharmacyId="+pharmacy.id;
+                    }
+                } catch (e) {
+                    oscarLog(e);
                 }
-                else {
-                    url= ctx + "/oscarRx/ViewScript2.jsp?scriptId="+scriptId;
-                }
-            }
-            else {
-                url= ctx + "/oscarRx/ViewScript2.jsp?scriptId="+scriptId;
             }
             var modalBody = document.getElementById('carlosModalBody');
             modalBody.innerHTML = '';
