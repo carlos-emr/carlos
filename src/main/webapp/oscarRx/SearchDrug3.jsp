@@ -852,31 +852,31 @@ function renderRxStage() {
                                                             <input type="radio" id="allCategories" name="method"
                                                                    value="searchAllCategories" class="trigger"
                                                                    checked="checked"/>
-                                                            <label for="allCategories">All</label>
+                                                            <label for="allCategories"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.drugCategory.all"/></label>
 
                                                             <input type="radio" id="brandName" name="method"
                                                                    value="searchBrandName" class="trigger" disabled/>
-                                                            <label for="brandName">Brand</label>
+                                                            <label for="brandName"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.drugCategory.brand"/></label>
 
                                                             <input type="radio" id="genericName" name="method"
                                                                    value="searchGenericName" class="trigger" disabled/>
-                                                            <label for="genericName">Ingredient</label>
+                                                            <label for="genericName"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.drugCategory.ingredient"/></label>
 
                                                             <input type="radio" id="naturalRemedy" name="method"
                                                                    disabled="disabled"
                                                                    value="searchNaturalRemedy" class="trigger" />
-                                                            <label for="naturalRemedy">Natural</label>
+                                                            <label for="naturalRemedy"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.drugCategory.natural"/></label>
                                                         </fieldset>
                                                         <fieldset id="searchParamSet">
                                                             <input type="radio" id="wildCardRight" name="wildcard"
                                                                    value="true" checked="checked" />
-                                                            <label title="Search exactly as typed (right to left)"
-                                                                   for="wildCardRight">Exact</label>
+                                                            <label title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.searchParam.exactTitle"/>"
+                                                                   for="wildCardRight"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.searchParam.exact"/></label>
 
                                                             <input type="radio" id="wildCardBoth" name="wildcard"
                                                                    value="false" />
-                                                            <label title="Search for all words in all phrases"
-                                                                   for="wildCardBoth">Any</label>
+                                                            <label title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.searchParam.anyTitle"/>"
+                                                                   for="wildCardBoth"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.searchParam.any"/></label>
                                                         </fieldset>
                                                     </div>
                                                 </div>
@@ -887,7 +887,7 @@ function renderRxStage() {
                                                     <input type="button" name="search" class="btn btn-secondary btn-sm"  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgSearch"/>" onclick="popupRxSearchWindow();" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.Search"/>">
                                                     <input id="customDrug" type="button" class="btn btn-secondary btn-sm" onclick="customWarning2();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgCustomDrugRx3"/>" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.CustomDrug"/>" />
                                                     <input id="customNote" type="button" class="btn btn-secondary btn-sm"  onclick="customNoteWarning();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgNoteRx3"/>" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.CustomNote"/>"/>
-                                                    <input id="reset" type="button" class="btn btn-secondary btn-sm" title="Clear pending prescriptions"   onclick="resetStash();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgResetPrescriptionRx3"/>"/>
+                                                    <input id="reset" type="button" class="btn btn-secondary btn-sm" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.clearPending"/>"   onclick="resetStash();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgResetPrescriptionRx3"/>"/>
                                                     <%if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
                                                     <a href="javascript:goOMD();" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.OMD"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgOMDLookup"/></a>
                                                     <%}%>
@@ -922,7 +922,7 @@ function renderRxStage() {
                                                     <a href="javascript:void(0);" id="cmdRePrescribe" onclick="RePrescribeLongTerm();" style="width: 200px" ><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReprescribeLongTermMed"/></a>
                                                     &nbsp;
 													<% } %>
-                                                    <a href="javascript:popupWindow(720,920, ctx + '/oscarRx/chartDrugProfile.jsp?demographic_no=<%=demoNo%>','PrintDrugProfile2')">Timeline Drug Profile</a>
+                                                    <a href="javascript:popupWindow(720,920, ctx + '/oscarRx/chartDrugProfile.jsp?demographic_no=<%=demoNo%>','PrintDrugProfile2')"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.timelineDrugProfile"/></a>
                                                     &nbsp;
                                                     &nbsp;&nbsp;
                                                 </div>
@@ -1057,15 +1057,15 @@ function renderRxStage() {
                                                             <div id="drugProfile" ></div>
 
                                                             <div id="themeLegend">
-                                                                <a href="javascript:void(0);" class="currentDrug">Drug that is current</a> |
+                                                                <a href="javascript:void(0);" class="currentDrug"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.legend.currentDrug"/></a> |
                                                                 <%if(!CarlosProperties.getInstance().getProperty("rx.delete_drug.hide","false").equals("true")) {%>
-                                                                <a href="javascript:void(0);" class="archivedDrug">Drug that is archived</a> |
+                                                                <a href="javascript:void(0);" class="archivedDrug"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.legend.archivedDrug"/></a> |
                                                                 <%} %>
-                                                                <a href="javascript:void(0);" class="expireInReference">Drug that is current but will expire within the reference range</a> |
-                                                                <a href="javascript:void(0);" class="expiredDrug">Drug that is expired</a> |
-                                                                <a href="javascript:void(0);" class="longTermMed">Long Term Med Drug</a> |
-                                                                <a href="javascript:void(0);" class="discontinued">Discontinued Drug</a> |
-                                                                <a href="javascript:void(0);" class="external">Prescribed by an outside provider</a>
+                                                                <a href="javascript:void(0);" class="expireInReference"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.legend.expireInReference"/></a> |
+                                                                <a href="javascript:void(0);" class="expiredDrug"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.legend.expiredDrug"/></a> |
+                                                                <a href="javascript:void(0);" class="longTermMed"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.legend.longTermMed"/></a> |
+                                                                <a href="javascript:void(0);" class="discontinued"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.legend.discontinued"/></a> |
+                                                                <a href="javascript:void(0);" class="external"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.legend.external"/></a>
                                                             </div>
 
                                                             <form action="/oscarRx/rePrescribe">
@@ -1085,7 +1085,7 @@ function renderRxStage() {
                                         <tr>
                                             <td>
                                                 <div class="DivContentSectionHead">
-                                                Other Medications
+                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.otherMedications"/>
                                              </div>
                                             </td>
                                         </tr>
@@ -1093,8 +1093,8 @@ function renderRxStage() {
                                         	<td>
                                         	<table class="sortable" id="OMedsTabls" width="50%" border="0" cellpadding="3">
                                         		<tr>
-                                        			<th align="left">Date Entered</th>
-                                        			<th align="left">Medication</th>
+                                        			<th align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.OMeds.dateEntered"/></th>
+                                        			<th align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.OMeds.medication"/></th>
                                         		</tr>
                                         		 <%
                                         		// java.text.SimpleDateFormat formatter = new java.text.SimpleDateFormat("yyyy-MM-dd");
@@ -1133,7 +1133,7 @@ function renderRxStage() {
 
 <div id="dragifm" style="top:0px;left:0px;"></div>
     <div id="discontinueUI" style="position: absolute;display:none;width:500px;height:200px;background-color:white;padding:20px;border:1px solid grey">
-        <h3>Discontinue :<span id="disDrug"></span></h3>
+        <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.discontinue.heading"/><span id="disDrug"></span></h3>
         <input type="hidden" name="disDrugId" id="disDrugId"/>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.msgReason"/>
         <select name="disReason" id="disReason">
@@ -1160,8 +1160,8 @@ function renderRxStage() {
         <br/>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.msgComment"/><br/>
         <textarea id="disComment" rows="3" cols="45"></textarea><br/>
-        <input type="button" onclick="document.getElementById('discontinueUI').style.display='none';" value="Cancel"/>
-        <input type="button" onclick="Discontinue2(document.getElementById('disDrugId').value,document.getElementById('disReason').value,document.getElementById('disComment').value,document.getElementById('disDrug').innerHTML);" value="Discontinue"/>
+        <input type="button" onclick="document.getElementById('discontinueUI').style.display='none';" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.discontinue.cancel"/>"/>
+        <input type="button" onclick="Discontinue2(document.getElementById('disDrugId').value,document.getElementById('disReason').value,document.getElementById('disComment').value,document.getElementById('disDrug').innerHTML);" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.discontinue.action"/>"/>
 
     </div>
 

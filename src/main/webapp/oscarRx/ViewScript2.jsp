@@ -31,7 +31,7 @@
 <%@ page
         import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -239,6 +239,14 @@
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
+        <%-- Pre-declare i18n messages used in JavaScript so they can be safely embedded
+             in JavaScript string literals using OWASP forJavaScript() encoding --%>
+        <fmt:setBundle basename="oscarResources"/>
+        <fmt:message key="ViewScript.js.msieNotPermitted"  var="msg_msieNotPermitted"/>
+        <fmt:message key="ViewScript.js.signatureSent"     var="msg_signatureSent"/>
+        <fmt:message key="ViewScript.js.signatureDirty"    var="msg_signatureDirty"/>
+        <fmt:message key="ViewScript.msgRemovePharmacyInfo" var="msg_removePharmacyInfo"/>
+
         <script type="text/javascript">
             var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
             var csrfToken = csrfEl ? csrfEl.value : '';
@@ -333,7 +341,7 @@
             function printIframe() {
                 var browserName = navigator.appName;
                 if (browserName == "Microsoft Internet Explorer") {
-                    alert("Use of Microsoft Internet Explorer is not permitted")
+                    alert('${e:forJavaScript(msg_msieNotPermitted)}')
                 } else {
                     if ('function' === typeof window.onbeforeunload) {
                         window.onbeforeunload = null;
@@ -550,9 +558,9 @@
             }
 
             function unloadMess() {
-                mess = "Signature found, but fax has not been sent.";
+                mess = '${e:forJavaScript(msg_signatureSent)}';
                 if (isSignatureDirty) {
-                    mess = "Signature changed, but not saved and fax not sent.";
+                    mess = '${e:forJavaScript(msg_signatureDirty)}';
                 }
                 return mess;
             }
@@ -677,9 +685,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                 <td valign=top><form name="RxClearPendingForm" action="${pageContext.request.contextPath}/oscarRx/clearPending.do" method="post">
                                     <input type="hidden" name="action" id="action" value=""/>
                                     <div class="warning-note" id="faxWarningNote">
-                                        <strong>Warning:</strong> faxing is disabled because no pharmacy fax number is
-                                        available.</br></br>To enable faxing, close this window and select a pharmacy
-                                        with a fax number before trying again.
+                                        <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgWarning"/></strong> <fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgFaxWarning"/><br/><br/><fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgFaxWarningHelp"/>
                                     </div>
                                 </form>
                                     <script type="text/javascript">
@@ -722,7 +728,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                         var text = json.name + "<br>" + json.address + "<br>" + json.city + ", " + json.province + ", "
                                                             + json.postalCode + "<br>Tel:" + json.phone1 + " " + json.phone2 + "<br>Fax:" + json.fax + "<br>Email:" + json.email + "<br>Note:" + json.notes;
 
-                                                        text += '<br><br><a class="noprint" style="text-align:center;" onclick="parent.reducePreview();" href="javascript:void(0);">Remove Pharmacy Info</a>';
+                                                        text += '<br><br><a class="noprint" style="text-align:center;" onclick="parent.reducePreview();" href="javascript:void(0);">${e:forJavaScript(msg_removePharmacyInfo)}</a>';
                                                         text += "<input type='hidden' name='pharmacyInfo' value=" + id + " />"
                                                         expandPreview(text);
                                                     }
@@ -774,7 +780,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 
                                         <tr>
                                             <!--td width=10px></td-->
-                                            <td>Page size:
+                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgPageSize"/>
                                                 <select name="printPageSize" id="printPageSize"
                                                         style="height:20px;font-size:10px">
                                                     <%
@@ -801,7 +807,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <tr>
                                             <td style="padding-top: 0"><span><input type=button
                                                     <%=reprint.equals("true") ? "disabled='true'" : ""%>
-                                                                                    value="Print &amp; Add to encounter note"
+                                                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgPrintAndPaste"/>"
                                                                                     class="ControlPushButton"
                                                                                     style="width: 210px"
                                                                                     onClick="printPaste2Parent(true, false, true);"/></span>
@@ -813,7 +819,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         %>
                                         <tr>
                                             <td style="padding-bottom: 0">
-                                                <span>From Fax Number:</span>
+                                                <span><fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgFromFaxNumber"/></span>
                                                 <select id="faxNumber" name="faxNumber">
                                                     <%
                                                         for (FaxConfig faxConfig : faxConfigs) {
@@ -833,13 +839,13 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 								? "disabled" : "";
 					%>
                                         <tr>
-						<td style="padding-top: 0; padding-bottom: 0"><span><input type=button value="Fax"
+						<td style="padding-top: 0; padding-bottom: 0"><span><input type=button value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgFax"/>"
 										 class="ControlPushButton" id="faxButton" style="width: 210px"
 										 onClick="sendFax();" <%=isFaxDisabled%>/></span>
                                             </td>
                                         </tr>
                                         <tr>
-                            <td style="padding-top: 0"><span><input type=button value="Fax &amp; Add to encounter note"
+                            <td style="padding-top: 0"><span><input type=button value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgFaxAndPaste"/>"
                                     class="ControlPushButton" id="faxPasteButton" style="width: 210px"
                                     onClick="printPaste2Parent(false, true, true);sendFax();" <%=isFaxDisabled%>/></span>
 
@@ -873,7 +879,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                             <td>
                                                 <textarea id="additionalNotes" style="width: 200px"
                                                           onchange="javascript:addNotes();"></textarea>
-                                                <input type="button" value="Additional Rx Notes"
+                                                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgAdditionalRxNotes"/>"
                                                        onclick="javascript:addNotes();"/>
                                             </td>
                                         </tr>
@@ -883,7 +889,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <%-- Topaz signature pad check removed - HTML5 signature is now standard --%>
 						<% if (bean.getStashSize() == 0 || Objects.isNull(bean.getStashItem(0).getDigitalSignatureId())) { %>
                                         <tr>
-                                            <td colspan=2 style="font-weight: bold"><span>Signature</span></td>
+                                            <td colspan=2 style="font-weight: bold"><span><fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgSignature"/></span></td>
                                         </tr>
                                         <tr>
                                             <td>
