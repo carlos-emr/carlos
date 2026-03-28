@@ -674,7 +674,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 					<% } %>
                                 </td>
 
-                                <td valign=top><form action="${pageContext.request.contextPath}/oscarRx/clearPending.do" method="post">
+                                <td valign=top><form name="RxClearPendingForm" action="${pageContext.request.contextPath}/oscarRx/clearPending.do" method="post">
                                     <input type="hidden" name="action" id="action" value=""/>
                                     <div class="warning-note" id="faxWarningNote">
                                         <strong>Warning:</strong> faxing is disabled because no pharmacy fax number is

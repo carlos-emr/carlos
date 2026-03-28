@@ -202,7 +202,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <script type="text/javascript" src="${ctx}/js/checkDate.js"></script>
 
 
-        <%-- jQuery UI for autocomplete --%>
+        <%-- UI library includes (Bootstrap, jQuery UI) --%>
 		<link rel="stylesheet" type="text/css" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
 		<script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 		<link rel="stylesheet" type="text/css" href="${ctx}/library/jquery/jquery-ui-1.14.2.min.css"/>
@@ -1741,6 +1741,15 @@ function saveCustomName(element){
 }
 function updateDeleteOnCloseRxBox(){
     document.getElementById('deleteOnCloseRxBox').value='true';
+}
+function clearPending(actionValue) {
+    var form = document.forms["RxClearPendingForm"];
+    if (form && form.elements["action"]) {
+        form.elements["action"].value = actionValue;
+        form.submit();
+    } else {
+        console.warn("RxClearPendingForm not found, skipping clearPending()");
+    }
 }
 function popForm2(scriptId){
         try{
