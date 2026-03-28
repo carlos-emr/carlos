@@ -207,40 +207,60 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 		<script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 		<link rel="stylesheet" type="text/css" href="${ctx}/library/jquery/jquery-ui-1.14.2.min.css"/>
 
-        <%-- Pre-declare i18n messages that contain newline sequences so they can be safely embedded
+        <%-- Pre-declare all i18n messages used in JavaScript so they can be safely embedded
              in JavaScript string literals using OWASP forJavaScript() encoding --%>
         <fmt:setBundle basename="oscarResources"/>
-        <fmt:message key="SearchDrug.js.confirmChangeDrugName" var="msg_confirmChangeDrugName"/>
-        <fmt:message key="SearchDrug.js.confirmCustomNote" var="msg_confirmCustomNote"/>
-        <fmt:message key="SearchDrug.js.confirmCustomDrug" var="msg_confirmCustomDrug"/>
+        <fmt:message key="SearchDrug.js.handlerNotRemoved"         var="msg_handlerNotRemoved"/>
+        <fmt:message key="SearchDrug.js.confirmMedRecComplete"     var="msg_confirmMedRecComplete"/>
+        <fmt:message key="SearchDrug.js.medRecCompleted"           var="msg_medRecCompleted"/>
+        <fmt:message key="SearchDrug.js.confirmChangeDrugName"     var="msg_confirmChangeDrugName"/>
+        <fmt:message key="SearchDrug.js.confirmDeletePrescriptions" var="msg_confirmDeletePrescriptions"/>
+        <fmt:message key="SearchDrug.js.confirmCustomNote"         var="msg_confirmCustomNote"/>
+        <fmt:message key="SearchDrug.js.confirmCustomDrug"         var="msg_confirmCustomDrug"/>
+        <fmt:message key="SearchDrug.js.startDateWrongFormat"      var="msg_startDateWrongFormat"/>
+        <fmt:message key="SearchDrug.js.startDateInvalidYear"      var="msg_startDateInvalidYear"/>
+        <fmt:message key="SearchDrug.js.startDateInvalidMonth"     var="msg_startDateInvalidMonth"/>
+        <fmt:message key="SearchDrug.js.startDateInvalidDay"       var="msg_startDateInvalidDay"/>
+        <fmt:message key="SearchDrug.js.startDateFuture"           var="msg_startDateFuture"/>
+        <fmt:message key="SearchDrug.js.writtenDateWrongFormat"    var="msg_writtenDateWrongFormat"/>
+        <fmt:message key="SearchDrug.js.writtenDateInvalidYear"    var="msg_writtenDateInvalidYear"/>
+        <fmt:message key="SearchDrug.js.writtenDateInvalidMonth"   var="msg_writtenDateInvalidMonth"/>
+        <fmt:message key="SearchDrug.js.writtenDateInvalidDay"     var="msg_writtenDateInvalidDay"/>
+        <fmt:message key="SearchDrug.js.writtenDateFuture"         var="msg_writtenDateFuture"/>
+        <fmt:message key="SearchDrug.js.pleaseAddDrugFirst"        var="msg_pleaseAddDrugFirst"/>
+        <fmt:message key="SearchDrug.js.reviewDrugSpecifyTerm"     var="msg_reviewDrugSpecifyTerm"/>
+        <fmt:message key="SearchDrug.js.unstagedReRxSingle"        var="msg_unstagedReRxSingle"/>
+        <fmt:message key="SearchDrug.js.unstagedReRxMultiple"      var="msg_unstagedReRxMultiple"/>
+        <fmt:message key="SearchDrug.js.saveWarning"               var="msg_saveWarning"/>
+        <fmt:message key="SearchDrug.js.savePrompt"                var="msg_savePrompt"/>
 
         <script type="text/javascript">
             let selectedReRxIDs = [];
             // i18n message strings for JavaScript alerts and confirm dialogs
             var jsMsg = {
-                handlerNotRemoved: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.handlerNotRemoved"/>',
-                confirmMedRecComplete: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.confirmMedRecComplete"/>',
-                medRecCompleted: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.medRecCompleted"/>',
+                handlerNotRemoved: '${e:forJavaScript(msg_handlerNotRemoved)}',
+                confirmMedRecComplete: '${e:forJavaScript(msg_confirmMedRecComplete)}',
+                medRecCompleted: '${e:forJavaScript(msg_medRecCompleted)}',
                 confirmChangeDrugName: '${e:forJavaScript(msg_confirmChangeDrugName)}',
-                confirmDeletePrescriptions: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.confirmDeletePrescriptions"/>',
+                confirmDeletePrescriptions: '${e:forJavaScript(msg_confirmDeletePrescriptions)}',
                 confirmCustomNote: '${e:forJavaScript(msg_confirmCustomNote)}',
                 confirmCustomDrug: '${e:forJavaScript(msg_confirmCustomDrug)}',
-                startDateWrongFormat: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.startDateWrongFormat"/>',
-                startDateInvalidYear: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.startDateInvalidYear"/>',
-                startDateInvalidMonth: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.startDateInvalidMonth"/>',
-                startDateInvalidDay: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.startDateInvalidDay"/>',
-                startDateFuture: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.startDateFuture"/>',
-                writtenDateWrongFormat: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.writtenDateWrongFormat"/>',
-                writtenDateInvalidYear: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.writtenDateInvalidYear"/>',
-                writtenDateInvalidMonth: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.writtenDateInvalidMonth"/>',
-                writtenDateInvalidDay: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.writtenDateInvalidDay"/>',
-                writtenDateFuture: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.writtenDateFuture"/>',
-                pleaseAddDrugFirst: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.pleaseAddDrugFirst"/>',
-                reviewDrugSpecifyTerm: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.reviewDrugSpecifyTerm"/>',
-                unstagedReRxSingle: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.unstagedReRxSingle"/>',
-                unstagedReRxMultiple: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.unstagedReRxMultiple"/>',
-                saveWarning: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.saveWarning"/>',
-                savePrompt: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.savePrompt"/>'
+                startDateWrongFormat: '${e:forJavaScript(msg_startDateWrongFormat)}',
+                startDateInvalidYear: '${e:forJavaScript(msg_startDateInvalidYear)}',
+                startDateInvalidMonth: '${e:forJavaScript(msg_startDateInvalidMonth)}',
+                startDateInvalidDay: '${e:forJavaScript(msg_startDateInvalidDay)}',
+                startDateFuture: '${e:forJavaScript(msg_startDateFuture)}',
+                writtenDateWrongFormat: '${e:forJavaScript(msg_writtenDateWrongFormat)}',
+                writtenDateInvalidYear: '${e:forJavaScript(msg_writtenDateInvalidYear)}',
+                writtenDateInvalidMonth: '${e:forJavaScript(msg_writtenDateInvalidMonth)}',
+                writtenDateInvalidDay: '${e:forJavaScript(msg_writtenDateInvalidDay)}',
+                writtenDateFuture: '${e:forJavaScript(msg_writtenDateFuture)}',
+                pleaseAddDrugFirst: '${e:forJavaScript(msg_pleaseAddDrugFirst)}',
+                reviewDrugSpecifyTerm: '${e:forJavaScript(msg_reviewDrugSpecifyTerm)}',
+                unstagedReRxSingle: '${e:forJavaScript(msg_unstagedReRxSingle)}',
+                unstagedReRxMultiple: '${e:forJavaScript(msg_unstagedReRxMultiple)}',
+                saveWarning: '${e:forJavaScript(msg_saveWarning)}',
+                savePrompt: '${e:forJavaScript(msg_savePrompt)}'
             };
 	        function saveLinks(randNumber) {
 	            document.getElementById('method_'+randNumber).onblur();
@@ -1600,6 +1620,8 @@ function renderRxStage() {
                 if(json!=null && json.vec && json.vec.length > 0){
                     var str = "Inactive Drug Since: "+new Date(json.vec[0].time).toDateString();
                     document.getElementById('inactive_'+json.id).innerHTML = str;
+                } else if(json!=null && json.id) {
+                    document.getElementById('inactive_'+json.id).innerHTML = '';
                 }
             }});
    }
