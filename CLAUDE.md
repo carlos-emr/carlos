@@ -55,8 +55,6 @@
 make clean                    # Clean project and remove deployed app
 make install                  # Build and deploy without tests
 make install --run-tests      # Build, test, and deploy (all tests)
-make install --run-modern-tests     # Build and run only modern tests (JUnit 5)
-make install --run-legacy-tests     # Build and run only legacy tests (JUnit 4)
 make install --run-unit-tests       # Build and run only modern unit tests
 make install --run-integration-tests # Build and run only modern integration tests
 server start/stop/restart     # Tomcat management
@@ -193,7 +191,7 @@ public class Example2Action extends ActionSupport {
 
 ### Struts 7.1.1 Notes
 
-All 458 *2Action files use `org.apache.struts2.ActionSupport` (the Struts 7 package location).
+All 436 *2Action files use `org.apache.struts2.ActionSupport` (the Struts 7 package location).
 The deprecated `com.opensymphony.xwork2.*` packages from Struts 6.x were migrated to
 `org.apache.struts2.*` as part of the Jakarta EE migration.
 
@@ -409,11 +407,11 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 
 **Standards & Protocols**:
 - **HL7 v2/v3**: Full message processing with MSH, PID, OBX, ORC, OBR segment handlers
-- **FHIR R4**: HAPI FHIR 6.10.5 with resource filters and healthcare provider context
+- **FHIR DSTU3**: HAPI FHIR 8.4.0 with resource filters and healthcare provider context
 - **SNOMED CT**: Clinical terminology with core dataset loading
 - **ICD-9/ICD-10**: Diagnosis coding systems fully integrated
 - **ATC Codes**: Anatomical Therapeutic Chemical classification for medications
-- **DICOM**: Medical imaging support for diagnostic images
+
 
 **Provincial Healthcare Systems**:
 - **Teleplan**: BC MSP billing system with specialized upload/download
@@ -455,11 +453,11 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 ### Web Technologies
 - **Struts 7.1.1**: Modern actions (2Action pattern) using `org.apache.struts2.ActionSupport`
   - Upgraded from 6.8.0 (March 2026) - Jakarta EE namespace migration
-  - All 458 *2Action files migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*`
+  - All 436 *2Action files migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*`
   - Requires Caffeine 3.2.3 cache dependency for internal caching
 - **Apache CXF 4.1.5**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
 - **JSP/JSTL**: View layer with extensive medical form templates
-- **Bootstrap 5.3.0**: Modern UI framework loaded from CDN for responsive design
+- **Bootstrap 5.3.3**: Modern UI framework served from local application resources for responsive design
 - **JavaScript/CSS/jQuery**: Frontend with healthcare-specific UI components
 - **Vanilla JavaScript**: Progressively replacing jQuery dependencies where possible
 
@@ -988,7 +986,6 @@ src/main/webapp/WEB-INF/classes/struts.xml        # 2Action mapping examples
 src/main/java/io/github/carlos_emr/carlos/*/web/*2Action.java # 2Action implementation patterns
 
 # Database Configuration
-src/main/resources/OscarDatabaseBase.xml           # Hibernate configuration
 database/mysql/oscarinit_2025.sql                 # Current database schema
 database/mysql/updates/update-2025-*.sql          # Recent migration patterns
 ```
@@ -998,7 +995,7 @@ database/mysql/updates/update-2025-*.sql          # Recent migration patterns
 # Security Patterns (READ THESE FIRST)
 src/main/java/io/github/carlos_emr/carlos/managers/SecurityInfoManager.java    # Authorization patterns
 src/main/java/io/github/carlos_emr/carlos/utility/LoggedInInfo.java           # Session management
-src/main/webapp/WEB-INF/classes/oscar/oscarSecurity/                # Security filter examples
+src/main/resources/oscar/oscarSecurity/                             # Security filter examples
 
 # OWASP Integration Examples
 src/main/webapp/*/*.jsp                            # Look for Encode.forHtml() usage patterns
@@ -1016,7 +1013,7 @@ src/main/java/io/github/carlos_emr/carlos/app/MultiReadHttpServletRequest.java  
 ```bash
 # Medical Data Patterns
 src/main/java/io/github/carlos_emr/carlos/commn/model/Demographic.java        # Patient data model
-src/main/java/io/github/carlos_emr/carlos/commn/model/Allergies.java          # Medical allergy model
+src/main/java/io/github/carlos_emr/carlos/commn/model/Allergy.java            # Medical allergy model
 src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicDao.java       # Healthcare DAO patterns
 
 # Provincial Healthcare Integration
@@ -1033,7 +1030,7 @@ src/main/java/io/github/carlos_emr/carlos/fhir/                               # 
 ```bash
 # Study These 2Action Implementations
 src/main/java/io/github/carlos_emr/carlos/tickler/pageUtil/AddTickler2Action.java      # Simple execute pattern
-src/main/java/io/github/carlos_emr/carlos/admin/SystemMessage2Action.java              # Method-based routing
+src/main/java/io/github/carlos_emr/carlos/www/SystemMessage2Action.java                # Method-based routing
 src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplay*2Action.java
 # Base Classes for 2Actions
 src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayAction.java
