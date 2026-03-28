@@ -77,7 +77,7 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     /** Maximum days to search ahead before giving up. */
-    private static final int MAX_LOOKAHEAD_DAYS = 60;
+    private static final int MAX_LOOKAHEAD_DAYS = 90;
     /** Number of available slots to skip before returning (returns the Nth available slot). */
     private static final int TARGET_SLOT_ORDINAL = 3;
 
