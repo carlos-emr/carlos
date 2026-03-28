@@ -193,12 +193,13 @@ public final class RxSearchDrug2Action extends ActionSupport {
 
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
+            try {
+                response.setContentType("application/json");
+                response.getWriter().write("{}");
+            } catch (java.io.IOException ioe) {
+                MiscUtils.getLogger().error("Error writing empty inactive date JSON response", ioe);
+            }
         }
-//        Hashtable d = new Hashtable();
-//
-//        d.put("id", id);
-//        d.put("vec", vec);
-//        mapper.writeValueAsString(d);
         return null;
     }
 

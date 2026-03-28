@@ -1577,6 +1577,7 @@ function renderRxStage() {
      CarlosAjax.request(url,{method: 'post',postBody:data,
        requestHeaders: { 'Accept': 'application/json' },
        onSuccess:function(transport){
+         if (!transport.responseText) return;
          var json = JSON.parse(transport.responseText);
          if (json != null && json.results && json.results.length > 0) {
            // Pick the first allergy warning found
@@ -1593,9 +1594,10 @@ function renderRxStage() {
          var data="method=inactiveDate&din="+dinNumber+"&id="+id +"&rand=" +  Math.floor(Math.random()*10001);
          CarlosAjax.request(url,{method: 'post',postBody:data,
            onSuccess:function(transport){
+                 if (!transport.responseText) return;
                  var json=JSON.parse(transport.responseText);
 
-                if(json!=null){
+                if(json!=null && json.vec && json.vec.length > 0){
                     var str = "Inactive Drug Since: "+new Date(json.vec[0].time).toDateString();
                     document.getElementById('inactive_'+json.id).innerHTML = str;
                 }
@@ -1782,6 +1784,9 @@ function popForm2(scriptId){
                     var existingModal = bootstrap.Modal.getInstance(modalEl);
                     if (existingModal) existingModal.dispose();
                     new bootstrap.Modal(modalEl).show();
+                })
+                .catch(function(err) {
+                    console.error('popForm2: failed to load Rx preview', err);
                 });
         }
         catch(er){
