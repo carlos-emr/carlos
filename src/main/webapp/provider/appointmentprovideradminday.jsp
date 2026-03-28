@@ -2824,9 +2824,10 @@
             badgeEl.style.opacity = '0.6';
             badgeEl.style.pointerEvents = 'none';
 
+            // No startDate: backend defaults to tomorrow, so today's (possibly past) open slots
+            // are not counted toward the 3-slot target.
             var url = ctx + '/demographic/FindNextAvailableSlot.do'
-                + '?providerNos=' + encodeURIComponent(mrpProviderNo)
-                + '&startDate='   + encodeURIComponent(scheduleCurrentDate);
+                + '?providerNos=' + encodeURIComponent(mrpProviderNo);
 
             fetch(url, { credentials: 'same-origin' })
                 .then(function(r) {
@@ -2860,6 +2861,7 @@
                     try {
                         sessionStorage.setItem('carlosPendingAppt', JSON.stringify({
                             demographicNo: item.demographicNo,
+                            formattedName: item.formattedName || '',
                             providerNo:    slot.providerNo,
                             startTime:     slot.startTime,
                             endTime:       endTime,
@@ -2870,7 +2872,7 @@
                         }));
                     } catch (storageErr) {
                         // sessionStorage unavailable — open popup directly (no schedule navigation)
-                        popupPage(360, 780, buildApptUrl(ctx, item.demographicNo, '',
+                        popupPage(360, 780, buildApptUrl(ctx, item.demographicNo, item.formattedName || '',
                             slot.providerNo, slot.startTime, endTime, slot.duration, appointmentDate));
                         hideDropdown();
                         return;
@@ -3003,7 +3005,7 @@
         var derivedApptDate = pending.year ? (pending.year + '-' + mm2 + '-' + dd2) : '';
         var popupUrl = buildApptUrl(ctx2,
             pending.demographicNo,
-            '',
+            pending.formattedName || '',
             pending.providerNo,
             pending.startTime,
             pending.endTime || '',
