@@ -1155,7 +1155,26 @@ Ontario, Canada
                                 <div class="input-group input-group-sm">
                                 <%
                                     String name = "";
-                                    name = String.valueOf((bFirstDisp && !bFromWL) ? "" : request.getParameter("name") == null ? session.getAttribute("appointmentname") == null ? "" : session.getAttribute("appointmentname") : request.getParameter("name"));
+                                    if (!bFirstDisp || bFromWL) {
+                                        // Prefer server-side DB lookup over any name transmitted via URL to avoid PHI exposure.
+                                        // When demographic_no is present, resolve the patient name directly from the database.
+                                        String demoNoForName = StringUtils.trimToNull(request.getParameter("demographic_no"));
+                                        if (demoNoForName != null) {
+                                            try {
+                                                DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
+                                                Demographic demForName = demographicDao.getDemographic(demoNoForName);
+                                                if (demForName != null) {
+                                                    name = StringUtils.defaultString(demForName.getFullName());
+                                                }
+                                            } catch (Exception lookupEx) {
+                                                MiscUtils.getLogger().warn("addappointment.jsp: could not resolve patient name for demographic_no={}", demoNoForName, lookupEx);
+                                            }
+                                        }
+                                        // Fallback: use session attribute (set by other appointment workflows)
+                                        if (name.isEmpty()) {
+                                            name = String.valueOf(session.getAttribute("appointmentname") == null ? "" : session.getAttribute("appointmentname"));
+                                        }
+                                    }
                                 %>
                                     <input type="hidden" name="demographic_no" id="demographic_no"
                                            value='<%=(bFirstDisp && !bFromWL) ? "" : Encode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("demographic_no")))%>'>

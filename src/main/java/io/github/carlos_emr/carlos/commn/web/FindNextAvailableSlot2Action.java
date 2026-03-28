@@ -37,6 +37,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao;
 import io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao;
@@ -62,6 +63,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *       (optional; defaults to tomorrow)</li>
  * </ul>
  *
+ * <h3>Configuration (carlos.properties)</h3>
+ * <ul>
+ *   <li>{@code TARGET_SLOT_ORDINAL}  – which open slot to return (default: 3); must be &gt;= 1</li>
+ *   <li>{@code MAX_LOOKAHEAD_DAYS}   – days to search before giving up (default: 90); must be &gt;= 1</li>
+ * </ul>
+ *
  * <h3>Response JSON (on success)</h3>
  * <pre>
  * { "found": true, "year": 2026, "month": 3, "day": 25,
@@ -76,10 +83,51 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class FindNextAvailableSlot2Action extends ActionSupport {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    /** Maximum days to search ahead before giving up. */
-    private static final int MAX_LOOKAHEAD_DAYS = 90;
-    /** Number of available slots to skip before returning (returns the Nth available slot). */
-    private static final int TARGET_SLOT_ORDINAL = 3;
+
+    /** Default maximum days to search ahead; overridable via {@code MAX_LOOKAHEAD_DAYS} in carlos.properties. */
+    private static final int DEFAULT_MAX_LOOKAHEAD_DAYS = 90;
+    /** Default slot ordinal to return; overridable via {@code TARGET_SLOT_ORDINAL} in carlos.properties. */
+    private static final int DEFAULT_TARGET_SLOT_ORDINAL = 3;
+
+    /**
+     * Reads {@code MAX_LOOKAHEAD_DAYS} from carlos.properties with validation.
+     * Falls back to {@value #DEFAULT_MAX_LOOKAHEAD_DAYS} if the property is absent, non-numeric, or &lt;= 0.
+     *
+     * @return int the effective maximum lookahead days (always &gt;= 1)
+     */
+    static int resolveMaxLookaheadDays() {
+        String raw = CarlosProperties.getInstance().getProperty("MAX_LOOKAHEAD_DAYS");
+        if (raw != null) {
+            try {
+                int value = Integer.parseInt(raw.trim());
+                if (value >= 1) return value;
+                MiscUtils.getLogger().warn("FindNextAvailableSlot2Action: MAX_LOOKAHEAD_DAYS={} is not a positive integer; using default {}", value, DEFAULT_MAX_LOOKAHEAD_DAYS);
+            } catch (NumberFormatException e) {
+                MiscUtils.getLogger().warn("FindNextAvailableSlot2Action: MAX_LOOKAHEAD_DAYS='{}' is not a valid integer; using default {}", raw, DEFAULT_MAX_LOOKAHEAD_DAYS);
+            }
+        }
+        return DEFAULT_MAX_LOOKAHEAD_DAYS;
+    }
+
+    /**
+     * Reads {@code TARGET_SLOT_ORDINAL} from carlos.properties with validation.
+     * Falls back to {@value #DEFAULT_TARGET_SLOT_ORDINAL} if the property is absent, non-numeric, or &lt;= 0.
+     *
+     * @return int the effective target slot ordinal (always &gt;= 1)
+     */
+    static int resolveTargetSlotOrdinal() {
+        String raw = CarlosProperties.getInstance().getProperty("TARGET_SLOT_ORDINAL");
+        if (raw != null) {
+            try {
+                int value = Integer.parseInt(raw.trim());
+                if (value >= 1) return value;
+                MiscUtils.getLogger().warn("FindNextAvailableSlot2Action: TARGET_SLOT_ORDINAL={} is not a positive integer; using default {}", value, DEFAULT_TARGET_SLOT_ORDINAL);
+            } catch (NumberFormatException e) {
+                MiscUtils.getLogger().warn("FindNextAvailableSlot2Action: TARGET_SLOT_ORDINAL='{}' is not a valid integer; using default {}", raw, DEFAULT_TARGET_SLOT_ORDINAL);
+            }
+        }
+        return DEFAULT_TARGET_SLOT_ORDINAL;
+    }
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -127,10 +175,14 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
         ScheduleTemplateDao scheduleTemplateDao = SpringUtils.getBean(ScheduleTemplateDao.class);
         OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
 
-        // Search forward up to MAX_LOOKAHEAD_DAYS, returning the Nth available slot
+        // Read configurable limits from carlos.properties (validated, fall back to defaults if invalid)
+        int maxLookaheadDays  = resolveMaxLookaheadDays();
+        int targetSlotOrdinal = resolveTargetSlotOrdinal();
+
+        // Search forward up to maxLookaheadDays, returning the Nth available slot
         int slotsFound = 0;
         int consecutiveErrors = 0;
-        for (int day = 0; day < MAX_LOOKAHEAD_DAYS; day++) {
+        for (int day = 0; day < maxLookaheadDays; day++) {
             int searchYear  = searchCal.get(Calendar.YEAR);
             int searchMonth = searchCal.get(Calendar.MONTH) + 1;
             int searchDay   = searchCal.get(Calendar.DAY_OF_MONTH);
@@ -210,7 +262,7 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
 
                         if (enoughRoom) {
                             slotsFound++;
-                            if (slotsFound < TARGET_SLOT_ORDINAL) {
+                            if (slotsFound < targetSlotOrdinal) {
                                 // Skip ahead past this slot and continue searching
                                 i += Math.max(1, slotsNeeded) - 1;
                                 continue;
