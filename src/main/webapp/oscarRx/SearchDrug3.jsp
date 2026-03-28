@@ -1753,60 +1753,40 @@ function clearPending(actionValue) {
 }
 function popForm2(scriptId){
         try{
-            //oscarLog("popForm2 called");
-            var url1=ctx+"/oscarRx/WriteScript.do";
-            var data="parameterValue=checkNoStashItem&rand="+ Math.floor(Math.random()*10001);
-            var h=900;
-            CarlosAjax.request(url1, {method: 'post',parameters:data, onSuccess:function(transport){
-                //output default instructions
-                var json=JSON.parse(transport.responseText);
-                var n=json.NoStashItem;
-                if(n>4){
-                    h=h+(n-4)*100;
-                }
-                //oscarLog("h="+h+"--n="+n);
-                var url;
-                var json = jQuery("#Calcs").val();
-                //oscarLog(json);
-                if( json != null && json != "" ) {
-
-                	var pharmacy = JSON.parse(json);
-
-                    if( pharmacy != null ) {
-                    	url= ctx + "/oscarRx/ViewScript2.jsp?scriptId="+scriptId+"&pharmacyId="+pharmacy.id;
-                    }
-                    else {
-                    	url= ctx + "/oscarRx/ViewScript2.jsp?scriptId="+scriptId;
-                    }
+            var url;
+            var calcs = jQuery("#Calcs").val();
+            if( calcs != null && calcs != "" ) {
+                var pharmacy = JSON.parse(calcs);
+                if( pharmacy != null ) {
+                    url= ctx + "/oscarRx/ViewScript2.jsp?scriptId="+scriptId+"&pharmacyId="+pharmacy.id;
                 }
                 else {
-                	url= ctx + "/oscarRx/ViewScript2.jsp?scriptId="+scriptId;
+                    url= ctx + "/oscarRx/ViewScript2.jsp?scriptId="+scriptId;
                 }
-                
-                //oscarLog( "preview2 done");
-                fetch(url, {credentials: 'same-origin', headers: {'X-Requested-With': 'XMLHttpRequest'}})
-                    .then(function(r) { return r.text(); })
-                    .then(function(html) {
-                        var modalBody = document.getElementById('carlosModalBody');
-                        modalBody.innerHTML = html;
-                        var modalDialog = document.querySelector('#carlosModal .modal-dialog');
-                        modalDialog.style.maxWidth = '980px';
-                        var editRxMsg = '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.Preview.EditRx"/>';
-                        var closeBtn = document.getElementById('carlosModalCloseBtn');
-                        closeBtn.textContent = editRxMsg;
-                        closeBtn.onclick = updateDeleteOnCloseRxBox;
-                        var modalEl = document.getElementById('carlosModal');
-                        var existingModal = bootstrap.Modal.getInstance(modalEl);
-                        if (existingModal) existingModal.dispose();
-                        new bootstrap.Modal(modalEl).show();
-                    });
-            }});
-
+            }
+            else {
+                url= ctx + "/oscarRx/ViewScript2.jsp?scriptId="+scriptId;
+            }
+            fetch(url, {credentials: 'same-origin', headers: {'X-Requested-With': 'XMLHttpRequest'}})
+                .then(function(r) { return r.text(); })
+                .then(function(html) {
+                    var modalBody = document.getElementById('carlosModalBody');
+                    modalBody.innerHTML = html;
+                    var modalDialog = document.querySelector('#carlosModal .modal-dialog');
+                    modalDialog.style.maxWidth = '980px';
+                    var editRxMsg = '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.Preview.EditRx"/>';
+                    var closeBtn = document.getElementById('carlosModalCloseBtn');
+                    closeBtn.textContent = editRxMsg;
+                    closeBtn.onclick = updateDeleteOnCloseRxBox;
+                    var modalEl = document.getElementById('carlosModal');
+                    var existingModal = bootstrap.Modal.getInstance(modalEl);
+                    if (existingModal) existingModal.dispose();
+                    new bootstrap.Modal(modalEl).show();
+                });
         }
         catch(er){
             oscarLog(er);
         }
-        //oscarLog("bottom of popForm");
     }
 
      function callTreatments(textId,id){
