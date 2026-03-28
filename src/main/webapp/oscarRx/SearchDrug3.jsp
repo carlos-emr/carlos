@@ -1814,7 +1814,7 @@ function popForm2(scriptId){
                 try {
                     var pharmacy = JSON.parse(calcs);
                     if( pharmacy != null && pharmacy.id != null ) {
-                        url= ctx + "/oscarRx/ViewScript2.jsp?scriptId="+scriptId+"&pharmacyId="+pharmacy.id;
+                        url= ctx + "/oscarRx/ViewScript2.jsp?scriptId="+scriptId+"&pharmacyId="+encodeURIComponent(pharmacy.id);
                     }
                 } catch (e) {
                     oscarLog(e);
