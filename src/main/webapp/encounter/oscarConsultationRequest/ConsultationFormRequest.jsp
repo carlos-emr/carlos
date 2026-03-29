@@ -2329,7 +2329,7 @@ if (userAgent != null) {
                                             <span id="consult-disclaimer"
                                                   title="When consult was saved this was the saved consultant but is no longer on this specialist list."
                                                   style="display:none;font-size:24px;">*</span>
-                                            <select id="specialist" name="specialist" size="1" class="form-select form-select-sm"
+                                            <select id="specialist" name="specialist" class="form-select form-select-sm"
                                                          onchange="onSelectSpecialist(this)"></select>
 
                                             <%} // end specialist list condition block %>
