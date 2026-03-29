@@ -132,6 +132,8 @@
             type="text/javascript"></script>
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"
           type="text/css"/>
+    <%-- global.css: CARLOS color overrides for Bootstrap (this page doesn't use global-head.jspf) --%>
+    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/global.css"/>
     <script language="javascript" type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
     <script language="JavaScript">
         function setfocus() {

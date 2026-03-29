@@ -254,6 +254,14 @@
                 color: white !important;
                 border-color: #337ab7 !important;
             }
+            /* Bootstrap 5 pagination — DataTables bootstrap5 integration */
+            .page-item.active .page-link {
+                background-color: #337ab7 !important;
+                border-color: #337ab7 !important;
+            }
+            .page-link {
+                color: #337ab7;
+            }
             .dataTables_wrapper .dataTables_info,
             .dataTables_wrapper .dataTables_paginate {
                 font-size: 13px;
@@ -909,23 +917,16 @@
                         <%
                             }
                         %>
-                        <input type="button" name="button" class="btn btn-warning"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>" onClick="window.close()" class="sbttn">
+                        <input type="button" class="btn btn-primary"
+                               value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
+                               onClick="popupPage('500','800', 'ticklerAdd.jsp?updateParent=true&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId != null ? parentAjaxId : "") %>&bFirstDisp=false&messageID=null&demographic_no=<%= Encode.forUriComponent(demoviewParam != null ? demoviewParam : "") %>')">
+                        <input type="button" name="button" class="btn btn-secondary"
+                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                               onclick="try{if(window.opener&&!window.opener.closed){window.opener.location.reload();window.close();}else if(window.history.length>1){window.history.back();}else{window.close();}}catch(e){window.history.back();}"
+                               >
                     </td>
                 </tr>
             </table>
-
-                <div class="action-bar">
-                    <div class="action-separator"></div>
-
-                    <div class="action-group">
-                        <input type="button" class="btn btn-sm btn-primary"
-                               value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
-                               onClick="popupPage('500','800', 'ticklerAdd.jsp?updateParent=true&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId != null ? parentAjaxId : "") %>&bFirstDisp=false&messageID=null&demographic_no=<%= Encode.forUriComponent(demoviewParam != null ? demoviewParam : "") %>')">
-                        <input type="button" class="btn btn-sm btn-secondary"
-                               value="<fmt:setBundle basename='oscarResources'/><fmt:message key='global.btnBack'/>" onClick="window.close()">
-                    </div>
-                </div>
             </div>
         </form>
 

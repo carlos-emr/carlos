@@ -482,6 +482,9 @@
                         if (iframe.contentDocument.getElementById('tickler-save-ok-link-failed')) {
                             alert('<%= org.owasp.encoder.Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.warnLinkFailed")) %>');
                         }
+                        if (iframe.contentDocument.getElementById('tickler-write-encounter-failed')) {
+                            alert('Tickler saved but failed to write to encounter chart.');
+                        }
                     } catch (e) {
                         console.error('[ticklerAdd] Cannot read iframe response body — possible session expiry:', e);
                         alert('<%= org.owasp.encoder.Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.errorSessionExpired")) %>');
@@ -698,7 +701,7 @@
                         <div class="input-group">
                             <input type="text" class="form-control" name="keyword" placeholder="<fmt:message key='tickler.ticklerAdd.phSearchDemographic'/>"
                                    size="25" value="<%=Encode.forHtmlAttribute(demoName)%>">
-                            <input type="submit" name="Submit" class="btn btn-outline-secondary"
+                            <input type="submit" name="Submit" class="btn btn-primary"
                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnSearch"/>">
                         </div>
 
@@ -920,10 +923,10 @@
                 <input type="button" name="Button" class="btn btn-primary"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnSubmit"/>"
                        onclick="validate(this.form);">
-                <input type="button" name="Button" class="btn btn-secondary"
+                <input type="button" name="Button" class="btn btn-primary"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnWriteSubmit"/>"
                        onclick="validate(this.form, true)">
-                <input type="button" name="Button" class="btn btn-danger"
+                <input type="button" name="Button" class="btn btn-secondary"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
                        onclick="window.close()">
             </div>
