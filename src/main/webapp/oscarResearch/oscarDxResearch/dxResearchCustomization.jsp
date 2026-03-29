@@ -43,9 +43,11 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <fmt:setBundle basename="oscarResources"/>
 
+<!DOCTYPE html>
 <html>
     <head>
         <title><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.title"/></title>
@@ -63,7 +65,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%= Encode.forHtml(error) %></li>
             <% } %>
         </ul>
     </div>
@@ -80,7 +82,7 @@
             </h4>
         </div>
 
-        <div style="display:flex; gap:10px; margin-top:15px; flex-wrap:wrap;">
+        <div class="d-flex flex-wrap gap-2 mt-3">
             <input type="button" class="btn btn-primary"
                    onclick="popupPage(230,600,'oscarResearch/oscarDxResearch/dxResearchNewQuickList.jsp')"
                    value="<fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.addNewQuickList"/>"/>

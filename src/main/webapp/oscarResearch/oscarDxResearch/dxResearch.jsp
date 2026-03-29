@@ -57,6 +57,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -124,7 +125,7 @@
             var remote = null;
 
             function rs(n, u, w, h, x) {
-                args = "width=" + w + ",height=" + h + ",resizable=yes,scrollbars=yes,status=0,top=60,left=30";
+                var args = "width=" + w + ",height=" + h + ",resizable=yes,scrollbars=yes,status=0,top=60,left=30";
                 remote = window.open(u, n, args);
                 if (remote != null) {
                     if (remote.opener == null)
@@ -143,13 +144,13 @@
             var awnd = null;
 
             function ResearchScriptAttach() {
-                var t0 = escape(document.forms[0].xml_research1.value);
-                var t1 = escape(document.forms[0].xml_research2.value);
-                var t2 = escape(document.forms[0].xml_research3.value);
-                var t3 = escape(document.forms[0].xml_research4.value);
-                var t4 = escape(document.forms[0].xml_research5.value);
+                var t0 = encodeURIComponent(document.forms[0].xml_research1.value);
+                var t1 = encodeURIComponent(document.forms[0].xml_research2.value);
+                var t2 = encodeURIComponent(document.forms[0].xml_research3.value);
+                var t3 = encodeURIComponent(document.forms[0].xml_research4.value);
+                var t4 = encodeURIComponent(document.forms[0].xml_research5.value);
                 var codeType = document.forms[0].selectedCodingSystem.value;
-                var demographicNo = escape(document.forms[0].demographicNo.value);
+                var demographicNo = encodeURIComponent(document.forms[0].demographicNo.value);
 
                 awnd = rs('att', '${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchCodeSearch.do?codeType=' + codeType + '&xml_research1=' + t0 + '&xml_research2=' + t1 + '&xml_research3=' + t2 + '&xml_research4=' + t3 + '&xml_research5=' + t4 + '&demographicNo=' + demographicNo, 600, 600, 1);
                 awnd.focus();
@@ -207,6 +208,22 @@
                 form.submit();
             }
 
+            /** Navigates back to the opener window or browser history. */
+            function handleBackNavigation() {
+                try {
+                    if (window.opener && !window.opener.closed) {
+                        window.opener.location.reload();
+                        window.close();
+                    } else if (window.history.length > 1) {
+                        window.history.back();
+                    } else {
+                        window.close();
+                    }
+                } catch (e) {
+                    window.history.back();
+                }
+            }
+
             //-->
         </script>
 
@@ -216,7 +233,7 @@
     <div class="wrapper">
 
         <%-- Page header matching search.jsp / report.jsp / tickler pattern --%>
-        <div class="page-header-bar" style="display:flex; align-items:center; justify-content:space-between;">
+        <div class="page-header-bar">
             <h4 class="page-header-title">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="page-header-icon" viewBox="0 0 16 16">
                     <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
@@ -238,7 +255,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%= org.owasp.encoder.Encode.forHtml(error) %></li>
             <% } %>
         </ul>
     </div>
@@ -337,7 +354,7 @@
 
                                 <table>
                                     <tr>
-                                        <th>System</th>
+                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgSystem"/></th>
                                         <th class="heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgCode"/></th>
                                         <th class="heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgDiagnosis"/></th>
                                         <th class="heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgFirstVisit"/></th>
@@ -360,7 +377,7 @@
                                                             </div>
                                                             <input class="form-control" id="startdatenew${diagnotics.dxResearchNo}"
                                                                    type="text" name="start_date" size="8"
-                                                                   value="${diagnotics.start_date}" style="display:none"/>
+                                                                   value="${e:forHtmlAttribute(diagnotics.start_date)}" style="display:none"/>
                                                         </a>
                                                     </td>
                                                     <td class="notResolved"><c:out value="${diagnotics.end_date}"/></td>
@@ -369,7 +386,7 @@
                                                             <a href="#" onclick="submitDxAction('C','','${diagnotics.dxResearchNo}','${demographicNo}','${providerNo}'); return false;">
                                                                 <fmt:message key="oscarResearch.oscarDxResearch.dxResearch.btnResolve"/>
                                                             </a>
-                                                            <a href="#" onclick="if(confirm('Are you sure you would like to delete: ${diagnotics.description} ?')){submitDxAction('D','','${diagnotics.dxResearchNo}','${demographicNo}','${providerNo}');} return false;">
+                                                            <a href="#" onclick="if(confirm('Are you sure you would like to delete: ${e:forJavaScript(diagnotics.description)} ?')){submitDxAction('D','','${diagnotics.dxResearchNo}','${demographicNo}','${providerNo}');} return false;">
                                                                 <fmt:message key="oscarResearch.oscarDxResearch.dxResearch.btnDelete"/>
                                                             </a>
                                                             <a href="#" onclick="update_date(${diagnotics.dxResearchNo}, ${demographicNo}, ${providerNo});">
@@ -402,10 +419,10 @@
 
                                 <%-- Back button below the diagnosis list — stays at the bottom
                                      of the right column and moves down as more items are added --%>
-                                <div style="margin-top:10px; text-align:right;">
+                                <div class="mt-2 text-end">
                                     <input type="button" class="btn btn-secondary"
                                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
-                                           onclick="try{if(window.opener&&!window.opener.closed){window.opener.location.reload();window.close();}else if(window.history.length>1){window.history.back();}else{window.close();}}catch(e){window.history.back();}">
+                                           onclick="handleBackNavigation();">
                                 </div>
 
                             </td>

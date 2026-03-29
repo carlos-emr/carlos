@@ -44,12 +44,34 @@
     @since 2006-01-01 (original OSCAR implementation)
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.issueList" var="i18nIssueList"/>
+<fmt:message key="global.disease" var="i18nDiseaseRegistry"/>
+<fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.codeType" var="i18nCodeType"/>
+<fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgCode" var="i18nCode"/>
+<fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgDescription" var="i18nDescription"/>
+<fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.confirmClearAssociations" var="i18nConfirmClear"/>
+<fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.confirmAutomatch" var="i18nConfirmAutomatch"/>
+<fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.automatchResultPrefix" var="i18nAutomatchResult"/>
+<!DOCTYPE html>
 <html>
     <head>
         <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.selectAssociations"/></title>
 
         <script type="text/javascript">
+            var i18n = {
+                issueList:          '${e:forJavaScript(i18nIssueList)}',
+                diseaseRegistry:    '${e:forJavaScript(i18nDiseaseRegistry)}',
+                codeType:           '${e:forJavaScript(i18nCodeType)}',
+                code:               '${e:forJavaScript(i18nCode)}',
+                description:        '${e:forJavaScript(i18nDescription)}',
+                confirmClear:       '${e:forJavaScript(i18nConfirmClear)}',
+                confirmAutomatch:   '${e:forJavaScript(i18nConfirmAutomatch)}',
+                automatchResult:    '${e:forJavaScript(i18nAutomatchResult)}'
+            };
 
             function setfocus() {
                 window.focus();
@@ -58,13 +80,35 @@
 
             /** Fetches all associations via JSON and renders them in the #associations table. */
             function populateListOfAssociations() {
-                $("#associations tr").remove();
+                // Clear the whole table before rebuilding to prevent duplicate thead/tbody accumulation
+                $('#associations').empty();
 
-                $('#associations').append('<thead><tr><th colspan="3">Issue List</th><th colspan="3">Disease Registry</th></tr><tr><th>CodeType</th><th>Code</th><th>Description</th><th>CodeType</th><th>Code</th><th>Description</th></tr></thead><tbody></tbody>');
+                var $thead = $('<thead>').append(
+                    $('<tr>').append(
+                        $('<th>').attr('colspan', '3').text(i18n.issueList),
+                        $('<th>').attr('colspan', '3').text(i18n.diseaseRegistry)
+                    ),
+                    $('<tr>').append(
+                        $('<th>').text(i18n.codeType), $('<th>').text(i18n.code), $('<th>').text(i18n.description),
+                        $('<th>').text(i18n.codeType), $('<th>').text(i18n.code), $('<th>').text(i18n.description)
+                    )
+                );
+                var $tbody = $('<tbody>');
+                $('#associations').append($thead, $tbody);
+
                 $.getJSON("<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do?method=getAllAssociations",
-                    function (data, textStatus) {
+                    function (data) {
                         for (var x = 0; x < data.length; x++) {
-                            $('#associations tbody').append('<tr><td>' + data[x].codeType + '</td><td>' + data[x].code + '</td><td>' + data[x].description + '</td><td>' + data[x].dxCodeType + '</td><td>' + data[x].dxCode + '</td><td>' + data[x].dxDescription + '</td></tr>');
+                            // Use .text() for each cell to prevent XSS from JSON data
+                            var $row = $('<tr>').append(
+                                $('<td>').text(data[x].codeType),
+                                $('<td>').text(data[x].code),
+                                $('<td>').text(data[x].description),
+                                $('<td>').text(data[x].dxCodeType),
+                                $('<td>').text(data[x].dxCode),
+                                $('<td>').text(data[x].dxDescription)
+                            );
+                            $tbody.append($row);
                         }
                     });
             }
@@ -73,12 +117,11 @@
 
                 // Clear all associations after confirmation
                 $("#clear_list").click(function () {
-                    if (confirm('Are you sure you want to delete all associations?')) {
+                    if (confirm(i18n.confirmClear)) {
                         $.ajax({
                             type: "POST",
                             url: "<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do",
                             data: { method: "clearAssociations" },
-                            async: false,
                             success: function () {
                                 populateListOfAssociations();
                             }
@@ -93,11 +136,11 @@
 
                 // Auto-generate disease registry entries from associations
                 $("#automatch").click(function () {
-                    if (confirm('This function will remove and re-generate all entries in the disease registry where the entry was created by an association.\nWould you like to continue?')) {
+                    if (confirm(i18n.confirmAutomatch)) {
                         $.post("<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do",
                             { method: "autoPopulateAssociations" },
-                            function (data, textStatus) {
-                                alert("Automatch generated " + data.recordsAdded + " records.");
+                            function (data) {
+                                alert(i18n.automatchResult + ' ' + data.recordsAdded + '.');
                             }, "json");
                     }
                 });
@@ -109,7 +152,7 @@
     </head>
 
     <body onload="setfocus()">
-    <div class="container" style="padding-top:10px;">
+    <div class="container pt-2">
 
         <%-- Page header matching search.jsp / report.jsp pattern --%>
         <div class="page-header-bar">
@@ -128,33 +171,38 @@
         <%-- CSV upload form for importing associations --%>
         <div class="card" style="margin-top:15px;">
             <div class="card-body">
-                <h5 class="card-title">Upload CSV file</h5>
+                <h5 class="card-title"><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.uploadCsvTitle"/></h5>
                 <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do?method=uploadFile"
                       method="post" enctype="multipart/form-data">
                     <div class="mb-2">
-                        <input type="file" class="form-control form-control-sm" name="file" id="file"/>
+                        <input type="file" class="form-control form-control-sm" name="file" id="file" accept=".csv"/>
                     </div>
                     <div class="mb-2">
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="replace" value="true" id="replaceRadio"/>
-                            <label class="form-check-label" for="replaceRadio">Replace</label>
+                            <label class="form-check-label" for="replaceRadio"><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.replace"/></label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="replace" value="false" id="appendRadio"/>
-                            <label class="form-check-label" for="appendRadio">Append</label>
+                            <label class="form-check-label" for="appendRadio"><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.append"/></label>
                         </div>
                     </div>
-                    <input type="submit" class="btn btn-primary btn-sm" name="submit" value="Submit"/>
+                    <input type="submit" class="btn btn-primary btn-sm" name="submit"
+                           value="<fmt:message key="global.btnSubmit"/>"/>
                 </form>
             </div>
         </div>
 
         <%-- Action buttons --%>
-        <div style="margin-top:15px; display:flex; gap:8px; flex-wrap:wrap;">
-            <input id="automatch" type="button" class="btn btn-primary" value="Automatch"/>
-            <input id="clear_list" type="button" class="btn btn-danger" value="Clear Associations"/>
-            <input id="export" type="button" class="btn btn-secondary" value="Export"/>
-            <input id="close" type="button" class="btn btn-secondary" value="Close" onclick="window.close();"/>
+        <div class="mt-3 d-flex flex-wrap gap-2">
+            <input id="automatch" type="button" class="btn btn-primary"
+                   value="<fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.btnAutomatch"/>"/>
+            <input id="clear_list" type="button" class="btn btn-danger"
+                   value="<fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.btnClearAssociations"/>"/>
+            <input id="export" type="button" class="btn btn-secondary"
+                   value="<fmt:message key="global.btnExport"/>"/>
+            <input id="close" type="button" class="btn btn-secondary"
+                   value="<fmt:message key="global.btnClose"/>" onclick="window.close();"/>
         </div>
 
     </div>

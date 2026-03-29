@@ -41,9 +41,9 @@
     @since 2006-01-01 (original OSCAR implementation)
 --%>
 
-<%@ page import="java.util.*,io.github.carlos_emr.carlos.report.pageUtil.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
+<!DOCTYPE html>
 <html>
     <head>
         <%@ include file="/includes/global-head.jspf" %>
@@ -57,7 +57,7 @@
     </head>
 
     <body onload="setfocus()">
-    <div class="container" style="padding-top:10px;">
+    <div class="container pt-2">
 
         <%-- Page header matching search.jsp / report.jsp pattern --%>
         <div class="page-header-bar">
@@ -72,15 +72,16 @@
         <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems.do" method="post">
             <input type="hidden" name="forward" value="error"/>
 
-            <div style="margin-top:15px;">
+            <div class="mt-3">
                 <label class="form-label" for="quickListName">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.pleaseEnterTheNewQuickListName"/>:
                 </label>
                 <input type="text" class="form-control" name="quickListName" id="quickListName"/>
             </div>
 
-            <div style="margin-top:15px; display:flex; gap:8px;">
-                <input type="submit" class="btn btn-primary" name="Button" value="Continue"/>
+            <div class="mt-3 d-flex gap-2">
+                <input type="submit" class="btn btn-primary" name="Button"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnContinue"/>"/>
                 <input type="button" class="btn btn-secondary" name="Button"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
                        onclick="window.close()">

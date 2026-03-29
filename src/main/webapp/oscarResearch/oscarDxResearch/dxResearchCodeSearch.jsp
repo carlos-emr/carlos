@@ -48,6 +48,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 
 <%
@@ -55,6 +56,7 @@
     user_no = (String) session.getAttribute("user");
 %>
 
+<!DOCTYPE html>
 <html>
     <head>
         <%@ include file="/includes/global-head.jspf" %>
@@ -81,15 +83,20 @@
              */
             function CodesAttach() {
                 var nbSearchCodes = document.codeSearchForm.searchCodes;
+                var fields = ['xml_research1', 'xml_research2', 'xml_research3', 'xml_research4', 'xml_research5'];
+                var openerForm = self.opener.document.forms[0];
+                // Clear all research fields to avoid leaving stale codes from a previous selection
+                for (var k = 0; k < fields.length; k++) {
+                    openerForm[fields[k]].value = '';
+                }
                 if (nbSearchCodes.length == undefined) {
-                    if (nbSearchCodes.checked) self.opener.document.forms[0].xml_research1.value = nbSearchCodes.value;
+                    if (nbSearchCodes.checked) openerForm.xml_research1.value = nbSearchCodes.value;
                 } else {
                     var j = 0;
-                    var fields = ['xml_research1', 'xml_research2', 'xml_research3', 'xml_research4', 'xml_research5'];
                     for (var i = 0; i < nbSearchCodes.length; i++) {
                         if (nbSearchCodes[i].checked) {
                             if (j < fields.length) {
-                                self.opener.document.forms[0][fields[j]].value = nbSearchCodes[i].value;
+                                openerForm[fields[j]].value = nbSearchCodes[i].value;
                                 j++;
                             } else {
                                 break;
@@ -111,13 +118,13 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="page-header-icon" viewBox="0 0 16 16">
                     <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
                 </svg>
-                &nbsp;<%=session.getAttribute("codeType").toString().toUpperCase()%>
+                &nbsp;<%= org.owasp.encoder.Encode.forHtml(session.getAttribute("codeType") != null ? session.getAttribute("codeType").toString().toUpperCase() : "") %>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgCodeSearch"/>
             </h4>
         </div>
 
         <form name="codeSearchForm" method="post">
-            <table class="table table-sm table-striped table-hover" style="margin-top:10px;">
+            <table class="table table-sm table-striped table-hover mt-2">
                 <thead>
                     <tr>
                         <th style="width:20%;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgCode"/></th>
@@ -128,11 +135,11 @@
                     <c:forEach var="code" items="${allMatchedCodes.dxCodeSearchBeanVector}" varStatus="loopStatus">
                         <tr>
                             <td>
-                                <input type="checkbox" name="searchCodes" value="${code.dxSearchCode}"
+                                <input type="checkbox" name="searchCodes" value="${e:forHtmlAttribute(code.dxSearchCode)}"
                                     ${code.exactMatch == 'true' ? 'checked' : ''} />
-                                <c:out value="${code.dxSearchCode}"/>
+                                ${e:forHtml(code.dxSearchCode)}
                             </td>
-                            <td><c:out value="${code.description}"/></td>
+                            <td>${e:forHtml(code.description)}</td>
                         </tr>
                     </c:forEach>
                     <c:if test="${empty allMatchedCodes.dxCodeSearchBeanVector}">
@@ -145,7 +152,7 @@
 
             <div style="margin-top:10px;">
                 <input type="button" class="btn btn-primary" name="confirm"
-                       value="Confirm"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnConfirm"/>"
                        onclick="CodesAttach();">
                 <input type="button" class="btn btn-secondary" name="cancel"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"

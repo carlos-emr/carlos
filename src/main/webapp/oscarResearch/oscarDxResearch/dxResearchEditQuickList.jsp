@@ -49,11 +49,13 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%
     String user_no = (String) session.getAttribute("user");
 %>
 
+<!DOCTYPE html>
 <html>
     <head>
         <%@ include file="/includes/global-head.jspf" %>
@@ -84,11 +86,11 @@
 
             /** Opens the code search popup for the selected coding system and current field values. */
             function ResearchScriptAttach() {
-                var t0 = escape(document.forms[0].xml_research1.value);
-                var t1 = escape(document.forms[0].xml_research2.value);
-                var t2 = escape(document.forms[0].xml_research3.value);
-                var t3 = escape(document.forms[0].xml_research4.value);
-                var t4 = escape(document.forms[0].xml_research5.value);
+                var t0 = encodeURIComponent(document.forms[0].xml_research1.value);
+                var t1 = encodeURIComponent(document.forms[0].xml_research2.value);
+                var t2 = encodeURIComponent(document.forms[0].xml_research3.value);
+                var t3 = encodeURIComponent(document.forms[0].xml_research4.value);
+                var t4 = encodeURIComponent(document.forms[0].xml_research5.value);
                 var codeType = document.forms[0].selectedCodingSystem.value;
                 awnd = rs('att', 'dxResearchCodeSearch.do?codeType=' + codeType + '&xml_research1=' + t0 + '&xml_research2=' + t1 + '&xml_research3=' + t2 + '&xml_research4=' + t3 + '&xml_research5=' + t4 + '&demographicNo=', 600, 600, 1);
                 awnd.focus();
@@ -123,7 +125,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= error %></li>
+                    <li><%= org.owasp.encoder.Encode.forHtml(error) %></li>
                 <% } %>
             </ul>
         </div>
@@ -133,7 +135,7 @@
             <input type="hidden" name="forward" value="none"/>
             <input type="hidden" name="quickListName" value="<c:out value="${quickListName}"/>"/>
 
-            <div style="display:flex; gap:15px; margin-top:15px; flex-wrap:wrap;">
+            <div class="d-flex flex-wrap gap-3 mt-3">
 
                 <%-- Left panel: code entry and search --%>
                 <div style="flex:1; min-width:200px;">
@@ -156,7 +158,7 @@
                 </div>
 
                 <%-- Center: add/remove buttons --%>
-                <div style="display:flex; flex-direction:column; justify-content:center; gap:6px;">
+                <div class="d-flex flex-column justify-content-center gap-2">
                     <input type="button" class="btn btn-primary btn-sm"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ADD"/> >>"
                            onclick="submitform('add');">
@@ -170,7 +172,7 @@
                     <label class="form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.quickListItemsOf"/> <c:out value="${quickListName}"/></label>
                     <select class="form-select" name="quickListItems" size="10" multiple="true">
                         <c:forEach var="qlItems" items="${allQuickListItems.dxQuickListItemsVector}">
-                            <option value="${qlItems.type},${qlItems.dxSearchCode}">${qlItems.description}</option>
+                            <option value="${e:forHtmlAttribute(qlItems.type)},${e:forHtmlAttribute(qlItems.dxSearchCode)}">${e:forHtml(qlItems.description)}</option>
                         </c:forEach>
                     </select>
                 </div>
