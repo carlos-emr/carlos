@@ -110,7 +110,18 @@ public class ConsultationClinicalData2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String demographicNo = request.getParameter("demographicNo");
-        List<Drug> medications = prescriptionManager.getLongTermDrugs(loggedInInfo, Integer.parseInt(demographicNo));
+        if (demographicNo == null || demographicNo.isBlank()) {
+            logger.warn("fetchLongTermMedications called without demographicNo");
+            return null;
+        }
+        int demoId;
+        try {
+            demoId = Integer.parseInt(demographicNo);
+        } catch (NumberFormatException e) {
+            logger.warn("fetchLongTermMedications: invalid demographicNo '{}'", demographicNo);
+            return null;
+        }
+        List<Drug> medications = prescriptionManager.getLongTermDrugs(loggedInInfo, demoId);
 
         if (medications != null) {
             medicationToJson(response, medications, "LongTermMedications");
@@ -125,7 +136,18 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String demographicNo = request.getParameter("demographicNo");
 
-        List<Allergy> allergies = allergyManager.getActiveAllergies(loggedInInfo, Integer.parseInt(demographicNo));
+        if (demographicNo == null || demographicNo.isBlank()) {
+            logger.warn("fetchAllergies called without demographicNo");
+            return null;
+        }
+        int demoId;
+        try {
+            demoId = Integer.parseInt(demographicNo);
+        } catch (NumberFormatException e) {
+            logger.warn("fetchAllergies: invalid demographicNo '{}'", demographicNo);
+            return null;
+        }
+        List<Allergy> allergies = allergyManager.getActiveAllergies(loggedInInfo, demoId);
 
         ObjectNode json = objectMapper.createObjectNode();
         json.put("noteType", "Allergies");
@@ -224,7 +246,17 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String issueType = request.getParameter("issueType");
         String demographicNo = request.getParameter("demographicNo");
-        IssueType issueTypeEnum = IssueType.valueOf(issueType.toUpperCase());
+        if (issueType == null || issueType.isBlank()) {
+            logger.warn("fetchIssueNote called without issueType");
+            return null;
+        }
+        IssueType issueTypeEnum;
+        try {
+            issueTypeEnum = IssueType.valueOf(issueType.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            logger.warn("fetchIssueNote: unrecognised issueType '{}'", issueType);
+            return null;
+        }
         Issue issue = caseManagementManager.getIssueByCode(issueTypeEnum);
 
         if (issue == null) {
