@@ -27,43 +27,53 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    dxResearchSelectAssociations.jsp - Manage diagnosis code associations
+
+    Purpose:
+    Administration page for managing associations between issue list codes and
+    disease registry codes. Supports CSV import (replace or append), export,
+    automatch (auto-generate registry entries from associations), and clearing
+    all associations.
+
+    The associations table is populated dynamically via AJAX from
+    dxResearchLoadAssociations.do?method=getAllAssociations.
+
+    Opened from dxResearchCustomization.jsp "Edit Associations" button.
+
+    @since 2006-01-01 (original OSCAR implementation)
+--%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <html>
     <head>
-        <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/oscarResearch/oscarDxResearch/dxResearch.css">
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/js/jquery_css/smoothness/jquery-ui-1.10.2.custom.min.css"/>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery-ui-1.10.2.custom.min.js"></script>
-
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.selectAssociations"/>
-        </title>
+        <%@ include file="/includes/global-head.jspf" %>
+        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.selectAssociations"/></title>
 
         <script type="text/javascript">
 
             function setfocus() {
                 window.focus();
-                window.resizeTo(800, 600);
+                window.resizeTo(850, 650);
             }
 
+            /** Fetches all associations via JSON and renders them in the #associations table. */
             function populateListOfAssociations() {
                 $("#associations tr").remove();
 
-                $('#associations').append('<tr><th colspan="3">Issue List</th><th colspan="3">Disease Registry</th></tr><tr><th>CodeType</th><th>Code</th><th>Description</th><th>CodeType</th><th>Code</th><th>Description</th></tr>');
+                $('#associations').append('<thead><tr><th colspan="3">Issue List</th><th colspan="3">Disease Registry</th></tr><tr><th>CodeType</th><th>Code</th><th>Description</th><th>CodeType</th><th>Code</th><th>Description</th></tr></thead><tbody></tbody>');
                 $.getJSON("<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do?method=getAllAssociations",
                     function (data, textStatus) {
                         for (var x = 0; x < data.length; x++) {
-                            $('#associations tr:last').after('<tr><td>' + data[x].codeType + '</td><td>' + data[x].code + '</td><td>' + data[x].description + '</td><td>' + data[x].dxCodeType + '</td><td>' + data[x].dxCode + '</td><td>' + data[x].dxDescription + '</td></tr>');
+                            $('#associations tbody').append('<tr><td>' + data[x].codeType + '</td><td>' + data[x].code + '</td><td>' + data[x].description + '</td><td>' + data[x].dxCodeType + '</td><td>' + data[x].dxCode + '</td><td>' + data[x].dxDescription + '</td></tr>');
                         }
                     });
             }
 
             $(document).ready(function () {
 
-                //clear list
+                // Clear all associations after confirmation
                 $("#clear_list").click(function () {
                     if (confirm('Are you sure you want to delete all associations?')) {
-                        //$.get("<%= request.getContextPath() %>/oscarResearch/dxresearch/dxResearchLoadAssociations.do?method=clearAssociations");
                         $.ajax({
                             type: "POST",
                             url: "<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do",
@@ -73,17 +83,15 @@
                                 populateListOfAssociations();
                             }
                         });
-
                     }
                 });
 
-                //export
+                // Export associations as CSV download
                 $("#export").click(function () {
                     window.open("<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do?method=export");
-
                 });
 
-                //automatch
+                // Auto-generate disease registry entries from associations
                 $("#automatch").click(function () {
                     if (confirm('This function will remove and re-generate all entries in the disease registry where the entry was created by an association.\nWould you like to continue?')) {
                         $.post("<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do",
@@ -94,65 +102,61 @@
                     }
                 });
 
-                //populate the current list of associations
+                // Load existing associations on page ready
                 populateListOfAssociations();
             });
         </script>
-
-        <script>
-            $(function () {
-            });
-        </script>
-
     </head>
-    <body class="BodyStyle" vlink="#0000FF" rightmargin="0" leftmargin="0"
-          topmargin="0" marginwidth="0" marginheight="0" onload="setfocus()" bgcolor="#EEEEFF">
-    <!--  -->
-    <table width="100%" bgcolor="#EEEEFF">
-        <tr bgcolor="#000000">
-            <td class="subject" colspan="2">&nbsp;&nbsp;&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgDxResearch"/></td>
-        </tr>
-        <tr>
-            <td class=heading colspan="2">Customize Associations List</td>
-        </tr>
-        <tr>
-            <td>&nbsp;</td>
-        </tr>
-        <tr>
-            <div id="associationsPane">
-                <table id="associations" width="100%" border="1" cellpadding="0" cellspacing="0">
-                </table>
-                <br/>
-                <div id="upload_form">
-                    <h4>Upload CSV file:</h4>
-                    <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do?method=uploadFile"
-                               method="post" enctype="multipart/form-data">
-                        <input type="file" name="file" id="file" size="35"/>
-                        <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
-                              style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img border="0" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/></span></span>
-                        <br/>
-                        <input type="radio" name="replace" value="true"/>Replace&nbsp;
-                        <input type="radio" name="replace" value="false"/>Append
-                        <br/>
-                        <input type="submit" name="submit" value="Submit" />
-                    </form>
-                </div>
-                <br/>
-                <input id="automatch" type="button" class="mbttn"
-                       style="width: 180px" value="Automatch"/>
-                &nbsp;&nbsp;
-                <input id="clear_list" type="button" class="mbttn"
-                       style="width: 180px" value="Clear Associations"/>
-                &nbsp;&nbsp;
-                <input id="export" type="button" class="mbttn"
-                       style="width: 180px" value="Export"/>
-                &nbsp;&nbsp;
-                <input id="close" type="button" class="mbttn"
-                       style="width: 180px" value="Close" onclick="javascript:window.close();"/>
-                <br/>
-            </div>
-        </tr>
-    </table>
 
+    <body onload="setfocus()">
+    <div class="container" style="padding-top:10px;">
+
+        <%-- Page header matching search.jsp / report.jsp pattern --%>
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="page-header-icon" viewBox="0 0 16 16">
+                    <path d="M1 11.5a.5.5 0 0 0 .7.5L8 8.9l6.3 3.1a.5.5 0 0 0 .7-.5V4.5a.5.5 0 0 0-.7-.5L8 7.1 1.7 4a.5.5 0 0 0-.7.5z"/>
+                </svg>
+                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.selectAssociations"/>
+            </h4>
+        </div>
+
+        <%-- Associations table — populated dynamically via AJAX --%>
+        <table id="associations" class="table table-sm table-bordered table-striped" style="margin-top:10px;">
+        </table>
+
+        <%-- CSV upload form for importing associations --%>
+        <div class="card" style="margin-top:15px;">
+            <div class="card-body">
+                <h5 class="card-title">Upload CSV file</h5>
+                <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do?method=uploadFile"
+                      method="post" enctype="multipart/form-data">
+                    <div class="mb-2">
+                        <input type="file" class="form-control form-control-sm" name="file" id="file"/>
+                    </div>
+                    <div class="mb-2">
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="replace" value="true" id="replaceRadio"/>
+                            <label class="form-check-label" for="replaceRadio">Replace</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="replace" value="false" id="appendRadio"/>
+                            <label class="form-check-label" for="appendRadio">Append</label>
+                        </div>
+                    </div>
+                    <input type="submit" class="btn btn-primary btn-sm" name="submit" value="Submit"/>
+                </form>
+            </div>
+        </div>
+
+        <%-- Action buttons --%>
+        <div style="margin-top:15px; display:flex; gap:8px; flex-wrap:wrap;">
+            <input id="automatch" type="button" class="btn btn-primary" value="Automatch"/>
+            <input id="clear_list" type="button" class="btn btn-danger" value="Clear Associations"/>
+            <input id="export" type="button" class="btn btn-secondary" value="Export"/>
+            <input id="close" type="button" class="btn btn-secondary" value="Close" onclick="window.close();"/>
+        </div>
+
+    </div>
     </body>
 </html>

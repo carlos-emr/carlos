@@ -28,6 +28,29 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    dxResearch.jsp - Disease Registry main page
+
+    Purpose:
+    Primary interface for viewing and managing a patient's diagnosis codes.
+    Left panel provides code entry fields, coding system selector, code search
+    popup, and a quick list sidebar. Right panel displays the patient's active
+    and resolved diagnoses with actions (resolve, delete, update date).
+
+    Loaded via setupDxResearch.do from the patient encounter or demographic view.
+
+    Request Attributes:
+    - demographicNo: Patient ID
+    - providerNo: Current provider
+    - codingSystem: Available coding systems
+    - allDiagnostics: Patient's current diagnoses
+    - allQuickLists / allQuickListItems: Quick list data (via dxQuickList.jsp include)
+
+    Security:
+    - Requires "_dxresearch" read privilege; write access controls editing
+
+    @since 2006-01-01 (original OSCAR implementation)
+--%>
 
 <%@ page import="io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
@@ -83,24 +106,11 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.title"/></title>
 
-        <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
-        <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/carlos-ajax.js"></script>
-
-        <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
-                <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
+        <%@ include file="/includes/global-head.jspf" %>
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-        <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/oscar-modal-dialog.js"></script>
-
-        <link rel="stylesheet" type="text/css" media="all"
-              href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.css"/>
-        <link rel="stylesheet" type="text/css" media="all"
-              href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
-        <link rel="stylesheet" type="text/css" media="all"
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/oscarResearch/oscarDxResearch/dxResearch.css">
 
         <script type="text/javascript">
@@ -205,24 +215,16 @@
     <body onLoad="setfocus();">
     <div class="wrapper">
 
-        <div id="page-header">
-            <table id="oscarDxHeader">
-                <tr>
-                    <td id="oscarDxHeaderLeftColumn"><h1><fmt:setBundle basename="oscarResources"/><fmt:message key="global.disease"/></h1></td>
-
-                    <td id="oscarDxHeaderCenterColumn">
-                        <oscar:nameage demographicNo="${ demographicNo }"/>
-                    </td>
-                    <td id="oscarDxHeaderRightColumn" align=right>
-					<span class="HelpAboutLogout"> 
-						<a style="font-size: 10px; font-style: normal;" href="${ ctx }encounter/About.jsp"
-                           target="_new">About</a>
-						<a style="font-size: 10px; font-style: normal;" target="_blank"
-                           href="http://www.oscarmanual.org/search?SearchableText=&Title=Chart+Interface&portal_type%3Alist=Document">Help</a>
-					</span>
-                    </td>
-                </tr>
-            </table>
+        <%-- Page header matching search.jsp / report.jsp / tickler pattern --%>
+        <div class="page-header-bar" style="display:flex; align-items:center; justify-content:space-between;">
+            <h4 class="page-header-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="page-header-icon" viewBox="0 0 16 16">
+                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+                    <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286m1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94"/>
+                </svg>
+                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="global.disease"/>
+            </h4>
+            <span><oscar:nameage demographicNo="${ demographicNo }"/></span>
         </div>
 
         <table>
@@ -397,6 +399,14 @@
                                     </c:forEach>
 
                                 </table>
+
+                                <%-- Back button below the diagnosis list — stays at the bottom
+                                     of the right column and moves down as more items are added --%>
+                                <div style="margin-top:10px; text-align:right;">
+                                    <input type="button" class="btn btn-secondary"
+                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                                           onclick="try{if(window.opener&&!window.opener.closed){window.opener.location.reload();window.close();}else if(window.history.length>1){window.history.back();}else{window.close();}}catch(e){window.history.back();}">
+                                </div>
 
                             </td>
                         </tr>
