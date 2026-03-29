@@ -484,7 +484,7 @@
                         }
                         // Warn if the encounter note write failed (tickler itself was saved OK)
                         if (iframe.contentDocument.getElementById('tickler-write-encounter-failed')) {
-                            alert('Tickler saved but failed to write to encounter chart.');
+                            alert('<%= org.owasp.encoder.Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.warnEncounterWriteFailed")) %>');
                         }
                     } catch (e) {
                         console.error('[ticklerAdd] Cannot read iframe response body — possible session expiry:', e);
@@ -924,7 +924,7 @@
                 <input type="button" name="Button" class="btn btn-primary"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnSubmit"/>"
                        onclick="validate(this.form);">
-                <input type="button" name="Button" class="btn btn-primary"
+                <input type="button" name="Button" class="btn btn-secondary"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnWriteSubmit"/>"
                        onclick="validate(this.form, true)">
                 <input type="button" name="Button" class="btn btn-secondary"

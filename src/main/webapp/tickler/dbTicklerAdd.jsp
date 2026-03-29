@@ -82,9 +82,9 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.Issue" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctProgram" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.EncounterUtil" %>
 <%@ page import="java.util.Date" %>
 <%@ page import="java.time.LocalDateTime" %>
+<%@ page import="java.util.ResourceBundle" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -170,7 +170,7 @@
                 TicklerLink tLink = new TicklerLink();
                 tLink.setTableId(Long.parseLong(docId));
                 tLink.setTableName(docType);
-                tLink.setTicklerNo(new Long(ticklerNo).intValue());
+                tLink.setTicklerNo((int) ticklerNo);
                 TicklerLinkDao ticklerLinkDao = (TicklerLinkDao) SpringUtils.getBean(TicklerLinkDao.class);
                 ticklerLinkDao.save(tLink);
             } catch (NumberFormatException e) {
@@ -200,7 +200,10 @@
             cmn.setArchived(false);
             cmn.setCreate_date(creationDate);
             cmn.setDemographic_no(module_id);
-            cmn.setEncounter_type(EncounterUtil.EncounterType.FACE_TO_FACE_WITH_CLIENT.getOldDbValue());
+            // Use the "global.tickler" i18n label as the encounter type to distinguish
+            // tickler-originated notes from clinical face-to-face encounter notes
+            String ticklerEncounterType = ResourceBundle.getBundle("oscarResources", request.getLocale()).getString("global.tickler");
+            cmn.setEncounter_type(ticklerEncounterType);
             cmn.setNote(docfilename);
             cmn.setObservation_date(creationDate);
             cmn.setProviderNo(loggedInProvider.getProviderNo());
@@ -239,7 +242,8 @@
                     cmi.setDemographic_no(Integer.valueOf(module_id));
                     cmi.setIssue_id(issue.getId());
                     cmi.setMajor(false);
-                    cmi.setProgram_id(Integer.parseInt(cmn.getProgram_no()));
+                    String progNoStr = cmn.getProgram_no();
+                    cmi.setProgram_id(progNoStr != null && !progNoStr.isEmpty() ? Integer.parseInt(progNoStr) : 0);
                     cmi.setResolved(false);
                     cmi.setType(issue.getRole());
                     cmi.setUpdate_date(creationDate);
@@ -260,17 +264,14 @@
     String parentAjaxId = request.getParameter("parentAjaxId");
     String updateParent = request.getParameter("updateParent");
 
-    if (rowsAffected && !ticklerLinkFailed) {
+    if (rowsAffected) {
 %>
 <%-- ticklerAdd.jsp reads this element to confirm the save succeeded before closing --%>
 <span id="tickler-save-ok" style="display:none;"></span>
+<% if (ticklerLinkFailed) { %>
+<span id="tickler-save-ok-link-failed" style="display:none;"></span>
+<% } %>
 <% if (writeToEncounterFailed) { %>
 <span id="tickler-write-encounter-failed" style="display:none;"></span>
 <% } %>
-<%} else if (ticklerLinkFailed) {
-    // Tickler was saved but the document link failed. Emit both sentinels so the
-    // iframe.onload in ticklerAdd.jsp proceeds with close/refresh while showing a warning.
-%>
-<span id="tickler-save-ok" style="display:none;"></span>
-<span id="tickler-save-ok-link-failed" style="display:none;"></span>
 <%}%>
