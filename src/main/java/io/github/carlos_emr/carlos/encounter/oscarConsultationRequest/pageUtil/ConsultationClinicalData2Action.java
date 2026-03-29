@@ -176,6 +176,18 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         String noteType = "RiskFactors";
 
         Issue issue = caseManagementManager.getIssueByCode(noteType);
+        if (issue == null) {
+            ObjectNode emptyJson = objectMapper.createObjectNode();
+            emptyJson.put("noteType", noteType);
+            emptyJson.put("note", "");
+            response.setContentType("text/javascript");
+            try {
+                response.getWriter().write(emptyJson.toString());
+            } catch (IOException e) {
+                logger.error("Error writing empty response for missing issue code: ", e);
+            }
+            return null;
+        }
         List<CaseManagementNote> riskFactors = caseManagementManager.getNotes(loggedInInfo, demographicNo, new String[]{issue.getId() + ""});
 
         ObjectNode json = objectMapper.createObjectNode();
@@ -209,6 +221,22 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         String demographicNo = request.getParameter("demographicNo");
         IssueType issueTypeEnum = IssueType.valueOf(issueType.toUpperCase());
         Issue issue = caseManagementManager.getIssueByCode(issueTypeEnum);
+
+        if (issue == null) {
+            // Issue code not seeded in this database (e.g. FamHistory requires CAISI data).
+            // Return empty note so the client doesn't receive a 500 error.
+            ObjectNode emptyJson = objectMapper.createObjectNode();
+            emptyJson.put("noteType", issueTypeEnum.name());
+            emptyJson.put("note", "");
+            response.setContentType("text/javascript");
+            try {
+                response.getWriter().write(emptyJson.toString());
+            } catch (IOException e) {
+                logger.error("Error writing empty response for missing issue code: ", e);
+            }
+            return null;
+        }
+
         List<CaseManagementNote> issueNoteList = caseManagementManager.getActiveNotes(loggedInInfo, demographicNo, new String[]{issue.getId() + ""});
 
         ObjectNode json = objectMapper.createObjectNode();

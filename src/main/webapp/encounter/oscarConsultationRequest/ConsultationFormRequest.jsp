@@ -940,7 +940,12 @@
                 data: data,
                 dataType: 'JSON',
                 success: function (data) {
-                    jQuery(target).val(jQuery(target).val() + "\n" + data.note);
+                    var current = jQuery(target).val();
+                    if (current && current.trim().length > 0) {
+                        jQuery(target).val(current + "\n" + data.note);
+                    } else {
+                        jQuery(target).val(data.note);
+                    }
                 }
             });
         }
@@ -2766,7 +2771,7 @@ if (userAgent != null) {
                                         <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:0.75rem;">
                                             <i class="fa-solid fa-file-import me-1"></i>Import
                                         </button>
-                                        <ul class="dropdown-menu dropdown-menu-end consult-import-menu" data-bs-target="clinicalInformation"></ul>
+                                        <ul class="dropdown-menu dropdown-menu-end consult-import-menu" data-target="clinicalInformation"></ul>
                                     </div>
                                     <% } %>
                                 </div>
@@ -2792,7 +2797,7 @@ if (userAgent != null) {
                                         <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:0.75rem;">
                                             <i class="fa-solid fa-file-import me-1"></i>Import
                                         </button>
-                                        <ul class="dropdown-menu dropdown-menu-end consult-import-menu" data-bs-target="concurrentProblems"></ul>
+                                        <ul class="dropdown-menu dropdown-menu-end consult-import-menu" data-target="concurrentProblems"></ul>
                                     </div>
                                     <% } %>
                                 </div>
@@ -2816,7 +2821,7 @@ if (userAgent != null) {
                                         <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:0.75rem;">
                                             <i class="fa-solid fa-file-import me-1"></i>Import
                                         </button>
-                                        <ul class="dropdown-menu dropdown-menu-end consult-import-menu-meds" data-bs-target="currentMedications"></ul>
+                                        <ul class="dropdown-menu dropdown-menu-end consult-import-menu-meds" data-target="currentMedications"></ul>
                                     </div>
                                     <% } %>
                                 </div>
@@ -3059,7 +3064,13 @@ if (userAgent != null) {
                             let delegate = "#" + this.id.split("_")[1];
                             let element = jQuery('#attachDocumentsForm').find(delegate);
                             if (element.length === 0) {
-                                element = addFormIfNotFound(data, '<%=demo%>', delegate);
+                                // addFormIfNotFound only handles form (formNo) attachments;
+                                // skip pre-check for labs, docs, eForms, HRM not found in dialog
+                                if (delegate.startsWith("#formNo")) {
+                                    element = addFormIfNotFound(data, '<%=demo%>', delegate);
+                                } else {
+                                    return;
+                                }
                             }
                             let elementClassType = element.attr("class").split("_")[0];
                             element.attr("checked", true).attr("class", elementClassType + "_pre_check");
