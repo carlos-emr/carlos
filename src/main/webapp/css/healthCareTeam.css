@@ -187,13 +187,14 @@ body#detachedView #tableTitle {
     display: none;
 }
 
+/* Detached view border migrated from legacy lavender (#CCCCFF) to CARLOS primary blue. */
 body#detachedView
 ul {
     list-style-type: none;
     padding: 0;
     margin: 1px;
     background-color: white;
-    border: #CCCCFF 1px solid;
+    border: var(--carlos-primary, #337ab7) 1px solid;
 }
 
 body#detachedView
@@ -202,9 +203,10 @@ ul li {
     padding: 2px;
 }
 
+/* Odd-row tint migrated from legacy lavender (#EEEEFF) to a light CARLOS primary tint. */
 body#detachedView
 ul li.odd {
-    background-color: #EEEEFF;
+    background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 10%, white);
 
 }
 
@@ -230,10 +232,11 @@ table.MainTable {
     background-color: #A9A9A9;
 }
 
+/* Detail table borders migrated from legacy lavender (#CCCCFF) to CARLOS primary blue. */
 body#detachedView
 table.healthCareTeamMemberDetailTable {
-    border-top: #CCCCFF 1px solid;
-    border-bottom: #CCCCFF 1px solid;
+    border-top: var(--carlos-primary, #337ab7) 1px solid;
+    border-bottom: var(--carlos-primary, #337ab7) 1px solid;
     width: 100%;
 }
 

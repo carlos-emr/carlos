@@ -83,7 +83,8 @@ body {
 }
 
 /* Page header bar — replaces inline styles like
-   style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd" */
+   style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd"
+   Add .page-header-bar--flex to lay the title and a search form side-by-side. */
 .page-header-bar {
     width: 100%;
     background: var(--carlos-bg-light);
@@ -92,15 +93,31 @@ body {
     margin-bottom: 10px;
 }
 
+.page-header-bar--flex {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
 .page-header-title {
     margin: 0;
     font-size: 18px;
     line-height: 1.4;
     display: inline-block;
+    white-space: nowrap;
 }
 
 .page-header-icon {
     vertical-align: text-bottom;
+}
+
+/* Search form inside a flex page-header-bar — fills remaining space up to a max width
+   to prevent it from dominating the header on wide viewports. */
+.page-header-search-form {
+    flex: 1;
+    max-width: 450px;
 }
 
 /* Action links — replaces legacy <b><font size="+1"> wrappers */

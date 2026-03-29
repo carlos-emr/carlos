@@ -261,10 +261,11 @@
 
     <body class="BodyStyle" onload="window.focus()" onunload="return uload()">
 <%-- Page header: uses page-header-bar pattern (matching search.jsp and reportindex.jsp)
-     with flexbox to place the title and search form side-by-side. The search form is
-     capped at 450px to prevent it from dominating the header on wide viewports. --%>
-<div class="page-header-bar" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-    <h4 class="page-header-title" style="white-space:nowrap;">
+     with page-header-bar--flex to place the title and search form side-by-side. The
+     search form is capped at 450px via page-header-search-form to avoid dominating
+     the header on wide viewports. --%>
+<div class="page-header-bar page-header-bar--flex">
+    <h4 class="page-header-title">
         <i class="fa-regular fa-envelope page-header-icon" title="<fmt:message key="messenger.DisplayMessages.msgMessenger"/>"></i>
         &nbsp;<% switch(pageType){
             case 0: %>
@@ -281,7 +282,7 @@
         <%      break;
         }%>
     </h4>
-    <form action="${pageContext.request.contextPath}/messenger/DisplayMessages.do" method="post" style="flex:1; max-width:450px;">
+    <form action="${pageContext.request.contextPath}/messenger/DisplayMessages.do" method="post" class="page-header-search-form">
         <input name="boxType" type="hidden" value="<%=pageType%>">
         <div class="input-group input-group-sm">
             <input name="searchString" type="text" class="form-control" placeholder="<fmt:message key="messenger.DisplayMessages.btnSearch"/>"

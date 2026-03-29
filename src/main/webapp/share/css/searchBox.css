@@ -56,8 +56,9 @@ form {
 }
 
 /* Adds vertical spacing between the search input row and the button row below it.
-   Uses child combinator to avoid affecting nested .input-group elements. */
-.searchBox .select-group > .input-group {
+   Uses adjacent-sibling combinator so only the second and subsequent .input-group
+   rows get the top margin; the first row stays flush. */
+.searchBox .select-group > .input-group + .input-group {
     margin-top: 8px;
 }
 
