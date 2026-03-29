@@ -51,11 +51,6 @@
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 
-<%
-    String user_no;
-    user_no = (String) session.getAttribute("user");
-%>
-
 <!DOCTYPE html>
 <html>
     <head>
@@ -68,12 +63,12 @@
              * @param {string} code - The diagnosis code to attach
              */
             function CodeAttach(code) {
-                self.close();
                 self.opener.document.forms[0].xml_research1.value = code;
                 self.opener.document.forms[0].xml_research2.value = '';
                 self.opener.document.forms[0].xml_research3.value = '';
                 self.opener.document.forms[0].xml_research4.value = '';
                 self.opener.document.forms[0].xml_research5.value = '';
+                self.close();
             }
 
             /**
@@ -136,7 +131,7 @@
                         <tr>
                             <td>
                                 <input type="checkbox" name="searchCodes" value="${e:forHtmlAttribute(code.dxSearchCode)}"
-                                    ${code.exactMatch == 'true' ? 'checked' : ''} />
+                                    ${code.exactMatch == 'checked' ? 'checked' : ''} />
                                 ${e:forHtml(code.dxSearchCode)}
                             </td>
                             <td>${e:forHtml(code.description)}</td>
