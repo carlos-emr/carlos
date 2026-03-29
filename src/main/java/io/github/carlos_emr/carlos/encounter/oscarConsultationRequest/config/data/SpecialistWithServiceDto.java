@@ -1,5 +1,7 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -27,8 +29,8 @@ public class SpecialistWithServiceDto {
         this.fax = fax;
         this.address = address;
         this.annotation = annotation;
-        this.serviceIds = serviceIds;
-        this.serviceNames = serviceNames;
+        this.serviceIds = serviceIds == null ? null : new ArrayList<>(serviceIds);
+        this.serviceNames = serviceNames == null ? null : new ArrayList<>(serviceNames);
     }
 
     public Integer getSpecId() { return specId; }
@@ -37,6 +39,6 @@ public class SpecialistWithServiceDto {
     public String getFax() { return fax; }
     public String getAddress() { return address; }
     public String getAnnotation() { return annotation; }
-    public List<Integer> getServiceIds() { return serviceIds; }
-    public List<String> getServiceNames() { return serviceNames; }
+    public List<Integer> getServiceIds() { return serviceIds == null ? null : Collections.unmodifiableList(serviceIds); }
+    public List<String> getServiceNames() { return serviceNames == null ? null : Collections.unmodifiableList(serviceNames); }
 }

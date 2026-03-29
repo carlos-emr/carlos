@@ -707,6 +707,12 @@
                 background-color: var(--carlos-primary);
                 border-color: var(--carlos-primary);
             }
+
+            /* Specialist disclaimer indicator — shown when saved consultant is no longer in the directory */
+            .consult-disclaimer-indicator {
+                display: none;
+                font-size: 24px;
+            }
         </style>
     </head>
 
@@ -722,12 +728,6 @@
         /////////////////////////////////////////////////////////////////////
         // Load services via AJAX - accepts callback for proper sequencing
         function loadServicesFromServer(callback) {
-            // Initialize default "All Services" entry
-            K(-1, "----All Services-------");
-            var defaultSpec = new Specialist(-1, -1, "", "--------All Specialists-----", "", "", "");
-            services[-1] = new Service();
-            services[-1].specialists.push(defaultSpec);
-
             var xhr = new XMLHttpRequest();
             xhr.open('GET', '<%= request.getContextPath() %>/encounter/ConsultationLookup2Action.do?method=getServices', true);
             xhr.onreadystatechange = function() {
@@ -768,11 +768,6 @@
             for (var i = 0; i < serviceList.length; i++) {
                 var service = serviceList[i];
                 K(service.serviceId, service.serviceDesc);
-
-                // Legacy: maintain services data structure
-                if (true) {
-                    serviceDropdown.options[serviceDropdown.options.length] = new Option(service.serviceDesc, service.serviceId);
-                }
             }
         }
 
@@ -1167,6 +1162,27 @@
         jQuery(document).ready(function () {
             buildImportMenus();
             initAppointmentTimeDisplay();
+
+            // Attach event listeners for selects that previously used inline onchange
+            var providerNoSelect = document.getElementById('providerNoSelect');
+            if (providerNoSelect) {
+                providerNoSelect.addEventListener('change', function() { switchProvider(this.value); });
+            }
+            var specialistHctSelect = document.getElementById('specialist');
+            if (specialistHctSelect && specialistHctSelect.tagName === 'SELECT') {
+                specialistHctSelect.addEventListener('change', function() { getSpecialist(this); });
+            }
+            var siteNameSelect = document.getElementById('siteName');
+            if (siteNameSelect) {
+                siteNameSelect.addEventListener('change', function() {
+                    this.style.backgroundColor = this.options[this.selectedIndex].style.backgroundColor;
+                });
+                // Apply initial background color on load
+                if (siteNameSelect.options.length > 0) {
+                    siteNameSelect.style.backgroundColor = siteNameSelect.options[siteNameSelect.selectedIndex].style.backgroundColor;
+                }
+            }
+
 
             jQuery(document).on('click', '.medicationData', function () {
                 var data = new Object();
@@ -2401,7 +2417,7 @@ if (userAgent != null) {
                                         <td class="consult-form-label" style="width:30%"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAssociated2"/></td>
                                         <td class="consult-form-value" style="width:70%">
 
-                                            <select name="providerNo" class="form-select form-select-sm" onchange="switchProvider(this.value)">
+                                            <select name="providerNo" id="providerNoSelect" class="form-select form-select-sm">
                                                 <%
                                                     for (Provider p : prList) {
                                                         if (p.getProviderNo().compareTo("-1") != 0) {
@@ -2470,7 +2486,7 @@ if (userAgent != null) {
                                                 <input type="hidden" id="service" name="service" value=""/>
                                                 <input type="text" id="serviceInput" class="form-control form-control-sm"
                                                        autocomplete="off"
-                                                       placeholder="<fmt:setBundle basename='oscarResources'/><fmt:message key='encounter.oscarConsultationRequest.ConsultationFormRequest.formServSelect'/>"/>
+                                                       placeholder="<fmt:setBundle basename='oscarResources'/><fmt:message key='consultationList.header.service'/>"/>
                                                 <% } %>
                                             </td>
                                         </tr>
@@ -2485,7 +2501,7 @@ if (userAgent != null) {
 
                                             <% } else if (CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) { %>
 
-                                            <select name="specialist" id="specialist" class="form-select form-select-sm" onchange="getSpecialist(this)">
+                                            <select name="specialist" id="specialist" class="form-select form-select-sm">
                                                 <c:forEach items="${ healthCareTeam }" var="contact" varStatus="loop">
                                                     <option value="${ contact.id }" ${ specialist eq contact.id ? 'selected' : ''} >
                                                             ${ contact.details.formattedName } ( ${ contact.role } )
@@ -2496,12 +2512,12 @@ if (userAgent != null) {
                                             <% } else { %>
 
                                             <span id="consult-disclaimer"
-                                                  title="When consult was saved this was the saved consultant but is no longer on this specialist list."
-                                                  style="display:none;font-size:24px;">*</span>
+                                                  class="consult-disclaimer-indicator"
+                                                  title="When consult was saved this was the saved consultant but is no longer on this specialist list.">*</span>
                                             <input type="hidden" id="specialist" name="specialist" value=""/>
                                             <input type="text" id="specialistInput" class="form-control form-control-sm"
                                                    autocomplete="off"
-                                                   placeholder="<fmt:setBundle basename='oscarResources'/><fmt:message key='encounter.oscarConsultationRequest.ConsultationFormRequest.formSelectSpec'/>"/>
+                                                   placeholder="<fmt:setBundle basename='oscarResources'/><fmt:message key='consultationList.header.consultant'/>"/>
 
                                             <%} // end specialist list condition block %>
                                         </td>
@@ -2650,8 +2666,7 @@ if (userAgent != null) {
                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.siteName"/>
                                         </td>
                                         <td>
-                                            <select name="siteName" id="siteName" class="form-select form-select-sm"
-                                                         onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
+                                            <select name="siteName" id="siteName" class="form-select form-select-sm">
                                                 <% for (int i = 0; i < vecAddressName.size(); i++) {
                                                     String te = vecAddressName.get(i);
                                                     String bg = bgColor.get(i);
@@ -2744,8 +2759,7 @@ if (userAgent != null) {
                                             </label>
                                         </td>
                                         <td class="consult-form-value">
-                                            <select name="letterheadName" id="letterheadName" class="form-select form-select-sm"
-                                                    onchange="switchProvider(this.value)">
+                                            <select name="letterheadName" id="letterheadName" class="form-select form-select-sm">
                                                 <option value="<%=Encode.forHtmlAttribute(clinic.getClinicName())%>" <%=(consultUtil.letterheadName != null && consultUtil.letterheadName.equalsIgnoreCase(clinic.getClinicName())) ? "selected" : (lhndType.equals("clinic") ? "selected" : "") %>>
                                                 <%=Encode.forHtmlContent(clinic.getClinicName()) %>
                                                 </option>
@@ -3131,6 +3145,12 @@ if (userAgent != null) {
                     jQuery("#searchHealthCareTeamInput").val(ui.item.contact.lastName + ", " + ui.item.contact.firstName);
                 }
             });
+
+            // Event listener for letterhead select (replaces inline onchange)
+            var letterheadSelect = document.getElementById('letterheadName');
+            if (letterheadSelect) {
+                letterheadSelect.addEventListener('change', function() { switchProvider(this.value); });
+            }
 
             /*
             * Selecting which letterhead to load for new consult requests.
