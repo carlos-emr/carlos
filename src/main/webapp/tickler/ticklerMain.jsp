@@ -975,7 +975,7 @@
     </div>
 
     <p class="yesprint">
-        <%=OscarProperties.getConfidentialityStatement()%>
+        <%=CarlosProperties.getConfidentialityStatement()%>
     </p>
 
     </body>
