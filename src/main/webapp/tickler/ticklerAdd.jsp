@@ -482,6 +482,7 @@
                         if (iframe.contentDocument.getElementById('tickler-save-ok-link-failed')) {
                             alert('<%= org.owasp.encoder.Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.warnLinkFailed")) %>');
                         }
+                        // Warn if the encounter note write failed (tickler itself was saved OK)
                         if (iframe.contentDocument.getElementById('tickler-write-encounter-failed')) {
                             alert('Tickler saved but failed to write to encounter chart.');
                         }

@@ -28,6 +28,36 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    dbTicklerAdd.jsp - Server-side tickler creation endpoint
+
+    Purpose:
+    Processes POST form submissions from ticklerAdd.jsp to create new ticklers.
+    Optionally writes the tickler message to the patient's encounter chart as a
+    CaseManagementNote when the writeToEncounter parameter is set.
+
+    Request Parameters:
+    - demographic_no: Patient demographic number (required)
+    - user_no: Creator provider number
+    - xml_appointment_date: Service date for the tickler
+    - ticklerMessage: Tickler message text
+    - priority: Normal/High/Low
+    - task_assigned_to: Assigned provider number
+    - docType/docId: Optional document link
+    - writeToEncounter: "true" to also write a signed encounter note
+
+    Response:
+    Renders hidden sentinel elements read by ticklerAdd.jsp iframe.onload:
+    - #tickler-save-ok: tickler saved successfully
+    - #tickler-save-ok-link-failed: tickler saved but document link failed
+    - #tickler-write-encounter-failed: tickler saved but encounter note failed
+
+    Security:
+    - Requires "_tickler" write privilege
+    - POST method required
+
+    @since 2006-01-01 (original OSCAR implementation)
+--%>
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 
@@ -162,6 +192,9 @@
             Provider loggedInProvider = loggedInInfo.getLoggedInProvider();
             Date creationDate = new Date();
 
+            // Create a signed encounter note with the tickler message as content.
+            // Note is auto-signed by the creating provider (no separate sign step needed).
+            // Fields mirror CaseManagementEntry2Action.ticklerSaveNote() for consistency.
             CaseManagementNote cmn = new CaseManagementNote();
             cmn.setAppointmentNo(0);
             cmn.setArchived(false);
@@ -178,9 +211,9 @@
             cmn.setHistory(docfilename);
             cmn.setReporter_program_team("null");
 
+            // Resolve the provider's default program and CAISI role for the note
             String prog_no = new EctProgram(request.getSession()).getProgram(loggedInProvider.getProviderNo());
             cmn.setProgram_no(prog_no);
-
             CaseManagementEntry2Action.determineNoteRole(cmn, loggedInProvider.getProviderNo(), module_id);
 
             CaseManagementManager caseManagementMgr = SpringUtils.getBean(CaseManagementManager.class);
