@@ -219,6 +219,8 @@
     <!-- css -->
     <link href="<%=request.getContextPath() %>/library/toastui/toastui-editor.min.css" rel="stylesheet">
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <%-- global.css: CARLOS color overrides for Bootstrap (messenger pages don't use global-head.jspf) --%>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/share/css/global.css">
     <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"><!-- fontawesome 6.x -->
 
     <style>
@@ -411,7 +413,7 @@ function validateFields() {
 			<tr>
 
 						<td><div style="display:flex; padding-left:10px;">
-						    <a class="btn btn-outline-primary" href="<%=request.getContextPath()%>/messenger/DisplayMessages.jsp">
+						    <a class="btn btn-primary" href="<%=request.getContextPath()%>/messenger/DisplayMessages.jsp">
 								<fmt:message key="messenger.ViewMessage.btnInbox" />
 							</a>
                             <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/ClearMessage.do">

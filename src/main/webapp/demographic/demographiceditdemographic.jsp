@@ -4803,7 +4803,7 @@
                                                         <%-- PATIENT NOTES MODULE --%>
                                                     <tr>
                                                         <td nowrap colspan="4">
-                                                            <table width="100%" bgcolor="#EEEEFF"
+                                                            <table width="100%"
                                                                    id="demographicPatientNotes">
                                                                 <tr id="paitientNotesHeading"
                                                                     class="category_table_heading">

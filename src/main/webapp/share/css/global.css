@@ -51,6 +51,20 @@
     --bs-btn-active-border-color: color-mix(in srgb, var(--carlos-primary) 70%, black);
 }
 
+/* Retheme Bootstrap's outline-primary variant to use CARLOS blue (#337ab7)
+   instead of Bootstrap's default (#0d6efd). On hover/active the button fills
+   with the primary color, so text must flip to white for contrast. */
+.btn-outline-primary {
+    --bs-btn-color: var(--carlos-primary);
+    --bs-btn-border-color: var(--carlos-primary);
+    --bs-btn-hover-bg: var(--carlos-primary);
+    --bs-btn-hover-border-color: var(--carlos-primary);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-active-bg: var(--carlos-primary);
+    --bs-btn-active-border-color: var(--carlos-primary);
+    --bs-btn-active-color: #fff;
+}
+
 a {
     color: var(--carlos-link);
 }

@@ -87,6 +87,8 @@
     <head>
 <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+<%-- global.css: CARLOS color overrides for Bootstrap (messenger pages don't use global-head.jspf) --%>
+<link rel="stylesheet" href="<%=request.getContextPath() %>/share/css/global.css">
 <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
         <c:if test="${empty msgSessionBean}">

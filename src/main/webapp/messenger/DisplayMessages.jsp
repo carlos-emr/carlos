@@ -181,6 +181,9 @@
         </title>
 
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <%-- global.css overrides Bootstrap's default blue (#0d6efd) with CARLOS
+             primary (#337ab7). Required because messenger pages don't use global-head.jspf. --%>
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/share/css/global.css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
         <style>
@@ -257,44 +260,41 @@
     </head>
 
     <body class="BodyStyle" onload="window.focus()" onunload="return uload()">
-<table style="width: 100%;">
-  <tr>
-    <td style="vertical-align:top;">
-			<h4>&nbsp;<i class="fa-regular fa-envelope" title="<fmt:message key="messenger.DisplayMessages.msgMessenger"/>"></i>&nbsp;
-                        <% switch(pageType){
-                            case 0: %>
-     		                    <fmt:message key="messenger.DisplayMessages.msgInbox"/>
-                        <%      break;
-                            case 1: %>
-                                <fmt:message key="messenger.DisplayMessages.msgSentTitle"/>
-                        <%      break;
-                            case 2: %>
-                                <fmt:message key="messenger.DisplayMessages.msgArchived"/>
-                        <%      break;
-                            case 3: %>
-                                Messages related to <%=Encode.forHtml(demographic_name)%>
-                        <%      break;
-                        }%>
-        </h4>
-    </td>
-<td style="width:60%; display:flex; align-items:center;">
-
-                            <form action="${pageContext.request.contextPath}/messenger/DisplayMessages.do" method="post">
-<div class="input-group mb-3">
-                            <input name="boxType" type="hidden" value="<%=pageType%>">
-                            <button name="btnSearch" type="submit" class="btn btn-outline-secondary"  title="<fmt:message key="messenger.DisplayMessages.btnSearch"/>"><i class="fa-solid fa-magnifying-glass fa-lg"></i></button>
-                            <input name="searchString" type="text" class="form-control h-50"  value="<%=Encode.forHtmlAttribute(DisplayMessagesBeanId.getFilter())%>">
-
-                            <button name="btnClearSearch" type="submit" class="btn btn-light" title="<fmt:message key="messenger.DisplayMessages.btnClearSearch"/>"><i class="fa-solid fa-xmark fa-lg"></i></button>
+<%-- Page header: uses page-header-bar pattern (matching search.jsp and reportindex.jsp)
+     with flexbox to place the title and search form side-by-side. The search form is
+     capped at 450px to prevent it from dominating the header on wide viewports. --%>
+<div class="page-header-bar" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+    <h4 class="page-header-title" style="white-space:nowrap;">
+        <i class="fa-regular fa-envelope page-header-icon" title="<fmt:message key="messenger.DisplayMessages.msgMessenger"/>"></i>
+        &nbsp;<% switch(pageType){
+            case 0: %>
+                <fmt:message key="messenger.DisplayMessages.msgInbox"/>
+        <%      break;
+            case 1: %>
+                <fmt:message key="messenger.DisplayMessages.msgSentTitle"/>
+        <%      break;
+            case 2: %>
+                <fmt:message key="messenger.DisplayMessages.msgArchived"/>
+        <%      break;
+            case 3: %>
+                Messages related to <%=Encode.forHtml(demographic_name)%>
+        <%      break;
+        }%>
+    </h4>
+    <form action="${pageContext.request.contextPath}/messenger/DisplayMessages.do" method="post" style="flex:1; max-width:450px;">
+        <input name="boxType" type="hidden" value="<%=pageType%>">
+        <div class="input-group input-group-sm">
+            <input name="searchString" type="text" class="form-control" placeholder="<fmt:message key="messenger.DisplayMessages.btnSearch"/>"
+                   value="<%=Encode.forHtmlAttribute(DisplayMessagesBeanId.getFilter())%>">
+            <button name="btnSearch" type="submit" class="btn btn-primary" title="<fmt:message key="messenger.DisplayMessages.btnSearch"/>">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+            <button name="btnClearSearch" type="submit" class="btn btn-outline-secondary" title="<fmt:message key="messenger.DisplayMessages.btnClearSearch"/>">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    </form>
 </div>
-                            </form>
-
-</td>
-    <td style="text-align: right;" >
-
-    </td>
-</tr>
-</table>
 
                     <%
                         // Route form to different Struts actions based on view type:
