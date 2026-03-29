@@ -569,7 +569,18 @@
 
             /* jQuery UI overrides */
             .ui-dialog { font-size: small !important; }
-            .ui-autocomplete { font-size: small !important; }
+            .ui-autocomplete {
+                font-size: 0.82rem !important;
+                max-height: 320px;
+                overflow-y: auto;
+                overflow-x: hidden;
+                z-index: 9999 !important;
+            }
+            .ui-autocomplete .ui-menu-item { border-bottom: 1px solid #eee; }
+            .ui-autocomplete .ui-menu-item:nth-child(even) { background-color: rgba(0,0,0,0.04); }
+            .ui-autocomplete .ui-menu-item-wrapper { padding: 0.3rem 0.5rem; }
+            .specialist-ac-name { font-weight: 600; }
+            .specialist-ac-details { font-size: 0.72rem; color: #6c757d; margin-top: 0.1rem; }
             .save-and-close-button {
                 width: auto !important;
                 height: auto !important;
@@ -711,21 +722,11 @@
         /////////////////////////////////////////////////////////////////////
         // Load services via AJAX - accepts callback for proper sequencing
         function loadServicesFromServer(callback) {
-            var serviceDropdown = document.getElementById('service');
-            if (!serviceDropdown) {
-                console.error('Service dropdown not found on page');
-                return;
-            }
-
-            // Initialize default service and specialist
+            // Initialize default "All Services" entry
             K(-1, "----All Services-------");
             var defaultSpec = new Specialist(-1, -1, "", "--------All Specialists-----", "", "", "");
             services[-1] = new Service();
             services[-1].specialists.push(defaultSpec);
-
-            // Add "All Services" as first option in dropdown
-            serviceDropdown.options.length = 0;  // Clear any existing options
-            serviceDropdown.options[0] = new Option("----All Services-------", -1);
 
             var xhr = new XMLHttpRequest();
             xhr.open('GET', '<%= request.getContextPath() %>/encounter/ConsultationLookup2Action.do?method=getServices', true);
@@ -763,20 +764,13 @@
         }
 
         function processServices(serviceList) {
-            var serviceDropdown = document.getElementById('service');
+            allServicesData = serviceList; // Store for autocomplete
             for (var i = 0; i < serviceList.length; i++) {
                 var service = serviceList[i];
                 K(service.serviceId, service.serviceDesc);
 
-                // Add to dropdown if not exists
-                var exists = false;
-                for (var idx = 0; idx < serviceDropdown.options.length; idx++) {
-                    if (serviceDropdown.options[idx].value == service.serviceId) {
-                        exists = true;
-                        break;
-                    }
-                }
-                if (!exists) {
+                // Legacy: maintain services data structure
+                if (true) {
                     serviceDropdown.options[serviceDropdown.options.length] = new Option(service.serviceDesc, service.serviceId);
                 }
             }
@@ -903,6 +897,146 @@
 
         //-----------------disableDateFields() disables date fields if "Patient Will Book" selected
         var disableFields = false;
+
+        ////////////////////////////////////////////////////////////////////
+        // All-specialists data for autocomplete (loaded once on page ready)
+        var allSpecialistsData = [];
+        var allServicesData = [];
+
+        function loadAllSpecialistsData(callback) {
+            jQuery.ajax({
+                url: ctx + '/encounter/ConsultationLookup2Action.do?method=getAllSpecialists',
+                method: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    allSpecialistsData = data;
+                    if (callback) callback();
+                },
+                error: function(xhr, status, err) {
+                    console.error('Failed to load all specialists:', err);
+                    if (callback) callback();
+                }
+            });
+        }
+
+        function initServiceAutocomplete() {
+            jQuery('#serviceInput').autocomplete({
+                minLength: 0,
+                source: function(request, response) {
+                    var term = request.term.toLowerCase();
+                    var results = allServicesData.filter(function(s) {
+                        return !term || s.serviceDesc.toLowerCase().indexOf(term) >= 0;
+                    });
+                    response(jQuery.map(results, function(s) {
+                        return { label: s.serviceDesc, value: s.serviceDesc, id: s.serviceId };
+                    }));
+                },
+                select: function(event, ui) {
+                    jQuery('#serviceInput').val(ui.item.label);
+                    jQuery('#service').val(ui.item.id);
+                    onServiceSelected(ui.item.id);
+                    return false;
+                },
+                focus: function() { return false; }
+            });
+            jQuery('#serviceInput').on('click', function() {
+                jQuery(this).autocomplete('search', '');
+            });
+        }
+
+        function initSpecialistAutocomplete() {
+            var acWidget = jQuery('#specialistInput').autocomplete({
+                minLength: 0,
+                source: function(request, response) {
+                    var term = request.term.toLowerCase();
+                    var selectedServiceId = jQuery('#service').val();
+                    var filtered = allSpecialistsData.filter(function(s) {
+                        if (selectedServiceId && selectedServiceId !== '' && selectedServiceId !== '-1') {
+                            if (s.serviceIds.indexOf(parseInt(selectedServiceId)) === -1) return false;
+                        }
+                        if (!term) return true;
+                        return (s.name && s.name.toLowerCase().indexOf(term) >= 0) ||
+                               (s.address && s.address.toLowerCase().indexOf(term) >= 0) ||
+                               (s.phone && s.phone.indexOf(term) >= 0) ||
+                               (s.fax && s.fax.indexOf(term) >= 0) ||
+                               (s.serviceNames && s.serviceNames.join(' ').toLowerCase().indexOf(term) >= 0);
+                    });
+                    response(filtered.slice(0, 25));
+                },
+                select: function(event, ui) {
+                    jQuery('#specialistInput').val(ui.item.name);
+                    jQuery('#specialist').val(ui.item.specId);
+                    onSpecialistSelected(ui.item);
+                    return false;
+                },
+                focus: function() { return false; }
+            }).data('ui-autocomplete');
+
+            if (acWidget) {
+                acWidget._renderItem = function(ul, item) {
+                    var serviceBadges = (item.serviceNames || []).map(function(sn) {
+                        return '<span class="badge rounded-pill border border-primary text-primary ms-1" style="font-size:0.65rem;">' + jQuery('<span>').text(sn).html() + '</span>';
+                    }).join('');
+                    var namePart = '<strong class="specialist-ac-name">' + jQuery('<span>').text(item.name).html() + '</strong>';
+                    var details = [];
+                    if (item.address) details.push(jQuery('<span>').text(item.address).html());
+                    if (item.phone) details.push('Tel: ' + jQuery('<span>').text(item.phone).html());
+                    if (item.fax) details.push('Fax: ' + jQuery('<span>').text(item.fax).html());
+                    var detailLine = details.length ? '<div class="specialist-ac-details">' + details.join(' &bull; ') + '</div>' : '';
+                    return jQuery('<li>')
+                        .append('<div class="d-flex justify-content-between align-items-center">' + namePart + '<span>' + serviceBadges + '</span></div>' + detailLine)
+                        .appendTo(ul);
+                };
+            }
+
+            jQuery('#specialistInput').on('click', function() {
+                jQuery(this).autocomplete('search', '');
+            });
+        }
+
+        function onServiceSelected(serviceId) {
+            // Clear specialist selection when service changes
+            jQuery('#specialistInput').val('');
+            jQuery('#specialist').val('');
+            var form = document.EctConsultationFormRequest2Form;
+            form.phone.value = '';
+            form.fax.value = '';
+            form.address.value = '';
+            document.getElementById('annotation').value = '';
+            document.getElementById('eFormButton').style.display = 'none';
+            <%if (props.isConsultationFaxEnabled()) {%>
+            specialistFaxNumber = '';
+            updateFaxButton();
+            <%}%>
+        }
+
+        function onSpecialistSelected(specData) {
+            var form = document.EctConsultationFormRequest2Form;
+            form.phone.value = specData.phone || '';
+            form.fax.value = specData.fax || '';
+            form.address.value = specData.address || '';
+
+            // Set service to the first service of this specialist if no service currently selected
+            var currentService = jQuery('#service').val();
+            if ((!currentService || currentService === '' || currentService === '-1') && specData.serviceIds && specData.serviceIds.length > 0) {
+                jQuery('#service').val(specData.serviceIds[0]);
+                jQuery('#serviceInput').val(specData.serviceNames ? specData.serviceNames[0] : '');
+            }
+
+            document.getElementById('consult-disclaimer').style.display = 'none';
+
+            <%if (props.isConsultationFaxEnabled()) {%>
+            specialistFaxNumber = specData.fax ? specData.fax.trim() : '';
+            updateFaxButton();
+            <%}%>
+
+            jQuery.post(ctx + '/getProfessionalSpecialist.do', { id: specData.specId }, function(xml) {
+                var hasUrl = xml.eDataUrl != null && xml.eDataUrl !== '';
+                enableDisableRemoteReferralButton(form, !hasUrl);
+                document.getElementById('annotation').value = xml.annotation || '';
+                updateEFormLink(xml.eformId);
+            });
+        }
     </script>
 
     <oscar:oscarPropertiesCheck defaultVal="false" value="true" property="CONSULTATION_PATIENT_WILL_BOOK">
@@ -1032,6 +1166,7 @@
 
         jQuery(document).ready(function () {
             buildImportMenus();
+            initAppointmentTimeDisplay();
 
             jQuery(document).on('click', '.medicationData', function () {
                 var data = new Object();
@@ -1060,12 +1195,19 @@
         })
 
         function setDisabledDateFields(form, disabled) {
-            //form.appointmentYear.disabled = disabled;
-            //form.appointmentMonth.disabled = disabled;
-            //form.appointmentDay.disabled = disabled;
-            form.appointmentHour.disabled = disabled;
-            form.appointmentMinute.disabled = disabled;
-            form.appointmentPm.disabled = disabled;
+            var timeDisplay = document.getElementById('appointmentTimeDisplay');
+            if (timeDisplay) timeDisplay.disabled = disabled;
+            var clearTimeBtn = document.getElementById('clearTimeBtn');
+            if (clearTimeBtn) clearTimeBtn.disabled = disabled;
+            var clearDateBtn = document.getElementById('clearDateBtn');
+            if (clearDateBtn) clearDateBtn.disabled = disabled;
+            if (disabled) {
+                // Clear hidden time fields so they are not submitted when patient will book
+                document.getElementById('appointmentHour').value = '';
+                document.getElementById('appointmentMinute').value = '';
+                document.getElementById('appointmentPm').value = 'AM';
+                if (timeDisplay) timeDisplay.value = '';
+            }
         }
 
         function disableEditing() {
@@ -1084,6 +1226,8 @@
                 disableIfExists(form.providerNo, disableFields);
                 disableIfExists(form.specialist, disableFields);
                 disableIfExists(form.service, disableFields);
+                disableIfExists(document.getElementById('specialistInput'), disableFields);
+                disableIfExists(document.getElementById('serviceInput'), disableFields);
                 form.urgency.disabled = disableFields;
                 form.phone.disabled = disableFields;
                 form.fax.disabled = disableFields;
@@ -1191,57 +1335,43 @@
         /////////////////////////////////////////////////////////////////////
         // Initialize consultation - called AFTER services are loaded
         function initializeConsultation(savedService, savedServiceName, savedSpecialist, savedSpecName, savedPhone, savedFax, savedAddress) {
-            var serviceDropdown = document.getElementById('service');
-
-            // Check if saved service exists in loaded services
-            var serviceExists = false;
-            for (var idx = 0; idx < serviceDropdown.options.length; idx++) {
-                if (serviceDropdown.options[idx].value == savedService) {
-                    serviceDropdown.options[idx].selected = true;
-                    serviceExists = true;
-                    break;
+            // Set service autocomplete input and hidden value
+            if (savedService && savedService !== 'null' && savedService !== '-1') {
+                jQuery('#service').val(savedService);
+                jQuery('#serviceInput').val(savedServiceName || '');
+                // Maintain legacy data structure for backward compatibility
+                if (!services[savedService]) {
+                    K(savedService, savedServiceName);
                 }
             }
 
-            // If service was deleted but we have saved data, add it
-            if (!serviceExists && savedService && savedService != "null") {
-                K(savedService, savedServiceName);
-                serviceDropdown.options[serviceDropdown.options.length] = new Option(savedServiceName, savedService, false, true);
+            // Set specialist autocomplete input and hidden value
+            if (savedSpecialist && savedSpecialist !== 'null') {
+                jQuery('#specialist').val(savedSpecialist);
+                jQuery('#specialistInput').val(savedSpecName || '');
 
-                // Also add the specialist for this deleted service
-                if (savedSpecialist && savedSpecialist != "null") {
-                    if (!services[savedService]) {
-                        services[savedService] = new Service();
-                    }
-                    addSpecialist(savedService, savedSpecialist, savedPhone, savedSpecName, savedFax, savedAddress, "");
+                // Fill phone/fax/address from saved values
+                var form = document.EctConsultationFormRequest2Form;
+                if (savedPhone) form.phone.value = savedPhone;
+                if (savedFax) form.fax.value = savedFax;
+                if (savedAddress) form.address.value = savedAddress;
+
+                <%if (props.isConsultationFaxEnabled()) {%>
+                if (savedFax) { specialistFaxNumber = savedFax.trim(); updateFaxButton(); }
+                <%}%>
+
+                // Check if specialist is still in the directory; show disclaimer if not
+                var foundInData = allSpecialistsData.some(function(s) { return String(s.specId) === String(savedSpecialist); });
+                if (!foundInData) {
+                    document.getElementById('consult-disclaimer').style.display = 'inline';
                 }
-            }
 
-            // Now load specialists for the saved service
-            if (savedService && savedService != "null") {
-                loadSpecialistsForService(savedService, function() {
-                    var foundSaved = populateSpecialistDropdown(savedService, savedSpecialist);
-
-                    <%if(requestId!=null){ %>
-                    // Handle case where saved specialist no longer exists
-                    if (!foundSaved && savedSpecialist && savedSpecialist != "null") {
-                        var dropdown = document.EctConsultationFormRequest2Form.specialist;
-                        // Replace "All Specialists" with the saved specialist name
-                        dropdown.options[0] = new Option("<%=consultUtil.getSpecailistsName(consultUtil.specialist)%>", savedSpecialist, false, true);
-                        document.getElementById("consult-disclaimer").style.display = 'inline';
-                    } else if (!savedSpecialist || savedSpecialist == "null") {
-                        var dropdown = document.EctConsultationFormRequest2Form.specialist;
-                        dropdown.options[0] = new Option("No Consultant Saved", "-1", false, true);
-                    }
-                    <%}%>
-
-                    // Fill phone/fax/address fields
-                    FillThreeBoxes(savedSpecialist);
-                    onSelectSpecialist(document.EctConsultationFormRequest2Form.specialist);
+                // Load additional specialist data (annotation, eform)
+                jQuery.post(ctx + '/getProfessionalSpecialist.do', {id: savedSpecialist}, function(xml) {
+                    enableDisableRemoteReferralButton(form, !(xml.eDataUrl != null && xml.eDataUrl !== ''));
+                    document.getElementById('annotation').value = xml.annotation || '';
+                    updateEFormLink(xml.eformId);
                 });
-            } else {
-                // New consultation - just show "All Specialists"
-                populateSpecialistDropdown(null, null);
             }
         }
 
@@ -1833,11 +1963,43 @@ if (userAgent != null) {
             URL.revokeObjectURL(downloadLink.href);
         }
 
-        function clearAppointmentDateAndTime() {
-            document.EctConsultationFormRequest2Form.appointmentDate.value = "";
-            document.EctConsultationFormRequest2Form.appointmentHour.options.selectedIndex = 0;
-            document.EctConsultationFormRequest2Form.appointmentMinute.options.selectedIndex = 0;
-            document.EctConsultationFormRequest2Form.appointmentPm.options.selectedIndex = 0;
+        function clearAppointmentTime() {
+            document.getElementById('appointmentTimeDisplay').value = '';
+            document.getElementById('appointmentHour').value = '';
+            document.getElementById('appointmentMinute').value = '';
+            document.getElementById('appointmentPm').value = 'AM';
+        }
+
+        function syncTimeToHiddenFields(timeVal) {
+            if (!timeVal) {
+                document.getElementById('appointmentHour').value = '';
+                document.getElementById('appointmentMinute').value = '';
+                document.getElementById('appointmentPm').value = 'AM';
+                return;
+            }
+            var parts = timeVal.split(':');
+            var hour24 = parseInt(parts[0], 10);
+            var minute = parseInt(parts[1], 10);
+            var pm = (hour24 >= 12) ? 'PM' : 'AM';
+            var hour12 = hour24 % 12;
+            if (hour12 === 0) hour12 = 12;
+            document.getElementById('appointmentHour').value = String(hour12);
+            document.getElementById('appointmentMinute').value = String(minute);
+            document.getElementById('appointmentPm').value = pm;
+        }
+
+        function initAppointmentTimeDisplay() {
+            var hour = document.getElementById('appointmentHour').value;
+            var minute = document.getElementById('appointmentMinute').value;
+            var pm = document.getElementById('appointmentPm').value;
+            if (hour && hour !== '-1' && hour !== '' && minute !== '' && minute !== '-1') {
+                var h = parseInt(hour, 10);
+                var m = parseInt(minute, 10);
+                if (pm === 'PM' && h !== 12) h += 12;
+                else if (pm === 'AM' && h === 12) h = 0;
+                var timeStr = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+                document.getElementById('appointmentTimeDisplay').value = timeStr;
+            }
         }
     </script>
 
@@ -2206,7 +2368,7 @@ if (userAgent != null) {
                                         <div class="row g-2" style="font-size:0.85rem;">
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAddress"/></small><br>
-                                                <%=Encode.forHtml(thisForm.getPatientAddress().replace("null", ""))%>
+                                                <%=thisForm.getPatientAddress().replace("null", "")%>
                                             </div>
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPhone"/></small>: <%=Encode.forHtml(thisForm.getPatientPhone())%><br>
@@ -2305,8 +2467,10 @@ if (userAgent != null) {
                                                 <% if (thisForm.iseReferral() && !thisForm.geteReferralService().isEmpty()) { %>
                                                 <%=Encode.forHtml(thisForm.geteReferralService())%>
                                                 <% } else { %>
-                                                <select id="service" name="service" class="form-select form-select-sm"
-                                                             onchange="fillSpecialistSelect(this);"></select>
+                                                <input type="hidden" id="service" name="service" value=""/>
+                                                <input type="text" id="serviceInput" class="form-control form-control-sm"
+                                                       autocomplete="off"
+                                                       placeholder="<fmt:setBundle basename='oscarResources'/><fmt:message key='encounter.oscarConsultationRequest.ConsultationFormRequest.formServSelect'/>"/>
                                                 <% } %>
                                             </td>
                                         </tr>
@@ -2334,8 +2498,10 @@ if (userAgent != null) {
                                             <span id="consult-disclaimer"
                                                   title="When consult was saved this was the saved consultant but is no longer on this specialist list."
                                                   style="display:none;font-size:24px;">*</span>
-                                            <select id="specialist" name="specialist" class="form-select form-select-sm"
-                                                         onchange="onSelectSpecialist(this)"></select>
+                                            <input type="hidden" id="specialist" name="specialist" value=""/>
+                                            <input type="text" id="specialistInput" class="form-control form-control-sm"
+                                                   autocomplete="off"
+                                                   placeholder="<fmt:setBundle basename='oscarResources'/><fmt:message key='encounter.oscarConsultationRequest.ConsultationFormRequest.formSelectSpec'/>"/>
 
                                             <%} // end specialist list condition block %>
                                         </td>
@@ -2449,50 +2615,32 @@ if (userAgent != null) {
                                         <td class="consult-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnAppointmentDate"/>
                                         </td>
                                         <td class="consult-form-value">
-                                            <input type="date" class="form-control form-control-sm" id="appointmentDate" name="appointmentDate"
+                                            <div class="input-group input-group-sm" style="max-width:220px;">
+                                                <input type="date" class="form-control form-control-sm" id="appointmentDate" name="appointmentDate"
                                                        value="<%=Encode.forHtmlAttribute(thisForm.getAppointmentDate() != null ? thisForm.getAppointmentDate().replace("/", "-") : "")%>"/>
+                                                <button type="button" class="btn btn-outline-secondary" id="clearDateBtn"
+                                                        title="<fmt:setBundle basename='oscarResources'/><fmt:message key='encounter.oscarConsultationRequest.ConsultationFormRequest.btnClearDate'/>"
+                                                        onclick="document.getElementById('appointmentDate').value='';">&times;</button>
+                                            </div>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td class="consult-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formAppointmentTime"/>
                                         </td>
                                         <td class="consult-form-value">
-                                            <div class="d-flex flex-wrap gap-2 align-items-center">
-                                                    <select name="appointmentHour" id="appointmentHour" class="form-select form-select-sm" style="width:auto;">
-                                                        <option value="-1"></option>
-                                                        <%
-                                                            for (int i = 1; i < 13; i = i + 1) {
-                                                                String hourOfday = Integer.toString(i);
-                                                                String selectedHour = (hourOfday.equals(thisForm.getAppointmentHour())) ? "selected" : "";
-                                                        %>
-                                                        <option value="<%=hourOfday%>" <%=selectedHour%>><%=hourOfday%>
-                                                        </option>
-                                                        <%
-                                                            }
-                                                        %>
-                                                    </select>
-                                                    <select name="appointmentMinute" id="appointmentMinute" class="form-select form-select-sm" style="width:auto;">
-                                                        <option value="-1"></option>
-                                                        <%
-                                                            for (int i = 0; i < 60; i = i + 1) {
-                                                                String minuteOfhour = Integer.toString(i);
-                                                                if (i < 10) {
-                                                                    minuteOfhour = "0" + minuteOfhour;
-                                                                }
-                                                                String selectedMinute = (String.valueOf(i).equals(thisForm.getAppointmentMinute())) ? "selected" : "";
-                                                        %>
-                                                        <option value="<%=String.valueOf(i)%>" <%=selectedMinute%>><%=minuteOfhour%>
-                                                        </option>
-                                                        <%
-                                                            }
-                                                        %>
-                                                    </select>
-                                                    <select name="appointmentPm" id="appointmentPm" class="form-select form-select-sm" style="width:auto;">
-                                                        <option value="AM" <%="AM".equals(thisForm.getAppointmentPm()) ? "selected" : ""%>>AM</option>
-                                                        <option value="PM" <%="PM".equals(thisForm.getAppointmentPm()) ? "selected" : ""%>>PM</option>
-                                                    </select>
-                                                    <input type="button" class="btn btn-outline-secondary btn-sm" value="Clear Date & Time"
-                                                               onclick="clearAppointmentDateAndTime()"/>
+                                            <%-- Hidden fields keep existing server-side processing unchanged --%>
+                                            <input type="hidden" id="appointmentHour" name="appointmentHour"
+                                                   value="<%=Encode.forHtmlAttribute(thisForm.getAppointmentHour() != null ? thisForm.getAppointmentHour() : "")%>"/>
+                                            <input type="hidden" id="appointmentMinute" name="appointmentMinute"
+                                                   value="<%=Encode.forHtmlAttribute(thisForm.getAppointmentMinute() != null ? thisForm.getAppointmentMinute() : "")%>"/>
+                                            <input type="hidden" id="appointmentPm" name="appointmentPm"
+                                                   value="<%=Encode.forHtmlAttribute(thisForm.getAppointmentPm() != null ? thisForm.getAppointmentPm() : "AM")%>"/>
+                                            <div class="input-group input-group-sm" style="max-width:180px;">
+                                                <input type="time" class="form-control form-control-sm" id="appointmentTimeDisplay"
+                                                       oninput="syncTimeToHiddenFields(this.value)"/>
+                                                <button type="button" class="btn btn-outline-secondary" id="clearTimeBtn"
+                                                        title="<fmt:setBundle basename='oscarResources'/><fmt:message key='encounter.oscarConsultationRequest.ConsultationFormRequest.btnClearTime'/>"
+                                                        onclick="clearAppointmentTime();">&times;</button>
                                             </div>
                                         </td>
                                     </tr>
@@ -2892,17 +3040,24 @@ if (userAgent != null) {
                                                     defaultVal="false">
                             <script type="text/javascript">
                                 //<!--
-                                // Load services first, then initialize consultation with saved data
+                                // Initialize appointment time display from saved values
+                                initAppointmentTimeDisplay();
+
+                                // Load services and all-specialists data, then wire autocompletes
                                 loadServicesFromServer(function() {
-                                    initializeConsultation(
-                                        '<%=Encode.forJavaScript(String.valueOf(consultUtil.service))%>',
-                                        '<%=((consultUtil.service==null)?"":Encode.forJavaScript(consultUtil.getServiceName(consultUtil.service.toString())))%>',
-                                        '<%=Encode.forJavaScript(String.valueOf(consultUtil.specialist))%>',
-                                        '<%=((consultUtil.specialist==null)?"":Encode.forJavaScript(consultUtil.getSpecailistsName(consultUtil.specialist.toString())))%>',
-                                        '<%=Encode.forJavaScript(consultUtil.specPhone)%>',
-                                        '<%=Encode.forJavaScript(consultUtil.specFax)%>',
-                                        '<%=Encode.forJavaScript(consultUtil.specAddr)%>'
-                                    );
+                                    loadAllSpecialistsData(function() {
+                                        initServiceAutocomplete();
+                                        initSpecialistAutocomplete();
+                                        initializeConsultation(
+                                            '<%=Encode.forJavaScript(String.valueOf(consultUtil.service))%>',
+                                            '<%=((consultUtil.service==null)?"":Encode.forJavaScript(consultUtil.getServiceName(consultUtil.service.toString())))%>',
+                                            '<%=Encode.forJavaScript(String.valueOf(consultUtil.specialist))%>',
+                                            '<%=((consultUtil.specialist==null)?"":Encode.forJavaScript(consultUtil.getSpecailistsName(consultUtil.specialist.toString())))%>',
+                                            '<%=Encode.forJavaScript(consultUtil.specPhone)%>',
+                                            '<%=Encode.forJavaScript(consultUtil.specFax)%>',
+                                            '<%=Encode.forJavaScript(consultUtil.specAddr)%>'
+                                        );
+                                    });
                                 });
                                 //-->
                             </script>
