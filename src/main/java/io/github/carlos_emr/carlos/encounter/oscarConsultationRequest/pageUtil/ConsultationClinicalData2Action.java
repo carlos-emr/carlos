@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
 import io.github.carlos_emr.carlos.managers.PrescriptionManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -60,6 +61,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
 
 
     private static Logger logger = MiscUtils.getLogger();
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private PrescriptionManager prescriptionManager = SpringUtils.getBean(PrescriptionManager.class);
     private CaseManagementManager caseManagementManager = SpringUtils.getBean(CaseManagementManager.class);
     private AllergyManager allergyManager = SpringUtils.getBean(AllergyManager.class);
@@ -72,6 +74,9 @@ public class ConsultationClinicalData2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_con", "r", null)) {
+            throw new SecurityException("missing required security object _con");
+        }
         String method = request.getParameter("method");
         if ("fetchLongTermMedications".equals(method)) {
             return fetchLongTermMedications();
@@ -148,7 +153,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
 
         json.put("note", stringBuilder.toString());
 
-        response.setContentType("text/javascript");
+        response.setContentType("application/json");
 
         try {
             response.getWriter().write(json.toString());
@@ -180,7 +185,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
             ObjectNode emptyJson = objectMapper.createObjectNode();
             emptyJson.put("noteType", noteType);
             emptyJson.put("note", "");
-            response.setContentType("text/javascript");
+            response.setContentType("application/json");
             try {
                 response.getWriter().write(emptyJson.toString());
             } catch (IOException e) {
@@ -203,7 +208,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
 
         json.put("note", stringBuilder.toString());
 
-        response.setContentType("text/javascript");
+        response.setContentType("application/json");
         try {
             response.getWriter().write(json.toString());
         } catch (IOException e) {
@@ -228,7 +233,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
             ObjectNode emptyJson = objectMapper.createObjectNode();
             emptyJson.put("noteType", issueTypeEnum.name());
             emptyJson.put("note", "");
-            response.setContentType("text/javascript");
+            response.setContentType("application/json");
             try {
                 response.getWriter().write(emptyJson.toString());
             } catch (IOException e) {
@@ -252,7 +257,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
 
         json.put("note", stringBuilder.toString());
 
-        response.setContentType("text/javascript");
+        response.setContentType("application/json");
         try {
             response.getWriter().write(json.toString());
         } catch (IOException e) {
@@ -285,7 +290,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
 
         json.put("note", stringBuilder.toString());
 
-        response.setContentType("text/javascript");
+        response.setContentType("application/json");
         try {
             response.getWriter().write(json.toString());
         } catch (IOException e) {

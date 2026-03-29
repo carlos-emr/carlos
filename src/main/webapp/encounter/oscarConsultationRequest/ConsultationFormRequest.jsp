@@ -1127,15 +1127,15 @@
                 {cls: 'clinicalData', prefix: 'Concerns', label: '<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportConcerns"/>'},
                 {cls: 'clinicalData', prefix: 'OMeds', label: '<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportOtherMeds"/>'},
                 {cls: 'clinicalData', prefix: 'Reminders', label: '<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportReminders"/>'},
-                {cls: 'clinicalData', prefix: 'RiskFactors', label: 'Risk Factors'},
+                {cls: 'clinicalData', prefix: 'RiskFactors', label: '<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportRiskFactors"/>'},
                 {divider: true},
-                {cls: 'medicationData', prefix: 'fetchMedications', label: 'Active Medications'},
-                {cls: 'medicationData', prefix: 'fetchLongTermMedications', label: 'Long Term Medications'}
+                {cls: 'medicationData', prefix: 'fetchMedications', label: '<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportActiveMedications"/>'},
+                {cls: 'medicationData', prefix: 'fetchLongTermMedications', label: '<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportLongTermMedications"/>'}
             ];
             var medsOnlyItems = [
                 {cls: 'clinicalData', prefix: 'OMeds', label: '<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportOtherMeds"/>'},
-                {cls: 'medicationData', prefix: 'fetchMedications', label: 'Active Medications'},
-                {cls: 'medicationData', prefix: 'fetchLongTermMedications', label: 'Long Term Medications'}
+                {cls: 'medicationData', prefix: 'fetchMedications', label: '<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportActiveMedications"/>'},
+                {cls: 'medicationData', prefix: 'fetchLongTermMedications', label: '<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportLongTermMedications"/>'}
             ];
 
             jQuery('.consult-import-menu').each(function() {
