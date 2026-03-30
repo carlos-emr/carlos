@@ -1301,9 +1301,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                              onclick="showHideBox('Instrdiv',0); return false;">X</a></th>
         </tr>
         <tr>
-            <td><a href="javascript:void(0);" style="color:black"
-                   onclick="showHideBox('Instrdiv',0); return false;">Double clicking any code below will move up
-                to specialist billing.<br>&nbsp;</a></td>
+            <td>The default unit and @ value is 1.</td>
         </tr>
 
     </table>

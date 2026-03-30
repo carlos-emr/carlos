@@ -34,14 +34,15 @@
 
     Features:
         - Session-protected: returns HTTP 401 if no active user session is found
-        - Performs a prefix search on service code and a keyword search on description
-        - Merges both result sets (deduped by serviceCode) for richer suggestions
+        - Always searches both code prefix (e.g. "A00") and description keyword (e.g. "visit")
+        - Merges both result sets, code-prefix matches listed first, deduplicated by serviceCode
         - Limits output to 20 items for performance
         - All output values are OWASP-encoded for JavaScript safety
 
     Request Parameters:
-        term  (String, required) - The text typed by the user; used as both a code prefix
-                                   (e.g. "A00") and a description keyword (e.g. "visit")
+        term  (String, required) - The text typed by the user; matched against both the
+                                   service code prefix (e.g. "A001") and the description
+                                   text (e.g. "general assessment") simultaneously
 
     Response:
         Content-Type: application/json; charset=UTF-8
@@ -68,22 +69,27 @@
     List<BillingService> results = new ArrayList<>();
     if (term.length() >= 1) {
         BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
-        // search() applies the pattern to both serviceCode and description
-        results = billingServiceDao.search(term + "%", "ON", new Date());
-        // If the prefix search returns few results, also try a contains search on description
-        if (results.size() < 5 && !term.matches(".*%.*")) {
-            List<BillingService> descResults = billingServiceDao.search("%" + term + "%", "ON", new Date());
-            for (BillingService bs : descResults) {
-                boolean found = false;
-                for (BillingService existing : results) {
-                    if (bs.getServiceCode() != null && bs.getServiceCode().equals(existing.getServiceCode())) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) results.add(bs);
+        java.util.LinkedHashMap<String, BillingService> merged = new java.util.LinkedHashMap<>();
+
+        // Code-prefix search: finds codes starting with the term (e.g. "A00" → A001, A002...)
+        List<BillingService> codeResults = billingServiceDao.search(term.toUpperCase() + "%", "ON", new Date());
+        if (codeResults != null) {
+            for (BillingService bs : codeResults) {
+                String key = bs.getServiceCode() != null ? bs.getServiceCode() : "";
+                if (!key.isEmpty()) merged.put(key, bs);
             }
         }
+
+        // Description-contains search: finds codes whose description contains the term
+        List<BillingService> descResults = billingServiceDao.search("%" + term + "%", "ON", new Date());
+        if (descResults != null) {
+            for (BillingService bs : descResults) {
+                String key = bs.getServiceCode() != null ? bs.getServiceCode() : "";
+                if (!key.isEmpty()) merged.putIfAbsent(key, bs);
+            }
+        }
+
+        results = new ArrayList<>(merged.values());
     }
 
     int limit = Math.min(results.size(), 20);
