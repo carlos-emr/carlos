@@ -1895,7 +1895,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                             %>
 
                         </td>
-                        <td style="width: 33%" valign="top">
+                        <td style="width: 33%; vertical-align:top;">
                             <%
                                 for (int j = 0; j < listServiceType.size(); j++) {
 
@@ -1981,7 +1981,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                             %>
 
                         </td>
-                        <td style="width: 33%" valign="top">
+                        <td style="width: 33%; vertical-align:top;">
                             <%
                                 for (int j = 0; j < listServiceType.size(); j++) {
 
