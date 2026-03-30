@@ -22,6 +22,24 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Ontario Billing History popup.
+
+    Purpose: Displays all billing history records for a demographic in a DataTables-powered
+    table with Bootstrap styling.
+
+    Parameters:
+        demographic_no  - Patient demographic number
+        last_name       - Patient last name (for display)
+        first_name      - Patient first name (for display)
+        orderby         - Sort column (appointment_date)
+        displaymode     - Display mode (appt_history)
+        dboperation     - Database operation (appt_history)
+        limit1          - Unused (DataTables handles client-side pagination)
+        limit2          - Unused (DataTables handles client-side pagination)
+
+    @since 2006
+--%>
 <%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="java.math.BigDecimal" %>
 <%
@@ -30,12 +48,6 @@
     String curProvider_no;
     curProvider_no = (String) session.getAttribute("user");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    //display the main providers page
-    //including the providers name and a month calendar
-    String strLimit1 = "0";
-    String strLimit2 = "10";
-    if (request.getParameter("limit1") != null) strLimit1 = request.getParameter("limit1");
-    if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
 %>
 <%@ page
         import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*"
@@ -64,11 +76,15 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
+<!DOCTYPE html>
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>BILLING HISTORY</title>
-    <link rel="stylesheet" href="billingON.css">
+    <title>Billing History</title>
+    <%@ include file="/includes/global-head.jspf" %>
+    <link href="<%=request.getContextPath()%>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
+    <script src="<%=request.getContextPath()%>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="<%=request.getContextPath()%>/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+
     <script language="JavaScript">
         function onUnbilled(billingNo, billCode) {
             if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.onUnbilled"/>")) {
@@ -94,52 +110,51 @@
         function popUpClosed() {
             window.location.reload();
         }
-    </SCRIPT>
-    <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
-    <script>
-        jQuery.noConflict();
+
+        jQuery(document).ready(function () {
+            jQuery('#billingHistoryTable').DataTable({
+                language: {
+                    url: '<%=request.getContextPath()%>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>.json'
+                }
+            });
+        });
     </script>
 
     <oscar:customInterface section="billingONHistory"/>
 </head>
-<body topmargin="0">
+<body>
 
-<table border="0" cellspacing="0" cellpadding="0" width="100%">
-    <tr class="myDarkGreen">
-        <th><font color="#FFFFFF">BILLING HISTORY </font></th>
-    </tr>
-</table>
+<nav class="navbar navbar-dark bg-dark">
+    <div class="container-fluid">
+        <span class="navbar-brand">Billing History</span>
+        <span class="navbar-text text-white-50">
+            <em><%=request.getParameter("last_name")%>, <%=request.getParameter("first_name")%></em>
+            &nbsp;(<%=request.getParameter("demographic_no")%>)
+        </span>
+    </div>
+</nav>
 
-<table width="95%" border="0">
-    <tr>
-        <td align="left"><i>Results for Demographic</i> :<%=request.getParameter("last_name")%>
-            ,<%=request.getParameter("first_name")%>
-            (<%=request.getParameter("demographic_no")%>)
-        </td>
-    </tr>
-</table>
-<CENTER>
-    <table width="100%" border="0" bgcolor="#ffffff">
-        <tr class="myYellow">
-            <TH width="12%"><b>Invoice No.</b></TH>
-            <TH width="12%"><b>Billing Doctor</b></TH>
-            <TH width="15%"><b>Appt. Date</b></TH>
-            <TH width="10%"><b>Bill Type</b></TH>
-            <TH width="35%"><b>Service Code</b></TH>
-            <TH width="5%"><b>Dx</b></TH>
-            <TH width="8%"><b>Balance</b></TH>
-            <TH width="8%"><b>Fee</b></TH>
-            <TH><b>COMMENTS</b></TH>
-        </tr>
-        <% // new billing records
+<div class="container-fluid mt-3">
+    <table id="billingHistoryTable" class="table table-striped table-hover table-bordered">
+        <thead>
+            <tr>
+                <th>Invoice No.</th>
+                <th>Billing Doctor</th>
+                <th>Appt. Date</th>
+                <th>Bill Type</th>
+                <th>Service Code</th>
+                <th>Dx</th>
+                <th>Balance</th>
+                <th>Fee</th>
+                <th>Comments</th>
+            </tr>
+        </thead>
+        <tbody>
+        <% // Load all records for DataTables client-side pagination
             JdbcBillingReviewImpl dbObj = new JdbcBillingReviewImpl();
             BillingONExtDao billingOnExtDao = (BillingONExtDao) SpringUtils.getBean(BillingONExtDao.class);
-            String limit = " limit " + strLimit1 + "," + strLimit2;
-            List aL = dbObj.getBillingHist(request.getParameter("demographic_no"), Integer.parseInt(strLimit2), Integer.parseInt(strLimit1), null);
-            int nItems = 0;
+            List aL = dbObj.getBillingHist(request.getParameter("demographic_no"), 10000, 0, null);
             for (int i = 0; i < aL.size(); i = i + 2) {
-                nItems++;
                 BillingClaimHeader1Data obj = (BillingClaimHeader1Data) aL.get(i);
                 BillingItemData itObj = (BillingItemData) aL.get(i + 1);
                 String strBillType = obj.getPay_program();
@@ -155,8 +170,6 @@
                     strBillType = "";
                 }
 
-
-                //BigDecimal balance = new BigDecimal("0.00");
                 BigDecimal balance = new BigDecimal("0.00");
                 if ("PAT".equals(strBillType) || "PAT Settled".equals(strBillType)) {
                     int billingNo = Integer.parseInt(obj.getId());
@@ -178,90 +191,57 @@
                     balance = total.subtract(sumOfPay).subtract(sumOfDiscount).add(sumOfCredit);
                 }
         %>
-
-        <tr bgcolor="<%=i%2==0?"#CCFF99":"white"%>">
-            <td width="5%" align="center" height="25">
-                <a href="javascript:void(0)"
-                   onClick="popupPage(600,800, 'billingONDisplay.jsp?billing_no=<%=obj.getId()%>')"
-                   title="Billing Display"><%=obj.getId()%>
-                </a>
-
-                <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w">
+            <tr>
+                <td class="text-center">
                     <a href="javascript:void(0)"
-                       onClick="popupPage(600,800, 'billingONCorrection.jsp?billing_no=<%=obj.getId()%>')"
-                       title="Billing Correction">Edit</a>
-                </security:oscarSec>
+                       onclick="popupPage(600,800, 'billingONDisplay.jsp?billing_no=<%=obj.getId()%>')"
+                       title="Billing Display"><%=obj.getId()%>
+                    </a>
 
-                <a href="javascript:void(0)"
-                   onClick="popupPage(600,800, 'billingON3rdInv.jsp?billingNo=<%=obj.getId()%>')">Print</a>
-            </td>
-            <td align="center"><%=obj.getLast_name() + ", " + obj.getFirst_name()%>
-            </td>
-            <td align="center"><%=obj.getBilling_date()%> <%--=obj.getBilling_time()--%></td>
-            <td align="center"><%=strBillType%>
-            </td>
-            <td align="center"><%=itObj.getService_code()%>
-            </td>
-            <td align="center"><%=itObj.getDx()%>
-            </td>
-            <td align="center"><%if ("PAT".equals(strBillType) || "PAT Settled".equals(strBillType)) { %>
-                <%=balance %>
-                <%} else { %>
-                <%="" %>
-                <%} %></td>
-            <td align="center"><%=obj.getTotal()%>
-            </td>
+                    <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w">
+                        <a href="javascript:void(0)"
+                           onclick="popupPage(600,800, 'billingONCorrection.jsp?billing_no=<%=obj.getId()%>')"
+                           title="Billing Correction">Edit</a>
+                    </security:oscarSec>
 
-            <% if (obj.getStatus().compareTo("B") == 0 || obj.getStatus().compareTo("S") == 0) { %>
-            <td align="center">&nbsp;</td>
-            <% } else if (CarlosProperties.getInstance().getBooleanProperty("warnOnDeleteBill", "true")) { %>
-            <td align="center"><a
-                    href="#"
-                    onClick="onUnbilled('<%=obj.getId()%>','<%=obj.getStatus()%>');return false;">Unbill</a>
-            </td>
-            <% } else { %>
-            <td align="center">
-                <a href="#" onclick="onUnbilled('<%=obj.getId()%>','<%=obj.getStatus()%>');return false;">Unbill</a>
-            </td>
-
-            <% }%>
-        </tr>
+                    <a href="javascript:void(0)"
+                       onclick="popupPage(600,800, 'billingON3rdInv.jsp?billingNo=<%=obj.getId()%>')">Print</a>
+                </td>
+                <td class="text-center"><%=obj.getLast_name() + ", " + obj.getFirst_name()%></td>
+                <td class="text-center"><%=obj.getBilling_date()%></td>
+                <td class="text-center"><%=strBillType%></td>
+                <td class="text-center"><%=itObj.getService_code()%></td>
+                <td class="text-center"><%=itObj.getDx()%></td>
+                <td class="text-center">
+                    <%if ("PAT".equals(strBillType) || "PAT Settled".equals(strBillType)) { %>
+                        <%=balance%>
+                    <%} else { %>
+                        &nbsp;
+                    <%} %>
+                </td>
+                <td class="text-center"><%=obj.getTotal()%></td>
+                <td class="text-center">
+                    <% if (obj.getStatus().compareTo("B") == 0 || obj.getStatus().compareTo("S") == 0) { %>
+                        &nbsp;
+                    <% } else if (CarlosProperties.getInstance().getBooleanProperty("warnOnDeleteBill", "true")) { %>
+                        <a href="#"
+                           onclick="onUnbilled('<%=obj.getId()%>','<%=obj.getStatus()%>');return false;">Unbill</a>
+                    <% } else { %>
+                        <a href="#" onclick="onUnbilled('<%=obj.getId()%>','<%=obj.getStatus()%>');return false;">Unbill</a>
+                    <% } %>
+                </td>
+            </tr>
         <%
             }
         %>
-
-    </table>
-    <br>
-    <%
-        int nLastPage = 0, nNextPage = 0;
-        nNextPage = Integer.parseInt(strLimit2) + Integer.parseInt(strLimit1);
-        nLastPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
-        if (nLastPage >= 0) {
-    %> <a
-        href="billingONHistory.jsp?last_name=<%=URLEncoder.encode(request.getParameter("last_name"), StandardCharsets.UTF_8) %>&first_name=<%=URLEncoder.encode(request.getParameter("first_name"), StandardCharsets.UTF_8) %>&demographic_no=<%=request.getParameter("demographic_no")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>">Last
-    Page</a> | <%
-    }
-    if (nItems == Integer.parseInt(strLimit2)) {
-%> <a
-        href="billingONHistory.jsp?last_name=<%=URLEncoder.encode(request.getParameter("last_name"), StandardCharsets.UTF_8) %>&first_name=<%=URLEncoder.encode(request.getParameter("first_name"), StandardCharsets.UTF_8) %>&demographic_no=<%=request.getParameter("demographic_no")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>">
-    Next Page</a> <%
-    }
-
-//}
-%>
-    <p>
-    <hr width="100%">
-    <table border="0" cellspacing="0" cellpadding="0" width="100%">
-        <tr>
-            <td><a href=# onClick="javascript:history.go(-1);return false;">
-                <img src="images/leftarrow.gif" border="0" width="25" height="20"
-                     align="absmiddle"> Back </a></td>
-            <td align="right"><a href="" onClick="self.close();">Close
-                the Window<img src="images/rightarrow.gif" border="0" width="25"
-                               height="20" align="absmiddle"></a></td>
-        </tr>
+        </tbody>
     </table>
 
-</center>
+    <div class="d-flex justify-content-between mt-3 mb-3">
+        <button class="btn btn-secondary" onclick="javascript:history.go(-1);return false;">Back</button>
+        <button class="btn btn-primary" onclick="self.close();">Close</button>
+    </div>
+</div>
+
 </body>
 </html>
