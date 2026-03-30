@@ -1301,7 +1301,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                              onclick="showHideBox('Instrdiv',0); return false;">X</a></th>
         </tr>
         <tr>
-            <td>The default unit and @ value is 1.</td>
+            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.ca.on.billingON.defaultUnitAt"/></td>
         </tr>
 
     </table>
@@ -1901,7 +1901,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 											    <input type="text" name="xml_vdate" id="xml_vdate" onchange="getDays();"
                                                value="<%=request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate%>"
 											class="form-control" readonly>
-											<button type="button" class="btn btn-outline-secondary" id="xml_vdate_cal" title="Choose date">
+											<button type="button" class="btn btn-outline-secondary" id="xml_vdate_cal" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.ca.on.billingON.chooseDate"/>">
 											    <img alt="cal" style="height:14px;"
 											         src="${ pageContext.request.contextPath }/images/cal.gif"></button>
 											</div>

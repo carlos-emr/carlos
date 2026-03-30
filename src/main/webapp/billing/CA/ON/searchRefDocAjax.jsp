@@ -39,8 +39,10 @@
           billing/referral number (prefix), address (contains), and phone (contains)
         - Results are merged and deduplicated by referralNo; name matches listed first
         - Returns rich per-doctor data to support the two-row autocomplete display:
-          row 1 — last name, first name, and specialty type as a Bootstrap badge;
+          row 1 — last name, first name, and specialty name (human-readable) as a Bootstrap badge;
           row 2 — street address and phone number
+        - Resolves the numeric specialtyType serviceId to its human-readable serviceDesc
+          via ConsultationServiceDao for a meaningful specialty badge
         - Limits output to 20 items for performance
         - All output values are JSON-encoded via Jackson ObjectMapper for spec-compliant output
 
@@ -60,7 +62,9 @@
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ConsultationServices" %>
 <%@ page import="jakarta.persistence.EntityManagerFactory" %>
 <%@ page import="jakarta.persistence.EntityManager" %>
 <%@ page import="jakarta.persistence.Query" %>
@@ -73,6 +77,22 @@
     String term = request.getParameter("term");
     if (term == null) term = "";
     term = term.trim();
+
+    // Build a map of serviceId → serviceDesc for human-readable specialty badge display
+    java.util.Map<String, String> specialtyNames = new java.util.HashMap<>();
+    try {
+        ConsultationServiceDao csDao = SpringUtils.getBean(ConsultationServiceDao.class);
+        List<ConsultationServices> allServices = csDao.findAll();
+        if (allServices != null) {
+            for (ConsultationServices cs : allServices) {
+                if (cs.getServiceId() != null && cs.getServiceDesc() != null) {
+                    specialtyNames.put(String.valueOf(cs.getServiceId()), cs.getServiceDesc());
+                }
+            }
+        }
+    } catch (Exception ignore) {
+        // Specialty lookup is best-effort; proceed without it if unavailable
+    }
 
     java.util.LinkedHashMap<String, ProfessionalSpecialist> merged = new java.util.LinkedHashMap<>();
 
@@ -154,12 +174,14 @@
     for (int i = 0; i < limit; i++) {
         ProfessionalSpecialist ps = results.get(i);
         if (i > 0) json.append(",");
-        String lastName   = ps.getLastName()      != null ? ps.getLastName()      : "";
-        String firstName  = ps.getFirstName()     != null ? ps.getFirstName()     : "";
-        String specialty  = ps.getSpecialtyType() != null ? ps.getSpecialtyType() : "";
-        String address    = ps.getStreetAddress() != null ? ps.getStreetAddress() : "";
-        String phone      = ps.getPhoneNumber()   != null ? ps.getPhoneNumber()   : "";
-        String referralNo = ps.getReferralNo()    != null ? ps.getReferralNo()    : "";
+        String lastName       = ps.getLastName()      != null ? ps.getLastName()      : "";
+        String firstName      = ps.getFirstName()     != null ? ps.getFirstName()     : "";
+        String specialtyCode  = ps.getSpecialtyType() != null ? ps.getSpecialtyType() : "";
+        // Resolve numeric serviceId to human-readable specialty description
+        String specialty      = specialtyNames.getOrDefault(specialtyCode, specialtyCode);
+        String address        = ps.getStreetAddress() != null ? ps.getStreetAddress() : "";
+        String phone          = ps.getPhoneNumber()   != null ? ps.getPhoneNumber()   : "";
+        String referralNo     = ps.getReferralNo()    != null ? ps.getReferralNo()    : "";
         json.append("{");
         json.append("\"value\":").append(jsonMapper.writeValueAsString(referralNo));
         json.append(",\"lastName\":").append(jsonMapper.writeValueAsString(lastName));
