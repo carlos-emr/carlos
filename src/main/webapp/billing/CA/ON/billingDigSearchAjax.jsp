@@ -56,6 +56,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
+<%! private static final ObjectMapper SHARED_MAPPER = new ObjectMapper(); %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
@@ -66,7 +67,7 @@
     term = term.trim();
 
     List<DiagnosticCode> results = new ArrayList<>();
-    if (term.length() >= 1) {
+    if (term.length() >= 2) {
         DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
         if (Character.isDigit(term.charAt(0))) {
             // Code-prefix search (ICD-9 codes start with digits)
@@ -77,9 +78,8 @@
         }
     }
 
-    // Use Jackson ObjectMapper for spec-compliant JSON string encoding
-    // (Encode.forJavaScript escapes '-' as '\-' and '/' as '\/' which is invalid JSON)
-    ObjectMapper jsonMapper = new ObjectMapper();
+    // Use shared Jackson ObjectMapper for spec-compliant JSON string encoding (thread-safe, reused across requests)
+    ObjectMapper jsonMapper = SHARED_MAPPER;
     int limit = Math.min(results.size(), 20);
     StringBuilder json = new StringBuilder("[");
     for (int i = 0; i < limit; i++) {

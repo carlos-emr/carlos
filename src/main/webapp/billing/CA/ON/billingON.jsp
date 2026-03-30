@@ -580,9 +580,10 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.ca.on.billingON.title"/></title>
+    <title><fmt:message key="oscar.billing.ca.on.billingON.title"/></title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
@@ -630,7 +631,7 @@
     <!-- main calendar program -->
     <script type="text/javascript" src="${ pageContext.request.contextPath }/share/calendar/calendar.js"></script>
     <!-- language for the calendar -->
-    <script src="${ pageContext.request.contextPath }/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+    <script src="${ pageContext.request.contextPath }/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
     <!-- the following script defines the Calendar.setup helper function, which makes
            adding a calendar a matter of 1 or 2 lines of code. -->
     <script type="text/javascript"
@@ -1167,11 +1168,12 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
         .ui-autocomplete { max-height: 280px; overflow-y: auto; overflow-x: hidden; z-index: 9999 !important; }
         .ui-menu-item > div:hover, .ui-menu-item:hover { background-color: #e8f0fe; }
     </style>
+    <fmt:message var="searchLabelMsg" key="billing.billingDigSearch.btnSearch"/>
 
     <script>
     jQuery(document).ready(function () {
         var ctx = "${pageContext.request.contextPath}";
-        var searchLabel = '<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.btnSearch"/>';
+        var searchLabel = '<%=Encode.forJavaScript((String) pageContext.getAttribute("searchLabelMsg"))%>';
 
         // Safe HTML escaping for autocomplete rendering
         function escHtml(s) {
@@ -1257,37 +1259,35 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
         }
 
         // billFormName autocomplete using the billing forms array embedded in the page
-        jQuery(document).ready(function () {
-            var $bf = jQuery("#billFormName");
-            $bf.prop("readonly", false);
-            if ($bf.length && typeof _billingForms !== "undefined") {
-                $bf.autocomplete({
-                    source: function (request, response) {
-                        var term = request.term.toLowerCase();
-                        response(jQuery.grep(_billingForms, function (item) {
-                            return item.name.toLowerCase().indexOf(term) >= 0 ||
-                                   item.code.toLowerCase().indexOf(term) >= 0;
-                        }));
-                    },
-                    minLength: 1,
-                    select: function (event, ui) {
-                        this.value = ui.item.name;
-                        toggleDiv(ui.item.code, ui.item.name, ui.item.billType);
-                        showHideLayers("Layer1", "", "hide");
-                        return false;
-                    }
-                });
-                var bfInst = $bf.data("ui-autocomplete");
-                if (bfInst) {
-                    bfInst._renderItem = function (ul, item) {
-                        return jQuery("<li>").addClass("ui-menu-item")
-                            .append(jQuery("<div>").addClass("billing-ac-item")
-                                .html("<strong>" + escHtml(item.code) + "</strong> \u2013 " + escHtml(item.name)))
-                            .appendTo(ul);
-                    };
+        var $bf = jQuery("#billFormName");
+        $bf.prop("readonly", false);
+        if ($bf.length && typeof _billingForms !== "undefined") {
+            $bf.autocomplete({
+                source: function (request, response) {
+                    var term = request.term.toLowerCase();
+                    response(jQuery.grep(_billingForms, function (item) {
+                        return item.name.toLowerCase().indexOf(term) >= 0 ||
+                               item.code.toLowerCase().indexOf(term) >= 0;
+                    }));
+                },
+                minLength: 1,
+                select: function (event, ui) {
+                    this.value = ui.item.name;
+                    toggleDiv(ui.item.code, ui.item.name, ui.item.billType);
+                    showHideLayers("Layer1", "", "hide");
+                    return false;
                 }
+            });
+            var bfInst = $bf.data("ui-autocomplete");
+            if (bfInst) {
+                bfInst._renderItem = function (ul, item) {
+                    return jQuery("<li>").addClass("ui-menu-item")
+                        .append(jQuery("<div>").addClass("billing-ac-item")
+                            .html("<strong>" + escHtml(item.code) + "</strong> \u2013 " + escHtml(item.name)))
+                        .appendTo(ul);
+                };
             }
-        });
+        }
     });
     </script>
 </head>
@@ -1301,7 +1301,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                              onclick="showHideBox('Instrdiv',0); return false;">X</a></th>
         </tr>
         <tr>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.ca.on.billingON.defaultUnitAt"/></td>
+            <td><fmt:message key="oscar.billing.ca.on.billingON.defaultUnitAt"/></td>
         </tr>
 
     </table>
@@ -1433,7 +1433,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
     <table class="xmyDarkGreen"
            style="width: 100%; background-color: silver;">
         <tr>
-            <td><H4><i class="fa-solid fa-money-bill" style="margin-left:10px;"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.ca.on.billingON.headerTitle"/></H4></td>
+            <td><H4><i class="fa-solid fa-money-bill" style="margin-left:10px;"></i>&nbsp;<fmt:message key="oscar.billing.ca.on.billingON.headerTitle"/></H4></td>
             <td style="text-align: right"><i class="fa-solid fa-circle-question"></i>&nbsp;
                 <i class="fa-solid fa-pen-to-square"></i><a href="javascript:void(0);"
                                               onclick="popupPage(800,700,'billingONfavourite.jsp'); return false;">
@@ -1557,9 +1557,9 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                             <%=checkRefBox%> onclick="onClickRefDoc()"/><br/>
                                         <input
                                                 type="text" name="referralCode" class="form-control form-control-sm d-inline-block w-auto" maxlength="6"
-                                                placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"
+                                                placeholder="<fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"
                                                 value="<%=refNo%>"><br/>
-                                        <input placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>"
+                                        <input placeholder="<fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>"
                                                type="text" name="referralDocName" class="form-control" maxlength="60"
                                                value="<%=refName%>">
                                     </td>
@@ -1706,7 +1706,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                     %>
                                         <fmt:message key="oscar.billing.ca.on.billingON.clinicNbr"/> <%
                                         } else {
-                                        %> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formVisitType"/> <%
+                                        %> <fmt:message key="billing.billingCorrection.formVisitType"/> <%
                                             }
                                         %>
                                     </b></td>
@@ -1822,40 +1822,40 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                         <%=m_review.equals("Y")?"checked":""%>></td>
                                 </tr>
                                 <tr>
-                                    <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
+                                    <td><b><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
                                     <td colspan="3"><select name="xml_slicode">
                                         <option value="<%=clinicNo%>">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/>
                                         </option>
                                         <option value="HDS">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HDS"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HDS"/>
                                         </option>
                                         <option value="HED">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HED"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HED"/>
                                         </option>
                                         <option value="HIP">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HIP"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HIP"/>
                                         </option>
                                         <option value="HOP">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HOP"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HOP"/>
                                         </option>
                                         <option value="HRP">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HRP"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HRP"/>
                                         </option>
                                         <option value="IHF">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.IHF"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.IHF"/>
                                         </option>
                                         <option value="OFF">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OFF"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OFF"/>
                                         </option>
                                         <option value="OTN">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OTN"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OTN"/>
                                         </option>
                                         <option value="PDF">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.PDF"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.PDF"/>
                                         </option>
                                         <option value="RTF">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.RTF"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.RTF"/>
                                         </option>
                                     </select></td>
                                 </tr>
@@ -1881,7 +1881,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 											    <input type="text" name="xml_vdate" id="xml_vdate" onchange="getDays();"
                                                value="<%=request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate%>"
 											class="form-control" readonly>
-											<button type="button" class="btn btn-outline-secondary" id="xml_vdate_cal" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.ca.on.billingON.chooseDate"/>">
+											<button type="button" class="btn btn-outline-secondary" id="xml_vdate_cal" title="<fmt:message key="oscar.billing.ca.on.billingON.chooseDate"/>">
 											    <img alt="cal" style="height:14px;"
 											         src="${ pageContext.request.contextPath }/images/cal.gif"></button>
 											</div>
@@ -2017,7 +2017,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                             %>
 
                         </td>
-                        <td style="width: 33%; vertical-align:top;">
+                        <td style="width: 33%; vertical-align: top;">
                             <%
                                 for (int j = 0; j < listServiceType.size(); j++) {
 
@@ -2103,7 +2103,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                             %>
 
                         </td>
-                        <td style="width: 33%; vertical-align:top;">
+                        <td style="width: 33%; vertical-align: top;">
                             <%
                                 for (int j = 0; j < listServiceType.size(); j++) {
 

@@ -65,10 +65,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ConsultationServices" %>
-<%@ page import="jakarta.persistence.EntityManagerFactory" %>
-<%@ page import="jakarta.persistence.EntityManager" %>
-<%@ page import="jakarta.persistence.Query" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
+<%! private static final ObjectMapper SHARED_MAPPER = new ObjectMapper(); %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
@@ -78,25 +76,41 @@
     if (term == null) term = "";
     term = term.trim();
 
-    // Build a map of serviceId → serviceDesc for human-readable specialty badge display
-    java.util.Map<String, String> specialtyNames = new java.util.HashMap<>();
-    try {
-        ConsultationServiceDao csDao = SpringUtils.getBean(ConsultationServiceDao.class);
-        List<ConsultationServices> allServices = csDao.findAll();
-        if (allServices != null) {
-            for (ConsultationServices cs : allServices) {
-                if (cs.getServiceId() != null && cs.getServiceDesc() != null) {
-                    specialtyNames.put(String.valueOf(cs.getServiceId()), cs.getServiceDesc());
+    // Build or retrieve a cached map of serviceId → serviceDesc for human-readable specialty badge display.
+    // Specialties change infrequently, so cache in application scope to avoid repeated DB lookups per keystroke.
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, String> specialtyNames =
+            (java.util.Map<String, String>) application.getAttribute("specialtyNamesCache");
+    if (specialtyNames == null) {
+        synchronized (application) {
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, String> check =
+                    (java.util.Map<String, String>) application.getAttribute("specialtyNamesCache");
+            if (check == null) {
+                java.util.Map<String, String> fresh = new java.util.HashMap<>();
+                try {
+                    ConsultationServiceDao csDao = SpringUtils.getBean(ConsultationServiceDao.class);
+                    List<ConsultationServices> allServices = csDao.findAll();
+                    if (allServices != null) {
+                        for (ConsultationServices cs : allServices) {
+                            if (cs.getServiceId() != null && cs.getServiceDesc() != null) {
+                                fresh.put(String.valueOf(cs.getServiceId()), cs.getServiceDesc());
+                            }
+                        }
+                    }
+                } catch (Exception ignore) {
+                    // Specialty lookup is best-effort; proceed without it if unavailable
                 }
+                application.setAttribute("specialtyNamesCache", fresh);
+                check = fresh;
             }
+            specialtyNames = check;
         }
-    } catch (Exception ignore) {
-        // Specialty lookup is best-effort; proceed without it if unavailable
     }
 
     java.util.LinkedHashMap<String, ProfessionalSpecialist> merged = new java.util.LinkedHashMap<>();
 
-    if (term.length() >= 1) {
+    if (term.length() >= 2) {
         ProfessionalSpecialistDao dao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
 
         // 1. Last name contains search (also handles "Last, First" comma format)
@@ -139,35 +153,23 @@
             }
         }
 
-        // 5. Phone number contains search (direct JPQL, best-effort)
+        // 5. Phone number contains search (via DAO, best-effort)
         try {
-            EntityManagerFactory emf = SpringUtils.getBean(EntityManagerFactory.class);
-            EntityManager em = emf.createEntityManager();
-            try {
-                Query q = em.createQuery(
-                    "SELECT x FROM ProfessionalSpecialist x WHERE x.deleted = false " +
-                    "AND x.phoneNumber LIKE :phone ORDER BY x.lastName, x.firstName");
-                q.setParameter("phone", "%" + term + "%");
-                @SuppressWarnings("unchecked")
-                List<ProfessionalSpecialist> byPhone = (List<ProfessionalSpecialist>) q.getResultList();
-                if (byPhone != null) {
-                    for (ProfessionalSpecialist ps : byPhone) {
-                        String k = ps.getReferralNo() != null && !ps.getReferralNo().isEmpty()
-                            ? ps.getReferralNo() : ps.getLastName() + "|" + ps.getFirstName();
-                        merged.putIfAbsent(k, ps);
-                    }
+            List<ProfessionalSpecialist> byPhone = dao.findByPhoneContains(term, 20);
+            if (byPhone != null) {
+                for (ProfessionalSpecialist ps : byPhone) {
+                    String k = ps.getReferralNo() != null && !ps.getReferralNo().isEmpty()
+                        ? ps.getReferralNo() : ps.getLastName() + "|" + ps.getFirstName();
+                    merged.putIfAbsent(k, ps);
                 }
-            } finally {
-                em.close();
             }
         } catch (Exception ignore) {
             // Phone search is best-effort; proceed without it if unavailable
         }
     }
 
-    // Use Jackson ObjectMapper for spec-compliant JSON string encoding
-    // (Encode.forJavaScript escapes '-' as '\-' and '/' as '\/' which is invalid JSON)
-    ObjectMapper jsonMapper = new ObjectMapper();
+    // Use shared Jackson ObjectMapper for spec-compliant JSON string encoding (thread-safe, reused across requests)
+    ObjectMapper jsonMapper = SHARED_MAPPER;
     List<ProfessionalSpecialist> results = new ArrayList<>(merged.values());
     int limit = Math.min(results.size(), 20);
     StringBuilder json = new StringBuilder("[");

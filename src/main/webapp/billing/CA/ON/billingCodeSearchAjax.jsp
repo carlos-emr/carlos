@@ -57,6 +57,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
+<%! private static final ObjectMapper SHARED_MAPPER = new ObjectMapper(); %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
@@ -67,12 +68,15 @@
     term = term.trim();
 
     List<BillingService> results = new ArrayList<>();
-    if (term.length() >= 1) {
+    if (term.length() >= 2) {
         BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
         java.util.LinkedHashMap<String, BillingService> merged = new java.util.LinkedHashMap<>();
 
+        // Use a single Date instance for both queries to ensure consistent date-based filtering
+        Date searchDate = new Date();
+
         // Code-prefix search: finds codes starting with the term (e.g. "A00" → A001, A002...)
-        List<BillingService> codeResults = billingServiceDao.search(term.toUpperCase() + "%", "ON", new Date());
+        List<BillingService> codeResults = billingServiceDao.search(term.toUpperCase() + "%", "ON", searchDate);
         if (codeResults != null) {
             for (BillingService bs : codeResults) {
                 String key = bs.getServiceCode() != null ? bs.getServiceCode() : "";
@@ -81,7 +85,7 @@
         }
 
         // Description-contains search: finds codes whose description contains the term
-        List<BillingService> descResults = billingServiceDao.search("%" + term + "%", "ON", new Date());
+        List<BillingService> descResults = billingServiceDao.search("%" + term + "%", "ON", searchDate);
         if (descResults != null) {
             for (BillingService bs : descResults) {
                 String key = bs.getServiceCode() != null ? bs.getServiceCode() : "";
@@ -92,9 +96,8 @@
         results = new ArrayList<>(merged.values());
     }
 
-    // Use Jackson ObjectMapper for spec-compliant JSON string encoding
-    // (Encode.forJavaScript escapes '-' as '\-' and '/' as '\/' which is invalid JSON)
-    ObjectMapper jsonMapper = new ObjectMapper();
+    // Use shared Jackson ObjectMapper for spec-compliant JSON string encoding (thread-safe, reused across requests)
+    ObjectMapper jsonMapper = SHARED_MAPPER;
     int limit = Math.min(results.size(), 20);
     StringBuilder json = new StringBuilder("[");
     for (int i = 0; i < limit; i++) {
