@@ -582,7 +582,7 @@
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <html>
 <head>
-    <title>Ontario Billing</title>
+    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.ca.on.billingON.title"/></title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
@@ -1311,7 +1311,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
     <table style="width: 98%; margin:auto; ">
         <tr>
             <td style="width: 96%; background-color:silver; height:12px;">
-                <b>Billing Form</b></td>
+                <b><fmt:message key="oscar.billing.ca.on.billingON.billingFormLayer"/></b></td>
             <td style="width: 3%; background-color:silver; height:12px;"><b><a href="javascript:void(0);"
                                                                                onclick="showHideLayers('Layer1','','hide');return false;">X</a></b>
             </td>
@@ -1369,8 +1369,8 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
      style="position: absolute; left: 1px; top: 26px; width: 435px; height: 680px; z-index: 2; background-color: #FFCC00; border: 1px none #000000; visibility: hidden">
     <table style="width: 98%; margin:auto;">
         <tr>
-            <td style="width: 10%"><b>DxCode</b></td>
-            <td style="width: 85%"><b>Description</b></td>
+            <td style="width: 10%"><b><fmt:message key="oscar.billing.ca.on.billingON.dxCode"/></b></td>
+            <td style="width: 85%"><b><fmt:message key="oscar.billing.ca.on.billingON.description"/></b></td>
             <td><a href="javascript:void(0);" onclick="showHideLayers('Layer2','','hide');return false">
             </a>
             </td>
@@ -1433,13 +1433,13 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
     <table class="xmyDarkGreen"
            style="width: 100%; background-color: silver;">
         <tr>
-            <td><H4><i class="fa-solid fa-money-bill" style="margin-left:10px;"></i>&nbsp;Ontario Billing</H4></td>
+            <td><H4><i class="fa-solid fa-money-bill" style="margin-left:10px;"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.ca.on.billingON.headerTitle"/></H4></td>
             <td style="text-align: right"><i class="fa-solid fa-circle-question"></i>&nbsp;
                 <i class="fa-solid fa-pen-to-square"></i><a href="javascript:void(0);"
                                               onclick="popupPage(800,700,'billingONfavourite.jsp'); return false;">
-                    Edit
+                    <fmt:message key="oscar.billing.ca.on.billingON.edit"/>
                 </a> <select name="cutlist" id="cutlist" onchange="changeCut(this)">
-                    <option selected="selected" value="">- SUPER CODES -</option>
+                    <option selected="selected" value=""><fmt:message key="oscar.billing.ca.on.billingON.superCodes"/></option>
                     <% //
                         List sL = tdbObj.getBillingFavouriteList();
                         for (int i = 0; i < sL.size(); i = i + 2) { %>
@@ -1449,9 +1449,9 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                 </select></td>
             <td style="text-align: right; width: 10%; white-space:nowrap">
                 <input type="submit"
-                       name="submit" value="Next" style="width: 120px;" class="btn btn-primary"/>
+                       name="submit" value="<fmt:message key="oscar.billing.ca.on.billingON.next"/>" style="width: 120px;" class="btn btn-primary"/>
                 <input
-                        type="button" class="btn btn-secondary" name="button" value="Exit" style="width: 120px;" class="btn btn-secondary"
+                        type="button" class="btn btn-secondary" name="button" value="<fmt:message key="oscar.billing.ca.on.billingON.exit"/>" style="width: 120px;"
                         onclick="self.close();"/> &nbsp;
             </td>
         </tr>
@@ -1497,10 +1497,10 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                             <table class="border1" style="width: 100%; border-spacing:2px;"
                             >
                                 <tr>
-                                    <td colspan="2">Specialist billing
+                                    <td colspan="2"><fmt:message key="oscar.billing.ca.on.billingON.specialistBilling"/>
                                         &nbsp;&nbsp;&nbsp;&nbsp; <a href="javascript:void(0);"
-                                                                    title="Double click shaded fields for drop down or calculation"
-                                                                    onClick="showHideBox('Instrdiv',1);return false;">Instruction
+                                                                    title="<fmt:message key="oscar.billing.ca.on.billingON.instructionTitle"/>"
+                                                                    onClick="showHideBox('Instrdiv',1);return false;"><fmt:message key="oscar.billing.ca.on.billingON.instruction"/>
                                         </a>
                                     </td>
                                     <td style="vertical-align:top" rowspan="2">
@@ -1514,7 +1514,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                             </tr>
                                             <tr>
                                                 <td><a href="javascript:void(0);"
-                                                       onclick="showHideLayers('Layer2','','show','Layer1','','hide'); return false;">Dx</a>
+                                                       onclick="showHideLayers('Layer2','','show','Layer1','','hide'); return false;"><fmt:message key="oscar.billing.ca.on.billingON.dx"/></a>
                                                 </td>
                                                 <td><input type="text" name="dxCode" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
@@ -1523,14 +1523,14 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td>dx1</td>
+                                                <td><fmt:message key="oscar.billing.ca.on.billingON.dx1"/></td>
                                                 <td><input type="text" name="dxCode1" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
                                                            value="<%=request.getParameter("dxCode1")!=null?request.getParameter("dxCode1"):""%>"/>
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td>dx2</td>
+                                                <td><fmt:message key="oscar.billing.ca.on.billingON.dx2"/></td>
                                                 <td><input type="text" name="dxCode2" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
                                                            value="<%=request.getParameter("dxCode2")!=null?request.getParameter("dxCode2"):""%>"/>
@@ -1538,8 +1538,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                             </tr>
                                         </table>
                                         <a
-                                                href="javascript:referralScriptAttach2('referralCode','referralDocName')">Refer.
-                                            Doctor #</a> <%
+                                                href="javascript:referralScriptAttach2('referralCode','referralDocName')"><fmt:message key="oscar.billing.ca.on.billingON.referralDoctor"/></a> <%
                                         String checkRefBox = "";
                                         String refName = "";
                                         String refNo = "";
@@ -1566,9 +1565,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b>Code
-                                        &nbsp; Time
-                                        &nbsp;%</b><br/> <% for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM / 2; i++) { %>
+                                    <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/> <% for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM / 2; i++) { %>
                                         <input type="text" name="serviceCode<%=i%>" class="form-control form-control-sm d-inline-block w-auto"
                                                value="<%=request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):""%>"
                                                onBlur="upCaseCtrl(this)"/>x
@@ -1579,9 +1576,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                                style="width: 30px"
                                                value="<%=request.getParameter("serviceAt"+i)!=null?request.getParameter("serviceAt"+i):""%>"/><br/>
                                         <% } %></td>
-                                    <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b>Code
-                                        &nbsp; Time
-                                        &nbsp;%</b><br/> <% for (int i = BillingDataHlp.FIELD_SERVICE_NUM / 2; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) { %>
+                                    <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/> <% for (int i = BillingDataHlp.FIELD_SERVICE_NUM / 2; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) { %>
                                         <input type="text" name="serviceCode<%=i%>" class="form-control form-control-sm d-inline-block w-auto"
                                                value="<%=request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):""%>"
                                                onBlur="upCaseCtrl(this)"/>x
@@ -1598,8 +1593,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                         <td style="vertical-align:top">
                             <table class="border1 table-hover" style="width: 100%; border-spacing:2px;">
                                 <tr>
-                                    <td style="white-space:nowrap; width: 30%"><b>Billing
-                                        Physician</b></td>
+                                    <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.billingPhysician"/></b></td>
                                     <td style="width: 20%">
                                         <% if (IsPropertiesOn.isMultisitesEnable()) {
                                             // multisite start ==========================================
@@ -1626,8 +1620,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                         </script>
                                         <select id="site" name="site" onchange="changeSite(this)"
                                         >
-                                            <option value="none" style="background-color: white">---select
-                                                clinic---
+                                            <option value="none" style="background-color: white"><fmt:message key="oscar.billing.ca.on.billingON.selectClinic"/>
                                             </option>
                                             <%
                                                 String selectedSite = request.getParameter("site");
@@ -1677,7 +1670,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                         %>
                                         <option value="000000"
                                                 <%=providerview.equals("000000") ? "selected" : ""%>>
-                                            <b>Select Provider</b>
+                                            <b><fmt:message key="oscar.billing.ca.on.billingON.selectProvider"/></b>
                                         </option>
                                         <%
                                             for (int i = 0; i < vecProvider.size(); i++) {
@@ -1701,7 +1694,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                     %>
 
                                     </td>
-                                    <td style="white-space:nowrap; width: 30%"><b>Assig. Phys.</b></td>
+                                    <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.assignedPhysician"/></b></td>
                                     <td style="width: 20%"><%=providerBean.getProperty(assgProvider_no, "").length() > 15
                                             ? providerBean.getProperty(assgProvider_no, "").substring(0, 14)
                                             : providerBean.getProperty(assgProvider_no, "")%>
@@ -1711,7 +1704,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                     <td style="width: 30%"><b><%
                                         if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) {
                                     %>
-                                        Clinic Nbr <%
+                                        <fmt:message key="oscar.billing.ca.on.billingON.clinicNbr"/> <%
                                         } else {
                                         %> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formVisitType"/> <%
                                             }
@@ -1741,34 +1734,28 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                         } else {
                                         %>
                                         <option value="00| Clinic Visit"
-                                                <%=visitType.startsWith("00") ? "selected" : ""%>>00 |
-                                            Clinic Visit
+                                                <%=visitType.startsWith("00") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.00"/>
                                         </option>
                                         <option value="01| Outpatient Visit"
-                                                <%=visitType.startsWith("01") ? "selected" : ""%>>01 |
-                                            Outpatient Visit
+                                                <%=visitType.startsWith("01") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.01"/>
                                         </option>
                                         <option value="02| Hospital Visit"
-                                                <%=visitType.startsWith("02") ? "selected" : ""%>>02 |
-                                            Hospital Visit
+                                                <%=visitType.startsWith("02") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.02"/>
                                         </option>
                                         <option value="03| ER"
-                                                <%=visitType.startsWith("03") ? "selected" : ""%>>03 |
-                                            ER
+                                                <%=visitType.startsWith("03") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.03"/>
                                         </option>
                                         <option value="04| Nursing Home"
-                                                <%=visitType.startsWith("04") ? "selected" : ""%>>04 |
-                                            Nursing Home
+                                                <%=visitType.startsWith("04") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.04"/>
                                         </option>
                                         <option value="05| Home Visit"
-                                                <%=visitType.startsWith("05") ? "selected" : ""%>>05 |
-                                            Home Visit
+                                                <%=visitType.startsWith("05") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.05"/>
                                         </option>
                                         <%
                                             }
                                         %>
                                     </select></td>
-                                    <td style="width: 30%"><b>Billing Type</b></td>
+                                    <td style="width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.billingType"/></b></td>
                                     <td style="width: 20%">
                                         <%
 												if ((roster_status.equals("QU - Quebec")||roster_status.equals("FS")) && !defaultServiceType.equals("RN")) {
@@ -1777,48 +1764,41 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                             String srtBillType = request.getParameter("xml_billtype") != null ? request.getParameter("xml_billtype") : defaultBillType;
                                         %> <select name="xml_billtype" onchange="onChangePrivate();">
                                         <option value="ODP | Bill OHIP"
-                                                <%=srtBillType.startsWith("ODP") ? "selected" : ""%>>Bill
-                                            OHIP
+                                                <%=srtBillType.startsWith("ODP") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.ODP"/>
                                         </option>
                                         <option value="WCB | Worker's Compensation Board"
-                                                <%=srtBillType.startsWith("WCB") ? "selected" : ""%>>WSIB
+                                                <%=srtBillType.startsWith("WCB") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.WCB"/>
                                         </option>
                                         <option value="NOT | Do Not Bill"
-                                                <%=srtBillType.startsWith("NOT") ? "selected" : ""%>>Do
-                                            Not Bill
+                                                <%=srtBillType.startsWith("NOT") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.NOT"/>
                                         </option>
                                         <option value="IFH | Interm Federal Health"
-                                                <%=srtBillType.startsWith("IFH") ? "selected" : ""%>>IFH
+                                                <%=srtBillType.startsWith("IFH") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.IFH"/>
                                         </option>
                                         <option value="PAT | Bill Patient"
-                                                <%=srtBillType.startsWith("PAT") ? "selected" : ""%>>3rd
-                                            Party
+                                                <%=srtBillType.startsWith("PAT") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.PAT"/>
                                         </option>
                                         <option value="OCF | "
-                                                <%=srtBillType.startsWith("OCF") ? "selected" : ""%>>
-                                            -OCF
+                                                <%=srtBillType.startsWith("OCF") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.OCF"/>
                                         </option>
                                         <option value="ODS | "
-                                                <%=srtBillType.startsWith("ODS") ? "selected" : ""%>>
-                                            -ODSP
+                                                <%=srtBillType.startsWith("ODS") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.ODS"/>
                                         </option>
                                         <option value="CPP | Canada Pension Plan"
-                                                <%=srtBillType.startsWith("CPP") ? "selected" : ""%>>
-                                            -CPP
+                                                <%=srtBillType.startsWith("CPP") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.CPP"/>
                                         </option>
                                         <option
                                                 value="STD | Short Term Disability / Long Term Disability"
-                                                <%=srtBillType.startsWith("STD") ? "selected" : ""%>>-STD/LTD
+                                                <%=srtBillType.startsWith("STD") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.STD"/>
                                         </option>
                                         <option value="BON | Bonus Codes"
-                                                <%=srtBillType.startsWith("BON") ? "selected" : ""%>>Bonus
-                                            Codes
+                                                <%=srtBillType.startsWith("BON") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.BON"/>
                                         </option>
                                     </select>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td><b>Visit Location</b></td>
+                                    <td><b><fmt:message key="oscar.billing.ca.on.billingON.visitLocation"/></b></td>
                                     <td colspan="3"><select name="xml_location">
                                         <%
                                             //
@@ -1838,7 +1818,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                         <%
                                             }
                                         %>
-                                    </select>Manual Review Flag: <input type="checkbox" name="m_review" value="Y"
+                                    </select><fmt:message key="oscar.billing.ca.on.billingON.manualReviewFlag"/> <input type="checkbox" name="m_review" value="Y"
                                         <%=m_review.equals("Y")?"checked":""%>></td>
                                 </tr>
                                 <tr>
@@ -1880,7 +1860,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                     </select></td>
                                 </tr>
                                 <tr>
-                                    <td><b>Admission Date</b></td>
+                                    <td><b><fmt:message key="oscar.billing.ca.on.billingON.admissionDate"/></b></td>
 										<td>
                                         <%
                                             String admDate = "";
@@ -1909,7 +1889,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                     </td>
                                     <td colspan="2"><a href="javascript:void(0);"
                                                        onclick="showHideLayers('Layer1','','show');return false;">
-                                        Billing form</a>: <input type="text" name="billFormName" class="form-control"
+                                        <fmt:message key="oscar.billing.ca.on.billingON.billingFormLink"/></a>: <input type="text" name="billFormName" class="form-control"
 											id="billFormName" readonly
                                                                  value="<%=currentFormName.length() < 40 ? currentFormName : currentFormName.substring(0, 40)%>"/>
                                         <input type="hidden" name="billForm" id="billForm"
@@ -1927,7 +1907,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                             String suggestSite = sitePrep.getSuggestSite(siteList, thisSite, strServDate, apptProvider_no);
                                 %>
                                 <tr>
-                                    <td style="text-align: right">Site</td>
+                                    <td style="text-align: right"><fmt:message key="oscar.billing.ca.on.billingON.site"/></td>
                                     <td colspan="3"><select name="siteId">
                                         <%
                                             for (int i = 0; i < siteList.length; i++) {
@@ -1972,10 +1952,10 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                             </div>
                                         </th>
                                         <th style="width: 70%; background-color:silver">
-                                            <div class="smallFont">Description</div>
+                                            <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.description"/></div>
                                         </th>
                                         <th style="background-color:silver">
-                                            <div class="smallFont">Fee</div>
+                                            <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.fee"/></div>
                                         </th>
                                     </tr>
 
@@ -2056,10 +2036,10 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                             </div>
                                         </th>
                                         <th style="width: 70%; background-color:silver">
-                                            <div class="smallFont">Description</div>
+                                            <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.description"/></div>
                                         </th>
                                         <th style="background-color:silver">
-                                            <div class="smallFont">Fee</div>
+                                            <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.fee"/></div>
                                         </th>
                                     </tr>
 
@@ -2142,10 +2122,10 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                             </div>
                                         </th>
                                         <th style="width: 70%; background-color:silver">
-                                            <div class="smallFont">Description</div>
+                                            <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.description"/></div>
                                         </th>
                                         <th style="background-color:silver">
-                                            <div class="smallFont">Fee</div>
+                                            <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.fee"/></div>
                                         </th>
                                     </tr>
 
@@ -2252,11 +2232,11 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
     <table style="width: 100%; border-spacing:2px;"
     >
         <tr style="background-color: silver;">
-            <td><%=Encode.forHtml(demoname)%> - <b>Billing History</b> (last 5 records)</td>
-            <td style="width: 20%; text-align: right">Last <input type="text"
-                                                                  name="day" value="365" class="form-control form-control-sm d-inline-block w-auto"/> days
+            <td><%=Encode.forHtml(demoname)%> - <b><fmt:message key="oscar.billing.ca.on.billingON.billingHistory"/></b> (last 5 records)</td>
+            <td style="width: 20%; text-align: right"><fmt:message key="oscar.billing.ca.on.billingON.last"/> <input type="text"
+                                                                  name="day" value="365" class="form-control form-control-sm d-inline-block w-auto"/> <fmt:message key="oscar.billing.ca.on.billingON.days"/>
                 <input type="button"
-                       name="buttonDay" value="Go" onClick="onHistory(); return false;"/>
+                       name="buttonDay" value="<fmt:message key="oscar.billing.ca.on.billingON.go"/>" onClick="onHistory(); return false;"/>
             </td>
         </tr>
     </table>
@@ -2269,12 +2249,12 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
             <table class="border1"
                    class="table-striped" style="width: 100%;">
                 <tr class="myYellow" style="text-align: center">
-                    <th style="white-space:nowrap">Serial No.</th>
-                    <th style="white-space:nowrap">Billing Date</th>
-                    <th style="white-space:nowrap">Appt/Adm Date</th>
-                    <th style="white-space:nowrap">Service Code</th>
-                    <th style="white-space:nowrap">Dx</th>
-                    <th>Create Date</th>
+                    <th style="white-space:nowrap"><fmt:message key="oscar.billing.ca.on.billingON.history.serialNo"/></th>
+                    <th style="white-space:nowrap"><fmt:message key="oscar.billing.ca.on.billingON.history.billingDate"/></th>
+                    <th style="white-space:nowrap"><fmt:message key="oscar.billing.ca.on.billingON.history.apptAdmDate"/></th>
+                    <th style="white-space:nowrap"><fmt:message key="oscar.billing.ca.on.billingON.history.serviceCode"/></th>
+                    <th style="white-space:nowrap"><fmt:message key="oscar.billing.ca.on.billingON.history.dx"/></th>
+                    <th><fmt:message key="oscar.billing.ca.on.billingON.history.createDate"/></th>
                 </tr>
                 <%
                     // new billing records
