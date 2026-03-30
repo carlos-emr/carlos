@@ -37,7 +37,7 @@
         - Dispatches to code-prefix search when the term begins with a digit (ICD-9 format)
         - Dispatches to description keyword search when the term begins with a letter
         - Limits output to 20 items for performance
-        - All output values are OWASP-encoded for JavaScript safety
+        - All output values are JSON-encoded via Jackson ObjectMapper for spec-compliant output
 
     Request Parameters:
         term  (String, required) - The text typed by the user; interpreted as an ICD-9
@@ -55,7 +55,7 @@
 <%@ page import="java.util.*, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
@@ -77,6 +77,9 @@
         }
     }
 
+    // Use Jackson ObjectMapper for spec-compliant JSON string encoding
+    // (Encode.forJavaScript escapes '-' as '\-' and '/' as '\/' which is invalid JSON)
+    ObjectMapper jsonMapper = new ObjectMapper();
     int limit = Math.min(results.size(), 20);
     StringBuilder json = new StringBuilder("[");
     for (int i = 0; i < limit; i++) {
@@ -84,11 +87,12 @@
         if (i > 0) json.append(",");
         String code = dc.getDiagnosticCode() != null ? dc.getDiagnosticCode() : "";
         String desc = dc.getDescription() != null ? dc.getDescription() : "";
+        String label = code + " \u2013 " + desc;
         json.append("{");
-        json.append("\"value\":\"").append(Encode.forJavaScript(code)).append("\"");
-        json.append(",\"label\":\"").append(Encode.forJavaScript(code)).append(" \u2013 ").append(Encode.forJavaScript(desc)).append("\"");
-        json.append(",\"code\":\"").append(Encode.forJavaScript(code)).append("\"");
-        json.append(",\"description\":\"").append(Encode.forJavaScript(desc)).append("\"");
+        json.append("\"value\":").append(jsonMapper.writeValueAsString(code));
+        json.append(",\"label\":").append(jsonMapper.writeValueAsString(label));
+        json.append(",\"code\":").append(jsonMapper.writeValueAsString(code));
+        json.append(",\"description\":").append(jsonMapper.writeValueAsString(desc));
         json.append("}");
     }
     json.append("]");

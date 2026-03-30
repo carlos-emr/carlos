@@ -42,7 +42,7 @@
           row 1 — last name, first name, and specialty type as a Bootstrap badge;
           row 2 — street address and phone number
         - Limits output to 20 items for performance
-        - All output values are OWASP-encoded for JavaScript safety
+        - All output values are JSON-encoded via Jackson ObjectMapper for spec-compliant output
 
     Request Parameters:
         term  (String, required) - Any fragment of: last name, first name, street address,
@@ -64,7 +64,7 @@
 <%@ page import="jakarta.persistence.EntityManagerFactory" %>
 <%@ page import="jakarta.persistence.EntityManager" %>
 <%@ page import="jakarta.persistence.Query" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
@@ -145,6 +145,9 @@
         }
     }
 
+    // Use Jackson ObjectMapper for spec-compliant JSON string encoding
+    // (Encode.forJavaScript escapes '-' as '\-' and '/' as '\/' which is invalid JSON)
+    ObjectMapper jsonMapper = new ObjectMapper();
     List<ProfessionalSpecialist> results = new ArrayList<>(merged.values());
     int limit = Math.min(results.size(), 20);
     StringBuilder json = new StringBuilder("[");
@@ -158,13 +161,13 @@
         String phone      = ps.getPhoneNumber()   != null ? ps.getPhoneNumber()   : "";
         String referralNo = ps.getReferralNo()    != null ? ps.getReferralNo()    : "";
         json.append("{");
-        json.append("\"value\":\"").append(Encode.forJavaScript(referralNo)).append("\"");
-        json.append(",\"lastName\":\"").append(Encode.forJavaScript(lastName)).append("\"");
-        json.append(",\"firstName\":\"").append(Encode.forJavaScript(firstName)).append("\"");
-        json.append(",\"specialtyType\":\"").append(Encode.forJavaScript(specialty)).append("\"");
-        json.append(",\"streetAddress\":\"").append(Encode.forJavaScript(address)).append("\"");
-        json.append(",\"phoneNumber\":\"").append(Encode.forJavaScript(phone)).append("\"");
-        json.append(",\"referralNo\":\"").append(Encode.forJavaScript(referralNo)).append("\"");
+        json.append("\"value\":").append(jsonMapper.writeValueAsString(referralNo));
+        json.append(",\"lastName\":").append(jsonMapper.writeValueAsString(lastName));
+        json.append(",\"firstName\":").append(jsonMapper.writeValueAsString(firstName));
+        json.append(",\"specialtyType\":").append(jsonMapper.writeValueAsString(specialty));
+        json.append(",\"streetAddress\":").append(jsonMapper.writeValueAsString(address));
+        json.append(",\"phoneNumber\":").append(jsonMapper.writeValueAsString(phone));
+        json.append(",\"referralNo\":").append(jsonMapper.writeValueAsString(referralNo));
         json.append("}");
     }
     json.append("]");
