@@ -100,9 +100,12 @@
     theRequests.estConsultationVecByDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demo);
 %>
 
+<%-- Set the resource bundle once for the entire page --%>
+<fmt:setBundle basename="oscarResources" scope="page"/>
+
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.title"/></title>
+    <title><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.title"/></title>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
     <%@ include file="/includes/global-head.jspf" %>
@@ -149,7 +152,6 @@
     <script type="text/javascript">
         jQuery(document).ready(function () {
             jQuery('#consultTable').DataTable({
-                "lengthMenu": [[25, 50, 100, -1], [25, 50, 100, "<fmt:message key="encounter.LeftNavBar.AllLabs"/>"]],
                 "order": [[7, 'desc']], // Column 7 = Referral Date (newest first)
                 "language": {
                     "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18nLanguagecode"/>.json"
@@ -165,8 +167,11 @@
         var consultPopupOpen = false;
         function popupOscarRx(vheight, vwidth, varpage) {
             var windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-            window.open(varpage, "consultPopup", windowprops);
-            consultPopupOpen = true;
+            var popup = window.open(varpage, "consultPopup", windowprops);
+            // Only flag reload if popup was successfully opened (not blocked by browser)
+            if (popup) {
+                consultPopupOpen = true;
+            }
         }
 
         // Reload the list when this window regains focus after a popup was opened
@@ -176,6 +181,24 @@
                 window.location.reload();
             }
         });
+
+        /**
+         * Navigates back: reloads the opener if in a popup, otherwise uses browser history.
+         */
+        function goBack() {
+            try {
+                if (window.opener && !window.opener.closed) {
+                    window.opener.location.reload();
+                    window.close();
+                } else if (window.history.length > 1) {
+                    window.history.back();
+                } else {
+                    window.close();
+                }
+            } catch (e) {
+                window.history.back();
+            }
+        }
     </script>
 </head>
 
@@ -186,36 +209,36 @@
     <div class="page-header-bar d-flex align-items-center justify-content-between">
         <h4 class="page-header-title">
             <i class="fa-solid fa-stethoscope page-header-icon"></i>
-            &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgConsReqFor"/>
+            &nbsp;<fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgConsReqFor"/>
             <%= Encode.forHtml(demographic.getLastName()) %>, <%= Encode.forHtml(demographic.getFirstName()) %>
             <%= Encode.forHtml(demographic.getSex()) %> <%= Encode.forHtml(demographic.getAge()) %>
         </h4>
         <div>
             <a class="btn btn-primary btn-sm"
                href="javascript:popupOscarRx(700,960,'${pageContext.request.contextPath}/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=<%=Encode.forUriComponent(demo)%>&teamVar=<%=Encode.forUriComponent(team)%>')">
-                <i class="fa-solid fa-plus me-1"></i><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultChoice.btnNewCon"/>
+                <i class="fa-solid fa-plus me-1"></i><fmt:message key="encounter.oscarConsultationRequest.ConsultChoice.btnNewCon"/>
             </a>
             <input type="button" class="btn btn-secondary btn-sm"
-                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
-                   onclick="try{if(window.opener&&!window.opener.closed){window.opener.location.reload();window.close();}else if(window.history.length>1){window.history.back();}else{window.close();}}catch(e){window.history.back();}">
+                   value="<fmt:message key="global.btnBack"/>"
+                   onclick="goBack()">
         </div>
     </div>
 
     <p class="text-muted" style="margin:5px 0 10px;">
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgClickLink"/>
+        <fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgClickLink"/>
     </p>
 
     <table id="consultTable" class="table table-sm table-striped table-hover" style="width:100%;">
         <thead>
             <tr>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgStatus"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formUrgency"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgPat"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgMRP"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgProvider"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgService"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgSpecialist"/></th>
-                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgRefDate"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgStatus"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formUrgency"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgPat"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgMRP"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgProvider"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgService"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgSpecialist"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgRefDate"/></th>
             </tr>
         </thead>
         <tbody>
@@ -230,28 +253,34 @@
                     String date     = (String) theRequests.date.get(i);
                     String urgency  = (String) theRequests.urgency.get(i);
                     Provider cProv  = (Provider) theRequests.consultProvider.get(i);
+
+                    // Determine i18n key for status
+                    String statusKey = "";
+                    switch (status != null ? status : "") {
+                        case "1": statusKey = "encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgNothingDone"; break;
+                        case "2": statusKey = "encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgSpecialistCall"; break;
+                        case "3": statusKey = "encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgPatCall"; break;
+                        case "4": statusKey = "encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgAppMade"; break;
+                        case "5": statusKey = "encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgBookCon"; break;
+                    }
+
+                    // Determine i18n key for urgency (null-safe)
+                    String urgencyKey = "";
+                    switch (urgency != null ? urgency : "") {
+                        case "1": urgencyKey = "encounter.oscarConsultationRequest.ConsultationFormRequest.msgUrgent"; break;
+                        case "2": urgencyKey = "encounter.oscarConsultationRequest.ConsultationFormRequest.msgNUrgent"; break;
+                        case "3": urgencyKey = "encounter.oscarConsultationRequest.ConsultationFormRequest.msgReturn"; break;
+                    }
             %>
             <tr>
                 <td class="stat<%=Encode.forHtmlAttribute(status)%>">
-                    <% if ("1".equals(status)) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgNothingDone"/>
-                    <% } else if ("2".equals(status)) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgSpecialistCall"/>
-                    <% } else if ("3".equals(status)) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgPatCall"/>
-                    <% } else if ("4".equals(status)) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgAppMade"/>
-                    <% } else if ("5".equals(status)) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgBookCon"/>
+                    <% if (!statusKey.isEmpty()) { %>
+                        <fmt:message key="<%= statusKey %>"/>
                     <% } %>
                 </td>
                 <td class="stat<%=Encode.forHtmlAttribute(status)%>">
-                    <% if (urgency.equals("1")) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgUrgent"/>
-                    <% } else if (urgency.equals("2")) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgNUrgent"/>
-                    <% } else if (urgency.equals("3")) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgReturn"/>
+                    <% if (!urgencyKey.isEmpty()) { %>
+                        <fmt:message key="<%= urgencyKey %>"/>
                     <% } %>
                 </td>
                 <td class="stat<%=Encode.forHtmlAttribute(status)%>">
