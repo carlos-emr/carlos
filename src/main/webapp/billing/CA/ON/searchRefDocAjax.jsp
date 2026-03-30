@@ -15,15 +15,46 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
 --%>
-<%-- AJAX endpoint: returns JSON array of referral doctor suggestions for jQuery UI autocomplete.
-     Accepts: term (string) - typed by the user; searched as name (last, first) or referral number.
-     Returns: [{"value":"referralNo","lastName":"...","firstName":"...","specialtyType":"...",
-                "streetAddress":"...","phoneNumber":"...","referralNo":"..."}, ...]
-     @since 2026-03-30
+<%--
+    searchRefDocAjax.jsp
+
+    Purpose:
+        AJAX endpoint that returns a JSON array of referring doctor suggestions
+        for use with jQuery UI Autocomplete on the Ontario billing form (billingON.jsp).
+        Supports lookup by both doctor name and referral number.
+
+    Features:
+        - Session-protected: returns HTTP 401 if no active user session is found
+        - Dispatches to referral-number search when the term is entirely numeric
+        - Dispatches to name search (last name, first name) for all other input
+        - Returns rich per-doctor data to support the two-row autocomplete display:
+          row 1 — last name, first name, and specialty type as a Bootstrap badge;
+          row 2 — street address and phone number
+        - Limits output to 20 items for performance
+        - All output values are OWASP-encoded for JavaScript safety
+
+    Request Parameters:
+        term  (String, required) - The text typed by the user; treated as a referral number
+                                   when it consists entirely of digits (e.g. "12345"),
+                                   or as a doctor name fragment otherwise (e.g. "Smith")
+
+    Response:
+        Content-Type: application/json; charset=UTF-8
+        Body: JSON array of suggestion objects, e.g.:
+              [{"value":"12345","lastName":"Smith","firstName":"John","specialtyType":"Cardiology",
+                "streetAddress":"100 King St W","phoneNumber":"416-555-0100","referralNo":"12345"}, ...]
+
+    @since 2026-03-30
 --%>
 <%@ page contentType="application/json; charset=UTF-8" trimDirectiveWhitespaces="true" %>
 <%@ page import="java.util.*" %>

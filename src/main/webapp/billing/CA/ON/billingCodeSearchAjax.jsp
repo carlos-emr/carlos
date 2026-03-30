@@ -1,5 +1,5 @@
 <%--
-    Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+    Copyright (c) 2007 Peter Hutten-Czapski based on OSCAR general requirements
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -15,14 +15,40 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
 --%>
-<%-- AJAX endpoint: returns JSON array of billing service code suggestions for jQuery UI autocomplete.
-     Accepts: term (string) - typed by the user.
-     Returns: [{"value":"CODE","label":"CODE - Description","code":"CODE","description":"Description"}, ...]
-     @since 2026-03-30
+<%--
+    billingCodeSearchAjax.jsp
+
+    Purpose:
+        AJAX endpoint that returns a JSON array of Ontario billing service code suggestions
+        for use with jQuery UI Autocomplete on the Ontario billing form (billingON.jsp).
+
+    Features:
+        - Session-protected: returns HTTP 401 if no active user session is found
+        - Performs a prefix search on service code and a keyword search on description
+        - Merges both result sets (deduped by serviceCode) for richer suggestions
+        - Limits output to 20 items for performance
+        - All output values are OWASP-encoded for JavaScript safety
+
+    Request Parameters:
+        term  (String, required) - The text typed by the user; used as both a code prefix
+                                   (e.g. "A00") and a description keyword (e.g. "visit")
+
+    Response:
+        Content-Type: application/json; charset=UTF-8
+        Body: JSON array of suggestion objects, e.g.:
+              [{"value":"A001","label":"A001 – General assessment","code":"A001","description":"General assessment"}, ...]
+
+    @since 2026-03-30
 --%>
 <%@ page contentType="application/json; charset=UTF-8" trimDirectiveWhitespaces="true" %>
 <%@ page import="java.util.*, java.util.Date" %>
