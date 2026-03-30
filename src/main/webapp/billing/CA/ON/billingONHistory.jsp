@@ -29,14 +29,10 @@
     table with Bootstrap styling.
 
     Parameters:
-        demographic_no  - Patient demographic number
-        last_name       - Patient last name (for display)
-        first_name      - Patient first name (for display)
-        orderby         - Sort column (appointment_date)
-        displaymode     - Display mode (appt_history)
-        dboperation     - Database operation (appt_history)
-        limit1          - Unused (DataTables handles client-side pagination)
-        limit2          - Unused (DataTables handles client-side pagination)
+        demographic_no  - Patient demographic number (required; name is resolved server-side)
+        orderby         - Sort column (appointment_date) — unused, kept for URL compatibility
+        displaymode     - Display mode (appt_history) — unused, kept for URL compatibility
+        dboperation     - Database operation (appt_history) — unused, kept for URL compatibility
 
     @since 2006
 --%>
@@ -67,9 +63,28 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%
     BillingONPaymentDao billingOnPaymentDao = SpringUtils.getBean(BillingONPaymentDao.class);
     BillingONCHeader1Dao bCh1Dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
+
+    // Resolve patient display name server-side — keeps PHI out of the URL
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+    String demographicNoParam = request.getParameter("demographic_no");
+    String patientDisplayName = "";
+    if (demographicNoParam != null && !demographicNoParam.isEmpty()) {
+        try {
+            Demographic demo = demographicManager.getDemographic(loggedInInfo, Integer.parseInt(demographicNoParam));
+            if (demo != null) {
+                patientDisplayName = demo.getLastName() + ", " + demo.getFirstName();
+            }
+        } catch (Exception ex) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn("Could not look up demographic for billing history display", ex);
+        }
+    }
 %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -133,8 +148,8 @@
     <div class="container-fluid">
         <span class="navbar-brand"><fmt:message key="billing.billingONHistory.title"/></span>
         <span class="navbar-text text-white-50">
-            <em><%=Encode.forHtml(request.getParameter("last_name"))%>, <%=Encode.forHtml(request.getParameter("first_name"))%></em>
-            &nbsp;(<%=Encode.forHtml(request.getParameter("demographic_no"))%>)
+            <em><%=Encode.forHtml(patientDisplayName)%></em>
+            &nbsp;(<%=Encode.forHtml(demographicNoParam != null ? demographicNoParam : "")%>)
         </span>
     </div>
 </nav>

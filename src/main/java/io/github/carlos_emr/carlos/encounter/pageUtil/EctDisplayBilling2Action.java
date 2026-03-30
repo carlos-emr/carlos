@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.encounter.pageUtil;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -82,12 +83,10 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
             //set link for lefthand module title
             String winName = "ViewBillingHistory" + bean.demographicNo;
 
-            // Build encoded billing history URL for reuse
+            // Build encoded billing history URL — PHI (name) excluded from URL; resolved server-side by the JSP
             String billingHistUrl = request.getContextPath()
                     + "/billing/CA/ON/billingONHistory.jsp?demographic_no="
-                    + Encode.forUriComponent(bean.demographicNo)
-                    + "&last_name=" + Encode.forUriComponent(bean.patientLastName)
-                    + "&first_name=" + Encode.forUriComponent(bean.patientFirstName);
+                    + Encode.forUriComponent(bean.demographicNo);
 
             String url = String.format("popupPage(600, 900,'%s','%s')", winName, billingHistUrl);
             Dao.setLeftURL(url);
@@ -125,12 +124,11 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
             }
             ////
             JdbcBillingReviewImpl dbObj = new JdbcBillingReviewImpl();
-            List<Object> aL = null;
+            List<Object> aL = Collections.emptyList();
             try {
                 aL = dbObj.getBillingHist(bean.demographicNo, 10, 0, null);
             } catch (Exception e) {
-
-                MiscUtils.getLogger().error("Error", e);
+                MiscUtils.getLogger().error("Error loading billing history", e);
             }
 
             for (int i = 0; i < aL.size(); i = i + 2) {

@@ -1053,7 +1053,7 @@
                                     } else if ("ON".equals(prov)) {
                                     %>
                                     <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(500,800,'<%= request.getContextPath() %>/billing/CA/ON/billingONHistory.jsp?demographic_no=<%=Encode.forUriComponent(String.valueOf(demographic.getDemographicNo()))%>&last_name=<%=Encode.forUriComponent(demographic.getLastName())%>&first_name=<%=Encode.forUriComponent(demographic.getFirstName())%>&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=10')">
+                                       onClick="popupPage(500,800,'<%= request.getContextPath() %>/billing/CA/ON/billingONHistory.jsp?demographic_no=<%=Encode.forUriComponent(String.valueOf(demographic.getDemographicNo()))%>')">
                                         <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgBillHistory"/></a>
                                     <%
                                     } else {
