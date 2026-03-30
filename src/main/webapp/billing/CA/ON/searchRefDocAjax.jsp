@@ -78,8 +78,22 @@
             // Search by referral number
             results = dao.findByReferralNo(term);
         } else {
-            // Search by name (supports "Last, First" format)
-            results = dao.search(term);
+            // Search by name using contains matching on both last and first name.
+            // Split on ", " to support "Last, First" typed format.
+            String[] parts = term.split(",\\s*", 2);
+            String lastPattern  = "%" + parts[0].trim() + "%";
+            String firstPattern = parts.length > 1 ? "%" + parts[1].trim() + "%" : "%";
+            // lastName LIKE '%term%' AND firstName LIKE '%'  (effective: lastName contains term)
+            List<ProfessionalSpecialist> byLast  = dao.findByFullNameAndSpecialtyAndAddress(lastPattern, "%", null, null, false);
+            // lastName LIKE '%' AND firstName LIKE '%term%' (effective: firstName contains term)
+            List<ProfessionalSpecialist> byFirst = parts.length == 1
+                    ? dao.findByFullNameAndSpecialtyAndAddress("%", lastPattern, null, null, false)
+                    : new ArrayList<>();
+            // Merge, deduplicating by referralNo
+            java.util.LinkedHashMap<String, ProfessionalSpecialist> merged = new java.util.LinkedHashMap<>();
+            for (ProfessionalSpecialist ps : byLast)  { merged.put(ps.getReferralNo() != null ? ps.getReferralNo() : ps.getLastName() + ps.getFirstName(), ps); }
+            for (ProfessionalSpecialist ps : byFirst) { merged.put(ps.getReferralNo() != null ? ps.getReferralNo() : ps.getLastName() + ps.getFirstName(), ps); }
+            results = new ArrayList<>(merged.values());
         }
     }
 

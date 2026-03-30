@@ -995,11 +995,9 @@
             if (!document.forms[0].rfcheck.checked) {
                 document.forms[0].referralCode.value = "";
                 document.forms[0].referralDocName.value = "";
-                document.forms[0].referralSpet.value = "";
             } else {
                 document.forms[0].referralCode.value = "<%=r_doctor_ohip%>";
                 document.forms[0].referralDocName.value = "<%=r_doctor%>";
-                document.forms[0].referralSpet.value = "<%=referSpet%>";
             }
         }
 
@@ -1246,7 +1244,6 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                     var form = document.forms[0];
                     if (form.referralCode)    form.referralCode.value    = ui.item.referralNo || "";
                     if (form.referralDocName) form.referralDocName.value = (ui.item.lastName || "") + (ui.item.firstName ? ", " + ui.item.firstName : "");
-                    if (form.referralSpet)    form.referralSpet.value    = ui.item.specialtyType || "";
                     return false;
                 }
             }).data("ui-autocomplete");
@@ -1257,8 +1254,40 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
         if (form) {
             if (form.referralCode)    initRefDocAutocomplete(form.referralCode);
             if (form.referralDocName) initRefDocAutocomplete(form.referralDocName);
-            if (form.referralSpet)    initRefDocAutocomplete(form.referralSpet);
         }
+
+        // billFormName autocomplete using the billing forms array embedded in the page
+        jQuery(document).ready(function () {
+            var $bf = jQuery("#billFormName");
+            $bf.prop("readonly", false);
+            if ($bf.length && typeof _billingForms !== "undefined") {
+                $bf.autocomplete({
+                    source: function (request, response) {
+                        var term = request.term.toLowerCase();
+                        response(jQuery.grep(_billingForms, function (item) {
+                            return item.name.toLowerCase().indexOf(term) >= 0 ||
+                                   item.code.toLowerCase().indexOf(term) >= 0;
+                        }));
+                    },
+                    minLength: 1,
+                    select: function (event, ui) {
+                        this.value = ui.item.name;
+                        toggleDiv(ui.item.code, ui.item.name, ui.item.billType);
+                        showHideLayers("Layer1", "", "hide");
+                        return false;
+                    }
+                });
+                var bfInst = $bf.data("ui-autocomplete");
+                if (bfInst) {
+                    bfInst._renderItem = function (ul, item) {
+                        return jQuery("<li>").addClass("ui-menu-item")
+                            .append(jQuery("<div>").addClass("billing-ac-item")
+                                .html("<strong>" + escHtml(item.code) + "</strong> \u2013 " + escHtml(item.name)))
+                            .appendTo(ul);
+                    };
+                }
+            }
+        });
     });
     </script>
 </head>
@@ -1317,6 +1346,26 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
         <%}%>
     </table>
 </div>
+<%-- Build billing form data for billFormName autocomplete --%>
+<script>
+var _billingForms = [
+<%
+boolean _bfFirst = true;
+CtlBillingServiceDao _ctlBSDao2 = SpringUtils.getBean(CtlBillingServiceDao.class);
+CtlBillingTypeDao _ctlBTDao2 = SpringUtils.getBean(CtlBillingTypeDao.class);
+for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
+    String _bfCode = String.valueOf(_bs2[1]);
+    String _bfName = String.valueOf(_bs2[0]);
+    String _bfBillType = "";
+    for (CtlBillingType _bt2 : _ctlBTDao2.findByServiceType(_bfCode)) {
+        _bfBillType = _bt2.getBillType();
+    }
+    if (!_bfFirst) { out.print(","); }
+    _bfFirst = false;
+%>{"code":"<%=Encode.forJavaScript(_bfCode)%>","name":"<%=Encode.forJavaScript(_bfName)%>","billType":"<%=Encode.forJavaScript(_bfBillType)%>","label":"<%=Encode.forJavaScript(_bfName)%>","value":"<%=Encode.forJavaScript(_bfName)%>"}
+<%}%>
+];
+</script>
 
 <div id="Layer2"
      style="position: absolute; left: 1px; top: 26px; width: 435px; height: 680px; z-index: 2; background-color: #FFCC00; border: 1px none #000000; visibility: hidden">
@@ -1500,7 +1549,6 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                             checkRefBox = request.getParameter("rfcheck");
                                             refName = request.getParameter("referralDocName");
                                             refNo = request.getParameter("referralCode");
-                                            referSpet = request.getParameter("referralSpet");
                                         } else if (oscarVariables.getProperty("billingRefBoxDefault", "").equals("checked")) {
                                             checkRefBox = "checked";
                                             refName = r_doctor;
@@ -1513,12 +1561,9 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                         <input
                                                 type="text" name="referralCode" class="form-control form-control-sm d-inline-block w-auto" maxlength="6"
                                                 placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"
-                                                value="<%=refNo%>">&nbsp;
-                                        <input type="text" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgType"/>"
-                                               name="referralSpet" class="form-control form-control-sm d-inline-block w-auto" maxlength="2"
-                                               value="<%=referSpet==null?"":referSpet%>"><br/>
+                                                value="<%=refNo%>"><br/>
                                         <input placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>"
-                                               type="text" name="referralDocName" class="form-control" maxlength="30"
+                                               type="text" name="referralDocName" class="form-control" maxlength="60"
                                                value="<%=refName%>">
                                     </td>
                                 </tr>
@@ -1854,14 +1899,14 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                             if (visitType.startsWith("02") || visitType.startsWith("04"))
                                                 admDate = getDefaultValue(request.getParameter("visitdate"), vecHist, "visitdate");
                                         %>
-											<span class="input-group">
+											<div class="input-group input-group-sm">
 											    <input type="text" name="xml_vdate" id="xml_vdate" onchange="getDays();"
                                                value="<%=request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate%>"
-											class="form-control form-control-sm d-inline-block w-auto" style="height: 14px; margin-top:4px;" readonly>
-											<button type="button" class="btn btn-outline-secondary btn-sm" id="xml_vdate_cal" style="margin-top:4px; padding: 1px 6px;" title="Choose date">
+											class="form-control" readonly>
+											<button type="button" class="btn btn-outline-secondary" id="xml_vdate_cal" title="Choose date">
 											    <img alt="cal" style="height:14px;"
 											         src="${ pageContext.request.contextPath }/images/cal.gif"></button>
-											</span>
+											</div>
                                             <span id="duration_display"></span>
                                     </td>
                                     <td colspan="2"><a href="javascript:void(0);"
