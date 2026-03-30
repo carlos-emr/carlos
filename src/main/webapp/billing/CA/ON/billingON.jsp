@@ -638,6 +638,8 @@
 
     <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="${ pageContext.request.contextPath }/library/jquery/jquery-compat.js"></script>
+    <link rel="stylesheet" href="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.14.2.min.css"/>
+    <script src="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.14.2.min.js"></script>
 
     <!-- to load for example /oscar/js/custom/ocean/global.js and /oscar/js/custom/ocean/billing.js although those are not present in stock -->
     <oscar:customInterface section="billing"/>
@@ -1157,6 +1159,108 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
 
         //-->
     </script>
+
+    <%-- Autocomplete styles: code items are one-line with ellipsis; referral items are two-row --%>
+    <style>
+        .billing-ac-item { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 6px; cursor: pointer; }
+        .billing-ac-item strong { font-weight: 600; }
+        .billing-ac-ref-row1 { padding: 2px 6px; }
+        .billing-ac-ref-row2 { padding: 1px 6px; font-size: 0.82em; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ui-autocomplete { max-height: 280px; overflow-y: auto; overflow-x: hidden; z-index: 9999 !important; }
+        .ui-menu-item > div:hover, .ui-menu-item:hover { background-color: #e8f0fe; }
+    </style>
+
+    <script>
+    jQuery(document).ready(function () {
+        var ctx = "${pageContext.request.contextPath}";
+        var searchLabel = '<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.btnSearch"/>';
+
+        // Safe HTML escaping for autocomplete rendering
+        function escHtml(s) {
+            return jQuery("<div>").text(s || "").html();
+        }
+
+        // One-line rendering: <b>CODE</b> – description (truncated)
+        function renderCodeItem(ul, item) {
+            var li = jQuery("<li>").addClass("ui-menu-item");
+            var inner = jQuery("<div>").addClass("billing-ac-item");
+            inner.html("<strong>" + escHtml(item.code) + "</strong> \u2013 " + escHtml(item.description));
+            li.append(inner).appendTo(ul);
+            return li;
+        }
+
+        // Two-row rendering for referral doctors
+        function renderRefDocItem(ul, item) {
+            var li = jQuery("<li>").addClass("ui-menu-item");
+            var row1 = jQuery("<div>").addClass("billing-ac-ref-row1");
+            var nameHtml = "<strong>" + escHtml(item.lastName) + (item.firstName ? ", " + escHtml(item.firstName) : "") + "</strong>";
+            if (item.specialtyType) {
+                nameHtml += " <span class=\"badge rounded-pill border border-secondary text-secondary py-0\" style=\"font-size:0.78em\">" + escHtml(item.specialtyType) + "</span>";
+            }
+            row1.html(nameHtml);
+            var row2 = jQuery("<div>").addClass("billing-ac-ref-row2");
+            var info = [];
+            if (item.streetAddress) info.push(escHtml(item.streetAddress));
+            if (item.phoneNumber) info.push(escHtml(item.phoneNumber));
+            row2.html(info.join(" &nbsp;|&nbsp; ") || "&nbsp;");
+            li.append(row1).append(row2).appendTo(ul);
+            return li;
+        }
+
+        // Attach code autocomplete with custom rendering to a jQuery set
+        function initCodeAutocomplete($inputs, ajaxUrl) {
+            $inputs.each(function () {
+                var $input = jQuery(this);
+                $input.attr("placeholder", searchLabel);
+                var inst = $input.autocomplete({
+                    source: function (request, response) {
+                        jQuery.getJSON(ctx + ajaxUrl, {term: request.term}, response);
+                    },
+                    minLength: 2,
+                    delay: 250,
+                    select: function (event, ui) {
+                        this.value = ui.item.code;
+                        if (typeof changeCodeDesc === "function") setTimeout(changeCodeDesc, 10);
+                        return false;
+                    }
+                }).data("ui-autocomplete");
+                if (inst) inst._renderItem = renderCodeItem;
+            });
+        }
+
+        // Dx diagnosis code fields
+        initCodeAutocomplete(jQuery("input[name^='dxCode']"), "/billing/CA/ON/billingDigSearchAjax.jsp");
+
+        // Billing service code fields
+        initCodeAutocomplete(jQuery("input[name^='serviceCode']"), "/billing/CA/ON/billingCodeSearchAjax.jsp");
+
+        // Referral doctor fields: referralCode and referralDocName both trigger search
+        function initRefDocAutocomplete(inputEl) {
+            var inst = jQuery(inputEl).autocomplete({
+                source: function (request, response) {
+                    jQuery.getJSON(ctx + "/billing/CA/ON/searchRefDocAjax.jsp", {term: request.term}, response);
+                },
+                minLength: 2,
+                delay: 300,
+                select: function (event, ui) {
+                    var form = document.forms[0];
+                    if (form.referralCode)    form.referralCode.value    = ui.item.referralNo || "";
+                    if (form.referralDocName) form.referralDocName.value = (ui.item.lastName || "") + (ui.item.firstName ? ", " + ui.item.firstName : "");
+                    if (form.referralSpet)    form.referralSpet.value    = ui.item.specialtyType || "";
+                    return false;
+                }
+            }).data("ui-autocomplete");
+            if (inst) inst._renderItem = renderRefDocItem;
+        }
+
+        var form = document.forms[0];
+        if (form) {
+            if (form.referralCode)    initRefDocAutocomplete(form.referralCode);
+            if (form.referralDocName) initRefDocAutocomplete(form.referralDocName);
+            if (form.referralSpet)    initRefDocAutocomplete(form.referralSpet);
+        }
+    });
+    </script>
 </head>
 
 <body onload="prepareBack();changeCodeDesc();getDays();">
@@ -1366,26 +1470,23 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                                        onclick="showHideLayers('Layer2','','show','Layer1','','hide'); return false;">Dx</a>
                                                 </td>
                                                 <td><input type="text" name="dxCode" class="form-control form-control-sm d-inline-block w-auto"
-                                                           maxlength="5" ondblClick="dxScriptAttach('dxCode')"
+                                                           maxlength="5"
                                                            onchange="changeCodeDesc();"
                                                            value="<%=request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode%>"/>
-                                                    <a href="javascript:void(0);" onclick="dxScriptAttach('dxCode');">Search</a>
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td>dx1</td>
                                                 <td><input type="text" name="dxCode1" class="form-control form-control-sm d-inline-block w-auto"
-                                                           maxlength="5" ondblClick="dxScriptAttach('dxCode1')"
+                                                           maxlength="5"
                                                            value="<%=request.getParameter("dxCode1")!=null?request.getParameter("dxCode1"):""%>"/>
-                                                    <a href="javascript:void(0);" onclick="dxScriptAttach('dxCode1')">Search</a>
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td>dx2</td>
                                                 <td><input type="text" name="dxCode2" class="form-control form-control-sm d-inline-block w-auto"
-                                                           maxlength="5" ondblClick="dxScriptAttach('dxCode2')"
+                                                           maxlength="5"
                                                            value="<%=request.getParameter("dxCode2")!=null?request.getParameter("dxCode2"):""%>"/>
-                                                    <a href="javascript:void(0);" onclick="dxScriptAttach('dxCode2')">Search</a>
                                                 </td>
                                             </tr>
                                         </table>
@@ -1426,9 +1527,8 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                         &nbsp; Time
                                         &nbsp;%</b><br/> <% for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM / 2; i++) { %>
                                         <input type="text" name="serviceCode<%=i%>" class="form-control form-control-sm d-inline-block w-auto"
-
                                                value="<%=request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):""%>"
-                                               onDblClick="scScriptAttach(this)" onBlur="upCaseCtrl(this)"/>x
+                                               onBlur="upCaseCtrl(this)"/>x
                                         <input type="text" name="serviceUnit<%=i%>" size="2" maxlength="4"
                                                style="width: 20px;"
                                                value="<%=request.getParameter("serviceUnit"+i)!=null?request.getParameter("serviceUnit"+i):""%>"/>@
@@ -1440,9 +1540,8 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                         &nbsp; Time
                                         &nbsp;%</b><br/> <% for (int i = BillingDataHlp.FIELD_SERVICE_NUM / 2; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) { %>
                                         <input type="text" name="serviceCode<%=i%>" class="form-control form-control-sm d-inline-block w-auto"
-
                                                value="<%=request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):""%>"
-                                               onDblClick="scScriptAttach(this)" onBlur="upCaseCtrl(this)"/>x
+                                               onBlur="upCaseCtrl(this)"/>x
                                         <input type="text" name="serviceUnit<%=i%>" size="2" maxlength="2"
                                                style="width: 20px;"
                                                value="<%=request.getParameter("serviceUnit"+i)!=null?request.getParameter("serviceUnit"+i):""%>"/>@
@@ -1759,9 +1858,9 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
 											    <input type="text" name="xml_vdate" id="xml_vdate" onchange="getDays();"
                                                value="<%=request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate%>"
 											class="form-control form-control-sm d-inline-block w-auto" style="height: 14px; margin-top:4px;" readonly>
-											<span class="input-group-text" id="xml_vdate_cal" style="cursor:pointer; margin-top:4px;">
+											<button type="button" class="btn btn-outline-secondary btn-sm" id="xml_vdate_cal" style="margin-top:4px; padding: 1px 6px;" title="Choose date">
 											    <img alt="cal" style="height:14px;"
-											         src="${ pageContext.request.contextPath }/images/cal.gif"></span>
+											         src="${ pageContext.request.contextPath }/images/cal.gif"></button>
 											</span>
                                             <span id="duration_display"></span>
                                     </td>
