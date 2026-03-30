@@ -35,8 +35,9 @@
 
     Features:
         - Session-protected: returns HTTP 401 if no active user session is found
-        - Dispatches to referral-number search when the term is entirely numeric
-        - Dispatches to name search (last name, first name) for all other input
+        - Dispatches to referral-number prefix search when the term is entirely numeric
+        - Dispatches to last-name starts-with search for all other input;
+          supports "Last, First" typed format for combined name search
         - Returns rich per-doctor data to support the two-row autocomplete display:
           row 1 — last name, first name, and specialty type as a Bootstrap badge;
           row 2 — street address and phone number
@@ -75,25 +76,15 @@
     if (term.length() >= 1) {
         ProfessionalSpecialistDao dao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
         if (term.matches("[0-9]+")) {
-            // Search by referral number
-            results = dao.findByReferralNo(term);
+            // Prefix search by referral number (e.g. "123" matches "123456")
+            List<ProfessionalSpecialist> found = dao.findByReferralNo(term + "%");
+            if (found != null) results.addAll(found);
         } else {
-            // Search by name using contains matching on both last and first name.
-            // Split on ", " to support "Last, First" typed format.
-            String[] parts = term.split(",\\s*", 2);
-            String lastPattern  = "%" + parts[0].trim() + "%";
-            String firstPattern = parts.length > 1 ? "%" + parts[1].trim() + "%" : "%";
-            // lastName LIKE '%term%' AND firstName LIKE '%'  (effective: lastName contains term)
-            List<ProfessionalSpecialist> byLast  = dao.findByFullNameAndSpecialtyAndAddress(lastPattern, "%", null, null, false);
-            // lastName LIKE '%' AND firstName LIKE '%term%' (effective: firstName contains term)
-            List<ProfessionalSpecialist> byFirst = parts.length == 1
-                    ? dao.findByFullNameAndSpecialtyAndAddress("%", lastPattern, null, null, false)
-                    : new ArrayList<>();
-            // Merge, deduplicating by referralNo
-            java.util.LinkedHashMap<String, ProfessionalSpecialist> merged = new java.util.LinkedHashMap<>();
-            for (ProfessionalSpecialist ps : byLast)  { merged.put(ps.getReferralNo() != null ? ps.getReferralNo() : ps.getLastName() + ps.getFirstName(), ps); }
-            for (ProfessionalSpecialist ps : byFirst) { merged.put(ps.getReferralNo() != null ? ps.getReferralNo() : ps.getLastName() + ps.getFirstName(), ps); }
-            results = new ArrayList<>(merged.values());
+            // Name search using starts-with on lastName (supports "Last, First" format).
+            // Uses dao.search() which has no hideFromView filter so all active specialists
+            // are included regardless of that flag's database value.
+            List<ProfessionalSpecialist> found = dao.search(term);
+            if (found != null) results.addAll(found);
         }
     }
 

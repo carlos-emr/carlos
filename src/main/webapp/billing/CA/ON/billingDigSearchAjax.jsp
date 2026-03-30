@@ -34,15 +34,15 @@
 
     Features:
         - Session-protected: returns HTTP 401 if no active user session is found
-        - Dispatches to code-prefix search when the term begins with a digit (ICD-9 format)
-        - Dispatches to description keyword search when the term begins with a letter
+        - Always searches BOTH code prefix AND description keyword, merging results
+          (code-prefix matches listed first, then description-only matches)
         - Limits output to 20 items for performance
         - All output values are OWASP-encoded for JavaScript safety
 
     Request Parameters:
-        term  (String, required) - The text typed by the user; interpreted as an ICD-9
-                                   code prefix when it starts with a digit (e.g. "250"),
-                                   or as a description keyword otherwise (e.g. "diabetes")
+        term  (String, required) - The text typed by the user; matched against both
+                                   the ICD-9 code prefix (e.g. "250") and the description
+                                   text (e.g. "diabetes") simultaneously
 
     Response:
         Content-Type: application/json; charset=UTF-8
@@ -68,13 +68,23 @@
     List<DiagnosticCode> results = new ArrayList<>();
     if (term.length() >= 1) {
         DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
-        if (Character.isDigit(term.charAt(0))) {
-            // Code-prefix search (ICD-9 codes start with digits)
-            results = diagnosticCodeDao.searchCode(term + "%");
-        } else {
-            // Description keyword search
-            results = diagnosticCodeDao.searchText(term);
+        // Search both code prefix and description, then merge (code matches first)
+        List<DiagnosticCode> codeResults = diagnosticCodeDao.searchCode(term + "%");
+        List<DiagnosticCode> textResults = diagnosticCodeDao.searchText(term);
+        java.util.LinkedHashMap<String, DiagnosticCode> merged = new java.util.LinkedHashMap<>();
+        if (codeResults != null) {
+            for (DiagnosticCode dc : codeResults) {
+                String key = dc.getDiagnosticCode() != null ? dc.getDiagnosticCode() : "";
+                if (!key.isEmpty()) merged.put(key, dc);
+            }
         }
+        if (textResults != null) {
+            for (DiagnosticCode dc : textResults) {
+                String key = dc.getDiagnosticCode() != null ? dc.getDiagnosticCode() : "";
+                if (!key.isEmpty()) merged.putIfAbsent(key, dc);
+            }
+        }
+        results = new ArrayList<>(merged.values());
     }
 
     int limit = Math.min(results.size(), 20);
