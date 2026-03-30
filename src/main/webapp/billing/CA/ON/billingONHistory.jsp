@@ -77,9 +77,10 @@
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
 <!DOCTYPE html>
+<fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
-    <title>Billing History</title>
+    <title><fmt:message key="billing.billingONHistory.title"/></title>
     <%@ include file="/includes/global-head.jspf" %>
     <link href="<%=request.getContextPath()%>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
     <script src="<%=request.getContextPath()%>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
@@ -87,7 +88,7 @@
 
     <script language="JavaScript">
         function onUnbilled(billingNo, billCode) {
-            if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.onUnbilled"/>")) {
+            if (confirm("<fmt:message key="provider.appointmentProviderAdminDay.onUnbilled"/>")) {
                 var form = document.createElement('form');
                 form.method = 'post';
                 form.action = 'billingDeleteNoAppt.jsp';
@@ -114,7 +115,7 @@
         jQuery(document).ready(function () {
             jQuery('#billingHistoryTable').DataTable({
                 language: {
-                    url: '<%=request.getContextPath()%>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>.json'
+                    url: '<%=request.getContextPath()%>/library/DataTables/i18n/<fmt:message key="global.i18nLanguagecode"/>.json'
                 }
             });
         });
@@ -126,7 +127,7 @@
 
 <nav class="navbar navbar-dark bg-dark">
     <div class="container-fluid">
-        <span class="navbar-brand">Billing History</span>
+        <span class="navbar-brand"><fmt:message key="billing.billingONHistory.title"/></span>
         <span class="navbar-text text-white-50">
             <em><%=request.getParameter("last_name")%>, <%=request.getParameter("first_name")%></em>
             &nbsp;(<%=request.getParameter("demographic_no")%>)
@@ -134,19 +135,25 @@
     </div>
 </nav>
 
+<fmt:message var="msgBillingDisplay" key="billing.billingONHistory.titleBillingDisplay"/>
+<fmt:message var="msgBillingCorrection" key="billing.billingONHistory.titleBillingCorrection"/>
+<fmt:message var="msgEdit" key="billing.billingONHistory.btnEdit"/>
+<fmt:message var="msgPrint" key="billing.billingONHistory.btnPrint"/>
+<fmt:message var="msgUnbill" key="billing.billingONHistory.btnUnbill"/>
+
 <div class="container-fluid mt-3">
     <table id="billingHistoryTable" class="table table-striped table-hover table-bordered">
         <thead>
             <tr>
-                <th>Invoice No.</th>
-                <th>Billing Doctor</th>
-                <th>Appt. Date</th>
-                <th>Bill Type</th>
-                <th>Service Code</th>
-                <th>Dx</th>
-                <th>Balance</th>
-                <th>Fee</th>
-                <th>Comments</th>
+                <th><fmt:message key="billing.billingONHistory.colInvoiceNo"/></th>
+                <th><fmt:message key="billing.billingONHistory.colBillingDoctor"/></th>
+                <th><fmt:message key="billing.billingONHistory.colApptDate"/></th>
+                <th><fmt:message key="billing.billingONHistory.colBillType"/></th>
+                <th><fmt:message key="billing.billingONHistory.colServiceCode"/></th>
+                <th><fmt:message key="billing.billingONHistory.colDx"/></th>
+                <th><fmt:message key="billing.billingONHistory.colBalance"/></th>
+                <th><fmt:message key="billing.billingONHistory.colFee"/></th>
+                <th><fmt:message key="billing.billingONHistory.colComments"/></th>
             </tr>
         </thead>
         <tbody>
@@ -195,17 +202,17 @@
                 <td class="text-center">
                     <a href="javascript:void(0)"
                        onclick="popupPage(600,800, 'billingONDisplay.jsp?billing_no=<%=obj.getId()%>')"
-                       title="Billing Display"><%=obj.getId()%>
+                       title="${msgBillingDisplay}"><%=obj.getId()%>
                     </a>
 
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w">
                         <a href="javascript:void(0)"
                            onclick="popupPage(600,800, 'billingONCorrection.jsp?billing_no=<%=obj.getId()%>')"
-                           title="Billing Correction">Edit</a>
+                           title="${msgBillingCorrection}">${msgEdit}</a>
                     </security:oscarSec>
 
                     <a href="javascript:void(0)"
-                       onclick="popupPage(600,800, 'billingON3rdInv.jsp?billingNo=<%=obj.getId()%>')">Print</a>
+                       onclick="popupPage(600,800, 'billingON3rdInv.jsp?billingNo=<%=obj.getId()%>')">${msgPrint}</a>
                 </td>
                 <td class="text-center"><%=obj.getLast_name() + ", " + obj.getFirst_name()%></td>
                 <td class="text-center"><%=obj.getBilling_date()%></td>
@@ -225,9 +232,9 @@
                         &nbsp;
                     <% } else if (CarlosProperties.getInstance().getBooleanProperty("warnOnDeleteBill", "true")) { %>
                         <a href="#"
-                           onclick="onUnbilled('<%=obj.getId()%>','<%=obj.getStatus()%>');return false;">Unbill</a>
+                           onclick="onUnbilled('<%=obj.getId()%>','<%=obj.getStatus()%>');return false;">${msgUnbill}</a>
                     <% } else { %>
-                        <a href="#" onclick="onUnbilled('<%=obj.getId()%>','<%=obj.getStatus()%>');return false;">Unbill</a>
+                        <a href="#" onclick="onUnbilled('<%=obj.getId()%>','<%=obj.getStatus()%>');return false;">${msgUnbill}</a>
                     <% } %>
                 </td>
             </tr>
@@ -238,8 +245,8 @@
     </table>
 
     <div class="d-flex justify-content-between mt-3 mb-3">
-        <button class="btn btn-secondary" onclick="javascript:history.go(-1);return false;">Back</button>
-        <button class="btn btn-primary" onclick="self.close();">Close</button>
+        <button class="btn btn-secondary" onclick="javascript:history.go(-1);return false;"><fmt:message key="billing.billingONHistory.btnBack"/></button>
+        <button class="btn btn-primary" onclick="self.close();"><fmt:message key="billing.billingONHistory.btnClose"/></button>
     </div>
 </div>
 
