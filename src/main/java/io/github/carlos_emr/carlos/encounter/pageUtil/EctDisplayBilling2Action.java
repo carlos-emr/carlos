@@ -48,6 +48,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import org.owasp.encoder.Encode;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile.Bill;
@@ -78,14 +80,21 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
         if (billRegion.equals("ON")) {
 
             //set link for lefthand module title
-            String winName = "ViewBillingHistory" + bean.demographicNo;  //&last_name=TEST&first_name=PATIENT&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=10
+            String winName = "ViewBillingHistory" + bean.demographicNo;
 
-            String url = "popupPage(600, 900,'" + winName + "','" + request.getContextPath() + "/billing/CA/ON/billingONHistory.jsp?demographic_no=" + bean.demographicNo + "&last_name=" + bean.patientLastName + "&first_name=" + bean.patientFirstName + "')";
+            // Build encoded billing history URL for reuse
+            String billingHistUrl = request.getContextPath()
+                    + "/billing/CA/ON/billingONHistory.jsp?demographic_no="
+                    + Encode.forUriComponent(bean.demographicNo)
+                    + "&last_name=" + Encode.forUriComponent(bean.patientLastName)
+                    + "&first_name=" + Encode.forUriComponent(bean.patientFirstName);
+
+            String url = String.format("popupPage(600, 900,'%s','%s')", winName, billingHistUrl);
             Dao.setLeftURL(url);
 
             //set the right hand heading link
             winName = "NewBilling" + bean.demographicNo;
-            url = "popupPage(700, 960,'" + winName + "','" + request.getContextPath() + "/billing/CA/ON/billingONHistory.jsp?demographic_no=" + bean.demographicNo + "&last_name=" + bean.patientLastName + "&first_name=" + bean.patientFirstName + "'); return false;";
+            url = String.format("popupPage(700, 960,'%s','%s'); return false;", winName, billingHistUrl);
             Dao.setRightURL(url);
             Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action
 
@@ -98,7 +107,19 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
                 SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm");
                 Provider p = loggedInInfo.getLoggedInProvider();
                 if (appt != null) {
-                    url = "popupPage(755, 1200,'" + winName + "','" + request.getContextPath() + "/billing.do?billRegion=ON&billForm=" + billform + "&hotclick=&appointment_no=" + appointmentNo + "&demographic_name=" + d.getFormattedName() + "&status=" + appt.getStatus() + "&demographic_no=" + bean.demographicNo + "&providerview=" + p.getProviderNo() + "&user_no=" + p.getProviderNo() + "&apptProvider_no=" + appt.getProviderNo() + "&appointment_date=" + dateFormatter.format(appt.getAppointmentDate()) + "&start_time=" + timeFormatter.format(appt.getStartTime()) + "&bNewForm=1');return false;";
+                    String billingDoUrl = request.getContextPath()
+                            + "/billing.do?billRegion=ON&billForm=" + Encode.forUriComponent(billform)
+                            + "&hotclick=&appointment_no=" + Encode.forUriComponent(appointmentNo)
+                            + "&demographic_name=" + Encode.forUriComponent(d.getFormattedName())
+                            + "&status=" + Encode.forUriComponent(appt.getStatus())
+                            + "&demographic_no=" + Encode.forUriComponent(bean.demographicNo)
+                            + "&providerview=" + Encode.forUriComponent(p.getProviderNo())
+                            + "&user_no=" + Encode.forUriComponent(p.getProviderNo())
+                            + "&apptProvider_no=" + Encode.forUriComponent(appt.getProviderNo())
+                            + "&appointment_date=" + Encode.forUriComponent(dateFormatter.format(appt.getAppointmentDate()))
+                            + "&start_time=" + Encode.forUriComponent(timeFormatter.format(appt.getStartTime()))
+                            + "&bNewForm=1";
+                    url = String.format("popupPage(755, 1200,'%s','%s');return false;", winName, billingDoUrl);
                     Dao.setRightURL(url);
                 }
             }
@@ -133,7 +154,7 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
                 item.setDate(date);
                 int hash = winName.hashCode();
                 hash = hash < 0 ? hash * -1 : hash;
-                url = "popupPage(600, 900,'" + hash + "','" + request.getContextPath() + "/billing/CA/ON/billingONHistory.jsp?demographic_no=" + bean.demographicNo + "&last_name=" + bean.patientLastName + "&first_name=" + bean.patientFirstName + "'); return false;";
+                url = String.format("popupPage(600, 900,'%s','%s'); return false;", hash, billingHistUrl);
                 item.setURL(url);
                 item.setTitle(itObj.getService_code() + " (" + itObj.getDx() + ")");
                 item.setLinkTitle(itObj.getService_code() + " (" + itObj.getDx() + ") - " + obj.getBilling_date());
