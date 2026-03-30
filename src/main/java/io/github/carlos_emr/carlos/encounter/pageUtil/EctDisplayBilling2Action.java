@@ -80,12 +80,12 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
             //set link for lefthand module title
             String winName = "ViewBillingHistory" + bean.demographicNo;  //&last_name=TEST&first_name=PATIENT&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=10
 
-            String url = "popupPage(600, 900,'" + winName + "','" + request.getContextPath() + "/billing/CA/ON/billinghistory.jsp?demographic_no=" + bean.demographicNo + "&last_name=" + bean.patientLastName + "&first_name=" + bean.patientFirstName + "')";
+            String url = "popupPage(600, 900,'" + winName + "','" + request.getContextPath() + "/billing/CA/ON/billingONHistory.jsp?demographic_no=" + bean.demographicNo + "&last_name=" + bean.patientLastName + "&first_name=" + bean.patientFirstName + "')";
             Dao.setLeftURL(url);
 
             //set the right hand heading link
             winName = "NewBilling" + bean.demographicNo;
-            url = "popupPage(700, 960,'" + winName + "','" + request.getContextPath() + "/billing/CA/ON/billinghistory.jsp?demographic_no=" + bean.demographicNo + "&last_name=" + bean.patientLastName + "&first_name=" + bean.patientFirstName + "'); return false;";
+            url = "popupPage(700, 960,'" + winName + "','" + request.getContextPath() + "/billing/CA/ON/billingONHistory.jsp?demographic_no=" + bean.demographicNo + "&last_name=" + bean.patientLastName + "&first_name=" + bean.patientFirstName + "'); return false;";
             Dao.setRightURL(url);
             Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action
 
@@ -133,7 +133,7 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
                 item.setDate(date);
                 int hash = winName.hashCode();
                 hash = hash < 0 ? hash * -1 : hash;
-                url = "popupPage(600, 900,'" + hash + "','" + request.getContextPath() + "/billing/CA/ON/billinghistory.jsp?demographic_no=" + bean.demographicNo + "&last_name=" + bean.patientLastName + "&first_name=" + bean.patientFirstName + "'); return false;";
+                url = "popupPage(600, 900,'" + hash + "','" + request.getContextPath() + "/billing/CA/ON/billingONHistory.jsp?demographic_no=" + bean.demographicNo + "&last_name=" + bean.patientLastName + "&first_name=" + bean.patientFirstName + "'); return false;";
                 item.setURL(url);
                 item.setTitle(itObj.getService_code() + " (" + itObj.getDx() + ")");
                 item.setLinkTitle(itObj.getService_code() + " (" + itObj.getDx() + ") - " + obj.getBilling_date());
