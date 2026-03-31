@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 7.1//EN" "https://struts.apache.org/dtds/struts-7.1.dtd">
+<!--
+    CARLOS EMR - Integration Actions
+    Contains 18 action mappings for external system integrations including DHIR, MCEDT, and outcomes dashboard.
+-->
+<struts>
+    <package name="default" namespace="/" extends="struts-default">
+
+        <action name="web/dashboard/OutcomesDashboard" class="io.github.carlos_emr.carlos.integration.dashboard.OutcomesDashboard2Action"/>
+        <action name="demographic/ValidateSwipeCard" class="io.github.carlos_emr.carlos.integration.mchcv.ValidateSwipeCard2Action">
+            <result name="success">/demographic/demographicswipe.jsp</result>
+        </action>
+        <action name="mcedt/mcedt" class="io.github.carlos_emr.carlos.integration.mcedt.Resource2Action">
+            <result name="success">/mcedt/index.jsp</result>
+        </action>
+        <action name="mcedt/uploads" class="io.github.carlos_emr.carlos.integration.mcedt.Upload2Action">
+            <result name="success">/mcedt/uploads.jsp</result>
+            <result name="addNew">/mcedt/addUpload.jsp</result>
+            <result name="cancel">/mcedt/mcedt.do</result>
+            <result name="done">/mcedt/mcedt.do</result>
+        </action>
+        <action name="mcedt/update" class="io.github.carlos_emr.carlos.integration.mcedt.Update2Action">
+            <result name="cancel">/mcedt/mcedt.do</result>
+            <result name="add">/mcedt/update.do</result>
+            <result name="success">/mcedt/mcedt.do</result>
+            <result name="initial">/mcedt/update.jsp</result>
+        </action>
+        <action name="mcedt/info" class="io.github.carlos_emr.carlos.integration.mcedt.Info2Action">
+            <result name="info">/mcedt/info.jsp</result>
+        </action>
+        <action name="mcedt/kaimcedt" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Resource2Action">
+            <result name="success">/mcedt/mailbox/index.jsp</result>
+            <result name="successUserDownload">/mcedt/mailbox/index.jsp?tab=download</result>
+            <result name="failUserDownload">/mcedt/mailbox/index.jsp?tab=download</result>
+            <result name="successUserSent">/mcedt/mailbox/index.jsp?tab=sent</result>
+        </action>
+        <action name="mcedt/openAutoUpload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Resource2Action">
+            <result name="success">/mcedt/mailbox/autoUpload.jsp</result>
+        </action>
+        <action name="mcedt/autoUpload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action">
+            <result name="success">/mcedt/mailbox/autoUpload.jsp</result>
+            <result name="failure">/mcedt/mailbox/autoUpload.jsp?connection=failed</result>
+            <result name="cancel">/mcedt/kaimcedt.do</result>
+        </action>
+        <action name="mcedt/upload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action">
+            <result name="success">/mcedt/mailbox/index.jsp?tab=upload</result>
+            <result name="failure">/mcedt/mailbox/index.jsp?tab=upload</result>
+            <result name="cancel">/mcedt/kaimcedt.do</result>
+        </action>
+        <action name="mcedt/addUpload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action">
+            <result name="success">/mcedt/mailbox/index.jsp?tab=upload</result>
+            <result name="failure">/mcedt/mailbox/addUpload.jsp</result>
+            <result name="cancel">/mcedt/kaimcedt.do</result>
+        </action>
+        <action name="mcedt/kaichpass" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.User2Action">
+            <result name="success">/mcedt/mailbox/changepass.jsp</result>
+            <result name="cancel">/mcedt/kaimcedt.do</result>
+        </action>
+        <action name="mcedt/kaiautodl" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Download2Action">
+            <result name="success">/mcedt/mailbox/autoDownload.jsp</result>
+            <result name="cancel">/mcedt/kaimcedt.do</result>
+        </action>
+        <action name="mcedt/download" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Download2Action">
+            <result name="success">/mcedt/mailbox/index.jsp?tab=download</result>
+            <result name="error">/mcedt/mailbox/index.jsp?tab=download</result>
+        </action>
+        <action name="mcedt/resourceInfo" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Info2Action">
+            <result name="success">/mcedt/mailbox/index.jsp?tab=sent</result>
+        </action>
+        <action name="mcedt/reSubmit" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.ReSubmit2Action">
+            <result name="success">/mcedt/mailbox/index.jsp?tab=sent</result>
+        </action>
+        <action name="mcedt/uploads" class="io.github.carlos_emr.carlos.integration.mcedt.Upload2Action">
+            <result name="success">/mcedt/uploads.jsp</result>
+            <result name="addNew">/mcedt/addUpload.jsp</result>
+            <result name="cancel">/mcedt/mcedt.do</result>
+            <result name="done">/mcedt/mcedt.do</result>
+        </action>
+        <action name="dhir/submit" class="io.github.carlos_emr.carlos.integration.dhir.SubmitImmunization2Action">
+            <result name="success">/oscarPrevention/dhirSubmission.jsp</result>
+            <result name="testresult">/oscarPrevention/test_case.jsp</result>
+        </action>
+
+    </package>
+</struts>

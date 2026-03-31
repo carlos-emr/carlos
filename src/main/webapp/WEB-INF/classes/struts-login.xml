@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 7.1//EN" "https://struts.apache.org/dtds/struts-7.1.dtd">
+<!--
+    CARLOS EMR - Authentication Actions
+    Contains 6 action mappings for login, logout, MFA, security records, and facility selection.
+-->
+<struts>
+    <package name="default" namespace="/" extends="struts-default">
+
+        <action name="logout" class="io.github.carlos_emr.carlos.login.Logout2Action">
+            <result name="success">/index.jsp</result>
+        </action>
+        <action name="login" class="io.github.carlos_emr.carlos.login.Login2Action">
+            <result name="provider" type="redirect">/provider/providercontrol.jsp</result>
+            <result name="failure">/logout.jsp</result>
+            <result name="error">/loginfailed.jsp</result>
+            <result name="caisiPMM">/PMmodule/ProviderInfo.do</result>
+            <result name="forcepasswordreset">/forcepasswordreset.jsp</result>
+            <result name="programLocation">/location.jsp</result>
+            <result name="mfaHandler">/mfa/mfa_handler.jsp</result>
+        </action>
+        <action name="securityRecord/mfa" class="io.github.carlos_emr.carlos.security.MfaActions2Action"/>
+        <action name="login/recordLogin" class="io.github.carlos_emr.carlos.login.LoginAgreement2Action"/>
+        <action name="admin/uploadEntryText" class="io.github.carlos_emr.carlos.login.UploadLoginText2Action">
+            <result name="success">/admin/uploadEntryText.jsp</result>
+        </action>
+        <action name="FacilityManager" class="io.github.carlos_emr.carlos.facility.FacilityManager2Action" method="execute">
+            <result name="list">/admin/facility/ListFacilities.jsp</result>
+            <result name="edit">/admin/facility/EditFacility.jsp</result>
+        </action>
+
+    </package>
+</struts>

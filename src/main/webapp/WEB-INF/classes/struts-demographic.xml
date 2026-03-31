@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 7.1//EN" "https://struts.apache.org/dtds/struts-7.1.dtd">
+<!--
+    CARLOS EMR - Demographics Actions
+    Contains 13 action mappings for patient demographics, records, and health insurance number management.
+-->
+<struts>
+    <package name="default" namespace="/" extends="struts-default">
+
+        <action name="admin/MergeRecords" class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action">
+            <result name="success">/admin/demographicmergerecord.jsp?outcome=success</result>
+            <result name="failure">/admin/demographicmergerecord.jsp?outcome=failure</result>
+            <result name="successUnMerge">/admin/demographicmergerecord.jsp?outcome=successUnMerge</result>
+            <result name="failureUnMerge">/admin/demographicmergerecord.jsp?outcome=failureUnMerge</result>
+            <result name="caisiSearch">/PMmodule/ClientSearch2.do</result>
+        </action>
+        <action name="demographic/printDemoLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoLabel2Action"/>
+        <action name="demographic/printDemoAddressLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoAddressLabel2Action"/>
+        <action name="demographic/printDemoChartLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoChartLabel2Action"/>
+        <action name="demographic/printClientLabLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintClientLabLabel2Action"/>
+        <action name="demographic/AddRelation" class="io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action">
+            <result name="success">/demographic/AddAlternateContact.jsp</result>
+            <result name="pmmClient">/PMmodule/ClientManager.do</result>
+        </action>
+        <action name="demographic/DeleteRelation" class="io.github.carlos_emr.carlos.demographic.pageUtil.DeleteDemographicRelationship2Action">
+            <result name="success">/demographic/AddAlternateContact.jsp</result>
+        </action>
+        <action name="form/importUpload" class="io.github.carlos_emr.carlos.demographic.pageUtil.ImportDemographicDataAction42Action">
+            <interceptor-ref name="actionFileUpload" />
+            <interceptor-ref name="defaultStack"/>
+            <result name="success">/demographic/demographicImport.jsp</result>
+        </action>
+        <action name="form/importLogDownload" class="io.github.carlos_emr.carlos.demographic.pageUtil.ImportLogDownload2Action">
+            <result name="success">/demographic/demographicImport.jsp</result>
+            <result name="error">/errorpage.jsp</result>
+        </action>
+        <action name="demographic/DemographicExport" class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action">
+            <result name="success">/demographic/demographicExport.jsp</result>
+            <result name="fail">/demographic/demographicExport.jsp</result>
+        </action>
+        <action name="demographic/cihiExportOMD4" class="io.github.carlos_emr.carlos.demographic.pageUtil.CihiExport2Action" method="execute">
+            <result name="display">/demographic/cihiExport.jsp</result>
+        </action>
+        <action name="demographic/cihiExportPHC_VRS" class="io.github.carlos_emr.carlos.demographic.pageUtil.CihiExportPHC_VRS2Action" method="execute">
+            <result name="display">/demographic/cihiExport.jsp</result>
+        </action>
+        <action name="demographic/eRourkeExport" class="io.github.carlos_emr.carlos.demographic.pageUtil.RourkeExport2Action" method="execute">
+            <result name="display">/demographic/rourkeExport.jsp</result>
+        </action>
+
+    </package>
+</struts>

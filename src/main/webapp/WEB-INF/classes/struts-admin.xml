@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 7.1//EN" "https://struts.apache.org/dtds/struts-7.1.dtd">
+<!--
+    CARLOS EMR - Administration Actions
+    Contains 12 action mappings for administration, system messages, lookup lists, and issue management.
+-->
+<struts>
+    <package name="default" namespace="/" extends="struts-default">
+
+        <action name="lookupListManagerAction" class="io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action">
+            <result name="success">/admin/lookUpLists/</result>
+        </action>
+        <action name="SystemMessage" class="io.github.carlos_emr.carlos.www.SystemMessage2Action" method="execute">
+            <result name="view">/caisicore/SystemMessage.jsp</result>
+            <result name="list">/caisicore/SystemMessageList.jsp</result>
+            <result name="edit">/caisicore/SystemMessageForm.jsp</result>
+        </action>
+        <action name="DefaultEncounterIssue" class="io.github.carlos_emr.carlos.www.DefaultEncounterIssue2Action" method="execute">
+            <result name="list">/caisicore/DefaultEncounterIssueList.jsp</result>
+            <result name="edit">/caisicore/DefaultEncounterIssueForm.jsp</result>
+            <result name="editRemove">/caisicore/DefaultEncounterIssueFormRemove.jsp</result>
+        </action>
+        <action name="FacilityMessage" class="io.github.carlos_emr.carlos.www.OrganizationMessage2Action" method="execute">
+            <result name="view">/caisicore/FacilityMessage.jsp</result>
+            <result name="list">/caisicore/FacilityMessageList.jsp</result>
+            <result name="edit">/caisicore/FacilityMessageForm.jsp</result>
+        </action>
+        <action name="issueAdmin" class="io.github.carlos_emr.carlos.www.IssueAdmin2Action">
+            <result name="list">/caisicore/issueAdminList.jsp</result>
+            <result name="edit">/caisicore/issueAdminForm.jsp</result>
+        </action>
+        <!--action name="encounter/oscarConsultationRequest/printPdf" class="oscar.oscarEncounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestPrint2Action">
+            <result name="error">/encounter/ViewRequest.do?error=true</result>
+            </action-->
+        <!--action name="PatientOption" class="oscar.oscarEncounter.search.pageUtil.EctPatientOptions2Action">
+            <result name="consult">/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
+            <result name="viewAllConsult">/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp</result>
+            <result name="success">/search/searchDemographicSearch.jsp</result>
+        </action>
+        <action name="CreateInitImmunization" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetInit2Action">
+            <result name="success">/immunizationConfig/CreateImmunizationSetConfig.jsp</result>
+            </action-->
+        <!--action name="encounter/oscarMeasurements/StreamStyleSheet" class="oscar.oscarEncounter.oscarMeasurements.pageUtil.EctStreamStyleSheet2Action"/-->
+        <!--action name="oscarMaintenance" class="oscar.oscarMaintenance.pageUtil.Maintenance2Action">
+            <result name="success">/oscarMaintenance/oscarMaintenanceDisplay.jsp</result>
+            <result name="input">/oscarMaintenance/oscarMaintenanceInput.jsp</result>
+            </action-->
+        <!--action name="billing/CA/BC/billingStatement" class="oscar.oscarBilling.ca.bc.pageUtil.CreateBillingStatement2Action">
+            <result name="success">/billing/CA/BC/billStatement.jsp</result>
+            </action-->
+        <!--action name="oscarWaitingList/WLWaitingList" class="oscar.pageUtil.WLWaitingList2Action">
+            <result name="success">/oscarWaitingList/WLDisplayPatientWaitingList.jsp</result>
+            </action-->
+        <!--action name="billing/CA/BC/receivePaymentAction" class="oscar.oscarBilling.ca.bc.pageUtil.BillingReceivePaymentActionForm2Action">
+            <result name="success">/billing/CA/BC/billReceipt.jsp</result>
+            <result name="internalAdjustment">/billing/CA/BC/adjustBill.jsp</result>
+            <result name="internalAdjustmentWCB">/billing/CA/BC/billingTeleplanCorrectionWCB.jsp</result>
+            </action-->
+        <!--action name="billing/CA/BC/DownloadBilling" class="oscar.oscarBilling.ca.bc.pageUtil.DownloadFile2Action"/-->
+        <action name="Lookup/LookupList" class="io.github.carlos_emr.carlos.www.lookup.LookupList2Action" method="execute">
+            <result name="list">/PMmodule/lookup/LookupList.jsp</result>
+        </action>
+        <action name="Lookup/LookupTableList" class="io.github.carlos_emr.carlos.www.lookup.LookupTableList2Action" method="execute">
+            <result name="list">/PMmodule/lookup/LookupTableList.jsp</result>
+        </action>
+        <action name="Lookup/LookupCodeList" class="io.github.carlos_emr.carlos.www.lookup.LookupCodeList2Action" method="execute">
+            <result name="list">/PMmodule/lookup/LookupCodeList.jsp</result>
+        </action>
+        <action name="Lookup/LookupCodeEdit" class="io.github.carlos_emr.carlos.www.lookup.LookupCodeEdit2Action" method="execute">
+            <result name="edit">/PMmodule/lookup/LookupCodeEdit.jsp</result>
+        </action>
+        <action name="admin/GenerateTraceAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTrace2Action"/>
+        <action name="admin/GenerateTraceabilityReportAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTraceabilityReport2Action">
+            <interceptor-ref name="actionFileUpload" />
+            <interceptor-ref name="defaultStack"/>
+        </action>
+        <!--action name="consults/Consultations" class="org.oscarehr.consultations.Consultation2Action"/-->
+        <action name="admin/AuditLogPurge" class="io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action">
+            <result name="success">/admin/auditLogPurge.jsp</result>
+        </action>
+
+    </package>
+</struts>

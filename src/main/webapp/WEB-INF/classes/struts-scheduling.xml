@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 7.1//EN" "https://struts.apache.org/dtds/struts-7.1.dtd">
+<!--
+    CARLOS EMR - Scheduling Actions
+    Contains 35 action mappings for appointments, ticklers, waiting lists, notifications, and contact registry.
+-->
+<struts>
+    <package name="default" namespace="/" extends="struts-default">
+
+        <action name="notification/create" class="io.github.carlos_emr.carlos.commn.web.ProviderNotification2Action"/>
+        <action name="oscarWaitingList/SetupDisplayPatientWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action">
+            <result name="continue">/oscarWaitingList/DisplayPatientWaitingList.jsp</result>
+        </action>
+        <action name="oscarWaitingList/SetupDisplayWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action">
+            <result name="continue">/oscarWaitingList/DisplayWaitingList.jsp</result>
+            <result name="failure">/oscarWaitingList/DisplayWaitingList.jsp</result>
+        </action>
+        <action name="oscarWaitingList/WLEditWaitingListNameAction" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action">
+            <result name="continue">/oscarWaitingList/EditWaitingListName.jsp</result>
+            <result name="editSuccess">/oscarWaitingList/SetupDisplayWaitingList.do</result>
+            <result name="failure">/oscarWaitingList/EditWaitingListName.jsp</result>
+        </action>
+        <action name="demographic/SearchDemographic" class="io.github.carlos_emr.carlos.commn.web.SearchDemographicAutoComplete2Action">
+            <result name="success">/demographic/autocomplete.jsp</result>
+        </action>
+        <action name="demographic/FindNextAvailableSlot" class="io.github.carlos_emr.carlos.commn.web.FindNextAvailableSlot2Action"/>
+        <action name="provider/SearchProvider" class="io.github.carlos_emr.carlos.commn.web.SearchProviderAutoComplete2Action"/>
+        <action name="tickler/ForwardDemographicTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.ForwardDemographicTickler2Action">
+            <result name="success">/tickler/ticklerAdd.jsp</result>
+        </action>
+        <action name="tickler/AddTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.AddTickler2Action">
+            <result name="close">/close.html</result>
+        </action>
+        <action name="tickler/ListTicklers" class="io.github.carlos_emr.carlos.tickler.pageUtil.TicklerList2Action"/>
+        <action name="searchProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="search"/>
+        <action name="getProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="get"/>
+        <action name="demographic/Contact" class="io.github.carlos_emr.carlos.commn.web.Contact2Action">
+            <result name="pForm">/demographic/addEditProfessionalContact.jsp</result>
+            <result name="cForm">/demographic/addEditContact.jsp</result>
+            <result name="view">/demographic/viewContact.jsp</result>
+            <result name="manage">/demographic/ManageContacts.jsp</result>
+            <result name="windowClose">/demographic/close.jsp</result>
+            <result name="ajax">/demographic/demographiceditdemographic.jsp</result>
+        </action>
+        <action name="PopulationReport" class="io.github.carlos_emr.carlos.commn.web.PopulationReport2Action" method="execute">
+            <result name="report">/report/PopulationReport.jsp</result>
+        </action>
+        <action name="admin/ManageClinic" class="io.github.carlos_emr.carlos.commn.web.ClinicManage2Action" method="execute">
+            <result name="success">/admin/clinicAdmin.jsp</result>
+        </action>
+        <action name="admin/ManageSites" class="io.github.carlos_emr.carlos.commn.web.SitesManage2Action" method="execute">
+            <result name="list">/admin/sitesAdmin.jsp</result>
+            <result name="details">/admin/sitesAdminDetail.jsp</result>
+        </action>
+        <action name="admin/ManageBillingReferral" class="io.github.carlos_emr.carlos.commn.web.BillingreferralEdit2Action">
+            <result name="list">/admin/billingreferralAdmin.jsp</result>
+        </action>
+        <action name="report/DxresearchReport" class="io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action" method="execute">
+            <result name="success">/oscarReport/oscarReportDxReg.jsp</result>
+            <result name="editdesc">/oscarReport/editCodeDesc.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction" class="io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action">
+            <result name="success">/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp</result>
+            <result name="newflowsheet">/encounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/FlowSheetDrugAction" class="io.github.carlos_emr.carlos.commn.web.FlowSheetDrug2Action">
+            <result name="success">/encounter/oscarMeasurements/TemplateFlowSheet.jsp</result>
+        </action>
+        <action name="appointment/apptStatusSetting" class="io.github.carlos_emr.carlos.appt.status.web.AppointmentStatus2Action" method="execute">
+            <result name="success">/appointment/appointmentstatussetting.jsp</result>
+            <result name="edit">/appointment/appointmentstatusedit.jsp</result>
+        </action>
+        <action name="appointment/appointmentTypeAction" class="io.github.carlos_emr.carlos.appt.web.AppointmentType2Action">
+            <result name="edit">/appointment/appointmentTypeAction.do?oper=edit</result>
+            <result name="success">/appointment/appointmentTypeList.jsp</result>
+            <result name="failure">/appointment/appointmentTypeList.jsp</result>
+            <result name="redirect" type="redirectAction">
+            <param name="actionName">appointmentTypeAction</param>
+            <param name="namespace">/appointment</param>
+        </result>
+        </action>
+        <action name="tickler/EditTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action">
+            <result name="close">/tickler/ticklerEditSuccess.jsp</result>
+            <result name="failure">/failure.jsp</result>
+            <result name="error">/errorpage.jsp</result>
+        </action>
+        <action name="tickler/EditTicklerTextSuggest" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action">
+            <result name="close">/closenreload.jsp</result>
+            <result name="error">/errorpage.jsp</result>
+        </action>
+        <action name="CodeSearch" class="io.github.carlos_emr.carlos.commn.web.CodeSearchService2Action"/>
+        <action name="Episode" class="io.github.carlos_emr.carlos.commn.web.Episode2Action">
+            <result name="list">/episode/episodeList.jsp</result>
+            <result name="form">/episode/episodeForm.jsp</result>
+            <result name="success">/episode/success.jsp</result>
+        </action>
+        <action name="Pregnancy" class="io.github.carlos_emr.carlos.commn.web.Pregnancy2Action">
+            <result name="list">/pregnancy/list.jsp</result>
+            <result name="success">/pregnancy/success.jsp</result>
+            <result name="complete">/pregnancy/complete.jsp</result>
+        </action>
+        <action name="PageMonitoringService" class="io.github.carlos_emr.carlos.commn.web.PageMonitoring2Action"/>
+        <action name="BillingInvoice" class="io.github.carlos_emr.carlos.commn.web.BillingInvoice2Action">
+            <result name="success">/billing/CA/ON/billingONCorrection.jsp</result>
+            <result name="listSuccess">/billing/CA/ON/billingONStatus.jsp</result>
+        </action>
+        <action name="BillingONReview" class="io.github.carlos_emr.carlos.commn.web.BillingONReview2Action"/>
+        <action name="admin/GroupPreference" class="io.github.carlos_emr.carlos.commn.web.GroupPreference2Action">
+            <result name="saved">/admin/groupPreferences.jsp</result>
+            <result name="changedForm">/admin/groupPreferences.jsp</result>
+        </action>
+        <action name="billing/CA/ON/ApplyPractitionerPremium" class="io.github.carlos_emr.carlos.commn.web.ApplyPractitionerPremium2Action">
+            <result name="success">/billing/CA/ON/genRADesc.jsp</result>
+            <result name="failure">/failure.jsp</result>
+        </action>
+        <action name="demographicSupport" class="io.github.carlos_emr.carlos.commn.web.Demographic2Action"/>
+        <action name="DemographicExtService" class="io.github.carlos_emr.carlos.commn.web.DemographicExtService2Action"/>
+        <action name="printReferralLabelAction" class="io.github.carlos_emr.carlos.commn.web.PrintReferralLabel2Action"/>
+
+    </package>
+</struts>
