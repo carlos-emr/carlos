@@ -1070,7 +1070,13 @@
             <artifactId>cxf-rt-rs-client</artifactId>
             <version>${cxf.version}</version>
         </dependency>
-        <!-- 
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-transports-local</artifactId>
+            <version>${cxf.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!--
             Switched from Jettison (org.codehaus.jettison) to FasterXML Jackson 
             for JSON handling in CXF JAX-RS providers. 
             This ensures better compatibility and consistency of REST API 
@@ -1608,6 +1614,7 @@
                         <include>**/managers/**/*Test.java</include>
                         <include>**/*IntegrationTest.java</include>
                         <include>**/*UnitTest.java</include>
+                        <include>**/*EndpointTest.java</include>
                     </includes>
                     <excludes>
                         <exclude>**/archive/**/*Test.java</exclude>
