@@ -1463,6 +1463,20 @@ var EFORM_I18N = {
         var OSCAR_EFORM_ENTITY_URL = "../ws/rs/eform/";
         var OSCAR_EFORM_SEARCH_URL = "../ws/rs/eforms/";
 
+        /**
+         * Validates image src URLs using an allowlist to prevent XSS via dangerous URI schemes
+         * (javascript:, data:text/html, etc.). Allows relative paths, http(s) URLs,
+         * data:image/ URIs (used by signature pads), and simple filenames.
+         */
+        function isValidImageSrc(url) {
+            if (!url || typeof url !== 'string') return false;
+            if (/^(\/(?!\/)|\.\/|\.\.\/)/.test(url)) return true;
+            if (/^https?:\/\//i.test(url)) return true;
+            if (/^data:image\//i.test(url)) return true;
+            if (/^[\w][\w.\- ]*$/.test(url)) return true; // simple filename
+            console.error('isValidImageSrc: rejected URL:', url.substring(0, 50));
+            return false;
+        }
 
         /** GLOBAL SCOPE VARIABLES */
         var groupTitle
@@ -2132,17 +2146,20 @@ var EFORM_I18N = {
             var canvas = $canvasFrame.children("canvas").get(0);
             var $data = $canvasFrame.children(".signature_data");
             var src = $data.val();
-            var $img = $("<img>", {
-                src: src,
-				alt: "signature",
-                class: "signature_image"
-            });
-            if (src && src.length > 0) {
+            var $img = null;
+            if (src && src.length > 0 && isValidImageSrc(src)) {
+                $img = $("<img>", {
+                    src: src,
+                    alt: "signature",
+                    class: "signature_image"
+                });
                 $img.appendTo($canvasFrame);
+            } else if (src && src.length > 0) {
+                $canvasFrame.append($("<div>").text("Signature could not be displayed").css({color: 'red', fontSize: '0.8em', padding: '4px'}));
             }
 
             if (signaturePadLoaded) {
-                $img.hide();
+                if ($img) $img.hide();
                 console.info("loading editable signature pads");
                 var updateSlaveSignature = function(src_canvas, dest_canvas) {
                     // write to the destination with image scaling
@@ -2174,8 +2191,14 @@ var EFORM_I18N = {
 
                 // define a custom update trigger action. this allows the eform to store the signature.
                 $element.on("signatureChange", function() {
-                    $data.val(signPad.toDataURL());
-                    $img.prop('src', signPad.toDataURL());
+                    var dataUrl = signPad.toDataURL();
+                    $data.val(dataUrl);
+                    if (!$img) {
+                        $img = $("<img>", { src: dataUrl, alt: "signature", class: "signature_image" });
+                        $img.appendTo($canvasFrame).hide();
+                    } else {
+                        $img.prop('src', dataUrl);
+                    }
                     if ($element.attr('slaveSigPad')) {
                         var $slavePad = $("#" + $element.attr('slaveSigPad')); // get slave pad by id
                         updateSlaveSignature(canvas, $slavePad.find("canvas").get(0));
@@ -2192,7 +2215,7 @@ var EFORM_I18N = {
             }
             // not loaded so not using the canvas, show signature as an image instead.
             else {
-                $img.show();
+                if ($img) $img.show();
             }
         }
 
@@ -2258,12 +2281,16 @@ var EFORM_I18N = {
         function addDraggableImage($parent, widgetId, width, height, src, customClasses) {  // TODO something missing in the implimentation
             var $widget = createBasicDraggableDiv(widgetId, width, height, customClasses + " gen-layer3");
             var imgClass = "";
-            $widget.append($("<img>", {
-                src: src,
-				alt: "image",
-                width: "100%",
-                height: "100%"
-            }));
+            if (isValidImageSrc(src)) {
+                $widget.append($("<img>", {
+                    src: src,
+                    alt: "image",
+                    width: "100%",
+                    height: "100%"
+                }));
+            } else {
+                $widget.append($("<span>").text("Image could not be loaded (invalid source)").css({color: 'red', fontSize: '0.8em', padding: '4px'}));
+            }
 
             $parent.append($widget);
             makeDraggable($widget, true, ".gen-layer1, .gen-layer2");
@@ -2924,7 +2951,7 @@ var EFORM_I18N = {
                 class: "gen-layer1"
             }).prependTo($parentElement);
             if (srcString) {
-                $img.attr('src', encodeURI(srcString)); //escape spaces etc in the filename
+                $img.attr('src', srcString);
             }
             return $img;
         }
@@ -2948,10 +2975,12 @@ var EFORM_I18N = {
                         var $fileInput = $(this);
                         reader.onload = function(e) {
                             var src = $fileInput.val().replace(/C:\\fakepath\\/i, '');
+                            if (!isValidImageSrc(src)) return;
+                            var encodedSrc = encodeURIComponent(src);
                             if ($img == null || $img.length <= 0) {
-                                $img = addBackgroundImage($pageDiv, src);
+                                $img = addBackgroundImage($pageDiv, encodedSrc);
                             } else {
-                                $img.attr('src', src);
+                                $img.attr('src', encodedSrc);
                             }
                             $img.on('load', function() {
                                 var css;
@@ -3024,10 +3053,11 @@ var EFORM_I18N = {
                 $fileSelector.selectmenu();
 
                 $fileSelector.on("selectmenuchange", (function(event, data) {
-                    var src = OSCAR_DISPLAY_IMG_SRC + $fileSelector.val();
-                    if ($fileSelector.val().length < 1) {
+                    var selectedFile = $fileSelector.val();
+                    if (selectedFile.length < 1) {
                         return;
                     }
+                    var src = OSCAR_DISPLAY_IMG_SRC + encodeURIComponent(selectedFile);
                     if ($img == null || $img.length <= 0) {
                         $img = addBackgroundImage($pageDiv, src);
                     } else {
@@ -4012,10 +4042,11 @@ var EFORM_I18N = {
                 $tab.append($dragFrame41);
 
                 $fileSelector.on("selectmenuchange", (function(event, data) {
-                    var src = OSCAR_DISPLAY_IMG_SRC + $fileSelector.val();
-                    if ($fileSelector.val().length < 1) {
+                    var selectedFile = $fileSelector.val();
+                    if (selectedFile.length < 1) {
                         return;
                     }
+                    var src = OSCAR_DISPLAY_IMG_SRC + encodeURIComponent(selectedFile);
 
                     // remove the old widget
                     if ($widget) {
@@ -4634,13 +4665,16 @@ var EFORM_I18N = {
                 var $data = $canvasFrame.children(".signature_data");
                 var src = $data.val();
                 // the image is needed even when signature pads are loaded for printing/faxing
-                var $img = $("<img>", {
-                    src: src,
-					alt: "signature",
-                    class: "signature_image"
-                });
-                if (src && src.length > 0) {
+                var $img = null;
+                if (src && src.length > 0 && isValidImageSrc(src)) {
+                    $img = $("<img>", {
+                        src: src,
+                        alt: "signature",
+                        class: "signature_image"
+                    });
                     $img.appendTo($canvasFrame);
+                } else if (src && src.length > 0) {
+                    $canvasFrame.append($("<div>").text("Signature could not be displayed").css({color: 'red', fontSize: '0.8em', padding: '4px'}));
                 }
 
                 // if signature pad loaded correctly and eform viewed on screen
@@ -4648,7 +4682,7 @@ var EFORM_I18N = {
                  See https://github.com/wkhtmltopdf/wkhtmltopdf/issues/1737 */
                 if (typeof SignaturePad !== 'undefined' && window.matchMedia("screen").matches) {
                     console.info("editable signature pad initializing ");
-                    $img.hide();
+                    if ($img) $img.hide();
                     var updateSlaveSignature = function(src_canvas, dest_canvas) {
                         // write to the destination with image scaling
                         var dest_context = dest_canvas.getContext("2d");
@@ -4669,8 +4703,14 @@ var EFORM_I18N = {
                     }
                     // define a custom update trigger action. this allows the eform to store the signature.
                     $this.on("signatureChange", function() {
-                        $data.val(signPad.toDataURL());
-                        $img.prop('src', signPad.toDataURL());
+                        var dataUrl = signPad.toDataURL();
+                        $data.val(dataUrl);
+                        if (!$img) {
+                            $img = $("<img>", { src: dataUrl, alt: "signature", class: "signature_image" });
+                            $img.appendTo($canvasFrame).hide();
+                        } else {
+                            $img.prop('src', dataUrl);
+                        }
                         if ($this.attr('slaveSigPad')) {
                             var $slavePad = $("#" + $this.attr('slaveSigPad')); // get slave pad by id
                             updateSlaveSignature(canvas, $slavePad.find("canvas").get(0));
@@ -4688,7 +4728,7 @@ var EFORM_I18N = {
                 // not using the canvas, show signature as an image instead.
                 else {
                     console.info("static signature pad initializing");
-                    $img.show();
+                    if ($img) $img.show();
                 }
             });
         });

@@ -968,15 +968,21 @@
             }).data('ui-autocomplete');
 
             if (acWidget) {
+                // HTML encoding helper using DOM APIs — functionally equivalent to the jQuery .text().html() idiom but uses a pattern that static analysis tools (CodeQL) can verify as safe
+                function escapeHtml(text) {
+                    var div = document.createElement('div');
+                    div.appendChild(document.createTextNode(text));
+                    return div.innerHTML;
+                }
                 acWidget._renderItem = function(ul, item) {
                     var serviceBadges = (item.serviceNames || []).map(function(sn) {
-                        return '<span class="badge rounded-pill border border-primary text-primary ms-1" style="font-size:0.65rem;">' + jQuery('<span>').text(sn).html() + '</span>';
+                        return '<span class="badge rounded-pill border border-primary text-primary ms-1" style="font-size:0.65rem;">' + escapeHtml(sn) + '</span>';
                     }).join('');
-                    var namePart = '<strong class="specialist-ac-name">' + jQuery('<span>').text(item.name).html() + '</strong>';
+                    var namePart = '<strong class="specialist-ac-name">' + escapeHtml(item.name) + '</strong>';
                     var details = [];
-                    if (item.address) details.push(jQuery('<span>').text(item.address).html());
-                    if (item.phone) details.push('Tel: ' + jQuery('<span>').text(item.phone).html());
-                    if (item.fax) details.push('Fax: ' + jQuery('<span>').text(item.fax).html());
+                    if (item.address) details.push(escapeHtml(item.address));
+                    if (item.phone) details.push('Tel: ' + escapeHtml(item.phone));
+                    if (item.fax) details.push('Fax: ' + escapeHtml(item.fax));
                     var detailLine = details.length ? '<div class="specialist-ac-details">' + details.join(' &bull; ') + '</div>' : '';
                     return jQuery('<li>')
                         .append('<div class="d-flex justify-content-between align-items-center">' + namePart + '<span>' + serviceBadges + '</span></div>' + detailLine)
@@ -1139,7 +1145,7 @@
             ];
 
             jQuery('.consult-import-menu').each(function() {
-                var target = jQuery(this).data('target');
+                var target = String(jQuery(this).data('target')).replace(/[^a-zA-Z0-9_-]/g, '');
                 var html = '';
                 for (var i = 0; i < fullImportItems.length; i++) {
                     var item = fullImportItems[i];
@@ -1149,7 +1155,7 @@
                 jQuery(this).html(html);
             });
             jQuery('.consult-import-menu-meds').each(function() {
-                var target = jQuery(this).data('target');
+                var target = String(jQuery(this).data('target')).replace(/[^a-zA-Z0-9_-]/g, '');
                 var html = '';
                 for (var i = 0; i < medsOnlyItems.length; i++) {
                     var item = medsOnlyItems[i];
@@ -1843,7 +1849,7 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
         function showSignatureImage() {
             if (document.getElementById('signatureImg') != null && document.getElementById('signatureImg').value.length > 0) {
 
-                document.getElementById('signatureImgTag').src = "<%=storedImgUrl %>" + document.getElementById('signatureImg').value;
+                document.getElementById('signatureImgTag').src = "<%=storedImgUrl %>" + encodeURIComponent(document.getElementById('signatureImg').value);
                 document.getElementById('newSignature').value = "false";
                 document.getElementById("signatureFrame").style.display = "none";
                 document.getElementById('signatureShow').style.display = "block";

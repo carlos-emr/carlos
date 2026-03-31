@@ -51,9 +51,9 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
             return; // Critical: stop execution for non-localhost requests
         }
 
-        // Add security headers to prevent browser rendering
+        // Add security headers to restrict content capabilities (no scripts, no plugins)
         response.setHeader("X-Content-Type-Options", "nosniff");
-        response.setHeader("Content-Security-Policy", "default-src 'none'");
+        response.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'none'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:");
         
         boolean prepareForFax = "true".equals(request.getParameter("prepareForFax"));
         String id = request.getParameter("fdid");

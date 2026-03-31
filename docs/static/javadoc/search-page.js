@@ -35,7 +35,7 @@ $(function() {
         if (redirect.is(":checked")) {
             href += "&r=1";
         }
-        searchLink.html(href);
+        searchLink.text(href);
         copy[0].onmouseenter();
     }
     function copyLink(e) {

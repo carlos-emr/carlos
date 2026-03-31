@@ -275,13 +275,31 @@
                 }
             }
 
-            // Then, decode HTML entities
-            // Create a temporary element to leverage browser's HTML decoding
-            const textarea = document.createElement('textarea');
-            textarea.innerHTML = normalized;
-            normalized = textarea.value;
+            // Then, decode HTML entities without reparsing as HTML
+            normalized = decodeHtmlEntities(normalized);
 
             return normalized.trim();
+        }
+
+        function decodeHtmlEntities(input) {
+            if (!input) return "";
+            return input.replace(/&(#\d+|#x[0-9a-fA-F]+|amp|lt|gt|quot|apos);/g, function(match, code) {
+                switch (code.toLowerCase()) {
+                    case "amp": return "&";
+                    case "lt": return "<";
+                    case "gt": return ">";
+                    case "quot": return "\"";
+                    case "apos": return "'";
+                    default:
+                        if (code[0] === "#") {
+                            var isHex = code[1].toLowerCase() === "x";
+                            var raw = isHex ? code.slice(2) : code.slice(1);
+                            var cp = parseInt(raw, isHex ? 16 : 10);
+                            return (isFinite(cp) && cp >= 0 && cp <= 0x10FFFF) ? String.fromCodePoint(cp) : match;
+                        }
+                        return match;
+                }
+            });
         }
 
         // Modern replacement for deprecated unescape()

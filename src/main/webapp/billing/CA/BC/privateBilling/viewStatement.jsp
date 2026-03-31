@@ -246,7 +246,7 @@
 
         function handleFilterByProvider() {
             var providerId = document.getElementById('providerList').value;
-            window.location.href = "${ctx}/PrivateBillingController?action=listPrivateBills&providerId=" + providerId;
+            window.location.href = "${ctx}/PrivateBillingController?action=listPrivateBills&providerId=" + encodeURIComponent(providerId);
         }
 
         document.addEventListener('DOMContentLoaded', function () {

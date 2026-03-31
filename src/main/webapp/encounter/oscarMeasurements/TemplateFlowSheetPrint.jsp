@@ -1152,7 +1152,11 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                         var loadingText = btn.getAttribute('data-bs-loading-text') || 'Loading...';
                         if (!btn.getAttribute('data-original-text')) { btn.setAttribute('data-original-text', btn.innerHTML); }
                         btn.disabled = true;
-                        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> ' + loadingText;
+                        btn.textContent = '';
+                        var spinner = document.createElement('span');
+                        spinner.className = 'spinner-border spinner-border-sm';
+                        btn.appendChild(spinner);
+                        btn.appendChild(document.createTextNode(' ' + loadingText));
                     });
                     return true;
                 }

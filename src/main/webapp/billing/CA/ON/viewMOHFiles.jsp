@@ -91,7 +91,7 @@
         <% } %>
 
         View:
-        <select name="folder" onchange="location.href='<%= request.getContextPath() %>/billing/CA/ON/viewMOHFiles.jsp?folder='+this.options[selectedIndex].value">
+        <select name="folder" onchange="location.href='<%= request.getContextPath() %>/billing/CA/ON/viewMOHFiles.jsp?folder='+encodeURIComponent(this.options[selectedIndex].value)">
             <option value="inbox" <% if (folder == EDTFolder.INBOX) {%>selected<%}%>>Inbox</option>
             <option value="outbox" <% if (folder == EDTFolder.OUTBOX) {%>selected<%}%>>Outbox</option>
             <option value="sent" <% if (folder == EDTFolder.SENT) {%>selected<%}%>>Sent</option>
@@ -174,7 +174,7 @@
         <input type="submit" value="Archive" class="btn btn-secondary">
         <% } %>
 
-        <select name="folder" onchange="location.href='<%= request.getContextPath() %>/billing/CA/ON/viewMOHFiles.jsp?folder='+this.options[selectedIndex].value">
+        <select name="folder" onchange="location.href='<%= request.getContextPath() %>/billing/CA/ON/viewMOHFiles.jsp?folder='+encodeURIComponent(this.options[selectedIndex].value)">
             <option value="inbox" <% if (folder == EDTFolder.INBOX) {%>selected<%}%>>Inbox</option>
             <option value="outbox" <% if (folder == EDTFolder.OUTBOX) {%>selected<%}%>>Outbox</option>
             <option value="sent" <% if (folder == EDTFolder.SENT) {%>selected<%}%>>Sent</option>

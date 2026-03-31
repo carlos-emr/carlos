@@ -1871,6 +1871,7 @@
 			date = UTCToday();
 			var fparts = format.parts.slice();
 			// Remove noop parts
+			// developer-controlled format config, not user input
 			if (parts.length !== fparts.length){
 				fparts = $(fparts).filter(function(i,p){
 					return $.inArray(p, setters_order) !== -1;

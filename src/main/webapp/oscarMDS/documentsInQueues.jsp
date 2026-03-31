@@ -2271,7 +2271,7 @@
         function showPageImg(docid, pn, cp) {
             if (docid && pn && cp) {
                 var e = $('docImg_' + docid);
-                var url = cp + '/documentManager/ManageDocument.do?method=viewDocPage&doc_no=' + docid + '&curPage=' + pn;
+                var url = cp + '/documentManager/ManageDocument.do?method=viewDocPage&doc_no=' + encodeURIComponent(docid) + '&curPage=' + encodeURIComponent(pn);
                 e.setAttribute('src', url);
             }
         }
