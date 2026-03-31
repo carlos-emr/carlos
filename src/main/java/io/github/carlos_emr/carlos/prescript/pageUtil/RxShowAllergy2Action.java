@@ -280,6 +280,15 @@ public final class RxShowAllergy2Action extends ActionSupport {
 
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error in getAllergyData", e);
+                try {
+                    ObjectNode errorResult = objectMapper.createObjectNode();
+                    errorResult.put("id", id);
+                    errorResult.set("results", objectMapper.createArrayNode());
+                    response.setContentType("application/json");
+                    response.getOutputStream().write(objectMapper.writeValueAsBytes(errorResult));
+                } catch (IOException ioe) {
+                    MiscUtils.getLogger().error("Error writing empty allergy JSON response", ioe);
+                }
             }
         }
     }
