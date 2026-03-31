@@ -28,6 +28,36 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    dbTicklerAdd.jsp - Server-side tickler creation endpoint
+
+    Purpose:
+    Processes POST form submissions from ticklerAdd.jsp to create new ticklers.
+    Optionally writes the tickler message to the patient's encounter chart as a
+    CaseManagementNote when the writeToEncounter parameter is set.
+
+    Request Parameters:
+    - demographic_no: Patient demographic number (required)
+    - user_no: Creator provider number
+    - xml_appointment_date: Service date for the tickler
+    - ticklerMessage: Tickler message text
+    - priority: Normal/High/Low
+    - task_assigned_to: Assigned provider number
+    - docType/docId: Optional document link
+    - writeToEncounter: "true" to also write a signed encounter note
+
+    Response:
+    Renders hidden sentinel elements read by ticklerAdd.jsp iframe.onload:
+    - #tickler-save-ok: tickler saved successfully
+    - #tickler-save-ok-link-failed: tickler saved but document link failed
+    - #tickler-write-encounter-failed: tickler saved but encounter note failed
+
+    Security:
+    - Requires "_tickler" write privilege
+    - POST method required
+
+    @since 2006-01-01 (original OSCAR implementation)
+--%>
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 
@@ -41,8 +71,20 @@
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntry2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.Issue" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.EctProgram" %>
 <%@ page import="java.util.Date" %>
 <%@ page import="java.time.LocalDateTime" %>
+<%@ page import="java.util.ResourceBundle" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -128,7 +170,7 @@
                 TicklerLink tLink = new TicklerLink();
                 tLink.setTableId(Long.parseLong(docId));
                 tLink.setTableName(docType);
-                tLink.setTicklerNo(new Long(ticklerNo).intValue());
+                tLink.setTicklerNo((int) ticklerNo);
                 TicklerLinkDao ticklerLinkDao = (TicklerLinkDao) SpringUtils.getBean(TicklerLinkDao.class);
                 ticklerLinkDao.save(tLink);
             } catch (NumberFormatException e) {
@@ -141,28 +183,95 @@
         }
     }
 
+    // Write tickler message to the patient's encounter chart as a CaseManagementNote.
+    // Follows the same pattern as CaseManagementEntry2Action.ticklerSaveNote().
+    boolean writeToEncounter = "true".equals(request.getParameter("writeToEncounter"));
+    boolean writeToEncounterFailed = false;
+    if (writeToEncounter && rowsAffected && ticklerNo > 0) {
+        try {
+            Provider loggedInProvider = loggedInInfo.getLoggedInProvider();
+            Date creationDate = new Date();
+
+            // Create a signed encounter note with the tickler message as content.
+            // Note is auto-signed by the creating provider (no separate sign step needed).
+            // Fields mirror CaseManagementEntry2Action.ticklerSaveNote() for consistency.
+            CaseManagementNote cmn = new CaseManagementNote();
+            cmn.setAppointmentNo(0);
+            cmn.setArchived(false);
+            cmn.setCreate_date(creationDate);
+            cmn.setDemographic_no(module_id);
+            // Use the "global.tickler" i18n label as the encounter type to distinguish
+            // tickler-originated notes from clinical face-to-face encounter notes
+            String ticklerEncounterType = ResourceBundle.getBundle("oscarResources", request.getLocale()).getString("global.tickler");
+            cmn.setEncounter_type(ticklerEncounterType);
+            cmn.setNote(docfilename);
+            cmn.setObservation_date(creationDate);
+            cmn.setProviderNo(loggedInProvider.getProviderNo());
+            cmn.setRevision("1");
+            cmn.setSigned(true);
+            cmn.setSigning_provider_no(loggedInProvider.getProviderNo());
+            cmn.setUpdate_date(creationDate);
+            cmn.setHistory(docfilename);
+            cmn.setReporter_program_team("null");
+
+            // Resolve the provider's default program and CAISI role for the note
+            String prog_no = new EctProgram(request.getSession()).getProgram(loggedInProvider.getProviderNo());
+            cmn.setProgram_no(prog_no);
+            CaseManagementEntry2Action.determineNoteRole(cmn, loggedInProvider.getProviderNo(), module_id);
+
+            CaseManagementManager caseManagementMgr = SpringUtils.getBean(CaseManagementManager.class);
+            caseManagementMgr.saveNoteSimple(cmn);
+
+            // Link the encounter note to this tickler
+            CaseManagementNoteLink link = new CaseManagementNoteLink();
+            link.setNoteId(cmn.getId());
+            link.setTableId(Long.valueOf(ticklerNo));
+            link.setTableName(CaseManagementNoteLink.TICKLER);
+            CaseManagementNoteLinkDAO noteLinkDao = SpringUtils.getBean(CaseManagementNoteLinkDAO.class);
+            noteLinkDao.save(link);
+
+            // Associate with TicklerNote issue so it appears in the encounter CPP section
+            IssueDAO issueDao = SpringUtils.getBean(IssueDAO.class);
+            Issue issue = issueDao.findIssueByTypeAndCode("system", "TicklerNote");
+            if (issue != null) {
+                CaseManagementIssue cmi = caseManagementMgr.getIssueById(module_id, issue.getId().toString());
+                if (cmi == null) {
+                    cmi = new CaseManagementIssue();
+                    cmi.setAcute(false);
+                    cmi.setCertain(false);
+                    cmi.setDemographic_no(Integer.valueOf(module_id));
+                    cmi.setIssue_id(issue.getId());
+                    cmi.setMajor(false);
+                    String progNoStr = cmn.getProgram_no();
+                    cmi.setProgram_id(progNoStr != null && !progNoStr.isEmpty() ? Integer.parseInt(progNoStr) : 0);
+                    cmi.setResolved(false);
+                    cmi.setType(issue.getRole());
+                    cmi.setUpdate_date(creationDate);
+                    CaseManagementIssueDAO caseManagementIssueDao = SpringUtils.getBean(CaseManagementIssueDAO.class);
+                    caseManagementIssueDao.saveIssue(cmi);
+                }
+                cmn.getIssues().add(cmi);
+                caseManagementMgr.saveNoteSimple(cmn);
+            } else {
+                MiscUtils.getLogger().warn("TicklerNote issue not found in database — tickler note saved without issue link");
+            }
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to write tickler to encounter for ticklerNo=" + ticklerNo + ", demographicNo=" + module_id, e);
+            writeToEncounterFailed = true;
+        }
+    }
+
     String parentAjaxId = request.getParameter("parentAjaxId");
     String updateParent = request.getParameter("updateParent");
-    // updateTicklerNav and updateParent are no longer used server-side; refresh is handled
-    // client-side in ticklerAdd.jsp via the iframe.onload callback.
 
-    if (rowsAffected && !ticklerLinkFailed) {
+    if (rowsAffected) {
 %>
 <%-- ticklerAdd.jsp reads this element to confirm the save succeeded before closing --%>
 <span id="tickler-save-ok" style="display:none;"></span>
-<script type="text/javascript">
-    // Tickler saved successfully.
-    // Refresh flow for regular save: iframe.onload in ticklerAdd.jsp calls
-    //   window.opener.reloadNav('tickler') and broadcasts via
-    //   BroadcastChannel('carlos_tickler_refresh_' + demographicNo), then closes the popup.
-    // Refresh flow for write-to-encounter: iframe.onload navigates
-    //   window.opener.location with updateParent=true, then closes the popup.
-    // Either way, the popup closes itself after 500 ms.
-</script>
-<%} else if (ticklerLinkFailed) {
-    // Tickler was saved but the document link failed. Emit both sentinels so the
-    // iframe.onload in ticklerAdd.jsp proceeds with close/refresh while showing a warning.
-%>
-<span id="tickler-save-ok" style="display:none;"></span>
+<% if (ticklerLinkFailed) { %>
 <span id="tickler-save-ok-link-failed" style="display:none;"></span>
+<% } %>
+<% if (writeToEncounterFailed) { %>
+<span id="tickler-write-encounter-failed" style="display:none;"></span>
+<% } %>
 <%}%>

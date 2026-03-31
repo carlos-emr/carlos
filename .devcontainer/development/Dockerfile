@@ -28,7 +28,7 @@ WORKDIR /workspace
 # Install required packages including Playwright browser dependencies and clean up apt lists
 # Note: Ubuntu 24.04 uses t64 packages (time_t 64-bit migration)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    dos2unix curl git wget apt-transport-https ca-certificates gnupg lsb-release \
+    dos2unix curl git wget apt-transport-https ca-certificates gnupg jq lsb-release \
     libjpeg-turbo8 \
     locales iputils-ping gettext fontconfig libc6 libfreetype6 \
     libpng16-16t64 libssl-dev libstdc++6 libx11-6 libxcb1 libxext6 libxtst6 \

@@ -876,7 +876,6 @@
         <ViolationValue>/src/main/java/ca/openosp/openo/form/FrmONARRecord.java:ResultSet rs = DBHandler.GetSQL(sql);</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/form/FrmONARRecord.java:ResultSet rs = DBHelp.searchDBRecord(sql);</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/form/FrmONARRecord.java:import ca.openosp.openo.login.DBHelp;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/form/FrmOvulationRecord.java:ResultSet rs = DBHandler.GetSQL(sql);</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/form/FrmPalliativeCareRecord.java:ResultSet rs = DBHandler.GetSQL(sql);</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/form/FrmPeriMenopausalRecord.java:ResultSet rs = DBHandler.GetSQL(sql);</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/form/FrmReceptionAssessmentRecord.java:ResultSet rs = DBHandler.GetSQL(sql);</ViolationValue>
