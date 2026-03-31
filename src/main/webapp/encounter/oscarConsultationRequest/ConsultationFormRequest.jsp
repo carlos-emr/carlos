@@ -968,7 +968,7 @@
             }).data('ui-autocomplete');
 
             if (acWidget) {
-                // Safe HTML encoding helper — avoids jQuery .text().html() chain that CodeQL flags
+                // HTML encoding helper using DOM APIs — functionally equivalent to the jQuery .text().html() idiom but uses a pattern that static analysis tools (CodeQL) can verify as safe
                 function escapeHtml(text) {
                     var div = document.createElement('div');
                     div.appendChild(document.createTextNode(text));

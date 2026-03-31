@@ -1464,12 +1464,13 @@ var EFORM_I18N = {
         var OSCAR_EFORM_SEARCH_URL = "../ws/rs/eforms/";
 
         /**
-         * Validates image src URLs to prevent XSS via javascript:/data:text/ protocol injection.
-         * Allows relative paths, http(s) URLs, and data:image/ URIs (used by signature pads).
+         * Validates image src URLs using an allowlist to prevent XSS via dangerous URI schemes
+         * (javascript:, data:text/html, etc.). Allows relative paths, http(s) URLs,
+         * data:image/ URIs (used by signature pads), and simple filenames.
          */
         function isValidImageSrc(url) {
             if (!url || typeof url !== 'string') return false;
-            if (/^(\/|\.\/|\.\.\/)/.test(url)) return true;
+            if (/^(\/(?!\/)|\.\/|\.\.\/)/.test(url)) return true;
             if (/^https?:\/\//i.test(url)) return true;
             if (/^data:image\//i.test(url)) return true;
             if (/^[\w][\w.\- ]*$/.test(url)) return true; // simple filename
@@ -2940,7 +2941,7 @@ var EFORM_I18N = {
                 class: "gen-layer1"
             }).prependTo($parentElement);
             if (srcString) {
-                $img.attr('src', encodeURI(srcString)); //escape spaces etc in the filename
+                $img.attr('src', srcString);
             }
             return $img;
         }
@@ -2965,10 +2966,11 @@ var EFORM_I18N = {
                         reader.onload = function(e) {
                             var src = $fileInput.val().replace(/C:\\fakepath\\/i, '');
                             if (!isValidImageSrc(src)) return;
+                            var encodedSrc = encodeURIComponent(src);
                             if ($img == null || $img.length <= 0) {
-                                $img = addBackgroundImage($pageDiv, src);
+                                $img = addBackgroundImage($pageDiv, encodedSrc);
                             } else {
-                                $img.attr('src', encodeURIComponent(src));
+                                $img.attr('src', encodedSrc);
                             }
                             $img.on('load', function() {
                                 var css;
