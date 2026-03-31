@@ -165,7 +165,7 @@
          * reflect any status changes made in the popup.
          */
         var consultPopupOpen = false;
-        function popupOscarRx(vheight, vwidth, varpage) {
+        function popupConsultation(vheight, vwidth, varpage) {
             var windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
             var popup = window.open(varpage, "consultPopup", windowprops);
             // Only flag reload if popup was successfully opened (not blocked by browser)
@@ -214,8 +214,14 @@
             <%= Encode.forHtml(demographic.getSex()) %> <%= Encode.forHtml(demographic.getAge()) %>
         </h4>
         <div>
+            <%
+                String newConsultUrl = request.getContextPath()
+                    + "/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp"
+                    + "?de=" + Encode.forUriComponent(demo)
+                    + "&teamVar=" + Encode.forUriComponent(team);
+            %>
             <a class="btn btn-primary btn-sm"
-               href="javascript:popupOscarRx(700,960,'${pageContext.request.contextPath}/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=<%=Encode.forUriComponent(demo)%>&teamVar=<%=Encode.forUriComponent(team)%>')">
+               href="javascript:popupConsultation(700,960,'<%= Encode.forJavaScriptAttribute(newConsultUrl) %>')">
                 <i class="fa-solid fa-plus me-1"></i><fmt:message key="encounter.oscarConsultationRequest.ConsultChoice.btnNewCon"/>
             </a>
             <input type="button" class="btn btn-secondary btn-sm"
@@ -271,6 +277,11 @@
                         case "2": urgencyKey = "encounter.oscarConsultationRequest.ConsultationFormRequest.msgNUrgent"; break;
                         case "3": urgencyKey = "encounter.oscarConsultationRequest.ConsultationFormRequest.msgReturn"; break;
                     }
+                    // Prebuild view URL for JS embedding (JS-attribute-encoded to prevent XSS)
+                    String viewRequestUrl = request.getContextPath()
+                        + "/encounter/ViewRequest.do"
+                        + "?de=" + Encode.forUriComponent(demo)
+                        + "&requestId=" + Encode.forUriComponent(id);
             %>
             <tr>
                 <td class="stat<%=Encode.forHtmlAttribute(status)%>">
@@ -284,14 +295,14 @@
                     <% } %>
                 </td>
                 <td class="stat<%=Encode.forHtmlAttribute(status)%>">
-                    <a href="javascript:popupOscarRx(700,960,'<%=request.getContextPath()%>/encounter/ViewRequest.do?de=<%=Encode.forUriComponent(demo)%>&requestId=<%=Encode.forUriComponent(id)%>')">
+                    <a href="javascript:popupConsultation(700,960,'<%= Encode.forJavaScriptAttribute(viewRequestUrl) %>')">
                         <%=Encode.forHtml(patient)%>
                     </a>
                 </td>
                 <td class="stat<%=Encode.forHtmlAttribute(status)%>"><%=Encode.forHtml(provider)%></td>
                 <td class="stat<%=Encode.forHtmlAttribute(status)%>"><%= (cProv != null) ? Encode.forHtml(cProv.getFormattedName()) : "" %></td>
                 <td class="stat<%=Encode.forHtmlAttribute(status)%>">
-                    <a href="javascript:popupOscarRx(700,960,'<%= request.getContextPath() %>/encounter/ViewRequest.do?de=<%=Encode.forUriComponent(demo)%>&requestId=<%=Encode.forUriComponent(id)%>')">
+                    <a href="javascript:popupConsultation(700,960,'<%= Encode.forJavaScriptAttribute(viewRequestUrl) %>')">
                         <%=Encode.forHtml(StringUtils.trimToEmpty(service))%>
                     </a>
                 </td>
