@@ -87,6 +87,8 @@
     <head>
 <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+<%-- global.css: CARLOS color overrides for Bootstrap (messenger pages don't use global-head.jspf) --%>
+<link rel="stylesheet" href="<%=request.getContextPath() %>/share/css/global.css">
 <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
         <c:if test="${empty msgSessionBean}">
@@ -137,7 +139,7 @@
 <div style="width:100%; margin-left:10px; margin-top: 50px;">
 <a class="btn btn-outline-secondary" href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp">
     <i class="fa-solid fa-pencil"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.btnCompose"/></a>
-<a class="btn btn-outline-secondary" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp">
+<a class="btn btn-primary" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp">
     <i class="fa-solid fa-inbox"></i>&nbsp;<fmt:message key="messenger.SentMessagebtnBack" /></a>
 <a class="btn btn-outline-secondary" href="javascript:BackToCarlos()">
     <i class="fa-solid fa-right-from-bracket"></i>&nbsp;<fmt:message key="messenger.SentMessage.btnExit" /></a>

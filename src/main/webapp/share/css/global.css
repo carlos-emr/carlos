@@ -51,6 +51,20 @@
     --bs-btn-active-border-color: color-mix(in srgb, var(--carlos-primary) 70%, black);
 }
 
+/* Retheme Bootstrap's outline-primary variant to use CARLOS blue (#337ab7)
+   instead of Bootstrap's default (#0d6efd). On hover/active the button fills
+   with the primary color, so text must flip to white for contrast. */
+.btn-outline-primary {
+    --bs-btn-color: var(--carlos-primary);
+    --bs-btn-border-color: var(--carlos-primary);
+    --bs-btn-hover-bg: var(--carlos-primary);
+    --bs-btn-hover-border-color: var(--carlos-primary);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-active-bg: var(--carlos-primary);
+    --bs-btn-active-border-color: var(--carlos-primary);
+    --bs-btn-active-color: #fff;
+}
+
 /* Bootstrap pagination — retheme to CARLOS blue via Bootstrap's own CSS
    custom properties. Must target .pagination (not .page-link) because Bootstrap
    defines these variables on the parent <ul> and child elements inherit them. */
@@ -91,7 +105,8 @@ body {
 }
 
 /* Page header bar — replaces inline styles like
-   style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd" */
+   style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd"
+   Add .page-header-bar--flex to lay the title and a search form side-by-side. */
 .page-header-bar {
     width: 100%;
     background: var(--carlos-bg-light);
@@ -103,15 +118,31 @@ body {
     justify-content: space-between;
 }
 
+.page-header-bar--flex {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
 .page-header-title {
     margin: 0;
     font-size: 18px;
     line-height: 1.4;
     display: inline-block;
+    white-space: nowrap;
 }
 
 .page-header-icon {
     vertical-align: text-bottom;
+}
+
+/* Search form inside a flex page-header-bar — fills remaining space up to a max width
+   to prevent it from dominating the header on wide viewports. */
+.page-header-search-form {
+    flex: 1;
+    max-width: 450px;
 }
 
 /* Action links — replaces legacy <b><font size="+1"> wrappers */

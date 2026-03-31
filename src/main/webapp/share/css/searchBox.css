@@ -55,3 +55,18 @@ form {
     vertical-align: text-bottom;
 }
 
+/* Adds vertical spacing between the search input row and the button row below it.
+   Uses adjacent-sibling combinator so only the second and subsequent .input-group
+   rows get the top margin; the first row stays flush. */
+.searchBox .select-group > .input-group + .input-group {
+    margin-top: 8px;
+}
+
+/* Restores rounded right corners on the Back button inside .input-group.
+   Bootstrap's .input-group strips border-radius from all but the first/last
+   visible child; !important is required to override that specificity. */
+.searchBox .search-back-btn {
+    border-top-right-radius: var(--bs-border-radius) !important;
+    border-bottom-right-radius: var(--bs-border-radius) !important;
+}
+
