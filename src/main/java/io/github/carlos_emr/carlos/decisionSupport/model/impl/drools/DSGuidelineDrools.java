@@ -330,8 +330,13 @@ public class DSGuidelineDrools extends DSGuideline {
                     if (!isAllowedDsParameterClass(className)) {
                         // Log the rejected class name at DEBUG only; the public exception
                         // uses a generic message to avoid leaking DB content into logs or
-                        // stack traces that may surface in application responses.
-                        log.debug("DSParameter class rejected by allowlist: {}", className);
+                        // stack traces that may surface in application responses. Sanitize the
+                        // class name to avoid log forging (e.g., embedded newlines) from XML/DB content.
+                        String sanitizedClassName = StringUtils.replaceEach(
+                                StringUtils.defaultString(className),
+                                new String[] { "\r", "\n" },
+                                new String[] { " ", " " });
+                        log.debug("DSParameter class rejected by allowlist: {}", sanitizedClassName);
                         throw new DecisionSupportException(
                                 "DSParameter class is not in the permitted package prefix '"
                                 + ALLOWED_DS_PARAMETER_PACKAGE_PREFIX
