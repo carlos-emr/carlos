@@ -36,8 +36,8 @@ class PDFGenerationExceptionUnitTest {
     }
 
     @Test
-    @DisplayName("should be a RuntimeException")
-    void shouldBeRuntimeException() {
-        assertThat(new PDFGenerationException("test")).isInstanceOf(RuntimeException.class);
+    @DisplayName("should be an Exception")
+    void shouldBeException() {
+        assertThat(new PDFGenerationException("test")).isInstanceOf(Exception.class);
     }
 }

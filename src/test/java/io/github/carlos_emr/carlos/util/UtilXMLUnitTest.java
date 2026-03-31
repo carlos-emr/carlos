@@ -121,7 +121,7 @@ class UtilXMLUnitTest {
         @Test
         @DisplayName("should parse XML string to Document")
         void shouldParseXmlString() {
-            Document doc = UtilXML.parseXMLDocument("<root><child>value</child></root>");
+            Document doc = UtilXML.parseXML("<root><child>value</child></root>");
             assertThat(doc).isNotNull();
             assertThat(doc.getDocumentElement().getTagName()).isEqualTo("root");
         }
@@ -129,7 +129,7 @@ class UtilXMLUnitTest {
         @Test
         @DisplayName("should return null for null input")
         void shouldReturnNull_forNull() {
-            Document doc = UtilXML.parseXMLDocument(null);
+            Document doc = UtilXML.parseXML(null);
             assertThat(doc).isNull();
         }
     }
@@ -146,7 +146,7 @@ class UtilXMLUnitTest {
             UtilXML.addNode(root, "field", "hello");
 
             String xml = UtilXML.toXML(doc);
-            Document parsed = UtilXML.parseXMLDocument(xml);
+            Document parsed = UtilXML.parseXML(xml);
 
             assertThat(parsed).isNotNull();
             assertThat(parsed.getDocumentElement().getTagName()).isEqualTo("data");

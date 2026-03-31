@@ -20,9 +20,9 @@ import static org.assertj.core.api.Assertions.*;
 class NotAuthorisedExceptionUnitTest {
 
     @Test
-    @DisplayName("should be a RuntimeException")
-    void shouldBeRuntimeException() {
-        assertThat(new NotAuthorisedException()).isInstanceOf(RuntimeException.class);
+    @DisplayName("should be an Exception")
+    void shouldBeException() {
+        assertThat(new NotAuthorisedException("test")).isInstanceOf(Exception.class);
     }
 
     @Test

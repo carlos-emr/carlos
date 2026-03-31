@@ -10,7 +10,8 @@ package io.github.carlos_emr.carlos.utility;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.*;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -23,11 +24,14 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("unit") @Tag("fast") @Tag("utility")
 class JsonUtilUnitTest {
 
-    static class SimpleBean {
+    public static class SimpleBean {
         private String name = "test";
         private int value = 42;
+        public SimpleBean() {}
         public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
         public int getValue() { return value; }
+        public void setValue(int value) { this.value = value; }
     }
 
     @Nested
@@ -74,23 +78,17 @@ class JsonUtilUnitTest {
     }
 
     @Nested
-    @DisplayName("jsonStringToHashMap")
-    class JsonStringToHashMap {
+    @DisplayName("jsonToPojo")
+    class JsonToPojo {
 
         @Test
-        @DisplayName("should parse JSON object to HashMap")
-        void shouldParseJson_toHashMap() {
-            String json = "{\"name\":\"John\",\"age\":\"30\"}";
-            HashMap<String, String> map = JsonUtil.jsonStringToHashMap(json);
-            assertThat(map).containsEntry("name", "John");
-            assertThat(map).containsEntry("age", "30");
-        }
-
-        @Test
-        @DisplayName("should return empty map for empty JSON object")
-        void shouldReturnEmptyMap_forEmptyJson() {
-            HashMap<String, String> map = JsonUtil.jsonStringToHashMap("{}");
-            assertThat(map).isEmpty();
+        @DisplayName("should deserialize JSON string to POJO")
+        void shouldDeserializeJson_toPojo() {
+            String json = "{\"name\":\"John\",\"value\":99}";
+            SimpleBean bean = (SimpleBean) JsonUtil.jsonToPojo(json, SimpleBean.class);
+            assertThat(bean).isNotNull();
+            assertThat(bean.getName()).isEqualTo("John");
+            assertThat(bean.getValue()).isEqualTo(99);
         }
     }
 }

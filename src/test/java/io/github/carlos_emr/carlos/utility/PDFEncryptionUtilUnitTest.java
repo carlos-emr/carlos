@@ -20,10 +20,10 @@ import static org.assertj.core.api.Assertions.*;
 class PDFEncryptionUtilUnitTest {
 
     @Test
-    @DisplayName("should have encryptPdf method accessible")
-    void shouldHaveEncryptPdfMethod() {
+    @DisplayName("should have encryptPDF method accessible")
+    void shouldHaveEncryptPDFMethod() {
         // Verify the class loads and the static method exists
-        assertThatCode(() -> PDFEncryptionUtil.class.getMethod("encryptPdf", java.nio.file.Path.class))
+        assertThatCode(() -> PDFEncryptionUtil.class.getMethod("encryptPDF", java.nio.file.Path.class, String.class))
                 .doesNotThrowAnyException();
     }
 }

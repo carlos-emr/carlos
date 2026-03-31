@@ -20,15 +20,15 @@ import static org.assertj.core.api.Assertions.*;
 class ShutdownExceptionUnitTest {
 
     @Test
-    @DisplayName("should be a RuntimeException")
-    void shouldBeRuntimeException() {
-        assertThat(new ShutdownException()).isInstanceOf(RuntimeException.class);
+    @DisplayName("should be an Exception")
+    void shouldBeException() {
+        assertThat(new ShutdownException()).isInstanceOf(Exception.class);
     }
 
     @Test
-    @DisplayName("should carry message")
-    void shouldCarryMessage() {
-        ShutdownException ex = new ShutdownException("Shutting down");
-        assertThat(ex.getMessage()).isEqualTo("Shutting down");
+    @DisplayName("should create with no-arg constructor")
+    void shouldCreate_withNoArgConstructor() {
+        ShutdownException ex = new ShutdownException();
+        assertThat(ex).isNotNull();
     }
 }

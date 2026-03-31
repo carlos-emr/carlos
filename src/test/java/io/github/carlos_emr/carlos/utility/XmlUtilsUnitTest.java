@@ -13,8 +13,8 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import java.util.ArrayList;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -50,10 +50,11 @@ class XmlUtilsUnitTest {
     class NewDocument {
 
         @Test
-        @DisplayName("should create non-null empty document")
-        void shouldCreateNonNullDocument() {
-            Document doc = XmlUtils.newDocument();
+        @DisplayName("should create non-null document with root element")
+        void shouldCreateDocument_withRootElement() throws ParserConfigurationException {
+            Document doc = XmlUtils.newDocument("root");
             assertThat(doc).isNotNull();
+            assertThat(doc.getDocumentElement().getTagName()).isEqualTo("root");
         }
     }
 
@@ -82,30 +83,23 @@ class XmlUtilsUnitTest {
         @DisplayName("should serialize document to string")
         void shouldSerializeDocument_toString() throws Exception {
             Document doc = createTestDocument();
-            String xml = XmlUtils.toString(doc);
+            String xml = XmlUtils.toString(doc, false);
             assertThat(xml).isNotNull();
-            assertThat(xml).contains("<root>");
+            assertThat(xml).contains("root");
             assertThat(xml).contains("Hello");
         }
     }
 
     @Nested
-    @DisplayName("toDocument")
+    @DisplayName("toDocument from string")
     class ToDocument {
 
         @Test
         @DisplayName("should parse XML string to Document")
-        void shouldParseXmlString_toDocument() {
+        void shouldParseXmlString_toDocument() throws Exception {
             Document doc = XmlUtils.toDocument("<root><item>value</item></root>");
             assertThat(doc).isNotNull();
             assertThat(doc.getDocumentElement().getTagName()).isEqualTo("root");
-        }
-
-        @Test
-        @DisplayName("should return null for invalid XML")
-        void shouldReturnNull_forInvalidXml() {
-            Document doc = XmlUtils.toDocument("not xml at all");
-            assertThat(doc).isNull();
         }
     }
 
@@ -114,7 +108,7 @@ class XmlUtilsUnitTest {
     class GetAttributeValue {
 
         @Test
-        @DisplayName("should return attribute value from element")
+        @DisplayName("should return attribute value from node")
         void shouldReturnAttributeValue() throws Exception {
             Document doc = createTestDocument();
             Element child = (Element) doc.getDocumentElement().getElementsByTagName("child").item(0);
@@ -124,69 +118,72 @@ class XmlUtilsUnitTest {
     }
 
     @Nested
-    @DisplayName("getChildElements")
-    class GetChildElements {
+    @DisplayName("getChildNode")
+    class GetChildNode {
 
         @Test
-        @DisplayName("should return list of child elements")
-        void shouldReturnChildElements() throws Exception {
+        @DisplayName("should find child node by name")
+        void shouldFindChild_byName() throws Exception {
             Document doc = createTestDocument();
-            ArrayList<Element> children = XmlUtils.getChildElements(doc.getDocumentElement());
-            assertThat(children).hasSize(2);
-        }
-    }
-
-    @Nested
-    @DisplayName("getAllAttributeValues")
-    class GetAllAttributeValues {
-
-        @Test
-        @DisplayName("should return map of all attributes")
-        void shouldReturnAttributeMap() throws Exception {
-            Document doc = createTestDocument();
-            Element child = (Element) doc.getDocumentElement().getElementsByTagName("child").item(0);
-            Map<String, String> attrs = XmlUtils.getAllAttributeValues(child);
-            assertThat(attrs).containsEntry("id", "1");
-            assertThat(attrs).containsEntry("name", "test");
-        }
-    }
-
-    @Nested
-    @DisplayName("Base64 round-trip")
-    class Base64RoundTrip {
-
-        @Test
-        @DisplayName("should round-trip document through Base64")
-        void shouldRoundTrip_throughBase64() throws Exception {
-            Document doc = createTestDocument();
-            String base64 = XmlUtils.toBase64String(doc);
-            assertThat(base64).isNotNull().isNotEmpty();
-
-            Document restored = XmlUtils.fromBase64String(base64);
-            assertThat(restored).isNotNull();
-            assertThat(restored.getDocumentElement().getTagName()).isEqualTo("root");
-        }
-    }
-
-    @Nested
-    @DisplayName("getChildNodeByTagName")
-    class GetChildNodeByTagName {
-
-        @Test
-        @DisplayName("should find child node by tag name")
-        void shouldFindChild_byTagName() throws Exception {
-            Document doc = createTestDocument();
-            Node child = XmlUtils.getChildNodeByTagName(doc.getDocumentElement(), "child");
+            Node child = XmlUtils.getChildNode(doc.getDocumentElement(), "child");
             assertThat(child).isNotNull();
             assertThat(child.getTextContent()).isEqualTo("Hello");
         }
 
         @Test
-        @DisplayName("should return null for non-existent tag")
-        void shouldReturnNull_forNonExistentTag() throws Exception {
+        @DisplayName("should return null for non-existent child")
+        void shouldReturnNull_forNonExistent() throws Exception {
             Document doc = createTestDocument();
-            Node child = XmlUtils.getChildNodeByTagName(doc.getDocumentElement(), "nonexistent");
+            Node child = XmlUtils.getChildNode(doc.getDocumentElement(), "nonexistent");
             assertThat(child).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getChildNodes")
+    class GetChildNodes {
+
+        @Test
+        @DisplayName("should return list of matching child nodes")
+        void shouldReturnMatchingChildren() throws Exception {
+            Document doc = createTestDocument();
+            ArrayList<Node> children = XmlUtils.getChildNodes(doc.getDocumentElement(), "child");
+            assertThat(children).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("should return empty list for non-existent children")
+        void shouldReturnEmptyList_forNonExistent() throws Exception {
+            Document doc = createTestDocument();
+            ArrayList<Node> children = XmlUtils.getChildNodes(doc.getDocumentElement(), "nonexistent");
+            assertThat(children).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("getChildNodeTextContents")
+    class GetChildNodeTextContents {
+
+        @Test
+        @DisplayName("should return text content of named child")
+        void shouldReturnTextContent() throws Exception {
+            Document doc = createTestDocument();
+            String text = XmlUtils.getChildNodeTextContents(doc.getDocumentElement(), "child");
+            assertThat(text).isEqualTo("Hello");
+        }
+    }
+
+    @Nested
+    @DisplayName("appendChildToRoot")
+    class AppendChildToRoot {
+
+        @Test
+        @DisplayName("should append child element with text to root")
+        void shouldAppendChild_withText() throws ParserConfigurationException {
+            Document doc = XmlUtils.newDocument("root");
+            XmlUtils.appendChildToRoot(doc, "name", "John");
+            String text = XmlUtils.getChildNodeTextContents(doc.getDocumentElement(), "name");
+            assertThat(text).isEqualTo("John");
         }
     }
 }

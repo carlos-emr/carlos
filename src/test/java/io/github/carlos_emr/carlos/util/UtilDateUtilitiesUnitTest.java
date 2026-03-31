@@ -9,8 +9,6 @@ package io.github.carlos_emr.carlos.util;
 
 import org.junit.jupiter.api.*;
 
-import io.github.carlos_emr.carlos.PMmodule.utility.UtilDateUtilities;
-
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -37,7 +35,7 @@ class UtilDateUtilitiesUnitTest {
         @Test
         @DisplayName("should parse date with default pattern yyyy-MM-dd")
         void shouldParseDateWithDefaultPattern() {
-            Date result = io.github.carlos_emr.carlos.util.UtilDateUtilities.StringToDate("2026-03-31");
+            Date result = UtilDateUtilities.StringToDate("2026-03-31");
             assertThat(result).isNotNull();
             Calendar cal = Calendar.getInstance();
             cal.setTime(result);
@@ -47,21 +45,21 @@ class UtilDateUtilitiesUnitTest {
         @Test
         @DisplayName("should parse date with custom pattern")
         void shouldParseDate_withCustomPattern() {
-            Date result = io.github.carlos_emr.carlos.util.UtilDateUtilities.StringToDate("31/03/2026", "dd/MM/yyyy");
+            Date result = UtilDateUtilities.StringToDate("31/03/2026", "dd/MM/yyyy");
             assertThat(result).isNotNull();
         }
 
         @Test
         @DisplayName("should return null for invalid date string")
         void shouldReturnNull_forInvalidDate() {
-            Date result = io.github.carlos_emr.carlos.util.UtilDateUtilities.StringToDate("not-a-date");
+            Date result = UtilDateUtilities.StringToDate("not-a-date");
             assertThat(result).isNull();
         }
 
         @Test
         @DisplayName("should return null for null input")
         void shouldReturnNull_forNull() {
-            Date result = io.github.carlos_emr.carlos.util.UtilDateUtilities.StringToDate(null);
+            Date result = UtilDateUtilities.StringToDate(null);
             assertThat(result).isNull();
         }
     }
@@ -75,14 +73,14 @@ class UtilDateUtilitiesUnitTest {
         void shouldFormatDate_withDefaultPattern() {
             Calendar cal = Calendar.getInstance();
             cal.set(2026, Calendar.MARCH, 31);
-            String result = io.github.carlos_emr.carlos.util.UtilDateUtilities.DateToString(cal.getTime());
+            String result = UtilDateUtilities.DateToString(cal.getTime());
             assertThat(result).isEqualTo("2026-03-31");
         }
 
         @Test
         @DisplayName("should return empty string for null date")
         void shouldReturnEmpty_forNull() {
-            assertThat(io.github.carlos_emr.carlos.util.UtilDateUtilities.DateToString(null)).isEmpty();
+            assertThat(UtilDateUtilities.DateToString(null)).isEmpty();
         }
 
         @Test
@@ -90,7 +88,7 @@ class UtilDateUtilitiesUnitTest {
         void shouldFormat_withCustomPattern() {
             Calendar cal = Calendar.getInstance();
             cal.set(2026, Calendar.MARCH, 31);
-            String result = io.github.carlos_emr.carlos.util.UtilDateUtilities.DateToString(cal.getTime(), "dd/MM/yyyy");
+            String result = UtilDateUtilities.DateToString(cal.getTime(), "dd/MM/yyyy");
             assertThat(result).isEqualTo("31/03/2026");
         }
     }
@@ -104,7 +102,7 @@ class UtilDateUtilitiesUnitTest {
         void shouldExtractYear() {
             Calendar cal = Calendar.getInstance();
             cal.set(2026, Calendar.MARCH, 31);
-            assertThat(io.github.carlos_emr.carlos.util.UtilDateUtilities.justYear(cal.getTime())).isEqualTo("2026");
+            assertThat(UtilDateUtilities.justYear(cal.getTime())).isEqualTo("2026");
         }
 
         @Test
@@ -112,7 +110,7 @@ class UtilDateUtilitiesUnitTest {
         void shouldExtractMonth() {
             Calendar cal = Calendar.getInstance();
             cal.set(2026, Calendar.MARCH, 31);
-            assertThat(io.github.carlos_emr.carlos.util.UtilDateUtilities.justMonth(cal.getTime())).isEqualTo("03");
+            assertThat(UtilDateUtilities.justMonth(cal.getTime())).isEqualTo("03");
         }
 
         @Test
@@ -120,7 +118,7 @@ class UtilDateUtilitiesUnitTest {
         void shouldExtractDay() {
             Calendar cal = Calendar.getInstance();
             cal.set(2026, Calendar.MARCH, 31);
-            assertThat(io.github.carlos_emr.carlos.util.UtilDateUtilities.justDay(cal.getTime())).isEqualTo("31");
+            assertThat(UtilDateUtilities.justDay(cal.getTime())).isEqualTo("31");
         }
     }
 
@@ -131,7 +129,7 @@ class UtilDateUtilitiesUnitTest {
         @Test
         @DisplayName("should create date from year, month, day strings")
         void shouldCreateDate_fromStrings() {
-            Date result = io.github.carlos_emr.carlos.util.UtilDateUtilities.calcDate("2026", "3", "31");
+            Date result = UtilDateUtilities.calcDate("2026", "3", "31");
             assertThat(result).isNotNull();
             Calendar cal = Calendar.getInstance();
             cal.setTime(result);
@@ -142,7 +140,7 @@ class UtilDateUtilitiesUnitTest {
         @Test
         @DisplayName("should return null for null components")
         void shouldReturnNull_forNullComponents() {
-            assertThat(io.github.carlos_emr.carlos.util.UtilDateUtilities.calcDate(null, "3", "31")).isNull();
+            assertThat(UtilDateUtilities.calcDate(null, "3", "31")).isNull();
         }
     }
 
@@ -153,7 +151,7 @@ class UtilDateUtilitiesUnitTest {
         @Test
         @DisplayName("should return today in specified format")
         void shouldReturnToday_inFormat() {
-            String result = io.github.carlos_emr.carlos.util.UtilDateUtilities.getToday("yyyy-MM-dd");
+            String result = UtilDateUtilities.getToday("yyyy-MM-dd");
             assertThat(result).matches("\\d{4}-\\d{2}-\\d{2}");
         }
     }
@@ -166,8 +164,8 @@ class UtilDateUtilitiesUnitTest {
         @DisplayName("should survive StringToDate then DateToString round-trip")
         void shouldSurviveRoundTrip() {
             String original = "2026-03-31";
-            Date parsed = io.github.carlos_emr.carlos.util.UtilDateUtilities.StringToDate(original);
-            String formatted = io.github.carlos_emr.carlos.util.UtilDateUtilities.DateToString(parsed);
+            Date parsed = UtilDateUtilities.StringToDate(original);
+            String formatted = UtilDateUtilities.DateToString(parsed);
             assertThat(formatted).isEqualTo(original);
         }
     }

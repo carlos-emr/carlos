@@ -46,12 +46,20 @@ class AppenderUnitTest {
     }
 
     @Test
-    @DisplayName("should skip empty in appendNonEmpty")
-    void shouldSkipEmpty_inAppendNonEmpty() {
+    @DisplayName("should return false and not append when null encountered in appendNonEmpty")
+    void shouldReturnFalse_whenNullEncountered() {
         Appender appender = new Appender();
-        appender.appendNonEmpty("hello", null, "", "world");
-        assertThat(appender.toString()).contains("hello");
-        assertThat(appender.toString()).contains("world");
+        boolean result = appender.appendNonEmpty("hello", null, "world");
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    @DisplayName("should append all non-null objects with appendNonEmpty")
+    void shouldAppendAll_whenNoNulls() {
+        Appender appender = new Appender();
+        boolean result = appender.appendNonEmpty("hello", " ", "world");
+        assertThat(result).isTrue();
+        assertThat(appender.toString()).contains("hello world");
     }
 
     @Test
