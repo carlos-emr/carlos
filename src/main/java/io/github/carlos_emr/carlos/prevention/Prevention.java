@@ -385,6 +385,9 @@ public class Prevention {
         return i;
     }
 
+    /**
+     * Calculates the number of days between two dates.
+     */
     private int getNumDays(Date dStart, Date dEnd) {
         long diffDays = -1;
         if (dStart == null || dEnd == null) return -1;
