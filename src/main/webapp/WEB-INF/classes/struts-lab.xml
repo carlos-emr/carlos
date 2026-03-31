@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
+<!--
+    CARLOS EMR - Laboratory Actions
+    Contains action mappings for laboratory results, uploads, and lab document management.
+-->
+<struts>
+    <package name="lab" namespace="/" extends="struts-default">
+
+        <action name="lab/CA/ALL/createLabLabel" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.CreateLabLabel2Action">
+            <result name="complete">/lab/CA/ALL/labDisplay.jsp</result>
+        </action>
+        <action name="lab/CA/ALL/PrintPDF" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.PrintLabs2Action">
+            <result name="error">/lab/CA/ALL/labDisplay.jsp</result>
+        </action>
+        <action name="lab/CA/ALL/UnlinkDemographic" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.UnlinkDemographic2Action">
+            <result name="success">/oscarMDS/Close.jsp</result>
+        </action>
+        <action name="oscarMDS/FileLabs" class="io.github.carlos_emr.carlos.lab.pageUtil.FileLabs2Action">
+            <result name="failure">/errorpage.jsp</result>
+            <result name="success">/documentManager/inboxManage.do?method=prepareForIndexPage</result>
+        </action>
+        <action name="oscarMDS/ForwardingRules" class="io.github.carlos_emr.carlos.lab.pageUtil.ForwardingRules2Action">
+            <result name="failure">/errorpage.jsp</result>
+            <result name="success">/oscarMDS/ForwardingRules.jsp</result>
+        </action>
+        <action name="admin/ForwardingRules" class="io.github.carlos_emr.carlos.lab.pageUtil.ForwardingRules2Action">
+            <result name="failure">/errorpage.jsp</result>
+            <result name="success">/admin/labforwardingrules.jsp</result>
+        </action>
+        <action name="lab/labUpload" class="io.github.carlos_emr.carlos.lab.ca.bc.PathNet.pageUtil.LabUpload2Action">
+            <result name="success">/lab/CA/BC/LabUpload.jsp</result>
+        </action>
+        <action name="lab/newLabUpload" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabUpload2Action">
+            <result name="success">/lab/CA/ALL/uploadComplete.jsp</result>
+        </action>
+        <action name="lab/CA/ALL/insideLabUpload" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.InsideLabUpload2Action">
+            <interceptor-ref name="defaultStack"/>
+            <result name="success">/lab/CA/ALL/testUploader.jsp</result>
+            <result name="input">/lab/CA/ALL/testUploader.jsp</result>
+        </action>
+        <action name="lab/CA/ALL/oruR01Upload" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.OruR01Upload2Action">
+            <result name="result">/common/genericResultPage.jsp</result>
+        </action>
+        <action name="lab/CMLlabUpload" class="io.github.carlos_emr.carlos.lab.ca.on.CML.Upload.LabUpload2Action">
+            <result name="success">/lab/CA/ON/uploadComplete.jsp</result>
+        </action>
+        <action name="oscarMDS/SubmitLab" class="io.github.carlos_emr.carlos.lab.ca.all.web.SubmitLabByForm2Action">
+            <result name="manage">/oscarMDS/CreateLab.jsp</result>
+        </action>
+        <action name="lab/DownloadEmbeddedDocumentFromLab" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.DownloadEmbeddedDocumentFromLab2Action"/>
+
+    </package>
+</struts>

@@ -39,4 +39,13 @@ public interface ServiceSpecialistsDao extends AbstractDao<ServiceSpecialists> {
     List<ServiceSpecialists> findByServiceId(int serviceId);
 
     List<Object[]> findSpecialists(Integer servId);
+
+    /**
+     * Returns all specialists across all services, joined with service metadata.
+     * Each row is an Object[] of [ServiceSpecialists, ProfessionalSpecialist, ConsultationServices].
+     * A specialist belonging to multiple services appears once per service.
+     *
+     * @return List of Object[] tuples ordered by specialist last name then service description
+     */
+    List<Object[]> findAllSpecialistsWithService();
 }

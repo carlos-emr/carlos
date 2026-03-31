@@ -580,9 +580,10 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
-    <title>Ontario Billing</title>
+    <title><fmt:message key="oscar.billing.ca.on.billingON.title"/></title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
@@ -630,7 +631,7 @@
     <!-- main calendar program -->
     <script type="text/javascript" src="${ pageContext.request.contextPath }/share/calendar/calendar.js"></script>
     <!-- language for the calendar -->
-    <script src="${ pageContext.request.contextPath }/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+    <script src="${ pageContext.request.contextPath }/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
     <!-- the following script defines the Calendar.setup helper function, which makes
            adding a calendar a matter of 1 or 2 lines of code. -->
     <script type="text/javascript"
@@ -638,6 +639,8 @@
 
     <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="${ pageContext.request.contextPath }/library/jquery/jquery-compat.js"></script>
+    <link rel="stylesheet" href="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.14.2.min.css"/>
+    <script src="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.14.2.min.js"></script>
 
     <!-- to load for example /oscar/js/custom/ocean/global.js and /oscar/js/custom/ocean/billing.js although those are not present in stock -->
     <oscar:customInterface section="billing"/>
@@ -993,11 +996,9 @@
             if (!document.forms[0].rfcheck.checked) {
                 document.forms[0].referralCode.value = "";
                 document.forms[0].referralDocName.value = "";
-                document.forms[0].referralSpet.value = "";
             } else {
                 document.forms[0].referralCode.value = "<%=r_doctor_ohip%>";
                 document.forms[0].referralDocName.value = "<%=r_doctor%>";
-                document.forms[0].referralSpet.value = "<%=referSpet%>";
             }
         }
 
@@ -1157,6 +1158,138 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
 
         //-->
     </script>
+
+    <%-- Autocomplete styles: code items are one-line with ellipsis; referral items are two-row --%>
+    <style>
+        .billing-ac-item { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 6px; cursor: pointer; }
+        .billing-ac-item strong { font-weight: 600; }
+        .billing-ac-ref-row1 { padding: 2px 6px; }
+        .billing-ac-ref-row2 { padding: 1px 6px; font-size: 0.82em; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ui-autocomplete { max-height: 280px; overflow-y: auto; overflow-x: hidden; z-index: 9999 !important; }
+        .ui-menu-item > div:hover, .ui-menu-item:hover { background-color: #e8f0fe; }
+    </style>
+    <fmt:message var="searchLabelMsg" key="billing.billingDigSearch.btnSearch"/>
+
+    <script>
+    jQuery(document).ready(function () {
+        var ctx = "${pageContext.request.contextPath}";
+        var searchLabel = '<%=Encode.forJavaScript((String) pageContext.getAttribute("searchLabelMsg"))%>';
+
+        // Safe HTML escaping for autocomplete rendering
+        function escHtml(s) {
+            return jQuery("<div>").text(s || "").html();
+        }
+
+        // One-line rendering: <b>CODE</b> – description (truncated)
+        function renderCodeItem(ul, item) {
+            var li = jQuery("<li>").addClass("ui-menu-item");
+            var inner = jQuery("<div>").addClass("billing-ac-item");
+            inner.html("<strong>" + escHtml(item.code) + "</strong> \u2013 " + escHtml(item.description));
+            li.append(inner).appendTo(ul);
+            return li;
+        }
+
+        // Two-row rendering for referral doctors
+        function renderRefDocItem(ul, item) {
+            var li = jQuery("<li>").addClass("ui-menu-item");
+            var row1 = jQuery("<div>").addClass("billing-ac-ref-row1");
+            var nameHtml = "<strong>" + escHtml(item.lastName) + (item.firstName ? ", " + escHtml(item.firstName) : "") + "</strong>";
+            if (item.specialtyType) {
+                nameHtml += " <span class=\"badge rounded-pill border border-secondary text-secondary py-0\" style=\"font-size:0.78em\">" + escHtml(item.specialtyType) + "</span>";
+            }
+            row1.html(nameHtml);
+            var row2 = jQuery("<div>").addClass("billing-ac-ref-row2");
+            var info = [];
+            if (item.streetAddress) info.push(escHtml(item.streetAddress));
+            if (item.phoneNumber) info.push(escHtml(item.phoneNumber));
+            row2.html(info.join(" &nbsp;|&nbsp; ") || "&nbsp;");
+            li.append(row1).append(row2).appendTo(ul);
+            return li;
+        }
+
+        // Attach code autocomplete with custom rendering to a jQuery set
+        function initCodeAutocomplete($inputs, ajaxUrl) {
+            $inputs.each(function () {
+                var $input = jQuery(this);
+                $input.attr("placeholder", searchLabel);
+                var inst = $input.autocomplete({
+                    source: function (request, response) {
+                        jQuery.getJSON(ctx + ajaxUrl, {term: request.term}, response);
+                    },
+                    minLength: 2,
+                    delay: 250,
+                    select: function (event, ui) {
+                        this.value = ui.item.code;
+                        if (typeof changeCodeDesc === "function") setTimeout(changeCodeDesc, 10);
+                        return false;
+                    }
+                }).data("ui-autocomplete");
+                if (inst) inst._renderItem = renderCodeItem;
+            });
+        }
+
+        // Dx diagnosis code fields
+        initCodeAutocomplete(jQuery("input[name^='dxCode']"), "/billing/CA/ON/billingDigSearchAjax.jsp");
+
+        // Billing service code fields
+        initCodeAutocomplete(jQuery("input[name^='serviceCode']"), "/billing/CA/ON/billingCodeSearchAjax.jsp");
+
+        // Referral doctor fields: referralCode and referralDocName both trigger search
+        function initRefDocAutocomplete(inputEl) {
+            var inst = jQuery(inputEl).autocomplete({
+                source: function (request, response) {
+                    jQuery.getJSON(ctx + "/billing/CA/ON/searchRefDocAjax.jsp", {term: request.term}, response);
+                },
+                minLength: 2,
+                delay: 300,
+                select: function (event, ui) {
+                    var form = document.forms[0];
+                    if (form.referralCode)    form.referralCode.value    = ui.item.referralNo || "";
+                    if (form.referralDocName) form.referralDocName.value = (ui.item.lastName || "") + (ui.item.firstName ? ", " + ui.item.firstName : "");
+                    return false;
+                }
+            }).data("ui-autocomplete");
+            if (inst) inst._renderItem = renderRefDocItem;
+        }
+
+        var form = document.forms[0];
+        if (form) {
+            if (form.referralCode)    initRefDocAutocomplete(form.referralCode);
+            if (form.referralDocName) initRefDocAutocomplete(form.referralDocName);
+        }
+
+        // billFormName autocomplete using the billing forms array embedded in the page
+        var $bf = jQuery("#billFormName");
+        $bf.prop("readonly", false);
+        if ($bf.length && typeof _billingForms !== "undefined") {
+            $bf.autocomplete({
+                source: function (request, response) {
+                    var term = request.term.toLowerCase();
+                    response(jQuery.grep(_billingForms, function (item) {
+                        return item.name.toLowerCase().indexOf(term) >= 0 ||
+                               item.code.toLowerCase().indexOf(term) >= 0;
+                    }));
+                },
+                minLength: 1,
+                select: function (event, ui) {
+                    this.value = ui.item.name;
+                    toggleDiv(ui.item.code, ui.item.name, ui.item.billType);
+                    showHideLayers("Layer1", "", "hide");
+                    return false;
+                }
+            });
+            var bfInst = $bf.data("ui-autocomplete");
+            if (bfInst) {
+                bfInst._renderItem = function (ul, item) {
+                    return jQuery("<li>").addClass("ui-menu-item")
+                        .append(jQuery("<div>").addClass("billing-ac-item")
+                            .html("<strong>" + escHtml(item.code) + "</strong> \u2013 " + escHtml(item.name)))
+                        .appendTo(ul);
+                };
+            }
+        }
+    });
+    </script>
 </head>
 
 <body onload="prepareBack();changeCodeDesc();getDays();">
@@ -1168,9 +1301,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                              onclick="showHideBox('Instrdiv',0); return false;">X</a></th>
         </tr>
         <tr>
-            <td><a href="javascript:void(0);" style="color:black"
-                   onclick="showHideBox('Instrdiv',0); return false;">Double clicking any code below will move up
-                to specialist billing.<br>&nbsp;</a></td>
+            <td><fmt:message key="oscar.billing.ca.on.billingON.defaultUnitAt"/></td>
         </tr>
 
     </table>
@@ -1180,7 +1311,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
     <table style="width: 98%; margin:auto; ">
         <tr>
             <td style="width: 96%; background-color:silver; height:12px;">
-                <b>Billing Form</b></td>
+                <b><fmt:message key="oscar.billing.ca.on.billingON.billingFormLayer"/></b></td>
             <td style="width: 3%; background-color:silver; height:12px;"><b><a href="javascript:void(0);"
                                                                                onclick="showHideLayers('Layer1','','hide');return false;">X</a></b>
             </td>
@@ -1213,13 +1344,33 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
         <%}%>
     </table>
 </div>
+<%-- Build billing form data for billFormName autocomplete --%>
+<script>
+var _billingForms = [
+<%
+boolean _bfFirst = true;
+CtlBillingServiceDao _ctlBSDao2 = SpringUtils.getBean(CtlBillingServiceDao.class);
+CtlBillingTypeDao _ctlBTDao2 = SpringUtils.getBean(CtlBillingTypeDao.class);
+for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
+    String _bfCode = String.valueOf(_bs2[1]);
+    String _bfName = String.valueOf(_bs2[0]);
+    String _bfBillType = "";
+    for (CtlBillingType _bt2 : _ctlBTDao2.findByServiceType(_bfCode)) {
+        _bfBillType = _bt2.getBillType();
+    }
+    if (!_bfFirst) { out.print(","); }
+    _bfFirst = false;
+%>{"code":"<%=Encode.forJavaScript(_bfCode)%>","name":"<%=Encode.forJavaScript(_bfName)%>","billType":"<%=Encode.forJavaScript(_bfBillType)%>","label":"<%=Encode.forJavaScript(_bfName)%>","value":"<%=Encode.forJavaScript(_bfName)%>"}
+<%}%>
+];
+</script>
 
 <div id="Layer2"
      style="position: absolute; left: 1px; top: 26px; width: 435px; height: 680px; z-index: 2; background-color: #FFCC00; border: 1px none #000000; visibility: hidden">
     <table style="width: 98%; margin:auto;">
         <tr>
-            <td style="width: 10%"><b>DxCode</b></td>
-            <td style="width: 85%"><b>Description</b></td>
+            <td style="width: 10%"><b><fmt:message key="oscar.billing.ca.on.billingON.dxCode"/></b></td>
+            <td style="width: 85%"><b><fmt:message key="oscar.billing.ca.on.billingON.description"/></b></td>
             <td><a href="javascript:void(0);" onclick="showHideLayers('Layer2','','hide');return false">
             </a>
             </td>
@@ -1282,13 +1433,13 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
     <table class="xmyDarkGreen"
            style="width: 100%; background-color: silver;">
         <tr>
-            <td><H4><i class="fa-solid fa-money-bill" style="margin-left:10px;"></i>&nbsp;Ontario Billing</H4></td>
+            <td><H4><i class="fa-solid fa-money-bill" style="margin-left:10px;"></i>&nbsp;<fmt:message key="oscar.billing.ca.on.billingON.headerTitle"/></H4></td>
             <td style="text-align: right"><i class="fa-solid fa-circle-question"></i>&nbsp;
                 <i class="fa-solid fa-pen-to-square"></i><a href="javascript:void(0);"
                                               onclick="popupPage(800,700,'billingONfavourite.jsp'); return false;">
-                    Edit
+                    <fmt:message key="oscar.billing.ca.on.billingON.edit"/>
                 </a> <select name="cutlist" id="cutlist" onchange="changeCut(this)">
-                    <option selected="selected" value="">- SUPER CODES -</option>
+                    <option selected="selected" value=""><fmt:message key="oscar.billing.ca.on.billingON.superCodes"/></option>
                     <% //
                         List sL = tdbObj.getBillingFavouriteList();
                         for (int i = 0; i < sL.size(); i = i + 2) { %>
@@ -1298,9 +1449,9 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                 </select></td>
             <td style="text-align: right; width: 10%; white-space:nowrap">
                 <input type="submit"
-                       name="submit" value="Next" style="width: 120px;" class="btn btn-primary"/>
+                       name="submit" value="<fmt:message key="oscar.billing.ca.on.billingON.next"/>" style="width: 120px;" class="btn btn-primary"/>
                 <input
-                        type="button" class="btn btn-secondary" name="button" value="Exit" style="width: 120px;" class="btn btn-secondary"
+                        type="button" class="btn btn-secondary" name="button" value="<fmt:message key="oscar.billing.ca.on.billingON.exit"/>" style="width: 120px;"
                         onclick="self.close();"/> &nbsp;
             </td>
         </tr>
@@ -1346,10 +1497,10 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                             <table class="border1" style="width: 100%; border-spacing:2px;"
                             >
                                 <tr>
-                                    <td colspan="2">Specialist billing
+                                    <td colspan="2"><fmt:message key="oscar.billing.ca.on.billingON.specialistBilling"/>
                                         &nbsp;&nbsp;&nbsp;&nbsp; <a href="javascript:void(0);"
-                                                                    title="Double click shaded fields for drop down or calculation"
-                                                                    onClick="showHideBox('Instrdiv',1);return false;">Instruction
+                                                                    title="<fmt:message key="oscar.billing.ca.on.billingON.instructionTitle"/>"
+                                                                    onClick="showHideBox('Instrdiv',1);return false;"><fmt:message key="oscar.billing.ca.on.billingON.instruction"/>
                                         </a>
                                     </td>
                                     <td style="vertical-align:top" rowspan="2">
@@ -1363,35 +1514,31 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                             </tr>
                                             <tr>
                                                 <td><a href="javascript:void(0);"
-                                                       onclick="showHideLayers('Layer2','','show','Layer1','','hide'); return false;">Dx</a>
+                                                       onclick="showHideLayers('Layer2','','show','Layer1','','hide'); return false;"><fmt:message key="oscar.billing.ca.on.billingON.dx"/></a>
                                                 </td>
                                                 <td><input type="text" name="dxCode" class="form-control form-control-sm d-inline-block w-auto"
-                                                           maxlength="5" ondblClick="dxScriptAttach('dxCode')"
+                                                           maxlength="5"
                                                            onchange="changeCodeDesc();"
                                                            value="<%=request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode%>"/>
-                                                    <a href="javascript:void(0);" onclick="dxScriptAttach('dxCode');">Search</a>
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td>dx1</td>
+                                                <td><fmt:message key="oscar.billing.ca.on.billingON.dx1"/></td>
                                                 <td><input type="text" name="dxCode1" class="form-control form-control-sm d-inline-block w-auto"
-                                                           maxlength="5" ondblClick="dxScriptAttach('dxCode1')"
+                                                           maxlength="5"
                                                            value="<%=request.getParameter("dxCode1")!=null?request.getParameter("dxCode1"):""%>"/>
-                                                    <a href="javascript:void(0);" onclick="dxScriptAttach('dxCode1')">Search</a>
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td>dx2</td>
+                                                <td><fmt:message key="oscar.billing.ca.on.billingON.dx2"/></td>
                                                 <td><input type="text" name="dxCode2" class="form-control form-control-sm d-inline-block w-auto"
-                                                           maxlength="5" ondblClick="dxScriptAttach('dxCode2')"
+                                                           maxlength="5"
                                                            value="<%=request.getParameter("dxCode2")!=null?request.getParameter("dxCode2"):""%>"/>
-                                                    <a href="javascript:void(0);" onclick="dxScriptAttach('dxCode2')">Search</a>
                                                 </td>
                                             </tr>
                                         </table>
                                         <a
-                                                href="javascript:referralScriptAttach2('referralCode','referralDocName')">Refer.
-                                            Doctor #</a> <%
+                                                href="javascript:referralScriptAttach2('referralCode','referralDocName')"><fmt:message key="oscar.billing.ca.on.billingON.referralDoctor"/></a> <%
                                         String checkRefBox = "";
                                         String refName = "";
                                         String refNo = "";
@@ -1399,7 +1546,6 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                             checkRefBox = request.getParameter("rfcheck");
                                             refName = request.getParameter("referralDocName");
                                             refNo = request.getParameter("referralCode");
-                                            referSpet = request.getParameter("referralSpet");
                                         } else if (oscarVariables.getProperty("billingRefBoxDefault", "").equals("checked")) {
                                             checkRefBox = "checked";
                                             refName = r_doctor;
@@ -1411,24 +1557,18 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                             <%=checkRefBox%> onclick="onClickRefDoc()"/><br/>
                                         <input
                                                 type="text" name="referralCode" class="form-control form-control-sm d-inline-block w-auto" maxlength="6"
-                                                placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"
-                                                value="<%=refNo%>">&nbsp;
-                                        <input type="text" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgType"/>"
-                                               name="referralSpet" class="form-control form-control-sm d-inline-block w-auto" maxlength="2"
-                                               value="<%=referSpet==null?"":referSpet%>"><br/>
-                                        <input placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>"
-                                               type="text" name="referralDocName" class="form-control" maxlength="30"
+                                                placeholder="<fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"
+                                                value="<%=refNo%>"><br/>
+                                        <input placeholder="<fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>"
+                                               type="text" name="referralDocName" class="form-control" maxlength="60"
                                                value="<%=refName%>">
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b>Code
-                                        &nbsp; Time
-                                        &nbsp;%</b><br/> <% for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM / 2; i++) { %>
+                                    <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/> <% for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM / 2; i++) { %>
                                         <input type="text" name="serviceCode<%=i%>" class="form-control form-control-sm d-inline-block w-auto"
-
                                                value="<%=request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):""%>"
-                                               onDblClick="scScriptAttach(this)" onBlur="upCaseCtrl(this)"/>x
+                                               onBlur="upCaseCtrl(this)"/>x
                                         <input type="text" name="serviceUnit<%=i%>" size="2" maxlength="4"
                                                style="width: 20px;"
                                                value="<%=request.getParameter("serviceUnit"+i)!=null?request.getParameter("serviceUnit"+i):""%>"/>@
@@ -1436,13 +1576,10 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                                style="width: 30px"
                                                value="<%=request.getParameter("serviceAt"+i)!=null?request.getParameter("serviceAt"+i):""%>"/><br/>
                                         <% } %></td>
-                                    <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b>Code
-                                        &nbsp; Time
-                                        &nbsp;%</b><br/> <% for (int i = BillingDataHlp.FIELD_SERVICE_NUM / 2; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) { %>
+                                    <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/> <% for (int i = BillingDataHlp.FIELD_SERVICE_NUM / 2; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) { %>
                                         <input type="text" name="serviceCode<%=i%>" class="form-control form-control-sm d-inline-block w-auto"
-
                                                value="<%=request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):""%>"
-                                               onDblClick="scScriptAttach(this)" onBlur="upCaseCtrl(this)"/>x
+                                               onBlur="upCaseCtrl(this)"/>x
                                         <input type="text" name="serviceUnit<%=i%>" size="2" maxlength="2"
                                                style="width: 20px;"
                                                value="<%=request.getParameter("serviceUnit"+i)!=null?request.getParameter("serviceUnit"+i):""%>"/>@
@@ -1456,8 +1593,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                         <td style="vertical-align:top">
                             <table class="border1 table-hover" style="width: 100%; border-spacing:2px;">
                                 <tr>
-                                    <td style="white-space:nowrap; width: 30%"><b>Billing
-                                        Physician</b></td>
+                                    <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.billingPhysician"/></b></td>
                                     <td style="width: 20%">
                                         <% if (IsPropertiesOn.isMultisitesEnable()) {
                                             // multisite start ==========================================
@@ -1484,8 +1620,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                         </script>
                                         <select id="site" name="site" onchange="changeSite(this)"
                                         >
-                                            <option value="none" style="background-color: white">---select
-                                                clinic---
+                                            <option value="none" style="background-color: white"><fmt:message key="oscar.billing.ca.on.billingON.selectClinic"/>
                                             </option>
                                             <%
                                                 String selectedSite = request.getParameter("site");
@@ -1535,7 +1670,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                         %>
                                         <option value="000000"
                                                 <%=providerview.equals("000000") ? "selected" : ""%>>
-                                            <b>Select Provider</b>
+                                            <b><fmt:message key="oscar.billing.ca.on.billingON.selectProvider"/></b>
                                         </option>
                                         <%
                                             for (int i = 0; i < vecProvider.size(); i++) {
@@ -1559,7 +1694,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                     %>
 
                                     </td>
-                                    <td style="white-space:nowrap; width: 30%"><b>Assig. Phys.</b></td>
+                                    <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.assignedPhysician"/></b></td>
                                     <td style="width: 20%"><%=providerBean.getProperty(assgProvider_no, "").length() > 15
                                             ? providerBean.getProperty(assgProvider_no, "").substring(0, 14)
                                             : providerBean.getProperty(assgProvider_no, "")%>
@@ -1569,9 +1704,9 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                     <td style="width: 30%"><b><%
                                         if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) {
                                     %>
-                                        Clinic Nbr <%
+                                        <fmt:message key="oscar.billing.ca.on.billingON.clinicNbr"/> <%
                                         } else {
-                                        %> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formVisitType"/> <%
+                                        %> <fmt:message key="billing.billingCorrection.formVisitType"/> <%
                                             }
                                         %>
                                     </b></td>
@@ -1599,34 +1734,28 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                         } else {
                                         %>
                                         <option value="00| Clinic Visit"
-                                                <%=visitType.startsWith("00") ? "selected" : ""%>>00 |
-                                            Clinic Visit
+                                                <%=visitType.startsWith("00") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.00"/>
                                         </option>
                                         <option value="01| Outpatient Visit"
-                                                <%=visitType.startsWith("01") ? "selected" : ""%>>01 |
-                                            Outpatient Visit
+                                                <%=visitType.startsWith("01") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.01"/>
                                         </option>
                                         <option value="02| Hospital Visit"
-                                                <%=visitType.startsWith("02") ? "selected" : ""%>>02 |
-                                            Hospital Visit
+                                                <%=visitType.startsWith("02") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.02"/>
                                         </option>
                                         <option value="03| ER"
-                                                <%=visitType.startsWith("03") ? "selected" : ""%>>03 |
-                                            ER
+                                                <%=visitType.startsWith("03") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.03"/>
                                         </option>
                                         <option value="04| Nursing Home"
-                                                <%=visitType.startsWith("04") ? "selected" : ""%>>04 |
-                                            Nursing Home
+                                                <%=visitType.startsWith("04") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.04"/>
                                         </option>
                                         <option value="05| Home Visit"
-                                                <%=visitType.startsWith("05") ? "selected" : ""%>>05 |
-                                            Home Visit
+                                                <%=visitType.startsWith("05") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.05"/>
                                         </option>
                                         <%
                                             }
                                         %>
                                     </select></td>
-                                    <td style="width: 30%"><b>Billing Type</b></td>
+                                    <td style="width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.billingType"/></b></td>
                                     <td style="width: 20%">
                                         <%
 												if ((roster_status.equals("QU - Quebec")||roster_status.equals("FS")) && !defaultServiceType.equals("RN")) {
@@ -1635,48 +1764,41 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                             String srtBillType = request.getParameter("xml_billtype") != null ? request.getParameter("xml_billtype") : defaultBillType;
                                         %> <select name="xml_billtype" onchange="onChangePrivate();">
                                         <option value="ODP | Bill OHIP"
-                                                <%=srtBillType.startsWith("ODP") ? "selected" : ""%>>Bill
-                                            OHIP
+                                                <%=srtBillType.startsWith("ODP") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.ODP"/>
                                         </option>
                                         <option value="WCB | Worker's Compensation Board"
-                                                <%=srtBillType.startsWith("WCB") ? "selected" : ""%>>WSIB
+                                                <%=srtBillType.startsWith("WCB") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.WCB"/>
                                         </option>
                                         <option value="NOT | Do Not Bill"
-                                                <%=srtBillType.startsWith("NOT") ? "selected" : ""%>>Do
-                                            Not Bill
+                                                <%=srtBillType.startsWith("NOT") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.NOT"/>
                                         </option>
                                         <option value="IFH | Interm Federal Health"
-                                                <%=srtBillType.startsWith("IFH") ? "selected" : ""%>>IFH
+                                                <%=srtBillType.startsWith("IFH") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.IFH"/>
                                         </option>
                                         <option value="PAT | Bill Patient"
-                                                <%=srtBillType.startsWith("PAT") ? "selected" : ""%>>3rd
-                                            Party
+                                                <%=srtBillType.startsWith("PAT") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.PAT"/>
                                         </option>
                                         <option value="OCF | "
-                                                <%=srtBillType.startsWith("OCF") ? "selected" : ""%>>
-                                            -OCF
+                                                <%=srtBillType.startsWith("OCF") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.OCF"/>
                                         </option>
                                         <option value="ODS | "
-                                                <%=srtBillType.startsWith("ODS") ? "selected" : ""%>>
-                                            -ODSP
+                                                <%=srtBillType.startsWith("ODS") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.ODS"/>
                                         </option>
                                         <option value="CPP | Canada Pension Plan"
-                                                <%=srtBillType.startsWith("CPP") ? "selected" : ""%>>
-                                            -CPP
+                                                <%=srtBillType.startsWith("CPP") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.CPP"/>
                                         </option>
                                         <option
                                                 value="STD | Short Term Disability / Long Term Disability"
-                                                <%=srtBillType.startsWith("STD") ? "selected" : ""%>>-STD/LTD
+                                                <%=srtBillType.startsWith("STD") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.STD"/>
                                         </option>
                                         <option value="BON | Bonus Codes"
-                                                <%=srtBillType.startsWith("BON") ? "selected" : ""%>>Bonus
-                                            Codes
+                                                <%=srtBillType.startsWith("BON") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.BON"/>
                                         </option>
                                     </select>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td><b>Visit Location</b></td>
+                                    <td><b><fmt:message key="oscar.billing.ca.on.billingON.visitLocation"/></b></td>
                                     <td colspan="3"><select name="xml_location">
                                         <%
                                             //
@@ -1696,49 +1818,49 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                         <%
                                             }
                                         %>
-                                    </select>Manual Review Flag: <input type="checkbox" name="m_review" value="Y"
+                                    </select><fmt:message key="oscar.billing.ca.on.billingON.manualReviewFlag"/> <input type="checkbox" name="m_review" value="Y"
                                         <%=m_review.equals("Y")?"checked":""%>></td>
                                 </tr>
                                 <tr>
-                                    <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
+                                    <td><b><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
                                     <td colspan="3"><select name="xml_slicode">
                                         <option value="<%=clinicNo%>">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/>
                                         </option>
                                         <option value="HDS">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HDS"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HDS"/>
                                         </option>
                                         <option value="HED">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HED"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HED"/>
                                         </option>
                                         <option value="HIP">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HIP"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HIP"/>
                                         </option>
                                         <option value="HOP">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HOP"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HOP"/>
                                         </option>
                                         <option value="HRP">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HRP"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HRP"/>
                                         </option>
                                         <option value="IHF">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.IHF"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.IHF"/>
                                         </option>
                                         <option value="OFF">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OFF"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OFF"/>
                                         </option>
                                         <option value="OTN">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OTN"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OTN"/>
                                         </option>
                                         <option value="PDF">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.PDF"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.PDF"/>
                                         </option>
                                         <option value="RTF">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.RTF"/>
+                                            <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.RTF"/>
                                         </option>
                                     </select></td>
                                 </tr>
                                 <tr>
-                                    <td><b>Admission Date</b></td>
+                                    <td><b><fmt:message key="oscar.billing.ca.on.billingON.admissionDate"/></b></td>
 										<td>
                                         <%
                                             String admDate = "";
@@ -1755,19 +1877,19 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                             if (visitType.startsWith("02") || visitType.startsWith("04"))
                                                 admDate = getDefaultValue(request.getParameter("visitdate"), vecHist, "visitdate");
                                         %>
-											<span class="input-group">
+											<div class="input-group input-group-sm">
 											    <input type="text" name="xml_vdate" id="xml_vdate" onchange="getDays();"
                                                value="<%=request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate%>"
-											class="form-control form-control-sm d-inline-block w-auto" style="height: 14px; margin-top:4px;" readonly>
-											<span class="input-group-text" id="xml_vdate_cal" style="cursor:pointer; margin-top:4px;">
+											class="form-control" readonly>
+											<button type="button" class="btn btn-outline-secondary" id="xml_vdate_cal" title="<fmt:message key="oscar.billing.ca.on.billingON.chooseDate"/>">
 											    <img alt="cal" style="height:14px;"
-											         src="${ pageContext.request.contextPath }/images/cal.gif"></span>
-											</span>
+											         src="${ pageContext.request.contextPath }/images/cal.gif"></button>
+											</div>
                                             <span id="duration_display"></span>
                                     </td>
                                     <td colspan="2"><a href="javascript:void(0);"
                                                        onclick="showHideLayers('Layer1','','show');return false;">
-                                        Billing form</a>: <input type="text" name="billFormName" class="form-control"
+                                        <fmt:message key="oscar.billing.ca.on.billingON.billingFormLink"/></a>: <input type="text" name="billFormName" class="form-control"
 											id="billFormName" readonly
                                                                  value="<%=currentFormName.length() < 40 ? currentFormName : currentFormName.substring(0, 40)%>"/>
                                         <input type="hidden" name="billForm" id="billForm"
@@ -1785,7 +1907,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                             String suggestSite = sitePrep.getSuggestSite(siteList, thisSite, strServDate, apptProvider_no);
                                 %>
                                 <tr>
-                                    <td style="text-align: right">Site</td>
+                                    <td style="text-align: right"><fmt:message key="oscar.billing.ca.on.billingON.site"/></td>
                                     <td colspan="3"><select name="siteId">
                                         <%
                                             for (int i = 0; i < siteList.length; i++) {
@@ -1830,10 +1952,10 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                             </div>
                                         </th>
                                         <th style="width: 70%; background-color:silver">
-                                            <div class="smallFont">Description</div>
+                                            <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.description"/></div>
                                         </th>
                                         <th style="background-color:silver">
-                                            <div class="smallFont">Fee</div>
+                                            <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.fee"/></div>
                                         </th>
                                     </tr>
 
@@ -1895,7 +2017,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                             %>
 
                         </td>
-                        <td style="width: 33%" valign="top">
+                        <td style="width: 33%; vertical-align: top;">
                             <%
                                 for (int j = 0; j < listServiceType.size(); j++) {
 
@@ -1914,10 +2036,10 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                             </div>
                                         </th>
                                         <th style="width: 70%; background-color:silver">
-                                            <div class="smallFont">Description</div>
+                                            <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.description"/></div>
                                         </th>
                                         <th style="background-color:silver">
-                                            <div class="smallFont">Fee</div>
+                                            <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.fee"/></div>
                                         </th>
                                     </tr>
 
@@ -1981,7 +2103,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                             %>
 
                         </td>
-                        <td style="width: 33%" valign="top">
+                        <td style="width: 33%; vertical-align: top;">
                             <%
                                 for (int j = 0; j < listServiceType.size(); j++) {
 
@@ -2000,10 +2122,10 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                             </div>
                                         </th>
                                         <th style="width: 70%; background-color:silver">
-                                            <div class="smallFont">Description</div>
+                                            <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.description"/></div>
                                         </th>
                                         <th style="background-color:silver">
-                                            <div class="smallFont">Fee</div>
+                                            <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.fee"/></div>
                                         </th>
                                     </tr>
 
@@ -2110,11 +2232,11 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
     <table style="width: 100%; border-spacing:2px;"
     >
         <tr style="background-color: silver;">
-            <td><%=Encode.forHtml(demoname)%> - <b>Billing History</b> (last 5 records)</td>
-            <td style="width: 20%; text-align: right">Last <input type="text"
-                                                                  name="day" value="365" class="form-control form-control-sm d-inline-block w-auto"/> days
+            <td><%=Encode.forHtml(demoname)%> - <b><fmt:message key="oscar.billing.ca.on.billingON.billingHistory"/></b> (last 5 records)</td>
+            <td style="width: 20%; text-align: right"><fmt:message key="oscar.billing.ca.on.billingON.last"/> <input type="text"
+                                                                  name="day" value="365" class="form-control form-control-sm d-inline-block w-auto"/> <fmt:message key="oscar.billing.ca.on.billingON.days"/>
                 <input type="button"
-                       name="buttonDay" value="Go" onClick="onHistory(); return false;"/>
+                       name="buttonDay" value="<fmt:message key="oscar.billing.ca.on.billingON.go"/>" onClick="onHistory(); return false;"/>
             </td>
         </tr>
     </table>
@@ -2127,12 +2249,12 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
             <table class="border1"
                    class="table-striped" style="width: 100%;">
                 <tr class="myYellow" style="text-align: center">
-                    <th style="white-space:nowrap">Serial No.</th>
-                    <th style="white-space:nowrap">Billing Date</th>
-                    <th style="white-space:nowrap">Appt/Adm Date</th>
-                    <th style="white-space:nowrap">Service Code</th>
-                    <th style="white-space:nowrap">Dx</th>
-                    <th>Create Date</th>
+                    <th style="white-space:nowrap"><fmt:message key="oscar.billing.ca.on.billingON.history.serialNo"/></th>
+                    <th style="white-space:nowrap"><fmt:message key="oscar.billing.ca.on.billingON.history.billingDate"/></th>
+                    <th style="white-space:nowrap"><fmt:message key="oscar.billing.ca.on.billingON.history.apptAdmDate"/></th>
+                    <th style="white-space:nowrap"><fmt:message key="oscar.billing.ca.on.billingON.history.serviceCode"/></th>
+                    <th style="white-space:nowrap"><fmt:message key="oscar.billing.ca.on.billingON.history.dx"/></th>
+                    <th><fmt:message key="oscar.billing.ca.on.billingON.history.createDate"/></th>
                 </tr>
                 <%
                     // new billing records

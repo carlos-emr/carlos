@@ -30,32 +30,17 @@
 --%>
 
 <%--
-  Purpose: Display all consultation requests for a specific demographic/patient in a sortable, filterable table.
+  DisplayDemographicConsultationRequests.jsp - Patient consultation request list
 
-  Features:
-    - Lists consultation requests with status, urgency, MRP, provider, service, specialist, and referral date
-    - Implements Bootstrap DataTables for sorting, filtering, and pagination
-    - Opens consultation request details in popup window
-    - Allows creation of new consultation requests via popup form
-    - Uses Spring-managed DemographicManager for demographic data retrieval
-    - Encodes output to prevent XSS vulnerabilities
+  Purpose:
+  Displays all consultation requests for a specific patient in a sortable,
+  filterable DataTable. Allows opening existing requests and creating new ones.
 
   Parameters:
-    - de (required): Demographic number identifying the patient
-
-  Session Attributes:
-    - user: Current provider number
-    - userrole: User's role for security authorization
+  - de (required): Demographic number identifying the patient
 
   Security:
-    - Requires _con read rights
-    - Redirects to securityError.jsp if unauthorized
-
-  Technologies:
-    - Bootstrap 3.0.0 for responsive UI
-    - DataTables 1.13.4 for enhanced table functionality
-    - JSTL fmt tags for internationalization
-    - OWASP Encoder for XSS prevention
+  - Requires _con read rights
 
   @since 2002-11-08
 --%>
@@ -92,7 +77,6 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
-
 <%
     String demo = request.getParameter("de");
     String proNo = (String) session.getAttribute("user");
@@ -116,234 +100,219 @@
     theRequests.estConsultationVecByDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demo);
 %>
 
+<%-- Set the resource bundle once for the entire page --%>
+<fmt:setBundle basename="oscarResources" scope="page"/>
+
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.title"/>
-    </title>
+    <title><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.title"/></title>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
-    <!--META HTTP-EQUIV="Refresh" CONTENT="20;"-->
-
-    <!-- jquery -->
-    <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-    <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script><!-- 1.13.4 -->
-
-    <!-- css -->
-    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"><!-- Bootstrap 2.3.1 -->
+    <%@ include file="/includes/global-head.jspf" %>
     <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-    <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css" rel="stylesheet">
+    <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
 
     <style>
-      .MainTable .dataTables_length label {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-      }
-      .MainTable .dataTables_length select {
-        display: inline-block;
-        width: auto;
-      }
-  
-      .MainTable .dataTables_filter label {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-      }
-      .MainTable .dataTables_filter input {
-        display: inline-block;
-        width: auto;
-      }
-  
-      .MainTable tbody > tr > td {
-        border-top: none;
-      }
-  
-      tr.MainTableTopRow  td {
-        padding: 0 8px 0 8px !important;
-      }
+        /* DataTables — CARLOS design overrides (matching ticklerMain.jsp pattern) */
+        table.dataTable thead th {
+            background-color: #f5f5f5 !important;
+            border-bottom: 2px solid #337ab7 !important;
+            color: #333;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+            background: #337ab7 !important;
+            color: white !important;
+            border-color: #337ab7 !important;
+        }
+        .page-item.active .page-link {
+            background-color: #337ab7 !important;
+            border-color: #337ab7 !important;
+        }
+        .page-link {
+            color: #337ab7;
+        }
+        .dataTables_wrapper .dataTables_info,
+        .dataTables_wrapper .dataTables_paginate {
+            font-size: 13px;
+        }
+        .dataTables_wrapper .dataTables_length { display: none; }
+
+        /* Consultation status colors — matches status codes from EctViewConsultationRequestsUtil:
+           1=Nothing Done, 2=Specialist Called, 3=Patient Called, 4=Appointment Made, 5=Booked */
+        .stat1 { color: red; }
+        .stat2 { color: orange; }
+        .stat3 { color: green; }
+        .stat4 { color: #337ab7; }
+        .stat5 { color: purple; }
     </style>
-    <script language="javascript">
-      jQuery(document).ready( function () {
-        jQuery('#consultTable').DataTable({
-          "lengthMenu": [ [25, 50, 100, -1], [25, 50, 100, "<fmt:message key="encounter.LeftNavBar.AllLabs"/>"] ],
-          "order": [[7, 'desc']], // Column 7 = Referral Date
-          "language": {
-            "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18nLanguagecode"/>.json"
-          },
-          "initComplete": function () {
-            // Add Bootstrap classes to dropdown and search input
-            jQuery('.dataTables_length select').addClass('form-control input');
-            jQuery('.dataTables_filter input').addClass('form-control input');
-          }
+
+    <script type="text/javascript">
+        jQuery(document).ready(function () {
+            jQuery('#consultTable').DataTable({
+                "order": [[7, 'desc']], // Column 7 = Referral Date (newest first)
+                "language": {
+                    "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18nLanguagecode"/>.json"
+                }
+            });
         });
-      });
-      
-      function BackToOscar() {
-          window.close();
-      }
 
-      function popupOscarRx(vheight, vwidth, varpage) { //open a new popup window
-          var page = varpage;
-          windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-          var popup = window.open(varpage, "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgConsReq"/>", windowprops);
-      }
+        /**
+         * Opens a consultation request in a popup window. When this window regains
+         * focus (user closes the popup or switches back), the page reloads to
+         * reflect any status changes made in the popup.
+         */
+        var consultPopupOpen = false;
+        function popupConsultation(vheight, vwidth, varpage) {
+            var windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
+            var popup = window.open(varpage, "consultPopup", windowprops);
+            // Only flag reload if popup was successfully opened (not blocked by browser)
+            if (popup) {
+                consultPopupOpen = true;
+            }
+        }
 
-      function popupOscarConS(vheight, vwidth, varpage) { //open a new popup window
-          var page = varpage;
-          windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-          var popup = window.open(varpage, "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultChoice.oscarConS"/>", windowprops);
-          window.close();
-      }
+        // Reload the list when this window regains focus after a popup was opened
+        window.addEventListener('focus', function() {
+            if (consultPopupOpen) {
+                consultPopupOpen = false;
+                window.location.reload();
+            }
+        });
+
+        /**
+         * Navigates back: reloads the opener if in a popup, otherwise uses browser history.
+         */
+        function goBack() {
+            try {
+                if (window.opener && !window.opener.closed) {
+                    window.opener.location.reload();
+                    window.close();
+                } else if (window.history.length > 1) {
+                    window.history.back();
+                } else {
+                    window.close();
+                }
+            } catch (e) {
+                window.history.back();
+            }
+        }
     </script>
+</head>
 
-    </head>
-    <body onload="window.focus()">
+<body onload="window.focus()">
+<div class="container-fluid" style="padding:0 15px;">
 
-    <table class="MainTable table" id="scrollNumber1">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn" style="text-align: left;"><h4><fmt:message key="global.con"/></h4></td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="table">
-                    <tr>
-                        <td class="Header" style="white-space:nowrap"><h4><fmt:setBundle basename="oscarResources"/>
-                            <fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgConsReqFor"/>
-                          <%= Encode.forHtml(demographic.getLastName()) %>, <%= Encode.forHtml(demographic.getFirstName()) %> <%= Encode.forHtml(demographic.getSex()) %>
-                          <%= Encode.forHtml(demographic.getAge()) %></h4></td>
-                        <td></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr style="vertical-align: top">
-            <td class="MainTableLeftColumn">
-                <table class="table">
-                    <tr>
-                        <td style="white-space:nowrap; padding-left: 0"><a
-                                href="javascript:popupOscarRx(700,960,'${pageContext.request.contextPath}/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=<%=Encode.forUriComponent(demo)%>&teamVar=<%=Encode.forUriComponent(team)%>')">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultChoice.btnNewCon"/></a>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-            <td class="MainTableRightColumn">
-                <table class="table">
-                    <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgClickLink"/>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <table id="consultTable" class="table">
-                                <thead>
-                                  <tr>
-                                      <th>
-                                          <fmt:setBundle basename="oscarResources"/>
-                                          <fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgStatus"/>
-                                      </th>
-                                      <th>
-                                          <fmt:setBundle basename="oscarResources"/>
-                                          <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formUrgency" />
-						              </th>
-                                      <th>
-                                          <fmt:setBundle basename="oscarResources"/>
-                                          <fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgPat"/>
-                                      </th>
-                                      <th>
-                                          <fmt:setBundle basename="oscarResources"/>
-                                          <fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgMRP"/>
-                                      </th>
-                                      <th>
-                                          <fmt:setBundle basename="oscarResources"/>  
-                                          <fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgProvider"/>
-                                      </th>
-                                      <th>
-                                          <fmt:setBundle basename="oscarResources"/>
-                                          <fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgService"/>
-                                      </th>
-                                      <th >
-                                          <fmt:setBundle basename="oscarResources"/>
-                                          <fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgSpecialist" />
-						              </th>
-                                      <th>
-                                          <fmt:setBundle basename="oscarResources"/>
-                                          <fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgRefDate"/>
-                                      </th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                    <%
-                                        for (int i = 0; i < theRequests.ids.size(); i++) {
-                                            String id       = (String) theRequests.ids.get(i);
-                                            String status   = (String) theRequests.status.get(i);
-                                            String patient  = (String) theRequests.patient.get(i);
-                                            String provider = (String) theRequests.provider.get(i);
-                                            String service  = (String) theRequests.service.get(i);
-                                            String specialist = (String) theRequests.vSpecialist.get(i);
-                                            String date     = (String) theRequests.date.get(i);
-                                            String urgency  = (String) theRequests.urgency.get(i);
-                                            Provider cProv  = (Provider) theRequests.consultProvider.get(i);
-                                    %>
-                                    <tr>
-                                        <td class="stat<%=Encode.forHtmlAttribute(status)%>">
-                                            <% if ("1".equals(status)) { %>
-                                                <fmt:setBundle basename="oscarResources"/>
-                                                <fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgNothingDone"/>
-                                            <% } else if ("2".equals(status)) { %>
-                                                <fmt:setBundle basename="oscarResources"/>
-                                                <fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgSpecialistCall"/>
-                                            <% } else if ("3".equals(status)) { %>
-                                                <fmt:setBundle basename="oscarResources"/>
-                                                <fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgPatCall"/>
-                                            <% } else if ("4".equals(status)) { %>
-                                                <fmt:setBundle basename="oscarResources"/>
-                                                <fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgAppMade"/>
-                                            <% } else if ("5".equals(status)) { %>
-                                                <fmt:setBundle basename="oscarResources"/>
-                                                <fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgBookCon"/>
-                                            <% } %>
-                                            </td>
-                                            <td class="stat<%=Encode.forHtmlAttribute(status)%>" >
-                                            <% if (urgency.equals("1")){ %> 
-                                                <fmt:setBundle basename="oscarResources"/>
-                                                <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgUrgent" />
-                                            <% }else if(urgency.equals("2")) { %> 
-                                                <fmt:setBundle basename="oscarResources"/>
-                                                <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgNUrgent" />
-                                            <% }else if(urgency.equals("3")) { %> 
-                                                <fmt:setBundle basename="oscarResources"/>
-                                                <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgReturn" />
-                                            <% } %>
-                                        </td>
-                                        <td class="stat<%=Encode.forHtmlAttribute(status)%>"><a
-                  href="javascript:popupOscarRx(700,960,'<%=request.getContextPath()%>/encounter/ViewRequest.do?de=<%=Encode.forUriComponent(demo)%>&requestId=<%=Encode.forUriComponent(id)%>')">
-                <%=Encode.forHtml(patient)%> </a></td>
+    <%-- Page header matching search.jsp / consultation form pattern --%>
+    <div class="page-header-bar d-flex align-items-center justify-content-between">
+        <h4 class="page-header-title">
+            <i class="fa-solid fa-stethoscope page-header-icon"></i>
+            &nbsp;<fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgConsReqFor"/>
+            <%= Encode.forHtml(demographic.getLastName()) %>, <%= Encode.forHtml(demographic.getFirstName()) %>
+            <%= Encode.forHtml(demographic.getSex()) %> <%= Encode.forHtml(demographic.getAge()) %>
+        </h4>
+        <div>
+            <%
+                String newConsultUrl = request.getContextPath()
+                    + "/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp"
+                    + "?de=" + Encode.forUriComponent(demo)
+                    + "&teamVar=" + Encode.forUriComponent(team);
+            %>
+            <a class="btn btn-primary btn-sm"
+               href="javascript:popupConsultation(700,960,'<%= Encode.forJavaScriptAttribute(newConsultUrl) %>')">
+                <i class="fa-solid fa-plus me-1"></i><fmt:message key="encounter.oscarConsultationRequest.ConsultChoice.btnNewCon"/>
+            </a>
+            <input type="button" class="btn btn-secondary btn-sm"
+                   value="<fmt:message key="global.btnBack"/>"
+                   onclick="goBack()">
+        </div>
+    </div>
+
+    <p class="text-muted" style="margin:5px 0 10px;">
+        <fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgClickLink"/>
+    </p>
+
+    <table id="consultTable" class="table table-sm table-striped table-hover" style="width:100%;">
+        <thead>
+            <tr>
+                <th><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgStatus"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formUrgency"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgPat"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgMRP"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgProvider"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgService"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgSpecialist"/></th>
+                <th><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgRefDate"/></th>
+            </tr>
+        </thead>
+        <tbody>
+            <%
+                for (int i = 0; i < theRequests.ids.size(); i++) {
+                    String id       = (String) theRequests.ids.get(i);
+                    String status   = (String) theRequests.status.get(i);
+                    String patient  = (String) theRequests.patient.get(i);
+                    String provider = (String) theRequests.provider.get(i);
+                    String service  = (String) theRequests.service.get(i);
+                    String specialist = (String) theRequests.vSpecialist.get(i);
+                    String date     = (String) theRequests.date.get(i);
+                    String urgency  = (String) theRequests.urgency.get(i);
+                    Provider cProv  = (Provider) theRequests.consultProvider.get(i);
+
+                    // Determine i18n key for status
+                    String statusKey = "";
+                    switch (status != null ? status : "") {
+                        case "1": statusKey = "encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgNothingDone"; break;
+                        case "2": statusKey = "encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgSpecialistCall"; break;
+                        case "3": statusKey = "encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgPatCall"; break;
+                        case "4": statusKey = "encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgAppMade"; break;
+                        case "5": statusKey = "encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgBookCon"; break;
+                    }
+
+                    // Determine i18n key for urgency (null-safe)
+                    String urgencyKey = "";
+                    switch (urgency != null ? urgency : "") {
+                        case "1": urgencyKey = "encounter.oscarConsultationRequest.ConsultationFormRequest.msgUrgent"; break;
+                        case "2": urgencyKey = "encounter.oscarConsultationRequest.ConsultationFormRequest.msgNUrgent"; break;
+                        case "3": urgencyKey = "encounter.oscarConsultationRequest.ConsultationFormRequest.msgReturn"; break;
+                    }
+                    // Prebuild view URL for JS embedding (JS-attribute-encoded to prevent XSS)
+                    String viewRequestUrl = request.getContextPath()
+                        + "/encounter/ViewRequest.do"
+                        + "?de=" + Encode.forUriComponent(demo)
+                        + "&requestId=" + Encode.forUriComponent(id);
+            %>
+            <tr>
+                <td class="stat<%=Encode.forHtmlAttribute(status)%>">
+                    <% if (!statusKey.isEmpty()) { %>
+                        <fmt:message key="<%= statusKey %>"/>
+                    <% } %>
+                </td>
+                <td class="stat<%=Encode.forHtmlAttribute(status)%>">
+                    <% if (!urgencyKey.isEmpty()) { %>
+                        <fmt:message key="<%= urgencyKey %>"/>
+                    <% } %>
+                </td>
+                <td class="stat<%=Encode.forHtmlAttribute(status)%>">
+                    <a href="javascript:popupConsultation(700,960,'<%= Encode.forJavaScriptAttribute(viewRequestUrl) %>')">
+                        <%=Encode.forHtml(patient)%>
+                    </a>
+                </td>
                 <td class="stat<%=Encode.forHtmlAttribute(status)%>"><%=Encode.forHtml(provider)%></td>
                 <td class="stat<%=Encode.forHtmlAttribute(status)%>"><%= (cProv != null) ? Encode.forHtml(cProv.getFormattedName()) : "" %></td>
-                                        <td class="stat<%=Encode.forHtmlAttribute(status)%>">
-                                            <a href="javascript:popupOscarRx(700,960,'<%= request.getContextPath() %>/encounter/ViewRequest.do?de=<%=Encode.forUriComponent(demo)%>&requestId=<%=Encode.forUriComponent(id)%>')">
-                                                <%=Encode.forHtml(StringUtils.trimToEmpty(service))%>
-                                            </a>
-                                        </td>
-                                        <td class="stat<%= Encode.forHtmlAttribute(status) %>">
-                                            <%= Encode.forHtml(StringUtils.trimToEmpty(specialist)) %>
-                                        </td>
-                                        <td class="stat<%=Encode.forHtmlAttribute(status)%>"><%=Encode.forHtml(date)%>
-                                        </td>
-                                    </tr>
-                                    <%}%>
-                                </tbody>
-                            </table>
-                        </td>
-                    </tr>
-
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
+                <td class="stat<%=Encode.forHtmlAttribute(status)%>">
+                    <a href="javascript:popupConsultation(700,960,'<%= Encode.forJavaScriptAttribute(viewRequestUrl) %>')">
+                        <%=Encode.forHtml(StringUtils.trimToEmpty(service))%>
+                    </a>
+                </td>
+                <td class="stat<%=Encode.forHtmlAttribute(status)%>"><%= Encode.forHtml(StringUtils.trimToEmpty(specialist)) %></td>
+                <td class="stat<%=Encode.forHtmlAttribute(status)%>"><%=Encode.forHtml(date)%></td>
+            </tr>
+            <%}%>
+        </tbody>
     </table>
-    </body>
+
+</div>
+</body>
 </html>

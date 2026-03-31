@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
+<!--
+    CARLOS EMR - Administration Actions
+    Contains action mappings for administration, system messages, lookup lists, and issue management.
+-->
+<struts>
+    <package name="admin" namespace="/" extends="struts-default">
+
+        <action name="lookupListManagerAction" class="io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action">
+            <result name="success">/admin/lookUpLists/</result>
+        </action>
+        <action name="SystemMessage" class="io.github.carlos_emr.carlos.www.SystemMessage2Action" method="execute">
+            <result name="view">/caisicore/SystemMessage.jsp</result>
+            <result name="list">/caisicore/SystemMessageList.jsp</result>
+            <result name="edit">/caisicore/SystemMessageForm.jsp</result>
+        </action>
+        <action name="DefaultEncounterIssue" class="io.github.carlos_emr.carlos.www.DefaultEncounterIssue2Action" method="execute">
+            <result name="list">/caisicore/DefaultEncounterIssueList.jsp</result>
+            <result name="edit">/caisicore/DefaultEncounterIssueForm.jsp</result>
+            <result name="editRemove">/caisicore/DefaultEncounterIssueFormRemove.jsp</result>
+        </action>
+        <action name="FacilityMessage" class="io.github.carlos_emr.carlos.www.OrganizationMessage2Action" method="execute">
+            <result name="view">/caisicore/FacilityMessage.jsp</result>
+            <result name="list">/caisicore/FacilityMessageList.jsp</result>
+            <result name="edit">/caisicore/FacilityMessageForm.jsp</result>
+        </action>
+        <action name="issueAdmin" class="io.github.carlos_emr.carlos.www.IssueAdmin2Action">
+            <result name="list">/caisicore/issueAdminList.jsp</result>
+            <result name="edit">/caisicore/issueAdminForm.jsp</result>
+        </action>
+        <action name="Lookup/LookupList" class="io.github.carlos_emr.carlos.www.lookup.LookupList2Action" method="execute">
+            <result name="list">/PMmodule/lookup/LookupList.jsp</result>
+        </action>
+        <action name="Lookup/LookupTableList" class="io.github.carlos_emr.carlos.www.lookup.LookupTableList2Action" method="execute">
+            <result name="list">/PMmodule/lookup/LookupTableList.jsp</result>
+        </action>
+        <action name="Lookup/LookupCodeList" class="io.github.carlos_emr.carlos.www.lookup.LookupCodeList2Action" method="execute">
+            <result name="list">/PMmodule/lookup/LookupCodeList.jsp</result>
+        </action>
+        <action name="Lookup/LookupCodeEdit" class="io.github.carlos_emr.carlos.www.lookup.LookupCodeEdit2Action" method="execute">
+            <result name="edit">/PMmodule/lookup/LookupCodeEdit.jsp</result>
+        </action>
+        <action name="admin/GenerateTraceAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTrace2Action"/>
+        <action name="admin/GenerateTraceabilityReportAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTraceabilityReport2Action">
+            <interceptor-ref name="defaultStack"/>
+        </action>
+        <action name="admin/AuditLogPurge" class="io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action">
+            <result name="success">/admin/auditLogPurge.jsp</result>
+        </action>
+
+    </package>
+</struts>

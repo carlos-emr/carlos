@@ -28,56 +28,70 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    dxResearchCodeSearch.jsp - Diagnosis code search results popup
+
+    Purpose:
+    Displays matching diagnosis codes from a code search and allows the user to
+    select up to 5 codes. Selected codes are written back to the opener window's
+    research form fields (xml_research1 through xml_research5).
+
+    Opened as a popup from dxResearch.jsp and dxResearchEditQuickList.jsp via
+    the Code Search button.
+
+    Request Attributes:
+    - allMatchedCodes: dxCodeSearchBeanHandler containing matched diagnosis codes
+    Session: codeType (e.g. "icd9")
+
+    @since 2006-01-01 (original OSCAR implementation)
+--%>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 
-<%
-    String user_no;
-    user_no = (String) session.getAttribute("user");
-%>
-
+<!DOCTYPE html>
 <html>
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.title"/></title>
-        <script LANGUAGE="JavaScript">
-            //<!--
-            function CodeAttach(File0) {
-
-                self.close();
-                self.opener.document.forms[0].xml_research1.value = File0;
+        <script type="text/javascript">
+            /**
+             * Attaches a single selected code to the opener's research form fields,
+             * clearing the remaining slots, then closes this popup.
+             * @param {string} code - The diagnosis code to attach
+             */
+            function CodeAttach(code) {
+                self.opener.document.forms[0].xml_research1.value = code;
                 self.opener.document.forms[0].xml_research2.value = '';
                 self.opener.document.forms[0].xml_research3.value = '';
                 self.opener.document.forms[0].xml_research4.value = '';
                 self.opener.document.forms[0].xml_research5.value = '';
-
+                self.close();
             }
 
+            /**
+             * Attaches up to 5 checked codes from the search results to the opener's
+             * research form fields (xml_research1 through xml_research5), then closes
+             * this popup. Handles both single-checkbox and NodeList cases.
+             */
             function CodesAttach() {
-
                 var nbSearchCodes = document.codeSearchForm.searchCodes;
+                var fields = ['xml_research1', 'xml_research2', 'xml_research3', 'xml_research4', 'xml_research5'];
+                var openerForm = self.opener.document.forms[0];
+                // Clear all research fields to avoid leaving stale codes from a previous selection
+                for (var k = 0; k < fields.length; k++) {
+                    openerForm[fields[k]].value = '';
+                }
                 if (nbSearchCodes.length == undefined) {
-                    if (nbSearchCodes.checked) self.opener.document.forms[0].xml_research1.value = nbSearchCodes.value;
+                    if (nbSearchCodes.checked) openerForm.xml_research1.value = nbSearchCodes.value;
                 } else {
                     var j = 0;
                     for (var i = 0; i < nbSearchCodes.length; i++) {
                         if (nbSearchCodes[i].checked) {
-                            if (j == 0) {
-                                self.opener.document.forms[0].xml_research1.value = nbSearchCodes[i].value;
-                                j++;
-                            } else if (j == 1) {
-                                self.opener.document.forms[0].xml_research2.value = nbSearchCodes[i].value;
-                                j++;
-                            } else if (j == 2) {
-                                self.opener.document.forms[0].xml_research3.value = nbSearchCodes[i].value;
-                                j++;
-                            } else if (j == 3) {
-                                self.opener.document.forms[0].xml_research4.value = nbSearchCodes[i].value;
-                                j++;
-                            } else if (j == 4) {
-                                self.opener.document.forms[0].xml_research5.value = nbSearchCodes[i].value;
+                            if (j < fields.length) {
+                                openerForm[fields[j]].value = nbSearchCodes[i].value;
                                 j++;
                             } else {
                                 break;
@@ -87,58 +101,60 @@
                 }
                 self.close();
             }
-
-            //-->
         </script>
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
 
-    <body bgcolor="#FFFFFF">
-    <form name="codeSearchForm" method="post">
+    <body>
+    <div class="container">
 
-        <table width="600" cellspacing="1">
-            <tr>
-                <td colspan="2"><h3><%=session.getAttribute("codeType").toString().toUpperCase()%> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgCodeSearch"/></h3></td>
-            </tr>
-            <tr class="heading">
-                <td width="20%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgCode"/></td>
-                <td width="80%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgDescription"/></td>
-            </tr>
+        <%-- Page header matching search.jsp / report.jsp / tickler pattern --%>
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="page-header-icon" viewBox="0 0 16 16">
+                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
+                </svg>
+                &nbsp;<%= org.owasp.encoder.Encode.forHtml(session.getAttribute("codeType") != null ? session.getAttribute("codeType").toString().toUpperCase() : "") %>
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgCodeSearch"/>
+            </h4>
+        </div>
 
-            <%
-                int intCount = 0;
-                String color = "#EEEEFF";
-                int Count = 0;
-            %>
-            <c:forEach var="code" items="${allMatchedCodes.dxCodeSearchBeanVector}" varStatus="loopStatus">
-                <c:set var="color" value="${loopStatus.index % 2 == 0 ? '#FFFFFF' : '#EEEEFF'}"/>
-                <tr bgcolor="${color}">
-                    <td>
-                        <input type="checkbox" name="searchCodes" value="${code.dxSearchCode}"
-                            ${code.exactMatch == 'true' ? 'checked' : ''} />
-                        <c:out value="${code.dxSearchCode}"/>
-                    </td>
-                    <td><c:out value="${code.description}"/></td>
-                </tr>
-            </c:forEach>
-            <% if (intCount == 0) { %>
-            <tr bgcolor="<%=color%>">
-                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgNoMatch"/>.
-                    <%// =i%>
-                </td>
+        <form name="codeSearchForm" method="post">
+            <table class="table table-sm table-striped table-hover mt-2">
+                <thead>
+                    <tr>
+                        <th style="width:20%;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgCode"/></th>
+                        <th style="width:80%;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgDescription"/></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <c:forEach var="code" items="${allMatchedCodes.dxCodeSearchBeanVector}" varStatus="loopStatus">
+                        <tr>
+                            <td>
+                                <input type="checkbox" name="searchCodes" value="${e:forHtmlAttribute(code.dxSearchCode)}"
+                                    ${code.exactMatch == 'checked' ? 'checked' : ''} />
+                                ${e:forHtml(code.dxSearchCode)}
+                            </td>
+                            <td>${e:forHtml(code.description)}</td>
+                        </tr>
+                    </c:forEach>
+                    <c:if test="${empty allMatchedCodes.dxCodeSearchBeanVector}">
+                        <tr>
+                            <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgNoMatch"/>.</td>
+                        </tr>
+                    </c:if>
+                </tbody>
+            </table>
 
-            </tr>
-            <% }%>
+            <div style="margin-top:10px;">
+                <input type="button" class="btn btn-primary" name="confirm"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnConfirm"/>"
+                       onclick="CodesAttach();">
+                <input type="button" class="btn btn-secondary" name="cancel"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
+                       onclick="window.close();">
+            </div>
+        </form>
 
-        </table>
-        <input type="button" name="confirm" value="Confirm"
-               onclick="javascript:CodesAttach();"><input type="button"
-                                                          name="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>" value="Cancel"
-                                                          onclick="javascript:window.close()">
-
-        <p></p>
-        <p>&nbsp;</p>
-        <h3>&nbsp;</h3>
-    </form>
+    </div>
     </body>
 </html>
