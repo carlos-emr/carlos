@@ -298,7 +298,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					</a></li>
 		
 					<li><a href="${ctx}/eform/efmmanageindependent.jsp" class="contentLink">
-						<fmt:message key="admin.admin.frmIndependent"/>s
+						<fmt:message key="admin.admin.frmIndependent"/>
 					</a></li>
 					
 					<li>
