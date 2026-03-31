@@ -68,6 +68,9 @@ public class ServiceSpecialistsDaoImpl extends AbstractDaoImpl<ServiceSpecialist
 
     @SuppressWarnings("unchecked")
     @Override
+    /**
+     * Retrieves a list of specialists along with their associated services.
+     */
     public List<Object[]> findAllSpecialistsWithService() {
         Query query = entityManager.createQuery("SELECT ser, pro, cs FROM ServiceSpecialists ser, ProfessionalSpecialist pro, ConsultationServices cs WHERE pro.id = ser.id.specId AND cs.serviceId = ser.id.serviceId ORDER BY pro.lastName, cs.serviceDesc");
         return query.getResultList();
