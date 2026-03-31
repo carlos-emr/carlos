@@ -21,6 +21,7 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
@@ -66,14 +67,14 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
 
 </script>
 
-<body style="background-color: #555">
+<body style="background-color: #555; font-family: arial, helvetica, sans-serif;">
 
 <div class="verticalCenterDiv">
     <div class="centerDiv">
         <canvas id='canvas'></canvas>
-        <div><span id="signMessage" style="color:#FFFFFF;">Please sign in the box above this message.</span>
-            <button id="clear" style="display:none">Clear</button>
-            <button id="save" style="display:none;">Save</button>
+        <div><span id="signMessage" style="color:#FFFFFF; font-family: arial, helvetica, sans-serif;"><fmt:setBundle basename="oscarResources"/><fmt:message key="tabletSignature.msgSignAbove"/></span>
+            <button id="clear" style="display:none"><fmt:setBundle basename="oscarResources"/><fmt:message key="tabletSignature.btnClear"/></button>
+            <button id="save" style="display:none;"><fmt:setBundle basename="oscarResources"/><fmt:message key="tabletSignature.btnSave"/></button>
         </div>
     </div>
 </div>
