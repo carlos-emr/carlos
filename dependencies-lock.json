@@ -731,117 +731,117 @@
   }, {
     "groupId" : "io.netty",
     "artifactId" : "netty-buffer",
-    "version" : "4.1.131.Final",
+    "version" : "4.1.132.Final",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:IZdrSKFh2lEA4ils+2Jooj6L4meH2m4Z0NUSBvKrUoD6D8B/aXBxDhXYFhldr77FPPwe+vLnIMeNl6QdotrXyA=="
+    "integrity" : "sha512:3zkmWuvVEQv9SPzscjm45mlFLOuOsQFw5emZt06o329JI6X60Bpds+Y5fatAvkHjDgTMnlI1P1HQvUz2fXgYfg=="
   }, {
     "groupId" : "io.netty",
     "artifactId" : "netty-codec-haproxy",
-    "version" : "4.1.131.Final",
+    "version" : "4.1.132.Final",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:gjHXu+SxrN1mcI3vufsJw4dG7EK224yL92zUVDHhoJhDDS7cM/s2qb1j9TeHjhSGDmvCUiBD8m9mQaM340wNwg=="
+    "integrity" : "sha512:NjyNnmE7xJWEyGESRrFYiWFSN+i+3i6Oki54+00nF/4j5UX+p7lia3kAp7UB7625KnFzSabTyDGbdCjIrqijiQ=="
   }, {
     "groupId" : "io.netty",
     "artifactId" : "netty-codec-http2",
-    "version" : "4.1.131.Final",
+    "version" : "4.1.132.Final",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:/CXe6CIaxZZDlR3WOpRccXWYqnlhGrjA23JVfWtb8TO942tGAoNxOGF/5Lkg7dGacrx3swcSRjYj+dWeQUhcwg=="
+    "integrity" : "sha512:gS8CjddCvBoxFEZMnpghMhkR2ERKMQRIibT2jA6PEeDI6B2oQ9SFNcq57d6B1APwmdtBLXTasSXPglEKnX/7vA=="
   }, {
     "groupId" : "io.netty",
     "artifactId" : "netty-codec-http",
-    "version" : "4.1.131.Final",
+    "version" : "4.1.132.Final",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:0J2VDUiGk4W0FwIH30XqJ0TeKPYtsu6RXvRSRPZW0zFXxKHa3m/cDqGv5hGnidl4Kjs8y++E6ATDyIZHmxW6CQ=="
+    "integrity" : "sha512:PM3snkvwzyVKxwqqvHvdxadWMwZh1KxyE8pQakEGeMLPH2ig9eD7GXL5iXURgYk6AKkA1S5pDJQWGD/sECk6JA=="
   }, {
     "groupId" : "io.netty",
     "artifactId" : "netty-codec-socks",
-    "version" : "4.1.131.Final",
+    "version" : "4.1.132.Final",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:5voVuGHN1m0508fJK3Z3vOTx1iHxdtlfBRwcbipue6E19RACh7/nGt4Pyc/J+eB5N/5qCPhtWtZddO57e0XdvQ=="
+    "integrity" : "sha512:fp4p2+vGYsoJi8+41fq2i4ok7Y0DmQ/KP89o1uNFpY5OBk17t9Aem4S3nHCM25PCTOmEUzfr2MVjPFU5T4HyyQ=="
   }, {
     "groupId" : "io.netty",
     "artifactId" : "netty-codec",
-    "version" : "4.1.131.Final",
+    "version" : "4.1.132.Final",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:rRK43aeWlVXvUuIvyTStqqXVLmTo1sH+VoqP69/yzGK6S6TBcB45Vs5ilSRIowadiY0AzwBk28QXig7fUHl65A=="
+    "integrity" : "sha512:Ecm56HXG+ue9qKFx0Tg72TOnF4LfGPkh/xM/EfII/jdJAf5XhC/CDFqlXZv9hanKtnSSuSjdTiHAzaEsDYNzfw=="
   }, {
     "groupId" : "io.netty",
     "artifactId" : "netty-handler-proxy",
-    "version" : "4.1.131.Final",
+    "version" : "4.1.132.Final",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:CO525YxDxMKdSmQv8GuaXC0z7uMHvUHq5Q6wk4IxSPwe0/PRWPvaTNMTnXu5K7Vf6CmQLv1QqfOUMA4KRs24PA=="
+    "integrity" : "sha512:d86f8yzpvHKymxCR8Hvbs75FZB9ArDaDzo1kZIQm+fvmobZ8aBoTyKeyxKA3QFqRcrSWXXeCNlej2SSudRloFA=="
   }, {
     "groupId" : "io.netty",
     "artifactId" : "netty-resolver",
-    "version" : "4.1.131.Final",
+    "version" : "4.1.132.Final",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:4to4Kvoku1p8BnLOtSw2aLjQAk31kpHoEPUF40Kyafv0RV6Awf+kU0jxPgAN3FKIQxUYhIf0vESt9AeO28lYyw=="
+    "integrity" : "sha512:LfruZSjZtR0U6/jPTU6PbCdEEkc05YpyMIFBu0fR2Jgh4zGnzeidrJFj/S7VFyUa0+PWY7qW/RKRkFbX8hSVDw=="
   }, {
     "groupId" : "io.netty",
     "artifactId" : "netty-transport-classes-epoll",
-    "version" : "4.1.131.Final",
+    "version" : "4.1.132.Final",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:e/AuXVQr2ySgy//LNZ1f0Ys/obB0sxeEemecCkWwv7KuO8RJioUbr+Ttky8kUZU7KzHfqCHJtjaXrP7z0r+tZQ=="
+    "integrity" : "sha512:Eu49re9oYf+WHpr54/vfTV3xES6pyXW+O9ey2Je0oUAxFY/aigUBDkV4/tKds+amER2X13rIp6fXudvhFqOOnA=="
   }, {
     "groupId" : "io.netty",
     "artifactId" : "netty-transport-classes-kqueue",
-    "version" : "4.1.131.Final",
+    "version" : "4.1.132.Final",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:OnHKbNVZCJ1zHeMGoUKBSSIWIIh3y6r7/5NjaJ/HhISNyTij0vS2xiGxY5hGUoqIy/XByHIwo1GcV/GFmlCjjQ=="
+    "integrity" : "sha512:P+lgs+uMBm193z8Ik9ARFLZpa4v76lrmJ0ZiSPg2sTB7S5n8e800nT6bbQ7BVFvTqZ8NQ3R052p7XAuUkmpjiA=="
   }, {
     "groupId" : "io.netty",
     "artifactId" : "netty-transport-native-epoll",
-    "version" : "4.1.131.Final",
+    "version" : "4.1.132.Final",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:z6E8PQq2u1fQHFjuVc2wjyCheL8HjnbDzWV5Q1XHL0tUQ3vENn8eAoYzysPkihQvfqp73TOM8i9bP80JsHqBzw==",
+    "integrity" : "sha512:YQWJkpuFslqpy86UPDTxa3mSCvb6dleIiDzfvb924GB3Cs53mPIVbiKCTylHRRehfh5YmmkGPAp7L1oLO1DTBQ==",
     "classifier" : "linux-x86_64"
   }, {
     "groupId" : "io.netty",
     "artifactId" : "netty-transport-native-kqueue",
-    "version" : "4.1.131.Final",
+    "version" : "4.1.132.Final",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:Y8kiDfWucr+ek03o60a59sFKX0IgCA+fTMLqD6MrWonxgRIL3lXPpkd0czt8EChlGSMOj7EJymoSHpmBTu9ykg==",
+    "integrity" : "sha512:3eJwfM895WB422M1IacwTTiCDY/wlPu8S7PVhwIe9DASKL7q1feXjVfyyzjMATQHOOmQ/09+8BGJ6NsJSJmMrA==",
     "classifier" : "osx-x86_64"
   }, {
     "groupId" : "io.netty",
     "artifactId" : "netty-transport-native-unix-common",
-    "version" : "4.1.131.Final",
+    "version" : "4.1.132.Final",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:yvM3cqYmA5oUu8VMjpn1qBm5PDbklWlvFWI0+9goK0I38Vliv+hqWBOnK0HQvaqQxfjpxYClBTlq2C/bxn/66g=="
+    "integrity" : "sha512:SFlwpbPZ4qr/Tdg/Y5TPHw+2bB8XhzDcX5mg2eX37tWNWu9ZXDTa/LlvnZVtPfbGK5lvt2qx2AYiTOo0/ELjcw=="
   }, {
     "groupId" : "io.netty",
     "artifactId" : "netty-transport",
-    "version" : "4.1.131.Final",
+    "version" : "4.1.132.Final",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:rFMrra2aax4aJqXuxRVWVy5g955woc23hG3up1tcCS9/D74jiFNTTttSs9jsjbY4fLyqtk9Tf+POX47SwRYtqQ=="
+    "integrity" : "sha512:CMvb5aINJf8f9wxpyBowRO03u/QFVqtLKfN4uXuIISTwWlcdXiTiB8YB7H8nQJIHK5mjVoTEfCBouUZga2fMTw=="
   }, {
     "groupId" : "io.opentelemetry.instrumentation",
     "artifactId" : "opentelemetry-instrumentation-annotations",
