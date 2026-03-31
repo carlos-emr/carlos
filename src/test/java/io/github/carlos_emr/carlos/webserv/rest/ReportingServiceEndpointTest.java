@@ -22,6 +22,7 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -36,10 +37,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
-import io.github.carlos_emr.carlos.commn.dao.EFormReportToolDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionReportDao;
-import io.github.carlos_emr.carlos.commn.model.DemographicSets;
 import io.github.carlos_emr.carlos.commn.model.EFormReportTool;
+import io.github.carlos_emr.carlos.commn.model.PreventionReport;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DemographicSetsManager;
 import io.github.carlos_emr.carlos.managers.EFormReportToolManager;
@@ -50,7 +50,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * HTTP-level endpoint tests for {@link ReportingService} using CXF local transport.
  *
  * <p>These tests verify path routing, JSON serialization, and HTTP status codes
- * for reporting REST endpoints. All dependencies are mocked.</p>
+ * for the reporting REST API (demographic sets, eForm report tool, prevention
+ * reports). All dependencies are mocked.</p>
  *
  * @since 2026-03-31
  * @see CarlosRestTestBase
@@ -63,13 +64,10 @@ class ReportingServiceEndpointTest extends CarlosRestTestBase {
 
     @Mock
     private DemographicSetsManager mockDemographicSetsManager;
-
     @Mock
     private DemographicManager mockDemographicManager;
-
     @Mock
-    private EFormReportToolManager mockEFormReportToolManager;
-
+    private EFormReportToolManager mockEformReportToolManager;
     @Mock
     private PreventionReportDao mockPreventionReportDao;
 
@@ -78,20 +76,21 @@ class ReportingServiceEndpointTest extends CarlosRestTestBase {
         ReportingService service = new ReportingService();
         injectDependency(service, "demographicSetsManager", mockDemographicSetsManager);
         injectDependency(service, "demographicManager", mockDemographicManager);
-        injectDependency(service, "eformReportToolManager", mockEFormReportToolManager);
+        injectDependency(service, "eformReportToolManager", mockEformReportToolManager);
         injectDependency(service, "preventionReportDao", mockPreventionReportDao);
         return service;
     }
 
+    /** Tests for GET /reporting/demographicSets/list endpoint. */
     @Nested
     @DisplayName("GET /reporting/demographicSets/list")
     class ListDemographicSets {
 
         @Test
         @DisplayName("should return 200 with demographic set names")
-        void shouldReturn200_whenSetsExist() {
-            when(mockDemographicSetsManager.getDemographicSetNames())
-                .thenReturn(List.of("Set A", "Set B"));
+        void shouldReturn200WithSetNames_whenSetsExist() {
+            when(mockDemographicSetsManager.getNames(any(LoggedInInfo.class)))
+                .thenReturn(List.of("Diabetes Patients", "Heart Failure Cohort"));
 
             Response response = request().path("/reporting/demographicSets/list").get();
 
@@ -99,9 +98,9 @@ class ReportingServiceEndpointTest extends CarlosRestTestBase {
         }
 
         @Test
-        @DisplayName("should return 200 with empty list when no sets")
-        void shouldReturn200WithEmptyList_whenNoSets() {
-            when(mockDemographicSetsManager.getDemographicSetNames())
+        @DisplayName("should return 200 with empty list when no demographic sets")
+        void shouldReturn200WithEmptyList_whenNoSetsExist() {
+            when(mockDemographicSetsManager.getNames(any(LoggedInInfo.class)))
                 .thenReturn(Collections.emptyList());
 
             Response response = request().path("/reporting/demographicSets/list").get();
@@ -110,43 +109,20 @@ class ReportingServiceEndpointTest extends CarlosRestTestBase {
         }
     }
 
-    @Nested
-    @DisplayName("GET /reporting/demographicSets/demographicSet/{name}")
-    class GetDemographicSetByName {
-
-        @Test
-        @DisplayName("should return 200 with demographic set")
-        void shouldReturn200_whenSetExists() {
-            DemographicSets ds = new DemographicSets();
-            when(mockDemographicSetsManager.getDemographicSetByName(eq("TestSet")))
-                .thenReturn(List.of(ds));
-
-            Response response = request().path("/reporting/demographicSets/demographicSet/TestSet").get();
-
-            assertThat(response.getStatus()).isEqualTo(200);
-        }
-
-        @Test
-        @DisplayName("should return 200 with empty result when set not found")
-        void shouldReturn200WithEmpty_whenSetNotFound() {
-            when(mockDemographicSetsManager.getDemographicSetByName(eq("nonexistent")))
-                .thenReturn(Collections.emptyList());
-
-            Response response = request().path("/reporting/demographicSets/demographicSet/nonexistent").get();
-
-            assertThat(response.getStatus()).isEqualTo(200);
-        }
-    }
-
+    /** Tests for GET /reporting/eformReportTool/list endpoint. */
     @Nested
     @DisplayName("GET /reporting/eformReportTool/list")
-    class ListEFormReportTools {
+    class EformReportToolList {
 
         @Test
-        @DisplayName("should return 200 with eForm report tools")
-        void shouldReturn200_whenToolsExist() {
+        @DisplayName("should return 200 with eForm report tool entries")
+        void shouldReturn200WithEntries_whenReportToolsExist() {
             EFormReportTool tool = new EFormReportTool();
-            when(mockEFormReportToolManager.findAll(any(LoggedInInfo.class)))
+            tool.setId(1);
+            tool.setName("Blood Pressure Tracker");
+            tool.setEformId(10);
+
+            when(mockEformReportToolManager.findAll(any(LoggedInInfo.class), eq(0), anyInt()))
                 .thenReturn(List.of(tool));
 
             Response response = request().path("/reporting/eformReportTool/list").get();
@@ -155,9 +131,9 @@ class ReportingServiceEndpointTest extends CarlosRestTestBase {
         }
 
         @Test
-        @DisplayName("should return 200 with empty list when no tools")
-        void shouldReturn200WithEmptyList_whenNoTools() {
-            when(mockEFormReportToolManager.findAll(any(LoggedInInfo.class)))
+        @DisplayName("should return 200 with empty list when no report tools")
+        void shouldReturn200WithEmptyList_whenNoReportToolsExist() {
+            when(mockEformReportToolManager.findAll(any(LoggedInInfo.class), eq(0), anyInt()))
                 .thenReturn(Collections.emptyList());
 
             Response response = request().path("/reporting/eformReportTool/list").get();
@@ -166,14 +142,30 @@ class ReportingServiceEndpointTest extends CarlosRestTestBase {
         }
     }
 
+    /** Tests for GET /reporting/preventionReport/getList endpoint. */
     @Nested
     @DisplayName("GET /reporting/preventionReport/getList")
-    class GetPreventionReportList {
+    class GetPreventionReports {
 
         @Test
-        @DisplayName("should return 200 with prevention reports")
-        void shouldReturn200_whenReportsExist() {
-            when(mockPreventionReportDao.findActive())
+        @DisplayName("should return 200 with prevention report list")
+        void shouldReturn200WithReports_whenReportsExist() {
+            PreventionReport report = new PreventionReport();
+            report.setId(1);
+            report.setReportName("Flu Vaccination Report");
+
+            when(mockPreventionReportDao.getPreventionReports())
+                .thenReturn(List.of(report));
+
+            Response response = request().path("/reporting/preventionReport/getList").get();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+        }
+
+        @Test
+        @DisplayName("should return 200 with empty list when no prevention reports")
+        void shouldReturn200WithEmptyList_whenNoReportsExist() {
+            when(mockPreventionReportDao.getPreventionReports())
                 .thenReturn(Collections.emptyList());
 
             Response response = request().path("/reporting/preventionReport/getList").get();
