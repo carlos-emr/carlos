@@ -1,11 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 7.1//EN" "https://struts.apache.org/dtds/struts-7.1.dtd">
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
 <!--
     CARLOS EMR - Administration Actions
-    Contains 12 action mappings for administration, system messages, lookup lists, and issue management.
+    Contains action mappings for administration, system messages, lookup lists, and issue management.
 -->
 <struts>
-    <package name="default" namespace="/" extends="struts-default">
+    <package name="admin" namespace="/" extends="struts-default">
 
         <action name="lookupListManagerAction" class="io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action">
             <result name="success">/admin/lookUpLists/</result>
@@ -29,34 +50,6 @@
             <result name="list">/caisicore/issueAdminList.jsp</result>
             <result name="edit">/caisicore/issueAdminForm.jsp</result>
         </action>
-        <!--action name="encounter/oscarConsultationRequest/printPdf" class="oscar.oscarEncounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestPrint2Action">
-            <result name="error">/encounter/ViewRequest.do?error=true</result>
-            </action-->
-        <!--action name="PatientOption" class="oscar.oscarEncounter.search.pageUtil.EctPatientOptions2Action">
-            <result name="consult">/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
-            <result name="viewAllConsult">/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp</result>
-            <result name="success">/search/searchDemographicSearch.jsp</result>
-        </action>
-        <action name="CreateInitImmunization" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetInit2Action">
-            <result name="success">/immunizationConfig/CreateImmunizationSetConfig.jsp</result>
-            </action-->
-        <!--action name="encounter/oscarMeasurements/StreamStyleSheet" class="oscar.oscarEncounter.oscarMeasurements.pageUtil.EctStreamStyleSheet2Action"/-->
-        <!--action name="oscarMaintenance" class="oscar.oscarMaintenance.pageUtil.Maintenance2Action">
-            <result name="success">/oscarMaintenance/oscarMaintenanceDisplay.jsp</result>
-            <result name="input">/oscarMaintenance/oscarMaintenanceInput.jsp</result>
-            </action-->
-        <!--action name="billing/CA/BC/billingStatement" class="oscar.oscarBilling.ca.bc.pageUtil.CreateBillingStatement2Action">
-            <result name="success">/billing/CA/BC/billStatement.jsp</result>
-            </action-->
-        <!--action name="oscarWaitingList/WLWaitingList" class="oscar.pageUtil.WLWaitingList2Action">
-            <result name="success">/oscarWaitingList/WLDisplayPatientWaitingList.jsp</result>
-            </action-->
-        <!--action name="billing/CA/BC/receivePaymentAction" class="oscar.oscarBilling.ca.bc.pageUtil.BillingReceivePaymentActionForm2Action">
-            <result name="success">/billing/CA/BC/billReceipt.jsp</result>
-            <result name="internalAdjustment">/billing/CA/BC/adjustBill.jsp</result>
-            <result name="internalAdjustmentWCB">/billing/CA/BC/billingTeleplanCorrectionWCB.jsp</result>
-            </action-->
-        <!--action name="billing/CA/BC/DownloadBilling" class="oscar.oscarBilling.ca.bc.pageUtil.DownloadFile2Action"/-->
         <action name="Lookup/LookupList" class="io.github.carlos_emr.carlos.www.lookup.LookupList2Action" method="execute">
             <result name="list">/PMmodule/lookup/LookupList.jsp</result>
         </action>
@@ -71,10 +64,8 @@
         </action>
         <action name="admin/GenerateTraceAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTrace2Action"/>
         <action name="admin/GenerateTraceabilityReportAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTraceabilityReport2Action">
-            <interceptor-ref name="actionFileUpload" />
             <interceptor-ref name="defaultStack"/>
         </action>
-        <!--action name="consults/Consultations" class="org.oscarehr.consultations.Consultation2Action"/-->
         <action name="admin/AuditLogPurge" class="io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action">
             <result name="success">/admin/auditLogPurge.jsp</result>
         </action>

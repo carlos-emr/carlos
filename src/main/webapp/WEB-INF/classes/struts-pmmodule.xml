@@ -1,11 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 7.1//EN" "https://struts.apache.org/dtds/struts-7.1.dtd">
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
 <!--
     CARLOS EMR - Program Management Actions
-    Contains 23 action mappings for program management module, provider listings, and case management intake.
+    Contains action mappings for program management module, provider profile settings, and case management.
 -->
 <struts>
-    <package name="default" namespace="/" extends="struts-default">
+    <package name="pmmodule" namespace="/" extends="struts-default">
 
         <action name="Home" class="io.github.carlos_emr.carlos.PMmodule.web.Home2Action">
             <result name="home">/PMmodule/layout_quatro.jsp</result>
@@ -35,7 +56,6 @@
             <result name="error">/provider/providerColourErr.jsp</result>
             <result name="eject">/index.jsp</result>
         </action>
-        <!-- ticklerPlus actions removed -->
         <action name="PMmodule/ProgramManager" class="io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramManager2Action" method="execute">
             <result name="list">page.pmm.admin.list</result>
             <result name="edit">page.pmm.admin.edit</result>

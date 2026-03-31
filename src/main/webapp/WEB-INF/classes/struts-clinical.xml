@@ -1,11 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 7.1//EN" "https://struts.apache.org/dtds/struts-7.1.dtd">
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
 <!--
     CARLOS EMR - Clinical Actions
-    Contains 25 action mappings for diagnosis research, prevention/immunization, case management, and clinical decision support.
+    Contains action mappings for diagnosis research, prevention/immunization, case management notes, clinical decision support, and renal care.
 -->
 <struts>
-    <package name="default" namespace="/" extends="struts-default">
+    <package name="clinical" namespace="/" extends="struts-default">
 
         <action name="encounter/decisionSupport/guidelineAction" class="io.github.carlos_emr.carlos.decisionSupport.web.DSGuideline2Action" method="execute">
             <result name="guidelineList">/encounter/decisionSupport/guidelineList.jsp</result>
@@ -43,7 +64,6 @@
         </action>
         <action name="dxCodeSearchJSON" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxCodeSearchJSON2Action"/>
         <action name="oscarResearch/oscarDxResearch/dxResearchLoadAssociations" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchLoadAssociations2Action">
-            <interceptor-ref name="actionFileUpload" />
             <interceptor-ref name="defaultStack"/>
             <result name="success">/oscarResearch/oscarDxResearch/dxResearchSelectAssociations.jsp</result>
         </action>
@@ -94,10 +114,9 @@
         </action>
         <action name="OscarChartPrint" class="io.github.carlos_emr.carlos.casemgmt.web.EChartPrint2Action"/>
         <action name="ClientImage" class="io.github.carlos_emr.carlos.casemgmt.web.ClientImage2Action" method="execute">
-            <interceptor-ref name="defaultStack"/>
-            <interceptor-ref name="actionFileUpload">
-            <param name="allowedTypes">image/jpeg,image/gif</param>
-        </interceptor-ref>
+            <interceptor-ref name="defaultStack">
+                <param name="actionFileUpload.allowedTypes">image/jpeg,image/gif</param>
+            </interceptor-ref>
             <result name="success">/casemgmt/uploadimage.jsp</result>
         </action>
         <action name="casemgmt/ExtPrintRegistry" class="io.github.carlos_emr.carlos.casemgmt.web.ExtPrintRegistry2Action"/>

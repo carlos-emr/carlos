@@ -1,11 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 7.1//EN" "https://struts.apache.org/dtds/struts-7.1.dtd">
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
 <!--
     CARLOS EMR - Billing Actions
-    Contains 42 action mappings for BC and Ontario provincial billing, payments, and invoice management.
+    Contains action mappings for BC and Ontario provincial billing, payments, and invoice management.
 -->
 <struts>
-    <package name="default" namespace="/" extends="struts-default">
+    <package name="billing" namespace="/" extends="struts-default">
 
         <action name="quickBillingBC" class="io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBC2Action">
             <result name="success">/billing/CA/BC/quickBillingBC.jsp</result>
@@ -56,10 +77,6 @@
         <action name="billing/CA/BC/billingTeleplanCorrectionWCB" class="io.github.carlos_emr.carlos.billings.ca.bc.administration.TeleplanCorrectionActionWCB2Action">
             <result name="success">/billing/CA/BC/billingTeleplanCorrectionWCB.jsp</result>
             <result name="failure">/billing/CA/BC/billingTeleplanCorrectionWCB.jsp</result>
-        </action>
-        <action name="billing/CA/BC/reprocessBill" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingReProcessBill2Action">
-            <result name="success">/billing/CA/BC/adjustBill.jsp</result>
-            <result name="save">/billing/CA/BC/billStatus.jsp</result>
         </action>
         <action name="billing/CA/BC/reprocessBill" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingReProcessBill2Action">
             <result name="success">/billing/CA/BC/adjustBill.jsp</result>
@@ -165,13 +182,6 @@
             <result name="failure">/billing/CA/ON/billingON3rdPayments.jsp</result>
             <result name="viewPayment">/billing/CA/ON/billingON3rdViewPayment.jsp</result>
         </action>
-        <!--action name="billing/CA/ON/displayMOHXML" class="org.oscarehr.billing.CA.ON.www.DisplayMOHXML2Action">
-            <result name="success">/billing/CA/ON/billingLreport.jsp</result>
-            <result name="failure">/billing/CA/ON/billingLreport.jsp</result>
-        </action>
-        <action name="billing/CA/ON/moveMOHFiles" class="io.github.carlos_emr.carlos.billing.CA.ON.www.ArchiveMOHFile2Action">
-            <result name="showInbox">/billing/CA/ON/viewMOHFiles.jsp</result>
-            </action-->
         <action name="billing/ca/on/DisplayInvoiceLogo" class="io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action"/>
 
     </package>

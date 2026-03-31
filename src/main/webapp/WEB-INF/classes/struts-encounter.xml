@@ -1,11 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 7.1//EN" "https://struts.apache.org/dtds/struts-7.1.dtd">
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
 <!--
     CARLOS EMR - Encounter Actions
-    Contains 103 action mappings for patient encounters, clinical documentation, measurements, and chart display.
+    Contains action mappings for patient encounters, consultations, clinical documentation, measurements, and chart display.
 -->
 <struts>
-    <package name="default" namespace="/" extends="struts-default">
+    <package name="encounter" namespace="/" extends="struts-default">
 
         <action name="MeasurementHL7Uploader" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.hl7.MeasurementHL7Uploader2Action"/>
         <action name="encounter/IncomingEncounter" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctIncomingEncounter2Action">
@@ -700,7 +721,6 @@
             <result name="continue">/encounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/AddMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementStyleSheet2Action">
-            <interceptor-ref name="actionFileUpload" />
             <interceptor-ref name="defaultStack"/>
             <result name="success">/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
         </action>
