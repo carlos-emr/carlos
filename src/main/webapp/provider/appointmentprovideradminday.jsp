@@ -2840,7 +2840,7 @@
                         badgeEl.textContent = origText;
                         badgeEl.style.opacity = '';
                         badgeEl.style.pointerEvents = '';
-                        alert(msgs.noSlotsAlert);
+                        alert(msgs.noSlotsAlert.replace('{0}', slot.lookaheadDays || 90));
                         return;
                     }
 

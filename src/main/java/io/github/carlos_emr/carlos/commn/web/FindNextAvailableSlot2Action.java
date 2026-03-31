@@ -86,8 +86,12 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
 
     /** Default maximum days to search ahead; overridable via {@code MAX_LOOKAHEAD_DAYS} in carlos.properties. */
     private static final int DEFAULT_MAX_LOOKAHEAD_DAYS = 90;
-    /** Default slot ordinal to return; overridable via {@code TARGET_SLOT_ORDINAL} in carlos.properties. */
-    private static final int DEFAULT_TARGET_SLOT_ORDINAL = 3;
+    /**
+     * Default slot ordinal to return; overridable via {@code TARGET_SLOT_ORDINAL} in carlos.properties.
+     * Returns the first available slot (ordinal 1) to avoid false "no slots" results when only a few
+     * slots exist within the lookahead window.
+     */
+    private static final int DEFAULT_TARGET_SLOT_ORDINAL = 1;
 
     /**
      * Reads {@code MAX_LOOKAHEAD_DAYS} from carlos.properties with validation.
@@ -299,7 +303,7 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
         }
 
         // No slot found within lookahead window
-        writeJson(Map.of("found", false));
+        writeJson(Map.of("found", false, "lookaheadDays", maxLookaheadDays));
         return null;
     }
 
