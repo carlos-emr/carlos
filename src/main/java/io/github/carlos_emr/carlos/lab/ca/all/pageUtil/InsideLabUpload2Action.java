@@ -57,6 +57,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
@@ -92,7 +93,7 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
             this.importFilesFileName = new ArrayList<>();
             this.importFilesContentType = new ArrayList<>();
             for (UploadedFile uploaded : uploadedFiles) {
-                this.importFiles.add(new File(uploaded.getAbsolutePath()));
+                this.importFiles.add(PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath())));
                 this.importFilesFileName.add(uploaded.getOriginalName());
                 this.importFilesContentType.add(uploaded.getContentType());
             }
