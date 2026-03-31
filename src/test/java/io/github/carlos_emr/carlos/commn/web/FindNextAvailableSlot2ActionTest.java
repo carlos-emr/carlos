@@ -296,7 +296,7 @@ class FindNextAvailableSlot2ActionTest extends CarlosWebTestBase {
         }
 
         @Test
-        @DisplayName("Should return found=false when no template exists for provider")
+        @DisplayName("Should return found=false with lookaheadDays when no template exists for provider")
         void shouldReturnNotFound_whenNoScheduleTemplate() throws Exception {
             addRequestParameter("providerNos", TEST_PROVIDER);
             when(mockScheduleTemplateDao.findTimeCodeByProviderNo2(anyString(), any(Date.class)))
@@ -305,11 +305,12 @@ class FindNextAvailableSlot2ActionTest extends CarlosWebTestBase {
             Map<String, Object> result = executeAndParseJson();
 
             assertThat(result.get("found")).isEqualTo(false);
+            assertThat(result.get("lookaheadDays")).isEqualTo(90);
         }
 
         @Test
-        @DisplayName("Should return found=false when all slots booked for 60 days")
-        void shouldReturnNotFound_whenAllSlotsBookedFor60Days() throws Exception {
+        @DisplayName("Should return found=false with lookaheadDays when all slots closed for 90 days")
+        void shouldReturnNotFound_whenAllSlotsClosed() throws Exception {
             addRequestParameter("providerNos", TEST_PROVIDER);
             // Only underscore (closed) slots
             setTimecodeForAllDays("_".repeat(96));
@@ -317,6 +318,7 @@ class FindNextAvailableSlot2ActionTest extends CarlosWebTestBase {
             Map<String, Object> result = executeAndParseJson();
 
             assertThat(result.get("found")).isEqualTo(false);
+            assertThat(result.get("lookaheadDays")).isEqualTo(90);
         }
 
         @Test

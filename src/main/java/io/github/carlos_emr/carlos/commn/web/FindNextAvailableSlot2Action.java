@@ -303,7 +303,7 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
         }
 
         // No slot found within lookahead window
-        writeJson(Map.of("found", false));
+        writeJson(Map.of("found", false, "lookaheadDays", maxLookaheadDays));
         return null;
     }
 
