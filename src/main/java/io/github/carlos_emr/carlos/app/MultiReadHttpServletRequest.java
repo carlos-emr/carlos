@@ -29,22 +29,33 @@
 package io.github.carlos_emr.carlos.app;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.tomcat.util.http.fileupload.FileItem;
+import org.apache.tomcat.util.http.fileupload.FileUpload;
+import org.apache.tomcat.util.http.fileupload.FileUploadException;
+import org.apache.tomcat.util.http.fileupload.UploadContext;
+import org.apache.tomcat.util.http.fileupload.disk.DiskFileItemFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import jakarta.servlet.ReadListener;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
+import jakarta.servlet.http.Part;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -61,6 +72,12 @@ import java.util.regex.Pattern;
  * at the filter level. Without this, Tomcat 11 returns {@code null} for
  * {@code getParameter()} on multipart requests processed outside a
  * {@code @MultipartConfig}-annotated servlet — which breaks CSRFGuard token extraction.</p>
+ *
+ * <p>Overrides {@link #getParts()} and {@link #getPart(String)} so that servlet-based
+ * upload endpoints (which call {@code request.getParts()} directly) receive properly
+ * parsed parts from the cached body. Without this override, {@code getParts()} delegates
+ * to the original Tomcat {@code Request} which tries to read the already-consumed
+ * stream and returns empty parts.</p>
  */
 public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
 
@@ -73,6 +90,9 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
 
     /** Lazily parsed multipart text form field parameters. {@code null} means not yet parsed. */
     private Map<String, List<String>> multipartParams;
+
+    /** Lazily parsed multipart parts for {@link #getParts()}. {@code null} means not yet parsed. */
+    private Collection<Part> cachedParts;
 
     private static final Pattern FIELD_NAME_PATTERN =
             Pattern.compile("\\bname=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE);
@@ -178,6 +198,100 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             return values.toArray(new String[0]);
         }
         return super.getParameterValues(name);
+    }
+
+    // ------------------------------------------------------------------
+    // getParts() / getPart() — multipart Part parsing from cached body
+    // ------------------------------------------------------------------
+
+    /**
+     * Returns all parts of the multipart request, parsed from the cached body.
+     *
+     * <p>Uses Tomcat's bundled {@code FileUpload} parser (the same parser Tomcat uses
+     * internally for {@code @MultipartConfig} servlets) to parse parts from the cached
+     * bytes, then wraps each {@code FileItem} in a {@link FileItemPart} adapter.</p>
+     *
+     * @return an unmodifiable collection of all parts
+     * @throws IOException if caching or parsing the request body fails
+     * @throws ServletException if the multipart parsing fails
+     */
+    @Override
+    public Collection<Part> getParts() throws IOException, ServletException {
+        if (cachedParts != null) {
+            return cachedParts;
+        }
+
+        String contentType = getContentType();
+        if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("multipart/")) {
+            return super.getParts();
+        }
+
+        if (cachedBytes == null) {
+            cacheInputStream();
+        }
+
+        try {
+            DiskFileItemFactory factory = new DiskFileItemFactory();
+            factory.setSizeThreshold(1024 * 1024); // 1 MB — matches web.xml file-size-threshold
+
+            FileUpload upload = new FileUpload();
+            upload.setFileItemFactory(factory);
+            upload.setFileSizeMax(MAX_BODY_SIZE);
+            upload.setSizeMax(MAX_BODY_SIZE);
+
+            byte[] body = cachedBytes.toByteArray();
+
+            UploadContext ctx = new UploadContext() {
+                @Override
+                public String getCharacterEncoding() {
+                    return MultiReadHttpServletRequest.this.getCharacterEncoding();
+                }
+
+                @Override
+                public String getContentType() {
+                    return MultiReadHttpServletRequest.this.getContentType();
+                }
+
+                @Override
+                public InputStream getInputStream() {
+                    return new ByteArrayInputStream(body);
+                }
+
+                @Override
+                public long contentLength() {
+                    return body.length;
+                }
+            };
+
+            List<FileItem> fileItems = upload.parseRequest(ctx);
+            List<Part> parts = new ArrayList<>(fileItems.size());
+            for (FileItem item : fileItems) {
+                parts.add(new FileItemPart(item));
+            }
+            cachedParts = Collections.unmodifiableList(parts);
+        } catch (FileUploadException e) {
+            throw new ServletException("Failed to parse multipart request from cached bytes", e);
+        }
+
+        return cachedParts;
+    }
+
+    /**
+     * Returns the named part of the multipart request.
+     *
+     * @param name the part name (form field name)
+     * @return the part, or {@code null} if not found
+     * @throws IOException if caching or parsing the request body fails
+     * @throws ServletException if the multipart parsing fails
+     */
+    @Override
+    public Part getPart(String name) throws IOException, ServletException {
+        for (Part part : getParts()) {
+            if (part.getName().equals(name)) {
+                return part;
+            }
+        }
+        return null;
     }
 
     /**
@@ -407,6 +521,96 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         @Override
         public void setReadListener(ReadListener readListener) {
 
+        }
+    }
+
+    /**
+     * Adapts a Tomcat {@link FileItem} to the {@link Part} interface.
+     *
+     * <p>Used by {@link #getParts()} to wrap multipart parts parsed from the cached
+     * request body. All methods delegate to the underlying {@code FileItem}.</p>
+     */
+    private static class FileItemPart implements Part {
+
+        private final FileItem fileItem;
+
+        FileItemPart(FileItem fileItem) {
+            this.fileItem = fileItem;
+        }
+
+        @Override
+        public InputStream getInputStream() throws IOException {
+            return fileItem.getInputStream();
+        }
+
+        @Override
+        public String getContentType() {
+            return fileItem.getContentType();
+        }
+
+        @Override
+        public String getName() {
+            return fileItem.getFieldName();
+        }
+
+        @Override
+        public String getSubmittedFileName() {
+            return fileItem.getName();
+        }
+
+        @Override
+        public long getSize() {
+            return fileItem.getSize();
+        }
+
+        @Override
+        public void write(String fileName) throws IOException {
+            try {
+                fileItem.write(new File(fileName));
+            } catch (IOException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new IOException("Failed to write part to " + fileName, e);
+            }
+        }
+
+        @Override
+        public void delete() throws IOException {
+            fileItem.delete();
+        }
+
+        @Override
+        public String getHeader(String name) {
+            if (fileItem.getHeaders() == null) {
+                return null;
+            }
+            return fileItem.getHeaders().getHeader(name);
+        }
+
+        @Override
+        public Collection<String> getHeaders(String name) {
+            if (fileItem.getHeaders() == null) {
+                return Collections.emptyList();
+            }
+            List<String> result = new ArrayList<>();
+            Iterator<String> it = fileItem.getHeaders().getHeaders(name);
+            while (it.hasNext()) {
+                result.add(it.next());
+            }
+            return result;
+        }
+
+        @Override
+        public Collection<String> getHeaderNames() {
+            if (fileItem.getHeaders() == null) {
+                return Collections.emptyList();
+            }
+            List<String> result = new ArrayList<>();
+            Iterator<String> it = fileItem.getHeaders().getHeaderNames();
+            while (it.hasNext()) {
+                result.add(it.next());
+            }
+            return result;
         }
     }
 }

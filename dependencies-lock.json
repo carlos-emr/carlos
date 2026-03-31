@@ -2091,6 +2091,46 @@
     "optional" : false,
     "integrity" : "sha512:p+I92hEIaKP9bnBoCkgTDshKVXCdBhKllKBrKIeDbK2tBHug7JfpWi+RPZFzWxAudcAvFgUY7St+XWCLD3TK3g=="
   }, {
+    "groupId" : "org.apache.tomcat",
+    "artifactId" : "tomcat-coyote",
+    "version" : "11.0.20",
+    "scope" : "provided",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:VXkvKGqXdH2q3uAtqiWVjylPrbKBD9PxrdGGB0h1Yg4Z+hjzhqfMOLn+6BnilqChWEQrF1k3YZ6OprrP5TdUXg=="
+  }, {
+    "groupId" : "org.apache.tomcat",
+    "artifactId" : "tomcat-jni",
+    "version" : "11.0.20",
+    "scope" : "provided",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:f+ATVZB9At0D2E6ZWEp0cVf6RoUVrXad6kO6SwwNLRU7eUvrCt4VSVuu4x5CvHdnu753OtO0nMz8i9+x44KZ5A=="
+  }, {
+    "groupId" : "org.apache.tomcat",
+    "artifactId" : "tomcat-juli",
+    "version" : "11.0.20",
+    "scope" : "provided",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:1gBk/la6rtHDNr1kYMKonitui/BKgH9NRp1r/mPT70lPLc4IvScjhACPxTdHVMitg6xVgRipk1LLPB61pXXLNg=="
+  }, {
+    "groupId" : "org.apache.tomcat",
+    "artifactId" : "tomcat-servlet-api",
+    "version" : "11.0.20",
+    "scope" : "provided",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:YqvxXeGeAnYYucWgLvoodo5lix8EL7jC1cPWqsEw2KfADyRNxlqFQlXpb0YB4V/OcF1a6nD+Vc7I7eTkVaGhVQ=="
+  }, {
+    "groupId" : "org.apache.tomcat",
+    "artifactId" : "tomcat-util",
+    "version" : "11.0.20",
+    "scope" : "provided",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:pOq2xKd31Is1omfJ1ESPTdyCUk9EmSgn06gUgwCwG/rGE/CZj3yuSpuQSWpczqPqeLcw5shZUm7ukd/y4hknmA=="
+  }, {
     "groupId" : "org.apache.velocity.tools",
     "artifactId" : "velocity-tools-generic",
     "version" : "3.1",
