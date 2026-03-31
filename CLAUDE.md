@@ -672,9 +672,11 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 - `src/main/webapp/**` - Web resources (JSP, CSS, JS)
 
 ### Configuration Files
-- **Struts Configuration**:
-  - `struts.xml` - Struts2 configuration with `.do` extension and Spring integration
-  - Mixed Struts 1.x and 2.x action mappings
+- **Struts Configuration** (modular split):
+  - `struts.xml` - Parent config with global constants and `<include>` directives for 17 module files
+  - `struts-{admin,billing,clinical,demographic,document,eform,encounter,form,integration,lab,login,messenger,pmmodule,prescription,provider,report,scheduling}.xml` - Domain-specific action mappings
+  - Each module file declares its own uniquely-named package (e.g., `name="billing"`) with `namespace="/"` and `extends="struts-default"`
+  - New actions should be added to the appropriate domain-specific module file, not to `struts.xml`
 - **Database Configuration**:
   - Custom MySQL dialect: `OscarMySQL5Dialect`
   - Connection tracking: `OscarTrackingBasicDataSource`
@@ -984,8 +986,9 @@ src/main/resources/applicationContext.xml           # Core Spring setup patterns
 src/main/resources/applicationContextREST.xml      # OAuth 1.0a implementation examples
 src/main/webapp/WEB-INF/web.xml                   # Security filter chain configuration
 
-# Struts Configuration
-src/main/webapp/WEB-INF/classes/struts.xml        # 2Action mapping examples
+# Struts Configuration (modular — 17 domain-specific files included from parent)
+src/main/webapp/WEB-INF/classes/struts.xml        # Parent config: constants + <include> directives
+src/main/webapp/WEB-INF/classes/struts-*.xml      # Domain-specific action mappings (admin, billing, etc.)
 src/main/java/io/github/carlos_emr/carlos/*/web/*2Action.java # 2Action implementation patterns
 
 # Database Configuration

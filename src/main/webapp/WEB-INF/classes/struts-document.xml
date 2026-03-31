@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
+<!--
+    CARLOS EMR - Documents Actions
+    Contains action mappings for document management, medical data system (MDS), and hospital report management.
+-->
+<struts>
+    <package name="document" namespace="/" extends="struts-default">
+
+        <action name="documentManager/inboxManage" class="io.github.carlos_emr.carlos.documentManager.actions.DmsInboxManage2Action" method="execute">
+            <result name="dms_index">/oscarMDS/Index.jsp</result>
+            <result name="dms_page">/oscarMDS/Page.jsp</result>
+            <result name="document_in_queues">/oscarMDS/documentsInQueues.jsp</result>
+        </action>
+        <action name="oscarMDS/SendMRP" class="io.github.carlos_emr.carlos.mds.pageUtil.SendMostResponProv2Action">
+            <result name="failure">/errorpage.jsp</result>
+        </action>
+        <action name="oscarMDS/UpdateStatus" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportStatusUpdate2Action">
+            <result name="failure">/errorpage.jsp</result>
+            <result name="success">/oscarMDS/Close.jsp</result>
+        </action>
+        <action name="oscarMDS/RunMacro" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportMacro2Action"/>
+        <action name="oscarMDS/ReportReassign" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
+            <result name="failure">/errorpage.jsp</result>
+            <result name="success">/documentManager/inboxManage.do?method=prepareForIndexPage</result>
+        </action>
+        <action name="lab/CA/ALL/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
+            <result name="failure">/errorpage.jsp</result>
+            <result name="success">/lab/CA/ALL/labDisplay.jsp</result>
+        </action>
+        <action name="lab/CA/BC/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
+            <result name="failure">/errorpage.jsp</result>
+            <result name="success">/lab/CA/BC/labDisplay.jsp</result>
+        </action>
+        <action name="lab/CA/ON/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
+            <result name="failure">/errorpage.jsp</result>
+            <result name="success">/lab/CA/ON/CMLDisplay.jsp</result>
+        </action>
+        <action name="oscarMDS/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
+            <result name="failure">/errorpage.jsp</result>
+            <result name="success">/oscarMDS/SegmentDisplay.jsp</result>
+        </action>
+        <action name="oscarMDS/SearchPatient" class="io.github.carlos_emr.carlos.mds.pageUtil.SearchPatient2Action">
+            <result name="failure">/oscarMDS/PatientSearch.jsp?search_mode=search_name&amp;limit1=0&amp;limit2=10</result>
+            <result name="success">/oscarMDS/OpenEChart.jsp</result>
+        </action>
+        <action name="oscarMDS/PatientMatch" class="io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action">
+            <result name="failure">/errorpage.jsp</result>
+            <result name="success">/oscarMDS/OpenEChart.jsp</result>
+        </action>
+        <action name="previewDocs" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentPreview2Action">
+            <result name="fetchDocuments">/documentManager/attachDocument.jsp</result>
+        </action>
+        <action name="documentManager/addEditDocument" class="io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action">
+            <result name="successAdd">/documentManager/documentReport.jsp</result>
+            <result name="failAdd">/documentManager/documentReport.jsp</result>
+            <result name="failEdit">/documentManager/editDocument.jsp</result>
+            <result name="successEdit">/documentManager/closeWindow.html</result>
+            <result name="fastUploadSuccess">/documentManager/uploadMultiDocument.jsp</result>
+        </action>
+        <action name="documentManager/combinePDFs" class="io.github.carlos_emr.carlos.documentManager.actions.CombinePDF2Action">
+            <result name="success">/documentManager/documentReport.jsp</result>
+        </action>
+        <action name="documentManager/addLink" class="io.github.carlos_emr.carlos.documentManager.actions.AddEditHtml2Action">
+            <result name="success">/documentManager/documentReport.jsp</result>
+            <result name="failed">/documentManager/documentReport.jsp</result>
+        </action>
+        <action name="documentManager/addEditHtml" class="io.github.carlos_emr.carlos.documentManager.actions.AddEditHtml2Action">
+            <result name="success">/documentManager/closeWindow.html</result>
+            <result name="failed">/documentManager/addedithtmldocument.jsp</result>
+        </action>
+        <action name="documentManager/ManageDocument" class="io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action">
+            <result name="success">/documentManager/undocument.jsp</result>
+            <result name="displaySingleDoc">/documentManager/MultiPageDocDisplay.jsp</result>
+            <result name="nextIncomingDoc">/documentManager/incomingDocs.jsp</result>
+            <result name="error">/failure.jsp</result>
+        </action>
+        <action name="documentManager/SplitDocument" class="io.github.carlos_emr.carlos.documentManager.actions.SplitDocument2Action">
+            <result name="success">/oscarMDS/Splitclose.jsp</result>
+        </action>
+        <action name="documentManager/documentUpload" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentUpload2Action"/>
+        <action name="hospitalReportManager/Display" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMDisplayReport2Action">
+            <result name="display" type="dispatcher">/hospitalReportManager/displayHRMReport.jsp</result>
+        </action>
+        <action name="hospitalReportManager/Modify" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action">
+            <result name="ajax">/hospitalReportManager/ajaxResponse.jsp</result>
+        </action>
+        <action name="hospitalReportManager/Statement" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2Action">
+            <result name="success">/hospitalReportManager/hospitalReportManager.jsp</result>
+        </action>
+        <action name="hospitalReportManager/HRMDownloadFile" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMDownloadFile2Action"/>
+        <action name="hospitalReportManager/hrm" class="io.github.carlos_emr.carlos.hospitalReportManager.v2018.HRM2Action"/>
+        <action name="hospitalReportManager/PrintHRMReport" class="io.github.carlos_emr.carlos.hospitalReportManager.PrintHRMReport2Action">
+            <result name="error">/hospitalReportManager/displayHRMReport.jsp</result>
+        </action>
+
+    </package>
+</struts>

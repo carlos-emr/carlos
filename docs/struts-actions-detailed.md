@@ -4,10 +4,12 @@
 
 This document provides a comprehensive reference of all Struts actions in the CARLOS EMR system. These actions serve as the primary entry points for handling HTTP requests and coordinating business logic within the web application.
 
+**Configuration**: Actions are defined across 17 domain-specific XML files (`struts-*.xml`) included from the parent `struts.xml`. See `docs/struts-actions-summary.md` for the modular architecture and module-to-file mapping.
+
 ## Statistics
 
-- **Total Actions:** 507
-- **Modules:** 29
+- **Total Actions:** ~476
+- **Module Files:** 17 (domain-specific)
 - **Primary Functional Areas:**
   - Clinical workflows (encounters, measurements, prescriptions)
   - Administrative functions (billing, demographics, reporting)
