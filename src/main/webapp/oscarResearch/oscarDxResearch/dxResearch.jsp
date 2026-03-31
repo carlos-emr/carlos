@@ -312,7 +312,7 @@
                                             <%if (!disable) { %>
                                             <input type="button" name="codeSearch" class="btn btn-primary"
                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.btnCodeSearch"/>"
-                                                   onClick="javascript: ResearchScriptAttach();" )>
+                                                   onClick="javascript: ResearchScriptAttach();">
 
                                             <input type="button" name="codeAdd" class="btn btn-primary"
                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ADD"/>"
@@ -322,12 +322,12 @@
 
                                             <input type="button" name="button" class="btn btn-primary"
                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.btnCodeSearch"/>"
-                                                   onClick="javascript: ResearchScriptAttach();" )
-                                                   <%=disabled%>">
+                                                   onClick="javascript: ResearchScriptAttach();"
+                                                   <%=disabled%>>
 
                                             <input type="button" name="button" class="btn btn-primary"
                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ADD"/>"
-                                                   onClick="javascript: submitform('','');" <%=disabled%>">
+                                                   onClick="javascript: submitform('','');" <%=disabled%>>
                                             <% } %>
                                         </td>
                                     </tr>

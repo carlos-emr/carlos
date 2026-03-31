@@ -51,10 +51,6 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
-<%
-    String user_no = (String) session.getAttribute("user");
-%>
-
 <!DOCTYPE html>
 <html>
     <head>
