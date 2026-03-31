@@ -290,4 +290,67 @@ class DSGuidelineDroolsUnitTest {
             assertThat(RuleBaseFactory.getRuleBase(key)).isNull();
         }
     }
+
+    @Nested
+    @DisplayName("isAllowedDsParameterClass")
+    class IsAllowedDsParameterClass {
+
+        @Test
+        @DisplayName("should allow CARLOS EMR package prefix")
+        void shouldAllow_carlosEMRPackagePrefix() {
+            assertThat(DSGuidelineDrools.isAllowedDsParameterClass(
+                    "io.github.carlos_emr.carlos.decisionSupport.model.DSDemographicAccess"))
+                    .isTrue();
+        }
+
+        @Test
+        @DisplayName("should allow any class under CARLOS package root")
+        void shouldAllow_anyClassUnderCarlosPackageRoot() {
+            assertThat(DSGuidelineDrools.isAllowedDsParameterClass(
+                    "io.github.carlos_emr.carlos.billing.SomeHelper"))
+                    .isTrue();
+        }
+
+        @Test
+        @DisplayName("should reject JDK class")
+        void shouldReject_jdkClass() {
+            assertThat(DSGuidelineDrools.isAllowedDsParameterClass("java.lang.Runtime"))
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject third-party class")
+        void shouldReject_thirdPartyClass() {
+            assertThat(DSGuidelineDrools.isAllowedDsParameterClass("com.example.SomeClass"))
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject legacy oscar package")
+        void shouldReject_legacyOscarPackage() {
+            assertThat(DSGuidelineDrools.isAllowedDsParameterClass("org.oscarehr.SomeLegacyClass"))
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject null class name")
+        void shouldReject_nullClassName() {
+            assertThat(DSGuidelineDrools.isAllowedDsParameterClass(null)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject empty class name")
+        void shouldReject_emptyClassName() {
+            assertThat(DSGuidelineDrools.isAllowedDsParameterClass("")).isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject class name that merely contains CARLOS prefix mid-string")
+        void shouldReject_classNameContainingPrefixMidString() {
+            // Must start with the prefix, not just contain it
+            assertThat(DSGuidelineDrools.isAllowedDsParameterClass(
+                    "com.evil.io.github.carlos_emr.carlos.Exploit"))
+                    .isFalse();
+        }
+    }
 }
