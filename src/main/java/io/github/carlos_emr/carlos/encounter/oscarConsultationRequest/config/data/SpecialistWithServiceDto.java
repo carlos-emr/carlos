@@ -33,12 +33,30 @@ public class SpecialistWithServiceDto {
         this.serviceNames = serviceNames == null ? null : new ArrayList<>(serviceNames);
     }
 
+    /**
+     * Returns the specification ID.
+     */
     public Integer getSpecId() { return specId; }
     public String getName() { return name; }
+    /**
+     * Returns the phone number.
+     */
     public String getPhone() { return phone; }
+    /**
+     * Returns the fax number.
+     */
     public String getFax() { return fax; }
     public String getAddress() { return address; }
+    /**
+     * Returns the annotation string.
+     */
     public String getAnnotation() { return annotation; }
+    /**
+     * Returns an unmodifiable list of service IDs or null if not set.
+     */
     public List<Integer> getServiceIds() { return serviceIds == null ? null : Collections.unmodifiableList(serviceIds); }
+    /**
+     * Returns an unmodifiable list of service names or null if not set.
+     */
     public List<String> getServiceNames() { return serviceNames == null ? null : Collections.unmodifiableList(serviceNames); }
 }
