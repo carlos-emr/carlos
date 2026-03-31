@@ -105,14 +105,14 @@ opacity: 0.3;
 margin-top:18px;
 }
 
-.accordion-heading{background-color:#fff;border-bottom:thin solid #C6C6C6;}
+.accordion-header{background-color:#fff;border-bottom:thin solid #C6C6C6;}
 
-.accordion-heading:hover{background-color:#e6e6e6;}
-.accordion-heading a:hover{text-decoration:none;}
+.accordion-header:hover{background-color:#e6e6e6;}
+.accordion-header a:hover{text-decoration:none;}
 
 .fa-chevron-right{opacity:0.3;}
 
-.accordion-heading a:hover > .fa-chevron-right{opacity: 1;}
+.accordion-header a:hover > .fa-chevron-right{opacity: 1;}
 
 .selected-heading{background-color:#e6e6e6;}
 
