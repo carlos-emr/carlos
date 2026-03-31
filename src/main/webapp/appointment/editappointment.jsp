@@ -1015,7 +1015,7 @@
                         <input type="hidden" name="limit1" value="0">
                         <input type="hidden" name="limit2" value="5">
                         <input type="hidden" name="ptstatus" value="active">
-                        <input type="submit" name="searchBtn" id="searchBtn" class="btn btn-secondary" style="margin-bottom:10px;"
+                        <input type="submit" name="searchBtn" id="searchBtn" class="btn btn-primary" style="margin-bottom:10px;"
                                onclick="parseSearch();document.forms['EDITAPPT'].displaymode.value='Search '"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnSearch"/>">
                     </td>
