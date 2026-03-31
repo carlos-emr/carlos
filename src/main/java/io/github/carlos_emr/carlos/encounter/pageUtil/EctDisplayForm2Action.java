@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.lab.LabRequestReportLink;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -73,16 +73,16 @@ public class EctDisplayForm2Action extends EctDisplayAction {
             try {
 
                 String winName = "Forms" + bean.demographicNo;
-                StringBuilder url = new StringBuilder("popupPage(600, 700, '" + winName + "', '" + request.getContextPath() + "/oscarEncounter/formlist.jsp?demographic_no=" + bean.demographicNo + "')");
+                StringBuilder url = new StringBuilder("popupPage(600, 700, '" + winName + "', '" + request.getContextPath() + "/encounter/formlist.jsp?demographic_no=" + bean.demographicNo + "')");
 
                 // set text for lefthand module title
-                Dao.setLeftHeading(getText("oscarEncounter.Index.msgForms"));
+                Dao.setLeftHeading(getText("encounter.Index.msgForms"));
                 // set link for lefthand module title
                 Dao.setLeftURL(url.toString());
 
                 // we're going to display a pop up menu of forms so we set the menu title and id num of menu
                 Dao.setRightHeadingID(menuId);
-                Dao.setMenuHeader(getText("oscarEncounter.LeftNavBar.AddFrm"));
+                Dao.setMenuHeader(getText("encounter.LeftNavBar.AddFrm"));
                 StringBuilder javascript = new StringBuilder("<script type=\"text/javascript\">");
                 String js = "";
                 String serviceDateStr;
@@ -167,20 +167,8 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                             item.setLinkTitle(fullTitle + " " + serviceDateStr);
 
 
-                            //sorry I have to do this, since the "hidden" field, doesn't mean hidden.
-                            //this is a fix so that when they've migrated to the enhanced form, the
-                            //regular one is hidden. It's still accessible from the list mode off
-                            //the tab header though, if they really need to get to it.
-                            boolean dontAdd = false;
-                            if (table.equals("formONAR")) {
-                                //check to see if we have an enhanced one
-                                EctFormData.PatientForm[] pf = EctFormData.getPatientFormsFromLocalAndRemote(loggedInInfo, bean.demographicNo, "formONAREnhancedRecord");
-                                if (pf.length > 0) {
-                                    dontAdd = true;
-                                }
-                            }
-                            if (!dontAdd)
-                                Dao.addItem(item);
+                            // formONAR and formONAREnhancedRecord tables removed (deprecated 2026-03-25)
+                            Dao.addItem(item);
                         }
                     }
 

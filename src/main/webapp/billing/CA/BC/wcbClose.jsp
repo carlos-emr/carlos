@@ -37,7 +37,7 @@ v<%
 
 <%@ page
         import="io.github.carlos_emr.carlos.form.*, java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.carlos.db.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
@@ -47,7 +47,7 @@ v<%
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title>OSCAR BC Billing - WCB</title>
+        <title>CARLOS BC Billing - WCB</title>
         <script language="JavaScript">
             function billingFormActive() {
                 oscarLog("billingFormActive")

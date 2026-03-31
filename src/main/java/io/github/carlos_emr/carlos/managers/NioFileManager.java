@@ -38,17 +38,17 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * the NioFileManager handles all file input and output of all OscarDocument files
  * by providing several convenience utilities.
  * <p>
- * One goal is to eliminate the use of "OscarProperties.getInstance().getProperty("DOCUMENT_DIR")"
+ * One goal is to eliminate the use of "CarlosProperties.getInstance().getProperty("DOCUMENT_DIR")"
  * in every single page of OSCAR code.
  */
 public interface NioFileManager {
-    public static final String DOCUMENT_DIRECTORY = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+    public static final String DOCUMENT_DIRECTORY = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
     public Path hasCacheVersion2(LoggedInInfo loggedInInfo, String filename, Integer pageNum);
 

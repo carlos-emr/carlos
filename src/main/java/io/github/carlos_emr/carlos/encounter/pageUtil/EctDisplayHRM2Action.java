@@ -25,7 +25,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -49,7 +49,7 @@ public class EctDisplayHRM2Action extends EctDisplayAction {
             String winName = "docs" + bean.demographicNo;
             String url = "popupPage(500,1115,'" + winName + "', '" + request.getContextPath() + "/hospitalReportManager/displayHRMDocList.jsp?demographic_no=" + bean.demographicNo + "')";
             Dao.setLeftURL(url);
-            Dao.setLeftHeading(getText("oscarEncounter.Index.msgHRMDocuments"));
+            Dao.setLeftHeading(getText("encounter.Index.msgHRMDocuments"));
 
             Dao.setRightHeadingID(cmd); //no menu so set div id to unique id for this action
 

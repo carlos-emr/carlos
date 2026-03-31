@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.utility.*;
 import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.model.v26.message.ORU_R01;
 import ca.uhn.hl7v2.model.v26.message.REF_I12;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.StringUtils;
@@ -58,7 +58,7 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
@@ -67,9 +67,9 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.security.InvalidKeyException;
@@ -281,7 +281,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 // converting the newer Contacts Table and Health Care Team back and forth
                 // from the older professionalSpecialist module.
                 // This should persist and retrieve values to be backwards compatible.
-                if (OscarProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
+                if (CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
 
                     // when this is enabled the demographicContactId is being posted as a specId variable.
                     Integer demographicContactId = Integer.valueOf(specId);
@@ -403,7 +403,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 // converting the newer Contacts Table and Health Care Team back and forth
                 // from the older professionalSpecialist module.
                 // This should persist and retrieve values to be backwards compatible.
-                if (OscarProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
+                if (CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
                     DemographicContact demographicContact = demographicManager.getHealthCareMemberbyId(loggedInInfo, specId);
                     if (demographicContact != null) {
                         consult.setDemographicContact(demographicContact);
@@ -585,12 +585,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 			// upon failure, go to consultation update page with message
 			try {
 	            doHl7Send(loggedInInfo, Integer.parseInt(requestId));
-	            WebUtils.addLocalisedInfoMessage(request, "oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgCreatedUpdateESent");
+	            WebUtils.addLocalisedInfoMessage(request, "encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgCreatedUpdateESent");
             } catch (Exception e) {
                 logger.error("Error contacting remote server.", e);
 
-                WebUtils.addLocalisedErrorMessage(request, "oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgCreatedUpdateESendError");
-                String forward = "/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp" + "?de=" + demographicNo +
+                WebUtils.addLocalisedErrorMessage(request, "encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgCreatedUpdateESendError");
+                String forward = "/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp" + "?de=" + demographicNo +
                         "&requestId=" + requestId;
                 response.sendRedirect(forward);
                 return NONE;
@@ -598,7 +598,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         }
 
         String contextPath = request.getContextPath();
-        String forward = contextPath + "/oscarEncounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp?de=" + demographicNo;
+        String forward = contextPath + "/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp?de=" + demographicNo;
         response.sendRedirect(forward);
         return NONE;
     }

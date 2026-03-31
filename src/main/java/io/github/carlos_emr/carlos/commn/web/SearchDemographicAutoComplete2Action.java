@@ -35,8 +35,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider;
 
@@ -61,7 +61,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider;
  *
  * @since 2026-02-20
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class SearchDemographicAutoComplete2Action extends ActionSupport {
@@ -105,16 +105,49 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         RxProviderData rx = new RxProviderData();
 
 
+        if (searchStr == null || searchStr.trim().isEmpty()) {
+            response.setContentType("application/json");
+            response.getWriter().write("[]");
+            return null;
+        }
+
+        String searchType = request.getParameter("searchType");
+        if (searchType == null) {
+            searchType = "name";
+        }
+
+        // Parse inactive statuses once for activeOnly filtering across all search types
+        List<String> stati = null;
+        if (activeOnly) {
+            CarlosProperties props = CarlosProperties.getInstance();
+            String pstatus = props.getProperty("inactive_statuses", "IN, DE, IC, ID, MO, FI");
+            pstatus = pstatus.replaceAll("'", "").replaceAll("\\s", "");
+            stati = Arrays.asList(pstatus.split(","));
+        }
+
         List<Demographic> list = null;
 
         if (searchStr.length() == 8 && searchStr.matches("([0-9]*)")) {
             list = demographicDao.searchDemographicByDOB(searchStr.substring(0, 4) + "-" + searchStr.substring(4, 6) + "-" + searchStr.substring(6, 8), 100, 0, providerNo, outOfDomain);
+        } else if ("hin".equals(searchType)) {
+            if (activeOnly) {
+                list = demographicDao.searchDemographicByHINAndNotStatus(searchStr, stati, 20, 0, providerNo, outOfDomain);
+            } else {
+                list = demographicDao.searchDemographicByHIN(searchStr, 20, 0, providerNo, outOfDomain);
+            }
+        } else if ("phone".equals(searchType)) {
+            if (activeOnly) {
+                list = demographicDao.searchDemographicByPhoneAndNotStatus(searchStr, stati, 20, 0, providerNo, outOfDomain);
+            } else {
+                list = demographicDao.searchDemographicByPhone(searchStr, 20, 0, providerNo, outOfDomain);
+            }
+        } else if ("address".equals(searchType)) {
+            if (activeOnly) {
+                list = demographicDao.searchDemographicByAddressAndNotStatus(searchStr, stati, 20, 0, providerNo, outOfDomain);
+            } else {
+                list = demographicDao.searchDemographicByAddress(searchStr, 20, 0, providerNo, outOfDomain);
+            }
         } else if (activeOnly) {
-            OscarProperties props = OscarProperties.getInstance();
-            String pstatus = props.getProperty("inactive_statuses", "IN, DE, IC, ID, MO, FI");
-            pstatus = pstatus.replaceAll("'", "").replaceAll("\\s", "");
-            List<String> stati = Arrays.asList(pstatus.split(","));
-
             list = demographicDao.searchDemographicByNameAndNotStatus(searchStr, stati, 100, 0, providerNo, outOfDomain);
             if (list.size() == 100) {
                 MiscUtils.getLogger().warn("More results exists than returned");
@@ -133,11 +166,17 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         List<HashMap<String, String>> secondList = new ArrayList<HashMap<String, String>>();
         for (Demographic demo : list) {
             HashMap<String, String> h = new HashMap<String, String>();
-            h.put("fomattedDob", demo.getFormattedDob());
+            h.put("formattedDob", demo.getFormattedDob());
+            h.put("fomattedDob", demo.getFormattedDob()); // backward compat: legacy misspelled key still used by 4+ JSPs
             h.put("formattedName", demo.getFormattedName());
             h.put("demographicNo", String.valueOf(demo.getDemographicNo()));
             h.put("status", demo.getPatientStatus() != null ? demo.getPatientStatus() : "");
             h.put("rosterStatus", demo.getRosterStatus() != null ? demo.getRosterStatus() : "");
+            h.put("cellPhone", demo.getCellPhone() != null ? demo.getCellPhone() : "");
+            h.put("phone", demo.getPhone() != null ? demo.getPhone() : "");
+            h.put("email", demo.getEmail() != null ? demo.getEmail() : "");
+            h.put("hin", demo.getHin() != null ? demo.getHin() : "");
+            h.put("address", demo.getAddress() != null ? demo.getAddress() : "");
 
 
             Provider p = rx.getProvider(demo.getProviderNo());
@@ -153,7 +192,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             String alertText = (demographicCust != null && demographicCust.getAlert() != null) ? demographicCust.getAlert() : "";
             h.put("alert", alertText);
 
-            if (OscarProperties.getInstance().isPropertyActive("workflow_enhance")) {
+            if (CarlosProperties.getInstance().isPropertyActive("workflow_enhance")) {
                 h.put("nextAppointment", AppointmentUtil.getNextAppointment(demo.getDemographicNo() + ""));
 
                 if (demographicCust != null) {
@@ -181,7 +220,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
 
             // Derived fields required by jQuery autocomplete widget (label/value are the standard autocomplete contract)
             String statusLabel = h.getOrDefault("status", "");
-            h.put("label", h.getOrDefault("formattedName", "") + " " + h.getOrDefault("fomattedDob", "") + " (" + statusLabel + ")");
+            h.put("label", h.getOrDefault("formattedName", "") + " " + h.getOrDefault("formattedDob", "") + " (" + statusLabel + ")");
             h.put("value", h.getOrDefault("demographicNo", ""));
             // Alias fields to match the field names accessed by the JS select handler
             h.put("provider", h.getOrDefault("providerName", ""));

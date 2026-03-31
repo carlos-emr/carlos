@@ -65,7 +65,7 @@ import cdsDt.DiabetesComplicationScreening.ExamCode;
 import cdsDt.DiabetesMotivationalCounselling.CounsellingPerformed;
 import cdsDt.PersonNameStandard.LegalName;
 import cdsDt.PersonNameStandard.OtherNames;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
@@ -77,9 +77,10 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlOptions;
-import org.codehaus.jettison.json.JSONException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.owasp.encoder.Encode;
-import org.codehaus.jettison.json.JSONObject;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -98,7 +99,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.LabUploadWs;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicAddResult;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
@@ -123,9 +124,9 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import javax.servlet.ServletContext;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.awt.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -175,7 +176,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     String programId = null;
     HashMap<String, Integer> entries = new HashMap<String, Integer>();
     Integer importNo = 0;
-    OscarProperties oscarProperties = OscarProperties.getInstance();
+    CarlosProperties oscarProperties = CarlosProperties.getInstance();
     List<String> importErrors = new ArrayList<String>();
 
     ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
@@ -238,7 +239,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         ServletContext servletContext = ServletActionContext.getServletContext();
 
         // Validate the paths using PathValidationUtils
-        File safeDir = (File) servletContext.getAttribute("javax.servlet.context.tempdir"); // Use a safe directory
+        File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory
         try {
             PathValidationUtils.validateExistingPath(filePath.toFile(), safeDir);
         } catch (SecurityException e) {
@@ -348,14 +349,16 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return SUCCESS;
     }
 
+    private static final ObjectMapper jsonMapper = new ObjectMapper();
+
     private void generateResponse(HttpServletResponse response, ArrayList<String> warnings, String importLog) {
-        JSONObject json = new JSONObject();
+        ObjectNode json = jsonMapper.createObjectNode();
         response.setContentType("text/javascript");
         try {
-            json.put("warnings", warnings);
+            json.set("warnings", jsonMapper.valueToTree(warnings));
             json.put("importLog", importLog);
             response.getWriter().write(json.toString());
-        } catch (IOException | JSONException e) {
+        } catch (IOException e) {
             logger.error("An error occurred while writing JSON response to the output stream", e);
         }
     }
@@ -489,7 +492,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         // Uses validateExistingPath for containment check without stripping path components
         try {
             // First, perform any existing validation logic
-            PathValidationUtils.validateExistingPath(newFile, targetDir);
+            newFile = PathValidationUtils.validateExistingPath(newFile, targetDir);
 
             // Explicit canonical / normalized path containment check to prevent Zip Slip
             // and to make the security property obvious to static analysis tools.
@@ -2781,7 +2784,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                                 // This prevents path traversal attacks from malicious XML file paths
                                 try {
                                     File allowedRoot = new File(currentDirectory);
-                                    PathValidationUtils.validateExistingPath(sourceFile, allowedRoot);
+                                    sourceFile = PathValidationUtils.validateExistingPath(sourceFile, allowedRoot);
                                 } catch (SecurityException e) {
                                     logger.error("SECURITY: Rejecting file copy - resolved path outside allowed directory. FilePath: {}, SourceFile: {}",
                                         Encode.forJava(new File(filePath).getName()),
@@ -3371,7 +3374,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         // CRITICAL SECURITY: Validate the resolved path is within the allowed directory
         // This prevents path traversal attacks from malicious XML (e.g., "../../../etc/passwd")
         try {
-            PathValidationUtils.validateExistingPath(file, allowedRoot);
+            file = PathValidationUtils.validateExistingPath(file, allowedRoot);
             return file;
         } catch (SecurityException e) {
             logger.error("SECURITY: Rejecting malicious file path from XML. originalPath='{}', resolvedPath='{}'",
@@ -3574,36 +3577,34 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     }
 
 
-    Map<String, List<JSONObject>> map = null;
+    Map<String, List<ObjectNode>> map = null;
 
     boolean verifyISO3661(String value) {
         if (map == null) {
-            JSONObject obj = null;
+            JsonNode obj = null;
             try {
                 InputStream in = getClass().getClassLoader()
                         .getResourceAsStream("iso-3166-2.json");
                 String theString = IOUtils.toString(in, "UTF-8");
-                obj = new org.codehaus.jettison.json.JSONObject(theString);
+                obj = jsonMapper.readTree(theString);
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
                 return false;
             }
 
-            map = new HashMap<String, List<JSONObject>>();
+            map = new HashMap<String, List<ObjectNode>>();
             try {
                 if (obj != null) {
-                    Iterator iter = obj.keys();
+                    Iterator<String> iter = obj.fieldNames();
                     while (iter.hasNext()) {
-                        String countryCode = (String) iter.next();
-                        //String countryName = ((org.codehaus.jettison.json.JSONObject)obj.get(countryCode)).getString("name");
-                        //org.codehaus.jettison.json.JSONObject divisions = ((org.codehaus.jettison.json.JSONObject)obj.get(countryCode)).get("divisions");
-                        JSONObject divisions = obj.getJSONObject(countryCode).getJSONObject("divisions");
-                        Iterator iter2 = divisions.keys();
-                        List<JSONObject> rList = new ArrayList<JSONObject>();
+                        String countryCode = iter.next();
+                        JsonNode divisions = obj.get(countryCode).get("divisions");
+                        Iterator<String> iter2 = divisions.fieldNames();
+                        List<ObjectNode> rList = new ArrayList<ObjectNode>();
                         while (iter2.hasNext()) {
-                            String divisionCode = (String) iter2.next();
-                            String divisionName = divisions.getString(divisionCode);
-                            org.codehaus.jettison.json.JSONObject r = new org.codehaus.jettison.json.JSONObject();
+                            String divisionCode = iter2.next();
+                            String divisionName = divisions.get(divisionCode).asText();
+                            ObjectNode r = jsonMapper.createObjectNode();
                             r.put("value", divisionCode);
                             r.put("label", divisionName);
                             rList.add(r);
@@ -3625,18 +3626,17 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
         if (csdc.length == 2) {
             String country = csdc[0];
-            //	String province = csdc[1];
 
-            List<JSONObject> divisions =
+            List<ObjectNode> divisions =
                     map.get(country);
 
             if (divisions == null) {
                 return false;
             }
 
-            for (JSONObject rI : divisions) {
+            for (ObjectNode rI : divisions) {
                 try {
-                    if (rI.has("value") && value.equals(rI.getString("value"))) {
+                    if (rI.has("value") && value.equals(rI.get("value").asText())) {
                         return true;
                     }
                 } catch (Exception e) {

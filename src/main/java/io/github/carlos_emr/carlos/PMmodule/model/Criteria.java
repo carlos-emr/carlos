@@ -26,12 +26,12 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.model;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
@@ -59,7 +59,7 @@ public class Criteria extends AbstractModel<Integer> implements java.io.Serializ
     private Integer templateId;
     @Column(name = "VACANCY_ID")
     private Integer vacancyId;
-    @Column(name = "MATCH_SCORE_WEIGHT", nullable = false, precision = 22, scale = 0)
+    @Column(name = "MATCH_SCORE_WEIGHT", nullable = false)
     private Double matchScoreWeight = 1.0;
     @Column(name = "CAN_BE_ADHOC", nullable = false)
     private Integer canBeAdhoc = 0;

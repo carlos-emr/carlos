@@ -34,8 +34,8 @@ import org.openpdf.text.pdf.PdfAction;
 
 import java.io.IOException;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -72,7 +72,7 @@ import io.github.carlos_emr.carlos.commn.model.UserProperty;
  * @see UserProperty#DEFAULT_PRINTER_PDF_ENVELOPE
  * @since 2006-09-25
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GenerateEnvelopes2Action extends ActionSupport {

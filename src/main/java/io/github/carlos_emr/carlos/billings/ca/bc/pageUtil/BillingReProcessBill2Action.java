@@ -37,9 +37,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import org.apache.logging.log4j.Logger;
@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPBillingNote;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
@@ -63,7 +63,7 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
@@ -100,7 +100,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         }
 
         for (BillingReProcessBill2Form frm : billingReProcessBillFormList) {
-            String dataCenterId = OscarProperties.getInstance().getProperty("dataCenterId");
+            String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
             String billingmasterNo = frm.getBillingmasterNo();
             String demographicNo = frm.getDemoNo();
             DemographicData demoD = new DemographicData();
@@ -193,7 +193,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
             String hcType = demo.getHcType(); //d
 
             String messageNotes = frm.getMessageNotes();
-            String billRegion = OscarProperties.getInstance().getProperty("billregion");
+            String billRegion = CarlosProperties.getInstance().getProperty("billregion");
             String submit = frm.getSubmit();
             String secondSQL = null;
 

@@ -28,6 +28,35 @@ Ontario, Canada
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    addappointment.jsp - Add/Create Appointment Form
+
+    Purpose:
+        Renders the appointment creation and editing form with patient selection,
+        scheduling details, and appointment metadata entry.
+
+    Features:
+        - Server-side patient name resolution via demographic_no (avoids PHI in URLs)
+        - Patient keyword search with demographic autocomplete
+        - Appointment type templates with auto-fill support
+        - Double-booking and group appointment detection
+        - Multi-site location support
+        - Patient status, alert, and do-not-book banners
+
+    Parameters:
+        - provider_no      : Target provider number
+        - year             : Appointment year
+        - month            : Appointment month (1-based)
+        - day              : Appointment day
+        - start_time       : Appointment start time (HHmm)
+        - end_time         : Appointment end time (HHmm)
+        - duration         : Appointment duration in minutes
+        - demographic_no   : Patient demographic number (optional — used for prefill and server-side name lookup)
+        - bFirstDisp       : "true" when opening blank form; "false" when prefilling from badge/worklist
+        - appointment_no   : Existing appointment number for edit mode
+
+    @since CARLOS 2026.03
+--%>
 <!DOCTYPE HTML>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -63,7 +92,7 @@ Ontario, Canada
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%@ page import="io.github.carlos_emr.carlos.commn.model.AppointmentStatus" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicCust" %>
@@ -103,10 +132,10 @@ Ontario, Canada
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
 <fmt:setBundle basename="oscarResources"/>
@@ -174,15 +203,15 @@ Ontario, Canada
 
     ApptData apptObj = ApptUtil.getAppointmentFromSession(request);
 
-    OscarProperties pros = OscarProperties.getInstance();
+    CarlosProperties pros = CarlosProperties.getInstance();
     String strEditable = pros.getProperty("ENABLE_EDIT_APPT_STATUS");
     Boolean isMobileOptimized = session.getAttribute("mobileOptimized") != null;
 
     AppointmentStatusMgr apptStatusMgr = new AppointmentStatusMgrImpl();
     List<AppointmentStatus> allStatus = apptStatusMgr.getAllActiveStatus();
 
-    String useProgramLocation = OscarProperties.getInstance().getProperty("useProgramLocation");
-    String moduleNames = OscarProperties.getInstance().getProperty("ModuleNames");
+    String useProgramLocation = CarlosProperties.getInstance().getProperty("useProgramLocation");
+    String moduleNames = CarlosProperties.getInstance().getProperty("ModuleNames");
     boolean caisiEnabled = moduleNames != null && org.apache.commons.lang3.StringUtils.containsIgnoreCase(moduleNames, "Caisi");
     boolean locationEnabled = caisiEnabled && (useProgramLocation != null && useProgramLocation.equals("true"));
 
@@ -708,7 +737,7 @@ Ontario, Canada
 
             long apptnum = appts.size() > 0 ? new Long(appts.size()) : 0;
 
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
 
             String timeoutSeconds = props.getProperty("appointment_locking_timeout", "0");
             int timeoutSecs = 0;
@@ -1155,7 +1184,32 @@ Ontario, Canada
                                 <div class="input-group input-group-sm">
                                 <%
                                     String name = "";
-                                    name = String.valueOf((bFirstDisp && !bFromWL) ? "" : request.getParameter("name") == null ? session.getAttribute("appointmentname") == null ? "" : session.getAttribute("appointmentname") : request.getParameter("name"));
+                                    if (!bFirstDisp || bFromWL) {
+                                        // Prefer server-side DB lookup over any name transmitted via URL to avoid PHI exposure.
+                                        // When demographic_no is present, resolve the patient name directly from the database.
+                                        String demoNoForName = StringUtils.trimToNull(request.getParameter("demographic_no"));
+                                        if (demoNoForName != null) {
+                                            try {
+                                                // demographicDao is declared in the outer scriptlet scope (line ~157) — do not redeclare
+                                                Demographic demForName = demographicDao.getDemographic(demoNoForName);
+                                                if (demForName != null) {
+                                                    // Build name from individual fields to guard against null values
+                                                    // (getFullName() concatenates raw DB values and can produce "null, null")
+                                                    String ln = StringUtils.defaultString(demForName.getLastName()).trim();
+                                                    String fn = StringUtils.defaultString(demForName.getFirstName()).trim();
+                                                    if (!ln.isEmpty() || !fn.isEmpty()) {
+                                                        name = ln.isEmpty() ? fn : fn.isEmpty() ? ln : ln + ", " + fn;
+                                                    }
+                                                }
+                                            } catch (Exception lookupEx) {
+                                                MiscUtils.getLogger().warn("addappointment.jsp: could not resolve patient name for demographic_no={}", demoNoForName, lookupEx);
+                                            }
+                                        }
+                                        // Fallback: use session attribute (set by other appointment workflows)
+                                        if (name.isEmpty()) {
+                                            name = String.valueOf(session.getAttribute("appointmentname") == null ? "" : session.getAttribute("appointmentname"));
+                                        }
+                                    }
                                 %>
                                     <input type="hidden" name="demographic_no" id="demographic_no"
                                            value='<%=(bFirstDisp && !bFromWL) ? "" : Encode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("demographic_no")))%>'>
@@ -1387,7 +1441,7 @@ Ontario, Canada
                 <%
                     String searchMode = request.getParameter("search_mode");
                     if (searchMode == null || searchMode.isEmpty()) {
-                        searchMode = OscarProperties.getInstance().getProperty("default_search_mode", "search_name");
+                        searchMode = CarlosProperties.getInstance().getProperty("default_search_mode", "search_name");
                     }
                 %>
                 <input type="hidden" name="search_mode" id="search_mode" value="<%=searchMode%>">
@@ -1397,7 +1451,7 @@ Ontario, Canada
                 <input type="hidden" name="limit2" value="5">
                 <input type="hidden" name="ptstatus" value="active">
                 <input type="hidden" name="outofdomain"
-                       value="<%=OscarProperties.getInstance().getProperty("pmm.client.search.outside.of.domain.enabled","true")%>">
+                       value="<%=CarlosProperties.getInstance().getProperty("pmm.client.search.outside.of.domain.enabled","true")%>">
                 <!--input type="hidden" name="displaymode" value="Search " -->
 
 

@@ -53,7 +53,7 @@ import org.w3c.dom.Node;
 
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.DefaultGenericHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 @Deprecated
 /**
@@ -198,11 +198,11 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
             }
 
             // Validate the file is within the expected document directory
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             String documentDir = props.getProperty("DOCUMENT_DIR");
             if (documentDir != null && !documentDir.isEmpty()) {
                 File docDir = new File(documentDir).getCanonicalFile();
-                PathValidationUtils.validateExistingPath(file, docDir);
+                file = PathValidationUtils.validateExistingPath(file, docDir);
             }
 
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();

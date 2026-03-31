@@ -34,9 +34,9 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementTypes;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
@@ -71,7 +71,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
             String validation = this.getValidation();
             String contextPath = request.getContextPath();
             if (!allInputIsValid(request, type, typeDesc, typeDisplayName, measuringInstrc)) {
-                response.sendRedirect(contextPath + "/oscarEncounter/oscarMeasurements/AddMeasurementType.jsp");
+                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/AddMeasurementType.jsp");
                 return NONE;
             }
 
@@ -84,7 +84,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
             dao.persist(mt);
 
 
-            String msg = getText("oscarEncounter.oscarMeasurements.AddMeasurementType.successful", "!");
+            String msg = getText("encounter.oscarMeasurements.AddMeasurementType.successful", "!");
             messages.add(msg);
             request.setAttribute("messages", messages);
             MeasurementTypes mts = MeasurementTypes.getInstance();
@@ -104,7 +104,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
         boolean isValid = true;
 
         for (MeasurementType mt : dao.findByType(type)) {
-            addActionError(getText("error.oscarEncounter.Measurements.duplicateTypeName"));
+            addActionError(getText("error.encounter.Measurements.duplicateTypeName"));
             isValid = false;
         }
 

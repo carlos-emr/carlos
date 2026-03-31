@@ -44,7 +44,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class zip {
 
@@ -66,7 +66,7 @@ public class zip {
         try {
             BufferedInputStream origin = null;
             int BUFFER = 1024;
-            String form_record_path = OscarProperties.getInstance().getProperty("form_record_path", "/root");
+            String form_record_path = CarlosProperties.getInstance().getProperty("form_record_path", "/root");
             FileOutputStream dest = new FileOutputStream(form_record_path + "formRecords.zip");
             ZipOutputStream out = new ZipOutputStream(new BufferedOutputStream(dest));
             out.setMethod(ZipOutputStream.DEFLATED);

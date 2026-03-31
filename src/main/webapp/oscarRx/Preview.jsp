@@ -29,10 +29,10 @@
 
 --%>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.*, io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.apache.logging.log4j.Logger" %>
@@ -141,7 +141,7 @@
         doctorName = doctorName.replaceAll("\\d{6}", "");
         doctorName = doctorName.replaceAll("\\-", "");
 
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
 
         String pracNo = provider.getPractitionerNo();
         String strUser = (String) session.getAttribute("user");
@@ -268,8 +268,8 @@
                         </tr>
 
 
-                        <% if (io.github.carlos_emr.OscarProperties.getInstance().getProperty("RX_FOOTER") != null) {
-                            out.write(io.github.carlos_emr.OscarProperties.getInstance().getProperty("RX_FOOTER"));
+                        <% if (io.github.carlos_emr.CarlosProperties.getInstance().getProperty("RX_FOOTER") != null) {
+                            out.write(io.github.carlos_emr.CarlosProperties.getInstance().getProperty("RX_FOOTER"));
                         }%>
 
 
@@ -305,10 +305,10 @@
 
                         <%
                             }
-                            if (io.github.carlos_emr.OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null) {%>
+                            if (io.github.carlos_emr.CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null) {%>
                         <tr valign=bottom align="center" style="font-size: 9px">
                             <td height=25px colspan="2"></br>
-                                <%= io.github.carlos_emr.OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") %>
+                                <%= io.github.carlos_emr.CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") %>
                             </td>
                         </tr>
                         <%}%>

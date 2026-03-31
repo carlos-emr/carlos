@@ -55,7 +55,7 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.service;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.data.EctProviderData;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import org.openpdf.text.DocumentException;
@@ -84,8 +84,8 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -202,7 +202,7 @@ public class CaseManagementPrint {
         }
 
         // we're not guaranteed any ordering of notes given to us, so sort by observation date
-        OscarProperties p = OscarProperties.getInstance();
+        CarlosProperties p = CarlosProperties.getInstance();
         String noteSort = p.getProperty("CMESort", "");
         if (noteSort.trim().equalsIgnoreCase("UP")) {
             Collections.sort(notes, CaseManagementNote.noteObservationDateComparator);
@@ -293,7 +293,7 @@ public class CaseManagementPrint {
         String headerDate = headerFormat.format(now);
 
         // Create new file to save form to
-        String path = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String path = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         String fileName = path + "EncounterForm-" + headerDate + ".pdf";
         File file = null;
         FileOutputStream out = null;
@@ -361,7 +361,7 @@ public class CaseManagementPrint {
                     // TODO:filter out the ones which aren't in our date range if there's a date range????
                     String segmentId = result.segmentID;
                     MessageHandler handler = Factory.getHandler(segmentId);
-                    String fileName2 = OscarProperties.getInstance().getProperty("DOCUMENT_DIR") + "//" + handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.pdf";
+                    String fileName2 = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "//" + handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.pdf";
                     file2 = new File(fileName2);
                     os2 = new FileOutputStream(file2);
 
@@ -374,7 +374,7 @@ public class CaseManagementPrint {
                         }
                         os2.close();
 
-                        String fileName3 = OscarProperties.getInstance().getProperty("DOCUMENT_DIR") + "//" + handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.1.pdf";
+                        String fileName3 = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "//" + handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.1.pdf";
                         File file3 = new File(fileName3);
                         fos = new FileOutputStream(file3);
                         pdfCreator.addEmbeddedDocuments(file2, fos);

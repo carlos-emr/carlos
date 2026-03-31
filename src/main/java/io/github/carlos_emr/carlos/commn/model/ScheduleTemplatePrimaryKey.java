@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import java.io.Serializable;
 
-import javax.persistence.Column;
+import jakarta.persistence.Column;
 
 public class ScheduleTemplatePrimaryKey implements Serializable {
 

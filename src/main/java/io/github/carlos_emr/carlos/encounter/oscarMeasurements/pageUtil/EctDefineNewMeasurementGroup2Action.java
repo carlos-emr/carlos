@@ -32,10 +32,10 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
 import java.io.IOException;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle;
@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
@@ -66,14 +66,14 @@ public class EctDefineNewMeasurementGroup2Action extends ActionSupport {
 
             if (!validate.matchRegExp(regExp, groupName)) {
                 addActionError(getText("errors.invalid", new String[]{groupName}));
-                response.sendRedirect(contextPath + "/oscarEncounter/oscarMeasurements/DefineNewMeasurementGroup.jsp");
+                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/DefineNewMeasurementGroup.jsp");
                 return NONE;
             }
 
             //Write the new groupName to the database if there's no duplication
             if (!write2Database(groupName, styleSheet)) {
-                addActionError(getText("error.oscarEncounter.addNewMeasurementGroup.duplicateGroupName", new String[]{groupName}));
-                response.sendRedirect(contextPath + "/oscarEncounter/oscarMeasurements/DefineNewMeasurementGroup.jsp");
+                addActionError(getText("error.encounter.addNewMeasurementGroup.duplicateGroupName", new String[]{groupName}));
+                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/DefineNewMeasurementGroup.jsp");
             }
 
             HttpSession session = request.getSession();

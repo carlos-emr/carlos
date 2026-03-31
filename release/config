@@ -253,56 +253,66 @@ else
                 if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
                         
                         # add carlos directory structure to the paths that tomcat9 can read and write to
-                        # DO NOT ADD read write to non existing paths or Tomcat will fail to start
+                        # DO NOT ADD read write to non existing paths or Tomcat will fail to start.
+                        # BASE_DOCUMENT_DIR is /var/lib/carlos-emr/OscarDocument — ensure it exists
+                        # before adding it to the service file or systemd will refuse to start Tomcat.
+                        mkdir -p "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE
+                        chown -R "${TOMCAT_USER}:${TOMCAT_USER}" "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE || true
                         if [ -d "/etc/systemd/system/tomcat9.service.d" ] ; then
                                 if [ ! -f /etc/systemd/system/tomcat9.service.d/override.conf ] ; then
                                         touch /etc/systemd/system/tomcat9.service.d/override.conf
                                         echo "[Service]" >> /etc/systemd/system/tomcat9.service.d/override.conf
-                                        echo "ReadWritePaths=/var/lib/OscarDocument/" >> /etc/systemd/system/tomcat9.service.d/override.conf
+                                        echo "ReadWritePaths=${BASE_DOCUMENT_DIR}/" >> /etc/systemd/system/tomcat9.service.d/override.conf
                                         echo "ReadWritePaths=/tmp/" >> /etc/systemd/system/tomcat9.service.d/override.conf
-                                        echo "Created /etc/systemd/system/tomcat9.service.d/override.conf so that tomcat9 read and write on /usr/share/carlos-emr " >>$LOG_FILE
-                                        echo "Allowing tomcat9 read and write on /var/lib/OscarDocument/ and /tmp/ by override"
+                                        echo "Created /etc/systemd/system/tomcat9.service.d/override.conf so that tomcat9 read and write on ${BASE_DOCUMENT_DIR}" >>$LOG_FILE
+                                        echo "Allowing tomcat9 read and write on ${BASE_DOCUMENT_DIR}/ and /tmp/ by override"
                                         systemctl daemon-reload
                                 else
                                #test to see if the ReadWritePaths entry is already present
-                                        if grep -Fq "ReadWritePaths=/var/lib/OscarDocument/" /etc/systemd/system/tomcat9.service.d/override.conf ; then
+                                        if grep -Fq "ReadWritePaths=${BASE_DOCUMENT_DIR}/" /etc/systemd/system/tomcat9.service.d/override.conf ; then
                                                 echo "Tomcat already has an override set, not modified"
                                         else
-                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/var/lib/OscarDocument/' /etc/systemd/system/tomcat9.service.d/override.conf
-                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/tmp/' /etc/systemd/system/tomcat9.service.d/override.conf
-                                                echo "Edited override to allow Tomcat read write on /var/lib/OscarDocument and /tmp"
-                                                echo "Added Tomcat read and write on /var/lib/OscarDocument/ and /tmp/ to existing override /etc/systemd/system/tomcat9.service.d/override.conf"  >>$LOG_FILE
+                                                # Remove stale legacy path if present (old installs used /var/lib/OscarDocument/ which no longer exists)
+                                                sed -i '/ReadWritePaths=\/var\/lib\/OscarDocument\//d' /etc/systemd/system/tomcat9.service.d/override.conf 2>>$LOG_FILE || true
+                                                echo "ReadWritePaths=${BASE_DOCUMENT_DIR}/" >> /etc/systemd/system/tomcat9.service.d/override.conf
+                                                grep -qF "ReadWritePaths=/tmp/" /etc/systemd/system/tomcat9.service.d/override.conf || echo "ReadWritePaths=/tmp/" >> /etc/systemd/system/tomcat9.service.d/override.conf
+                                                echo "Edited override to allow Tomcat read write on ${BASE_DOCUMENT_DIR} and /tmp"
+                                                echo "Added Tomcat read and write on ${BASE_DOCUMENT_DIR}/ and /tmp/ to existing override /etc/systemd/system/tomcat9.service.d/override.conf"  >>$LOG_FILE
                                                 systemctl daemon-reload
-                                        fi                
+                                        fi
                                 fi
                         fi
                         if [ ! -d "/etc/systemd/system/tomcat9.service.d" ] ; then
                                 if [ -f /lib/systemd/system/tomcat9.service ] ; then
                                 #test to see if entry present already
-                                        if grep -Fq "/var/lib/OscarDocument/" /lib/systemd/system/tomcat9.service ; then
-                                                echo "Tomcat already has read write on /var/lib/OscarDocument/"
+                                        if grep -Fq "${BASE_DOCUMENT_DIR}/" /lib/systemd/system/tomcat9.service ; then
+                                                echo "Tomcat already has read write on ${BASE_DOCUMENT_DIR}/"
                                         else
-                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/var/lib/OscarDocument/' /lib/systemd/system/tomcat9.service
-                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/tmp/' /lib/systemd/system/tomcat9.service
-                                                echo "Edited tomcat9.service to allow Tomcat read write on /var/lib/OscarDocument/ and /tmp/"
-                                                echo "Edited /lib/systemd/system/tomcat9.service to allow Tomcat read write on /var/lib/OscarDocument/ and /tmp/" >>$LOG_FILE 
+                                                # Remove stale legacy path if present
+                                                sed -i '/ReadWritePaths=\/var\/lib\/OscarDocument\//d' /lib/systemd/system/tomcat9.service 2>>$LOG_FILE || true
+                                                sed -i "/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=${BASE_DOCUMENT_DIR}/" /lib/systemd/system/tomcat9.service
+                                                grep -qF "ReadWritePaths=/tmp/" /lib/systemd/system/tomcat9.service || sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=\/tmp\//' /lib/systemd/system/tomcat9.service
+                                                echo "Edited tomcat9.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp/"
+                                                echo "Edited /lib/systemd/system/tomcat9.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp/" >>$LOG_FILE
                                                 systemctl daemon-reload
                                         fi
                                 fi
                         fi
                         if [ -f /etc/systemd/system/multi-user.target.wants/tomcat9.service ] ; then
                                 #test to see if entry present already
-                                        if grep -Fq "/var/lib/OscarDocument/" /etc/systemd/system/multi-user.target.wants/tomcat9.service ; then
+                                        if grep -Fq "${BASE_DOCUMENT_DIR}/" /etc/systemd/system/multi-user.target.wants/tomcat9.service ; then
                                                 # in Ubuntu this file is actually a link to tomcatX.service
-                                                echo "Tomcat already has read write on /var/lib/OscarDocument/ with an entry in tomcatX.service" >>$LOG_FILE 
+                                                echo "Tomcat already has read write on ${BASE_DOCUMENT_DIR}/ with an entry in tomcatX.service" >>$LOG_FILE
                                         else
-                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/var/lib/OscarDocument/' /etc/systemd/system/multi-user.target.wants/tomcat9.service 
-                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/tmp/' /etc/systemd/system/multi-user.target.wants/tomcat9.service        
-                                                echo "Edited tomcatX.service to allow Tomcat read write on /var/lib/OscarDocument/ and /tmp"
-                                                echo "Edited /etc/systemd/system/multi-user.target.wants/tomcatX.service to allow Tomcat read write on /var/lib/OscarDocument/ and /tmp" >>$LOG_FILE 
-                                                systemctl daemon-reload 
-                                        fi        
-                        fi      
+                                                # Remove stale legacy path if present
+                                                sed -i '/ReadWritePaths=\/var\/lib\/OscarDocument\//d' /etc/systemd/system/multi-user.target.wants/tomcat9.service 2>>$LOG_FILE || true
+                                                sed -i "/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=${BASE_DOCUMENT_DIR}/" /etc/systemd/system/multi-user.target.wants/tomcat9.service
+                                                grep -qF "ReadWritePaths=/tmp/" /etc/systemd/system/multi-user.target.wants/tomcat9.service || sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=\/tmp\//' /etc/systemd/system/multi-user.target.wants/tomcat9.service
+                                                echo "Edited tomcatX.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp"
+                                                echo "Edited /etc/systemd/system/multi-user.target.wants/tomcatX.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp" >>$LOG_FILE
+                                                systemctl daemon-reload
+                                        fi
+                        fi
                         
                         
                 fi
@@ -538,6 +548,8 @@ if [ "${UPGRADE}" = "true" ] ; then
   	db_set carlos-emr/phoneprefix ${phoneprefix}
   	echo "priorschema=${db_name}" >> $LOG_FILE
   	db_set carlos-emr/priorschema $db_name
+  	priorschema=$db_name
+  	db_fset carlos-emr/priorschema seen true
     # Initialize ${PROGRAM}.tmp from the bundled source carlos.properties so that the
     # subsequent property-append block (below) has a valid base file to work from.
     # The Tomcat path and commented-out properties are adjusted the same way as a new install.
@@ -677,7 +689,7 @@ else
 	# "HOME_DIR", "/billing/download/"
 	# "DOCUMENT_DIR", "/document/" 
 	# "eform_image", "/eform/images/" 
-	# "oscarMeasurement_css_upload_path", "/oscarEncounter/oscarMeasurements/styles/"
+	# "oscarMeasurement_css_upload_path", "/encounter/oscarMeasurements/styles/"
 	# "TMP_DIR", "/export/"
 	# "form_record_path", "/form/records/"
 	# "OMD_hrm","/hrm/"

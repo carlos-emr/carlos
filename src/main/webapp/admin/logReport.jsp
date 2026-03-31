@@ -33,10 +33,10 @@
 <%@ page import="java.util.*" %>
 <%@ page import="java.sql.*" %>
 <%@ page import="io.github.carlos_emr.carlos.login.*, io.github.carlos_emr.carlos.db.*, io.github.carlos_emr.MyDateFormat" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -99,7 +99,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandlerParam" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <html>
     <head>
 
@@ -222,7 +222,7 @@
 
             String sDate = request.getParameter("startDate");
             String eDate = request.getParameter("endDate");
-            String strDbType = OscarProperties.getInstance().getProperty("db_type").trim();
+            String strDbType = CarlosProperties.getInstance().getProperty("db_type").trim();
             if ("".equals(sDate) || sDate == null) sDate = "1900-01-01";
             if ("".equals(eDate) || eDate == null) eDate = "2999-01-01";
 

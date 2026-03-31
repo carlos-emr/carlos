@@ -54,8 +54,8 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.WCBCodes" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.WcbHelper" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 
@@ -94,7 +94,7 @@
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title>OSCAR BC Billing - WCB</title>
+        <title>CARLOS BC Billing - WCB</title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/oscar.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/reporting.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/share/calendar/calendar.css">

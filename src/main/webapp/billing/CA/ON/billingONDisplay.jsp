@@ -77,7 +77,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrectionPrep" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%
     GregorianCalendar now = new GregorianCalendar();
@@ -86,7 +86,7 @@
     int curDay = now.get(Calendar.DAY_OF_MONTH);
 %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <html>
     <head>
@@ -438,7 +438,7 @@
                 </select></td>
             </tr>
             <tr class="myGreen">
-                <td width="54%"><b><%if (OscarProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
+                <td width="54%"><b><%if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
                     Clinic Nbr <% } else { %> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formVisitType"/> <% } %>:</b>
                     <input type="hidden"
                            name="xml_clinic_ref_code" value="<%=location%>"> <select
@@ -485,7 +485,7 @@
                         type="hidden" name="xml_visittype" value="<%=visittype%>"> <select
                         style="font-size: 80%;" name="visittype">
                     <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgSelectVisitType"/></option>
-                    <% if (OscarProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
+                    <% if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
                     <%
                         ClinicNbrDao cnDao = (ClinicNbrDao) SpringUtils.getBean(ClinicNbrDao.class);
                         ArrayList<ClinicNbr> nbrs = cnDao.findAll();

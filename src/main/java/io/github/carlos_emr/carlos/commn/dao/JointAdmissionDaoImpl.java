@@ -34,7 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.List;
 import java.util.ListIterator;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.JointAdmission;
 import org.springframework.stereotype.Repository;
@@ -47,7 +47,7 @@ public class JointAdmissionDaoImpl extends AbstractDaoImpl<JointAdmission> imple
     }
 
     public List<JointAdmission> getSpouseAndDependents(Integer clientId) {
-        Query query = entityManager.createQuery("SELECT x FROM JointAdmission x WHERE x.archived=0 and x.headClientId=?1");
+        Query query = entityManager.createQuery("SELECT x FROM JointAdmission x WHERE x.archived=false and x.headClientId=?1");
         query.setParameter(1, clientId);
         @SuppressWarnings("unchecked")
         List<JointAdmission> results = query.getResultList();
@@ -55,7 +55,7 @@ public class JointAdmissionDaoImpl extends AbstractDaoImpl<JointAdmission> imple
     }
 
     public JointAdmission getJointAdmission(Integer clientId) {
-        Query query = entityManager.createQuery("SELECT x FROM JointAdmission x WHERE x.archived=0 and x.clientId=?1");
+        Query query = entityManager.createQuery("SELECT x FROM JointAdmission x WHERE x.archived=false and x.clientId=?1");
         query.setParameter(1, clientId);
         @SuppressWarnings("unchecked")
         List<JointAdmission> results = query.getResultList();

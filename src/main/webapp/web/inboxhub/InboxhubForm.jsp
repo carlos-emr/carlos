@@ -18,12 +18,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 -->
 
 <%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils,org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="org.apache.logging.log4j.Logger,io.github.carlos_emr.carlos.commn.dao.OscarLogDao,io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.inboxhub.query.InboxhubQuery" %>
@@ -166,7 +166,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                 <label class="form-check-label" for="btnLab"><fmt:message key="inbox.inboxmanager.msgTypeLabs"/></label><br>
                             </div>
 
-                            <c:if test="${!OscarProperties.getInstance().isBritishColumbiaBillingRegion()}">
+                            <c:if test="${!CarlosProperties.getInstance().isBritishColumbiaBillingRegion()}">
                                 <div class="form-check">
                                     <input type="checkbox" class="form-check-input" name="query.hrm" value="true" ${query.hrm || (!query.doc && !query.lab && !query.hrm) ? 'checked' : ''} id="btnHRM" autocomplete="off">
                                     <label class="form-check-label" for="btnHRM"><fmt:message key="inbox.inboxmanager.msgTypeHRM"/></label><br>
@@ -288,7 +288,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                         </a>
                                     </li>
                                     </c:if>
-                                    <c:if test="${ not empty categoryData.unmatchedHRMCount and !OscarProperties.getInstance().isBritishColumbiaBillingRegion() and showHRM}" >
+                                    <c:if test="${ not empty categoryData.unmatchedHRMCount and !CarlosProperties.getInstance().isBritishColumbiaBillingRegion() and showHRM}" >
                                     <li>
                                         <a id="patient0hrms" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(0, 'hrm', this);" title="HRM">
                                             HRM (<span id="pHRMNum_0"><c:out value="${categoryData.unmatchedHRMCount}" /></span>)
@@ -357,7 +357,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                         </a>
                                     </li>
                                     </c:if>
-                                    <c:if test="${not empty hrmCount and !OscarProperties.getInstance().isBritishColumbiaBillingRegion() and showHRM}">
+                                    <c:if test="${not empty hrmCount and !CarlosProperties.getInstance().isBritishColumbiaBillingRegion() and showHRM}">
                                     <li>
                                         <a id="patient${patientId}hrms" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(${patientId}, 'hrm', this);" title="HRM">
                                             HRM (<span id="pLabNum_${patientId}">${hrmCount}</span>)

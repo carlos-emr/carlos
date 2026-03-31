@@ -33,7 +33,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.Collection;
 import java.util.List;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.SecObjPrivilege;
 import org.springframework.stereotype.Repository;
@@ -111,11 +111,7 @@ public class SecObjPrivilegeDaoImpl extends AbstractDaoImpl<SecObjPrivilege> imp
 
     @Override
     public List<Object[]> findByFormNamePrivilegeAndProviderNo(String formName, String privilege, String providerNo) {
-        String sql = "FROM SecObjPrivilege p, SecUserRole r " +
-                "WHERE p.id.roleUserGroup = r.RoleName " +
-                "AND p.id.objectName = ?1 " +
-                "AND p.privilege = ?2 " +
-                "AND r.ProviderNo = ?3";
+        String sql = "SELECT p, r FROM SecObjPrivilege p, SecUserRole r WHERE p.id.roleUserGroup = r.RoleName AND p.id.objectName = ?1 AND p.privilege = ?2 AND r.ProviderNo = ?3";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, formName);
         query.setParameter(2, privilege);

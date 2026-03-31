@@ -38,6 +38,7 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.interactive.action.PDActionJavaScript;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -69,14 +70,14 @@ import io.github.carlos_emr.carlos.log.LogAction;
 
 import javax.imageio.ImageIO;
 import javax.naming.OperationNotSupportedException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.*;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
-import javax.ws.rs.core.StreamingOutput;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
+import jakarta.ws.rs.core.StreamingOutput;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -364,7 +365,7 @@ public class RxWebService extends AbstractServiceImpl {
     @Path("/discontinue")
     @POST
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
-    public GenericRESTResponse discontinueDrug(@QueryParam("drugId") int drugId,
+    public RestResponse<String> discontinueDrug(@QueryParam("drugId") int drugId,
                                                @QueryParam("reason") String reason,
                                                @QueryParam("demographicNo") int demographicNo
     ) {
@@ -376,20 +377,11 @@ public class RxWebService extends AbstractServiceImpl {
             throw new AccessDeniedException("_rx", "w", demographicNo);
         }
 
-        GenericRESTResponse resp = new GenericRESTResponse();
-
         if (rxManager.discontinue(info, drugId, demographicNo, reason)) {
-
-            resp.setSuccess(true);
-            resp.setMessage("Successfully discontinued drug.");
-
+            return RestResponse.successResponse("Successfully discontinued drug.");
         } else {
-
-            resp.setSuccess(false);
-            resp.setMessage("Failed to discontinue drug.");
+            return RestResponse.errorResponse("Failed to discontinue drug.");
         }
-
-        return resp;
 
     }
 
@@ -582,38 +574,41 @@ public class RxWebService extends AbstractServiceImpl {
 
     }
 
+    /**
+     * Adds a new prescription favorite for the logged-in provider.
+     *
+     * <p>Favorites are provider-specific quick-select prescriptions that appear in
+     * the prescription UI for rapid re-use. Converts the transfer object to a
+     * domain {@code Favorite} entity before persisting.</p>
+     *
+     * @param newFavorite FavoriteTo1 the favorite prescription data to save
+     * @return RestResponse with success confirmation, or error if conversion or persistence fails
+     */
     @Path("/favorites")
     @POST
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
-    public GenericRESTResponse addFavorite(FavoriteTo1 newFavorite) {
+    public RestResponse<String> addFavorite(FavoriteTo1 newFavorite) {
 
         // No access control check required, we are not accessing a patient record.
         // TODO: Revise access control policies and re-evalute this to see if it requires access control check.
 
         LoggedInInfo info = getLoggedInInfo();
 
-        GenericRESTResponse resp = new GenericRESTResponse();
-
         try {
 
             Favorite f = this.favoriteConverter.getAsDomainObject(info, newFavorite);
 
             if (this.rxManager.addFavorite(f)) {
-                resp.setSuccess(true);
-                resp.setMessage("added favorite");
+                return RestResponse.successResponse("added favorite");
             } else {
-                resp.setSuccess(false);
-                resp.setMessage("failed to add new favorite");
+                return RestResponse.errorResponse("failed to add new favorite");
             }
 
         } catch (ConversionException e) {
-            logger.error(e.getStackTrace());
-            resp.setSuccess(false);
-            resp.setMessage("Failed to add favorite.");
+            logger.error("Failed to add favorite", e);
+            return RestResponse.errorResponse("Failed to add favorite.");
         }
-
-        return resp;
 
     }
 
@@ -723,7 +718,7 @@ public class RxWebService extends AbstractServiceImpl {
                     document.addPage(page);
 
                     // Create a new font object selecting one of the PDF base fonts
-                    PDFont font = PDType1Font.HELVETICA_BOLD;
+                    PDFont font = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
 
                     // Start a new content stream which will "hold" the to be created content
                     PDPageContentStream contentStream = new PDPageContentStream(document, page);
@@ -731,8 +726,8 @@ public class RxWebService extends AbstractServiceImpl {
                     for (PrintPointTo1 point : rxToPrint.getPrintPoints()) {
                         contentStream.beginText();
                         contentStream.setFont(font, point.getFontSize());
-                        contentStream.moveTextPositionByAmount(point.getX(), point.getY());
-                        contentStream.drawString(point.getText());
+                        contentStream.newLineAtOffset(point.getX(), point.getY());
+                        contentStream.showText(point.getText());
                         contentStream.endText();
 
                     }
@@ -740,7 +735,12 @@ public class RxWebService extends AbstractServiceImpl {
                     float[] x = rxToPrint.getxPolygonCoords();
                     float[] y = rxToPrint.getyPolygonCoords();
                     if (x != null && y != null && x.length > 1 && y.length > 1) {
-                        contentStream.drawPolygon(x, y);
+                        contentStream.moveTo(x[0], y[0]);
+                        for (int i = 1; i < x.length; i++) {
+                            contentStream.lineTo(x[i], y[i]);
+                        }
+                        contentStream.closePath();
+                        contentStream.stroke();
                     }
 
                     contentStream.close();

@@ -28,11 +28,11 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ page
-        import="io.github.carlos_emr.carlos.mds.data.ProviderData, java.util.ArrayList, io.github.carlos_emr.carlos.lab.ForwardingRules, io.github.carlos_emr.OscarProperties" %>
+        import="io.github.carlos_emr.carlos.mds.data.ProviderData, java.util.ArrayList, io.github.carlos_emr.carlos.lab.ForwardingRules, io.github.carlos_emr.CarlosProperties" %>
 
 <%
 
@@ -74,7 +74,7 @@
 
         function confirmUpdate() {
             <%
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             String autoFileLabs = props.getProperty("AUTO_FILE_LABS");
             if (autoFileLabs != null && autoFileLabs.equalsIgnoreCase("yes")){%>
             return confirm("Are you sure you would like to update the forwarding rules?")

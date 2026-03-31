@@ -164,10 +164,10 @@ The following classes were **NOT** migrated as they serve different purposes:
 - fax/CoverPage.jsp, form/formXmlUpload.jsp, form/eCARES/formeCARES.jsp
 - lab/CA/ALL/testUploader.jsp, library/bootstrap/3.0.0/icons.jsp
 - messenger/config/MessengerAdmin.jsp
-- oscarEncounter/oscarMeasurements/Measurements.jsp
-- oscarEncounter/oscarMeasurements/TemplateFlowSheetPrint.jsp
-- oscarEncounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp
-- oscarEncounter/oscarMeasurements/adminFlowsheet/UpdateFlowsheet.jsp
+- encounter/oscarMeasurements/Measurements.jsp
+- encounter/oscarMeasurements/TemplateFlowSheetPrint.jsp
+- encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp
+- encounter/oscarMeasurements/adminFlowsheet/UpdateFlowsheet.jsp
 
 ### Reports Module (5 files)
 - oscarReport/obec.jsp, oscarReport/oscarReportCatchment.jsp

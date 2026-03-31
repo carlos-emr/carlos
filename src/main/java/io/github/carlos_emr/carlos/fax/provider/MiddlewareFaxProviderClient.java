@@ -27,10 +27,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import javax.ws.rs.ProcessingException;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import jakarta.ws.rs.ProcessingException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,20 +39,19 @@ import org.apache.cxf.common.util.Base64Utility;
 import org.apache.cxf.jaxrs.client.WebClient;
 import org.apache.cxf.transport.http.HTTPConduit;
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.HttpStatus;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.Credentials;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.classic.methods.HttpDelete;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpStatus;
+import org.apache.hc.core5.http.ParseException;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.util.Timeout;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -177,13 +176,13 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             get.setHeader("user", faxConfig.getFaxUser());
             get.setHeader("passwd", faxConfig.getFaxPasswd());
 
-            HttpResponse response = client.execute(get);
-            int statusCode = response.getStatusLine().getStatusCode();
+            var response = client.execute(get);
+            int statusCode = response.getCode();
 
             if (statusCode != HttpStatus.SC_OK) {
                 throw new FaxProviderException(
                         "Middleware list faxes failed with HTTP " + statusCode +
-                        ": " + response.getStatusLine().getReasonPhrase() +
+                        ": " + response.getReasonPhrase() +
                         ". Check middleware server logs and fax account configuration.");
             }
 
@@ -201,7 +200,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             }
 
             return mapper.readValue(content, new TypeReference<List<FaxJob>>() { });
-        } catch (IOException e) {
+        } catch (IOException | ParseException e) {
             throw new FaxProviderException("Middleware fax list communication failure: " + e.getMessage(), e,
                     FaxProviderException.isTransientNetworkCause(e));
         }
@@ -223,13 +222,13 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             get.setHeader("user", faxConfig.getFaxUser());
             get.setHeader("passwd", faxConfig.getFaxPasswd());
 
-            HttpResponse response = client.execute(get);
-            int statusCode = response.getStatusLine().getStatusCode();
+            var response = client.execute(get);
+            int statusCode = response.getCode();
 
             if (statusCode != HttpStatus.SC_OK) {
                 throw new FaxProviderException(
                         "Middleware download failed for fax " + fax.getFile_name() +
-                        " with HTTP " + statusCode + ": " + response.getStatusLine().getReasonPhrase());
+                        " with HTTP " + statusCode + ": " + response.getReasonPhrase());
             }
 
             HttpEntity httpEntity = response.getEntity();
@@ -244,7 +243,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                 throw new FaxProviderException("Downloaded fax is in ERROR status: " + downloaded.getStatusString());
             }
             return downloaded;
-        } catch (IOException e) {
+        } catch (IOException | ParseException e) {
             throw new FaxProviderException("Middleware fax download failure for " + fax.getFile_name() + ": " + e.getMessage(), e,
                     FaxProviderException.isTransientNetworkCause(e));
         }
@@ -266,8 +265,8 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             delete.setHeader("user", faxConfig.getFaxUser());
             delete.setHeader("passwd", faxConfig.getFaxPasswd());
 
-            HttpResponse response = client.execute(delete);
-            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_NO_CONTENT) {
+            var response = client.execute(delete);
+            if (response.getCode() != HttpStatus.SC_NO_CONTENT) {
                 throw new FaxProviderException("CANNOT DELETE " + fax.getFile_name());
             }
         } catch (IOException e) {
@@ -290,13 +289,13 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             get.setHeader("user", faxConfig.getFaxUser());
             get.setHeader("passwd", faxConfig.getFaxPasswd());
 
-            HttpResponse response = client.execute(get);
-            int statusCode = response.getStatusLine().getStatusCode();
+            var response = client.execute(get);
+            int statusCode = response.getCode();
 
             if (statusCode != HttpStatus.SC_OK) {
                 throw new FaxProviderException(
                         "Middleware status check failed for job " + faxJob.getJobId() +
-                        " with HTTP " + statusCode + ": " + response.getStatusLine().getReasonPhrase());
+                        " with HTTP " + statusCode + ": " + response.getReasonPhrase());
             }
 
             HttpEntity httpEntity = response.getEntity();
@@ -307,7 +306,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
 
             String content = EntityUtils.toString(httpEntity);
             return mapper.readValue(content, FaxJob.class);
-        } catch (IOException e) {
+        } catch (IOException | ParseException e) {
             throw new FaxProviderException("Middleware status check communication failure", e,
                     FaxProviderException.isTransientNetworkCause(e));
         }
@@ -342,13 +341,13 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
      * hung connections from stalling fax processing.</p>
      */
     private CloseableHttpClient createDownloadClient(FaxConfig faxConfig) {
-        Credentials credentials = new UsernamePasswordCredentials(faxConfig.getSiteUser(), faxConfig.getPasswd());
-        CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-        credentialsProvider.setCredentials(new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT), credentials);
+        BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+        credentialsProvider.setCredentials(new AuthScope(null, -1),
+                new UsernamePasswordCredentials(faxConfig.getSiteUser(), faxConfig.getPasswd().toCharArray()));
 
         RequestConfig requestConfig = RequestConfig.custom()
-                .setConnectTimeout(30000)  // 30 seconds connection timeout
-                .setSocketTimeout(60000)    // 60 seconds socket read timeout
+                .setConnectionRequestTimeout(Timeout.ofSeconds(30))
+                .setResponseTimeout(Timeout.ofSeconds(60))
                 .build();
 
         return HttpClientBuilder.create()

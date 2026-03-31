@@ -34,7 +34,7 @@ import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.Misc;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
@@ -71,15 +71,15 @@ import io.github.carlos_emr.carlos.log.LogConst;
  * <ul>
  *   <li>PIN required for WAN (remote) access when bRemotelockset == 1</li>
  *   <li>PIN required for LAN (local) access when bLocallockset == 1</li>
- *   <li>PIN can be encrypted based on OscarProperties.isPINEncripted()</li>
+ *   <li>PIN can be encrypted based on CarlosProperties.isPINEncripted()</li>
  *   <li>PIN check disabled for users with MFA enabled</li>
  *   <li>PIN check disabled if global legacy PIN setting is off</li>
  * </ul>
  *
  * <p>Password hash migration:
  * <ul>
- *   <li>Legacy passwords (< 20 chars) use plain-text comparison</li>
- *   <li>Modern passwords (>= 20 chars) use BCrypt validation</li>
+ *   <li>Legacy passwords (&lt; 20 chars) use plain-text comparison</li>
+ *   <li>Modern passwords (&gt;= 20 chars) use BCrypt validation</li>
  *   <li>Successful legacy password login triggers automatic BCrypt migration</li>
  *   <li>Failed migration is logged but does not prevent login</li>
  * </ul>
@@ -88,7 +88,7 @@ import io.github.carlos_emr.carlos.log.LogConst;
  * <ul>
  *   <li>If LDAP authentication is enabled, Security object is wrapped in {@link LdapSecurity}</li>
  *   <li>LDAP delegates password validation to LDAP server while maintaining local Security record</li>
- *   <li>LDAP configuration via {@link OscarProperties#isLdapAuthenticationEnabled()}</li>
+ *   <li>LDAP configuration via {@link CarlosProperties#isLdapAuthenticationEnabled()}</li>
  * </ul>
  *
  * <p>Usage pattern:
@@ -96,10 +96,10 @@ import io.github.carlos_emr.carlos.log.LogConst;
  * LoginCheckLoginBean bean = new LoginCheckLoginBean();
  * bean.ini(username, password, pin, ipAddress);
  * String[] result = bean.authenticate();
- * if (result != null && result.length > 1) {
+ * if (result != null &amp;&amp; result.length > 1) {
  *     // Success - result contains provider info
  *     Security security = bean.getSecurity();
- * } else if (result != null && result[0].equals("expired")) {
+ * } else if (result != null &amp;&amp; result[0].equals("expired")) {
  *     // Password expired
  * } else {
  *     // Authentication failed
@@ -198,12 +198,12 @@ public final class LoginCheckLoginBean {
      *   <li>Remote (WAN) access: PIN required if bRemotelockset == 1</li>
      *   <li>Local (LAN) access: PIN required if bLocallockset == 1</li>
      *   <li>PIN must be at least 3 characters</li>
-     *   <li>PIN encrypted if OscarProperties.isPINEncripted() returns true</li>
+     *   <li>PIN encrypted if CarlosProperties.isPINEncripted() returns true</li>
      * </ul>
      *
      * <p>Password validation:
      * <ul>
-     *   <li>Legacy passwords (< 20 chars): plain-text comparison</li>
+     *   <li>Legacy passwords (&lt; 20 chars): plain-text comparison</li>
      *   <li>Modern passwords (>= 20 chars): BCrypt validation via {@link SecurityManager}</li>
      *   <li>Successful legacy password login triggers automatic BCrypt migration</li>
      * </ul>
@@ -233,7 +233,7 @@ public final class LoginCheckLoginBean {
 
         // Encrypt PIN if encryption is enabled in configuration
         String sPin = pin;
-        if (sPin != null && OscarProperties.getInstance().isPINEncripted()) sPin = Misc.encryptPIN(sPin);
+        if (sPin != null && CarlosProperties.getInstance().isPINEncripted()) sPin = Misc.encryptPIN(sPin);
 
         // Validate PIN for remote (WAN) access
         if (this.isPinCheckEnabled() && isWAN() && security.getBRemotelockset() != null && security.getBRemotelockset().intValue() == 1 && (!sPin.equals(security.getPin()) || pin.length() < 3)) {
@@ -395,7 +395,7 @@ public final class LoginCheckLoginBean {
             return null;
         }
         // Wrap with LDAP authentication adapter if LDAP is enabled
-        else if (OscarProperties.isLdapAuthenticationEnabled()) {
+        else if (CarlosProperties.isLdapAuthenticationEnabled()) {
             security = new LdapSecurity(security);
         }
 

@@ -44,11 +44,11 @@
     }
 %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@page import="io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.commn.model.*" %>
 <%@page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*" %>
 <%@page import="org.springframework.web.context.WebApplicationContext,org.springframework.web.context.support.WebApplicationContextUtils, io.github.carlos_emr.carlos.entities.*" %>
@@ -70,7 +70,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
@@ -111,7 +111,7 @@
     String specialty = "";
     String r_status = "";
     String roster_status = "";
-    String billRegion = OscarProperties.getInstance().getProperty("billRegion", "BC");
+    String billRegion = CarlosProperties.getInstance().getProperty("billRegion", "BC");
     int rowCount = 0;
     int rowReCount = 0;
 
@@ -218,7 +218,7 @@
             var page = "" + varpage;
             windowprops = "height=700,width=800,location=no,"
                 + "scrollbars=yes,menubars=no,toolbars=no,resizable=yes,top=0,left=0";
-            window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupPage2Window"/>", windowprops);
+            window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.popupPage2Window"/>", windowprops);
         }
 
         var awnd = null;

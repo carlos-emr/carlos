@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <html>
 <head>
-    <title>OSCAR Email</title>
+    <title>CARLOS Email</title>
 
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
     <link rel="stylesheet" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css" type="text/css"/>
@@ -158,7 +158,7 @@
         <div id="page-header">
             <table id="oscarEmailHeader">
                 <tr>
-                    <td id="oscarEmailHeaderLeftColumn"><h1>OSCAR Email</h1></td>
+                    <td id="oscarEmailHeaderLeftColumn"><h1>CARLOS Email</h1></td>
 
                     <td id="oscarEmailHeaderRightColumn" align=right>
                     </td>

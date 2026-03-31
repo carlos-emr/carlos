@@ -121,7 +121,7 @@
 <%@ page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
 
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
@@ -151,9 +151,10 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     ProviderInboxRoutingDao providerInboxRoutingDao = SpringUtils.getBean(ProviderInboxRoutingDao.class);
     UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
@@ -297,11 +298,10 @@
     <script type="text/javascript">
         const ctx = "${pageContext.servletContext.contextPath}";
         </script>
-
+        <!-- include jQuery Bootstrap jQueryUI fontawesome standard styles -->
+        <%@ include file="/includes/global-head.jspf" %>
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/showDocument.css">
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/autocomplete.css">
-        <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css">
-        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/share/calendar/calendar.js"></script>
@@ -525,7 +525,7 @@
 
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainEchart_<%=docId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-               onClick="popupPatient(710, 1024,'${pageContext.servletContext.contextPath}/oscarEncounter/IncomingEncounter.do?reason=<fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<%=docId%>')" <%=btnDisabled %>>
+               onClick="popupPatient(710, 1024,'${pageContext.servletContext.contextPath}/encounter/IncomingEncounter.do?reason=<fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<%=docId%>')" <%=btnDisabled %>>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainMaster_<%=docId%>" value=" <fmt:message key="oscarMDS.segmentDisplay.btnMaster"/>"
                onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/demographiccontrol.jsp?displaymode=edit&dboperation=search_detail&demographic_no=','master','<%=docId%>')" <%=btnDisabled %>>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainApptHistory_<%=docId%>"
@@ -533,7 +533,7 @@
                onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/demographiccontrol.jsp?orderby=appttime&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25&demographic_no=','ApptHist','<%=docId%>')" <%=btnDisabled %>>
 
         <input type="button" class="btn btn-outline-secondary btn-sm" id="refileDoc_<%=docId%>"
-               value="<fmt:message key="oscarEncounter.noteBrowser.msgRefile"/>" onclick="refileDoc('<%=docId%>');" <%=refileBtnVisibility%> >
+               value="<fmt:message key="encounter.noteBrowser.msgRefile"/>" onclick="refileDoc('<%=docId%>');" <%=refileBtnVisibility%> >
 
         <select id="queueList_<%=docId%>" class="btn btn-outline-secondary btn-sm" name="queueList"
                 onchange="handleQueueListChange(this, document.getElementById('refileDoc_<%=docId%>'), '<%=docCurrentFiledQueue%>')">
@@ -722,9 +722,10 @@
 
                                     <input type="checkbox" id="activeOnly<%=docId%>" name="activeOnly" checked="checked"
                                            value="true"><fmt:message key="showDocument.lblActiveOnly"/><br>
+                                    <fmt:message key="showDocument.placeholderSearchDemographic" var="placeholderSearchDemographic"/>
                                     <input type="text" id="autocompletedemo<%=docId%>"
                                            onchange="checkSave('<%=Encode.forJavaScript(docId)%>');" name="demographicKeyword"
-                                           placeholder="Search Demographic">
+                                           placeholder="${fn:escapeXml(placeholderSearchDemographic)}">
                                     <div id="autocomplete_choices<%=docId%>" class="autocomplete"></div>
 
                                     <%}%>
@@ -743,8 +744,9 @@
                                 <td style="vertical-align: top;"><fmt:message key="inboxmanager.document.FlagProviderMsg"/></td>
                                 <td>
                                     <input type="hidden" name="provi" id="provfind<%=docId%>">
+                                    <fmt:message key="showDocument.placeholderSearchProvider" var="placeholderSearchProvider"/>
                                     <input type="text" id="autocompleteprov<%=docId%>" name="demographicKeyword"
-                                           placeholder="Search Provider">
+                                           placeholder="${fn:escapeXml(placeholderSearchProvider)}">
                                     <div id="autocomplete_choicesprov<%=docId%>" class="autocomplete"></div>
 
 

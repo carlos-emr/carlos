@@ -1,0 +1,35 @@
+<%-- Row Two: Ongoing Concerns, Reminders --%>
+<div class="encounter-card card mb-1" id="rowTwo">
+    <div class="card-header d-flex align-items-center">
+        <div class="flex-grow-1 d-flex gap-3">
+            <span>
+                <c:choose>
+                    <c:when test="${fn:length(ongoingConcernsLabel) > 1}"><c:out value="${ongoingConcernsLabel}"/>:</c:when>
+                    <c:otherwise><fmt:message key="encounter.Index.msgConcerns"/>:</c:otherwise>
+                </c:choose>
+            </span>
+            <input type="hidden" name="ocInput"/>
+            <span><fmt:message key="encounter.Index.msgReminders"/>:</span>
+        </div>
+        <div class="resize-controls">
+            <a href="javascript:rowTwoX();" title="<fmt:message key="encounter.Index.tooltipClose"/>"><fmt:message key="encounter.Index.x"/></a> |
+            <a href="javascript:rowTwoSmall();" title="<fmt:message key="encounter.Index.tooltipSmall"/>"><fmt:message key="encounter.Index.s"/></a> |
+            <a href="javascript:rowTwoNormal();" title="<fmt:message key="encounter.Index.tooltipNormal"/>"><fmt:message key="encounter.Index.n"/></a> |
+            <a href="javascript:rowTwoLarge();" title="<fmt:message key="encounter.Index.tooltipLarge"/>"><fmt:message key="encounter.Index.l"/></a> |
+            <a href="javascript:rowTwoFull();" title="<fmt:message key="encounter.Index.tooltipFull"/>"><fmt:message key="encounter.Index.f"/></a> |
+            <a href="javascript:reset();" title="<fmt:message key="encounter.Index.tooltipReset"/>"><fmt:message key="encounter.Index.r"/></a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row g-0">
+            <div class="col-6" style="border-right: 2px solid #ccccff">
+                <textarea name="ocTextarea" tabindex="4" wrap="hard" cols="44"
+                          style="height:<e:forHtmlAttribute value='${rowTwoSize}'/>;overflow:auto"><c:out value="${bean.ongoingConcerns}"/></textarea>
+            </div>
+            <div class="col-6">
+                <textarea name="reTextarea" tabindex="5" wrap="hard" cols="44"
+                          style="height:<e:forHtmlAttribute value='${rowTwoSize}'/>;overflow:auto"><c:out value="${bean.reminders}"/></textarea>
+            </div>
+        </div>
+    </div>
+</div>

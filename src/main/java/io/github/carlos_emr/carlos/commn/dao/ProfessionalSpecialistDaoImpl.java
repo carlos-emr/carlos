@@ -35,7 +35,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
@@ -249,5 +249,28 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
 
 
         return cList;
+    }
+
+    @Override
+    /**
+     * Retrieves ProfessionalSpecialist entities whose phone number contains the given fragment.
+     * Results are ordered by last name and first name and limited to the specified maximum count.
+     *
+     * @param phone String the phone number fragment to search for (matched with LIKE contains)
+     * @param maxResults int the maximum number of results to return
+     * @return List&lt;ProfessionalSpecialist&gt; list of matching healthcare specialists, empty if none found
+     */
+    public List<ProfessionalSpecialist> findByPhoneContains(String phone, int maxResults) {
+        if (phone == null || phone.trim().isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        Query query = entityManager.createQuery("SELECT x FROM ProfessionalSpecialist x WHERE x.deleted = false AND x.phoneNumber LIKE :phone ORDER BY x.lastName, x.firstName");
+        query.setParameter("phone", "%" + phone + "%");
+        query.setMaxResults(maxResults);
+
+        @SuppressWarnings("unchecked")
+        List<ProfessionalSpecialist> cList = query.getResultList();
+
+        return cList != null ? cList : java.util.Collections.emptyList();
     }
 }

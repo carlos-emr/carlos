@@ -35,28 +35,28 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.JoinTable;
-import javax.persistence.ManyToMany;
-import javax.persistence.ManyToOne;
-import javax.persistence.OneToMany;
-import javax.persistence.Table;
-import javax.persistence.Temporal;
-import javax.persistence.TemporalType;
-import javax.persistence.Transient;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
+import jakarta.persistence.Transient;
 
 import io.github.carlos_emr.carlos.model.OptionsBean;
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 @Entity
 @Table(name = "custom_filter")
@@ -169,7 +169,7 @@ public class CustomFilter extends AbstractModel<Integer> {
         }
         providers = new HashSet<Provider>();
         assignees = new HashSet<Provider>();
-        setSort_order(OscarProperties.getInstance().getProperty("tickler.default_sort_order", "asc"));
+        setSort_order(CarlosProperties.getInstance().getProperty("tickler.default_sort_order", "asc"));
     }
 
 
@@ -389,18 +389,30 @@ public class CustomFilter extends AbstractModel<Integer> {
         this.sort_order = sort_order;
     }
 
+    /**
+     * Returns the sort column.
+     */
     public String getSortColumn() {
         return sortColumn;
     }
 
+    /**
+     * Sets the sort column.
+     */
     public void setSortColumn(String sortColumn) {
         this.sortColumn = sortColumn;
     }
 
+    /**
+     * Returns the current search term.
+     */
     public String getSearchTerm() {
         return searchTerm;
     }
 
+    /**
+     * Sets the search term.
+     */
     public void setSearchTerm(String searchTerm) {
         this.searchTerm = searchTerm;
     }

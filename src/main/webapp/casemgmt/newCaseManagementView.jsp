@@ -57,14 +57,14 @@
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayNonNote" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.CheckBoxBean" %>
 
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 <div id="cppBoxes">

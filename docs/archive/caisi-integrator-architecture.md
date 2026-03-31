@@ -1096,8 +1096,8 @@ INTEGRATOR_LOCAL_STORE_DAYS=        # How long to keep cached data
 ```properties
 provider.integratorPreferences.preferences=Integrator Preferences
 provider.integratorPreferences.chooseDataSets=Choose Data Sets
-oscarEncounter.integrator.NA=Integrator not available
-oscarEncounter.integrator.outOfSync=Community not synced
+encounter.integrator.NA=Integrator not available
+encounter.integrator.outOfSync=Community not synced
 admin.admin.caisi=CAISI
 admin.admin.integratorPush=Integrator Push Manager
 web.record.details.integrator=Integrator

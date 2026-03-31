@@ -36,7 +36,7 @@ import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.commn.model.GroupMembers;
 import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import java.util.Collections;
 import java.util.List;
 
@@ -96,10 +96,7 @@ public class GroupMembersDaoImpl extends AbstractDaoImpl<GroupMembers> implement
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findMembersByGroupId(int groupId) {
-        String sql = "FROM GroupMembers g, Provider p "
-                + "WHERE g.providerNo = p.ProviderNo "
-                + "AND g.groupId = ?1"
-                + "ORDER BY p.LastName, p.FirstName";
+        String sql = "SELECT g, p FROM GroupMembers g, Provider p WHERE g.providerNo = p.ProviderNo AND g.groupId = ?1 ORDER BY p.LastName, p.FirstName";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, groupId);
         return query.getResultList();

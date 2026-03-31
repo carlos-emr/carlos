@@ -30,7 +30,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -55,7 +55,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Adjust Billing Codes</title>
         <link rel="stylesheet" type="text/css"
-              href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
+              href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
         <script type="text/javascript">
 
 

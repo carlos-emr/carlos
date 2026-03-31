@@ -96,7 +96,11 @@ public class SecroleDaoImpl extends AbstractHibernateDao implements SecroleDao {
             throw new IllegalArgumentException();
         }
 
-        currentSession().saveOrUpdate(secrole);
+        if (secrole.getId() == null) {
+            currentSession().persist(secrole);
+        } else {
+            currentSession().merge(secrole);
+        }
 
     }
 

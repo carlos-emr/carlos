@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.LockOptions;
+import org.hibernate.LockMode;
 import org.hibernate.Session;
 import org.hibernate.query.Query;
 import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
@@ -56,7 +56,7 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
     public void save(SecProvider transientInstance) {
         logger.debug("saving Provider instance");
         try {
-            currentSession().save(transientInstance);
+            currentSession().persist(transientInstance);
             logger.debug("save successful");
         } catch (RuntimeException re) {
             logger.error("save failed", re);
@@ -68,7 +68,11 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
     public void saveOrUpdate(SecProvider transientInstance) {
         logger.debug("saving Provider instance");
         try {
-            currentSession().saveOrUpdate(transientInstance);
+            if (transientInstance.getProviderNo() == null) {
+                currentSession().persist(transientInstance);
+            } else {
+                currentSession().merge(transientInstance);
+            }
             logger.debug("save successful");
         } catch (RuntimeException re) {
             logger.error("save failed", re);
@@ -80,7 +84,7 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
     public void delete(SecProvider persistentInstance) {
         logger.debug("deleting Provider instance");
         try {
-            currentSession().delete(persistentInstance);
+            currentSession().remove(persistentInstance);
             logger.debug("delete successful");
         } catch (RuntimeException re) {
             logger.error("delete failed", re);
@@ -258,7 +262,7 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
         logger.debug("attaching dirty Provider instance");
         Session session = currentSession();
         try {
-            session.saveOrUpdate(instance);
+            session.merge(instance);
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);
@@ -270,7 +274,7 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
     public void attachClean(SecProviderDao instance) {
         logger.debug("attaching clean Provider instance");
         try {
-            currentSession().buildLockRequest(LockOptions.NONE).lock(instance);
+            currentSession().lock(instance, LockMode.NONE);
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);

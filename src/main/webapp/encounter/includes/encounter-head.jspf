@@ -1,0 +1,84 @@
+    <head>
+        <%@ include file="/includes/global-head.jspf" %>
+
+        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.title"/> - <oscar:nameage
+                demographicNo="${bean.demographicNo}"/></title>
+        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+
+        <script type="text/javascript"
+                src="${ctx}/share/javascript/Oscar.js"></script>
+
+        <link rel="stylesheet" type="text/css" media="all" href="${ctx}/share/css/extractedFromPages.css"/>
+        <link rel="stylesheet" type="text/css" href="${ctx}/encounter/encounterStyles.css">
+        <link rel="stylesheet" type="text/css" href="${ctx}/encounter/css/encounter-page.css">
+
+        <script type="text/javascript">jQuery.noConflict();</script>
+        <!-- jQuery.noConflict() frees $ for the Prototype shim; use jQuery() for jQuery calls -->
+        <script src="${ctx}/share/javascript/prototype-compat.js" type="text/javascript"></script>
+
+        <%-- Popup menu scripts --%>
+        <script src="${ctx}/share/javascript/popupmenu.js" type="text/javascript"></script>
+        <script src="${ctx}/share/javascript/menutility.js" type="text/javascript"></script>
+
+        <%-- Server-side configuration for encounter.js --%>
+        <script type="text/javascript">
+            var encounterConfig = {
+                ctx: "<c:out value='${ctx}'/>",
+                patientSex: "<e:forJavaScript value='${bean.patientSex}'/>",
+                pAge: "<e:forJavaScript value='${pAge}'/>",
+                popUrl: <c:choose><c:when test="${not empty popUrl}">"<e:forJavaScript value='${popUrl}'/>"</c:when><c:otherwise>null</c:otherwise></c:choose>,
+                i18n: {
+                    title: "<fmt:setBundle basename='oscarResources'/><fmt:message key='encounter.Index.title'/>",
+                    closeEncounterConfirm: "<fmt:message key='encounter.Index.closeEncounterWindowConfirm'/>",
+                    confirmSplit: "<fmt:message key='encounter.Index.confirmSplit'/>",
+                    popupPageAlert: "<fmt:message key='encounter.Index.popupPageAlert'/>",
+                    onUnbilledConfirm: "<fmt:message key='encounter.Index.onUnbilledConfirm'/>",
+                    popupSearchPageWindow: "<fmt:message key='encounter.Index.popupSearchPageWindow'/>"
+                },
+                images: {
+                    expand: "<c:out value='${ctx}'/>/encounter/graphics/expand.gif",
+                    collapse: "<c:out value='${ctx}'/>/messenger/img/collapse.gif",
+                    transparent: "<c:out value='${ctx}'/>/images/clear.gif"
+                },
+                urls: {
+                    navSections: {
+                        preventions: "<c:out value='${ctx}'/>/encounter/displayPrevention.do?hC=009999",
+                        tickler: "<c:out value='${ctx}'/>/encounter/displayTickler.do?hC=FF6600",
+                        Dx: "<c:out value='${ctx}'/>/encounter/displayDisease.do?hC=5A5A5A",
+                        forms: "<c:out value='${ctx}'/>/encounter/displayForms.do?hC=917611",
+                        eforms: "<c:out value='${ctx}'/>/encounter/displayEForms.do?hC=11CC00",
+                        docs: "<c:out value='${ctx}'/>/encounter/displayDocuments.do?hC=476BB3",
+                        labs: "<c:out value='${ctx}'/>/encounter/displayLabs.do?hC=A0509C",
+                        HRM: "<c:out value='${ctx}'/>/encounter/displayHRM.do?hC=28A0A8",
+                        msgs: "<c:out value='${ctx}'/>/encounter/displayMessages.do?hC=DDDD00",
+                        measurements: "<c:out value='${ctx}'/>/encounter/displayMeasurements.do?hC=344887",
+                        consultation: "<c:out value='${ctx}'/>/encounter/displayConsultation.do"
+                    },
+                    leftNavbar: {
+                        preventions: "<c:out value='${ctx}'/>/encounter/displayPrevention.do?hC=009999",
+                        tickler: "<c:out value='${ctx}'/>/encounter/displayTickler.do?hC=FF6600",
+                        Dx: "<c:out value='${ctx}'/>/encounter/displayDisease.do?hC=5A5A5A",
+                        forms: "<c:out value='${ctx}'/>/encounter/displayForms.do?hC=917611",
+                        eforms: "<c:out value='${ctx}'/>/encounter/displayEForms.do?hC=11CC00",
+                        docs: "<c:out value='${ctx}'/>/encounter/displayDocuments.do?hC=476BB3",
+                        labs: "<c:out value='${ctx}'/>/encounter/displayLabs.do?hC=A0509C",
+                        HRM: "<c:out value='${ctx}'/>/encounter/displayHRM.do?hC=28A0A8",
+                        msgs: "<c:out value='${ctx}'/>/encounter/displayMessages.do?hC=DDDD00",
+                        measurements: "<c:out value='${ctx}'/>/encounter/displayMeasurements.do?hC=344887",
+                        consultation: "<c:out value='${ctx}'/>/encounter/displayConsultation.do?hC=",
+                        eConsult: "<c:out value='${ctx}'/>/encounter/displayEconsultation.do"
+                    }
+                },
+                calculators: [
+                    { name: "<fmt:message key='encounter.Index.bodyMass'/>", action: "popupPage(650,775,'BodyMassIndex','http://www.intmed.mcw.edu/clincalc/body.html')" },
+                    { name: "<fmt:message key='encounter.Index.coronary'/>", action: "popupPage(525,775,'CoronaryArteryDiseaseRisk','calculators/CoronaryArteryDiseaseRiskPrediction.jsp?sex=<e:forJavaScript value='${bean.patientSex}'/>&age=<e:forJavaScript value='${pAge}'/>')" },
+                    { name: "<fmt:message key='encounter.Index.msgOsteoporotic'/>", action: "popupPage(525,775,'OsteoporoticFracture','calculators/OsteoporoticFracture.jsp?sex=<e:forJavaScript value='${bean.patientSex}'/>&age=<e:forJavaScript value='${pAge}'/>')" },
+                    { name: "<fmt:message key='encounter.Index.pregnancy'/>", action: "popupPage(650,775,'PregancyCalculator','http://www.intmed.mcw.edu/clincalc/pregnancy.html')" },
+                    { name: "<fmt:message key='encounter.Index.simpleCalculator'/>", action: "popupPage(400,500,'SimpleCalc','calculators/SimpleCalculator.jsp')" },
+                    { name: "<fmt:message key='encounter.Index.generalConversions'/>", action: "popupPage(650,775,'GeneralConversions','calculators/GeneralCalculators.jsp')" }
+                ],
+                templates: [<c:forEach var="tmpl" items="${templateNames}" varStatus="s">"${tmpl}"<c:if test="${!s.last}">,</c:if></c:forEach>]
+            };
+        </script>
+        <script type="text/javascript" src="${ctx}/encounter/js/encounter.js"></script>
+    </head>

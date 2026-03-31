@@ -1,10 +1,10 @@
 package io.github.carlos_emr.carlos.eform;
 
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.jsoup.internal.StringUtil;
 import org.apache.commons.text.StringEscapeUtils;
@@ -28,7 +28,7 @@ import org.apache.commons.text.StringEscapeUtils;
  * </ul>
  *
  * @see EFormUtil#logError(int, String)
- * @see com.opensymphony.xwork2.ActionSupport
+ * @see org.apache.struts2.ActionSupport
  * @since 2026-01-24
  */
 public class EformLogError2Action extends ActionSupport {

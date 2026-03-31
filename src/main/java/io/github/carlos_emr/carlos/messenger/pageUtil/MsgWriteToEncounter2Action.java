@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -38,9 +38,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ServletActionContext;
 import org.owasp.encoder.Encode;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
@@ -155,7 +155,7 @@ public class MsgWriteToEncounter2Action extends ActionSupport {
         // Build redirect URL to encounter module with URI-encoded parameters
         // to prevent malformed URLs from special characters in user/session data
         StringBuilder forward = new StringBuilder(request.getContextPath());
-        forward.append("/oscarEncounter/IncomingEncounter.do");
+        forward.append("/encounter/IncomingEncounter.do");
         forward.append("?providerNo=").append(Encode.forUriComponent(provider));
         forward.append("&appointmentNo=");
         forward.append("&demographicNo=").append(Encode.forUriComponent(demographicNo));

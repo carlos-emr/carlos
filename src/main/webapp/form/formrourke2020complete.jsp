@@ -44,7 +44,7 @@
     }
 %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
@@ -277,7 +277,7 @@
             if (checkMeasures()) {
                 popPage(url, name);
             } else {
-                alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.frmError"/>');
+                alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.frmError"/>');
             }
         }
 
@@ -782,7 +782,7 @@
                 document.forms["frmP1"].submit();
             }
         } else {
-            alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.frmError"/>');
+            alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.frmError"/>');
         }
         return false;
     }
@@ -796,7 +796,7 @@
                 document.forms["frmP1"].submit();
             }
         } else {
-            alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.frmError"/>');
+            alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.frmError"/>');
         }
         return false;
     }

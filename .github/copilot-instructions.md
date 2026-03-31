@@ -5,7 +5,7 @@
 ## Core Context
 
 **Domain**: Canadian healthcare EMR system with multi-jurisdictional compliance (BC, ON, generic)
-**Stack**: Java 21, Spring 5.3.39, Hibernate 5.x, Maven 3, Tomcat 9.0.97, MariaDB/MySQL  
+**Stack**: Java 21, Spring 6.2.17, Struts 7.1.1, Hibernate 6.x, Maven 3, Tomcat 10.1, MariaDB/MySQL  
 **Architecture**: Multi-layered healthcare web application with complex medical database schema
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
@@ -210,7 +210,7 @@ if (loggedInInfo.isExpired()) {
 package io.github.carlos_emr.carlos.module.web;
 
 import org.apache.struts2.ServletActionContext;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.owasp.encoder.Encode;
 
 public class Feature2Action extends ActionSupport {
@@ -599,16 +599,16 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 ## Technology Stack Details
 
 ### Core Technologies
-- **Java 21** with modern language features and JAXB compatibility
-- **Spring Framework 5.3.39**: IoC container, MVC, AOP, Security, transaction management
-- **Hibernate 5.6.15**: ORM framework with custom MySQL dialect (`OscarMySQL5Dialect`)
+- **Java 21** with modern language features and Jakarta XML Binding
+- **Spring Framework 6.2.17**: IoC container, MVC, AOP, Security, transaction management
+- **Hibernate 6.6.40**: ORM framework with custom MySQL dialect (`OscarMySQL5Dialect`)
 - **Maven 3**: Build management with 200+ healthcare-specific dependencies
-- **Apache Tomcat 9.0.97**: Web application server with debugging enabled
+- **Apache Tomcat 10.1**: Web application server with debugging enabled (Jakarta EE 10)
 - **MariaDB/MySQL**: Database with custom connection tracking (`OscarTrackingBasicDataSource`)
 
-### Web Technologies  
-- **Struts 6.8.0**: Modern actions (2Action pattern) coexisting with legacy Struts 1.x
-- **Apache CXF 3.6.9**: Web services framework for healthcare integrations
+### Web Technologies
+- **Struts 7.1.1**: Modern actions (2Action pattern) using `org.apache.struts2.ActionSupport`
+- **Apache CXF 4.1.5**: Web services framework for healthcare integrations (Jakarta EE)
 - **JSP/JSTL**: View layer with extensive medical form templates
 - **Bootstrap 5.3.0**: Modern UI framework loaded from CDN for responsive design
 - **JavaScript/CSS/jQuery**: Frontend with healthcare-specific UI components

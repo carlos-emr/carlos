@@ -38,7 +38,7 @@ import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -199,7 +199,7 @@ public class EctPatientData {
             }
 
             private void init() {
-                OscarProperties properties = OscarProperties.getInstance();
+                CarlosProperties properties = CarlosProperties.getInstance();
                 if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
                     ResultSet rs = null;
                     try {

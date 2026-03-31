@@ -1,7 +1,7 @@
 package ca.ontario.health.hcv;
 
 import ca.ontario.health.ebs.EbsFault;
-import javax.xml.ws.WebFault;
+import jakarta.xml.ws.WebFault;
 
 @WebFault(name = "EBSFault", targetNamespace = "http://ebs.health.ontario.ca/")
 public class Faultexception extends Exception

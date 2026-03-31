@@ -47,7 +47,7 @@
     }
 %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 
@@ -58,14 +58,14 @@
 %>
 
 <%@ page errorPage="/errorpage.jsp" %>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%
     String country = request.getLocale().getCountry();
 %>
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <html>
     <head>
@@ -73,7 +73,7 @@
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.page.title"/> Start Time
-            : <%=OscarProperties.getInstance().getStartTime()%>
+            : <%=CarlosProperties.getInstance().getStartTime()%>
         </title>
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
@@ -353,7 +353,7 @@
                            onclick='popupPage(700,640, "${pageContext.request.contextPath}/billing/CA/ON/inr/reportINR.jsp?provider_no=all");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnINRBatchBilling"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/billingONUpload.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadMOHFile"/></a></li>
-                    <% if (OscarProperties.getInstance().isPropertyActive("moh_file_management_enabled")) { %>
+                    <% if (CarlosProperties.getInstance().isPropertyActive("moh_file_management_enabled")) { %>
                     <li><a href="#" onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/viewMOHFiles.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.viewMOHFiles"/></a></li>
                     <% } %>
                     <li><a href="#"
@@ -367,7 +367,7 @@
                            onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/ON/billStatus.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.invoiceRpts"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/ON/endYearStatement.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.endYearStatement"/></a></li>
-                    <%if (OscarProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
+                    <%if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
                     <li>
                         <a href='#' onclick='popupPage(300,750,"${pageContext.request.contextPath}/admin/clinicNbrManage.jsp");return false;'>Manage Clinic NBR Codes</a>
                     </li>
@@ -680,7 +680,7 @@
                 <ul>
 
                     <li><a href="javascript:void(0);" onclick='popupPage(550,800, "${pageContext.request.contextPath}/lookupListManagerAction.do?method=manageSingle&listName=consultApptInst");return false;'>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oscarEncounter.consult.appointmentIntructions"/></a>
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.encounter.consult.appointmentIntructions"/></a>
                     </li>
 
                     <li><a href="javascript:void(0);" onclick='popupPage(550,800, "${pageContext.request.contextPath}/lookupListManagerAction.do?method=manage");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.lookUpLists"/></a></li>
@@ -710,12 +710,12 @@
                         }
                     %>
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/oscarEncounter/oscarConsultationRequest/config/EditSpecialists.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.professionalSpecialistAdmin"/></a></li>
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/encounter/oscarConsultationRequest/config/EditSpecialists.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.professionalSpecialistAdmin"/></a></li>
 
                     <li><a href="#"
-                           onclick='popupPage(400,450, "${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchCustomization.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnCustomize"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.admin.diseaseRegistryQuickList"/></a></li>
+                           onclick='popupPage(400,450, "${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchCustomization.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnCustomize"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.admin.diseaseRegistryQuickList"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(250,450, "${pageContext.request.contextPath}/oscarEncounter/oscarMeasurements/Customization.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnCustomize"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oscarMeasurements"/></a></li>
+                           onclick='popupPage(250,450, "${pageContext.request.contextPath}/encounter/oscarMeasurements/Customization.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnCustomize"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oscarMeasurements"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(200,300, "${pageContext.request.contextPath}/admin/resourcebaseurl.jsp");return false;'
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.baseURLSettingTitle"/>'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBaseURLSetting"/></a></li>
@@ -731,7 +731,7 @@
 
                     <li><a href="#" onclick='popupPage(800,1000, "${pageContext.request.contextPath}/admin/keygen/keyManager.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.keyPairGen"/></a></li>
                     <li><a href="#" onclick='popupPage(600,600, "${pageContext.request.contextPath}/FacilityManager.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageFacilities"/></a></li>
-                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/oscarEncounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp");return false;'>Create
+                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/encounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp");return false;'>Create
                         New Flowsheet</a></li>
                     <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/manageFlowsheets.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.flowsheetManager"/></a></li>
                     <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/lotnraddrecordhtm.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.add_lot_nr.title"/></a></li>
@@ -828,7 +828,7 @@
             <div class="adminBox">
                 <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.Status"/></h3>
                 <ul>
-                    <% if (OscarProperties.getInstance().isFaxEnabled()) { %>
+                    <% if (CarlosProperties.getInstance().isFaxEnabled()) { %>
                     <li><a href="#" onclick='popupPage(600, 800, "${pageContext.request.contextPath}/admin/faxStatus.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.faxStatus.faxStatus"/></a></li>
                     <% } %>
 

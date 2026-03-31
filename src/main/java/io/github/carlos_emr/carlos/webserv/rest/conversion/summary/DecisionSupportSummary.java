@@ -49,7 +49,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 
 @Component
@@ -76,7 +76,7 @@ public class DecisionSupportSummary implements Summary {
         List<SummaryItemTo1> list = summary.getSummaryItem();
         int count = 0;
 
-        if (OscarProperties.getInstance().getProperty("ORN_PILOT", "yes").equalsIgnoreCase("yes") && (OscarProperties.getInstance().getProperty("ckd_notification_scheme", "dsa").equals("dsa") || OscarProperties.getInstance().getProperty("ckd_notification_scheme", "dsa").equals("all"))) {
+        if (CarlosProperties.getInstance().getProperty("ORN_PILOT", "yes").equalsIgnoreCase("yes") && (CarlosProperties.getInstance().getProperty("ckd_notification_scheme", "dsa").equals("dsa") || CarlosProperties.getInstance().getProperty("ckd_notification_scheme", "dsa").equals("all"))) {
             fillCKD(loggedInInfo, list, demographicNo, count);
         }
 
@@ -131,7 +131,7 @@ public class DecisionSupportSummary implements Summary {
     private void fillDSGuidelines(LoggedInInfo loggedInInfo, List<SummaryItemTo1> list, Integer demographicNo, int count) {
         List<DSGuideline> dsGuidelines = dsService.getDsGuidelinesByProvider(loggedInInfo.getLoggedInProviderNo());
         for (DSGuideline dsGuideline : dsGuidelines) {
-            if (OscarProperties.getInstance().getProperty("dsa.skip." + dsGuideline.getTitle().replaceAll(" ", "_"), "false").equals("true")) {
+            if (CarlosProperties.getInstance().getProperty("dsa.skip." + dsGuideline.getTitle().replaceAll(" ", "_"), "false").equals("true")) {
                 continue;
             }
             try {
@@ -143,7 +143,7 @@ public class DecisionSupportSummary implements Summary {
 
                     SummaryItemTo1 summaryItem = new SummaryItemTo1(dsGuideline.getId(), dsGuideline.getTitle(), "action", "dsguideline");
 
-                    String url = "../oscarEncounter/decisionSupport/guidelineAction.do?method=detail&guidelineId=" + dsGuideline.getId() + "&provider_no=" + loggedInInfo.getLoggedInProviderNo() + "&demographic_no=" + demographicNo + "&parentAjaxId='); return false;";
+                    String url = "../encounter/decisionSupport/guidelineAction.do?method=detail&guidelineId=" + dsGuideline.getId() + "&provider_no=" + loggedInInfo.getLoggedInProviderNo() + "&demographic_no=" + demographicNo + "&parentAjaxId='); return false;";
 
                     summaryItem.setDate(dsGuideline.getDateStart());
                     summaryItem.setAction(url);

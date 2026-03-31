@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import cdsrourke.PatientDocument;
 import cdsrourke.PatientDocument.Patient;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -47,14 +47,14 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.form.model.FormRourke2009;
 import io.github.carlos_emr.carlos.report.data.DemographicSets;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -105,7 +105,7 @@ public class RourkeExport2Action extends ActionSupport {
     }
 
     public String getFile() {
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         String zipName = request.getParameter("zipFile");
         String dir = properties.getProperty("DOCUMENT_DIR");
         Util.downloadFile(zipName, dir, response);
@@ -116,7 +116,7 @@ public class RourkeExport2Action extends ActionSupport {
     @SuppressWarnings("rawtypes")
     @Override
     public String execute() throws Exception {
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         Clinic clinic = clinicDAO.getClinic();
         List<DataExport> dataExportList = dataExportDAO.findAllByType(DataExportDao.ROURKE);
 
@@ -3711,7 +3711,7 @@ public class RourkeExport2Action extends ActionSupport {
 
 /*
 	private void buildProcedure2(Demographic demo, PatientRecord patientRecord) {
-            OscarProperties properties = OscarProperties.getInstance();
+            CarlosProperties properties = CarlosProperties.getInstance();
             Calendar cal = Calendar.getInstance();
             Date procedureDate;
             boolean hasIssue;
@@ -3779,7 +3779,7 @@ public class RourkeExport2Action extends ActionSupport {
 
         //copy zip to document directory
         File zipFile = new File(tmpDir, zipName);
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         File destDir = new File(properties.getProperty("DOCUMENT_DIR"));
         org.apache.commons.io.FileUtils.copyFileToDirectory(zipFile, destDir);
 

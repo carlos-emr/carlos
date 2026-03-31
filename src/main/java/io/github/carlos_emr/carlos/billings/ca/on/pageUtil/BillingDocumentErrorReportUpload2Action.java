@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ServletActionContext;
@@ -45,16 +45,16 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimBatchAcknowledgementReportBeanHandler;
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimsErrorReportBeanHandler;
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingEDTOBECOutputSpecificationBean;
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingEDTOBECOutputSpecificationBeanHandler;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimsErrorReportBeanHandlerSave;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.net.URLEncoder;
 import java.util.ArrayList;
@@ -114,7 +114,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport {
         boolean isAdded = true;
 
         try {
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
 
             // Get target directory
             String place = props.getProperty("DOCUMENT_DIR");
@@ -195,7 +195,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport {
         boolean isGot = false;
 
         try {
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             String filepath = props.getProperty(pathDir);
             boolean bNewBilling = "true".equals(props.getProperty("isNewONbilling", ""));
 

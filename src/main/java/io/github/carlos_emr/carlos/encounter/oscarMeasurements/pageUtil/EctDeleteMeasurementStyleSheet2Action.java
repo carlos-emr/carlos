@@ -32,9 +32,9 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 import java.io.IOException;
 import java.util.List;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementCSSLocationDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao;
@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
@@ -71,8 +71,8 @@ public class EctDeleteMeasurementStyleSheet2Action extends ActionSupport {
                     for (MeasurementGroupStyle style : styles) {
                         MeasurementCSSLocation location = lDao.find(ConversionUtils.fromIntString(deleteCheckbox[i]));
                         if (location != null) {
-                            addActionError(getText("error.oscarEncounter.Measurements.cannotDeleteStyleSheet", new String[]{location.getLocation()}));
-                            response.sendRedirect(request.getContextPath() + "/oscarEncounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp");
+                            addActionError(getText("error.encounter.Measurements.cannotDeleteStyleSheet", new String[]{location.getLocation()}));
+                            response.sendRedirect(request.getContextPath() + "/encounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp");
                             return NONE;
                         }
 

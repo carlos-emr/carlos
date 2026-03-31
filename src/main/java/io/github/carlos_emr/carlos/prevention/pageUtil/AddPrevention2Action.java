@@ -35,8 +35,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.hl7.fhir.dstu3.model.Bundle;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -65,7 +65,7 @@ import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
 /**
  * @author Jay Gallagher
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class AddPrevention2Action extends ActionSupport {

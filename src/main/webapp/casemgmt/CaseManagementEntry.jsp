@@ -168,12 +168,6 @@
             }
 
 
-            <oscarProp:oscarPropertiesCheck property="oncall" value="yes">
-            var s = document.caseManagementEntryForm.elements['caseNote.encounter_type'];
-            if (s.options[s.selectedIndex].value == 'telephone encounter weekdays 8am-6pm' || s.options[s.selectedIndex].value == 'telephone encounter weekends or 6pm-8am') {
-                document.caseManagementEntryForm.elements['chain'].value = '/OnCallQuestionnaire.do?method=form&providerNo=' + document.caseManagementEntryForm.providerNo.value + '&type=' + s.options[s.selectedIndex].value;
-            }
-            </oscarProp:oscarPropertiesCheck>
             return true;
         }
 
@@ -416,16 +410,10 @@
             <tr>
                 <td class="fieldTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.encountertype"/></td>
                 <td class="fieldValue"><select
-                        name="encounter_type" onchange="setChangeFlag(true);">
-                    <option value="">&nbsp;</option>>
-                    <option value="face to face encounter with client"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.facetofaceencounterwithclient"/></option>>
-                    <oscarProp:oscarPropertiesCheck property="oncall" value="yes" reverse="true">
-                        <option value="telephone encounter with client"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.telephoneencounterwithclient"/></option>
-                    </oscarProp:oscarPropertiesCheck>
-                    <oscarProp:oscarPropertiesCheck property="oncall" value="yes">
-                        <option value="telephone encounter weekdays 8am-6pm"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.telephoneencounterweekdays"/></option>
-                        <option value="telephone encounter weekends or 6pm-8am"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.telephoneencounterweekends"/></option>
-                    </oscarProp:oscarPropertiesCheck>
+                        name="caseNote.encounter_type" onchange="setChangeFlag(true);">
+                    <option value="">&nbsp;</option>
+                    <option value="face to face encounter with client"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.facetofaceencounterwithclient"/></option>
+                    <option value="telephone encounter with client"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.telephoneencounterwithclient"/></option>
                     <option value="encounter without client"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.encounterwithoutclient"/></option>
                 </select></td>
             </tr>

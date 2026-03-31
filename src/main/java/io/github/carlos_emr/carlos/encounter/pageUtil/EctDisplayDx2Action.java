@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -61,7 +61,7 @@ public class EctDisplayDx2Action extends EctDisplayAction {
             //set lefthand module heading and link
             String winName = "Disease" + bean.demographicNo;
             String url = "popupPage(580,900,'" + winName + "','" + request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch.do?demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&quickList=')";
-            Dao.setLeftHeading(getText("oscarEncounter.LeftNavBar.DxRegistry"));
+            Dao.setLeftHeading(getText("encounter.LeftNavBar.DxRegistry"));
             Dao.setLeftURL(url);
 
             //set righthand link to same as left so we have visual consistency with other modules

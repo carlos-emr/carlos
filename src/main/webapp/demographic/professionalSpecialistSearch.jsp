@@ -165,7 +165,7 @@
             <c:forEach var="contact" items="${contacts}" varStatus="i">
                 <%
                     ProfessionalSpecialist contact = (ProfessionalSpecialist) pageContext.getAttribute("contact");
-                    javax.servlet.jsp.jstl.core.LoopTagStatus i = (javax.servlet.jsp.jstl.core.LoopTagStatus) pageContext.getAttribute("i");
+                    jakarta.servlet.jsp.jstl.core.LoopTagStatus i = (jakarta.servlet.jsp.jstl.core.LoopTagStatus) pageContext.getAttribute("i");
                     String bgColor = i.getIndex() % 2 == 0 ? "#EEEEFF" : "ivory";
 
                     String strOnClick;
@@ -223,7 +223,7 @@
         %>
         </form>
         <br>
-        <a href="<%=request.getContextPath() %>/oscarEncounter/oscarConsultationRequest/config/ShowAllServices.jsp">Add/Edit
+        <a href="<%=request.getContextPath() %>/encounter/oscarConsultationRequest/config/ShowAllServices.jsp">Add/Edit
             Professional Specialist</a></center>
     </body>
 </html>

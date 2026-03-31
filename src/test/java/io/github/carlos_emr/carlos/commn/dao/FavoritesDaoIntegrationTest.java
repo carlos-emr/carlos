@@ -1,0 +1,113 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.commn.dao;
+
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.model.Favorites;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.*;
+
+/**
+ * Integration tests for {@link FavoritesDao} covering basic CRUD operations.
+ *
+ * <p>Migrated from legacy {@code FavoritesDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ *
+ * @since 2026-03-07
+ * @see FavoritesDao
+ */
+@DisplayName("Favorites Dao Integration Tests")
+@Tag("integration")
+@Tag("dao")
+@Tag("admin")
+@Transactional
+public class FavoritesDaoIntegrationTest extends CarlosTestBase {
+
+    @Autowired
+    private FavoritesDao favoritesDao;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
+    /**
+     * Sets default for dispenseInternal column which is NOT NULL due to
+     * Favorite entity (singular) mapping to the same 'favorites' table.
+     */
+    @BeforeEach
+    void setColumnDefault() {
+        entityManager.createNativeQuery("ALTER TABLE favorites ALTER COLUMN dispenseInternal SET DEFAULT FALSE")
+                .executeUpdate();
+    }
+
+    @Nested
+    @DisplayName("CRUD operations")
+    class CrudOperations {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist favorites with generated ID")
+        void shouldPersistFavorites_whenValidDataProvided() throws Exception {
+            Favorites entity = new Favorites();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            favoritesDao.persist(entity);
+            assertThat(entity.getId()).isPositive();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should find favorites by ID")
+        void shouldFindFavorites_whenValidIdProvided() throws Exception {
+            Favorites saved = new Favorites();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
+            favoritesDao.persist(saved);
+            Favorites found = favoritesDao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
+        }
+    }
+
+    @Nested
+    @DisplayName("Query operations")
+    class QueryOperations {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should count all favorites records")
+        void shouldCountAllFavoritess() throws Exception {
+            Favorites entity = new Favorites();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            favoritesDao.persist(entity);
+            long count = favoritesDao.getCountAll();
+            assertThat(count).isEqualTo(1);
+        }
+    }
+}

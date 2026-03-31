@@ -79,7 +79,7 @@
         mygroupno = providerPreference.getMyGroupNo();
     }
     mygroupno = StringUtils.trimToEmpty(mygroupno);
-    String billingRegion = (io.github.carlos_emr.OscarProperties.getInstance()).getProperty("billregion");
+    String billingRegion = (io.github.carlos_emr.CarlosProperties.getInstance()).getProperty("billregion");
 %>
 <%@ page
         import="java.util.*, io.github.carlos_emr.*, java.sql.*, java.text.*, java.net.*"
@@ -90,8 +90,8 @@
 <%@ include file="reportMainBeanConn.jspf" %>
 <% } %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

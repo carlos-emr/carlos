@@ -29,13 +29,13 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     String curUser_no = (String) session.getAttribute("user");
     String tab = request.getParameter("id");
 
     if (tab.equals("oscar_new_lab")) { %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <oscar:newLab providerNo="<%=curUser_no%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.lab"/></oscar:newLab>
 <% }
     if (tab.equals("oscar_new_msg")) { %>
@@ -48,7 +48,7 @@
 <oscar:agedConsult providerNo="<%=curUser_no%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.con"/></oscar:agedConsult>
 <%
     }
-    if (!OscarProperties.getInstance().isTorontoRFQ() && tab.equals("oscar_scratch")) {
+    if (!CarlosProperties.getInstance().isTorontoRFQ() && tab.equals("oscar_scratch")) {
 %>
 <img src='<oscar:filledScratch providerNo="<%=curUser_no%>"></oscar:filledScratch>' border='0' align="absbottom"
      title='Scratch Pad'>

@@ -48,9 +48,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -156,7 +156,7 @@ import cdsDt.ResidualInformation.DataElement;
 import cdsDt.ResultNormalAbnormalFlag;
 import cdsDt.YnIndicator;
 import cdsDt.YnIndicatorsimple.Enum;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.appt.ApptStatusData;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -180,7 +180,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
@@ -227,7 +227,7 @@ public class DemographicExportAction42Action extends ActionSupport {
     Integer exportNo = 0;
     ArrayList<String> exportError = null;
     HashMap<String, Integer> entries = new HashMap<String, Integer>();
-    OscarProperties oscarProperties = OscarProperties.getInstance();
+    CarlosProperties oscarProperties = CarlosProperties.getInstance();
 
 
     @Override
@@ -727,7 +727,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     if (!StringUtils.isNullOrEmpty(pi.getCity())) {
                                         address.setCity(StringUtils.maxLenString(StringUtils.noNull(pi.getCity()), 80, 79, ""));
                                     }
-                                    if ("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled", "false"))) {
+                                    if ("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled", "false"))) {
                                         if (!StringUtils.isNullOrEmpty(pi.getProvince())) {
                                             address.setCountrySubdivisionCode(pi.getProvince());
                                         }
@@ -2119,7 +2119,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                                     //check the DOCUMENT_DIR
                                     if (!hrmFile.exists()) {
-                                        String place = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+                                        String place = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
                                         reportFile = place + File.separator + reportFile;
                                         hrmFile = new File(reportFile);
                                     }
@@ -2611,7 +2611,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                         }
                     } else {
 
-                        if (!"true".equals(OscarProperties.getInstance().getProperty("demographic.export.encryptedOnly", "false"))) {
+                        if (!"true".equals(CarlosProperties.getInstance().getProperty("demographic.export.encryptedOnly", "false"))) {
                             logger.info("Warning: PGP Encryption NOT available - unencrypted file exported!");
 
                             // Set success cookie before download so JS knows export completed

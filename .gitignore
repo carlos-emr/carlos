@@ -40,8 +40,6 @@ __pycache__/
 /.smarttomcat/
 .claude/settings.local.json
 
-# Maven local repository cache
-/local_repo/
 
 # Docusaurus
 /node_modules/

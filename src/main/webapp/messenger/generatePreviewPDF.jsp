@@ -92,7 +92,7 @@
     EChartDao eChartDao = SpringUtils.getBean(EChartDao.class);
 %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -377,7 +377,7 @@
                                 %>
                                 <tr>
                                     <td>
-                                        <% currentURI = request.getContextPath() + "/oscarEncounter/echarthistoryprint.jsp?echartid=" + ec.getId() + "&demographic_no=" + demographic_no; %>
+                                        <% currentURI = request.getContextPath() + "/encounter/echarthistoryprint.jsp?echartid=" + ec.getId() + "&demographic_no=" + demographic_no; %>
                                         <input type="checkbox" name="uriArray" value="<%=currentURI%>"
                                                        style="display:none"/>
                                         <input type="checkbox" name="indexArray" value="<%= Integer.toString(indexCount++) %>"/>

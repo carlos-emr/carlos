@@ -32,22 +32,22 @@ import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 import java.util.Set;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpServletResponseWrapper;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponseWrapper;
+import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
 import org.owasp.encoder.Encode;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -125,13 +125,13 @@ public class LogoutBroadcastFilter implements Filter {
     }
 
     /**
-     * Returns the current inactivity limit in minutes, reading from OscarProperties
+     * Returns the current inactivity limit in minutes, reading from CarlosProperties
      * on each call to stay consistent with LoginFilter's per-request reading.
      *
      * @return int the inactivity limit in minutes
      */
     private int getInactivityLimitMins() {
-        String limitProp = OscarProperties.getInstance().getProperty("INACTIVITY_LIMIT_MINS");
+        String limitProp = CarlosProperties.getInstance().getProperty("INACTIVITY_LIMIT_MINS");
         if (limitProp != null && !limitProp.trim().isEmpty()) {
             try {
                 return Integer.parseInt(limitProp.trim());
@@ -170,9 +170,11 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
-        HttpServletResponse httpResponse = (HttpServletResponse) response;
-        DelegatingServletResponse delegatingResponse = new DelegatingServletResponse(httpResponse);
-        chain.doFilter(request, delegatingResponse);
+        // Pass through without wrapping - Tomcat 11's RequestDispatcher.forward()
+        // is incompatible with response wrappers that suppress flush/close.
+        // The script is injected by CsrfGuardScriptInjectionFilter instead,
+        // or appended directly after the chain completes.
+        chain.doFilter(request, response);
 
         // Only inject for authenticated sessions
         HttpSession session = httpRequest.getSession(false);
@@ -180,8 +182,10 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
+        HttpServletResponse httpResponse = (HttpServletResponse) response;
+
         // Only inject for HTML responses
-        String contentType = delegatingResponse.getContentType();
+        String contentType = httpResponse.getContentType();
         if (contentType == null || !contentType.toLowerCase().startsWith("text/html")) {
             return;
         }
@@ -192,7 +196,18 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
-        appendScript(response, delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
+        // Don't inject if response is already committed (forward/redirect already sent)
+        if (httpResponse.isCommitted()) {
+            return;
+        }
+
+        try {
+            String script = buildScript(httpRequest.getContextPath(), httpRequest.getLocale());
+            httpResponse.getWriter().print(script);
+        } catch (IllegalStateException e) {
+            // getWriter() fails if getOutputStream() was already called - skip injection
+            logger.debug("Cannot inject logout script - output stream already obtained", e);
+        }
     }
 
     /**
@@ -282,6 +297,9 @@ public class LogoutBroadcastFilter implements Filter {
                 "var loginUrl=cp+'/index.jsp';" +
                 "var done=false;" +
                 "var logoutMsg='" + Encode.forJavaScript(getLoggedOutMessage(locale)) + "';" +
+                // Grace period: ignore logout broadcasts for 5s after page load
+                // to prevent stale broadcasts from prior sessions causing immediate logout
+                "var ready=false;setTimeout(function(){ready=true},5000);" +
 
                 // BroadcastChannel listener (feature detection — may not exist in all browsers)
                 "var bc;" +
@@ -325,7 +343,8 @@ public class LogoutBroadcastFilter implements Filter {
                 "dL()}" +
 
                 // handleLogout — received broadcast from another window
-                "function hL(){if(done)return;done=true;dL()}" +
+                // Ignore during grace period to prevent stale broadcasts from causing logout loops
+                "function hL(){if(done||!ready)return;done=true;dL()}" +
 
                 // doLogout — show logged-out overlay, close popup or redirect tab to login
                 "function dL(){" +
@@ -378,7 +397,10 @@ public class LogoutBroadcastFilter implements Filter {
          */
         @Override
         public void flush() {
-            // prevent premature flush
+            // Allow flush - Tomcat 11 requires this for Struts RequestDispatcher.forward()
+            // to deliver content. Only close() is suppressed to keep the writer open
+            // for script appending.
+            super.flush();
         }
 
         /**
@@ -509,7 +531,10 @@ public class LogoutBroadcastFilter implements Filter {
          */
         @Override
         public void flushBuffer() throws IOException {
-            // defer flushing until after script is appended
+            // Allow flushing - Tomcat 11 requires this for RequestDispatcher.forward()
+            // to work correctly. The 1MB buffer size ensures the response body is still
+            // available for script appending in the common case.
+            super.flushBuffer();
         }
     }
 }

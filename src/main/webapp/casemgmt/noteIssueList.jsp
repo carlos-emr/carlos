@@ -35,7 +35,7 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
-<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -91,19 +91,19 @@
     <c:choose>
         <c:when test="${not empty ajaxsave}">
             <fmt:setBundle basename="oscarResources"/>
-            <fmt:message key="oscarEncounter.encounterDate.title"/>&nbsp;
+            <fmt:message key="encounter.encounterDate.title"/>&nbsp;
             <span id="obs${caseManagementEntryForm.caseNote.id}">
                 <fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy H:mm"/>
             </span>&nbsp;
             <fmt:setBundle basename="oscarResources"/>
-            <fmt:message key="oscarEncounter.noteRev.title"/>
+            <fmt:message key="encounter.noteRev.title"/>
             <a href="#" onclick="return showHistory('${caseManagementEntryForm.caseNote.id}', event);">
                 ${caseManagementEntryForm.caseNote.revision}
             </a>
         </c:when>
         <c:otherwise>
             <fmt:setBundle basename="oscarResources"/>
-            <fmt:message key="oscarEncounter.encounterDate.title"/>&nbsp;
+            <fmt:message key="encounter.encounterDate.title"/>&nbsp;
             <img src="${ctx}/images/cal.gif" id="observationDate_cal" alt="calendar">&nbsp;
             <input type="text" id="observationDate" name="observation_date" ondblclick="this.value='';"
                    style="border: none; width: 140px;" readonly
@@ -117,7 +117,7 @@
 </div>
 
 <div style="margin-left: 3px;"><span style="float: left;">
-<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.editors.title"/>:</span>
+<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.editors.title"/>:</span>
 <c:choose>
     <c:when test="${newNote == 'false'}">
         <ul style="list-style: none inside none; margin: 0;">
@@ -154,7 +154,7 @@
     <c:choose>
         <c:when test="${not empty ajaxsave}">
             <fmt:setBundle basename="oscarResources"/>
-            <fmt:message key="oscarEncounter.encounterTime.title"/>:&nbsp;
+            <fmt:message key="encounter.encounterTime.title"/>:&nbsp;
             <span id="encTimeHr${caseManagementEntryForm.caseNote.id}">
                 ${caseManagementEntryForm.caseNote.hourOfEncounterTime}
             </span>:
@@ -164,7 +164,7 @@
         </c:when>
         <c:otherwise>
             <fmt:setBundle basename="oscarResources"/>
-            <fmt:message key="oscarEncounter.encounterTime.title"/>:&nbsp;
+            <fmt:message key="encounter.encounterTime.title"/>:&nbsp;
             <input type="text" tabindex="11" id="hourOfEncounterTime" name="hourOfEncounterTime" maxlength="2"
                    style="border: 1px; width: 20px; height: 12px;"
                    value="${caseManagementEntryForm.caseNote.hourOfEncounterTime}">&nbsp;<b>:</b>&nbsp;
@@ -183,7 +183,7 @@
     <c:choose>
         <c:when test="${not empty ajaxsave}">
             <fmt:setBundle basename="oscarResources"/>
-            <fmt:message key="oscarEncounter.encounterTransportation.title"/>:&nbsp;
+            <fmt:message key="encounter.encounterTransportation.title"/>:&nbsp;
             <span id="encTransTimeHr${caseManagementEntryForm.caseNote.id}">
                 ${caseManagementEntryForm.caseNote.hourOfEncTransportationTime}
             </span>:
@@ -193,7 +193,7 @@
         </c:when>
         <c:otherwise>
             <fmt:setBundle basename="oscarResources"/>
-            <fmt:message key="oscarEncounter.encounterTransportation.title"/>:&nbsp;
+            <fmt:message key="encounter.encounterTransportation.title"/>:&nbsp;
             <input type="text" tabindex="13" id="hourOfEncTransportationTime" name="hourOfEncTransportationTime" maxlength="2"
                    style="border: 1px; width: 20px; height:12px;"
                    value="${caseManagementEntryForm.caseNote.hourOfEncTransportationTime}">&nbsp;<b>:</b>&nbsp;
@@ -210,22 +210,22 @@
 
 <c:set var="encSelect" value="${encSelect}${noteIndex}" />
 <div style="clear: right; margin: 0 3px 0 0; float: right;">
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.encType.title"/>:&nbsp;
+    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.encType.title"/>:&nbsp;
     <span id="encType${noteIndex}">
         <c:choose>
             <c:when test="${empty ajaxsave}">
                 <select id="${encSelect}" class="encTypeCombo" name="caseNote.encounter_type">
                     <option value="" ${empty caseManagementEntryForm.caseNote.encounter_type ? 'selected' : ''}></option>
-                    <option value="face to face encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'face to face encounter with client' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.faceToFaceEnc.title"/></option>
-                    <option value="telephone encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'telephone encounter with client' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.telephoneEnc.title"/></option>
-                    <option value="email encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'email encounter with client' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.emailEnc.title"/></option>
-                    <option value="encounter without client" ${caseManagementEntryForm.caseNote.encounter_type == 'encounter without client' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noClientEnc.title"/></option>
+                    <option value="face to face encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'face to face encounter with client' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.faceToFaceEnc.title"/></option>
+                    <option value="telephone encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'telephone encounter with client' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.telephoneEnc.title"/></option>
+                    <option value="email encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'email encounter with client' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.emailEnc.title"/></option>
+                    <option value="encounter without client" ${caseManagementEntryForm.caseNote.encounter_type == 'encounter without client' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noClientEnc.title"/></option>
 
                     <c:if test="${loggedInInfo73557.currentFacility.enableGroupNotes}">
-                        <option value="group face to face encounter" ${caseManagementEntryForm.caseNote.encounter_type == 'group face to face encounter' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.groupFaceEnc.title"/></option>
-                        <option value="group telephone encounter" ${caseManagementEntryForm.caseNote.encounter_type == 'group telephone encounter' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.groupTelephoneEnc.title"/></option>
-                        <option value="group encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'group encounter with client' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.emailEnc.title"/></option>
-                        <option value="group encounter without group" ${caseManagementEntryForm.caseNote.encounter_type == 'group encounter without group' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.groupNoClientEnc.title"/></option>
+                        <option value="group face to face encounter" ${caseManagementEntryForm.caseNote.encounter_type == 'group face to face encounter' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.groupFaceEnc.title"/></option>
+                        <option value="group telephone encounter" ${caseManagementEntryForm.caseNote.encounter_type == 'group telephone encounter' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.groupTelephoneEnc.title"/></option>
+                        <option value="group encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'group encounter with client' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.emailEnc.title"/></option>
+                        <option value="group encounter without group" ${caseManagementEntryForm.caseNote.encounter_type == 'group encounter without group' ? 'selected' : ''}><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.groupNoClientEnc.title"/></option>
                     </c:if>
                 </select>
             </c:when>
@@ -243,7 +243,7 @@
     <div style="margin: 0px 0px 0px 3px;">
         <span style="float: left;">
             <fmt:setBundle basename="oscarResources"/>
-            <fmt:message key="oscarEncounter.assignedIssues.title"/>
+            <fmt:message key="encounter.assignedIssues.title"/>
         </span>
         <ul style="float: left; list-style: circle inside; margin: 0px;">
             <c:forEach var="noteIssue" items="${caseManagementEntryForm.caseNote.issues}">
@@ -264,7 +264,7 @@
 
 <div id="noteIssues">
     <div id="noteIssues-resolved" style="margin: 0; background-color: #CCCCFF; display: none;">
-        <b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.referenceResolvedIssues.title"/></b>
+        <b><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.referenceResolvedIssues.title"/></b>
         <% int countResolvedIssue = -1; %>
         <table id="setIssueList">
             <c:set var="countResolvedIssue" value="0"/>
@@ -346,7 +346,7 @@
 
     <% int countUnresolvedIssue = -1; %>
     <div id="noteIssues-unresolved" style="margin: 0px; background-color: #CCCCFF; display: none;">
-        <b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.referenceUnresolvedIssues.title"/></b>
+        <b><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.referenceUnresolvedIssues.title"/></b>
 
         <table id="setIssueList">
             <c:forEach var="issueCheckList" items="${caseManagementEntryForm.issueCheckList}" varStatus="status">

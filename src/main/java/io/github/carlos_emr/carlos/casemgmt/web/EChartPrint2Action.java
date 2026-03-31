@@ -34,8 +34,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
@@ -53,7 +53,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 
 import org.openpdf.text.DocumentException;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
@@ -70,8 +70,8 @@ import org.apache.struts2.ServletActionContext;
  * {@link SecurityInfoManager#hasPrivilege}. Throws {@link SecurityException} if the
  * logged-in provider lacks access to the requested patient record.
  *
- * @see OscarChartPrinter
- * @see CaseManagementPrintPdf
+ * @see io.github.carlos_emr.carlos.casemgmt.print.OscarChartPrinter
+ * @see io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintPdf
  * @since 2011-08-16
  */
 public class EChartPrint2Action extends ActionSupport {

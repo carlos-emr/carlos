@@ -46,7 +46,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%
-    if (session.getValue("user") == null)
+    if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@page import="java.util.*, io.github.carlos_emr.carlos.demographic.data.*" %>
@@ -66,9 +66,9 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.clinic.ClinicData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     double totalPayments = 0;
     double totalRefunds = 0;
@@ -80,7 +80,7 @@
     Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), bean.getPatientNo());
     List<BillingBillingManager.BillingItem> billItem = bean.getBillItem();
     BillingFormData billform = new BillingFormData();
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     ClinicData clinic = new ClinicData();
     PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
     SystemPreferencesDao systemPreferencesDao = SpringUtils.getBean(SystemPreferencesDao.class);

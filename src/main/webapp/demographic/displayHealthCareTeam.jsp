@@ -28,7 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ page import="java.util.List, org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -67,7 +67,7 @@
     <%-- DETACHED VIEW ENABLED  --%>
     <c:if test="${ param.view eq 'detached' }">
 
-        <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+        <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
         <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
         <!DOCTYPE html>
@@ -85,12 +85,17 @@
 
     <c:if test="${ param.view ne 'detached' }">
         <script type="text/javascript">
-            jQuery(document).ready(function ($) {
-                //--> Popup effects
-                jQuery(".hovereffect").on("mouseover", function () {
-                    nhpup.popup(jQuery('#healthCareTeamMemberDetail_' + this.id).html(), {'width': 250});
-                });
-            })
+            document.addEventListener("DOMContentLoaded", function () {
+                var items = document.querySelectorAll(".hovereffect");
+                for (var i = 0; i < items.length; i++) {
+                    items[i].addEventListener("mouseover", function () {
+                        var detail = document.getElementById("healthCareTeamMemberDetail_" + this.id);
+                        if (detail) {
+                            nhpup.popup(detail.innerHTML, {'width': 250});
+                        }
+                    });
+                }
+            });
         </script>
     </c:if>
 

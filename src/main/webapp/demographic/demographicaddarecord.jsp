@@ -56,10 +56,10 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
 
 <%@page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -70,7 +70,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%!
-    java.util.Properties oscarVariables = OscarProperties.getInstance();
+    java.util.Properties oscarVariables = CarlosProperties.getInstance();
 
     //	AdmissionDao admissionDao = (AdmissionDao)SpringUtils.getBean(AdmissionDao.class);
     ProgramManager pm = SpringUtils.getBean(ProgramManager.class);
@@ -288,7 +288,7 @@
 
                 dem = demographic.getDemographicNo().toString();
 
-                if (OscarProperties.getInstance().getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
+                if (CarlosProperties.getInstance().getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
                     // Retrieve and set patient consents.
                     PatientConsentManager patientConsentManager = SpringUtils.getBean(PatientConsentManager.class);
                     List<ConsentType> consentTypes = patientConsentManager.getActiveConsentTypes();
@@ -307,7 +307,7 @@
                     }
                 }
 
-                String proNo = (String) session.getValue("user");
+                String proNo = (String) session.getAttribute("user");
                 demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "hPhoneExt", request.getParameter("hPhoneExt"), "");
                 demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "wPhoneExt", request.getParameter("wPhoneExt"), "");
                 demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "demo_cell", request.getParameter("demo_cell"), "");
@@ -359,7 +359,7 @@
                 //add to waiting list if the waiting_list parameter in the property file is set to true
 
                 WaitingList wL = WaitingList.getInstance();
-                if (wL.getFound() && OscarProperties.getInstance().getBooleanProperty("DEMOGRAPHIC_WAITING_LIST", "true")) {
+                if (wL.getFound() && CarlosProperties.getInstance().getBooleanProperty("DEMOGRAPHIC_WAITING_LIST", "true")) {
 
                     String[] paramWLPosition = new String[1];
                     paramWLPosition[0] = request.getParameter("list_id");

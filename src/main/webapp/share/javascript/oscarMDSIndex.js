@@ -1309,7 +1309,7 @@ function showThisPatientDocs(patientId, keepPrevious) {
 }
 
 function popupConsultation(segmentId) {
-    const page = contextpath + '/oscarEncounter/ViewRequest.do?segmentId=' + segmentId;
+    const page = contextpath + '/encounter/ViewRequest.do?segmentId=' + segmentId;
     const windowprops = "height=960,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
     const popup = window.open(page, msgConsReq, windowprops);
     if (popup != null) {
@@ -1336,43 +1336,49 @@ function ForwardSelectedRows(files, searchProviderNo, status) {
     if (!dialogContainer.length) {
         dialogContainer = drawDialogContainer();
     }
-    const dialog = dialogContainer.load(url, data).dialog({
-        modal: true,
-        width: 685,
-        height: 355,
-        draggable: false,
-        title: "Forward Documents",
-        buttons: {
-            "Forward": function () {
-                // workaround for JQuery bug with multiselect items that are not "selected"
-                const fwdProviders = jQuery(this).find("select[multiple]#fwdProviders option").map(function (i, e) {
-                    return jQuery(e).val();
-                }).toArray();
+    jQuery.ajax({
+        url: url,
+        method: "POST",
+        data: data
+    }).done(function (html) {
+        dialogContainer.html(html).dialog({
+            modal: true,
+            width: 685,
+            height: 355,
+            draggable: false,
+            title: "Forward Documents",
+            buttons: {
+                "Forward": function () {
+                    // workaround for JQuery bug with multiselect items that are not "selected"
+                    const fwdProviders = jQuery(this).find("select[multiple]#fwdProviders option").map(function (i, e) {
+                        return jQuery(e).val();
+                    }).toArray();
 
-                const fwdFavorites = jQuery(this).find("select[multiple]#favorites option").map(function (i, e) {
-                    return jQuery(e).val();
-                }).toArray();
+                    const fwdFavorites = jQuery(this).find("select[multiple]#favorites option").map(function (i, e) {
+                        return jQuery(e).val();
+                    }).toArray();
 
-                if (fwdProviders.length === 0) {
-                    jQuery(this).find("select[multiple]#fwdProviders").addClass("input-error");
-                    return;
+                    if (fwdProviders.length === 0) {
+                        jQuery(this).find("select[multiple]#fwdProviders").addClass("input-error");
+                        return;
+                    }
+
+                    forwardLabs(files, fwdProviders, fwdFavorites);
+                },
+                Cancel: function () {
+                    jQuery(this).dialog("close");
                 }
-
-                forwardLabs(files, fwdProviders, fwdFavorites);
             },
-            Cancel: function () {
-                jQuery(this).dialog("close");
+            open: function () {
+                // Applies Bootstrap 5 card styles if Bootstrap is included; otherwise, it will render as a normal jQuery dialog box.
+                styleDialogAsCard();
+            },
+            close: function () {
+                jQuery(this).find("select[multiple]#fwdProviders").val('');
+                jQuery(this).find("select[multiple]#fwdFavorites").val('');
             }
-        },
-		open: function() {
-			// Applies Bootstrap 5 card styles if Bootstrap is included; otherwise, it will render as a normal jQuery dialog box.
-			styleDialogAsCard();
-		},
-        close: function () {
-            jQuery(this).find("select[multiple]#fwdProviders").val('');
-            jQuery(this).find("select[multiple]#fwdFavorites").val('');
-        }
-    }).dialog("open");
+        }).dialog("open");
+    });
 }
 
 function drawDialogContainer() {
@@ -1890,7 +1896,7 @@ function updateStatus(formid) {//acknowledge
             console.log("Updating status. URL: " + url);
             console.log(data);
 
-            jQuery.post(url, data).success(function () {
+            jQuery.post(url, data).done(function () {
                 updateDocStatusInQueue(doclabid);
 				if (window.frameElement) {
 					// Hide the parent <div> of the iframe only for new inbox previews loaded in an iframe

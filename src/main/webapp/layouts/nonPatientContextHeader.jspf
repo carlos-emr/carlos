@@ -32,14 +32,14 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="java.util.*" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
@@ -48,7 +48,7 @@ if (session.getAttribute("userrole") == null) response.sendRedirect(request.getC
 
 UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
     		
-Properties oscarVariables = OscarProperties.getInstance();
+Properties oscarVariables = CarlosProperties.getInstance();
 LoggedInInfo loggedInInfo=LoggedInInfo.getLoggedInInfoFromSession(request);
 
 String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -71,7 +71,7 @@ int curDay = cal.get(Calendar.DAY_OF_MONTH);
 %>
 
 <head>
-<title>OSCAR</title>
+<title>CARLOS</title>
 <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
 
 
@@ -201,14 +201,14 @@ label.error {
 <div class="navbar navbar-expand-lg fixed-top">
         <div class="container-fluid">
 
-          <a href="http://oscarmcmaster.org/" target="_blank" title="OSCAR EMR"><img src="<%=request.getContextPath()%>/images/oscar_logo_small.png" border="0" style="float:left"></a>
+          <a href="https://github.com/carlos-emr/carlos" target="_blank" title="CARLOS EMR"><img src="<%=request.getContextPath()%>/images/oscar_logo_small.png" border="0" style="float:left"></a>
           
 			<div class="dropdown navbar-text float-end" style="display:inline">
 					<fmt:setBundle basename="oscarResources"/><fmt:message key="global.loggedIn"/>  <a class="dropdown-toggle" data-bs-toggle="dropdown" id="dLabel" role="button" href="#username" style="color:#000;"><%=userfirstname%> <%=userlastname%></a>
 					 <ul class="dropdown-menu">
 					 				<li>	
 									<!-- <a href=# onClick ="popupPage2('<%=resourcebaseurl%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a>-->
-									<a class="dropdown-item" href=# onClick ="popupPage2('<%=request.getContextPath()%>/oscarEncounter/About.jsp')">About</a>
+									<a class="dropdown-item" href=# onClick ="popupPage2('<%=request.getContextPath()%>/encounter/About.jsp')">About</a>
 									</li>
 									<li><hr class="dropdown-divider"></li>
 								
@@ -217,7 +217,7 @@ label.error {
 										     <a HREF="#" ONCLICK ="popupPage2('<%= request.getContextPath() %>/admin/admin.jsp');return false;"><i class="fa-solid fa-gear"></i> Old <fmt:setBundle basename="oscarResources"/><fmt:message key="global.admin"/></a>
 										  </li>-->
 										
-										<% if (OscarProperties.getInstance().getBooleanProperty("admin2.enabled", "true")) { %>
+										<% if (CarlosProperties.getInstance().getBooleanProperty("admin2.enabled", "true")) { %>
 										<li id="admin2">
 										 <a class="dropdown-item" href="<%=request.getContextPath()%>/administration/" TITLE='Administration Panel'><i class="fa-solid fa-gear"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.admin"/></a>
 										<!--title new is temp for development-->
@@ -301,7 +301,7 @@ label.error {
 			 			 
 			<security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r">
 			<li id="con">
-			 <a HREF="#" ONCLICK ="popupPage2('<%=request.getContextPath()%>/oscarEncounter/IncomingConsultation.do?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname)%>')" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewConReq"/>">
+			 <a HREF="#" ONCLICK ="popupPage2('<%=request.getContextPath()%>/encounter/IncomingConsultation.do?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname)%>')" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewConReq"/>">
 			 <span id="oscar_aged_consults"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.con"/></span></a>
 			</li>
 			</security:oscarSec>
@@ -360,4 +360,4 @@ label.error {
     	</div>
     </div>
 
-<div style="position:absolute;top:50px; right:20px"><i class="fa-solid fa-circle-question"></i> <a href="#" ONCLICK ="popupPage2('<%=resourcebaseurl%>');return false;" title="" onmouseover="window.status='';return true">Help</a> <a href="javascript:void(0)"  onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About OSCAR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')" style="margin-left:10px;"><i class="fa-solid fa-circle-question"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a></div>
+<div style="position:absolute;top:50px; right:20px"><i class="fa-solid fa-circle-question"></i> <a href="#" ONCLICK ="popupPage2('<%=resourcebaseurl%>');return false;" title="" onmouseover="window.status='';return true">Help</a> <a href="javascript:void(0)"  onClick="window.open('<%=request.getContextPath()%>/encounter/About.jsp','About OSCAR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')" style="margin-left:10px;"><i class="fa-solid fa-circle-question"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a></div>

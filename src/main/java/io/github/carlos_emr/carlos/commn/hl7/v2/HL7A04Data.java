@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.appt.ApptData;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import ca.uhn.hl7v2.HL7Exception;
@@ -58,7 +58,7 @@ import ca.uhn.hl7v2.parser.PipeParser;
 public class HL7A04Data {
 
     private static final Logger logger = MiscUtils.getLogger();
-    private OscarProperties oscarProperties = OscarProperties.getInstance();
+    private CarlosProperties oscarProperties = CarlosProperties.getInstance();
 
     private ApptData appData;
     private ClinicData clinicData;

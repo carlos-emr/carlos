@@ -34,7 +34,7 @@
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 <%
-    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.htm");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.htm");
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
@@ -54,7 +54,7 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title><%=bundle.getString(providertitle)%></title>
         <link rel="stylesheet" type="text/css"
-              href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
+              href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
     </head>
 
     <body class="BodyStyle" vlink="#0000FF">

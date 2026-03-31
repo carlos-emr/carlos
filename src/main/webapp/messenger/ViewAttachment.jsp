@@ -84,8 +84,8 @@
 <%@ page import="java.util.*, org.w3c.dom.*" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -275,7 +275,7 @@
         String tblEnd = "</table>";
 
         void DrawDoc(Element root, JspWriter out)
-                throws javax.servlet.jsp.JspException, java.io.IOException {
+                throws jakarta.servlet.jsp.JspException, java.io.IOException {
             out.print(spanStartRoot + "Document Transfer" + spanEnd);
             out.print(tblStartRoot);
 
@@ -290,7 +290,7 @@
         }
 
         void DrawTable(Element tbl, JspWriter out)
-                throws javax.servlet.jsp.JspException, java.io.IOException {
+                throws jakarta.servlet.jsp.JspException, java.io.IOException {
             out.print(spanStart + tbl.getAttribute("name") + spanEnd);
             out.print(tblStart);
 
@@ -304,7 +304,7 @@
         }
 
         void DrawItem(Element item, JspWriter out)
-                throws javax.servlet.jsp.JspException, java.io.IOException {
+                throws jakarta.servlet.jsp.JspException, java.io.IOException {
             out.print(spanStart);
             if (!item.getAttribute("removable").equalsIgnoreCase("false")) {
                 // String sName = "item" + item.getAttribute("itemId");
@@ -325,7 +325,7 @@
         }
 
         void DrawContent(Element content, JspWriter out)
-                throws javax.servlet.jsp.JspException, java.io.IOException {
+                throws jakarta.servlet.jsp.JspException, java.io.IOException {
             NodeList lst = content.getChildNodes();
             for (int i = 0; i < lst.getLength(); i++) {
                 if (lst.item(i).getNodeType() == Node.ELEMENT_NODE) {
@@ -376,17 +376,7 @@
                 <div style="font-size: 8pt; margin-top: 15px;"><input
                         type=submit value="Save Attachments"/> <a
                         href="javascript:expandAll();">Expand All</a> &nbsp;|&nbsp; <a
-                        href="javascript:collapseAll();">Collapse All</a> <%
-                    java.util.Properties prop = UtilXML.getPropText(xmlDoc, "table", "sqlFrom", "name"); //
-                    if (prop.getProperty("formAR") != null && prop.getProperty("formAR").equals("AR Form")) {
-                %> &nbsp;|&nbsp; <a
-                        href="<%= request.getContextPath() %>/oscarEncounter/formCommARPg1.jsp?messageid=<%=request.getAttribute("attId")%>">AR1</a>
-                    &nbsp;|&nbsp; <a
-                            href="<%= request.getContextPath() %>/oscarEncounter/formCommARPg2.jsp?messageid=<%=request.getAttribute("attId")%>">AR2
-                        Pg1</a> &nbsp;|&nbsp; <a
-                            href="<%= request.getContextPath() %>/oscarEncounter/formCommARPg3.jsp?messageid=<%=request.getAttribute("attId")%>">AR2
-                        Pg2</a> <%
-                        } %>
+                        href="javascript:collapseAll();">Collapse All</a> 
                 </div>
             </form>
         </td>

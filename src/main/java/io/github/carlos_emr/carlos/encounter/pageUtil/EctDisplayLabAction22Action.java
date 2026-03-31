@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -68,7 +68,7 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
             logger.debug("local labs found : " + labs.size());
 
             // set text for lefthand module title
-            Dao.setLeftHeading(getText("oscarEncounter.LeftNavBar.Labs"));
+            Dao.setLeftHeading(getText("encounter.LeftNavBar.Labs"));
 
             // set link for lefthand module title
             String winName = "Labs" + bean.demographicNo;
@@ -79,27 +79,27 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
             String menuId = "2";
             Dao.setRightHeadingID(menuId);
             Dao.setRightURL("return !showMenu('" + menuId + "', event);");
-            Dao.setMenuHeader(getText("oscarEncounter.LeftNavBar.LabMenuHeading"));
+            Dao.setMenuHeader(getText("encounter.LeftNavBar.LabMenuHeading"));
 
             winName = "AllLabs" + bean.demographicNo;
 
-            if (OscarProperties.getInstance().getBooleanProperty("HL7TEXT_LABS", "yes")) {
+            if (CarlosProperties.getInstance().getBooleanProperty("HL7TEXT_LABS", "yes")) {
                 url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues3.jsp?demographic_no=" + bean.demographicNo + "')";
                 Dao.addPopUpUrl(url);
-                Dao.addPopUpText(getText("oscarEncounter.LeftNavBar.LabMenuItem1"));
-                if (OscarProperties.getInstance().getProperty("labs.hide_old_grid_display", "false").equals("false")) {
+                Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem1"));
+                if (CarlosProperties.getInstance().getProperty("labs.hide_old_grid_display", "false").equals("false")) {
                     url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues2.jsp?demographic_no=" + bean.demographicNo + "')";
                     Dao.addPopUpUrl(url);
-                    Dao.addPopUpText(getText("oscarEncounter.LeftNavBar.LabMenuItem1") + "-OLD");
+                    Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem1") + "-OLD");
                 }
             } else {
                 url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues2.jsp?demographic_no=" + bean.demographicNo + "')";
                 Dao.addPopUpUrl(url);
-                Dao.addPopUpText(getText("oscarEncounter.LeftNavBar.LabMenuItem1"));
+                Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem1"));
             }
             url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues.jsp?demographic_no=" + bean.demographicNo + "')";
             Dao.addPopUpUrl(url);
-            Dao.addPopUpText(getText("oscarEncounter.LeftNavBar.LabMenuItem2"));
+            Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem2"));
 
             // now we add individual module items
             LabResultData result;

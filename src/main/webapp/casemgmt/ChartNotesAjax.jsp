@@ -28,7 +28,21 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    ChartNotesAjax.jsp — AJAX endpoint that returns rendered note HTML fragments.
 
+    Called by notesLoader() in newCaseManagementView.js.jsp via CarlosAjax.updater().
+    Returns a batch of notes (controlled by offset/numToReturn params) as HTML
+    inserted into #encMainDiv.
+
+    The 1 MB buffer prevents Tomcat 11 response truncation during CSRF filter
+    forward dispatch (see ChartNotes.jsp for full explanation).
+
+    @since 2006-01-01
+--%>
+
+<%@page buffer="1024kb" %>
+<% response.setBufferSize(1024 * 1024); %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
@@ -58,7 +72,7 @@
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -258,7 +272,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         boolean fulltxt;
         pos = noteSize - 1;
 
-        String issuesToHide = OscarProperties.getInstance().getProperty("encounter.hide_notes_with_issue", "");
+        String issuesToHide = CarlosProperties.getInstance().getProperty("encounter.hide_notes_with_issue", "");
         String[] is = issuesToHide.split(",");
 
         boolean remoteCapableProfessionalSpecialists = professionalSpecialistDao.hasRemoteCapableProfessionalSpecialists();
@@ -321,11 +335,11 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             }
 
             boolean editWarn = !note.isSigned() && !note.getProviderNo().equals(provNo);
-            boolean hideCppNotes = OscarProperties.getInstance().isPropertyActive("encounter.hide_cpp_notes");
-            boolean hideDocumentNotes = OscarProperties.getInstance().isPropertyActive("encounter.hide_document_notes");
-            boolean hideEformNotes = OscarProperties.getInstance().isPropertyActive("encounter.hide_eform_notes");
-            //boolean hideMetaData = OscarProperties.getInstance().isPropertyActive("encounter.hide_metadata");
-            boolean hideInvoices = OscarProperties.getInstance().isPropertyActive("encounter.hide_invoices");
+            boolean hideCppNotes = CarlosProperties.getInstance().isPropertyActive("encounter.hide_cpp_notes");
+            boolean hideDocumentNotes = CarlosProperties.getInstance().isPropertyActive("encounter.hide_document_notes");
+            boolean hideEformNotes = CarlosProperties.getInstance().isPropertyActive("encounter.hide_eform_notes");
+            //boolean hideMetaData = CarlosProperties.getInstance().isPropertyActive("encounter.hide_metadata");
+            boolean hideInvoices = CarlosProperties.getInstance().isPropertyActive("encounter.hide_invoices");
 
             String noteDisplay = "block";
             if (note.isCpp() && hideCppNotes) {
@@ -395,10 +409,10 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 savedNoteId =<%=note.getNoteId()%>;
             </script>
             <div class='tool-button print-button'>
-                <img title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.print.title"/>" id='print<%=globalNoteId%>'
-                     alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.togglePrintNote.title"/>"
+                <img title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.print.title"/>" id='print<%=globalNoteId%>'
+                     alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.togglePrintNote.title"/>"
                      onclick="togglePrint(<%=globalNoteId%>, event)" style='float: right; margin-right: 5px;'
-                     src='<%=ctx %>/oscarEncounter/graphics/printer.png'/>
+                     src='<%=ctx %>/encounter/graphics/printer.png'/>
             </div>
             <textarea tabindex="7" cols="84" rows="10"
                       class="txtArea boxsizingBorder <%= note.isSigned() ? "" : "unsigned-textarea"%>" wrap="soft"
@@ -416,7 +430,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 if (false) {
             %>
             <div id="txt<%=globalNoteId%>">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.msgLocked"/> <%=DateUtils.getDate(note.getUpdateDate(), dateFormat, request.getLocale()) + " " + note.getProviderName()%>
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.msgLocked"/> <%=DateUtils.getDate(note.getUpdateDate(), dateFormat, request.getLocale()) + " " + note.getProviderName()%>
             </div>
             <%
             } else {
@@ -425,17 +439,17 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                         // blank if so it never displays min/max icon for documents
                     } else if (fulltxt) {
             %>
-            <img title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.MinDisplay.title"/>" id='quitImg<%=globalNoteId%>'
-                 alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.MinDisplay.title"/>" onclick="minView(event)"
+            <img title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.MinDisplay.title"/>" id='quitImg<%=globalNoteId%>'
+                 alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.MinDisplay.title"/>" onclick="minView(event)"
                  style='float: right; margin-right: 5px; margin-bottom: 3px; margin-top: 2px;'
-                 src='<%=ctx %>/oscarEncounter/graphics/triangle_up.gif'/>
+                 src='<%=ctx %>/encounter/graphics/triangle_up.gif'/>
             <%
             } else {
             %>
-            <img title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.MaxDisplay.title"/>" id='quitImg<%=globalNoteId%>'
+            <img title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.MaxDisplay.title"/>" id='quitImg<%=globalNoteId%>'
                  name='fullViewTrigger' alt="Maximize Display" onclick="fullView(event)"
                  style='float: right; margin-right: 5px; margin-top: 2px;'
-                 src='<%=ctx %>/oscarEncounter/graphics/triangle_down.gif'/>
+                 src='<%=ctx %>/encounter/graphics/triangle_down.gif'/>
             <%
                     }
 
@@ -452,11 +466,11 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 if (!note.isDocument() && !note.isCpp() && !note.isEformData() && !note.isEncounterForm() && !note.isInvoice() && !note.isEmailNote()) {
 
             %>
-            <img title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.print.title"/>" id='print<%=globalNoteId%>'
-                 alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.togglePrintNote.title"/>"
+            <img title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.print.title"/>" id='print<%=globalNoteId%>'
+                 alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.togglePrintNote.title"/>"
                  onclick="togglePrint('<%=globalNoteId%>'   , event)"
                  style='float: right; margin-right: 5px; margin-top: 2px;'
-                 src='<%=ctx %>/oscarEncounter/graphics/printer.png'/>
+                 src='<%=ctx %>/encounter/graphics/printer.png'/>
             <%
                 }
 
@@ -464,10 +478,10 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                     if (!note.isCpp() && !note.isEformData() && !note.isEncounterForm() && !note.isInvoice() && !note.isEmailNote()) {
                         if (!note.isReadOnly()) {
             %>
-            <a title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.edit.msgEdit"/>" id="edit<%=globalNoteId%>"
+            <a title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.edit.msgEdit"/>" id="edit<%=globalNoteId%>"
                href="javascript:void(0)" onclick="<%=editWarn?"noPrivs(event)":"editNote(event)"%> ;return false;"
                style="float: right; margin-right: 5px;">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.edit.msgEdit"/>
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.edit.msgEdit"/>
             </a>
             <%
                 }
@@ -476,8 +490,8 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             %>
             <a href="javascript:void(0)"
                onclick="window.open('<%=request.getContextPath()+"/lab/CA/ALL/sendOruR01.jsp?noteId="+globalNoteId%>', 'eSend');return(false);"
-               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.eSendTitle"/>"
-               style="float: right; margin-right: 5px;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.eSend"/></a>
+               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.eSendTitle"/>"
+               style="float: right; margin-right: 5px;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.eSend"/></a>
             <%
                     }
                 }
@@ -490,10 +504,10 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
                 if (!note.isReadOnly()) {
             %>
-            <a title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.edit.msgEdit"/>" id="edit<%=globalNoteId%>"
+            <a title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.edit.msgEdit"/>" id="edit<%=globalNoteId%>"
                href="javascript:void(0);" onclick="<%=editWarn?"noPrivs(event);":"editNote(event);"%> return false;"
                style="float: right; margin-right: 5px; ">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.edit.msgEdit"/>
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.edit.msgEdit"/>
             </a>
             <%
                 }
@@ -504,7 +518,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
                 <a class="links" title="<%=rx.getSpecial()%>" id="view<%=globalNoteId%>" href="javascript:void(0);"
-                   onclick="<%=url%>" style="float: right; margin-right: 5px; "> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.view.rxView"/> </a>
+                   onclick="<%=url%>" style="float: right; margin-right: 5px; "> <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view.rxView"/> </a>
             </div>
             <%
                 }
@@ -525,17 +539,17 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
                 if (!note.isReadOnly()) {
             %>
-                <a title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.edit.msgEdit"/>" id="edit<%=globalNoteId%>"
+                <a title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.edit.msgEdit"/>" id="edit<%=globalNoteId%>"
                    href="javascript:void(0);" onclick="<%=editUrl%> return false;" style="<%=bgColour%> order: 1; padding: 2px 5px;">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.edit.msgEdit"/>
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.edit.msgEdit"/>
                 </a>
             <%
                 }
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
-                <a class="links" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.view.docView"/>" id="view<%=globalNoteId%>"
-                   href="javascript:void(0)" onclick="<%=url%>" style="float: right; "> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.view"/> </a>
+                <a class="links" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view.docView"/>" id="view<%=globalNoteId%>"
+                   href="javascript:void(0)" onclick="<%=url%>" style="float: right; "> <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view"/> </a>
             </div>
             <%
             } else { //document note
@@ -551,9 +565,9 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
-                <a class="links" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.view.docView"/>" id="view<%=globalNoteId%>"
+                <a class="links" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view.docView"/>" id="view<%=globalNoteId%>"
                    href="javascript:void(0);" onclick="<%=url%>">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.view"/>
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view"/>
                 </a>
             </div>
             <%
@@ -572,8 +586,8 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
-                <a class="links" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.view.eformView"/>" id="view<%=globalNoteId%>"
-                   href="javascript:void(0)" onclick="<%=url%>"> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.view"/> </a>
+                <a class="links" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view.eformView"/>" id="view<%=globalNoteId%>"
+                   href="javascript:void(0)" onclick="<%=url%>"> <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view"/> </a>
             </div>
             <%
             } else if (note.isInvoice()) {
@@ -583,8 +597,8 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
-                <a class="links" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.view.eformView"/>" id="view<%=globalNoteId%>"
-                   href="javascript:void(0)" onclick="<%=url%>"> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.view"/> </a>
+                <a class="links" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view.eformView"/>" id="view<%=globalNoteId%>"
+                   href="javascript:void(0)" onclick="<%=url%>"> <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view"/> </a>
             </div>
             <%
             } else if (note.isEncounterForm()) {
@@ -606,27 +620,27 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
-                <a class="links" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.view.eformView"/>" id="view<%=globalNoteId%>"
-                   href="javascript:void(0)" onclick="<%=url%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.view"/></a>
+                <a class="links" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view.eformView"/>" id="view<%=globalNoteId%>"
+                   href="javascript:void(0)" onclick="<%=url%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view"/></a>
             </div>
             <%
             } else if (note.isEmailNote()) {
                 String url = "viewEmailByLogId(1100,1000,'" + request.getContextPath() + "/admin/ManageEmails.do?method=resendEmail&logId=" + dispDocNo + "');" + "return false;";
 							if (fulltxt) {
 								%>
-									<img title='Minimize Display' id='quitImg<%=globalNoteId%>' style='float: right;' alt='Minimize Display' onclick='minNonEditableNoteView(<%=globalNoteId%>)' src='<%=ctx %>/oscarEncounter/graphics/triangle_up.gif'>
+									<img title='Minimize Display' id='quitImg<%=globalNoteId%>' style='float: right;' alt='Minimize Display' onclick='minNonEditableNoteView(<%=globalNoteId%>)' src='<%=ctx %>/encounter/graphics/triangle_up.gif'>
 								<%
 							} else {
                                 // STRUTS2 TODO - below image MaxDisplay.title might need further setup to be available to the fmt bundle below
                                 // moved over from commit by Italiya 2025-02-10 as part of merging changes during STRUTS2 migration
                                %>
-                                    <img title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.MaxDisplay.title"/>" id='fullImg<%=globalNoteId%>' alt="Maximize Display" onclick="fullView(event)" style='float: right;' src='<%=ctx %>/oscarEncounter/graphics/triangle_down.gif' />
+                                    <img title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.MaxDisplay.title"/>" id='fullImg<%=globalNoteId%>' alt="Maximize Display" onclick="fullView(event)" style='float: right;' src='<%=ctx %>/encounter/graphics/triangle_down.gif' />
                                <%
                             }
                             %>
             <div class="view-links" style="<%=(isMagicNote)?(bgColour):""%>">
-                <a class="links" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.view.docView"/>" id="view<%=globalNoteId%>"
-                   href="javascript:void(0);" onclick="<%=url%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.view"/> </a>
+                <a class="links" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view.docView"/>" id="view<%=globalNoteId%>"
+                   href="javascript:void(0);" onclick="<%=url%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view"/> </a>
             </div>
             <%
                 }
@@ -634,8 +648,8 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                     String atbname = "anno" + String.valueOf(new Date().getTime());
                     String addr = request.getContextPath() + "/annotation/annotation.jsp?atbname=" + atbname + "&table_id=" + String.valueOf(note.getNoteId()) + "&display=EChartNote&demo=" + demographicNo;
             %>
-            <input type="image" id="anno<%=globalNoteId%>" src='<%=ctx %>/oscarEncounter/graphics/annotation.png'
-                   title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnAnnotation"/>'
+            <input type="image" id="anno<%=globalNoteId%>" src='<%=ctx %>/encounter/graphics/annotation.png'
+                   title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnAnnotation"/>'
                    style="float: right; margin-right: 5px; margin-bottom: 3px; height:10px;width:10px"
                    onclick="window.open('<%=addr%>','anwin','width=400,height=500');document.getElementById('annotation_attribname').value='<%=atbname%>'; return false;"/>
             <%
@@ -653,13 +667,13 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 		  							{
                 %>
                 <div id="observation<%=globalNoteId%>" style="display:ruby;">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.encounterDate.title"/>:&nbsp;
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.encounterDate.title"/>:&nbsp;
                     <span id="obs<%=globalNoteId%>"><%=note.getObservationDate() != null ? DateUtils.getDate(note.getObservationDate(), dateFormat, request.getLocale()) : "N/A"%></span>
                     <%
                         if (note.isCpp()) {
                     %>
                     &nbsp;
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteRev.title"/>
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteRev.title"/>
                     <%
 
                         if (rev != null) {
@@ -692,10 +706,10 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
                 if (!note.isEmailNote() && largeNote(noteStr)) {
             %>
-            <img title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.MinDisplay.title"/>" id='bottomQuitImg<%=globalNoteId%>'
-                 alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.MinDisplay.title"/>" onclick="minView(event)"
+            <img title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.MinDisplay.title"/>" id='bottomQuitImg<%=globalNoteId%>'
+                 alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.MinDisplay.title"/>" onclick="minView(event)"
                  style='float: right; margin-right: 5px; margin-bottom: 3px;'
-                 src='<%=ctx %>/oscarEncounter/graphics/triangle_up.gif'/>
+                 src='<%=ctx %>/encounter/graphics/triangle_up.gif'/>
             <%
                 }
 
@@ -705,10 +719,10 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 							<div id="sig<%=globalNoteId%>" class="sig" style="<%=note.isEmailNote()?(bgColour):""%>">
 								<div id="sumary<%=globalNoteId%>" style="<%=note.isEmailNote()?"color: #FFF !important":""%>">
                     <div id="observation<%=globalNoteId%>" style="float: right; margin-right: 3px;">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.encounterDate.title"/>:&nbsp;
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.encounterDate.title"/>:&nbsp;
                         <span id="obs<%=globalNoteId%>"><%=DateUtils.getDate(note.getObservationDate(), dateFormat, request.getLocale())%></span>&nbsp;
                         <%if (!note.isEmailNote()) {%>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteRev.title"/>
+                            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteRev.title"/>
                         <%
                             if (rev != null) {
                         %>
@@ -728,7 +742,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
 									<%if (!note.isEmailNote()) {%>
                     <div>
-                        <span style="float: left;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.editors.title"/>:</span>
+                        <span style="float: left;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.editors.title"/>:</span>
                         <ul style="list-style: none inside none; margin: 0;">
                             <%
                                 ArrayList<String> editorNames = note.getEditorNames();
@@ -756,7 +770,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                         if (facility.isEnableEncounterTime() || (program != null && program.isEnableEncounterTime())) {
                     %>
                     <div style="clear: right; margin-right: 3px; float: right;">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.encounterTime.title"/>:&nbsp;<span
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.encounterTime.title"/>:&nbsp;<span
                             id="encTime<%=globalNoteId%>"><%=note.getEncounterTime()%></span>
                     </div>
                     <% } %>
@@ -764,19 +778,19 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                         if (facility.isEnableEncounterTransportationTime() || (program != null && program.isEnableEncounterTransportationTime())) {
                     %>
                     <div style="clear: right; margin-right: 3px; float: right;">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.encounterTransportation.title"/>:&nbsp;<span
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.encounterTransportation.title"/>:&nbsp;<span
                             id="encTransTime<%=globalNoteId%>"><%=note.getEncounterTransportationTime()%></span>
                     </div>
                     <% } %>
 
 									<%if (!note.isEmailNote()) {%>
                     <div style="clear: right; margin-right: 3px; float: right;">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.encType.title"/>:&nbsp;
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.encType.title"/>:&nbsp;
                         <span id="encType<%=globalNoteId%>"><%=note.getEncounterType().equals("") ? "" : "&quot;" + note.getEncounterType() + "&quot;"%></span>
                     </div>
 
                     <div>
-                        <span style="float: left;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.assignedIssues.title"/></span>
+                        <span style="float: left;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.assignedIssues.title"/></span>
                         <%
                             ArrayList<String> issueDescriptions = note.getIssueDescriptions();
 
@@ -929,7 +943,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             var staleIds = new Array();
 
             jQuery("img[id^='quitImg']").each(function () {
-                if (jQuery(this).attr('src').indexOf('/oscarEncounter/graphics/triangle_down.gif') != -1) {
+                if (jQuery(this).attr('src').indexOf('/encounter/graphics/triangle_down.gif') != -1) {
                     var iid = jQuery(this).attr('id');
                     jQuery(this).trigger('click');
                     staleIds.push(iid);
@@ -1049,7 +1063,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
      */
 
     protected String insertReason(HttpServletRequest request) {
-        if (OscarProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
+        if (CarlosProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
             return new String();
         }
         String encounterText = "";

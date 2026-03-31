@@ -42,7 +42,7 @@ import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -74,10 +74,10 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
             String winName = "docs" + bean.demographicNo;
             String url = "popupPage(500,1115,'" + winName + "', '" + request.getContextPath() + "/documentManager/documentReport.jsp?" + "function=demographic&doctype=lab&functionid=" + bean.demographicNo + "&curUser=" + bean.providerNo + "')";
 
-            Dao.setLeftHeading(getText("oscarEncounter.Index.msgDocuments"));
+            Dao.setLeftHeading(getText("encounter.Index.msgDocuments"));
             if (inboxflag) {
                 url = "popupPage(600,1024,'" + winName + "', '" + request.getContextPath() + "/mod/docmgmtComp/DocList.do?method=list&&demographic_no=" + bean.demographicNo + "');";
-                Dao.setLeftHeading(getText("oscarEncounter.Index.inboxManager"));
+                Dao.setLeftHeading(getText("encounter.Index.inboxManager"));
             }
             Dao.setLeftURL(url);
 

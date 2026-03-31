@@ -279,8 +279,8 @@ public class OpenWindowsFromMainMenuTest extends BaseTest {
             }
 
             if (!is500Error) {
-                wait.until(ExpectedConditions.urlContains("oscarEncounter/IncomingConsultation.do"));
-                Assert.assertTrue(driver.getCurrentUrl().contains("oscarEncounter/IncomingConsultation.do"));
+                wait.until(ExpectedConditions.urlContains("encounter/IncomingConsultation.do"));
+                Assert.assertTrue(driver.getCurrentUrl().contains("encounter/IncomingConsultation.do"));
                 System.out.println("Consultations window opened successfully.");
             }
 

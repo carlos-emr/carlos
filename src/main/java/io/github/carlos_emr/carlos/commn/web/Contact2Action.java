@@ -39,8 +39,8 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -73,9 +73,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.beans.BeanUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
@@ -433,7 +433,7 @@ public class Contact2Action extends ActionSupport {
     @SuppressWarnings("unused")
     public String addContact() {
         CtlRelationshipsDao relationshipDao = SpringUtils.getBean(CtlRelationshipsDao.class);
-        OscarProperties prop = OscarProperties.getInstance();
+        CarlosProperties prop = CarlosProperties.getInstance();
         List<CtlRelationships> relationships = relationshipDao.findAllActive();
         request.setAttribute("relationships", relationships);
         request.setAttribute("region", prop.getProperty("billregion"));
@@ -445,7 +445,7 @@ public class Contact2Action extends ActionSupport {
     public String addProContact() {
         ContactSpecialtyDao specialtyDao = SpringUtils.getBean(ContactSpecialtyDao.class);
         List<ContactSpecialty> specialties = specialtyDao.findAll();
-        OscarProperties prop = OscarProperties.getInstance();
+        CarlosProperties prop = CarlosProperties.getInstance();
         request.setAttribute("region", prop.getProperty("billregion"));
         request.setAttribute("specialties", specialties);
         request.setAttribute("pcontact.lastName", request.getParameter("keyword"));

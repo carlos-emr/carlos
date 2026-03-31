@@ -10,6 +10,7 @@ import org.w3c.dom.Element;
 import org.apache.xml.security.c14n.CanonicalizationException;
 import org.apache.xml.security.c14n.InvalidCanonicalizerException;
 import org.apache.xml.security.exceptions.Base64DecodingException;
+import org.apache.xml.security.signature.XMLSignatureByteInput;
 import org.apache.xml.security.signature.XMLSignatureInput;
 import org.apache.xml.security.transforms.TransformSpi;
 import org.apache.xml.security.transforms.TransformationException;
@@ -51,24 +52,24 @@ public class TransformAttachmentCiphertext extends TransformSpi {
 			CanonicalizationException, InvalidCanonicalizerException,
 			TransformationException, ParserConfigurationException, SAXException {
 		
-		if (input.isOctetStream() || input.isNodeSet()) {
+		if (input.hasUnprocessedInput() || input.isNodeSet()) {
 			if (os == null) {
 				byte[] contentBytes = input.getBytes();
-				XMLSignatureInput output = new XMLSignatureInput(contentBytes);
+				XMLSignatureByteInput output = new XMLSignatureByteInput(contentBytes);
 				return output;
 			}
-			
-			if (input.isByteArray() || input.isNodeSet()) {
+
+			if (input instanceof XMLSignatureByteInput || input.isNodeSet()) {
 				os.write(input.getBytes());
 			} else {
 				try {
-					org.apache.xml.security.utils.Base64.decode(new BufferedInputStream(input.getOctetStreamReal()), os);
+					org.apache.xml.security.utils.Base64.decode(new BufferedInputStream(input.getUnprocessedInput()), os);
 				} catch (Base64DecodingException e) {
 					throw new IOException("Unable to decode real octet stream", e);
 				}
 			}
-			
-			XMLSignatureInput output = new XMLSignatureInput(new byte[] {});
+
+			XMLSignatureByteInput output = new XMLSignatureByteInput(new byte[] {});
 			output.setOutputStream(os);
 			return output;
 		}

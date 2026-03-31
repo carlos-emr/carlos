@@ -32,8 +32,8 @@
 
 <%@ page import="io.github.carlos_emr.carlos.login.UAgentInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri='http://java.sun.com/jsp/jstl/core' prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri='jakarta.tags.core' prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" session="false" %>
 
@@ -57,7 +57,7 @@
             <fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.title"/>
         </title>
 
-        <link rel="icon" href="${pageContext.request.contextPath}/images/Oscar.ico"/>
+        <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <link href="${pageContext.request.contextPath}/css/Roboto.css" rel='stylesheet' type='text/css'/>
         <script type="text/javascript">
 
@@ -94,9 +94,20 @@
                 document.loginForm.username.select();
             }
 
-            // Clear any stale logout signal from a previous session so it does not
+            // Clear any stale logout signals from a previous session so they do not
             // cause an immediate logout loop if the user logs in again in this tab.
             try { localStorage.removeItem('carlos_logout_signal'); } catch(e) {}
+            // Drain and close any pending BroadcastChannel logout messages, then
+            // re-open a channel that ignores messages until the page navigates away.
+            try {
+                var bc = new BroadcastChannel('carlos_logout');
+                bc.onmessage = function() {}; // consume and ignore stale broadcasts
+                // Close on form submit so the authenticated page gets a clean channel
+                var loginForm = document.querySelector('form[name="loginForm"]');
+                if (loginForm) {
+                    loginForm.addEventListener('submit', function() { try { bc.close(); } catch(e) {} });
+                }
+            } catch(e) {}
 
             function popupPage(vheight, vwidth, varpage) {
                 var page = "" + varpage;
@@ -631,7 +642,7 @@ body {
 
                             <div class="input-wrapper mb-3 ${ login_error }">
                               <input type="password" name="password" id="password" placeholder="<fmt:message key="Logon.passWord"/>" autocomplete="current-password" class="form-control toggle-input" required>
-                              <button type="button"
+                              <button type="button" tabindex="-1"
                                       id="toggleBtn"
                                       class="toggle-btn"
                                       aria-label="Show Password"
@@ -646,7 +657,7 @@ body {
                                   <!-- The input starts with the secure-text class -->
                                   <input type="text" id="pin" class="form-control secure-text toggle-input" name="pin" autocomplete="one-time-code"
                                                inputmode="numeric"  placeholder="<fmt:message key="admin.securityrecord.formPIN"/>">
-                                    <button type="button"
+                                    <button type="button" tabindex="-1"
                                       id="togglePin"
                                       class="toggle-btn"
                                       aria-label="Show PIN"

@@ -47,10 +47,10 @@ import io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
@@ -66,7 +66,8 @@ import java.util.ResourceBundle;
  * and prescription history.
  *
  * <p>Uses OpenPDF (forked from iText) for document composition. The engine maintains
- * shared state (document, fonts, formatters) that pluggable {@link ExtPrint} extensions
+ * shared state (document, fonts, formatters) that pluggable
+ * {@link io.github.carlos_emr.carlos.casemgmt.util.ExtPrint} extensions
  * can use to append additional content sections.
  *
  * <p>Typical usage:
@@ -77,8 +78,8 @@ import java.util.ResourceBundle;
  *   engine.finish();
  * </pre>
  *
- * @see ExtPrint
- * @see OscarChartPrinter
+ * @see io.github.carlos_emr.carlos.casemgmt.util.ExtPrint
+ * @see io.github.carlos_emr.carlos.casemgmt.print.OscarChartPrinter
  * @since 2008-01-22
  */
 public class CaseManagementPrintPdf {
@@ -168,15 +169,15 @@ public class CaseManagementPrintPdf {
 
         //set up document title and header
         ResourceBundle propResource = ResourceBundle.getBundle("oscarResources");
-        String title = propResource.getString("oscarEncounter.pdfPrint.title") + " " + (String) request.getAttribute("demoName") + "\n";
-        String gender = propResource.getString("oscarEncounter.pdfPrint.gender") + " " + (String) request.getAttribute("demoSex") + "\n";
-        String dob = propResource.getString("oscarEncounter.pdfPrint.dob") + " " + (String) request.getAttribute("demoDOB") + "\n";
-        String age = propResource.getString("oscarEncounter.pdfPrint.age") + " " + (String) request.getAttribute("demoAge") + "\n";
-        String mrp = propResource.getString("oscarEncounter.pdfPrint.mrp") + " " + (String) request.getAttribute("mrp") + "\n";
-        String phn = propResource.getString("oscarEncounter.pdfPrint.phn") + " " + (String) request.getAttribute("demoPhn") + "\n";
+        String title = propResource.getString("encounter.pdfPrint.title") + " " + (String) request.getAttribute("demoName") + "\n";
+        String gender = propResource.getString("encounter.pdfPrint.gender") + " " + (String) request.getAttribute("demoSex") + "\n";
+        String dob = propResource.getString("encounter.pdfPrint.dob") + " " + (String) request.getAttribute("demoDOB") + "\n";
+        String age = propResource.getString("encounter.pdfPrint.age") + " " + (String) request.getAttribute("demoAge") + "\n";
+        String mrp = propResource.getString("encounter.pdfPrint.mrp") + " " + (String) request.getAttribute("mrp") + "\n";
+        String phn = propResource.getString("encounter.pdfPrint.phn") + " " + (String) request.getAttribute("demoPhn") + "\n";
 
         String[] info;
-        if ("true".equals(OscarProperties.getInstance().getProperty("print.includeMRP", "true"))) {
+        if ("true".equals(CarlosProperties.getInstance().getProperty("print.includeMRP", "true"))) {
             info = new String[]{title, gender, dob, age, phn, mrp};
         } else {
             info = new String[]{title, gender, dob, age, phn};
@@ -188,7 +189,7 @@ public class CaseManagementPrintPdf {
                 clinicData.getClinicCity() + ", " + clinicData.getClinicProvince(),
                 clinicData.getClinicPostal(), "Phone: " + clinicData.getClinicPhone(), "Fax: " + clinicData.getClinicFax()};
 
-        if ("true".equals(OscarProperties.getInstance().getProperty("print.useCurrentProgramInfoInHeader", "false"))) {
+        if ("true".equals(CarlosProperties.getInstance().getProperty("print.useCurrentProgramInfoInHeader", "false"))) {
             ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
             ProgramProvider pp = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
@@ -595,7 +596,7 @@ public class CaseManagementPrintPdf {
 //
 //        public EndPage() {
 //            now = new Date();
-//            promoTxt = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
+//            promoTxt = CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT");
 //            if( promoTxt == null ) {
 //                promoTxt = "";
 //            }

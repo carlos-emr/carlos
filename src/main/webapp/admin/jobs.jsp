@@ -46,7 +46,7 @@
 %>
 
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -61,7 +61,7 @@
 <html>
     <head>
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>OSCAR Jobs</title>
+        <title>CARLOS Jobs</title>
 
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css">
@@ -377,7 +377,7 @@
     <input type="button" class="btn btn-primary" value="Add New" onClick="addNewJob()"/>
 
 
-    <div id="new-job" title="OSCAR Job Editor">
+    <div id="new-job" title="CARLOS Job Editor">
         <p class="validateTips"></p>
 
         <form id="jobForm">

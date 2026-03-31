@@ -38,12 +38,12 @@
 <%@page import="java.util.ArrayList" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="page"/>
 
 <%@page import="java.net.URLDecoder, java.net.URLEncoder,java.util.Date, java.util.List" %>
@@ -66,13 +66,13 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart"
                    rights="r" reverse="<%=true%>">
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.accessDenied"/>
+    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.accessDenied"/>
     <% response.sendRedirect(request.getContextPath() + "/noRights.html"); %>
 </security:oscarSec>
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName='<%="_eChart$"+demographicID%>' rights="o"
                    reverse="<%=false%>">
-    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.accessDenied"/>
+    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.accessDenied"/>
     <% response.sendRedirect(request.getContextPath() + "/noRights.html"); %>
 </security:oscarSec>
 
@@ -136,7 +136,7 @@
 
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.title"/> - <oscar:nameage
+    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.title"/> - <oscar:nameage
             demographicNo="<%=demographicID%>"/></title>
     <script type="text/javascript">
 
@@ -306,7 +306,7 @@
                 if (combinePdf == true) {
                     showPageCombineImg(docList);
                 } else {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgOnlyPDFCanBeCombined"/>");
+                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgOnlyPDFCanBeCombined"/>");
                     setdefaultdoc();
                 }
 
@@ -468,29 +468,29 @@
                 <input type="hidden" name="viewstatus" value="<%=viewstatus%>">
                 <input type="hidden" name="sortorder" value="<%=sortorder%>">
 
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgViewStatus"/> <select id="selviewstatus"
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgViewStatus"/> <select id="selviewstatus"
                                                                                        name="selviewstatus"
                                                                                        onchange="ReLoadDoc()">
                 <option value="all"
-                        <%=viewstatus.equalsIgnoreCase("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgAll"/></option>
+                        <%=viewstatus.equalsIgnoreCase("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgAll"/></option>
                 <option value="deleted"
-                        <%=viewstatus.equalsIgnoreCase("deleted") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgDeleted"/></option>
+                        <%=viewstatus.equalsIgnoreCase("deleted") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgDeleted"/></option>
                 <option value="active"
-                        <%=viewstatus.equalsIgnoreCase("active") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgPublished"/></option>
+                        <%=viewstatus.equalsIgnoreCase("active") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgPublished"/></option>
             </select>
 
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgSortDate"/>
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgSortDate"/>
                 <select id="selsortorder" name="selsortorder" onchange="ReLoadDoc()">
                     <option value="Content"
-                            <%=sortorder.equalsIgnoreCase("Content") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgContent"/></option>
+                            <%=sortorder.equalsIgnoreCase("Content") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgContent"/></option>
                     <option value="Observation"
-                            <%=sortorder.equalsIgnoreCase("Observation") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgObservation"/></option>
+                            <%=sortorder.equalsIgnoreCase("Observation") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgObservation"/></option>
                     <option value="Update"
-                            <%=sortorder.equalsIgnoreCase("Update") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgUpdate"/></option>
+                            <%=sortorder.equalsIgnoreCase("Update") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgUpdate"/></option>
 
                 </select>
                 <fieldset>
-                    <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgView"/>:</legend>
+                    <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgView"/>:</legend>
                     <input type="hidden" name="view" value="<%=view%>">
                     <input type="hidden" name="demographic_no" value="<%=demographicID%>">
                     <input type="hidden" name="undelDocumentNo" value="">
@@ -511,16 +511,16 @@
                 <div id="docbuttons">
                     <% if (viewstatus.equalsIgnoreCase("active")) {%>
                     <% if (module.equalsIgnoreCase("demographic")) {%>
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgAddTickler"/>"
+                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgAddTickler"/>"
                            onclick="AddTickler();"> <%}%>
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgAnnotate"/>"
+                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgAnnotate"/>"
                            onclick="DocAnnotation()">
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgEdit"/>"
+                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgEdit"/>"
                            onclick="DocEdit();">
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgDelete"/>"
+                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgDelete"/>"
                            onclick="DeleteDoc();">
                     <div id="refilebutton">
-                        <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgRefile"/>"
+                        <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgRefile"/>"
                                onclick="RefileDoc();">
                         <select id="queueList" name="queueList" onchange="setQueue();">
                             <%
@@ -534,25 +534,25 @@
                         </select>
                     </div>
                     <%} else if (viewstatus.equalsIgnoreCase("deleted")) {%>
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgUndelete"/>"
+                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgUndelete"/>"
                            onclick="UnDeleteDoc();">
                     <%}%>
                 </div>
 
 
                 <div id="docinfo"></div>
-                <div id="printnotesbutton"><input type='image' src="<%= request.getContextPath() %>/oscarEncounter/graphics/document-print.png"
+                <div id="printnotesbutton"><input type='image' src="<%= request.getContextPath() %>/encounter/graphics/document-print.png"
                                                   onclick="PrintEncounter();"
-                                                  title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnPrint"/>'
+                                                  title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnPrint"/>'
                                                   id="imgPrintEncounter"></div>
             </td>
             <td valign="top">
                 <fieldset>
                     <legend><%
                         if (sortorder.equals("Content")) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgContent"/><%} else {%>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.msgUpdate"/> <%}%>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.ObservationTypeDescription"/></legend>
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgContent"/><%} else {%>
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgUpdate"/> <%}%>
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.ObservationTypeDescription"/></legend>
                     <SELECT MULTIPLE SIZE=5 id="doclist" onchange="getDoc();">
                         <%
                             for (int i2 = 0; i2 < docs.size(); i2++) {
@@ -568,7 +568,7 @@
                 </fieldset>
 
                 <fieldset>
-                    <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noteBrowser.encounterNote"/></legend>
+                    <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.encounterNote"/></legend>
                     <select MULTIPLE SIZE=5 id="encounterlist" onchange="getEncounter();">
                         <%
                             CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);

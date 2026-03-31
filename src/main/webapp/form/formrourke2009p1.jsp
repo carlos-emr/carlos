@@ -51,7 +51,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRourke2009Record" %>
 <%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     String formClass = "Rourke2009";
@@ -98,7 +98,7 @@
 <div style="display:block; width:100%; text-align:center; background-color: #FFFFFF;"><img alt="copyright"
                                                                                            src="graphics/banner.png"
                                                                                            onMouseOver="popLayer('
-                                                                                           <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formCopyRight"/>')"
+                                                                                           <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formCopyRight"/>')"
                                                                                            onMouseOut="hideLayer()">
 </div>
 <div id="object1"
@@ -124,14 +124,14 @@
 <table cellpadding="0" cellspacing="0" class="Header" class="hidePrint">
     <tr>
         <td nowrap="true"><input type="submit"
-                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.btnSave"/>"
+                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnSave"/>"
                                  onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.btnSaveExit"/>"
+                                                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnSaveExit"/>"
                                                                                 onclick="javascript:return onSaveExit();"/>
             <input type="submit"
-                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.btnExit"/>"
+                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnExit"/>"
                    onclick="javascript:return onExit();"> <input type="submit"
-                                                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.btnPrint"/>"
+                                                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnPrint"/>"
                                                                  onclick="javascript:return onPrint();"/> <input
                     type="button"
                     value="About"
@@ -149,10 +149,10 @@
         <td align="center" nowrap="true" width="100%">
             <% if (formId > 0) { %> <a name="length" href="#"
                                        onclick="onGraph('<%=request.getContextPath()%>/form/formname.do?submit=graph&form_class=Rourke2009&__title=Baby+Growth+Graph1&__cfgfile=<%=growthCharts[0]%>&demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>','<%= "growth1" + demoNo %>');return false;">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.btnGraphLenghtWeight"/></a><br>
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnGraphLenghtWeight"/></a><br>
             <a name="headCirc" href="#"
                onclick="onGraph('<%=request.getContextPath()%>/form/formname.do?submit=graph&form_class=Rourke2009&__title=Baby+Head+Circumference&__cfgfile=<%=growthCharts[1]%>&demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>','<%= "growth2" + demoNo %>');return false;">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.btnGraphHead"/></a> <% } else { %>
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnGraphHead"/></a> <% } else { %>
             &nbsp; <% } %>
         </td>
     </tr>
@@ -160,66 +160,66 @@
 
 <table cellpadding="0" cellspacing="0" border="0" width="100%">
     <tr class="titleBar">
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgRourkeBabyRecord"/></th>
+        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgRourkeBabyRecord"/></th>
     </tr>
 </table>
 <div id="patientInfop1" style="height:10%; overflow:auto;">
     <table cellpadding="0" cellspacing="0" width="100%" border="0">
         <tr valign="top">
-            <td align="center"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formBirhtRemarks"/><br>
+            <td align="center"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formBirhtRemarks"/><br>
                 <input type="radio" id="p1_birthRemarksr1"
                        name="p1_birthRemarksr1" onclick="onCheck(this,'p1_birthRemarksr')"
-                    <%= props.getProperty("p1_birthRemarksr1", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formPremature"/>&nbsp;
+                    <%= props.getProperty("p1_birthRemarksr1", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formPremature"/>&nbsp;
                 <input type="radio" id="p1_birthRemarksr2"
                        name="p1_birthRemarksr2" onclick="onCheck(this,'p1_birthRemarksr')"
-                    <%= props.getProperty("p1_birthRemarksr2", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formHighRisk"/>&nbsp;<br>
+                    <%= props.getProperty("p1_birthRemarksr2", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formHighRisk"/>&nbsp;<br>
                 <input type="radio" id="p1_birthRemarksr3"
                        name="p1_birthRemarksr3" onclick="onCheck(this,'p1_birthRemarksr')"
-                    <%= props.getProperty("p1_birthRemarksr3", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNoConcerns"/>&nbsp;
+                    <%= props.getProperty("p1_birthRemarksr3", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNoConcerns"/>&nbsp;
 
 
             </td>
             <td width="65%" nowrap align="center">
-                <p><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgName"/>: <input
+                <p><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgName"/>: <input
                         type="text" name="c_pName" maxlength="60" size="30"
                         value="<%= props.getProperty("c_pName", "") %>" readonly="true"/>
-                    &nbsp;&nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgBirthDate"/> (d/m/yyyy): <input
+                    &nbsp;&nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBirthDate"/> (d/m/yyyy): <input
                             type="text" id="c_birthDate" name="c_birthDate" size="10" maxlength="10"
                             value="<%= props.getProperty("c_birthDate", "") %>" readonly="true">
                     &nbsp;&nbsp;
                     Age: <input type="text" id="currentAge" size="10" maxlength="10" readonly="true"
                                 ondblclick="calcAge();">
                     <% if (!((FrmRourke2009Record) rec).isFemale(loggedInInfo, demoNo)) {
-                    %>(<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgMale"/>) <input type="hidden"
+                    %>(<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgMale"/>) <input type="hidden"
                                                                                name="c_male" value="x"> <%
                     } else {
-                    %>(<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgFemale"/>) <input type="hidden"
+                    %>(<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgFemale"/>) <input type="hidden"
                                                                                  name="c_female" value="x"> <%
                         }
                     %>
-                    &nbsp;&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formFSA"/> <input type="text"
+                    &nbsp;&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formFSA"/> <input type="text"
                                                                                  name="c_fsa" size="3" maxlength="3"
                                                                                  value="<%= props.getProperty("c_fsa", "") %>">
                 </p>
-                <p><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgLenght"/>: <input
+                <p><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgLenght"/>: <input
                         type="text" ondblclick="htEnglish2Metric(this);" name="c_length"
                         size="6" maxlength="6"
-                        value="<%= props.getProperty("c_length", "") %>"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgLenghtUnit"/> &nbsp;&nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgHeadCirc"/>: <input type="text"
+                        value="<%= props.getProperty("c_length", "") %>"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgLenghtUnit"/> &nbsp;&nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgHeadCirc"/>: <input type="text"
                                                                                ondblclick="htEnglish2Metric(this);"
                                                                                name="c_headCirc" size="6"
                                                                                maxlength="6"
                                                                                value="<%= props.getProperty("c_headCirc", "") %>"/>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgHeadCircUnit"/>
-                    &nbsp;&nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgBirthWt"/>: <input type="text"
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgHeadCircUnit"/>
+                    &nbsp;&nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBirthWt"/>: <input type="text"
                                                                                   ondblclick="wtEnglish2Metric(this);"
                                                                                   name="c_birthWeight" size="6"
                                                                                   maxlength="7"
                                                                                   value="<%= props.getProperty("c_birthWeight", "") %>"/>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgBirthWtUnit"/>
-                    &nbsp;&nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgDischargeWt"/>: <input
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBirthWtUnit"/>
+                    &nbsp;&nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgDischargeWt"/>: <input
                             type="text" ondblclick="wtEnglish2Metric(this);"
                             name="c_dischargeWeight" size="6" maxlength="7"
-                            value="<%= props.getProperty("c_dischargeWeight", "") %>"> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgDischargeWtUnit"/></p>
+                            value="<%= props.getProperty("c_dischargeWeight", "") %>"> <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgDischargeWtUnit"/></p>
             </td>
         </tr>
         <tr>
@@ -231,35 +231,35 @@
                 <table cellpadding="0" cellspacing="0" width="100%" border="0">
                     <tr>
                         <td align="center">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formRiksFactors"/>
+                            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formRiksFactors"/>
 
                             <br>
                             <input type="checkbox" class="chk"
                                    name="p1_2ndhandsmoke" <%= props.getProperty("p1_2ndhandsmoke", "") %>>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.form2ndHandSmoke"/>
+                            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.form2ndHandSmoke"/>
                             <p>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formSubstanceabuse"/><br>
+                                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formSubstanceabuse"/><br>
                                 <input type="checkbox" class="chk"
                                        name="p1_alcohol" <%= props.getProperty("p1_alcohol", "") %>>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formAlcohol"/><br>
+                                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formAlcohol"/><br>
                                 <input type="checkbox" class="chk"
                                        name="p1_drugs" <%= props.getProperty("p1_drugs", "") %>>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formDrugs"/>
+                                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formDrugs"/>
                             </p>
                         </td>
                         <td nowrap align="center">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formAPGAR"/><br>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.form1min"/><select name="c_APGAR1min">
+                            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formAPGAR"/><br>
+                            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.form1min"/><select name="c_APGAR1min">
                             <option <%= props.getProperty("c_APGAR1min", "").equals("") || props.getProperty("c_APGAR1min", "").equals("-1") ? "selected='selected'" : ""%>
-                                    value="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNotSet"/></option>
+                                    value="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNotSet"/></option>
                             <% for (Integer idx = 0; idx <= 10; ++idx) { %>
                             <option <%= props.getProperty("c_APGAR1min", "").equals(idx.toString()) ? "selected='selected'" : ""%>
                                     value="<%=idx%>"><%=idx%>
                             </option>
                             <%}%></select><br>
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.form5min"/><select name="c_APGAR5min">
+                            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.form5min"/><select name="c_APGAR5min">
                             <option <%= props.getProperty("c_APGAR5min", "").equals("") || props.getProperty("c_APGAR5min", "").equals("-1") ? "selected='selected'" : ""%>
-                                    value="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNotSet"/></option>
+                                    value="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNotSet"/></option>
                             <% for (Integer idx = 0; idx <= 10; ++idx) { %>
                             <option <%= props.getProperty("c_APGAR5min", "").equals(idx.toString()) ? "selected='selected'" : ""%>
                                     value="<%=idx%>"><%=idx%>
@@ -268,7 +268,7 @@
 
                         </td>
                         <td align="center">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formFamHistory"/><br>
+                            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formFamHistory"/><br>
                             <textarea id="c_riskFactors" name="c_riskFactors" rows="5"
                                       cols="17"><%= props.getProperty("c_riskFactors", "") %></textarea>
                         </td>
@@ -280,13 +280,13 @@
 
 <table cellpadding="0" cellspacing="0" width="100%" border="1">
     <tr align="center">
-        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.visitDate"/></a></td>
-        <td colspan="3" class="row"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgWithin"/> <a><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.btn1Week"/></a></td>
-        <td colspan="3" class="row"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.btn2Weeks"/></a> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgOptional"/></td>
-        <td colspan="3" class="row"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.btn1month"/></a> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgOptional"/></td>
+        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.visitDate"/></a></td>
+        <td colspan="3" class="row"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgWithin"/> <a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btn1Week"/></a></td>
+        <td colspan="3" class="row"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btn2Weeks"/></a> <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgOptional"/></td>
+        <td colspan="3" class="row"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btn1month"/></a> <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgOptional"/></td>
     </tr>
     <tr align="center">
-        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgDate"/></a></td>
+        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgDate"/></a></td>
         <td colspan="3"><input readonly type="text" id="p1_date1w"
                                name="p1_date1w" size="10" ondblclick="resetDate(this)"
                                value="<%=UtilMisc.htmlEscape(props.getProperty("p1_date1w", ""))%>"/>
@@ -301,17 +301,17 @@
             <img src="<%= request.getContextPath() %>/images/cal.gif" id="p1_date1m_cal"></td>
     </tr>
     <tr align="center" id="growthAp1">
-        <td class="column" rowspan="2"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.btnGrowth"/>*<br/>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009_1.btnGrowthmsg"/></a></td>
-        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formHt"/></td>
-        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formWt"/></td>
-        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_3.formHdCirc"/></td>
-        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formHt"/></td>
-        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formWt"/></td>
-        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_3.formHdCirc"/></td>
-        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formHt"/></td>
-        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formWt"/></td>
-        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_3.formHdCirc"/></td>
+        <td class="column" rowspan="2"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnGrowth"/>*<br/>
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_1.btnGrowthmsg"/></a></td>
+        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHt"/></td>
+        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formWt"/></td>
+        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></td>
+        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHt"/></td>
+        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formWt"/></td>
+        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></td>
+        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHt"/></td>
+        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formWt"/></td>
+        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></td>
     </tr>
     <tr align="center" id="growthBp1">
         <td><input type="text" class="wide"
@@ -343,7 +343,7 @@
                    maxlength="5" value="<%= props.getProperty("p1_hc1m", "") %>"></td>
     </tr>
     <tr align="center">
-        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formParentalConcerns"/></a></td>
+        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formParentalConcerns"/></a></td>
         <td colspan="3"><textarea id="p1_pConcern1w"
                                   name="p1_pConcern1w" style="width: 100%" cols="10"
                                   rows="5"><%= props.getProperty("p1_pConcern1w", "") %></textarea>
@@ -359,7 +359,7 @@
     </tr>
     <tr align="center" id="nutritionp1">
 
-        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgNutrition"/>*:</a></td>
+        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgNutrition"/>*:</a></td>
 
         <td colspan="3">
 
@@ -368,8 +368,8 @@
                     <td style="padding-right: 5pt" valign="top"><img height="15"
                                                                      width="20" src="graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
-                    <td class="edcol" valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNo"/></td>
-                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNotDiscussed"/></td>
+                    <td class="edcol" valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNo"/></td>
+                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_breastFeeding1wOk"
@@ -387,11 +387,11 @@
                                             onclick="onCheck(this,'p1_breastFeeding1w')"
                         <%= props.getProperty("p1_breastFeeding1wNotDiscussed", "") %>></td>
                     <td><b><a href="javascript:showNotes()"
-                              onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                              onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.btnBreastFeeding"/><br/>
+                              onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                              onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.btnBreastFeeding"/><br/>
                     </a><span
-                            onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                            onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009_1.msgBreastFeedingDescr"/></span></b></td>
+                            onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                            onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_1.msgBreastFeedingDescr"/></span></b></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_formulaFeeding1wOk"
@@ -408,7 +408,7 @@
                                             name="p1_formulaFeeding1wNotDiscussed"
                                             onclick="onCheck(this,'p1_formulaFeeding1w')"
                         <%= props.getProperty("p1_formulaFeeding1wNotDiscussed", "") %>></td>
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.msgFormulaFeeding"/></td>
+                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.msgFormulaFeeding"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_stoolUrine1wOk"
@@ -422,7 +422,7 @@
                                             name="p1_stoolUrine1wNotDiscussed" onclick="onCheck(this,'p1_stoolUrine1w')"
                         <%= props.getProperty("p1_stoolUrine1wNotDiscussed", "") %>></td>
 
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formStoolPatern"/></td>
+                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formStoolPatern"/></td>
                 </tr>
 
                 <tr style="vertical-align: bottom;">
@@ -441,8 +441,8 @@
                     <td style="padding-right: 5pt" valign="top"><img height="15"
                                                                      width="20" src="graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
-                    <td class="edcol" valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNo"/></td>
-                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNotDiscussed"/></td>
+                    <td class="edcol" valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNo"/></td>
+                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_breastFeeding2wOk"
@@ -460,11 +460,11 @@
                                             onclick="onCheck(this,'p1_breastFeeding2w')"
                         <%= props.getProperty("p1_breastFeeding2wNotDiscussed", "") %>></td>
                     <td><b><a
-                            onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                            onMouseOut="hideLayer()" href="javascript:showNotes()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.btnBreastFeeding"/></a><br/>
+                            onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                            onMouseOut="hideLayer()" href="javascript:showNotes()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.btnBreastFeeding"/></a><br/>
                         <span
-                                onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009_1.msgBreastFeedingDescr"/></span></b></td>
+                                onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_1.msgBreastFeedingDescr"/></span></b></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_formulaFeeding2wOk"
@@ -481,7 +481,7 @@
                                             name="p1_formulaFeeding2wNotDiscussed"
                                             onclick="onCheck(this,'p1_formulaFeeding2w')"
                         <%= props.getProperty("p1_formulaFeeding2wNotDiscussed", "") %>></td>
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.msgFormulaFeeding"/></td>
+                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.msgFormulaFeeding"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_stoolUrine2wOk"
@@ -494,7 +494,7 @@
                     <td valign="top"><input type="radio" id="p1_stoolUrine2wNotDiscussed"
                                             name="p1_stoolUrine2wNotDiscussed" onclick="onCheck(this,'p1_stoolUrine2w')"
                         <%= props.getProperty("p1_stoolUrine2wNotDiscussed", "") %>></td>
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formStoolPatern"/></td>
+                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formStoolPatern"/></td>
                 </tr>
 
                 <tr>
@@ -512,8 +512,8 @@
                     <td style="padding-right: 5pt" valign="top"><img height="15"
                                                                      width="20" src="graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
-                    <td class="edcol" valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNo"/></td>
-                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNotDiscussed"/></td>
+                    <td class="edcol" valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNo"/></td>
+                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_breastFeeding1mOk"
@@ -531,11 +531,11 @@
                                             onclick="onCheck(this,'p1_breastFeeding1m')"
                         <%= props.getProperty("p1_breastFeeding1mNotDiscussed", "") %>></td>
                     <td><b><a
-                            onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                            onMouseOut="hideLayer()" href="javascript:showNotes()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.btnBreastFeeding"/></a><br/>
+                            onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                            onMouseOut="hideLayer()" href="javascript:showNotes()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.btnBreastFeeding"/></a><br/>
                         <span
-                                onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009_1.msgBreastFeedingDescr"/></span></b></td>
+                                onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_1.msgBreastFeedingDescr"/></span></b></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_formulaFeeding1mOk"
@@ -552,7 +552,7 @@
                                             name="p1_formulaFeeding1mNotDiscussed"
                                             onclick="onCheck(this,'p1_formulaFeeding1m')"
                         <%= props.getProperty("p1_formulaFeeding1mNotDiscussed", "") %>></td>
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009_1.msgFormulaFeeding"/></td>
+                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_1.msgFormulaFeeding"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_stoolUrine1mOk"
@@ -565,7 +565,7 @@
                     <td valign="top"><input type="radio" id="p1_stoolUrine1mNotDiscussed"
                                             name="p1_stoolUrine1mNotDiscussed" onclick="onCheck(this,'p1_stoolUrine1m')"
                         <%= props.getProperty("p1_stoolUrine1mNotDiscussed", "") %>></td>
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formStoolPatern"/></td>
+                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formStoolPatern"/></td>
                 </tr>
 
                 <tr>
@@ -579,9 +579,9 @@
         </td>
     </tr>
     <tr id="educationp1">
-        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgEducational"/></a><br/>
+        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgEducational"/></a><br/>
             <br/>
-            <img height="15" width="20" src="graphics/Checkmark_Lwhite.gif"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.msgEducationalLegend"/></td>
+            <img height="15" width="20" src="graphics/Checkmark_Lwhite.gif"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.msgEducationalLegend"/></td>
         <td colspan="9">
             <table id="edt1" style="font-size: 9pt;" cellpadding="0" cellspacing="0"
                    width="100%">
@@ -589,25 +589,25 @@
                     <td colspan="16">&nbsp;</td>
                 </tr>
                 <tr>
-                    <td valign="top" colspan="16"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formInjuryPrev"/></td>
+                    <td valign="top" colspan="16"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formInjuryPrev"/></td>
                 </tr>
                 <tr>
                     <td style="padding-right: 5pt" valign="top"><img height="15"
                                                                      width="20" src="graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
-                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNotDiscussed"/></td>
+                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                     <td style="padding-right: 5pt" valign="top"><img height="15"
                                                                      width="20" src="graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
-                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNotDiscussed"/></td>
+                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                     <td style="padding-right: 5pt" valign="top"><img height="15"
                                                                      width="20" src="graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
-                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNotDiscussed"/></td>
+                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                     <td style="padding-right: 5pt" valign="top"><img height="15"
                                                                      width="20" src="graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
-                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNotDiscussed"/></td>
+                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_carSeatOk"
@@ -620,8 +620,8 @@
                                             name="p1_carSeatNotDiscussed" onclick="onCheck(this,'p1_carSeat')"
                         <%= props.getProperty("p1_carSeatNotDiscussed", "") %>></td>
                     <td valign="top"><b><a
-                            onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                            onMouseOut="hideLayer()" href="javascript:showNotes()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formCarSeat"/></a>*</b></td>
+                            onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                            onMouseOut="hideLayer()" href="javascript:showNotes()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formCarSeat"/></a>*</b></td>
                     <td valign="top"><input type="radio" id="p1_sleepPosOk"
                                             name="p1_sleepPosOk" onclick="onCheck(this,'p1_sleepPos')"
                         <%= props.getProperty("p1_sleepPosOk", "") %>></td>
@@ -632,8 +632,8 @@
                                             name="p1_sleepPosNotDiscussed" onclick="onCheck(this,'p1_sleepPos')"
                         <%= props.getProperty("p1_sleepPosNotDiscussed", "") %>></td>
                     <td valign="top"><b><a href="javascript:showNotes()"
-                                           onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                           onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009_1.formSleepPos"/></a></b></td>
+                                           onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                           onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_1.formSleepPos"/></a></b></td>
                     <td valign="top"><input type="radio" id="p1_cribSafetyOk"
                                             name="p1_cribSafetyOk" onclick="onCheck(this,'p1_cribSafety')"
                         <%= props.getProperty("p1_cribSafetyOk", "") %>></td>
@@ -644,8 +644,8 @@
                                             name="p1_cribSafetyNotDiscussed" onclick="onCheck(this,'p1_cribSafety')"
                         <%= props.getProperty("p1_cribSafetyNotDiscussed", "") %>></td>
                     <td valign="top"><b><a href="javascript:showNotes()"
-                                           onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                           onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formCribSafety"/>*</a></b></td>
+                                           onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                           onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formCribSafety"/>*</a></b></td>
                     <td valign="top"><input type="radio" id="p1_firearmSafetyOk"
                                             name="p1_firearmSafetyOk"
                                             onclick="onCheck(this,'p1_firearmSafety')"
@@ -659,8 +659,8 @@
                                             onclick="onCheck(this,'p1_firearmSafety')"
                         <%= props.getProperty("p1_firearmSafetyNotDiscussed", "") %>></td>
                     <td valign="top"><b><a href="javascript:showNotes()"
-                                           onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                           onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formFireArm"/>*</a></b></td>
+                                           onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                           onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formFireArm"/>*</a></b></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_smokeSafetyOk"
@@ -673,8 +673,8 @@
                                             name="p1_smokeSafetyNotDiscussed" onclick="onCheck(this,'p1_smokeSafety')"
                         <%= props.getProperty("p1_smokeSafetyNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formSmokeSafety"/>*</a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formSmokeSafety"/>*</a></td>
                     <td>&nbsp;</td>
                     <td>&nbsp;</td>
                     <td>&nbsp;</td>
@@ -689,8 +689,8 @@
                                             name="p1_hotWaterNotDiscussed" onclick="onCheck(this,'p1_hotWater')"
                         <%= props.getProperty("p1_hotWaterNotDiscussed", "") %>></td>
                     <td valign="top"><i><a href="javascript:showNotes()"
-                                           onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                           onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formHotWater"/>*</a></i></td>
+                                           onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                           onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formHotWater"/>*</a></i></td>
                     <td valign="top"><input type="radio" id="p1_safeToysOk"
                                             name="p1_safeToysOk" onclick="onCheck(this,'p1_safeToys')"
                         <%= props.getProperty("p1_safeToysOk", "") %>></td>
@@ -701,8 +701,8 @@
                                             name="p1_safeToysNotDiscussed" onclick="onCheck(this,'p1_safeToys')"
                         <%= props.getProperty("p1_safeToysNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formSafeToys"/>*</a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formSafeToys"/>*</a></td>
                 </tr>
 
                 <!-- </table>
@@ -713,7 +713,7 @@
                     <td colspan="16">&nbsp;</td>
                 </tr>
                 <tr>
-                    <td valign="top" colspan="16"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formBehaviour"/></td>
+                    <td valign="top" colspan="16"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formBehaviour"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_sleepCryOk"
@@ -726,8 +726,8 @@
                                             name="p1_sleepCryNotDiscussed" onclick="onCheck(this,'p1_sleepCry')"
                         <%= props.getProperty("p1_sleepCryNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote2"/>')"
-                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formsleepCry"/>**</a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote2"/>')"
+                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formsleepCry"/>**</a></td>
                     <td valign="top"><input type="radio" id="p1_soothabilityOk"
                                             name="p1_soothabilityOk" onclick="onCheck(this,'p1_soothability')"
                         <%= props.getProperty("p1_soothabilityOk", "") %>></td>
@@ -737,7 +737,7 @@
                     <td valign="top"><input type="radio" id="p1_soothabilityNotDiscussed"
                                             name="p1_soothabilityNotDiscussed" onclick="onCheck(this,'p1_soothability')"
                         <%= props.getProperty("p1_soothabilityNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formSoothability"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formSoothability"/></td>
                     <td valign="top"><input type="radio" id="p1_homeVisitOk"
                                             name="p1_homeVisitOk" onclick="onCheck(this,'p1_homeVisit')"
                         <%= props.getProperty("p1_homeVisitOk", "") %>></td>
@@ -749,8 +749,8 @@
                         <%= props.getProperty("p1_homeVisitNotDiscussed", "") %>></td>
                     <td colspan="5" valign="top"><b><a
                             href="javascript:showNotes()"
-                            onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote2"/>')"
-                            onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formHomeVisit"/>**</a></b></td>
+                            onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote2"/>')"
+                            onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formHomeVisit"/>**</a></b></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_bondingOk"
@@ -762,7 +762,7 @@
                     <td valign="top"><input type="radio" id="p1_bondingNotDiscussed"
                                             name="p1_bondingNotDiscussed" onclick="onCheck(this,'p1_bonding')"
                         <%= props.getProperty("p1_bondingNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formBonding"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formBonding"/></td>
                     <td valign="top"><input type="radio" id="p1_pFatigueOk"
                                             name="p1_pFatigueOk" onclick="onCheck(this,'p1_pFatigue')"
                         <%= props.getProperty("p1_pFatigueOk", "") %>></td>
@@ -773,8 +773,8 @@
                                             name="p1_pFatigueNotDiscussed" onclick="onCheck(this,'p1_pFatigue')"
                         <%= props.getProperty("p1_pFatigueNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote2"/>')"
-                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formParentFatigue"/>**</a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote2"/>')"
+                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formParentFatigue"/>**</a></td>
                     <td valign="top"><input type="radio" id="p1_famConflictOk"
                                             name="p1_famConflictOk" onclick="onCheck(this,'p1_famConflict')"
                         <%= props.getProperty("p1_famConflictOk", "") %>></td>
@@ -784,7 +784,7 @@
                     <td valign="top"><input type="radio" id="p1_famConflictNotDiscussed"
                                             name="p1_famConflictNotDiscussed" onclick="onCheck(this,'p1_famConflict')"
                         <%= props.getProperty("p1_famConflictNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formFamConflict"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formFamConflict"/></td>
                     <td valign="top"><input type="radio" id="p1_siblingsOk"
                                             name="p1_siblingsOk" onclick="onCheck(this,'p1_siblings')"
                         <%= props.getProperty("p1_siblingsOk", "") %>></td>
@@ -794,7 +794,7 @@
                     <td valign="top"><input type="radio" id="p1_siblingsNotDiscussed"
                                             name="p1_siblingsNotDiscussed" onclick="onCheck(this,'p1_siblings')"
                         <%= props.getProperty("p1_siblingsNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formSiblings"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formSiblings"/></td>
                 </tr>
                 <!-- </table>
           <br/>
@@ -804,7 +804,7 @@
                     <td colspan="16">&nbsp;</td>
                 </tr>
                 <tr>
-                    <td valign="top" colspan="16"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formOtherIssues"/></td>
+                    <td valign="top" colspan="16"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formOtherIssues"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_2ndSmokeOk"
@@ -817,8 +817,8 @@
                                             name="p1_2ndSmokeNotDiscussed" onclick="onCheck(this,'p1_2ndSmoke')"
                         <%= props.getProperty("p1_2ndSmokeNotDiscussed", "") %>></td>
                     <td valign="top"><b><a href="javascript:showNotes()"
-                                           onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                           onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formSecondHandSmoke"/>*</a></b></td>
+                                           onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                           onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSecondHandSmoke"/>*</a></b></td>
                     <td valign="top"><input type="radio" id="p1_altMedOk"
                                             name="p1_altMedOk" onclick="onCheck(this,'p1_altMed')"
                         <%= props.getProperty("p1_altMedOk", "") %>></td>
@@ -829,8 +829,8 @@
                                             name="p1_altMedNotDiscussed" onclick="onCheck(this,'p1_altMed')"
                         <%= props.getProperty("p1_altMedNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formAltMed"/>*</a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formAltMed"/>*</a></td>
                     <td valign="top"><input type="radio" id="p1_pacifierOk"
                                             name="p1_pacifierOk" onclick="onCheck(this,'p1_pacifier')"
                         <%= props.getProperty("p1_pacifierOk", "") %>></td>
@@ -842,8 +842,8 @@
                         <%= props.getProperty("p1_pacifierNotDiscussed", "") %>></td>
                     <td colspan="5" valign="top"><b><a
                             href="javascript:showNotes()"
-                            onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                            onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formPacifierUse"/>*</a></b></td>
+                            onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                            onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formPacifierUse"/>*</a></b></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_feverOk"
@@ -856,8 +856,8 @@
                                             name="p1_feverNotDiscussed" onclick="onCheck(this,'p1_fever')"
                         <%= props.getProperty("p1_feverNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formFever"/>*</a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formFever"/>*</a></td>
                     <td valign="top"><input type="radio" id="p1_tmpControlOk"
                                             name="p1_tmpControlOk" onclick="onCheck(this,'p1_tmpControl')"
                         <%= props.getProperty("p1_tmpControlOk", "") %>></td>
@@ -868,8 +868,8 @@
                                             name="p1_tmpControlNotDiscussed" onclick="onCheck(this,'p1_tmpControl')"
                         <%= props.getProperty("p1_tmpControlNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formTempCtrl"/>*</a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formTempCtrl"/>*</a></td>
                     <td valign="top"><input type="radio" id="p1_sunExposureOk"
                                             name="p1_sunExposureOk" onclick="onCheck(this,'p1_sunExposure')"
                         <%= props.getProperty("p1_sunExposureOk", "") %>></td>
@@ -880,8 +880,8 @@
                                             name="p1_sunExposureNotDiscussed" onclick="onCheck(this,'p1_sunExposure')"
                         <%= props.getProperty("p1_sunExposureNotDiscussed", "") %>></td>
                     <td colspan="5" valign="top"><a href="javascript:showNotes()"
-                                                    onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                                    onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formSunExposure"/>*</a></td>
+                                                    onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                                    onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formSunExposure"/>*</a></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_noCoughMedOk"
@@ -894,8 +894,8 @@
                                             name="p1_noCoughMedNotDiscussed" onclick="onCheck(this,'p1_noCoughMed')"
                         <%= props.getProperty("p1_noCoughMedNotDiscussed", "") %>></td>
                     <td valign="top" colspan="13"><b><a href="javascript:showNotes()"
-                                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009_1.formCough"/>*</a></b></td>
+                                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_1.formCough"/>*</a></b></td>
                 </tr>
                 <tr>
                     <td colspan="16" style="vertical-align:bottom;">
@@ -908,9 +908,9 @@
         </td>
     </tr>
     <tr id="developmentp1">
-        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.msgDevelopment"/>**</a><br>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009_1.msgDevelopmentDesc"/><br/>
-            <img height="15" width="20" src="graphics/Checkmark_Lwhite.gif"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.msgDevelopmentLegend"/></td>
+        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.msgDevelopment"/>**</a><br>
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_1.msgDevelopmentDesc"/><br/>
+            <img height="15" width="20" src="graphics/Checkmark_Lwhite.gif"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.msgDevelopmentLegend"/></td>
         <td colspan="3" align="center">
             <table id="dt11" cellpadding="0" cellspacing="0" width="100%">
                 <tr align="center">
@@ -927,7 +927,7 @@
                     <td style="padding-right: 5pt" valign="top"><img height="15"
                                                                      width="20" src="graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
-                    <td class="edcol" valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNotDiscussed"/></td>
+                    <td class="edcol" valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_sucks2wOk"
@@ -938,7 +938,7 @@
                         <%= props.getProperty("p1_sucks2wNo", "")%>></td>
                     <td><input type="radio" id="p1_sucks2wNotDiscussed" name="p1_sucks2wNotDiscussed"
                                onclick="onCheck(this,'p1_sucks2w')"
-                        <%= props.getProperty("p1_sucks2wNotDiscussed", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formSucksWell"/></td>
+                        <%= props.getProperty("p1_sucks2wNotDiscussed", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSucksWell"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio"
@@ -952,7 +952,7 @@
                     <td><input type="radio" id="p1_noParentsConcerns2wNotDiscussed"
                                name="p1_noParentsConcerns2wNotDiscussed"
                                onclick="onCheck(this,'p1_noParentsConcerns2w')"
-                        <%= props.getProperty("p1_noParentsConcerns2wNotDiscussed", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formNoparentConcerns"/></td>
+                        <%= props.getProperty("p1_noParentsConcerns2wNotDiscussed", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formNoparentConcerns"/></td>
                 </tr>
                 <tr align="center">
                     <td colspan="3" style="vertical-align:bottom;"><textarea id="p1_development2w"
@@ -968,7 +968,7 @@
                     <td style="padding-right: 5pt" valign="top"><img height="15"
                                                                      width="20" src="graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
-                    <td class="edcol" valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNotDiscussed"/></td>
+                    <td class="edcol" valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_focusGaze1mOk"
@@ -979,7 +979,7 @@
                         <%= props.getProperty("p1_focusGaze1mNo", "") %>></td>
                     <td><input type="radio" id="p1_focusGaze1mNotDiscussed"
                                name="p1_focusGaze1mNotDiscussed" onclick="onCheck(this,'p1_focusGaze1m')"
-                        <%= props.getProperty("p1_focusGaze1mNotDiscussed", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formFocusesGaze"/></td>
+                        <%= props.getProperty("p1_focusGaze1mNotDiscussed", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFocusesGaze"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_startles1mOk"
@@ -990,7 +990,7 @@
                         <%= props.getProperty("p1_startles1mNo", "") %>></td>
                     <td><input type="radio" id="p1_startles1mNotDiscussed"
                                name="p1_startles1mNotDiscussed" onclick="onCheck(this,'p1_startles1m')"
-                        <%= props.getProperty("p1_startles1mNotDiscussed", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formSuddenNoise"/></td>
+                        <%= props.getProperty("p1_startles1mNotDiscussed", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSuddenNoise"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_calms1mOk"
@@ -1001,7 +1001,7 @@
                         <%= props.getProperty("p1_calms1mNo", "") %>></td>
                     <td><input type="radio" id="p1_calms1mNotDiscussed"
                                name="p1_calms1mNotDiscussed" onclick="onCheck(this,'p1_calms1m')"
-                        <%= props.getProperty("p1_calms1mNotDiscussed", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009_1.formCalmes"/></td>
+                        <%= props.getProperty("p1_calms1mNotDiscussed", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_1.formCalmes"/></td>
                 </tr>
 
                 <tr>
@@ -1013,7 +1013,7 @@
                         <%= props.getProperty("p1_sucks1mNo", "") %>></td>
                     <td><input type="radio" id="p1_sucks1mNotDiscussed" name="p1_sucks1mNotDiscussed"
                                onclick="onCheck(this,'p1_sucks1m')"
-                        <%= props.getProperty("p1_sucks1mNotDiscussed", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formSucksWell"/></td>
+                        <%= props.getProperty("p1_sucks1mNotDiscussed", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSucksWell"/></td>
                 </tr>
 
                 <tr>
@@ -1028,7 +1028,7 @@
                     <td><input type="radio" id="p1_noParentsConcerns1mNotDiscussed"
                                name="p1_noParentsConcerns1mNotDiscussed"
                                onclick="onCheck(this,'p1_noParentsConcerns1m')"
-                        <%= props.getProperty("p1_noParentsConcerns1mNotDiscussed", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formNoparentConcerns"/></td>
+                        <%= props.getProperty("p1_noParentsConcerns1mNotDiscussed", "") %>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formNoparentConcerns"/></td>
                 </tr>
 
                 <tr align="center">
@@ -1042,10 +1042,10 @@
         </td>
     </tr>
     <tr id="physicalExamp1">
-        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgPhysicalExamination"/></a><br>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgPhysicalExaminationDesc"/><br>
+        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgPhysicalExamination"/></a><br>
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgPhysicalExaminationDesc"/><br>
             <img height="15" width="20" src="graphics/Checkmark_Lwhite.gif">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.msgPhysicalExaminationLegend"/>
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.msgPhysicalExaminationLegend"/>
 
         </td>
         <td colspan="3">
@@ -1057,7 +1057,7 @@
                     <td style="padding-right: 5pt" valign="top"><img height="15"
                                                                      width="20" src="graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
-                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNotDiscussed"/></td>
+                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_skin1wOk"
@@ -1069,7 +1069,7 @@
                     <td valign="top"><input type="radio" id="p1_skin1wNotDiscussed"
                                             name="p1_skin1wNotDiscussed" onclick="onCheck(this,'p1_skin1w')"
                         <%= props.getProperty("p1_skin1wNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formDrySkin"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formDrySkin"/></td>
                 </tr>
 
                 <tr>
@@ -1083,7 +1083,7 @@
                                             name="p1_fontanelles1wNotDiscussed"
                                             onclick="onCheck(this,'p1_fontanelles1w')"
                         <%= props.getProperty("p1_fontanelles1wNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formFontanelles"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFontanelles"/></td>
                 </tr>
 
                 <tr>
@@ -1097,8 +1097,8 @@
                                             name="p1_eyes1wNotDiscussed" onclick="onCheck(this,'p1_eyes1w')"
                         <%= props.getProperty("p1_eyes1wNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formRedReflex"/>*</a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formRedReflex"/>*</a></td>
                 </tr>
 
                 <tr>
@@ -1112,8 +1112,8 @@
                                             name="p1_ears1wNotDiscussed" onclick="onCheck(this,'p1_ears1w')"
                         <%= props.getProperty("p1_ears1wNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formEarDrums"/>*</i></a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formEarDrums"/>*</i></a></td>
                 </tr>
 
                 <tr>
@@ -1126,7 +1126,7 @@
                     <td valign="top"><input type="radio" id="p1_heartLungs1wNotDiscussed"
                                             name="p1_heartLungs1wNotDiscussed" onclick="onCheck(this,'p1_heartLungs1w')"
                         <%= props.getProperty("p1_heartLungs1wNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formHeart"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHeart"/></td>
                 </tr>
 
                 <tr>
@@ -1139,7 +1139,7 @@
                     <td valign="top"><input type="radio" id="p1_umbilicus1wNotDiscussed"
                                             name="p1_umbilicus1wNotDiscussed" onclick="onCheck(this,'p1_umbilicus1w')"
                         <%= props.getProperty("p1_umbilicus1wNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formUmbilicus"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formUmbilicus"/></td>
                 </tr>
 
                 <tr>
@@ -1153,7 +1153,7 @@
                                             name="p1_femoralPulses1wNotDiscussed"
                                             onclick="onCheck(this,'p1_femoralPulses1w')"
                         <%= props.getProperty("p1_femoralPulses1wNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formFemoralPulses"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFemoralPulses"/></td>
                 </tr>
 
                 <tr>
@@ -1167,8 +1167,8 @@
                                             name="p1_hips1wNotDiscussed" onclick="onCheck(this,'p1_hips1w')"
                         <%= props.getProperty("p1_hips1wNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formHips"/>*</a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formHips"/>*</a></td>
                 </tr>
 
                 <tr>
@@ -1182,8 +1182,8 @@
                                             name="p1_muscleTone1wNotDiscussed" onclick="onCheck(this,'p1_muscleTone1w')"
                         <%= props.getProperty("p1_muscleTone1wNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formMuscleTone"/>*</a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formMuscleTone"/>*</a></td>
                 </tr>
 
                 <tr>
@@ -1196,7 +1196,7 @@
                     <td valign="top"><input type="radio" id="p1_testicles1wNotDiscussed"
                                             name="p1_testicles1wNotDiscussed" onclick="onCheck(this,'p1_testicles1w')"
                         <%= props.getProperty("p1_testicles1wNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formTescicles"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formTescicles"/></td>
                 </tr>
 
                 <tr>
@@ -1210,7 +1210,7 @@
                                             name="p1_maleUrinary1wNotDiscussed"
                                             onclick="onCheck(this,'p1_maleUrinary1w')"
                         <%= props.getProperty("p1_maleUrinary1wNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formMaleUrinaryStream"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formMaleUrinaryStream"/></td>
                 </tr>
 
                 <tr>
@@ -1232,7 +1232,7 @@
                     <td style="padding-right: 5pt" valign="top"><img height="15"
                                                                      width="20" src="graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
-                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNotDiscussed"/></td>
+                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_skin2wOk"
@@ -1244,7 +1244,7 @@
                     <td valign="top"><input type="radio" id="p1_skin2wNotDiscussed"
                                             name="p1_skin2wNotDiscussed" onclick="onCheck(this,'p1_skin2w')"
                         <%= props.getProperty("p1_skin2wNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formDrySkin"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formDrySkin"/></td>
                 </tr>
 
                 <tr>
@@ -1258,7 +1258,7 @@
                                             name="p1_fontanelles2wNotDiscussed"
                                             onclick="onCheck(this,'p1_fontanelles2w')"
                         <%= props.getProperty("p1_fontanelles2wNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formFontanelles"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFontanelles"/></td>
                 </tr>
 
                 <tr>
@@ -1272,8 +1272,8 @@
                                             name="p1_eyes2wNotDiscussed" onclick="onCheck(this,'p1_eyes2w')"
                         <%= props.getProperty("p1_eyes2wNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formRedReflex"/>*</a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formRedReflex"/>*</a></td>
                 </tr>
 
                 <tr>
@@ -1287,8 +1287,8 @@
                                             name="p1_ears2wNotDiscussed" onclick="onCheck(this,'p1_ears2w')"
                         <%= props.getProperty("p1_ears2wNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formEarDrums"/>*</i></a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formEarDrums"/>*</i></a></td>
                 </tr>
 
                 <tr>
@@ -1301,7 +1301,7 @@
                     <td valign="top"><input type="radio" id="p1_heartLungs2wNotDiscussed"
                                             name="p1_heartLungs2wNotDiscussed" onclick="onCheck(this,'p1_heartLungs2w')"
                         <%= props.getProperty("p1_heartLungs2wNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formHeart"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHeart"/></td>
                 </tr>
 
                 <tr>
@@ -1314,7 +1314,7 @@
                     <td valign="top"><input type="radio" id="p1_umbilicus2wNotDiscussed"
                                             name="p1_umbilicus2wNotDiscussed" onclick="onCheck(this,'p1_umbilicus2w')"
                         <%= props.getProperty("p1_umbilicus2wNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formUmbilicus"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formUmbilicus"/></td>
                 </tr>
 
                 <tr>
@@ -1328,7 +1328,7 @@
                                             name="p1_femoralPulses2wNotDiscussed"
                                             onclick="onCheck(this,'p1_femoralPulses2w')"
                         <%= props.getProperty("p1_femoralPulses2wNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formFemoralPulses"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFemoralPulses"/></td>
                 </tr>
 
                 <tr>
@@ -1342,8 +1342,8 @@
                                             name="p1_hips2wNotDiscussed" onclick="onCheck(this,'p1_hips2w')"
                         <%= props.getProperty("p1_hips2wNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formHips"/>*</a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formHips"/>*</a></td>
                 </tr>
 
                 <tr>
@@ -1357,8 +1357,8 @@
                                             name="p1_muscleTone2wNotDiscussed" onclick="onCheck(this,'p1_muscleTone2w')"
                         <%= props.getProperty("p1_muscleTone2wNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formMuscleTone"/>*</a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formMuscleTone"/>*</a></td>
                 </tr>
 
                 <tr>
@@ -1371,7 +1371,7 @@
                     <td valign="top"><input type="radio" id="p1_testicles2wNotDiscussed"
                                             name="p1_testicles2wNotDiscussed" onclick="onCheck(this,'p1_testicles2w')"
                         <%= props.getProperty("p1_testicles2wNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formTescicles"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formTescicles"/></td>
                 </tr>
 
                 <tr>
@@ -1385,7 +1385,7 @@
                                             name="p1_maleUrinary2wNotDiscussed"
                                             onclick="onCheck(this,'p1_maleUrinary2w')"
                         <%= props.getProperty("p1_maleUrinary2wNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formMaleUrinaryStream"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formMaleUrinaryStream"/></td>
                 </tr>
 
                 <tr>
@@ -1406,7 +1406,7 @@
                     <td style="padding-right: 5pt" valign="top"><img height="15"
                                                                      width="20" src="graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
-                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNotDiscussed"/></td>
+                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_skin1mOk"
@@ -1418,7 +1418,7 @@
                     <td valign="top"><input type="radio" id="p1_skin1mNotDiscussed"
                                             name="p1_skin1mNotDiscussed" onclick="onCheck(this,'p1_skin1m')"
                         <%= props.getProperty("p1_skin1mNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009_1.formSkin"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_1.formSkin"/></td>
                 </tr>
 
                 <tr>
@@ -1432,7 +1432,7 @@
                                             name="p1_fontanelles1mNotDiscussed"
                                             onclick="onCheck(this,'p1_fontanelles1m')"
                         <%= props.getProperty("p1_fontanelles1mNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formFontanelles"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFontanelles"/></td>
                 </tr>
 
                 <tr>
@@ -1446,8 +1446,8 @@
                                             name="p1_eyes1mNotDiscussed" onclick="onCheck(this,'p1_eyes1m')"
                         <%= props.getProperty("p1_eyes1mNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formRedReflex"/>*</a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formRedReflex"/>*</a></td>
                 </tr>
 
                 <tr>
@@ -1461,8 +1461,8 @@
                                             name="p1_corneal1mNotDiscussed" onclick="onCheck(this,'p1_corneal1m')"
                         <%= props.getProperty("p1_corneal1mNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formCornealReflex"/>*</a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formCornealReflex"/>*</a></td>
                 </tr>
 
                 <tr>
@@ -1476,8 +1476,8 @@
                                             name="p1_hearing1mNotDiscussed" onclick="onCheck(this,'p1_hearing1m')"
                         <%= props.getProperty("p1_hearing1mNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formHearingInquiry"/>*</i></a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formHearingInquiry"/>*</i></a></td>
                 </tr>
 
                 <tr>
@@ -1490,7 +1490,7 @@
                     <td valign="top"><input type="radio" id="p1_heart1mNotDiscussed"
                                             name="p1_heart1mNotDiscussed" onclick="onCheck(this,'p1_heart1m')"
                         <%= props.getProperty("p1_heart1mNotDiscussed", "") %>></td>
-                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formHeart1"/></td>
+                    <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHeart1"/></td>
                 </tr>
 
                 <tr>
@@ -1504,8 +1504,8 @@
                                             name="p1_hips1mNotDiscussed" onclick="onCheck(this,'p1_hips1m')"
                         <%= props.getProperty("p1_hips1mNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formHips"/>*</a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formHips"/>*</a></td>
                 </tr>
 
                 <tr>
@@ -1519,8 +1519,8 @@
                                             name="p1_muscleTone1mNotDiscussed" onclick="onCheck(this,'p1_muscleTone1m')"
                         <%= props.getProperty("p1_muscleTone1mNotDiscussed", "") %>></td>
                     <td valign="top"><a href="javascript:showNotes()"
-                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.formMuscleTone"/>*</a></td>
+                                        onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
+                                        onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.formMuscleTone"/>*</a></td>
                 </tr>
 
                 <tr>
@@ -1534,10 +1534,10 @@
         </td>
     </tr>
     <tr id="problemsPlansp1">
-        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgProblemsAndPlans"/></a>
+        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgProblemsAndPlans"/></a>
             <br>
             <img height="15" width="20" src="graphics/Checkmark_Lwhite.gif">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.msgProblemsLegend"/>
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.msgProblemsLegend"/>
         </td>
         <td colspan="3">
             <table cellpadding="0" cellspacing="0" width="100%" height="100%">
@@ -1545,7 +1545,7 @@
                     <td style="padding-right: 5pt" valign="top"><img height="15"
                                                                      width="20" src="graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
-                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.formNotDone"/></td>
+                    <td class="edcol" valign="top" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNotDone"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_pkuThyroid1wOk" name="p1_pkuThyroid1wOk"
@@ -1558,7 +1558,7 @@
                                             name="p1_pkuThyroid1wNotDiscussed"
                                             onclick="onCheck(this,'p1_pkuThyroid1w')"
                         <%= props.getProperty("p1_pkuThyroid1wNotDiscussed", "") %>></td>
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formThyroid"/></td>
+                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formThyroid"/></td>
                 </tr>
                 <tr>
                     <td valign="top"><input type="radio" id="p1_hemoScreen1wOk"
@@ -1570,7 +1570,7 @@
                     <td valign="top"><input type="radio" id="p1_hemoScreen1wNotDiscussed"
                                             name="p1_hemoScreen1wNotDiscussed" onclick="onCheck(this,'p1_hemoScreen1w')"
                         <%= props.getProperty("p1_hemoScreen1wNotDiscussed", "") %>></td>
-                    <td><b><a href="javascript:showNotes()"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formHemoglobinopathy"/></a> (if at
+                    <td><b><a href="javascript:showNotes()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHemoglobinopathy"/></a> (if at
                         risk)*</b></td>
                 </tr>
 
@@ -1594,17 +1594,17 @@
         </td>
     </tr>
     <tr id="immunizationp1">
-        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgImmunization"/></a><br>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.msgImmunizationDesc"/>
+        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgImmunization"/></a><br>
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgImmunizationDesc"/>
             <br>
             <img height="15" width="20" src="graphics/Checkmark_Lwhite.gif">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.msgProblemsLegend"/>
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.msgProblemsLegend"/>
         </td>
         <td colspan="3">
             <table id="immt11" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
-                    <td style="text-align: center" colspan="3"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.msgImmunizationColTitle"/></b><br/>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.msgImmunizationHepatitis"/>
+                    <td style="text-align: center" colspan="3"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.msgImmunizationColTitle"/></b><br/>
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.msgImmunizationHepatitis"/>
                     </td>
                 </tr>
                 <tr>
@@ -1620,7 +1620,7 @@
                     <td><input type="radio" id="p1_hepatitisVaccine1wNo"
                                name="p1_hepatitisVaccine1wNo" onclick="onCheck(this,'p1_hepatitisVaccine1w')"
                         <%= props.getProperty("p1_hepatitisVaccine1wNo", "") %>></td>
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.msgImmunizationHepatitisVaccine"/></td>
+                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.msgImmunizationHepatitisVaccine"/></td>
                 </tr>
 
                 <tr>
@@ -1635,7 +1635,7 @@
         <td colspan="3">
             <table id="immt12" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
-                    <td style="text-align: center"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.msgImmunizationColTitle"/></b></td>
+                    <td style="text-align: center"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.msgImmunizationColTitle"/></b></td>
                 </tr>
                 <tr>
                     <td style="vertical-align:bottom;">
@@ -1649,8 +1649,8 @@
         <td colspan="3">
             <table id="immt13" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
-                    <td style="text-align: center" colspan="3"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.msgImmunizationColTitle"/></b><br/>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.msgImmunizationHepatitis"/>
+                    <td style="text-align: center" colspan="3"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.msgImmunizationColTitle"/></b><br/>
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.msgImmunizationHepatitis"/>
                     </td>
                 </tr>
                 <tr>
@@ -1666,7 +1666,7 @@
                     <td><input type="radio" id="p1_hepatitisVaccine1mNo"
                                name="p1_hepatitisVaccine1mNo" onclick="onCheck(this,'p1_hepatitisVaccine1mNo')"
                         <%= props.getProperty("p1_hepatitisVaccine1mNo", "") %>></td>
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006_1.msgImmunizationHepatitisVaccine"/></td>
+                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.msgImmunizationHepatitisVaccine"/></td>
                 </tr>
 
                 <tr>
@@ -1680,7 +1680,7 @@
         </td>
     </tr>
     <tr>
-        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.formSignature"/></a></td>
+        <td class="column"><a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSignature"/></a></td>
         <td colspan="3"><input type="text" class="wide"
                                style="width: 100%" name="p1_signature1w"
                                value="<%= props.getProperty("p1_signature1w", "") %>"/></td>
@@ -1697,14 +1697,14 @@
 <table cellpadding="0" cellspacing="0" class="Header" class="hidePrint">
     <tr>
         <td nowrap="true"><input type="submit"
-                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.btnSave"/>"
+                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnSave"/>"
                                  onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.btnSaveExit"/>"
+                                                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnSaveExit"/>"
                                                                                 onclick="javascript:return onSaveExit();"/>
             <input type="submit"
-                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.btnExit"/>"
+                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnExit"/>"
                    onclick="javascript:return onExit();"> <input type="submit"
-                                                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.btnPrint"/>"
+                                                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnPrint"/>"
                                                                  onclick="javascript:return onPrint();"/> <input
                     type="button"
                     value="About"
@@ -1722,16 +1722,16 @@
         <td align="center">
             <% if (formId > 0) { %> <a name="length" href="#"
                                        onclick="onGraph('<%=request.getContextPath()%>/form/formname.do?submit=graph&form_class=Rourke2009&__title=Baby+Growth+Graph1&__cfgfile=<%=growthCharts[0]%>&demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>','<%= "growth1" + demoNo %>');return false;">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.btnGraphLenghtWeight"/></a><br>
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnGraphLenghtWeight"/></a><br>
             <a name="headCirc" href="#"
                onclick="onGraph('<%=request.getContextPath()%>/form/formname.do?submit=graph&form_class=Rourke2009&__title=Baby+Head+Circumference&__cfgfile=<%=growthCharts[1]%>&demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>','<%= "growth2" + demoNo %>');return false;">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke1.btnGraphHead"/></a> <% } else { %>
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnGraphHead"/></a> <% } else { %>
             &nbsp; <% } %>
         </td>
 
     </tr>
 </table>
-<p style="font-size: 8pt;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2009.footer"/><br/>
+<p style="font-size: 8pt;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.footer"/><br/>
 </p>
 
 

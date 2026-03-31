@@ -28,7 +28,24 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    ChartNotes.jsp — Renders the clinical notes panel inside the encounter page.
 
+    Loaded via jsp:include from newCaseManagementView.jsp. Displays filtered and
+    sorted clinical notes for a patient, with inline editing, issue assignment,
+    and template insertion.
+
+    The 1 MB buffer (page directive + response.setBufferSize) prevents Tomcat 11
+    from truncating large AJAX forward responses. Without it, the
+    CsrfGuardScriptInjectionFilter's CaptureResponseWrapper can overflow the
+    default 8 KB JSP buffer during forward dispatch, causing silent truncation
+    of the notes HTML.
+
+    @since 2006-01-01
+--%>
+
+<%@page buffer="1024kb" %>
+<% response.setBufferSize(1024 * 1024); %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
@@ -58,7 +75,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -93,7 +110,7 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
     String demoNo = request.getParameter("demographicNo");
-    String privateConsentEnabledProperty = OscarProperties.getInstance().getProperty("privateConsentEnabled");
+    String privateConsentEnabledProperty = CarlosProperties.getInstance().getProperty("privateConsentEnabled");
     boolean privateConsentEnabled = privateConsentEnabledProperty != null && privateConsentEnabledProperty.equals("true");
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     Demographic demographic = demographicManager.getDemographic(loggedInInfo, Integer.parseInt(demoNo));
@@ -107,7 +124,7 @@
     ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
 
     boolean showConsentsThisTime = false;
-    String[] privateConsentPrograms = OscarProperties.getInstance().getProperty("privateConsentPrograms", "").split(",");
+    String[] privateConsentPrograms = CarlosProperties.getInstance().getProperty("privateConsentPrograms", "").split(",");
     ProgramProvider pp = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
     if (pp != null) {
         for (int x = 0; x < privateConsentPrograms.length; x++) {
@@ -154,10 +171,10 @@
 <script src="<c:out value="${ctx}"/>/share/javascript/carlos-ajax.js" type="text/javascript"></script>
 <!-- vanilla JS autocomplete select box (replaces Scriptaculous Autocompleter.SelectBox) -->
 <script src="<c:out value="${ctx}"/>/share/javascript/select.js" type="text/javascript"></script>
-<script type="text/javascript" src="<c:out value="${ctx}/js/newCaseManagementView.js.jsp"/>"></script>
+<script type="text/javascript" src="<c:out value="${ctx}/js/newCaseManagementView.js.jsp"/>?v=<%= System.currentTimeMillis() %>"></script>
 <script type="text/javascript">
     ctx = "<c:out value="${ctx}"/>";
-    imgPrintgreen.src = ctx + "/oscarEncounter/graphics/printerGreen.png"; //preload green print image so firefox will update properly
+    imgPrintgreen.src = ctx + "/encounter/graphics/printerGreen.png"; //preload green print image so firefox will update properly
     providerNo = "<%=provNo%>";
     demographicNo = "<%=demographicNo%>";
     case_program_id = "<%=pId%>";
@@ -167,7 +184,7 @@
     </caisi:isModuleLoad>
 
     <%
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     String requireIssue = props.getProperty("caisi.require_issue","true");
     if(requireIssue != null && requireIssue.equals("false")) {
     //require issue is false%>
@@ -184,7 +201,7 @@
 
     strToday = "<%=strToday%>";
 
-    notesIncrement = parseInt("<%=OscarProperties.getInstance().getProperty("num_loaded_notes", "20") %>");
+    notesIncrement = parseInt("<%=CarlosProperties.getInstance().getProperty("num_loaded_notes", "20") %>");
 
     jQuery(document).ready(function () {
         notesLoader(0, notesIncrement, demographicNo);
@@ -213,7 +230,7 @@
         <div id="filteredresults">
             <c:if test="${not empty caseManagementViewForm.filter_providers}">
                 <fieldset class="filterresult">
-                    <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.providers.title"/></legend>
+                    <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.providers.title"/></legend>
                     <c:forEach var="filter_provider" items="${caseManagementViewForm.filter_providers}" varStatus="status">
                         <c:choose>
                             <c:when test="${filter_provider == 'a'}">All</c:when>
@@ -231,7 +248,7 @@
         
             <c:if test="${not empty caseManagementViewForm.filter_roles}">
                 <fieldset class="filterresult">
-                    <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.roles.title"/></legend>
+                    <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.roles.title"/></legend>
                     <c:forEach var="filter_role" items="${caseManagementViewForm.filter_roles}" varStatus="status">
                         <c:choose>
                             <c:when test="${filter_role == 'a'}">All</c:when>
@@ -249,14 +266,14 @@
         
             <c:if test="${not empty caseManagementViewForm.note_sort}">
                 <fieldset class="filterresult">
-                    <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.sort.title"/></legend>
+                    <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.sort.title"/></legend>
                     ${caseManagementViewForm.note_sort}<br>
                 </fieldset>
             </c:if>
         
             <c:if test="${not empty caseManagementViewForm.issues}">
                 <fieldset class="filterresult">
-                    <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.issues.title"/></legend>
+                    <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.issues.title"/></legend>
                     <c:forEach var="filter_issue" items="${caseManagementViewForm.issues}" varStatus="status">
                         <c:choose>
                             <c:when test="${filter_issue == 'a'}">All</c:when>
@@ -275,22 +292,22 @@
         </div>        
         <div id="filter" style="display:none;margin-top: 5px; margin-left: 5px;margin-right: 5px;">
             <input type="button" value="Hide" onclick="return filter(false);"/>
-            <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.resetFilter.title"/>"
+            <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.resetFilter.title"/>"
                    onclick="return filter(true);"/>
 
             <table style="border-collapse:collapse;width:100%;">
                 <tr>
                     <th>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.providers.title"/>
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.providers.title"/>
                     </th>
                     <th>
                         Role
                     </th>
                     <th>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.sort.title"/>
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.sort.title"/>
                     </th>
                     <th>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.issues.title"/>
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.issues.title"/>
                     </th>
                 </tr>
                 <tr>
@@ -299,7 +316,7 @@
                             <ul style="padding:0;margin:0;list-style:none inside none">
                                 <li>
                                     <input type="checkbox" name="filter_providers" value="a" onclick="filterCheckBox(this)" />
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.sortAll.title"/>
+                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.sortAll.title"/>
                                 </li>
                                 <%
                                     @SuppressWarnings("unchecked")
@@ -326,7 +343,7 @@
                             <ul style="padding:0;margin:0;list-style:none inside none">
                                 <li>
                                     <input type="checkbox" name="filter_roles" value="a" onclick="filterCheckBox(this)" />
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.sortAll.title"/>
+                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.sortAll.title"/>
                                 </li>
                                 <%
                                     @SuppressWarnings("unchecked")
@@ -348,19 +365,19 @@
                         <div style="height:150px;overflow:auto">
                             <ul style="padding:0;margin:0;list-style:none inside none">
                                 <li><input type="radio" name="note_sort" value="observation_date_asc"/>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.sortDateAsc.title"/>
+                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.sortDateAsc.title"/>
                                 </li>
                                 <li><input type="radio" name="note_sort" value="observation_date_desc"/>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.sortDateDesc.title"/>
+                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.sortDateDesc.title"/>
                                 </li>
                                 <li><input type="radio" name="note_sort" value="providerName"/>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.provider.title"/>
+                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.provider.title"/>
                                 </li>
                                 <li><input type="radio" name="note_sort" value="programName"/>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.program.title"/>
+                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.program.title"/>
                                 </li>
                                 <li><input type="radio" name="note_sort" value="roleName"/>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.role.title"/>
+                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.role.title"/>
                                 </li>
                             </ul>
                         </div>
@@ -370,7 +387,7 @@
                             <ul style="padding:0;margin:0;list-style:none inside none">
                                 <li>
                                     <input type="checkbox" name="issues" value="a" onclick="filterCheckBox(this)" />
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.sortAll.title"/>
+                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.sortAll.title"/>
                                 </li>
                                 <li>
                                     <input type="checkbox" name="issues" value="n" onclick="filterCheckBox(this)" />None
@@ -425,8 +442,8 @@
             <fieldset>
                 <legend>Template Search</legend>
 
-                <img alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.msgFind"/>"
-                     src="<c:out value="${ctx}/oscarEncounter/graphics/edit-find.png"/>">
+                <img alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.msgFind"/>"
+                     src="<c:out value="${ctx}/encounter/graphics/edit-find.png"/>">
                 <input id="enTemplate" placeholder="template name" tabindex="6" size="16" type="text" value=""
                        onkeypress="return grabEnterGetTemplate(event)">
 
@@ -487,7 +504,7 @@
     <input type="hidden" name="appointmentDate" value="<%=apptDate%>"/>
     <input type="hidden" name="start_time" value="<%=startTime%>"/>
     <input type="hidden" name="billRegion"
-                 value="<%=(OscarProperties.getInstance().getProperty("billregion","")).trim().toUpperCase()%>"/>
+                 value="<%=(CarlosProperties.getInstance().getProperty("billregion","")).trim().toUpperCase()%>"/>
     <input type="hidden" name="apptProvider" value="<%=apptProv%>"/>
     <input type="hidden" name="providerview" value="<%=provView%>"/>
     <input type="hidden" name="toBill" id="toBill" value="false">
@@ -547,66 +564,70 @@
             <div id="form-control-panel">
                 <div id="save-sign-bill-buttons">
                     <button type="button" onclick="pasteTimer()" id="aTimer"
-                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.pasteTimer"/>">00:00
+                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.pasteTimer"/>">00:00
                     </button>
                     <button type="button" id="toggleTimer" onclick="toggleATimer(this)"
-                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.toggleTimer"/>'>
+                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.toggleTimer"/>'>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
                              class="bi bi-pause-fill" viewBox="0 0 16 16">
                             <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5m5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5"></path>
                         </svg>
                     </button>
                     <%
-
-                        if (facility.isEnableGroupNotes()) {
+                        try {
+                        if (facility != null && facility.isEnableGroupNotes()) {
                     %>
                     <input tabindex="16" type='image'
-                           src="<c:out value="${ctx}/oscarEncounter/graphics/group-gnote.png"/>" id="groupNoteImg"
+                           src="<c:out value="${ctx}/encounter/graphics/group-gnote.png"/>" id="groupNoteImg"
                            onclick="event.preventDefault();event.stopPropagation();return selectGroup(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
-                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnGroupNote"/>'>
+                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnGroupNote"/>'>
                     <% }
-                        if (facility.isEnablePhoneEncounter()) {
+                        if (facility != null && facility.isEnablePhoneEncounter()) {
                     %>
-                    <input tabindex="25" type='image' src="<c:out value="${ctx}/oscarEncounter/graphics/attach.png"/>"
+                    <input tabindex="25" type='image' src="<c:out value="${ctx}/encounter/graphics/attach.png"/>"
                            id="attachNoteImg"
                            onclick="event.preventDefault();event.stopPropagation();return assign(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
-                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnAttachNote"/>'>
-                    <% } %>
+                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnAttachNote"/>'>
+                    <% }
+                        } catch (Exception facilityEx) {
+                            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Facility check error in ChartNotes.jsp", facilityEx);
+                        }
+                    %>
                     <input tabindex="17" type='image'
-                           src="<c:out value="${ctx}/oscarEncounter/graphics/media-floppy.png"/>" id="saveImg"
+                           src="<c:out value="${ctx}/encounter/graphics/media-floppy.png"/>" id="saveImg"
                            onclick="event.preventDefault();event.stopPropagation();return saveNoteAjax('save', 'list');"
-                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnSave"/>'>
+                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnSave"/>'>
                     <input tabindex="18" type='image'
-                           src="<c:out value="${ctx}/oscarEncounter/graphics/document-new.png"/>" id="newNoteImg"
+                           src="<c:out value="${ctx}/encounter/graphics/document-new.png"/>" id="newNoteImg"
                            onclick="newNote(event); return false;"
-                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnNew"/>'>
+                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnNew"/>'>
                     <input tabindex="19" type='image'
-                           src="<c:out value="${ctx}/oscarEncounter/graphics/note-save.png"/>" id="signSaveImg"
+                           src="<c:out value="${ctx}/encounter/graphics/note-save.png"/>" id="signSaveImg"
                            onclick="document.forms['caseManagementEntryForm'].sign.value='on';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
-                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnSignSave"/>'>
+                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnSignSave"/>'>
                     <input tabindex="20" type='image'
-                           src="<c:out value="${ctx}/oscarEncounter/graphics/verify-sign.png"/>" id="signVerifyImg"
+                           src="<c:out value="${ctx}/encounter/graphics/verify-sign.png"/>" id="signVerifyImg"
                            onclick="document.forms['caseManagementEntryForm'].sign.value='on';document.forms['caseManagementEntryForm'].verify.value='on';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
-                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnSign"/>'>
+                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnSign"/>'>
                     <%
                         if (bean.source == null) {
                     %>
                     <input tabindex="21" type='image'
-                           src="<c:out value="${ctx}/oscarEncounter/graphics/dollar-sign-icon.png"/>"
+                           src="<c:out value="${ctx}/encounter/graphics/dollar-sign-icon.png"/>"
                            onclick="document.forms['caseManagementEntryForm'].sign.value='on';document.forms['caseManagementEntryForm'].toBill.value='true';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
-                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnBill"/>'>
+                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnBill"/>'>
                     <%
                         }
                     %>
 
 
                     <input tabindex="23" type='image'
-                           src="<c:out value="${ctx}/oscarEncounter/graphics/system-log-out.png"/>"
+                           src="<c:out value="${ctx}/encounter/graphics/system-log-out.png"/>"
                            onclick='closeEnc(event);return false;' title='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>'>
                     <input tabindex="24" type='image'
-                           src="<c:out value="${ctx}/oscarEncounter/graphics/document-print.png"/>"
+                           src="<c:out value="${ctx}/encounter/graphics/document-print.png"/>"
                            onclick="return printSetup(event);"
-                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnPrint"/>' id="imgPrintEncounter">
+                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnPrint"/>' id="imgPrintEncounter">
             </div>
                 </div>
         </div>
@@ -614,10 +635,10 @@
             <div id="note-control-panel">
                 <button type="button"
                         onclick="popupPage(500,200,'noteBrowser<%=bean.demographicNo%>','casemgmt/noteBrowser.jsp?demographic_no=<%=bean.demographicNo%>&FirstTime=1');">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.BrowseNotes"/></button>
-                <button type="button" onclick="notesLoadAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnLoadAllNotes"/></button>
-                <button type="button" onclick="toggleFullViewForAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btneExpandLoadedNotes"/></button>
-                <button type="button" onclick="toggleCollapseViewForAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnCollapseLoadedNotes"/></button>
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.BrowseNotes"/></button>
+                <button type="button" onclick="notesLoadAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnLoadAllNotes"/></button>
+                <button type="button" onclick="toggleFullViewForAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btneExpandLoadedNotes"/></button>
+                <button type="button" onclick="toggleCollapseViewForAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnCollapseLoadedNotes"/></button>
             </div>
         </div>
     </div>
@@ -663,6 +684,9 @@
 <%
     } catch (Exception e) {
         MiscUtils.getLogger().error("Unexpected error.", e);
+    }
+    try { out.flush(); } catch (java.io.IOException flushEx) {
+        MiscUtils.getLogger().debug("Failed to flush ChartNotes.jsp output", flushEx);
     }
 %>
 

@@ -41,8 +41,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.apache.commons.collections.OrderedMapIterator;
-import org.apache.commons.collections.map.ListOrderedMap;
+import org.apache.commons.collections4.OrderedMapIterator;
+import org.apache.commons.collections4.map.ListOrderedMap;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import org.kie.api.KieBase;
@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.Recommendation;
@@ -87,7 +87,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.TargetColour
  * <ul>
  *   <li><strong>Static DRL files</strong> - Pre-written {@code .drl} files loaded from the
  *       filesystem ({@code MEASUREMENT_DS_DIRECTORY} property) or classpath
- *       ({@code /oscar/oscarEncounter/oscarMeasurements/flowsheets/}). The filesystem path
+ *       ({@code /oscar/encounter/oscarMeasurements/flowsheets/}). The filesystem path
  *       takes priority, allowing site-specific rule customization without modifying the
  *       application. Used for both flowsheet-level rules (e.g., {@code diab.drl}) and
  *       per-item rules (e.g., {@code decisionSupport/diab-A1C.drl}).</li>
@@ -586,7 +586,7 @@ public class MeasurementFlowSheet {
      *   <li>If the {@code MEASUREMENT_DS_HTML_DIRECTORY} property is set, attempts to load
      *       the file from that filesystem directory first.</li>
      *   <li>Falls back to the classpath resource at
-     *       {@code /oscar/oscarEncounter/oscarMeasurements/flowsheets/html/}.</li>
+     *       {@code /oscar/encounter/oscarMeasurements/flowsheets/html/}.</li>
      * </ol>
      *
      * @return String the HTML content to display at the top of the flowsheet,
@@ -597,7 +597,7 @@ public class MeasurementFlowSheet {
         if (topHTMLFileName != null) {
             try {
                 // Priority 1: Check for HTML file on the filesystem (site-specific override)
-                String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_HTML_DIRECTORY");
+                String measurementDirPath = CarlosProperties.getInstance().getProperty("MEASUREMENT_DS_HTML_DIRECTORY");
                 InputStream is = null;
                 if (measurementDirPath != null) {
                     File file = PathValidationUtils.validatePath(topHTMLFileName, new File(measurementDirPath));
@@ -609,7 +609,7 @@ public class MeasurementFlowSheet {
 
                 // Priority 2: Fall back to classpath resource
                 if (is == null) {
-                    is = MeasurementFlowSheet.class.getResourceAsStream("/oscar/oscarEncounter/oscarMeasurements/flowsheets/html/" + topHTMLFileName);
+                    is = MeasurementFlowSheet.class.getResourceAsStream("/oscar/encounter/oscarMeasurements/flowsheets/html/" + topHTMLFileName);
                     log.debug("loading from stream ");
                 }
 
@@ -634,7 +634,7 @@ public class MeasurementFlowSheet {
      * <p>Uses the same filesystem-first, classpath-fallback resolution as
      * {@link #getTopHTMLStream()}, checking the {@code MEASUREMENT_DS_HTML_DIRECTORY}
      * property first, then falling back to the classpath at
-     * {@code /oscar/oscarEncounter/oscarMeasurements/flowsheets/html/}.</p>
+     * {@code /oscar/encounter/oscarMeasurements/flowsheets/html/}.</p>
      *
      * @param dsHTML String the filename of the HTML file to load
      * @return String the HTML content, or an empty string if the file cannot be found or read
@@ -645,7 +645,7 @@ public class MeasurementFlowSheet {
         BufferedReader bReader = null;
         try {
             // Priority 1: Check for HTML file on the filesystem (site-specific override)
-            String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_HTML_DIRECTORY");
+            String measurementDirPath = CarlosProperties.getInstance().getProperty("MEASUREMENT_DS_HTML_DIRECTORY");
 
             if (measurementDirPath != null) {
                 File file = PathValidationUtils.validatePath(dsHTML, new File(measurementDirPath));
@@ -657,7 +657,7 @@ public class MeasurementFlowSheet {
 
             // Priority 2: Fall back to classpath resource
             if (is == null) {
-                is = MeasurementFlowSheet.class.getResourceAsStream("/oscar/oscarEncounter/oscarMeasurements/flowsheets/html/" + dsHTML);
+                is = MeasurementFlowSheet.class.getResourceAsStream("/oscar/encounter/oscarMeasurements/flowsheets/html/" + dsHTML);
                 log.debug("loading from stream ");
             }
 
@@ -710,7 +710,7 @@ public class MeasurementFlowSheet {
 
         // Iterate all items and collect DRL rule strings from their Recommendation objects
         if (itemList != null) {
-            OrderedMapIterator iter = itemList.orderedMapIterator();
+            OrderedMapIterator iter = itemList.mapIterator();
             while (iter.hasNext()) {
                 // iter.next() returns the key and advances the iterator
                 String key = (String) iter.next();
@@ -763,7 +763,7 @@ public class MeasurementFlowSheet {
      *       clinics to customize rules without modifying the deployed application.</li>
      *   <li><strong>Classpath fallback</strong> - If the file is not found on the filesystem,
      *       it is loaded from the classpath at
-     *       {@code /oscar/oscarEncounter/oscarMeasurements/flowsheets/}.</li>
+     *       {@code /oscar/encounter/oscarMeasurements/flowsheets/}.</li>
      * </ol>
      *
      * <p>The compiled {@link KieBase} is stored in the {@link #ruleBase} field and the
@@ -778,7 +778,7 @@ public class MeasurementFlowSheet {
         try {
             boolean fileFound = false;
             // Priority 1: Check for DRL file on the filesystem (allows site-specific customization)
-            String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY");
+            String measurementDirPath = CarlosProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY");
 
             if (measurementDirPath != null) {
                 File file = PathValidationUtils.validatePath(string, new File(measurementDirPath));
@@ -793,7 +793,7 @@ public class MeasurementFlowSheet {
 
             // Priority 2: Fall back to classpath resource bundled with the application
             if (!fileFound) {
-                URL url = MeasurementFlowSheet.class.getResource("/oscar/oscarEncounter/oscarMeasurements/flowsheets/" + string);  //TODO: change this so it is configurable;
+                URL url = MeasurementFlowSheet.class.getResource("/oscar/encounter/oscarMeasurements/flowsheets/" + string);  //TODO: change this so it is configurable;
                 if (url == null) {
                     log.warn("DRL resource not found on classpath for flowsheet rule: {}", string);
                     return;

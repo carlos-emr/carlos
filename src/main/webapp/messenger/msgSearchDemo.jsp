@@ -90,7 +90,7 @@
 %>
 
 <%@ page import="java.lang.*" errorPage="/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     String demographic_no = request.getParameter("demographic_no");
     boolean firstSearch = request.getParameter("firstSearch") == null ? false : (request.getParameter("firstSearch")).equalsIgnoreCase("true") ? true : false;
@@ -103,7 +103,7 @@
 </head>
 <body
         onload="<% if ( firstSearch) { %> document.forms[0].submit() <% } %>">
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 
@@ -177,7 +177,7 @@
                             <%
                                 String searchMode = request.getParameter("search_mode");
                                 if (searchMode == null || searchMode.isEmpty()) {
-                                    searchMode = OscarProperties.getInstance().getProperty("default_search_mode", "search_name");
+                                    searchMode = CarlosProperties.getInstance().getProperty("default_search_mode", "search_name");
                                 }
                             %>
                             <input type="hidden" name="outofdomain" value="">

@@ -35,10 +35,10 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctValidatio
 import io.github.carlos_emr.carlos.messenger.util.MsgStringQuote;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
@@ -89,14 +89,14 @@ public class EctAddMeasuringInstruction2Action extends ActionSupport {
                 isValid = false;
             }
             if (!isValid) {
-                response.sendRedirect(contextPath + "/oscarEncounter/oscarMeasurements/AddMeasuringInstruction.jsp");
+                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/AddMeasuringInstruction.jsp");
                 return NONE;
             }
 
             List<MeasurementType> mts = dao.findByMeasuringInstructionAndTypeDisplayName(measuringInstrc, typeDisplayName);
             if (mts.size() > 0) {
-                addActionError(getText("error.oscarEncounter.Measurements.duplicateTypeName"));
-                response.sendRedirect(contextPath + "/oscarEncounter/oscarMeasurements/AddMeasuringInstruction.jsp");
+                addActionError(getText("error.encounter.Measurements.duplicateTypeName"));
+                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/AddMeasuringInstruction.jsp");
                 return NONE;
             }
 
@@ -118,7 +118,7 @@ public class EctAddMeasuringInstruction2Action extends ActionSupport {
                 requestId = m.getId().toString();
             }
 
-            String msg = getText("oscarEncounter.oscarMeasurements.AddMeasuringInstruction.successful", "!");
+            String msg = getText("encounter.oscarMeasurements.AddMeasuringInstruction.successful", "!");
             messages.add(msg);
             request.setAttribute("messages", messages);
 

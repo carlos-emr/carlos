@@ -140,7 +140,11 @@ public class ProgramTeamDAOImpl extends AbstractHibernateDao implements ProgramT
             throw new IllegalArgumentException();
         }
 
-        currentSession().saveOrUpdate(team);
+        if (team.getId() == null) {
+            currentSession().persist(team);
+        } else {
+            currentSession().merge(team);
+        }
 
         if (log.isDebugEnabled()) {
             log.debug("saveProgramTeam: id=" + team.getId());
@@ -163,7 +167,7 @@ public class ProgramTeamDAOImpl extends AbstractHibernateDao implements ProgramT
             throw new EmptyResultDataAccessException("No ProgramTeam found with id=" + id, 1);
         }
 
-        currentSession().delete(team);
+        currentSession().remove(team);
 
         if (log.isDebugEnabled()) {
             log.debug("deleteProgramTeam: id=" + id);

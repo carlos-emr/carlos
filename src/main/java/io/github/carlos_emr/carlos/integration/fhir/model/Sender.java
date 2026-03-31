@@ -63,7 +63,7 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
  * This Object builds a FHIR MessageSourceComponent
  * <p>
  * Future intentions of this class is for it to auto populate specific data
- * according to its environment. For instance grabbing data from the OscarProperties settings.
+ * according to its environment. For instance grabbing data from the CarlosProperties settings.
  */
 public class Sender {
 

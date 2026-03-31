@@ -1,0 +1,199 @@
+<%--
+    Copyright (c) 2007 Peter Hutten-Czapski based on OSCAR general requirements
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+--%>
+<%--
+    searchRefDocAjax.jsp
+
+    Purpose:
+        AJAX endpoint that returns a JSON array of referring doctor suggestions
+        for use with jQuery UI Autocomplete on the Ontario billing form (billingON.jsp).
+        Supports lookup by any combination of name, address, phone, or billing number.
+
+    Features:
+        - Session-protected: returns HTTP 401 if no active user session is found
+        - Simultaneously searches last name (contains), first name (contains),
+          billing/referral number (prefix), address (contains), and phone (contains)
+        - Results are merged and deduplicated by referralNo; name matches listed first
+        - Returns rich per-doctor data to support the two-row autocomplete display:
+          row 1 — last name, first name, and specialty name (human-readable) as a Bootstrap badge;
+          row 2 — street address and phone number
+        - Resolves the numeric specialtyType serviceId to its human-readable serviceDesc
+          via ConsultationServiceDao for a meaningful specialty badge
+        - Limits output to 20 items for performance
+        - All output values are JSON-encoded via Jackson ObjectMapper for spec-compliant output
+
+    Request Parameters:
+        term  (String, required) - Any fragment of: last name, first name, street address,
+                                   phone number, or billing/referral number
+
+    Response:
+        Content-Type: application/json; charset=UTF-8
+        Body: JSON array of suggestion objects, e.g.:
+              [{"value":"12345","lastName":"Smith","firstName":"John","specialtyType":"Cardiology",
+                "streetAddress":"100 King St W","phoneNumber":"416-555-0100","referralNo":"12345"}, ...]
+
+    @since 2026-03-30
+--%>
+<%@ page contentType="application/json; charset=UTF-8" trimDirectiveWhitespaces="true" %>
+<%@ page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ConsultationServices" %>
+<%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
+<%! private static final ObjectMapper SHARED_MAPPER = new ObjectMapper(); %>
+<%
+    if (session.getAttribute("user") == null) {
+        response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+        return;
+    }
+    String term = request.getParameter("term");
+    if (term == null) term = "";
+    term = term.trim();
+
+    // Build or retrieve a cached map of serviceId → serviceDesc for human-readable specialty badge display.
+    // Specialties change infrequently, so cache in application scope to avoid repeated DB lookups per keystroke.
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, String> specialtyNames =
+            (java.util.Map<String, String>) application.getAttribute("specialtyNamesCache");
+    if (specialtyNames == null) {
+        synchronized (application) {
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, String> check =
+                    (java.util.Map<String, String>) application.getAttribute("specialtyNamesCache");
+            if (check == null) {
+                java.util.Map<String, String> fresh = new java.util.HashMap<>();
+                try {
+                    ConsultationServiceDao csDao = SpringUtils.getBean(ConsultationServiceDao.class);
+                    List<ConsultationServices> allServices = csDao.findAll();
+                    if (allServices != null) {
+                        for (ConsultationServices cs : allServices) {
+                            if (cs.getServiceId() != null && cs.getServiceDesc() != null) {
+                                fresh.put(String.valueOf(cs.getServiceId()), cs.getServiceDesc());
+                            }
+                        }
+                    }
+                } catch (Exception ignore) {
+                    // Specialty lookup is best-effort; proceed without it if unavailable
+                }
+                application.setAttribute("specialtyNamesCache", fresh);
+                check = fresh;
+            }
+            specialtyNames = check;
+        }
+    }
+
+    java.util.LinkedHashMap<String, ProfessionalSpecialist> merged = new java.util.LinkedHashMap<>();
+
+    if (term.length() >= 2) {
+        ProfessionalSpecialistDao dao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
+
+        // 1. Last name contains search (also handles "Last, First" comma format)
+        List<ProfessionalSpecialist> byLastName = dao.findByFullName(term, "");
+        if (byLastName != null) {
+            for (ProfessionalSpecialist ps : byLastName) {
+                String k = ps.getReferralNo() != null && !ps.getReferralNo().isEmpty()
+                    ? ps.getReferralNo() : ps.getLastName() + "|" + ps.getFirstName();
+                merged.putIfAbsent(k, ps);
+            }
+        }
+
+        // 2. First name contains search
+        List<ProfessionalSpecialist> byFirstName = dao.findByFullName("", term);
+        if (byFirstName != null) {
+            for (ProfessionalSpecialist ps : byFirstName) {
+                String k = ps.getReferralNo() != null && !ps.getReferralNo().isEmpty()
+                    ? ps.getReferralNo() : ps.getLastName() + "|" + ps.getFirstName();
+                merged.putIfAbsent(k, ps);
+            }
+        }
+
+        // 3. Billing/referral number prefix search
+        List<ProfessionalSpecialist> byRefNo = dao.findByReferralNo(term + "%");
+        if (byRefNo != null) {
+            for (ProfessionalSpecialist ps : byRefNo) {
+                String k = ps.getReferralNo() != null && !ps.getReferralNo().isEmpty()
+                    ? ps.getReferralNo() : ps.getLastName() + "|" + ps.getFirstName();
+                merged.putIfAbsent(k, ps);
+            }
+        }
+
+        // 4. Address contains search
+        List<ProfessionalSpecialist> byAddr = dao.findByFullNameAndSpecialtyAndAddress("", "", "", term, true);
+        if (byAddr != null) {
+            for (ProfessionalSpecialist ps : byAddr) {
+                String k = ps.getReferralNo() != null && !ps.getReferralNo().isEmpty()
+                    ? ps.getReferralNo() : ps.getLastName() + "|" + ps.getFirstName();
+                merged.putIfAbsent(k, ps);
+            }
+        }
+
+        // 5. Phone number contains search (via DAO, best-effort)
+        try {
+            List<ProfessionalSpecialist> byPhone = dao.findByPhoneContains(term, 20);
+            if (byPhone != null) {
+                for (ProfessionalSpecialist ps : byPhone) {
+                    String k = ps.getReferralNo() != null && !ps.getReferralNo().isEmpty()
+                        ? ps.getReferralNo() : ps.getLastName() + "|" + ps.getFirstName();
+                    merged.putIfAbsent(k, ps);
+                }
+            }
+        } catch (Exception ignore) {
+            // Phone search is best-effort; proceed without it if unavailable
+        }
+    }
+
+    // Use shared Jackson ObjectMapper for spec-compliant JSON string encoding (thread-safe, reused across requests)
+    ObjectMapper jsonMapper = SHARED_MAPPER;
+    List<ProfessionalSpecialist> results = new ArrayList<>(merged.values());
+    int limit = Math.min(results.size(), 20);
+    StringBuilder json = new StringBuilder("[");
+    for (int i = 0; i < limit; i++) {
+        ProfessionalSpecialist ps = results.get(i);
+        if (i > 0) json.append(",");
+        String lastName       = ps.getLastName()      != null ? ps.getLastName()      : "";
+        String firstName      = ps.getFirstName()     != null ? ps.getFirstName()     : "";
+        String specialtyCode  = ps.getSpecialtyType() != null ? ps.getSpecialtyType() : "";
+        // Resolve numeric serviceId to human-readable specialty description
+        String specialty      = specialtyNames.getOrDefault(specialtyCode, specialtyCode);
+        String address        = ps.getStreetAddress() != null ? ps.getStreetAddress() : "";
+        String phone          = ps.getPhoneNumber()   != null ? ps.getPhoneNumber()   : "";
+        String referralNo     = ps.getReferralNo()    != null ? ps.getReferralNo()    : "";
+        json.append("{");
+        json.append("\"value\":").append(jsonMapper.writeValueAsString(referralNo));
+        json.append(",\"lastName\":").append(jsonMapper.writeValueAsString(lastName));
+        json.append(",\"firstName\":").append(jsonMapper.writeValueAsString(firstName));
+        json.append(",\"specialtyType\":").append(jsonMapper.writeValueAsString(specialty));
+        json.append(",\"streetAddress\":").append(jsonMapper.writeValueAsString(address));
+        json.append(",\"phoneNumber\":").append(jsonMapper.writeValueAsString(phone));
+        json.append(",\"referralNo\":").append(jsonMapper.writeValueAsString(referralNo));
+        json.append("}");
+    }
+    json.append("]");
+    out.print(json.toString());
+%>

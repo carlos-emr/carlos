@@ -30,12 +30,12 @@
 --%>
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ page
         import="java.io.*,java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*, io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils, java.math.BigInteger,ca.ontario.health.edt.ResponseResult" errorPage="/errorpage.jsp" %>
@@ -51,7 +51,7 @@
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <title>Uploading Claims from Oscar to MCEDT</title>
+    <title>Uploading Claims from CARLOS to MCEDT</title>
     <script src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
     <link href="mailbox/css/mcedt.css" rel="stylesheet" type="text/css">
@@ -211,7 +211,7 @@
 </div> -->
 <div class="greyBox">
     <div class="center">
-        <h1>Uploading Claims from Oscar to MCEDT</h1>
+        <h1>Uploading Claims from CARLOS to MCEDT</h1>
         <div>
             <%-- <form action="<%=request.getContextPath() %>/mcedt/kaichpass.do" method="POST"> --%>
             <%-- <form action="<%=request.getContextPath() %>/mcedt/kaichpass.do" method="post" id="form">

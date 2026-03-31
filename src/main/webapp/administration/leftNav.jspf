@@ -29,11 +29,11 @@
 
 --%>
 
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c"%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%
 String curProvider_no = (String)session.getAttribute("user");
@@ -284,7 +284,11 @@ String curProvider_no = (String)session.getAttribute("user");
 						<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgManageEFrm"/>
 					</a></li>
 
-					<li><a href="${ctx}/eform/efmimagemanager.jsp"  class="contentLink defaultImageUpload">
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.eform" rights="w" reverse="<%=false%>">
+				<li><a href="javascript:void(0);" onclick="window.open('${ctx}/eform/visualEformEditor.jsp', '_blank'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.visual.editor.title"/></a></li>
+				</security:oscarSec>
+
+				<li><a href="${ctx}/eform/efmimagemanager.jsp"  class="contentLink defaultImageUpload">
 						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnUploadImage"/>
 					</a></li>
 					<li><a href="${ctx}/eform/efmmanageformgroups.jsp" class="contentLink defaultFormsGroups">
@@ -297,7 +301,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					
 					<li>
 						<a href="javascript:void(0);" class="xlink" rel="${ctx}/lookupListManagerAction.do?method=manageSingle&listName=consultApptInst" >
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oscarEncounter.consult.appointmentIntructions"/>
+							<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.encounter.consult.appointmentIntructions"/>
 						</a>
 					</li>
 					
@@ -347,10 +351,6 @@ String curProvider_no = (String)session.getAttribute("user");
 					</li>
 					<li><a href="${ctx}/oscarReport/oscarReportCatchment.jsp"
 						class="contentLink">PCN</a></li>
-					<oscar:oscarPropertiesCheck property="OnCallClinic" value="yes">
-					<li><a href="${ctx}/oscarReport/oscarOnCallClinic.jsp"
-						class="contentLink">OSCAR On Call Clinic</a></li>
-					</oscar:oscarPropertiesCheck>
 					<li><a href="${ctx}/oscarReport/FluBilling.do?orderby="
 						class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
 					<li><a href="${ctx}/oscarReport/obec.jsp" class="contentLink">Overnight
@@ -621,18 +621,18 @@ String curProvider_no = (String)session.getAttribute("user");
 						}
 					%>
 		            <li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/oscarEncounter/oscarConsultationRequest/config/EditSpecialists.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.consultationSettings"/></a></li>
+						class="xlink" rel="${ctx}/encounter/oscarConsultationRequest/config/EditSpecialists.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.consultationSettings"/></a></li>
 <!--
 		            <li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/oscarEncounter/oscarConsultationRequest/config/EditSpecialists.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.professionalSpecialistAdmin"/></a></li>
+						class="xlink" rel="${ctx}/encounter/oscarConsultationRequest/config/EditSpecialists.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.professionalSpecialistAdmin"/></a></li>
  -->
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/oscarResearch/oscarDxResearch/dxResearchCustomization.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnCustomize"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.admin.diseaseRegistryQuickList"/></a></li>
+						class="xlink" rel="${ctx}/oscarResearch/oscarDxResearch/dxResearchCustomization.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnCustomize"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.admin.diseaseRegistryQuickList"/></a></li>
 					</security:oscarSec>
 					
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.measurements" rights="r" reverse="<%=false%>">	
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/oscarEncounter/oscarMeasurements/Customization.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnCustomize"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oscarMeasurements"/></a></li>
+						class="xlink" rel="${ctx}/encounter/oscarMeasurements/Customization.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnCustomize"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oscarMeasurements"/></a></li>
 					</security:oscarSec>
 
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">	
@@ -661,7 +661,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
 					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/keygen/keyManager.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.keyPairGen"/></a></li>
 <%--					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/FacilityManager.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageFacilities"/></a></li>--%>
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/oscarEncounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp">Create New Flowsheet</a></li>
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/encounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp">Create New Flowsheet</a></li>
 					</security:oscarSec>
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.flowsheet" rights="r" reverse="<%=false%>">
 					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/manageFlowsheets.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.flowsheetManager"/></a></li>

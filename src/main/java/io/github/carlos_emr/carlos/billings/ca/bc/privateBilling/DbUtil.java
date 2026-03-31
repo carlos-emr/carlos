@@ -5,7 +5,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /*
  * Author: Charles Liu <charles.liu@nondfa.com>
@@ -21,7 +21,7 @@ public class DbUtil {
             return connection;
         } else {
             try {
-                Properties oscarVariables = OscarProperties.getInstance();
+                Properties oscarVariables = CarlosProperties.getInstance();
                 String db_uri = oscarVariables.getProperty("db_uri");
                 String db_name = oscarVariables.getProperty("db_name");
                 String db_url = db_uri + db_name;

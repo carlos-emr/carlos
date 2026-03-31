@@ -29,8 +29,8 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -64,7 +64,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.administration.TeleplanCorrectionFormWCB" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MspErrorCodes" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
@@ -80,7 +80,7 @@
     TeleplanCorrectionFormWCB form = new TeleplanCorrectionFormWCB(results);
     Properties codes = new MspErrorCodes();
     BillingFormData billform = new BillingFormData();
-    String billRegion = OscarProperties.getInstance().getProperty("billRegion", "BC");
+    String billRegion = CarlosProperties.getInstance().getProperty("billRegion", "BC");
     List<BillingFormData.BillingVisit> billvisit = billform.getVisitType(billRegion);
     request.setAttribute("billvisit", billvisit);
 %>
@@ -88,7 +88,7 @@
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title>OSCAR oscarBilling - Correction</title>
+        <title>CARLOS Billing - Correction</title>
 
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
@@ -194,7 +194,7 @@
             <tr>
                 <td colspan="2" class="SectionHead"><a href=#
                                                        onClick="popup(700,900,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=form.getDemographicNumber()%>&displaymode=edit&dboperation=search_detail','
-                                                           <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupPage2Window"/>');return false;"
+                                                           <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.popupPage2Window"/>');return false;"
                                                        title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">Patient
                     Information</a> <input type="hidden" name="id" id="id" value="<%=form.getId()%>"/>
                     <input type="hidden"

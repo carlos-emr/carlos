@@ -150,92 +150,92 @@
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarDemographic/data/DemographicNameAgeString.java:h = new Hashtable();</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarDemographic/data/DemographicNameAgeString.java:static Hashtable hashtable = new Hashtable();</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarDemographic/pageUtil/ImportDemographicDataAction4.java:List c = new ArrayList();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetData.java:createDateVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetData.java:setIdVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetData.java:setNameVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetWriter.java:immunizations.sortAgeVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizations.java:Vector newVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizations.java:public void sortAgeVector()</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector headingVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector headingVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector immunizationVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector immunizationVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector yearAgeVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector yearAgeVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:immunization.indexAge = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/data/EctImmConfigData.java:Vector ret = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:estSpecialistVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public void estSpecialistVector()</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConShowAllServicesUtil.java:serviceDescVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConShowAllServicesUtil.java:serviceIdVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/ConsultationPrintDocsAction.java:ArrayList alist = new ArrayList();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestUtil.java:teamVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:consultProvider = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:providerNo = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementFlowSheet.java://Hashtable dsRulesHash = new Hashtable();   //Each items Rules ** Not sure what to do with yet</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementFlowSheet.java:public Hashtable&lt;String,String&gt; getIndicatorHashtable(){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementInfo.java:ArrayList itemList = new ArrayList();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementInfo.java:ArrayList measurementList = new ArrayList();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementInfo.java:Collection v = ect.getMeasurementsDataVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementInfo.java:Hashtable measurementHash = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementInfo.java:recommendations = new ArrayList();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementInfo.java:warning = new ArrayList();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java://                 Hashtable h = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable h = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable indicatorHash = mFlowsheet.getIndicatorHashtable();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctGroupNameBeanHandler.java:public Collection&lt;EctGroupNameBean&gt; getGroupNameVector() {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBean.java:Vector validationRules = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measurementTypeVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measurementsDataVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measuringInstrcHdVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measuringInstrcVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measuringInstrcVectorVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector typeVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:measuringInstrcVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasurementTypeVector(){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasurementsDataVector(){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasuringInstrcHdVector(){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasuringInstrcVector(){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasuringInstrcVectorVector(){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:public Collection&lt;EctMeasurementsDataBean&gt; getMeasurementsDataVector(){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctStyleSheetBeanHandler.java:public Collection&lt;EctStyleSheetBean&gt; getStyleSheetNameVector() {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctTypeDisplayNameBeanHandler.java:public Collection&lt;EctTypeDisplayNameBean&gt; getTypeDisplayNameVector() {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctValidationsBeanHandler.java:Vector validationsVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctValidationsBeanHandler.java:public Collection getValidationsVector() {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctAddMeasurementGroupForm.java:/*    private final Map values = new HashMap();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctAddMeasuringInstructionAction.java:Collection typeDisplayNameList = typeHd.getTypeDisplayNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctAddMeasuringInstructionAction.java:Collection validationsList = validationHd.getValidationsVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctEditMeasurementGroupForm.java:/*    private final Map values = new HashMap();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctMeasurementsForm.java:public final Map values = new HashMap();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSelectMeasurementGroupAction.java:Collection allStyleSheets = sshd.getStyleSheetNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSelectMeasurementGroupForm.java:private final Map values = new HashMap();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupAddMeasurementGroupAction.java:Collection allTypeDisplayName = hd.getTypeDisplayNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupAddMeasurementGroupAction.java:Collection existingTypeDisplayName = hd.getTypeDisplayNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupAddMeasurementGroupForm.java:private final Map values = new HashMap();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupAddMeasurementTypeAction.java:Collection validations = hd.getValidationsVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupAddMeasuringInstructionAction.java:Collection typeDisplayName = typeHd.getTypeDisplayNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupAddMeasuringInstructionAction.java:Collection validations = validationHd.getValidationsVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupDisplayHistoryAction.java:List&lt;EctMeasurementsDataBean&gt; measures = (List&lt;EctMeasurementsDataBean&gt;) hd.getMeasurementsDataVector ();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupEditMeasurementGroupAction.java:Collection allTypeDisplayName = hd.getTypeDisplayNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupEditMeasurementGroupAction.java:Collection existingTypeDisplayName = hd.getTypeDisplayNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupEditMeasurementGroupForm.java:private final Map values = new HashMap();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupGroupListAction.java:Collection groups = hd.getGroupNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupHistoryIndexAction.java:List&lt;EctMeasurementsDataBean&gt; measureTypes = (List&lt;EctMeasurementsDataBean&gt;) hd.getMeasurementsDataVector ();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupMeasurementsAction.java:Vector mInstrcVector = hd.getMeasuringInstrcHdVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupMeasurementsAction.java:for(int i=0; i&lt;hd.getMeasurementTypeVector().size(); i++){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupStyleSheetListAction.java:Collection allStyleSheets = sshd.getStyleSheetNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:Collection&lt;EctMeasurementsDataBean&gt; dataVector = ectMeasure.getMeasurementsDataVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/prop/EctFormProp.java:measurementTypes = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/MeasurementDSHelper.java:Collection col = mdbh.getMeasurementsDataVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/MeasurementDSHelper.java:for(Object o: mdbh.getMeasurementsDataVector()) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/RuleBaseCreator.java:ArrayList elementList = new ArrayList();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/RuleBaseCreator.java:ArrayList list = new ArrayList();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/RuleBaseCreator.java:list = new ArrayList();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/WriteNewMeasurements.java:Hashtable measure = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/WriteNewMeasurements.java:Vector measures = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayDxAction.java:Vector diseases = hd.getDxResearchBeanVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayMeasurementsAction.java:Vector measureTypes = (Vector) hd.getMeasurementsDataVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayMeasurementsAction.java:Vector measures = (Vector) hd.getMeasurementsDataVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetData.java:createDateVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetData.java:setIdVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetData.java:setNameVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetWriter.java:immunizations.sortAgeVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizations.java:Vector newVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizations.java:public void sortAgeVector()</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector headingVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector headingVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector immunizationVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector immunizationVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector yearAgeVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector yearAgeVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:immunization.indexAge = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/data/EctImmConfigData.java:Vector ret = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:estSpecialistVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public void estSpecialistVector()</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConShowAllServicesUtil.java:serviceDescVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConShowAllServicesUtil.java:serviceIdVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/ConsultationPrintDocsAction.java:ArrayList alist = new ArrayList();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestUtil.java:teamVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:consultProvider = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:providerNo = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementFlowSheet.java://Hashtable dsRulesHash = new Hashtable();   //Each items Rules ** Not sure what to do with yet</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementFlowSheet.java:public Hashtable&lt;String,String&gt; getIndicatorHashtable(){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementInfo.java:ArrayList itemList = new ArrayList();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementInfo.java:ArrayList measurementList = new ArrayList();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementInfo.java:Collection v = ect.getMeasurementsDataVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementInfo.java:Hashtable measurementHash = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementInfo.java:recommendations = new ArrayList();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementInfo.java:warning = new ArrayList();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java://                 Hashtable h = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable h = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable indicatorHash = mFlowsheet.getIndicatorHashtable();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctGroupNameBeanHandler.java:public Collection&lt;EctGroupNameBean&gt; getGroupNameVector() {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBean.java:Vector validationRules = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measurementTypeVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measurementsDataVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measuringInstrcHdVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measuringInstrcVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measuringInstrcVectorVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector typeVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:measuringInstrcVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasurementTypeVector(){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasurementsDataVector(){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasuringInstrcHdVector(){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasuringInstrcVector(){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasuringInstrcVectorVector(){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:public Collection&lt;EctMeasurementsDataBean&gt; getMeasurementsDataVector(){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctStyleSheetBeanHandler.java:public Collection&lt;EctStyleSheetBean&gt; getStyleSheetNameVector() {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctTypeDisplayNameBeanHandler.java:public Collection&lt;EctTypeDisplayNameBean&gt; getTypeDisplayNameVector() {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctValidationsBeanHandler.java:Vector validationsVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctValidationsBeanHandler.java:public Collection getValidationsVector() {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctAddMeasurementGroupForm.java:/*    private final Map values = new HashMap();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctAddMeasuringInstructionAction.java:Collection typeDisplayNameList = typeHd.getTypeDisplayNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctAddMeasuringInstructionAction.java:Collection validationsList = validationHd.getValidationsVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctEditMeasurementGroupForm.java:/*    private final Map values = new HashMap();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctMeasurementsForm.java:public final Map values = new HashMap();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSelectMeasurementGroupAction.java:Collection allStyleSheets = sshd.getStyleSheetNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSelectMeasurementGroupForm.java:private final Map values = new HashMap();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupAddMeasurementGroupAction.java:Collection allTypeDisplayName = hd.getTypeDisplayNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupAddMeasurementGroupAction.java:Collection existingTypeDisplayName = hd.getTypeDisplayNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupAddMeasurementGroupForm.java:private final Map values = new HashMap();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupAddMeasurementTypeAction.java:Collection validations = hd.getValidationsVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupAddMeasuringInstructionAction.java:Collection typeDisplayName = typeHd.getTypeDisplayNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupAddMeasuringInstructionAction.java:Collection validations = validationHd.getValidationsVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupDisplayHistoryAction.java:List&lt;EctMeasurementsDataBean&gt; measures = (List&lt;EctMeasurementsDataBean&gt;) hd.getMeasurementsDataVector ();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupEditMeasurementGroupAction.java:Collection allTypeDisplayName = hd.getTypeDisplayNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupEditMeasurementGroupAction.java:Collection existingTypeDisplayName = hd.getTypeDisplayNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupEditMeasurementGroupForm.java:private final Map values = new HashMap();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupGroupListAction.java:Collection groups = hd.getGroupNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupHistoryIndexAction.java:List&lt;EctMeasurementsDataBean&gt; measureTypes = (List&lt;EctMeasurementsDataBean&gt;) hd.getMeasurementsDataVector ();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupMeasurementsAction.java:Vector mInstrcVector = hd.getMeasuringInstrcHdVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupMeasurementsAction.java:for(int i=0; i&lt;hd.getMeasurementTypeVector().size(); i++){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupStyleSheetListAction.java:Collection allStyleSheets = sshd.getStyleSheetNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:Collection&lt;EctMeasurementsDataBean&gt; dataVector = ectMeasure.getMeasurementsDataVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/prop/EctFormProp.java:measurementTypes = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/MeasurementDSHelper.java:Collection col = mdbh.getMeasurementsDataVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/MeasurementDSHelper.java:for(Object o: mdbh.getMeasurementsDataVector()) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/RuleBaseCreator.java:ArrayList elementList = new ArrayList();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/RuleBaseCreator.java:ArrayList list = new ArrayList();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/RuleBaseCreator.java:list = new ArrayList();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/WriteNewMeasurements.java:Hashtable measure = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/WriteNewMeasurements.java:Vector measures = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayDxAction.java:Vector diseases = hd.getDxResearchBeanVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayMeasurementsAction.java:Vector measureTypes = (Vector) hd.getMeasurementsDataVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayMeasurementsAction.java:Vector measures = (Vector) hd.getMeasurementsDataVector();</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarLab/SortHashtable.java:public SortHashtable() {</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarLab/ca/all/parsers/HHSEmrDownloadHandler.java://        ArrayList headers = new ArrayList();</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarLab/ca/all/parsers/HHSEmrDownloadHandler.java:ArrayList obrGroup = new ArrayList();</ViolationValue>
@@ -556,29 +556,29 @@
         <ViolationValue>/src/main/webapp/lab/CumulativeLabValues3.jsp:LinkedHashMap IdMap = new LinkedHashMap();</ViolationValue>
         <ViolationValue>/src/main/webapp/lab/CumulativeLabValues3.jsp:LinkedHashMap nameMap = new LinkedHashMap();</ViolationValue>
         <ViolationValue>/src/main/webapp/lab/DisplayLabValue.jsp:Collections.sort(list,new SortHashtable());</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/newEncounter.jsp:if( newDocArr == null ) newDocArr = new ArrayList();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/ConsultationFormFax.jsp:Vector vecFaxes  = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/ConsultationFormFax.jsp:Vector vecPhones = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/ViewConsultationRequests.jsp:ArrayList tickerList = new ArrayList();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/config/DisplayService.jsp:displayServiceUtil.estSpecialistVector();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/config/EditSpecialists.jsp:displayServiceUtil.estSpecialistVector();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/displayAttachedFiles.jsp:ArrayList privatedocs = new ArrayList();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/AddMeasurementData.jsp:Hashtable extraData = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/HealthTrackerPage.jspf:ArrayList comments = new ArrayList();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/HealthTrackerPage.jspf:Hashtable h = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/HealthTrackerPage.jspf:Hashtable hdata = new Hashtable();//(Hashtable) alist.get(k);</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPage.jspf:ArrayList comments = new ArrayList();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPage.jspf:Hashtable h = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPage.jspf:Hashtable hdata = new Hashtable();//(Hashtable) alist.get(k);</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPage.jspf:Vector patientDx = dxResearchBeanHand.getDxResearchBeanVector();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:ArrayList comments = new ArrayList();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable dates = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable forPrint = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable h = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable hdata = new Hashtable();//(Hashtable) alist.get(k);</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/addMeasurementMap2.jsp:Vector&lt;EctMeasurementTypesBean&gt; vec = hd.getMeasurementTypeVector();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp:Vector&lt;EctMeasurementTypesBean&gt; vec = hd.getMeasurementTypeVector();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/adminFlowsheet/UpdateFlowsheet.jsp:Hashtable colourHash = mFlowsheet.getIndicatorHashtable();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/newEncounter.jsp:if( newDocArr == null ) newDocArr = new ArrayList();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarConsultationRequest/ConsultationFormFax.jsp:Vector vecFaxes  = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarConsultationRequest/ConsultationFormFax.jsp:Vector vecPhones = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarConsultationRequest/ViewConsultationRequests.jsp:ArrayList tickerList = new ArrayList();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarConsultationRequest/config/DisplayService.jsp:displayServiceUtil.estSpecialistVector();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarConsultationRequest/config/EditSpecialists.jsp:displayServiceUtil.estSpecialistVector();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarConsultationRequest/displayAttachedFiles.jsp:ArrayList privatedocs = new ArrayList();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/AddMeasurementData.jsp:Hashtable extraData = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/HealthTrackerPage.jspf:ArrayList comments = new ArrayList();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/HealthTrackerPage.jspf:Hashtable h = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/HealthTrackerPage.jspf:Hashtable hdata = new Hashtable();//(Hashtable) alist.get(k);</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPage.jspf:ArrayList comments = new ArrayList();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPage.jspf:Hashtable h = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPage.jspf:Hashtable hdata = new Hashtable();//(Hashtable) alist.get(k);</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPage.jspf:Vector patientDx = dxResearchBeanHand.getDxResearchBeanVector();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:ArrayList comments = new ArrayList();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable dates = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable forPrint = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable h = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable hdata = new Hashtable();//(Hashtable) alist.get(k);</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/addMeasurementMap2.jsp:Vector&lt;EctMeasurementTypesBean&gt; vec = hd.getMeasurementTypeVector();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp:Vector&lt;EctMeasurementTypesBean&gt; vec = hd.getMeasurementTypeVector();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/adminFlowsheet/UpdateFlowsheet.jsp:Hashtable colourHash = mFlowsheet.getIndicatorHashtable();</ViolationValue>
         <ViolationValue>/src/main/webapp/oscarMessenger/DisplayDemographicMessages.jsp:&lt;% //java.util.Vector theMessages = new java.util.Vector() ;</ViolationValue>
         <ViolationValue>/src/main/webapp/oscarMessenger/DisplayDemographicMessages.jsp:java.util.Vector theMessages2 = new java.util.Vector() ;</ViolationValue>
         <ViolationValue>/src/main/webapp/oscarMessenger/DisplayMessages.jsp:java.util.Vector theMessages2 = new java.util.Vector() ;</ViolationValue>
@@ -876,7 +876,6 @@
         <ViolationValue>/src/main/java/ca/openosp/openo/form/FrmONARRecord.java:ResultSet rs = DBHandler.GetSQL(sql);</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/form/FrmONARRecord.java:ResultSet rs = DBHelp.searchDBRecord(sql);</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/form/FrmONARRecord.java:import ca.openosp.openo.login.DBHelp;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/form/FrmOvulationRecord.java:ResultSet rs = DBHandler.GetSQL(sql);</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/form/FrmPalliativeCareRecord.java:ResultSet rs = DBHandler.GetSQL(sql);</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/form/FrmPeriMenopausalRecord.java:ResultSet rs = DBHandler.GetSQL(sql);</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/form/FrmReceptionAssessmentRecord.java:ResultSet rs = DBHandler.GetSQL(sql);</ViolationValue>
@@ -925,35 +924,35 @@
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarDB/DBPreparedHandlerParam.java:public DBPreparedHandlerParam(Timestamp dateValue){</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarDB/DBPreparedHandlerParam.java:public DBPreparedHandlerParam(int intValue){</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarDB/DBPreparedHandlerParam.java:public final class DBPreparedHandlerParam {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctARRecord.java:ResultSet resultset = DBHandler.GetSQL(s);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctARRecord.java:ResultSet resultset = DBHandler.GetSQL(sqlDB);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctARRecord.java:ResultSet resultset1 = DBHandler.GetSQL(s1);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctARRecord.java:ResultSet resultset1 = DBHandler.GetSQL(sqlNew, true);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctARRecord.java:resultset1 = DBHandler.GetSQL(sqlNew);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctAlphaRecord.java:ResultSet rs = DBHandler.GetSQL(sql);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctAlphaRecord.java:ResultSet rs = DBHandler.GetSQL(sql, true);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctAlphaRecord.java:rs = DBHandler.GetSQL(sql);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctAnnualRecord.java:ResultSet rs = DBHandler.GetSQL(sql, true);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctAnnualRecord.java:rs = DBHandler.GetSQL(sql);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctMMSERecord.java:ResultSet rs = DBHandler.GetSQL(sql, true);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctMMSERecord.java:rs = DBHandler.GetSQL(sql);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctMentalHealthRecord.java:ResultSet rsDB = DBHandler.GetSQL(sqlDB);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctMentalHealthRecord.java:ResultSet rsNew = DBHandler.GetSQL(sqlNew, true);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctMentalHealthRecord.java:rs = DBHandler.GetSQL(sql);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctMentalHealthRecord.java:rsNew = DBHandler.GetSQL(sqlNew);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctPalliativeCareRecord.java:ResultSet rs = DBHandler.GetSQL(sql, true);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctPalliativeCareRecord.java:rs = DBHandler.GetSQL(sql);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctPeriMenopausalRecord.java:ResultSet rs = DBHandler.GetSQL(sql, true);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctPeriMenopausalRecord.java:rs = DBHandler.GetSQL(sql);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctRourkeRecord.java:ResultSet rsDB = DBHandler.GetSQL(sqlDB);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctRourkeRecord.java:ResultSet rsPage = DBHandler.GetSQL(sqlPage, true);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctRourkeRecord.java:rs = DBHandler.GetSQL("select sex from demographic where demographic_no = "+demo);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctRourkeRecord.java:rs = DBHandler.GetSQL(sql);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctRourkeRecord.java:rsPage = DBHandler.GetSQL(sqlPage);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctType2DiabetesRecord.java:ResultSet rs = DBHandler.GetSQL(sql);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctType2DiabetesRecord.java:ResultSet rs = DBHandler.GetSQL(sql, true);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctType2DiabetesRecord.java:ResultSet rs1 = DBHandler.GetSQL("select nextval('formtype2diabetes_numeric_se')");</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctType2DiabetesRecord.java:rs = DBHandler.GetSQL(sql);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctARRecord.java:ResultSet resultset = DBHandler.GetSQL(s);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctARRecord.java:ResultSet resultset = DBHandler.GetSQL(sqlDB);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctARRecord.java:ResultSet resultset1 = DBHandler.GetSQL(s1);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctARRecord.java:ResultSet resultset1 = DBHandler.GetSQL(sqlNew, true);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctARRecord.java:resultset1 = DBHandler.GetSQL(sqlNew);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctAlphaRecord.java:ResultSet rs = DBHandler.GetSQL(sql);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctAlphaRecord.java:ResultSet rs = DBHandler.GetSQL(sql, true);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctAlphaRecord.java:rs = DBHandler.GetSQL(sql);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctAnnualRecord.java:ResultSet rs = DBHandler.GetSQL(sql, true);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctAnnualRecord.java:rs = DBHandler.GetSQL(sql);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctMMSERecord.java:ResultSet rs = DBHandler.GetSQL(sql, true);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctMMSERecord.java:rs = DBHandler.GetSQL(sql);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctMentalHealthRecord.java:ResultSet rsDB = DBHandler.GetSQL(sqlDB);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctMentalHealthRecord.java:ResultSet rsNew = DBHandler.GetSQL(sqlNew, true);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctMentalHealthRecord.java:rs = DBHandler.GetSQL(sql);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctMentalHealthRecord.java:rsNew = DBHandler.GetSQL(sqlNew);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctPalliativeCareRecord.java:ResultSet rs = DBHandler.GetSQL(sql, true);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctPalliativeCareRecord.java:rs = DBHandler.GetSQL(sql);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctPeriMenopausalRecord.java:ResultSet rs = DBHandler.GetSQL(sql, true);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctPeriMenopausalRecord.java:rs = DBHandler.GetSQL(sql);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctRourkeRecord.java:ResultSet rsDB = DBHandler.GetSQL(sqlDB);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctRourkeRecord.java:ResultSet rsPage = DBHandler.GetSQL(sqlPage, true);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctRourkeRecord.java:rs = DBHandler.GetSQL("select sex from demographic where demographic_no = "+demo);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctRourkeRecord.java:rs = DBHandler.GetSQL(sql);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctRourkeRecord.java:rsPage = DBHandler.GetSQL(sqlPage);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctType2DiabetesRecord.java:ResultSet rs = DBHandler.GetSQL(sql);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctType2DiabetesRecord.java:ResultSet rs = DBHandler.GetSQL(sql, true);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctType2DiabetesRecord.java:ResultSet rs1 = DBHandler.GetSQL("select nextval('formtype2diabetes_numeric_se')");</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctType2DiabetesRecord.java:rs = DBHandler.GetSQL(sql);</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarLab/ca/bc/PathNet/PathNetInfo.java:ResultSet rsLab = DBHandler.GetSQL(select_not_signed);</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarMessenger/docxfer/send/MsgGenerate.java:ResultSet rs = DBHandler.GetSQL(sql);</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarReport/ClinicalReports/SQLDenominator.java:ResultSet rs = DBHandler.GetSQL(exeSql);</ViolationValue>
@@ -1493,303 +1492,303 @@
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarDemographic/data/DemographicNameAgeString.java:import java.util.Hashtable;</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarDemographic/data/DemographicNameAgeString.java:public Hashtable getNameAgeSexHashtable(LoggedInInfo loggedInInfo, String demoNo){</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarDemographic/data/DemographicNameAgeString.java:static Hashtable hashtable = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctSplitChart.java:Vector&lt;String[]&gt; vec = new Vector&lt;String[]&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctSplitChart.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/data/EctSplitChart.java:public Vector&lt;String[]&gt; getSplitCharts(String demographicNo) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetData.java:createDateVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetData.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetData.java:public Vector createDateVec;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetData.java:public Vector setIdVec;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetData.java:public Vector setNameVec;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetData.java:setIdVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetData.java:setNameVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetWriter.java:EctImmHeading hHead = (EctImmHeading)headingVector.elementAt(i);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetWriter.java:EctImmImmunizations immunizations = (EctImmImmunizations)immunizationVector.elementAt(i);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetWriter.java:Vector indexes = immunizations.indexAge;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetWriter.java:for(int i = 0; i &lt; headingVector.size(); i++)</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetWriter.java:for(int i = 0; i &lt; immunizationVector.size(); i++)</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetWriter.java:immunizations.sortAgeVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetWriter.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizationSetWriter.java:public void doWrite(int flag, Vector headingVector, Vector immunizationVector, Vector yearAgeVector, String setName, String providerNo)</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizations.java:Vector newVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizations.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizations.java:newVector.setSize(indexAge.size());</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizations.java:public Vector indexAge;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/data/EctImmImmunizations.java:public void sortAgeVector()</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:EctImmImmunizations immunization = (EctImmImmunizations)immunizationVector.elementAt(q);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:EctImmImmunizations immunizations = (EctImmImmunizations)immunizationVector.elementAt(intRow - 1);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector headingVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector headingVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector immunizationVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector immunizationVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector yearAgeVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector yearAgeVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:for(int q = 0; q &lt; immunizationVector.size(); q++) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:headingVector.setElementAt(header, header.col - 1);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:headingVector.setSize(headingVec.size());</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:immunization.indexAge = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:immunizationSetWriter.doWrite(flag, headingVector, immunizationVector, yearAgeVec, setName, providerNo);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:immunizationVector.setElementAt(immunization, immunization.row - 1);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:immunizationVector.setSize(immunizationVec.size());</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:yearAgeVector.setSize(yearAgeVec.size());</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/data/EctImmConfigData.java:Vector ret = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/data/EctImmConfigData.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/data/EctImmConfigData.java:public Vector getImmunizationConfigId() {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/immunization/data/EctImmConfigData.java:public Vector getImmunizationConfigName() {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConConstructSpecialistsScriptsFile.java:Vector&lt;String&gt; serviceDesc;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConConstructSpecialistsScriptsFile.java:Vector&lt;String&gt; serviceId;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConConstructSpecialistsScriptsFile.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConConstructSpecialistsScriptsFile.java:serviceDesc = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConConstructSpecialistsScriptsFile.java:serviceId = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:Vector&lt;String&gt; vector = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:addressVec = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:emailVec = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:estSpecialistVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:fNameVec = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:faxVec = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:lNameVec = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:phoneVec = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:proLettersVec = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; addressVec;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; emailVec;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; fNameVec;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; faxVec;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; getSpecialistInField(String serviceId) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; lNameVec;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; phoneVec;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; proLettersVec;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; serviceId;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; serviceName;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; specIdVec;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; specTypeVec;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; websiteVec;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public void estServicesVectors()</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public void estSpecialistVector()</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:serviceId = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:serviceName = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:specIdVec = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:specTypeVec = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:websiteVec = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConShowAllServicesUtil.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConShowAllServicesUtil.java:public Vector serviceDescVec;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConShowAllServicesUtil.java:public Vector serviceIdVec;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConShowAllServicesUtil.java:public void estServicesVectors()</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConShowAllServicesUtil.java:serviceDescVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/config/pageUtil/EctConShowAllServicesUtil.java:serviceIdVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestUtil.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestUtil.java:public Vector getTeamVec() {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestUtil.java:public Vector teamVec;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestUtil.java:public void setTeamVec(Vector teamVec) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestUtil.java:teamVec = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:apptDate = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:consultProvider = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:date = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:demographicNo = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:followUpDate = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:ids = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:patient = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:provider = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:providerNo = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector consultProvider;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; apptDate;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; date;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; demographicNo;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; followUpDate;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; ids;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; patient;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; patientWillBook;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; provider;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; providerNo;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; service;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; siteName;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; status;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; teams;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; urgency;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; vSpecialist;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:service = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:siteName = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:status = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:teams = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:this.patientWillBook = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:urgency = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:vSpecialist = new Vector&lt;String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementFlowSheet.java://Hashtable dsHash = null; //hash of the rules  ** might not be needed if it's in the object</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementFlowSheet.java://Hashtable dsRulesHash = new Hashtable();   //Each items Rules ** Not sure what to do with yet</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementFlowSheet.java://Hashtable measurementsFlowSheetInfo = null;   //Collenction of hash tables with details  ** CAN now be from itemList (Hoping)</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementFlowSheet.java://Hashtable measurementsInfo = null;            //Colectopm of EctMeasurementType objects  ** GET RID OF THIS</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementFlowSheet.java:Hashtable&lt;String,String&gt; indicatorHash = new Hashtable&lt;String,String&gt;();   //color map for severity</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementFlowSheet.java:import java.util.Hashtable;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementFlowSheet.java:public Hashtable&lt;String,String&gt; getIndicatorHashtable(){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementFlowSheet.java:public void updateMeasurementFlowSheetInfo(String measurement, Hashtable&lt;String,String&gt; h) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementFlowSheet.java:return new Hashtable&lt;String,String&gt;(indicatorHash);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementInfo.java://h = (Hashtable) list.get(0);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementInfo.java:Collection v = ect.getMeasurementsDataVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementInfo.java:Hashtable h =  null;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementInfo.java:Hashtable measurementHash = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementInfo.java:Hashtable&lt;String,String&gt; recommendationHash = new Hashtable&lt;String,String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementInfo.java:Hashtable&lt;String,String&gt; warningHash = new Hashtable&lt;String,String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementInfo.java:import java.util.Hashtable;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java://                 Hashtable h = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable h = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable indicatorHash = mFlowsheet.getIndicatorHashtable();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable&lt;String, ArrayList&lt;String&gt;&gt; dxTrigHash = new Hashtable&lt;String, ArrayList&lt;String&gt;&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable&lt;String, File&gt; flowsheetFiles = new Hashtable&lt;String, File&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable&lt;String, MeasurementFlowSheet&gt; flowsheets = null;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable&lt;String, String&gt; flowsheetDisplayNames = new Hashtable&lt;String, String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable&lt;String, String&gt; h = new Hashtable&lt;String, String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:dxTrigHash = new Hashtable&lt;String, ArrayList&lt;String&gt;&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:flowsheetDisplayNames = new Hashtable&lt;String, String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:flowsheetFiles = new Hashtable&lt;String,File&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:flowsheets = new Hashtable&lt;String, MeasurementFlowSheet&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:import java.util.Hashtable;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:private Hashtable&lt;String,String&gt; getRecommendationHash(Element recowarn){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:protected Element getRuleBaseElement(String ruleName,String measurement,Hashtable&lt;String,String&gt; recowarn){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:public Hashtable&lt;String, ArrayList&lt;String&gt;&gt; getDxTrigHash() {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:public Hashtable&lt;String, String&gt; getFlowsheetDisplayNames(){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:public Hashtable&lt;String,File&gt; getFileMap() {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctGroupNameBeanHandler.java:Vector&lt;EctGroupNameBean&gt; groupNameVector = new Vector&lt;EctGroupNameBean&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctGroupNameBeanHandler.java:groupNameVector.add(groupName);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctGroupNameBeanHandler.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctGroupNameBeanHandler.java:public Collection&lt;EctGroupNameBean&gt; getGroupNameVector() {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctGroupNameBeanHandler.java:return groupNameVector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBean.java:Vector validationRules = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBean.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBean.java:public Vector getValidationRules(){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:EctMeasuringInstructionBeanHandler hd = new EctMeasuringInstructionBeanHandler(measuringInstrcVector);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measurementTypeVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measurementsDataVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measuringInstrcHdVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measuringInstrcVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measuringInstrcVectorVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector typeVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:measurementTypeVector.add(measurementTypes);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:measuringInstrcHdVector.add(hd);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:measuringInstrcVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:measuringInstrcVector.add(mInstrc);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:measuringInstrcVectorVector.add(measuringInstrcVector);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasurementTypeVector(){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasurementsDataVector(){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasuringInstrcHdVector(){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasuringInstrcVector(){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasuringInstrcVectorVector(){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:return measurementTypeVector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:return measurementsDataVector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:return measuringInstrcHdVector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:return measuringInstrcVector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:return measuringInstrcVectorVector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:Hashtable&lt;String,Object&gt; data = new Hashtable&lt;String,Object&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:Vector&lt;EctMeasurementsDataBean&gt; measurementsDataVector = new Vector&lt;EctMeasurementsDataBean&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:import java.util.Hashtable;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:measurementsDataVector.add(data);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:private static Hashtable&lt;String,Object&gt; toHashTable(Measurement m, MeasurementType mt, Provider p){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:public Collection&lt;EctMeasurementsDataBean&gt; getMeasurementsDataVector(){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:public static Hashtable&lt;String,Object&gt; getLast(String demo, String type) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:public static Hashtable&lt;String,Object&gt; getMeasurementDataById(String id){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:return measurementsDataVector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:return new Hashtable&lt;String, Object&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctStyleSheetBeanHandler.java:Vector&lt;EctStyleSheetBean&gt; styleSheetNameVector = new Vector&lt;EctStyleSheetBean&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctStyleSheetBeanHandler.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctStyleSheetBeanHandler.java:public Collection&lt;EctStyleSheetBean&gt; getStyleSheetNameVector() {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctStyleSheetBeanHandler.java:return styleSheetNameVector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctStyleSheetBeanHandler.java:styleSheetNameVector.add(location);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctTypeDisplayNameBeanHandler.java:Vector&lt;EctTypeDisplayNameBean&gt; typeDisplayNameVector = new Vector&lt;EctTypeDisplayNameBean&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctTypeDisplayNameBeanHandler.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctTypeDisplayNameBeanHandler.java:public Collection&lt;EctTypeDisplayNameBean&gt; getTypeDisplayNameVector() {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctTypeDisplayNameBeanHandler.java:return typeDisplayNameVector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctTypeDisplayNameBeanHandler.java:typeDisplayNameVector.add(typeDisplayName);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctValidationsBeanHandler.java:Vector validationsVector = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctValidationsBeanHandler.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctValidationsBeanHandler.java:public Collection getValidationsVector() {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctValidationsBeanHandler.java:return validationsVector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/bean/EctValidationsBeanHandler.java:validationsVector.add(validation);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/data/MeasurementMapConfig.java:ArrayList&lt;Hashtable&lt;String,Object&gt;&gt; ret = new ArrayList&lt;Hashtable&lt;String,Object&gt;&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/data/MeasurementMapConfig.java:Hashtable&lt;String, Hashtable&lt;String,String&gt;&gt; ret = new Hashtable&lt;String,Hashtable&lt;String,String&gt;&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/data/MeasurementMapConfig.java:Hashtable&lt;String, String&gt; ht = new Hashtable&lt;String,String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/data/MeasurementMapConfig.java:Hashtable&lt;String,Object&gt; ht = new Hashtable&lt;String,Object&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/data/MeasurementMapConfig.java:List&lt;Hashtable&lt;String,String&gt;&gt; ret = new LinkedList&lt;Hashtable&lt;String,String&gt;&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/data/MeasurementMapConfig.java:import java.util.Hashtable;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/data/MeasurementMapConfig.java:public ArrayList&lt;Hashtable&lt;String,Object&gt;&gt; getLoincCodes(String searchString) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/data/MeasurementMapConfig.java:public ArrayList&lt;Hashtable&lt;String,Object&gt;&gt; getMeasurementMap(String searchString) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/data/MeasurementMapConfig.java:public ArrayList&lt;Hashtable&lt;String,Object&gt;&gt; getUnmappedMeasurements(String type) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/data/MeasurementMapConfig.java:public Hashtable&lt;String, Hashtable&lt;String,String&gt;&gt; getMappedCodesFromLoincCodesHash(String loincCode) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/data/MeasurementMapConfig.java:public List&lt;Hashtable&lt;String,String&gt;&gt; getMappedCodesFromLoincCodes(String loincCode) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctAddMeasuringInstructionAction.java:Collection typeDisplayNameList = typeHd.getTypeDisplayNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctAddMeasuringInstructionAction.java:Collection validationsList = validationHd.getValidationsVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSelectMeasurementGroupAction.java:Collection allStyleSheets = sshd.getStyleSheetNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupAddMeasurementGroupAction.java:Collection allTypeDisplayName = hd.getTypeDisplayNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupAddMeasurementGroupAction.java:Collection existingTypeDisplayName = hd.getTypeDisplayNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupAddMeasurementTypeAction.java:Collection validations = hd.getValidationsVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupAddMeasuringInstructionAction.java:Collection typeDisplayName = typeHd.getTypeDisplayNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupAddMeasuringInstructionAction.java:Collection validations = validationHd.getValidationsVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupDisplayHistoryAction.java:List&lt;EctMeasurementsDataBean&gt; measures = (List&lt;EctMeasurementsDataBean&gt;) hd.getMeasurementsDataVector ();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupEditMeasurementGroupAction.java:Collection allTypeDisplayName = hd.getTypeDisplayNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupEditMeasurementGroupAction.java:Collection existingTypeDisplayName = hd.getTypeDisplayNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupGroupListAction.java:Collection groups = hd.getGroupNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupHistoryIndexAction.java:List&lt;EctMeasurementsDataBean&gt; measureTypes = (List&lt;EctMeasurementsDataBean&gt;) hd.getMeasurementsDataVector ();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupMeasurementsAction.java:EctMeasuringInstructionBeanHandler mInstrcs = (EctMeasuringInstructionBeanHandler) mInstrcVector.elementAt(i);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupMeasurementsAction.java:Vector mInstrcVector = hd.getMeasuringInstrcHdVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupMeasurementsAction.java:for(int i=0; i&lt;hd.getMeasurementTypeVector().size(); i++){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupMeasurementsAction.java:for(int i=0; i&lt;mInstrcVector.size(); i++){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupMeasurementsAction.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/EctSetupStyleSheetListAction.java:Collection allStyleSheets = sshd.getStyleSheetNameVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:ArrayList&lt;EctMeasurementsDataBean&gt; list = new ArrayList&lt;EctMeasurementsDataBean&gt;(dataVector);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:Collection&lt;EctMeasurementsDataBean&gt; dataVector = ectMeasure.getMeasurementsDataVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:Hashtable h = getMeasurementsExt( mdb.getId());</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:Hashtable&lt;String,String&gt; hash = new Hashtable&lt;String,String&gt;();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:for (EctMeasurementsDataBean mdb : list) { // dataVector) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:for (EctMeasurementsDataBean mdb : list) { //dataVector) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:for (EctMeasurementsDataBean mdb : list2) { //dataVector) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:import java.util.Hashtable;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:private  Hashtable getMeasurementsExt(Integer measurementId) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/prop/EctFormProp.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/prop/EctFormProp.java:measurementTypes = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/prop/EctFormProp.java:static private Vector measurementTypes;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/prop/EctFormProp.java:static public Vector getMeasurementTypes(){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/EctFindMeasurementTypeUtil.java:Vector measurementTypes = EctFormProp.getMeasurementTypes();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/EctFindMeasurementTypeUtil.java:Vector validations = mt.getValidationRules();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/EctFindMeasurementTypeUtil.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/EctFindMeasurementTypeUtil.java:static public Vector checkMeasurmentTypes(InputStream is, String formName){</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/MeasurementDSHelper.java:Collection col = mdbh.getMeasurementsDataVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/MeasurementDSHelper.java:for(Object o: mdbh.getMeasurementsDataVector()) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/WriteNewMeasurements.java://--------All measurement values are organized in Hashtables in an arraylist</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/WriteNewMeasurements.java:Hashtable curmeasure = (Hashtable) measures.get(i);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/WriteNewMeasurements.java:Hashtable curmeasure = (Hashtable) measures.get(index);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/WriteNewMeasurements.java:Hashtable measure = (Hashtable) measures.get(i);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/WriteNewMeasurements.java:Hashtable measure = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/WriteNewMeasurements.java:Vector measures = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/WriteNewMeasurements.java:import java.util.Hashtable;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/WriteNewMeasurements.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/WriteNewMeasurements.java:static private ActionMessages validate(Vector measures, String demographicNo) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/WriteNewMeasurements.java:static private int getMeasurement(Vector measures, String type) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/WriteNewMeasurements.java:static private void preProcess(Vector measures) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/WriteNewMeasurements.java:static public void write(Hashtable measure, String demographicNo, String providerNo) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/oscarMeasurements/util/WriteNewMeasurements.java:static public void write(Vector measures, String demographicNo, String providerNo) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayDecisionSupportAlertsAction.java:Vector v = OscarRoleObjectPrivilege.getPrivilegeProp("_newCasemgmt.decisionSupportAlerts");</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayDecisionSupportAlertsAction.java:a = OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) v.get(0), (Vector) v.get(1));</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayDecisionSupportAlertsAction.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayDxAction.java:Vector diseases = hd.getDxResearchBeanVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayDxAction.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayEFormAction.java:Vector v = OscarRoleObjectPrivilege.getPrivilegeProp(objectName);</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayEFormAction.java:if (!OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) v.get(0), (Vector) v.get(1))) {</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayEFormAction.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayEpisodeAction.java:Vector v = OscarRoleObjectPrivilege.getPrivilegeProp("_newCasemgmt.episode");</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayEpisodeAction.java:a = OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) v.get(0), (Vector) v.get(1));</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayEpisodeAction.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayMacroAction.java:Vector v = OscarRoleObjectPrivilege.getPrivilegeProp("_newCasemgmt.macro");</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayMacroAction.java:a = OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) v.get(0), (Vector) v.get(1));</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayMacroAction.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayMeasurementsAction.java:Vector dxCodes = dxRes.getActiveCodeListWithCodingSystem();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayMeasurementsAction.java:Vector measureTypes = (Vector) hd.getMeasurementsDataVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayMeasurementsAction.java:Vector measures = (Vector) hd.getMeasurementsDataVector();</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayMeasurementsAction.java:import java.util.Vector;</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayPregnancyAction.java:Vector v = OscarRoleObjectPrivilege.getPrivilegeProp("_newCasemgmt.pregnancy");</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayPregnancyAction.java:a = OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) v.get(0), (Vector) v.get(1));</ViolationValue>
-        <ViolationValue>/src/main/java/ca/openosp/openo/oscarEncounter/pageUtil/EctDisplayPregnancyAction.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctSplitChart.java:Vector&lt;String[]&gt; vec = new Vector&lt;String[]&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctSplitChart.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/data/EctSplitChart.java:public Vector&lt;String[]&gt; getSplitCharts(String demographicNo) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetData.java:createDateVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetData.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetData.java:public Vector createDateVec;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetData.java:public Vector setIdVec;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetData.java:public Vector setNameVec;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetData.java:setIdVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetData.java:setNameVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetWriter.java:EctImmHeading hHead = (EctImmHeading)headingVector.elementAt(i);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetWriter.java:EctImmImmunizations immunizations = (EctImmImmunizations)immunizationVector.elementAt(i);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetWriter.java:Vector indexes = immunizations.indexAge;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetWriter.java:for(int i = 0; i &lt; headingVector.size(); i++)</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetWriter.java:for(int i = 0; i &lt; immunizationVector.size(); i++)</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetWriter.java:immunizations.sortAgeVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetWriter.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizationSetWriter.java:public void doWrite(int flag, Vector headingVector, Vector immunizationVector, Vector yearAgeVector, String setName, String providerNo)</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizations.java:Vector newVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizations.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizations.java:newVector.setSize(indexAge.size());</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizations.java:public Vector indexAge;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/data/EctImmImmunizations.java:public void sortAgeVector()</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:EctImmImmunizations immunization = (EctImmImmunizations)immunizationVector.elementAt(q);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:EctImmImmunizations immunizations = (EctImmImmunizations)immunizationVector.elementAt(intRow - 1);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector headingVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector headingVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector immunizationVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector immunizationVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector yearAgeVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:Vector yearAgeVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:for(int q = 0; q &lt; immunizationVector.size(); q++) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:headingVector.setElementAt(header, header.col - 1);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:headingVector.setSize(headingVec.size());</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:immunization.indexAge = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:immunizationSetWriter.doWrite(flag, headingVector, immunizationVector, yearAgeVec, setName, providerNo);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:immunizationVector.setElementAt(immunization, immunization.row - 1);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:immunizationVector.setSize(immunizationVec.size());</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/config/pageUtil/EctImmCreateImmunizationSetConfigAction.java:yearAgeVector.setSize(yearAgeVec.size());</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/data/EctImmConfigData.java:Vector ret = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/data/EctImmConfigData.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/data/EctImmConfigData.java:public Vector getImmunizationConfigId() {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/immunization/data/EctImmConfigData.java:public Vector getImmunizationConfigName() {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConConstructSpecialistsScriptsFile.java:Vector&lt;String&gt; serviceDesc;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConConstructSpecialistsScriptsFile.java:Vector&lt;String&gt; serviceId;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConConstructSpecialistsScriptsFile.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConConstructSpecialistsScriptsFile.java:serviceDesc = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConConstructSpecialistsScriptsFile.java:serviceId = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:Vector&lt;String&gt; vector = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:addressVec = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:emailVec = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:estSpecialistVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:fNameVec = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:faxVec = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:lNameVec = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:phoneVec = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:proLettersVec = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; addressVec;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; emailVec;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; fNameVec;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; faxVec;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; getSpecialistInField(String serviceId) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; lNameVec;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; phoneVec;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; proLettersVec;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; serviceId;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; serviceName;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; specIdVec;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; specTypeVec;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public Vector&lt;String&gt; websiteVec;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public void estServicesVectors()</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:public void estSpecialistVector()</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:serviceId = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:serviceName = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:specIdVec = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:specTypeVec = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java:websiteVec = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConShowAllServicesUtil.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConShowAllServicesUtil.java:public Vector serviceDescVec;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConShowAllServicesUtil.java:public Vector serviceIdVec;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConShowAllServicesUtil.java:public void estServicesVectors()</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConShowAllServicesUtil.java:serviceDescVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/config/pageUtil/EctConShowAllServicesUtil.java:serviceIdVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestUtil.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestUtil.java:public Vector getTeamVec() {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestUtil.java:public Vector teamVec;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestUtil.java:public void setTeamVec(Vector teamVec) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestUtil.java:teamVec = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:apptDate = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:consultProvider = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:date = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:demographicNo = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:followUpDate = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:ids = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:patient = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:provider = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:providerNo = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector consultProvider;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; apptDate;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; date;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; demographicNo;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; followUpDate;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; ids;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; patient;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; patientWillBook;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; provider;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; providerNo;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; service;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; siteName;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; status;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; teams;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; urgency;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:public Vector&lt;String&gt; vSpecialist;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:service = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:siteName = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:status = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:teams = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:this.patientWillBook = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:urgency = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java:vSpecialist = new Vector&lt;String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementFlowSheet.java://Hashtable dsHash = null; //hash of the rules  ** might not be needed if it's in the object</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementFlowSheet.java://Hashtable dsRulesHash = new Hashtable();   //Each items Rules ** Not sure what to do with yet</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementFlowSheet.java://Hashtable measurementsFlowSheetInfo = null;   //Collenction of hash tables with details  ** CAN now be from itemList (Hoping)</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementFlowSheet.java://Hashtable measurementsInfo = null;            //Colectopm of EctMeasurementType objects  ** GET RID OF THIS</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementFlowSheet.java:Hashtable&lt;String,String&gt; indicatorHash = new Hashtable&lt;String,String&gt;();   //color map for severity</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementFlowSheet.java:import java.util.Hashtable;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementFlowSheet.java:public Hashtable&lt;String,String&gt; getIndicatorHashtable(){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementFlowSheet.java:public void updateMeasurementFlowSheetInfo(String measurement, Hashtable&lt;String,String&gt; h) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementFlowSheet.java:return new Hashtable&lt;String,String&gt;(indicatorHash);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementInfo.java://h = (Hashtable) list.get(0);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementInfo.java:Collection v = ect.getMeasurementsDataVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementInfo.java:Hashtable h =  null;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementInfo.java:Hashtable measurementHash = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementInfo.java:Hashtable&lt;String,String&gt; recommendationHash = new Hashtable&lt;String,String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementInfo.java:Hashtable&lt;String,String&gt; warningHash = new Hashtable&lt;String,String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementInfo.java:import java.util.Hashtable;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java://                 Hashtable h = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable h = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable indicatorHash = mFlowsheet.getIndicatorHashtable();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable&lt;String, ArrayList&lt;String&gt;&gt; dxTrigHash = new Hashtable&lt;String, ArrayList&lt;String&gt;&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable&lt;String, File&gt; flowsheetFiles = new Hashtable&lt;String, File&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable&lt;String, MeasurementFlowSheet&gt; flowsheets = null;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable&lt;String, String&gt; flowsheetDisplayNames = new Hashtable&lt;String, String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:Hashtable&lt;String, String&gt; h = new Hashtable&lt;String, String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:dxTrigHash = new Hashtable&lt;String, ArrayList&lt;String&gt;&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:flowsheetDisplayNames = new Hashtable&lt;String, String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:flowsheetFiles = new Hashtable&lt;String,File&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:flowsheets = new Hashtable&lt;String, MeasurementFlowSheet&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:import java.util.Hashtable;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:private Hashtable&lt;String,String&gt; getRecommendationHash(Element recowarn){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:protected Element getRuleBaseElement(String ruleName,String measurement,Hashtable&lt;String,String&gt; recowarn){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:public Hashtable&lt;String, ArrayList&lt;String&gt;&gt; getDxTrigHash() {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:public Hashtable&lt;String, String&gt; getFlowsheetDisplayNames(){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/MeasurementTemplateFlowSheetConfig.java:public Hashtable&lt;String,File&gt; getFileMap() {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctGroupNameBeanHandler.java:Vector&lt;EctGroupNameBean&gt; groupNameVector = new Vector&lt;EctGroupNameBean&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctGroupNameBeanHandler.java:groupNameVector.add(groupName);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctGroupNameBeanHandler.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctGroupNameBeanHandler.java:public Collection&lt;EctGroupNameBean&gt; getGroupNameVector() {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctGroupNameBeanHandler.java:return groupNameVector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBean.java:Vector validationRules = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBean.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBean.java:public Vector getValidationRules(){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:EctMeasuringInstructionBeanHandler hd = new EctMeasuringInstructionBeanHandler(measuringInstrcVector);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measurementTypeVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measurementsDataVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measuringInstrcHdVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measuringInstrcVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector measuringInstrcVectorVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:Vector typeVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:measurementTypeVector.add(measurementTypes);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:measuringInstrcHdVector.add(hd);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:measuringInstrcVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:measuringInstrcVector.add(mInstrc);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:measuringInstrcVectorVector.add(measuringInstrcVector);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasurementTypeVector(){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasurementsDataVector(){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasuringInstrcHdVector(){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasuringInstrcVector(){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:public Vector getMeasuringInstrcVectorVector(){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:return measurementTypeVector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:return measurementsDataVector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:return measuringInstrcHdVector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:return measuringInstrcVector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementTypesBeanHandler.java:return measuringInstrcVectorVector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:Hashtable&lt;String,Object&gt; data = new Hashtable&lt;String,Object&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:Vector&lt;EctMeasurementsDataBean&gt; measurementsDataVector = new Vector&lt;EctMeasurementsDataBean&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:import java.util.Hashtable;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:measurementsDataVector.add(data);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:private static Hashtable&lt;String,Object&gt; toHashTable(Measurement m, MeasurementType mt, Provider p){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:public Collection&lt;EctMeasurementsDataBean&gt; getMeasurementsDataVector(){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:public static Hashtable&lt;String,Object&gt; getLast(String demo, String type) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:public static Hashtable&lt;String,Object&gt; getMeasurementDataById(String id){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:return measurementsDataVector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java:return new Hashtable&lt;String, Object&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctStyleSheetBeanHandler.java:Vector&lt;EctStyleSheetBean&gt; styleSheetNameVector = new Vector&lt;EctStyleSheetBean&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctStyleSheetBeanHandler.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctStyleSheetBeanHandler.java:public Collection&lt;EctStyleSheetBean&gt; getStyleSheetNameVector() {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctStyleSheetBeanHandler.java:return styleSheetNameVector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctStyleSheetBeanHandler.java:styleSheetNameVector.add(location);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctTypeDisplayNameBeanHandler.java:Vector&lt;EctTypeDisplayNameBean&gt; typeDisplayNameVector = new Vector&lt;EctTypeDisplayNameBean&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctTypeDisplayNameBeanHandler.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctTypeDisplayNameBeanHandler.java:public Collection&lt;EctTypeDisplayNameBean&gt; getTypeDisplayNameVector() {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctTypeDisplayNameBeanHandler.java:return typeDisplayNameVector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctTypeDisplayNameBeanHandler.java:typeDisplayNameVector.add(typeDisplayName);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctValidationsBeanHandler.java:Vector validationsVector = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctValidationsBeanHandler.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctValidationsBeanHandler.java:public Collection getValidationsVector() {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctValidationsBeanHandler.java:return validationsVector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/bean/EctValidationsBeanHandler.java:validationsVector.add(validation);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/data/MeasurementMapConfig.java:ArrayList&lt;Hashtable&lt;String,Object&gt;&gt; ret = new ArrayList&lt;Hashtable&lt;String,Object&gt;&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/data/MeasurementMapConfig.java:Hashtable&lt;String, Hashtable&lt;String,String&gt;&gt; ret = new Hashtable&lt;String,Hashtable&lt;String,String&gt;&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/data/MeasurementMapConfig.java:Hashtable&lt;String, String&gt; ht = new Hashtable&lt;String,String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/data/MeasurementMapConfig.java:Hashtable&lt;String,Object&gt; ht = new Hashtable&lt;String,Object&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/data/MeasurementMapConfig.java:List&lt;Hashtable&lt;String,String&gt;&gt; ret = new LinkedList&lt;Hashtable&lt;String,String&gt;&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/data/MeasurementMapConfig.java:import java.util.Hashtable;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/data/MeasurementMapConfig.java:public ArrayList&lt;Hashtable&lt;String,Object&gt;&gt; getLoincCodes(String searchString) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/data/MeasurementMapConfig.java:public ArrayList&lt;Hashtable&lt;String,Object&gt;&gt; getMeasurementMap(String searchString) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/data/MeasurementMapConfig.java:public ArrayList&lt;Hashtable&lt;String,Object&gt;&gt; getUnmappedMeasurements(String type) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/data/MeasurementMapConfig.java:public Hashtable&lt;String, Hashtable&lt;String,String&gt;&gt; getMappedCodesFromLoincCodesHash(String loincCode) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/data/MeasurementMapConfig.java:public List&lt;Hashtable&lt;String,String&gt;&gt; getMappedCodesFromLoincCodes(String loincCode) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctAddMeasuringInstructionAction.java:Collection typeDisplayNameList = typeHd.getTypeDisplayNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctAddMeasuringInstructionAction.java:Collection validationsList = validationHd.getValidationsVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSelectMeasurementGroupAction.java:Collection allStyleSheets = sshd.getStyleSheetNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupAddMeasurementGroupAction.java:Collection allTypeDisplayName = hd.getTypeDisplayNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupAddMeasurementGroupAction.java:Collection existingTypeDisplayName = hd.getTypeDisplayNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupAddMeasurementTypeAction.java:Collection validations = hd.getValidationsVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupAddMeasuringInstructionAction.java:Collection typeDisplayName = typeHd.getTypeDisplayNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupAddMeasuringInstructionAction.java:Collection validations = validationHd.getValidationsVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupDisplayHistoryAction.java:List&lt;EctMeasurementsDataBean&gt; measures = (List&lt;EctMeasurementsDataBean&gt;) hd.getMeasurementsDataVector ();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupEditMeasurementGroupAction.java:Collection allTypeDisplayName = hd.getTypeDisplayNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupEditMeasurementGroupAction.java:Collection existingTypeDisplayName = hd.getTypeDisplayNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupGroupListAction.java:Collection groups = hd.getGroupNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupHistoryIndexAction.java:List&lt;EctMeasurementsDataBean&gt; measureTypes = (List&lt;EctMeasurementsDataBean&gt;) hd.getMeasurementsDataVector ();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupMeasurementsAction.java:EctMeasuringInstructionBeanHandler mInstrcs = (EctMeasuringInstructionBeanHandler) mInstrcVector.elementAt(i);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupMeasurementsAction.java:Vector mInstrcVector = hd.getMeasuringInstrcHdVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupMeasurementsAction.java:for(int i=0; i&lt;hd.getMeasurementTypeVector().size(); i++){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupMeasurementsAction.java:for(int i=0; i&lt;mInstrcVector.size(); i++){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupMeasurementsAction.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/EctSetupStyleSheetListAction.java:Collection allStyleSheets = sshd.getStyleSheetNameVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:ArrayList&lt;EctMeasurementsDataBean&gt; list = new ArrayList&lt;EctMeasurementsDataBean&gt;(dataVector);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:Collection&lt;EctMeasurementsDataBean&gt; dataVector = ectMeasure.getMeasurementsDataVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:Hashtable h = getMeasurementsExt( mdb.getId());</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:Hashtable&lt;String,String&gt; hash = new Hashtable&lt;String,String&gt;();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:for (EctMeasurementsDataBean mdb : list) { // dataVector) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:for (EctMeasurementsDataBean mdb : list) { //dataVector) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:for (EctMeasurementsDataBean mdb : list2) { //dataVector) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:import java.util.Hashtable;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction2.java:private  Hashtable getMeasurementsExt(Integer measurementId) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/prop/EctFormProp.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/prop/EctFormProp.java:measurementTypes = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/prop/EctFormProp.java:static private Vector measurementTypes;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/prop/EctFormProp.java:static public Vector getMeasurementTypes(){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/EctFindMeasurementTypeUtil.java:Vector measurementTypes = EctFormProp.getMeasurementTypes();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/EctFindMeasurementTypeUtil.java:Vector validations = mt.getValidationRules();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/EctFindMeasurementTypeUtil.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/EctFindMeasurementTypeUtil.java:static public Vector checkMeasurmentTypes(InputStream is, String formName){</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/MeasurementDSHelper.java:Collection col = mdbh.getMeasurementsDataVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/MeasurementDSHelper.java:for(Object o: mdbh.getMeasurementsDataVector()) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/WriteNewMeasurements.java://--------All measurement values are organized in Hashtables in an arraylist</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/WriteNewMeasurements.java:Hashtable curmeasure = (Hashtable) measures.get(i);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/WriteNewMeasurements.java:Hashtable curmeasure = (Hashtable) measures.get(index);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/WriteNewMeasurements.java:Hashtable measure = (Hashtable) measures.get(i);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/WriteNewMeasurements.java:Hashtable measure = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/WriteNewMeasurements.java:Vector measures = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/WriteNewMeasurements.java:import java.util.Hashtable;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/WriteNewMeasurements.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/WriteNewMeasurements.java:static private ActionMessages validate(Vector measures, String demographicNo) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/WriteNewMeasurements.java:static private int getMeasurement(Vector measures, String type) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/WriteNewMeasurements.java:static private void preProcess(Vector measures) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/WriteNewMeasurements.java:static public void write(Hashtable measure, String demographicNo, String providerNo) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/oscarMeasurements/util/WriteNewMeasurements.java:static public void write(Vector measures, String demographicNo, String providerNo) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayDecisionSupportAlertsAction.java:Vector v = OscarRoleObjectPrivilege.getPrivilegeProp("_newCasemgmt.decisionSupportAlerts");</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayDecisionSupportAlertsAction.java:a = OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) v.get(0), (Vector) v.get(1));</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayDecisionSupportAlertsAction.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayDxAction.java:Vector diseases = hd.getDxResearchBeanVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayDxAction.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayEFormAction.java:Vector v = OscarRoleObjectPrivilege.getPrivilegeProp(objectName);</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayEFormAction.java:if (!OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) v.get(0), (Vector) v.get(1))) {</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayEFormAction.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayEpisodeAction.java:Vector v = OscarRoleObjectPrivilege.getPrivilegeProp("_newCasemgmt.episode");</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayEpisodeAction.java:a = OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) v.get(0), (Vector) v.get(1));</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayEpisodeAction.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayMacroAction.java:Vector v = OscarRoleObjectPrivilege.getPrivilegeProp("_newCasemgmt.macro");</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayMacroAction.java:a = OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) v.get(0), (Vector) v.get(1));</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayMacroAction.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayMeasurementsAction.java:Vector dxCodes = dxRes.getActiveCodeListWithCodingSystem();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayMeasurementsAction.java:Vector measureTypes = (Vector) hd.getMeasurementsDataVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayMeasurementsAction.java:Vector measures = (Vector) hd.getMeasurementsDataVector();</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayMeasurementsAction.java:import java.util.Vector;</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayPregnancyAction.java:Vector v = OscarRoleObjectPrivilege.getPrivilegeProp("_newCasemgmt.pregnancy");</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayPregnancyAction.java:a = OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) v.get(0), (Vector) v.get(1));</ViolationValue>
+        <ViolationValue>/src/main/java/ca/openosp/openo/encounter/pageUtil/EctDisplayPregnancyAction.java:import java.util.Vector;</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarLab/FileUploadCheck.java:Hashtable&lt;String, String&gt; fileInfo = new Hashtable&lt;String, String&gt;();</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarLab/FileUploadCheck.java:import java.util.Hashtable;</ViolationValue>
         <ViolationValue>/src/main/java/ca/openosp/openo/oscarLab/FileUploadCheck.java:public static Hashtable&lt;String, String&gt; getFileInfo(String md5sum) {</ViolationValue>
@@ -2707,63 +2706,63 @@
         <ViolationValue>/src/main/webapp/lab/LinkReq.jsp:Vector&lt;String&gt; req_id      = new Vector&lt;String&gt;();</ViolationValue>
         <ViolationValue>/src/main/webapp/lab/LinkReq.jsp:java.util.Hashtable,</ViolationValue>
         <ViolationValue>/src/main/webapp/lab/LinkReq.jsp:java.util.Vector,</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/Index2.jsp:Vector splitChart = ectSplitChart.getSplitCharts(demoNo);</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/immunization/ScheduleConfig.jsp:Vector cfgId = new EctImmConfigData().getImmunizationConfigId();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/immunization/ScheduleConfig.jsp:Vector cfgSet = new EctImmConfigData().getImmunizationConfigName();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/ConsultationFormFax.jsp:Vector vecFaxes  = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/ConsultationFormFax.jsp:Vector vecPhones = new Vector();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp:Vector&lt;Integer&gt; siteIds = new Vector&lt;Integer&gt;();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp:Vector&lt;String&gt; bgColor = new Vector&lt;String&gt;() ;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp:Vector&lt;String&gt; vecAddressName = new Vector&lt;String&gt;() ;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/config/DeleteServices.jsp:displayServiceUtil.estServicesVectors();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/config/DisplayService.jsp:displayServiceUtil.estSpecialistVector();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/config/DisplayService.jsp:java.util.Vector  specialistInField = displayServiceUtil.getSpecialistInField(serviceId);</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/config/EditSpecialists.jsp:displayServiceUtil.estSpecialistVector();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/config/ShowAllServices.jsp:showAllServicesUtil.estServicesVectors();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/AddMeasurementData.jsp:Hashtable existingPrevention = null;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/AddMeasurementData.jsp:Hashtable extraData = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/AddMeasurementData.jsp:Hashtable h = null;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/AddMeasurementData.jsp:h = new Hashtable(ectMeasurementsForm.values);</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/Customization.jsp:&lt;%@ page import="java.util.Vector"%&gt;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/DisplayHistory.jsp:&lt;%@ page import="java.util.Vector"%&gt;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/DisplayHistory.jsp:&lt;logic:iterate id="data" name="measurementsData" property="measurementsDataVector" indexId="ctr"&gt;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp:property="styleSheetNameVector" indexId="ctr"&gt;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/DisplayMeasurementTypes.jsp:property="measurementTypeVector" indexId="ctr"&gt;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/HealthTrackerPage.jspf:Hashtable h = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/HealthTrackerPage.jspf:Hashtable hdata = new Hashtable();//(Hashtable) alist.get(k);</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/HealthTrackerPage.jspf:Hashtable&lt;String, String&gt; systemFlowsheets = MeasurementTemplateFlowSheetConfig.getInstance().getFlowsheetDisplayNames();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/HealthTrackerPage.jspf:Vector dxCodes = dxRes.getActiveCodeListWithCodingSystem();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/HistoryIndex.jsp:&lt;%@ page import="java.util.Vector"%&gt;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/HistoryIndex.jsp:property="measurementsDataVector" type="ca.openosp.openo.oscarEncounter.oscarMeasurements.bean.EctMeasurementsDataBean" indexId="ctr"&gt;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/Measurements.jsp:&lt;%@ page import="java.util.Vector"%&gt;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/Measurements.jsp:property="measurementTypeVector" indexId="ctr"&gt;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPage.jspf:Hashtable h = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPage.jspf:Hashtable hdata = new Hashtable();//(Hashtable) alist.get(k);</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPage.jspf:Vector patientDx = dxResearchBeanHand.getDxResearchBeanVector();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable dates = (Hashtable)oj;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable dates = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable forPrint = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable h = new Hashtable();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable hdata = new Hashtable();//(Hashtable) alist.get(k);</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:}else if (oj instanceof Hashtable){</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/addMeasurementMap.jsp:Hashtable ht = (Hashtable) loincCodes.get(i);%&gt;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/addMeasurementMap.jsp:Hashtable ht = (Hashtable) measurements.get(i);</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/addMeasurementMap2.jsp:Vector&lt;EctMeasurementTypesBean&gt; vec = hd.getMeasurementTypeVector();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp:Hashtable&lt;String, String&gt; flowsheetNames = templateConfig.getFlowsheetDisplayNames();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp:Vector&lt;EctMeasurementTypesBean&gt; vec = hd.getMeasurementTypeVector();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/adminFlowsheet/UpdateFlowsheet.jsp:Hashtable colourHash = mFlowsheet.getIndicatorHashtable();</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/newHistoryIndex.jsp:&lt;%@ page import="java.util.Vector"%&gt;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/remapMeasurementMap.jsp:Hashtable ht = (Hashtable) loincCodes.get(i);%&gt;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/removeMeasurementMap.jsp:Hashtable ht = (Hashtable) mappings.get(i);%&gt;</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/viewMeasurementMap.jsp:ArrayList&lt;Hashtable&lt;String,Object&gt;&gt; unList = map.getUnmappedMeasurements(type);</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/viewMeasurementMap.jsp:Hashtable&lt;String, Hashtable&lt;String,String&gt;&gt; h = map.getMappedCodesFromLoincCodesHash(s);</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/viewMeasurementMap.jsp:Hashtable&lt;String,String&gt; data = h.get(type);</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/viewMeasurementMap.jsp:List&lt;Hashtable&lt;String,String&gt;&gt; codesHash = map.getMappedCodesFromLoincCodes(s);</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/viewMeasurementMap.jsp:String getCodeMap(List&lt;Hashtable&lt;String,String&gt;&gt; list){</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/viewMeasurementMap.jsp:String getDesc(Hashtable&lt;String,String&gt; h){</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/viewMeasurementMap.jsp:String getDisplay(Hashtable&lt;String, Hashtable&lt;String,String&gt;&gt; h, String type){</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/viewMeasurementMap.jsp:for (Hashtable&lt;String,Object&gt; h:unList){</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/oscarMeasurements/viewMeasurementMap.jsp:for(Hashtable&lt;String,String&gt; h : list){</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/Index2.jsp:Vector splitChart = ectSplitChart.getSplitCharts(demoNo);</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/immunization/ScheduleConfig.jsp:Vector cfgId = new EctImmConfigData().getImmunizationConfigId();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/immunization/ScheduleConfig.jsp:Vector cfgSet = new EctImmConfigData().getImmunizationConfigName();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarConsultationRequest/ConsultationFormFax.jsp:Vector vecFaxes  = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarConsultationRequest/ConsultationFormFax.jsp:Vector vecPhones = new Vector();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp:Vector&lt;Integer&gt; siteIds = new Vector&lt;Integer&gt;();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp:Vector&lt;String&gt; bgColor = new Vector&lt;String&gt;() ;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp:Vector&lt;String&gt; vecAddressName = new Vector&lt;String&gt;() ;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarConsultationRequest/config/DeleteServices.jsp:displayServiceUtil.estServicesVectors();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarConsultationRequest/config/DisplayService.jsp:displayServiceUtil.estSpecialistVector();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarConsultationRequest/config/DisplayService.jsp:java.util.Vector  specialistInField = displayServiceUtil.getSpecialistInField(serviceId);</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarConsultationRequest/config/EditSpecialists.jsp:displayServiceUtil.estSpecialistVector();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarConsultationRequest/config/ShowAllServices.jsp:showAllServicesUtil.estServicesVectors();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/AddMeasurementData.jsp:Hashtable existingPrevention = null;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/AddMeasurementData.jsp:Hashtable extraData = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/AddMeasurementData.jsp:Hashtable h = null;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/AddMeasurementData.jsp:h = new Hashtable(ectMeasurementsForm.values);</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/Customization.jsp:&lt;%@ page import="java.util.Vector"%&gt;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/DisplayHistory.jsp:&lt;%@ page import="java.util.Vector"%&gt;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/DisplayHistory.jsp:&lt;logic:iterate id="data" name="measurementsData" property="measurementsDataVector" indexId="ctr"&gt;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp:property="styleSheetNameVector" indexId="ctr"&gt;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/DisplayMeasurementTypes.jsp:property="measurementTypeVector" indexId="ctr"&gt;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/HealthTrackerPage.jspf:Hashtable h = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/HealthTrackerPage.jspf:Hashtable hdata = new Hashtable();//(Hashtable) alist.get(k);</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/HealthTrackerPage.jspf:Hashtable&lt;String, String&gt; systemFlowsheets = MeasurementTemplateFlowSheetConfig.getInstance().getFlowsheetDisplayNames();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/HealthTrackerPage.jspf:Vector dxCodes = dxRes.getActiveCodeListWithCodingSystem();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/HistoryIndex.jsp:&lt;%@ page import="java.util.Vector"%&gt;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/HistoryIndex.jsp:property="measurementsDataVector" type="ca.openosp.openo.encounter.oscarMeasurements.bean.EctMeasurementsDataBean" indexId="ctr"&gt;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/Measurements.jsp:&lt;%@ page import="java.util.Vector"%&gt;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/Measurements.jsp:property="measurementTypeVector" indexId="ctr"&gt;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPage.jspf:Hashtable h = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPage.jspf:Hashtable hdata = new Hashtable();//(Hashtable) alist.get(k);</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPage.jspf:Vector patientDx = dxResearchBeanHand.getDxResearchBeanVector();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable dates = (Hashtable)oj;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable dates = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable forPrint = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable h = new Hashtable();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:Hashtable hdata = new Hashtable();//(Hashtable) alist.get(k);</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/TemplateFlowSheetPrint.jsp:}else if (oj instanceof Hashtable){</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/addMeasurementMap.jsp:Hashtable ht = (Hashtable) loincCodes.get(i);%&gt;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/addMeasurementMap.jsp:Hashtable ht = (Hashtable) measurements.get(i);</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/addMeasurementMap2.jsp:Vector&lt;EctMeasurementTypesBean&gt; vec = hd.getMeasurementTypeVector();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp:Hashtable&lt;String, String&gt; flowsheetNames = templateConfig.getFlowsheetDisplayNames();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp:Vector&lt;EctMeasurementTypesBean&gt; vec = hd.getMeasurementTypeVector();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/adminFlowsheet/UpdateFlowsheet.jsp:Hashtable colourHash = mFlowsheet.getIndicatorHashtable();</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/newHistoryIndex.jsp:&lt;%@ page import="java.util.Vector"%&gt;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/remapMeasurementMap.jsp:Hashtable ht = (Hashtable) loincCodes.get(i);%&gt;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/removeMeasurementMap.jsp:Hashtable ht = (Hashtable) mappings.get(i);%&gt;</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/viewMeasurementMap.jsp:ArrayList&lt;Hashtable&lt;String,Object&gt;&gt; unList = map.getUnmappedMeasurements(type);</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/viewMeasurementMap.jsp:Hashtable&lt;String, Hashtable&lt;String,String&gt;&gt; h = map.getMappedCodesFromLoincCodesHash(s);</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/viewMeasurementMap.jsp:Hashtable&lt;String,String&gt; data = h.get(type);</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/viewMeasurementMap.jsp:List&lt;Hashtable&lt;String,String&gt;&gt; codesHash = map.getMappedCodesFromLoincCodes(s);</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/viewMeasurementMap.jsp:String getCodeMap(List&lt;Hashtable&lt;String,String&gt;&gt; list){</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/viewMeasurementMap.jsp:String getDesc(Hashtable&lt;String,String&gt; h){</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/viewMeasurementMap.jsp:String getDisplay(Hashtable&lt;String, Hashtable&lt;String,String&gt;&gt; h, String type){</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/viewMeasurementMap.jsp:for (Hashtable&lt;String,Object&gt; h:unList){</ViolationValue>
+        <ViolationValue>/src/main/webapp/encounter/oscarMeasurements/viewMeasurementMap.jsp:for(Hashtable&lt;String,String&gt; h : list){</ViolationValue>
         <ViolationValue>/src/main/webapp/oscarMessenger/DisplayDemographicMessages.jsp:&lt;% //java.util.Vector theMessages = new java.util.Vector() ;</ViolationValue>
         <ViolationValue>/src/main/webapp/oscarMessenger/DisplayDemographicMessages.jsp:java.util.Vector theMessages2 = new java.util.Vector() ;</ViolationValue>
         <ViolationValue>/src/main/webapp/oscarMessenger/DisplayMessages.jsp:java.util.Vector theMessages2 = new java.util.Vector() ;</ViolationValue>

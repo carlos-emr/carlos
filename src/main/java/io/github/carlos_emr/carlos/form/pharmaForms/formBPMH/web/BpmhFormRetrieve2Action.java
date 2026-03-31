@@ -28,16 +28,16 @@
  */
 package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhForm2Bean;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.business.BpmhForm2Handler;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.pdf.PDFController;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -128,7 +128,7 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         bpmhFormHandler.populateFormBean();
 
         PDFController pdfController = new PDFController(ServletActionContext.getServletContext().getRealPath(BPMH_PDF_TEMPLATE));
-        pdfController.setOutputPath(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        pdfController.setOutputPath(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         pdfController.writeDataToPDF(form, new String[]{"1"}, demographicNo + "");
 
         form.setEditDate(new Date());

@@ -51,7 +51,7 @@
     <%isSiteAccessPrivacy = true; %>
 </security:oscarSec>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
@@ -73,7 +73,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     if (!"POST".equalsIgnoreCase(request.getMethod())) {
         response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
@@ -139,7 +139,7 @@
             if (IsPropertiesOn.isProviderFormalizeEnable()) {
 
                 String StrProviderId = request.getParameter("provider_no");
-                OscarProperties props = OscarProperties.getInstance();
+                CarlosProperties props = CarlosProperties.getInstance();
 
                 String[] provider_sites = {};
 
@@ -191,7 +191,7 @@
                 DBPreparedHandler dbObj = new DBPreparedHandler();
 
                 // check if the providers no need to be auto generated
-                if (OscarProperties.getInstance().isProviderNoAuto()) {
+                if (CarlosProperties.getInstance().isProviderNoAuto()) {
                     p.setProviderNo(dbObj.getNewProviderNo());
                 }
 

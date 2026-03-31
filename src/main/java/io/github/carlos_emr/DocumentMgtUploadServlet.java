@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -32,25 +32,24 @@ package io.github.carlos_emr;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.text.SimpleDateFormat;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Properties;
 
-import javax.servlet.RequestDispatcher;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Part;
 
-import org.apache.commons.fileupload.DiskFileUpload;
-import org.apache.commons.fileupload.FileItem;
-import org.apache.commons.fileupload.FileUploadException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 /**
  * Servlet for handling document management system file uploads.
- * 
+ *
  * <p>This servlet processes multipart/form-data file uploads for the document
  * management system, providing functionality for:</p>
  * <ul>
@@ -59,33 +58,22 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *   <li>Document categorization and metadata handling</li>
  *   <li>Integration with the document management repository</li>
  * </ul>
- * 
+ *
  * <p>Files are timestamped upon upload using the format yyyyMMddHmmss to ensure
  * unique filenames and proper chronological ordering.</p>
- * 
- * <p><strong>Note:</strong> This is a legacy servlet. Modern applications should
- * use Spring MVC controllers with proper multipart handling.</p>
- * 
+ *
+ * <p><strong>Security:</strong> Uses {@link PathValidationUtils} to prevent directory
+ * traversal attacks. All uploaded files are validated before storage.</p>
+ *
  * @see DocumentUploadServlet
+ * @see PathValidationUtils
  */
 public class DocumentMgtUploadServlet extends HttpServlet {
-    /** Buffer size for file operations */
-    final static int BUFFER = 2048;
-    
-    /** Current date/time for timestamp generation */
-    public java.util.Date today;
-    
-    /** Formatted timestamp output */
-    public String output;
-    
-    /** Date formatter for timestamp generation (yyyyMMddHmmss) */
-    public SimpleDateFormat formatter;
-
 
     /**
      * Handles HTTP requests for document management uploads.
      * Processes multipart form data and stores uploaded documents with timestamps.
-     * 
+     *
      * @param request the HTTP servlet request containing the uploaded file
      * @param response the HTTP servlet response
      * @throws IOException if an I/O error occurs
@@ -93,144 +81,45 @@ public class DocumentMgtUploadServlet extends HttpServlet {
      */
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
 
-
-        formatter = new SimpleDateFormat("yyyyMMddHmmss");
-        today = new java.util.Date();
-        output = formatter.format(today);
-
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHmmss");
+        String output = formatter.format(new java.util.Date());
 
         String foldername = "", fileheader = "", forwardTo = "";
 
-
-        // Get properties from carlos.properties
-        Properties ap = OscarProperties.getInstance();
+        Properties ap = CarlosProperties.getInstance();
 
         forwardTo = ap.getProperty("DOC_FORWARD");
         foldername = ap.getProperty("DOCUMENT_DIR");
 
         if (forwardTo == null || forwardTo.length() < 1) return;
 
-
-        //		 Create a new file upload handler
-        DiskFileUpload upload = new DiskFileUpload();
+        File documentDir = new File(foldername);
 
         try {
-            //		 Parse the request
-            List items = upload.parseRequest(request);
-//          Process the uploaded items
-            Iterator iter = items.iterator();
-            while (iter.hasNext()) {
-                FileItem item = (FileItem) iter.next();
+            for (Part part : request.getParts()) {
+                String submittedFilename = part.getSubmittedFileName();
+                if (submittedFilename == null || submittedFilename.isEmpty()) {
+                    continue;
+                }
 
-                if (item.isFormField()) {
-                    //String name = item.getFieldName();
-                    //String value = item.getString(); 
+                String timestampedName = output + submittedFilename;
 
-                } else {
-                    String pathName = item.getName();
-                    String[] fullFile = pathName.split("[/|\\\\]");
-                    File savedFile = new File(foldername, output + fullFile[fullFile.length - 1]);
+                File savedFile = PathValidationUtils.validatePath(timestampedName, documentDir);
+                fileheader = savedFile.getName();
 
-                    fileheader = output + fullFile[fullFile.length - 1];
-
-                    item.write(savedFile);
+                try (InputStream in = part.getInputStream()) {
+                    Files.copy(in, savedFile.toPath());
                 }
             }
-        } catch (FileUploadException e) {
-            // TODO Auto-generated catch block
-            MiscUtils.getLogger().error("Error", e);
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().error("Path validation failed for uploaded file", e);
         } catch (Exception e) {
-            // TODO Auto-generated catch block
             MiscUtils.getLogger().error("Error", e);
         }
-    
-   
-/*
-    ServletInputStream sis = request.getInputStream();
-    BufferedOutputStream dest = null;
-    FileOutputStream fos = null;
-    boolean bwri = false;
-    boolean bfbo = true;
-    boolean benddata = false;
-    boolean bf = false;
-    byte boundary[] = temp.getBytes();
 
-    while (bf?true:((count = sis.readLine(data, 0, BUFFER)) != -1)) {
-       bf = false;
-       benddata = false;
-       
-       if(count==2 && data[0]==13 && data[1]==10) {
-          enddata[0] = 13;
-     	  enddata[1] = 10;
-     	  for(int i=0;i<BUFFER;i++) data[i]=0;
-     	     count = sis.readLine(data, 0, BUFFER);
-	     if(count==2 && data[0]==13 && data[1]==10) {
-	        dest.write(enddata, 0, 2);
-		bf = true;
-		continue;
-	     } else {
-		benddata = true;
-	     }
-	  }
-     	  String s = new String(data,2,temp.length());
-     	  if(temp.equals(s)) {
-    	     if(benddata) break;
-     	     if((c =sis.readLine(data1, 0, BUFFER)) != -1) {
-     	        filename = new String(data1);
-      		if(filename.length()>2 && filename.indexOf("filename")!=-1) {
-	
-		   filename = filename.substring(filename.lastIndexOf("filename=\"") + "filename\"".length() +1,
-						  filename.lastIndexOf('"'));
-	
-		   filename = filename.substring(filename.lastIndexOf('\\')+1, filename.length());
-		   fileheader = output +  filename;
-                   fos = new FileOutputStream(foldername+ output + filename);
-                   dest = new BufferedOutputStream(fos, BUFFER);
-                }
-       		c =sis.readLine(data2, 0, BUFFER);
-     		if((c =sis.readLine(data2, 0, BUFFER)) != -1) {
-       		   bwri = bfbo?true:false;
-                }
-     	     }
-             bfbo = bfbo?false:true;
-             for(int i=0;i<BUFFER;i++) data[i]=0;
-     	        continue;
-     	  } //end period
-
-   	  if(benddata) {
-   	     benddata = false;
-             dest.write(enddata, 0, 2);
-   	     for(int i=0;i<2;i++) enddata[i]=0;
-   	  }
-          if(bwri) {
-       	     dest.write(data, 0, count);
-     	     for(int i=0;i<BUFFER;i++) data[i]=0;
-          }
-    } //end while
-    //dest.flush();
-    fos.close();
-    dest.close();
-    sis.close();
-*/
         DocumentBean documentBean = new DocumentBean();
-
         request.setAttribute("documentBean", documentBean);
-
         documentBean.setFilename(fileheader);
-
-        //  documentBean.setFileDesc(filedesc);
-
-        //  documentBean.setFoldername(foldername);
-
-        //  documentBean.setFunction(function);
-
-        //  documentBean.setFunctionID(function_id);
-
-        //  documentBean.setCreateDate(fileheader);
-
-        //  documentBean.setDocCreator(creator);
-
-        // Call the output page.
 
         RequestDispatcher dispatch = getServletContext().getRequestDispatcher(forwardTo);
         dispatch.forward(request, response);

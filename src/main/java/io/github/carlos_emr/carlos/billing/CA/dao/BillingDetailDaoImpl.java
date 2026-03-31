@@ -34,7 +34,7 @@ package io.github.carlos_emr.carlos.billing.CA.dao;
 
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
@@ -66,7 +66,7 @@ public class BillingDetailDaoImpl extends AbstractDaoImpl<BillingDetail> impleme
 
     @Override
     public List<BillingDetail> findByBillingNo(Integer billingNo) {
-        Query query = createQuery("bd", "bd.billingNo = :billingNo AND bd.status <> 'D' ORDER BY service_code");
+        Query query = createQuery("bd", "bd.billingNo = :billingNo AND bd.status <> 'D' ORDER BY bd.serviceCode");
         query.setParameter("billingNo", billingNo);
         return query.getResultList();
     }

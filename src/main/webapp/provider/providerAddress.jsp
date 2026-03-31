@@ -30,7 +30,7 @@
 --%>
 
 <%@ page language="java" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ page import="io.github.carlos_emr.carlos.providers.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
@@ -41,7 +41,7 @@
     UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
 %>
 <%
-    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.htm");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.htm");
     String curUser_no = (String) session.getAttribute("user");
 %>
 <html>
@@ -50,7 +50,7 @@
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css"
-              href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
+              href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
 
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.editRxAddress.title"/></title>
 

@@ -32,12 +32,10 @@ import io.github.carlos_emr.carlos.commn.dao.EpisodeDao;
 import io.github.carlos_emr.carlos.commn.model.Episode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
-import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -91,17 +89,8 @@ public class EctDisplayPregnancy2Action extends EctDisplayAction {
                 Dao.addPopUpUrl("popupPage(700,1000,'" + winName + "', '" + request.getContextPath() + "/Pregnancy.do?method=create&code=34801009&codetype=SnomedCore&demographicNo=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "')");
                 Dao.addPopUpText("Ectopic");
 
-                //check to see if they have an onar2005 form
-                if (OscarProperties.getInstance().getProperty("billregion", "ON").equals("ON")) {
-                    EctFormData.PatientForm[] pforms = EctFormData.getPatientForms(bean.demographicNo, "formONAR");
-                    EctFormData.PatientForm[] eforms = EctFormData.getPatientForms(bean.demographicNo, "formONAREnhancedRecord");
-
-                    if (pforms.length > 0 && eforms.length == 0) {
-                        Dao.addPopUpUrl("popupPage(700,1000,'" + winName + "', '" + request.getContextPath() + "/Pregnancy.do?method=migrate&demographicNo=" + bean.demographicNo + "')");
-                        Dao.addPopUpText("Migration tool");
-
-                    }
-                }
+                // formONAR and formONAREnhancedRecord tables removed (deprecated 2026-03-25)
+                // Migration tool popup removed as legacy ONAR tables no longer exist
 
 
                 //check for an existing pregnancy

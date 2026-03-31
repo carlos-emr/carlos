@@ -37,9 +37,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import javax.servlet.ServletContext;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
@@ -47,7 +47,7 @@ import org.apache.logging.log4j.Logger;
 /**
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -78,7 +78,7 @@ public class ImportLogDownload2Action extends ActionSupport {
         
         // Get the temp directory from servlet context
         ServletContext servletContext = ServletActionContext.getServletContext();
-        File tempDir = (File) servletContext.getAttribute("javax.servlet.context.tempdir");
+        File tempDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir");
         
         if (tempDir == null) {
             logger.error("Unable to access temp directory");
@@ -99,7 +99,7 @@ public class ImportLogDownload2Action extends ActionSupport {
 
             // Validate using PathValidationUtils to prevent directory traversal
             try {
-                PathValidationUtils.validateExistingPath(importLogFile, tempDir);
+                importLogFile = PathValidationUtils.validateExistingPath(importLogFile, tempDir);
             } catch (SecurityException e) {
                 logger.error("Path is not in the correct directory: " + importLogParam);
                 return "error";

@@ -40,8 +40,8 @@
 <%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*"
          errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
 <head>

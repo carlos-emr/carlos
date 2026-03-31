@@ -44,13 +44,13 @@
     }
 %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
-<%@ page import="java.util.*,io.github.carlos_emr.carlos.rx.data.*,io.github.carlos_emr.carlos.rx.pageUtil.*, io.github.carlos_emr.OscarProperties" %>
+<%@ page import="java.util.*,io.github.carlos_emr.carlos.rx.data.*,io.github.carlos_emr.carlos.rx.pageUtil.*, io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -89,7 +89,7 @@
             }
             int i;
 
-            String drugref_route = OscarProperties.getInstance().getProperty("drugref_route");
+            String drugref_route = CarlosProperties.getInstance().getProperty("drugref_route");
             if (drugref_route == null) drugref_route = "";
             String[] d_route = ("Oral," + drugref_route).split(",");
             String[] selRoute = new String[d_route.length];

@@ -41,13 +41,13 @@
 <%@ page import="io.github.carlos_emr.carlos.workflow.WorkFlow" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
 <%
 
-    String provider = (String) session.getValue("user");
+    String provider = (String) session.getAttribute("user");
 
 
 %>

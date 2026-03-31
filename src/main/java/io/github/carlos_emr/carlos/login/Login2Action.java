@@ -33,15 +33,15 @@ import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.utility.*;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import io.github.carlos_emr.carlos.model.security.LdapSecurity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
-import dev.samstevens.totp.code.DefaultCodeGenerator;
-import dev.samstevens.totp.code.DefaultCodeVerifier;
-import dev.samstevens.totp.time.SystemTimeProvider;
+import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
+import org.apache.commons.codec.binary.Base32;
+import javax.crypto.spec.SecretKeySpec;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
@@ -54,15 +54,15 @@ import io.github.carlos_emr.carlos.managers.UserSessionManager;
 import org.owasp.encoder.Encode;
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.AlertTimer;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -308,13 +308,24 @@ public final class Login2Action extends ActionSupport {
                 }
             }
             
-            // Explicitly configure TOTP verifier parameters to match RFC 6238 standard defaults
-            // (30-second time step, ±1 period allowed discrepancy for clock skew tolerance)
-            DefaultCodeVerifier codeVerifier = new DefaultCodeVerifier(new DefaultCodeGenerator(), new SystemTimeProvider());
-            codeVerifier.setTimePeriod(30);
-            codeVerifier.setAllowedTimePeriodDiscrepancy(1);
+            // Verify TOTP code with ±1 time step tolerance for clock skew (RFC 6238)
+            boolean validCode;
+            try {
+                TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator();
+                byte[] decodedKey = new Base32().decode(mfaSecret);
+                SecretKeySpec key = new SecretKeySpec(decodedKey, totpGenerator.getAlgorithm());
+                java.time.Instant now = java.time.Instant.now();
+                java.time.Duration timeStep = totpGenerator.getTimeStep();
 
-            if (codeVerifier.isValidCode(mfaSecret, this.code)) {
+                validCode = totpGenerator.generateOneTimePasswordString(key, now).equals(this.code)
+                        || totpGenerator.generateOneTimePasswordString(key, now.minus(timeStep)).equals(this.code)
+                        || totpGenerator.generateOneTimePasswordString(key, now.plus(timeStep)).equals(this.code);
+            } catch (java.security.InvalidKeyException e) {
+                request.setAttribute("errMsg", "Something went wrong while processing, please try again or contact support.");
+                throw new RuntimeException(e);
+            }
+
+            if (validCode) {
                 LogAction.addLog(cl.getSecurity().getProviderNo(), "login", "mfa_success", "mfa", ip);
                 if (this.mfaRegistrationFlow) {
                     Security security = cl.getSecurity();
@@ -513,7 +524,7 @@ public final class Login2Action extends ActionSupport {
              * This section is added for forcing the initial password change.
              */
             Security security = getSecurity(userName);
-            if (!OscarProperties.getInstance().getBooleanProperty("mandatory_password_reset", "false") &&
+            if (!CarlosProperties.getInstance().getBooleanProperty("mandatory_password_reset", "false") &&
                     security.isForcePasswordReset() != null && security.isForcePasswordReset()
                     && forcedpasswordchange) {
 
@@ -551,7 +562,7 @@ public final class Login2Action extends ActionSupport {
             LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "", ip);
 
             // initial db setting
-            Properties pvar = OscarProperties.getInstance();
+            Properties pvar = CarlosProperties.getInstance();
 
             String providerNo = strAuth[0];
             session.setAttribute("user", strAuth[0]);
@@ -647,13 +658,13 @@ public final class Login2Action extends ActionSupport {
             }
 
             if (where.equals("provider")
-                    && OscarProperties.getInstance().getProperty("useProgramLocation", "false").equals("true")) {
+                    && CarlosProperties.getInstance().getProperty("useProgramLocation", "false").equals("true")) {
                 where = "programLocation";
             }
 
 
             /*
-             * if (OscarProperties.getInstance().isTorontoRFQ()) { where = "caisiPMM"; }
+             * if (CarlosProperties.getInstance().isTorontoRFQ()) { where = "caisiPMM"; }
              */
             // Lazy Loads AlertTimer instance only once, will run as daemon for duration of
             // server runtime
@@ -661,7 +672,7 @@ public final class Login2Action extends ActionSupport {
                 String alertFreq = pvar.getProperty("ALERT_POLL_FREQUENCY");
                 if (alertFreq != null) {
                     Long longFreq = Long.valueOf(alertFreq);
-                    String[] alertCodes = OscarProperties.getInstance().getProperty("CDM_ALERTS").split(",");
+                    String[] alertCodes = CarlosProperties.getInstance().getProperty("CDM_ALERTS").split(",");
                     AlertTimer.getInstance(alertCodes, longFreq.longValue());
                 }
             }
@@ -921,7 +932,7 @@ public final class Login2Action extends ActionSupport {
             newURL = newURL + "?errormsg=Your new password, does NOT match the confirmed password. Please try again.";
         }
         // Verify new password is different from old password (unless requirement is disabled)
-        else if (!Boolean.parseBoolean(OscarProperties.getInstance().getProperty("IGNORE_PASSWORD_REQUIREMENTS"))
+        else if (!Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("IGNORE_PASSWORD_REQUIREMENTS"))
                 && newPassword.equals(oldPassword)) {
             newURL = newURL
                     + "?errormsg=Your new password, is the same as your old password. Please choose a new password.";
@@ -971,7 +982,7 @@ public final class Login2Action extends ActionSupport {
      * configuration.
      *
      * <p>LDAP integration: If LDAP authentication is enabled via
-     * {@link OscarProperties#isLdapAuthenticationEnabled()}, the returned Security
+     * {@link CarlosProperties#isLdapAuthenticationEnabled()}, the returned Security
      * object is wrapped in a {@link LdapSecurity} adapter that delegates password
      * validation to the LDAP server while maintaining the local Security record
      * for session management.
@@ -993,7 +1004,7 @@ public final class Login2Action extends ActionSupport {
             return null;
         }
         // Wrap with LDAP authentication support if LDAP is enabled
-        else if (OscarProperties.isLdapAuthenticationEnabled()) {
+        else if (CarlosProperties.isLdapAuthenticationEnabled()) {
             security = new LdapSecurity(security);
         }
 

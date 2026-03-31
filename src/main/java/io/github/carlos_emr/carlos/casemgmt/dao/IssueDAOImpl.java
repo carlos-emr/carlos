@@ -94,13 +94,17 @@ public class IssueDAOImpl extends AbstractHibernateDao implements IssueDAO {
 
     @Override
     public void saveIssue(Issue issue) {
-        currentSession().saveOrUpdate(issue);
+        if (issue.getId() == null) {
+            currentSession().persist(issue);
+        } else {
+            currentSession().merge(issue);
+        }
     }
 
     @Deprecated
     @Override
     public void delete(Long issueId) {
-        currentSession().delete(getIssue(issueId));
+        currentSession().remove(getIssue(issueId));
     }
 
     @SuppressWarnings("unchecked")

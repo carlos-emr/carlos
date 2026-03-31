@@ -28,7 +28,7 @@
  */
 package io.github.carlos_emr.carlos.renal;
 
-import javax.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
 
 @XmlRootElement(name = "PreImplementationReport")
 public class ReportDataContainer {

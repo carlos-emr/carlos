@@ -32,18 +32,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.FormParam;
-import javax.ws.rs.QueryParam;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.FormParam;
+import jakarta.ws.rs.QueryParam;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -65,7 +65,7 @@ import io.github.carlos_emr.carlos.webserv.rest.conversion.SecobjprivilegeConver
 import io.github.carlos_emr.carlos.webserv.rest.conversion.SecuserroleConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.DashboardPreferences;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.NavbarResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.PatientList;
 import io.github.carlos_emr.carlos.webserv.rest.to.PersonaResponse;
@@ -124,11 +124,12 @@ public class PersonaService extends AbstractServiceImpl {
     @GET
     @Path("/hasRight")
     @Produces("application/json")
-    public GenericRESTResponse hasRight(@QueryParam("objectName") String objectName, @QueryParam("privilege") String privilege, @QueryParam("demographicNo") String demographicNo) {
-        GenericRESTResponse response = new GenericRESTResponse();
-        response.setSuccess(securityInfoManager.hasPrivilege(getLoggedInInfo(), objectName, privilege, demographicNo));
-
-        return response;
+    public RestResponse<String> hasRight(@QueryParam("objectName") String objectName, @QueryParam("privilege") String privilege, @QueryParam("demographicNo") String demographicNo) {
+        boolean hasPrivilege = securityInfoManager.hasPrivilege(getLoggedInInfo(), objectName, privilege, demographicNo);
+        if (hasPrivilege) {
+            return RestResponse.successResponse(null);
+        }
+        return RestResponse.errorResponse("Access denied");
     }
 
     @POST
@@ -240,7 +241,7 @@ public class PersonaService extends AbstractServiceImpl {
             consultMenu.setDropdownItems(consultMenuList.getItems());
             menu.getItems().add(consultMenu);
         }
-        String billingRegion = OscarProperties.getInstance().getProperty("billregion", "");
+        String billingRegion = CarlosProperties.getInstance().getProperty("billregion", "");
         menu.add(idCounter++, bundle.getString("navbar.menu.billing"), null, "../billing/CA/" + billingRegion + "/billingReportCenter.jsp?displaymode=billreport", "billing")
                 .addWithState(idCounter++, bundle.getString("navbar.menu.tickler"), null, "ticklers")
 
@@ -288,9 +289,9 @@ public class PersonaService extends AbstractServiceImpl {
     /**
      * Sets the default program for the logged-in provider.
      */
-    public GenericRESTResponse setDefaultProgram(@FormParam("programId") Integer programId) {
+    public RestResponse<String> setDefaultProgram(@FormParam("programId") Integer programId) {
         programManager2.setCurrentProgramInDomain(getLoggedInInfo().getLoggedInProviderNo(), programId);
-        return new GenericRESTResponse();
+        return RestResponse.successResponse(null);
     }
 
     @GET
@@ -310,7 +311,7 @@ public class PersonaService extends AbstractServiceImpl {
 
         response.getPatientListTabItems().add(new PatientList(0, bundle.getString("patientList.tab.appts"), "../ws/rs/schedule/day/today", "patientlist/patientList1.jsp", "GET"));
 
-        if (!OscarProperties.getInstance().getBooleanProperty("disable.patientList.tab.recent", "true")) {
+        if (!CarlosProperties.getInstance().getBooleanProperty("disable.patientList.tab.recent", "true")) {
             response.getPatientListTabItems().add(new PatientList(1, bundle.getString("patientList.tab.recent"), "../ws/rs/providerService/getRecentDemographicsViewed?startIndex=0&itemsToReturn=" + itemsToReturn, "patientlist/recent.jsp", "GET"));
         }
         response.getPatientListMoreTabItems().add(new PatientList(0, bundle.getString("patientList.tab.patientSets"), "../ws/rs/reporting/demographicSets/patientList", "patientlist/demographicSets.jsp", "POST"));
@@ -423,9 +424,8 @@ public class PersonaService extends AbstractServiceImpl {
     @Path("/updatePreference")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse updatePreference(ObjectNode json) {
+    public RestResponse<String> updatePreference(ObjectNode json) {
         Provider provider = getCurrentProvider();
-        GenericRESTResponse response = new GenericRESTResponse();
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_pref", "u", null)) {
             throw new RuntimeException("Access Denied");
@@ -436,19 +436,18 @@ public class PersonaService extends AbstractServiceImpl {
         if (up != null) {
             up.setValue(json.get("value") != null ? json.get("value").asText() : null);
             userPropertyDao.merge(up);
-            response.setSuccess(true);
+            return RestResponse.successResponse(null);
         }
 
-        return response;
+        return RestResponse.errorResponse("Preference not found");
     }
 
     @POST
     @Path("/updatePreferences")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse updatePreferences(ObjectNode json) {
+    public RestResponse<String> updatePreferences(ObjectNode json) {
         Provider provider = getCurrentProvider();
-        GenericRESTResponse response = new GenericRESTResponse();
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_pref", "u", null)) {
             throw new RuntimeException("Access Denied");
@@ -475,13 +474,10 @@ public class PersonaService extends AbstractServiceImpl {
 
             propDao.saveProp(prop);
 
-            response.setSuccess(true);
-        } else {
-            response.setSuccess(false);
+            return RestResponse.successResponse(null);
         }
 
-
-        return response;
+        return RestResponse.errorResponse("No preference value provided");
 
     }
 

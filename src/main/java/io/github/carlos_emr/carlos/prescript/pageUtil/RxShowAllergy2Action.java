@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
@@ -46,13 +46,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ServletActionContext;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 /**
@@ -155,7 +155,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
         }
 
         boolean useRx3 = false;
-        String rx3 = OscarProperties.getInstance().getProperty("RX3");
+        String rx3 = CarlosProperties.getInstance().getProperty("RX3");
         if (rx3 != null && rx3.equalsIgnoreCase("yes")) {
             useRx3 = true;
         }
@@ -229,7 +229,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
 
         String atcCode = request.getParameter("atcCode");
         String id = request.getParameter("id");
-        String disabled = io.github.carlos_emr.OscarProperties.getInstance().getProperty("rx3.disable_allergy_warnings", "false");
+        String disabled = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("rx3.disable_allergy_warnings", "false");
         if (disabled.equals("false")) {
 
             ObjectMapper objectMapper = new ObjectMapper();

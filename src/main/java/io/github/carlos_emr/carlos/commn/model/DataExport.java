@@ -31,7 +31,7 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import java.io.Serializable;
-import javax.persistence.*;
+import jakarta.persistence.*;
 
 import java.sql.Timestamp;
 

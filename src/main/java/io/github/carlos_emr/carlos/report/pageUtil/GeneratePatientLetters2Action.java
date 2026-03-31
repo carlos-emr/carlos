@@ -36,11 +36,11 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Hashtable;
 
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import net.sf.jasperreports.engine.JREmptyDataSource;
 import net.sf.jasperreports.engine.JasperExportManager;
 import net.sf.jasperreports.engine.JasperFillManager;
@@ -67,7 +67,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 /**
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GeneratePatientLetters2Action extends ActionSupport {
@@ -165,7 +165,7 @@ public class GeneratePatientLetters2Action extends ActionSupport {
                 }
 
                 fileName = newDoc.getFileName();
-                String savePath = OscarProperties.getInstance().getProperty("DOCUMENT_DIR") + "/" + fileName;
+                String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "/" + fileName;
                 if (log.isTraceEnabled()) {
                     log.trace("writing report to disk location " + savePath);
                 }

@@ -138,71 +138,38 @@ build_and_deploy() {
     fi
   fi
 
+  # Verify dependency lock file is up-to-date before building.
+  # This catches pom.xml changes that weren't followed by `make lock`.
+  echo "Checking dependency lock file..."
+  if ! mvn se.vandmo:dependency-lock-maven-plugin:check -q 2>/dev/null; then
+    echo ""
+    echo "ERROR: Dependency lock file is out of date."
+    echo "  Run 'make lock' to update dependencies-lock.json, then rebuild."
+    echo ""
+    return 1
+  fi
+
   if [ "$run_tests" = true ]; then
-    # Run all tests in complete isolation (modern first, then legacy)
-    echo "========================================="
-    echo "Running all tests in isolation"
-    echo "========================================="
-
-    # First, run the complete modern test workflow
+    # Build and run all tests
+    mvn $clean_phase -DskipTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
     echo ""
-    echo ">>> PHASE 1: Modern Tests Workflow"
-    echo "Building application with modern profile..."
-    mvn $clean_phase -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json $jsp_profile $dev_mode_flag $checks_flag
-    echo ""
-    echo "Running modern tests..."
-    mvn test -Pmodern-tests -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json
-
-    # Clean up between phases to ensure complete isolation
-    echo ""
-    echo ">>> Cleaning up between test phases..."
-    # Remove the deployed WAR to avoid any state pollution
-    rm -rf /usr/local/tomcat/webapps/carlos
-    # Clean target directory to ensure fresh state (always clean between phases for isolation)
-    mvn clean -q
-
-    # Then, run the complete legacy test workflow
-    echo ""
-    echo ">>> PHASE 2: Legacy Tests Workflow"
-    echo "Building application without modern profile..."
-    mvn $clean_phase -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
-    echo ""
-    echo "Running legacy tests..."
-    mvn test -DskipModernTests=true
-  elif [ "$run_tests" = "modern" ]; then
-    # Run only modern tests with JUnit 5 profile and modern lock file
-    # Build WITH modern profile activated and modern lock file
-    mvn $clean_phase -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json $jsp_profile $dev_mode_flag $checks_flag
-    echo ""
-    echo "Running modern tests..."
-    # Activate modern-tests profile, use modern lock file
-    mvn test -Pmodern-tests -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json
-  elif [ "$run_tests" = "legacy" ]; then
-    # Run only legacy tests WITHOUT JUnit 5, use default lock file
-    mvn $clean_phase -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
-    echo ""
-    echo "Running legacy tests..."
-    # Skip modern tests, use default lock file
-    mvn test -DskipModernTests=true
+    echo "Running tests..."
+    mvn test
   elif [ "$run_tests" = "unit" ]; then
-    # Run only modern unit tests with modern lock file
-    # Build WITH modern profile activated and modern lock file
-    mvn $clean_phase -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json $jsp_profile $dev_mode_flag $checks_flag
+    # Build and run only unit tests
+    mvn $clean_phase -DskipTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
     echo ""
-    echo "Running modern unit tests..."
-    # Use groups + activate modern profile with modern lock file
-    mvn test -Pmodern-tests -Dgroups="unit" -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json
+    echo "Running unit tests..."
+    mvn test -Dgroups="unit"
   elif [ "$run_tests" = "integration" ]; then
-    # Run only modern integration tests with modern lock file
-    # Build WITH modern profile activated and modern lock file
-    mvn $clean_phase -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json $jsp_profile $dev_mode_flag $checks_flag
+    # Build and run only integration tests
+    mvn $clean_phase -DskipTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
     echo ""
-    echo "Running modern integration tests..."
-    # Use groups + activate modern profile with modern lock file
-    mvn test -Pmodern-tests -Dgroups="integration" -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json
+    echo "Running integration tests..."
+    mvn test -Dgroups="integration"
   else
-    # Regular build without tests - skip modern tests to use default lock file
-    mvn $clean_phase -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
+    # Regular build without tests
+    mvn $clean_phase -DskipTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
   fi
 
   # Extract the version from the pom.xml file.
@@ -352,11 +319,9 @@ print_help() {
       echo "  clean                                         Clean the project and remove the target directory."
       echo "  install [options]                             Build and deploy the project."
       echo "    Options:"
-      echo "      --run-tests                             Run all tests (modern + legacy)"
-      echo "      --run-modern-tests                      Run only modern tests (JUnit 5)"
-      echo "      --run-legacy-tests                      Run only legacy tests (JUnit 4)"
-      echo "      --run-unit-tests                        Run only modern unit tests"
-      echo "      --run-integration-tests                 Run only modern integration tests"
+      echo "      --run-tests                             Run all tests"
+      echo "      --run-unit-tests                        Run only unit tests"
+      echo "      --run-integration-tests                 Run only integration tests"
       echo "      --jspc                                  Compile JSPs"
       echo "      --dev-mode                              Enable Struts dev mode"
       echo "      --force-clean                           Always run a full clean build (override auto-detect)"
@@ -365,10 +330,7 @@ print_help() {
       echo "  jspc                                          Compile JSPs only (no deployment)."
       echo "  docs                                          Generate all documentation and build static site for production."
       echo "  docs-serve                                    Start Docusaurus development server (http://localhost:3000)."
-      echo "  lock [--modern|--legacy]                        Update dependency lock file(s):"
-      echo "                                                  (default) - Update both lock files"
-      echo "                                                  --modern - Update modern tests lock file"
-      echo "                                                  --legacy - Update legacy lock file"
+      echo "  lock                                          Update dependency lock file."
       echo "  help                                          Display this help message."
 }
 
@@ -392,8 +354,7 @@ for arg in "$@"; do
   case $arg in
     clean)
       # Clean the project using Maven and remove the deployed app from Tomcat.
-      # Skip modern tests to use default lock file
-      mvn clean -DskipModernTests=true
+      mvn clean
       rm -rf /usr/local/tomcat/webapps/carlos
       ;;
     install)
@@ -403,14 +364,6 @@ for arg in "$@"; do
         case "$1" in
           --run-tests)
             run_tests=true
-            shift
-            ;;
-          --run-modern-tests)
-            run_tests="modern"
-            shift
-            ;;
-          --run-legacy-tests)
-            run_tests="legacy"
             shift
             ;;
           --run-unit-tests)
@@ -466,7 +419,7 @@ for arg in "$@"; do
     jspc)
       # Compile JSPs only without deployment.
       echo "Compiling JSPs..."
-      mvn package -Pjspc -DskipModernTests=true -DskipLegacyTests=true
+      mvn package -Pjspc -DskipTests=true
       ;;
     docs)
       # Generate all documentation and build static site.
@@ -477,20 +430,9 @@ for arg in "$@"; do
       docusaurus_serve
       ;;
     lock)
-      # Update the maven dependency lock files
-      if [ "$2" = "--modern" ]; then
-        echo "Updating modern dependencies lock file (dependencies-lock-modern.json)..."
-        mvn se.vandmo:dependency-lock-maven-plugin:lock -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json
-      elif [ "$2" = "--legacy" ]; then        
-        echo "Updating legacy dependency lock file (dependencies-lock.json)..."
-        mvn se.vandmo:dependency-lock-maven-plugin:lock -DskipModernTests=true
-      else
-        echo "Updating both dependency lock files..."
-        echo "1. Updating legacy lock file (dependencies-lock.json)..."
-        mvn se.vandmo:dependency-lock-maven-plugin:lock -DskipModernTests=true
-        echo "2. Updating modern lock file (dependencies-lock-modern.json)..."
-        mvn se.vandmo:dependency-lock-maven-plugin:lock -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json
-      fi
+      # Update the maven dependency lock file
+      echo "Updating dependency lock file (dependencies-lock.json)..."
+      mvn se.vandmo:dependency-lock-maven-plugin:lock
       ;;
     help)
       # Display script usage instructions.

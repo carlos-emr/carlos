@@ -39,7 +39,7 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Logger;
@@ -53,7 +53,7 @@ import io.github.carlos_emr.carlos.commn.model.OtherId;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.HHSEmrDownloadHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
@@ -64,8 +64,8 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
 import javax.crypto.spec.SecretKeySpec;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.nio.file.Files;
 import java.security.KeyFactory;
@@ -134,7 +134,7 @@ public class LabUpload2Action extends ActionSupport {
                 logger.debug("Validated Successfully");
                 MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
 
-                if (type.equals("HHSEMR") && OscarProperties.getInstance().getProperty("lab.hhsemr.filter_ordering_provider", "false").equals("true")) {
+                if (type.equals("HHSEMR") && CarlosProperties.getInstance().getProperty("lab.hhsemr.filter_ordering_provider", "false").equals("true")) {
                     logger.info("Applying filter to HHS EMR lab");
                     String hl7Data = FileUtils.readFileToString(file, "UTF-8");
                     HHSEmrDownloadHandler filterHandler = new HHSEmrDownloadHandler();
@@ -205,6 +205,12 @@ public class LabUpload2Action extends ActionSupport {
             PrivateKey key = getServerPrivate();
 
             // Decrypt the secret key using the servers private key
+            // NOTE: PKCS1Padding (PKCS#1 v1.5) is theoretically vulnerable to Bleichenbacher
+            // padding oracle attacks. OAEP padding (RSA/ECB/OAEPWithSHA-256AndMGF1Padding)
+            // would be more secure, but this protocol is dictated by the external lab system
+            // sender which encrypts with PKCS#1 v1.5. Changing the padding here would break
+            // decryption of incoming lab uploads. This is decrypt-only (not encrypt), which
+            // limits the attack surface. If the external protocol is ever updated, migrate to OAEP.
             Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
             cipher.init(Cipher.DECRYPT_MODE, key);
             byte[] newSecretKey = cipher.doFinal(Base64.decodeBase64(skey));

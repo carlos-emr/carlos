@@ -35,13 +35,13 @@ import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreference;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreferencesDAO;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.*;
 
 /**
@@ -49,7 +49,7 @@ import java.util.*;
  *
  * @version 1.0
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
@@ -131,7 +131,7 @@ public class ViewBillingPreferences2Action
         }
 
         // Prepare a formatted list of service locations
-        String billRegion = OscarProperties.getInstance().getProperty("billregion", "");
+        String billRegion = CarlosProperties.getInstance().getProperty("billregion", "");
         BillingFormData billingFormData = new BillingFormData();
         ArrayList<BillingFormData.BillingVisit> billingVisits = new ArrayList<>();
         billingVisits.add(new BillingFormData.BillingVisit(Property.PROPERTY_VALUE.clinicdefault.name(), "Clinic Default"));

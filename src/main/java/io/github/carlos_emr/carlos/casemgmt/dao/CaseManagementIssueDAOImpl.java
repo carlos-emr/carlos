@@ -130,7 +130,7 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
 
     @Override
     public void deleteIssueById(CaseManagementIssue issue) {
-        currentSession().delete(issue);
+        currentSession().remove(issue);
         return;
 
     }
@@ -142,9 +142,9 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
             CaseManagementIssue cmi = itr.next();
             cmi.setUpdate_date(new Date());
             if (cmi.getId() != null && cmi.getId().longValue() > 0) {
-                currentSession().update(cmi);
+                currentSession().merge(cmi);
             } else {
-                currentSession().save(cmi);
+                currentSession().persist(cmi);
             }
         }
 
@@ -152,7 +152,11 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
 
     public void saveIssue(CaseManagementIssue issue) {
         issue.setUpdate_date(new Date());
-        currentSession().saveOrUpdate(issue);
+        if (issue.getId() == null || issue.getId() <= 0) {
+            currentSession().persist(issue);
+        } else {
+            currentSession().merge(issue);
+        }
     }
 
     @SuppressWarnings("unchecked")

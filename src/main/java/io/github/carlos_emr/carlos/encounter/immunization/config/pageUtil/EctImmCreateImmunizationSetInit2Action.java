@@ -28,11 +28,11 @@
  */
 package io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.struts2.ServletActionContext;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctImmCreateImmunizationSetInit2Action extends ActionSupport {

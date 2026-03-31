@@ -33,7 +33,7 @@
 <%@ page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 <%
-    if (session.getValue("user") == null)
+    if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
 
     ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
@@ -50,7 +50,7 @@
         <%@ include file="/includes/global-head.jspf" %>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><%=bundle.getString(providertitle)%></title>
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
     </head>
 
     <body class="BodyStyle" vlink="#0000FF">

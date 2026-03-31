@@ -36,7 +36,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramClientRestriction;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
-import org.springframework.beans.factory.annotation.Required;
+import org.springframework.beans.factory.annotation.Autowired;
 import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
@@ -72,7 +72,11 @@ public class ProgramClientRestrictionDAOImpl extends AbstractHibernateDao implem
     }
 
     public void save(ProgramClientRestriction restriction) {
-        currentSession().saveOrUpdate(restriction);
+        if (restriction.getId() == null || restriction.getId() == 0) {
+            currentSession().persist(restriction);
+        } else {
+            currentSession().merge(restriction);
+        }
     }
 
     public ProgramClientRestriction find(int restrictionId) {
@@ -133,17 +137,17 @@ public class ProgramClientRestrictionDAOImpl extends AbstractHibernateDao implem
         return pcr;
     }
 
-    @Required
+    @Autowired
     public void setDemographicDao(DemographicDao demographicDao) {
         this.demographicDao = demographicDao;
     }
 
-    @Required
+    @Autowired
     public void setProgramDao(ProgramDao programDao) {
         this.programDao = programDao;
     }
 
-    @Required
+    @Autowired
     public void setProviderDao(ProviderDao providerDao) {
         this.providerDao = providerDao;
     }

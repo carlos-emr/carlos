@@ -55,16 +55,16 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.PGPEncrypt" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 <%
 
-    OscarProperties op = OscarProperties.getInstance();
+    CarlosProperties op = CarlosProperties.getInstance();
     String tmp_dir = op.getProperty("TMP_DIR");
     boolean tmp_dir_ready = Util.checkDir(tmp_dir);
 

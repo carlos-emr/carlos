@@ -29,7 +29,7 @@ package io.github.carlos_emr.carlos.appt;
 
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.model.Site;
 

@@ -39,9 +39,9 @@ import java.sql.SQLException;
 import java.util.*;
 import java.util.regex.Pattern;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
@@ -68,7 +68,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  * @Company: iConcept Technologes Inc.
  * @Created on: October 31, 2004
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class FrmSetupForm2Action extends ActionSupport {

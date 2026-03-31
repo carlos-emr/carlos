@@ -29,7 +29,7 @@
 
 package io.github.carlos_emr.carlos.fax.action;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
@@ -50,9 +50,9 @@ import io.github.carlos_emr.carlos.form.JSONUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import org.owasp.encoder.Encode;
 
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -103,7 +103,7 @@ public class Fax2Action extends ActionSupport {
 
         if (TransactionType.CONSULTATION.name().equalsIgnoreCase(transactionType)) {
             try {
-                response.sendRedirect(request.getContextPath() + "/oscarEncounter/ViewRequest.do?de=" + demographicNo + "&requestId=" + transactionId);
+                response.sendRedirect(request.getContextPath() + "/encounter/ViewRequest.do?de=" + demographicNo + "&requestId=" + transactionId);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

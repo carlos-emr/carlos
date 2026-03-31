@@ -35,7 +35,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.DemographicPharmacy;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -164,7 +164,7 @@ public class DemographicPharmacyDaoImpl extends AbstractDaoImpl<DemographicPharm
     @SuppressWarnings("unchecked")
     @Override
     public List<DemographicPharmacy> findAllByDemographicId(Integer demographicNo) {
-        Query query = createQuery("dp", "dp.demographicNo = ?1 AND dp.status = 1");
+        Query query = createQuery("dp", "dp.demographicNo = ?1 AND dp.status = '1'");
         query.setParameter(1, demographicNo);
         return query.getResultList();
     }
@@ -183,7 +183,7 @@ public class DemographicPharmacyDaoImpl extends AbstractDaoImpl<DemographicPharm
 
     @Override
     public Long getTotalDemographicsPreferedToPharmacyByPharmacyId(Integer pharmacyId) {
-        String sql = "SELECT COUNT(*) FROM DemographicPharmacy x WHERE x.pharmacyId = ?1 AND x.status = 1";
+        String sql = "SELECT COUNT(*) FROM DemographicPharmacy x WHERE x.pharmacyId = ?1 AND x.status = '1'";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, pharmacyId);
 

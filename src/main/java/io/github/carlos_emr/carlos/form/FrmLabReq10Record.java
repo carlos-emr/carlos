@@ -48,7 +48,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmLabReq10Record extends FrmRecord {
@@ -65,9 +65,9 @@ public class FrmLabReq10Record extends FrmRecord {
                 props.setProperty("demographic_no", String.valueOf(demographic.getDemographicNo()));
                 props.setProperty("patientName", demographic.getLastName() + ", " + demographic.getFirstName());
 
-                String uhipStatus = OscarProperties.getInstance().getProperty("demo_uhip_status", "");
+                String uhipStatus = CarlosProperties.getInstance().getProperty("demo_uhip_status", "");
                 if (!uhipStatus.isEmpty() && demographic.getRosterStatus().equals(uhipStatus)) {
-                    props.setProperty("healthNumber", LocaleUtils.getMessage(Locale.getDefault(), "oscarEncounter.form.uhipLbl") + StringUtils.trimToEmpty(demographic.getChartNo()));
+                    props.setProperty("healthNumber", LocaleUtils.getMessage(Locale.getDefault(), "encounter.form.uhipLbl") + StringUtils.trimToEmpty(demographic.getChartNo()));
                     props.setProperty("version", "");
                 } else {
                     props.setProperty("healthNumber", StringUtils.trimToEmpty(demographic.getHin()));
@@ -115,16 +115,16 @@ public class FrmLabReq10Record extends FrmRecord {
                     + existingID;
             props = (new FrmRecordHelp()).getFormRecord(sql);
             String chartNo = props.getProperty("patientChartNo");
-            String chartNoLbl = LocaleUtils.getMessage(Locale.getDefault(), "oscarEncounter.form.labreq.patientChartNo") + ":";
+            String chartNoLbl = LocaleUtils.getMessage(Locale.getDefault(), "encounter.form.labreq.patientChartNo") + ":";
             int beginIdx = chartNo.lastIndexOf(chartNoLbl);
             if (beginIdx >= 0) {
                 chartNo = chartNo.substring(beginIdx + chartNoLbl.length());
                 props.setProperty("patientChartNo", chartNo);
             }
 
-            OscarProperties oscarProps = OscarProperties.getInstance();
+            CarlosProperties oscarProps = CarlosProperties.getInstance();
             if (oscarProps.getBooleanProperty("use_lab_clientreference", "true")) {
-                String additionalInfo = LocaleUtils.getMessage(Locale.getDefault(), "oscarEncounter.form.labreq.clientreference") + ":" + String.valueOf(existingID);
+                String additionalInfo = LocaleUtils.getMessage(Locale.getDefault(), "encounter.form.labreq.clientreference") + ":" + String.valueOf(existingID);
                 props.setProperty("clientRefNo", additionalInfo);
             }
         }
@@ -146,7 +146,7 @@ public class FrmLabReq10Record extends FrmRecord {
             }
         }
 
-        OscarProperties oscarProps = OscarProperties.getInstance();
+        CarlosProperties oscarProps = CarlosProperties.getInstance();
 
         if ((oscarProps.getProperty("lab_req_provider") != null) && (oscarProps.getProperty("lab_req_billing_no") != null)) {
 

@@ -43,7 +43,7 @@ function eRefer(event) {
     let data = demographicNo + "&" + documents + "&method=attachOceanEReferralConsult";
     jQuery.ajax({
         type: 'POST',
-        url: document.getElementById("contextPath").value + '/oscarEncounter/eRefer.do',
+        url: document.getElementById("contextPath").value + '/encounter/eRefer.do',
         data: data,
         success: function (response) {
             console.log(response);
@@ -83,7 +83,7 @@ function attachOceanAttachments() {
     let data = demographicNo + "&" + requestId + "&" + documents + "&method=editOceanEReferralConsult";
     jQuery.ajax({
         type: 'POST',
-        url: document.getElementById("contextPath").value + '/oscarEncounter/eRefer.do',
+        url: document.getElementById("contextPath").value + '/encounter/eRefer.do',
         data: data,
         success: function (response) {
             console.log(response);

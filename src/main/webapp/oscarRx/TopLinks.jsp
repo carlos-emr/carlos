@@ -30,8 +30,8 @@
 --%>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="core" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="core" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <core:set var="ctx" value="${ pageContext.servletContext.contextPath }"/>
 <core:set var="url"
@@ -82,7 +82,7 @@
             <core:if test="${ not empty param.mrp }">
                 <security:oscarSec roleName="${ security }" objectName="_newCasemgmt.doctorName" rights="r">
 	    	<span class="label">	
-	    		  <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.msgMRP"/>  			   
+	    		  <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.msgMRP"/>  			   
 		    </span>
                     <span>
 		     	<core:out value="${ param.mrp }"/>
@@ -94,7 +94,7 @@
         <td id="topLinkRightColumn">
 	 		<span class="HelpAboutLogout" style="color:white;">
 
-                 <a style="color:white;" href="${ ctx }/oscarEncounter/About.jsp" target="_new">About</a>
+                 <a style="color:white;" href="${ ctx }/encounter/About.jsp" target="_new">About</a>
              </span>
         </td>
     </tr>

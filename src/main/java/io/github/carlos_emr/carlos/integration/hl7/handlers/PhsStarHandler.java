@@ -64,7 +64,7 @@ import io.github.carlos_emr.carlos.integration.hl7.model.StaffId;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.parser.GenericParser;
 import ca.uhn.hl7v2.parser.Parser;
@@ -172,8 +172,8 @@ public class PhsStarHandler extends BasePhsStarHandler {
         demo.setDateJoined(new Date());
         demo.setEffDate(new Date());
 
-        if (OscarProperties.getInstance().hasProperty("DEFAULT_PHS_PROVIDER")) {
-            demo.setProviderNo(OscarProperties.getInstance().getProperty("DEFAULT_PHS_PROVIDER"));
+        if (CarlosProperties.getInstance().hasProperty("DEFAULT_PHS_PROVIDER")) {
+            demo.setProviderNo(CarlosProperties.getInstance().getProperty("DEFAULT_PHS_PROVIDER"));
         }
 
         //set MRN
@@ -213,7 +213,7 @@ public class PhsStarHandler extends BasePhsStarHandler {
             OtherIdManager.saveIdDemographic(demographicNo, "TMR", tempMrn.getId());
         }
 
-        Program p = programDao.getProgramByName(OscarProperties.getInstance().getProperty("phs.default_program", "OSCAR"));
+        Program p = programDao.getProgramByName(CarlosProperties.getInstance().getProperty("phs.default_program", "OSCAR"));
         if (p != null && admissionDao.getCurrentAdmission(p.getId(), demographicNo) == null) {
             logger.info("need to do admission");
             doAdmit(demo, p, "000001");
@@ -1244,7 +1244,7 @@ public class PhsStarHandler extends BasePhsStarHandler {
     }
 
     private String readProgramMappingFile(String service, String patientType, String location) {
-        String filename = OscarProperties.getInstance().getProperty("phs_star.program_file");
+        String filename = CarlosProperties.getInstance().getProperty("phs_star.program_file");
         if (filename == null) {
             logger.warn("Cannot lookup program. Config file not found - " + filename);
             return null;

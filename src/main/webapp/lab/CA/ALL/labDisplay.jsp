@@ -94,7 +94,7 @@
 <%@ page import="com.fasterxml.jackson.databind.node.ArrayNode" %>
 <%@ page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
@@ -143,8 +143,8 @@
 
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProperties" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -164,7 +164,7 @@
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     String segmentID = request.getParameter("segmentID");
     String providerNo = request.getParameter("providerNo");
     String searchProviderNo = StringUtils.trimToEmpty(request.getParameter("searchProviderNo"));
@@ -232,10 +232,10 @@
     String reqID = null, reqTableID = null;
     String remoteFacilityIdQueryString = "";
 
-    boolean bShortcutForm = OscarProperties.getInstance().getProperty("appt_formview", "").equalsIgnoreCase("on") ? true : false;
-    String formName = bShortcutForm ? OscarProperties.getInstance().getProperty("appt_formview_name") : "";
+    boolean bShortcutForm = CarlosProperties.getInstance().getProperty("appt_formview", "").equalsIgnoreCase("on") ? true : false;
+    String formName = bShortcutForm ? CarlosProperties.getInstance().getProperty("appt_formview_name") : "";
     String formNameShort = formName.length() > 3 ? (formName.substring(0, 2) + ".") : formName;
-    String formName2 = bShortcutForm ? OscarProperties.getInstance().getProperty("appt_formview_name2", "") : "";
+    String formName2 = bShortcutForm ? CarlosProperties.getInstance().getProperty("appt_formview_name2", "") : "";
     String formName2Short = formName2.length() > 3 ? (formName2.substring(0, 2) + ".") : formName2;
     boolean bShortcutForm2 = bShortcutForm && !formName2.equals("");
     List<MessageHandler> handlers = new ArrayList<MessageHandler>();
@@ -372,9 +372,8 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
     <title><%=Encode.forHtml(handler.getPatientName()) + " Lab Results"%>
     </title>
 
-    <script type="text/javascript"
-            src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
-    <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
+     <!-- include jQuery Bootstrap jQueryUI fontawesome standard scripts and styles -->
+     <%@ include file="/includes/global-head.jspf" %>
 
     <script>
         var contextpath = "${pageContext.servletContext.contextPath}";
@@ -390,10 +389,6 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
             }
         }
     </script>
-    <!--<link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/OscarStandardLayout.css">-->
-<!-- Bootstrap -->
-<link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css">
-<script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
      <style type="text/css">
 body { line-height: 12px; font-size: 12px; }
@@ -1058,9 +1053,6 @@ input[id^='acklabel_']{
                                     if (remoteLabKey == null || remoteLabKey.isEmpty()) {
                                 %>
 
-
-                                <span style="font-size:10px; font-style:italic;">Next Appointment: <oscar:nextAppt
-                                        demographicNo="<%=demographicID%>"/></span>
                                 <% if (!label.equals(null) && !label.equals("")) { %>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="createLabel_<%= Encode.forHtmlAttribute(segmentID) %>"
                                         value="Label"
@@ -1221,6 +1213,23 @@ input[id^='acklabel_']{
                                                                 </td>
                                                                 <td colspan="2"></td>
                                                             </tr>
+                                                            <% if (isLinkedToDemographic && demoI > 0) { %>
+                                                            <tr>
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
+                                                                        <strong>
+                                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNextAppointment"/>
+                                                                        </strong>
+                                                                    </div>
+                                                                </td>
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
+                                                                        <oscar:nextAppt demographicNo="<%=String.valueOf(demoI)%>"/>
+                                                                    </div>
+                                                                </td>
+                                                                <td colspan="2"></td>
+                                                            </tr>
+                                                            <% } %>
                                                         </table>
                                                     </td>
                                                     <td style="width:33%;vertical-align:top; ">

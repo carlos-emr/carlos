@@ -31,7 +31,7 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanC12;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
@@ -59,9 +59,7 @@ public class TeleplanC12Dao extends AbstractDaoImpl<TeleplanC12> {
 
     @SuppressWarnings("unchecked")
     public List<Object[]> findRejected() {
-        String sql = "FROM TeleplanC12 tc, TeleplanS21 ts " +
-                "WHERE tc.s21Id = ts.id " +
-                "AND tc.status != 'E'";
+        String sql = "SELECT tc, ts FROM TeleplanC12 tc, TeleplanS21 ts WHERE tc.s21Id = ts.id AND tc.status != 'E'";
         Query query = entityManager.createQuery(sql);
         return query.getResultList();
     }

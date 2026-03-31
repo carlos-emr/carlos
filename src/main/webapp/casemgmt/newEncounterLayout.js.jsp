@@ -28,26 +28,22 @@
 
 --%>
     <%@page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
-    <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+    <%@ taglib uri="jakarta.tags.core" prefix="c"%>
     <c:set var="ctx" value="${pageContext.request.contextPath}"	scope="request" />
-
-    Messenger.options = {
-        delay: 10,
-        extraClasses: 'messenger-fixed messenger-on-top messenger-on-left',
-        theme: 'future'
-    };
 
 // global message
     var msg;
 
 
-//////Timer
-    var d = new Date();  //the start
-
+    // --- Encounter Session Timer ---
+    // Tracks elapsed time for the encounter session. Displayed in the header bar
+    // with color changes at 20 min (green) and 50 min (yellow) as billing cues.
+    var d = new Date();  // encounter start time, used by pasteTimer() for time stamps
     var totalSeconds = 0;
     var myVar = setInterval(setTime, 1000);
-    var toggle = true;
+    var toggle = true;   // true = timer running, false = paused
 
+    /** Toggles the encounter timer between play/pause. Updates the button SVG icon. */
     function toggleATimer(e) {
         const pause = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pause-fill" viewBox="0 0 16 16">' +
             '<path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5m5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5"></path>' +
@@ -66,6 +62,7 @@
         }
     }
 
+    /** Appends a formatted start/end/elapsed time stamp into the active note textarea. */
     function pasteTimer() {
         var ed = new Date();
         $(caseNote).value += "\n"
@@ -79,9 +76,13 @@
         adjustCaseNote();
     }
 
+    /** Increments the timer display every second; changes background at billing thresholds. */
     function setTime() {
         ++totalSeconds;
         const aTimerButton = document.getElementById("aTimer");
+        if (!aTimerButton) {
+            return;
+        }
         if (totalSeconds > 5) {
             aTimerButton.innerHTML = pad(parseInt(totalSeconds / 60)) + ":" + pad(totalSeconds % 60);
         }
@@ -93,6 +94,7 @@
         } //3600 sec = 50 min light yellow
     }
 
+    /** Zero-pads a number to two digits (e.g. 5 → "05"). */
     function pad(val) {
         var valString = val + "";
         if (valString.length < 2) {
@@ -493,14 +495,9 @@
         }
 
         function getTemplateNames() {
-            if (typeof autoCompList === 'undefined' || typeof autoCompleted === 'undefined') return [];
-            // Filter to charting templates only: autoCompleted entries starting with ajaxInsertTemplate.
-            // autoCompList is shared with eforms (efmformadd_data.jsp), forms, and calculators,
-            // all of which use popupPage() — not ajaxInsertTemplate().
-            return autoCompList.filter(function (name) {
-                var func = autoCompleted[name];
-                return typeof func === 'string' && func.indexOf('ajaxInsertTemplate') === 0;
-            });
+            if (typeof autoCompList === 'undefined') return [];
+            // Return all items: charting templates, forms, and eForms
+            return autoCompList.slice();
         }
 
         function clearChildren(el) {
@@ -652,26 +649,32 @@
         };
     })();
 
-    // Forward wheel events from textareas to encMainDivWrapper so trackpad
-    // scrolling works even when the cursor is over the active note textarea.
-    // Only forwards when the textarea has no internal scrollable overflow,
-    // so read-only notes with overflow content can still be scrolled normally.
-    // Restricted to the focused case note textarea only, and skips modified
-    // wheel gestures (Ctrl/Meta for zoom, Alt for horizontal scroll).
+    // Encounter scroll routing:
+    // - Over encMainDivWrapper: native scroll (notes area scrolls)
+    // - Over any scrollable overlay (template popup, issue lists): native scroll
+    // - Over left/right sidebars: scroll #navigation-layout (page scroll)
+    // - Over CPP boxes/control panel: scroll #navigation-layout
     document.addEventListener('wheel', function (event) {
-        if (event.target && event.target.tagName === 'TEXTAREA') {
-            // Only intercept wheel on the actively focused textarea
-            if (document.activeElement !== event.target) { return; }
-            // Skip modified wheel gestures (pinch-to-zoom, browser-assigned shortcuts)
-            if (event.ctrlKey || event.metaKey || event.altKey) { return; }
-            // Only intercept if this is the active case note (not other textareas in the wrapper)
-            if (typeof caseNote !== 'undefined' && event.target.id !== caseNote) { return; }
-            var wrapper = document.getElementById('encMainDivWrapper');
-            if (wrapper && wrapper.contains(event.target)) {
-                if (event.target.scrollHeight <= event.target.clientHeight) {
-                    event.preventDefault();
-                    wrapper.scrollTop += event.deltaY;
-                }
+        if (event.ctrlKey || event.metaKey || event.altKey) { return; }
+
+        var wrapper = document.getElementById('encMainDivWrapper');
+        if (wrapper && wrapper.contains(event.target)) {
+            // Let native scroll handle the notes area
+            return;
+        }
+
+        // Let any scrollable overlay/popup handle its own scrolling
+        for (var el = event.target instanceof Element ? event.target : event.target.parentElement; el && el !== document.body; el = el.parentElement) {
+            var style = window.getComputedStyle(el);
+            if (/(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight) {
+                return;
             }
+        }
+
+        // Sidebar/CPP areas: route scroll to navigation-layout
+        var navLayout = document.getElementById('navigation-layout');
+        if (navLayout) {
+            event.preventDefault();
+            navLayout.scrollTop += event.deltaY;
         }
     }, { passive: false, capture: true });

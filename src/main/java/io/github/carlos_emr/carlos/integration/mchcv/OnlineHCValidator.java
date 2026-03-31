@@ -41,15 +41,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import javax.xml.soap.SOAPFault;
-import javax.xml.ws.soap.SOAPFaultException;
+import jakarta.xml.soap.SOAPFault;
+import jakarta.xml.ws.soap.SOAPFaultException;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilder;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilderConfig;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class OnlineHCValidator implements HCValidator {
     private static Logger logger = MiscUtils.getLogger();
@@ -58,7 +58,7 @@ public class OnlineHCValidator implements HCValidator {
     private EdtClientBuilder builder;
 
     public OnlineHCValidator() {
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         EdtClientBuilderConfig config = new EdtClientBuilderConfig();
         config.setLoggingRequired(!Boolean.valueOf(properties.getProperty("hcv.logging.skip")));
         config.setKeystoreUser(properties.getProperty("hcv.keystore.user"));

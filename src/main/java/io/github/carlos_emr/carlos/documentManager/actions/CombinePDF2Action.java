@@ -35,8 +35,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -44,14 +44,14 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class CombinePDF2Action extends ActionSupport {
@@ -73,7 +73,7 @@ public class CombinePDF2Action extends ActionSupport {
         if (files != null) {
             MiscUtils.getLogger().debug("size = " + files.length);
             EDocUtil docData = new EDocUtil();
-            String path = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+            String path = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
             Path filePath;
             for (int i = 0; i < files.length; i++) {
                 String filename = docData.getDocumentName(files[i]);

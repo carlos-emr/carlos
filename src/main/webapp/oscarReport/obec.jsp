@@ -57,7 +57,7 @@
 <%@ page
         import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.DateUtils, java.net.*" %>
 <%
-    if (session.getValue("user") == null)
+    if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String user_no;
     user_no = (String) session.getAttribute("user");
@@ -75,7 +75,7 @@
     DateUtils dateUtils = new DateUtils();
     String tomorrowDate = dateUtils.NextDay(curDay, curMonth, curYear);
     String clinic = "";
-    Properties proppies = io.github.carlos_emr.OscarProperties.getInstance();
+    Properties proppies = io.github.carlos_emr.CarlosProperties.getInstance();
     String homepath = proppies.getProperty("DOCUMENT_DIR");
     session.setAttribute("obecdownload", homepath);
 %>

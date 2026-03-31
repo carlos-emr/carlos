@@ -43,7 +43,7 @@
 %>
 
 <%@ include file="/common/messages.jsp" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils" %>
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
@@ -98,7 +98,7 @@
         }
         var page = "" + varpage;
         windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
-        //var popup =window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupPageWindow"/>", windowprops);
+        //var popup =window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.popupPageWindow"/>", windowprops);
         openWindows[name] = window.open(page, name, windowprops);
 
         if (openWindows[name] != null) {
@@ -225,7 +225,7 @@
 
             <display:column sortable="true" title="Client No" sortProperty="demographicNo" defaultorder="ascending">
                 <a
-                        href="<%=request.getContextPath() %><%=request.getContextPath() %>/oscarEncounter/IncomingEncounter.do?selectId=<c:out value="${client.demographicNo}"/>&demographicNo=<c:out value="${client.demographicNo}"/>&PEAttach=yes&appointmentNo=0&noteId=<%=noteId$%>"><c:out
+                        href="<%=request.getContextPath() %><%=request.getContextPath() %>/encounter/IncomingEncounter.do?selectId=<c:out value="${client.demographicNo}"/>&demographicNo=<c:out value="${client.demographicNo}"/>&PEAttach=yes&appointmentNo=0&noteId=<%=noteId$%>"><c:out
                         value="${client.demographicNo}"/></a>
             </display:column>
             <display:column sortable="true" title="Name" sortProperty="formattedName">

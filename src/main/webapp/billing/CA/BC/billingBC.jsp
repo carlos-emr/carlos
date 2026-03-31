@@ -49,8 +49,8 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
 <%@taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@page import="java.util.*, io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.entities.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -71,7 +71,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.SupServiceCodeAssocDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreference" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%!
 
@@ -173,7 +173,7 @@
     /* sort out which Billing form to use based on global and providers settings.
      * 1. Default value set in the properties file
      */
-    String defaultBillingForm = OscarProperties.getInstance().getProperty("default_view");
+    String defaultBillingForm = CarlosProperties.getInstance().getProperty("default_view");
     if (defaultBillingForm != null) {
         defaultBillingForm = defaultBillingForm.trim();
     }
@@ -232,7 +232,7 @@
     }
 
     // 1. global default billing visit location: carlos properties
-    String defaultServiceLocation = OscarProperties.getInstance().getProperty("visittype");
+    String defaultServiceLocation = CarlosProperties.getInstance().getProperty("visittype");
 
     // 2. global billing settings
     List<Property> userSetDefaultServiceLocationList = propertyDao.findGlobalByName(Property.PROPERTY_KEY.bc_default_service_location.toString());
@@ -1269,7 +1269,7 @@
 <body style="background-color:#FFFFFF;" onLoad="CheckType();correspondenceNote();">
 <div id="page-header">
     <div class="icon-container">
-        <img alt="OSCAR EMR" src="${pageContext.servletContext.contextPath}/images/oscar_logo_small.png" width="19px">
+        <img alt="CARLOS EMR" src="${pageContext.servletContext.contextPath}/images/oscar_logo_small.png" width="19px">
     </div>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/></h3>
     <span class="badge bg-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient"/></span>
@@ -1303,7 +1303,7 @@
 
     <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="x">
         <button type="button" class="btn btn-link" title="View this patient's Electronic Chart"
-                onclick="popup(710, 1024,'${pageContext.servletContext.contextPath}/oscarEncounter/IncomingEncounter.do?providerNo=<%=loggedInInfo.getLoggedInProviderNo()%>&appointmentNo=&demographicNo=<%=demo.getDemographicNo()%>&curProviderNo=<%=loggedInInfo.getLoggedInProviderNo()%>&reason=&encType=face+to+face+encounter+with+client&userName=&curDate=<%= new Date().toString() %>&appointmentDate=&startTime=&status=&apptProvider_no=&providerview=<%=loggedInInfo.getLoggedInProviderNo()%>','encounter', 12556);return false;">
+                onclick="popup(710, 1024,'${pageContext.servletContext.contextPath}/encounter/IncomingEncounter.do?providerNo=<%=loggedInInfo.getLoggedInProviderNo()%>&appointmentNo=&demographicNo=<%=demo.getDemographicNo()%>&curProviderNo=<%=loggedInInfo.getLoggedInProviderNo()%>&reason=&encType=face+to+face+encounter+with+client&userName=&curDate=<%= new Date().toString() %>&appointmentDate=&startTime=&status=&apptProvider_no=&providerview=<%=loggedInInfo.getLoggedInProviderNo()%>','encounter', 12556);return false;">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient.encounter"/>
         </button>
     </security:oscarSec>
@@ -1358,7 +1358,7 @@
                 if (thisForm != null) {
 
                     thisForm.setXml_provider(bean.getBillingProvider());
-                    String visitLocation = OscarProperties.getInstance().getProperty("visitlocation");
+                    String visitLocation = CarlosProperties.getInstance().getProperty("visitlocation");
 
                     // sometimes the visit locations tend to contain punctuation that is offending to struts.
                     if (visitLocation != null && !visitLocation.isEmpty()) {
@@ -1373,7 +1373,7 @@
 
                     thisForm.setXml_visittype(bean.getVisitType());
 
-                    if (OscarProperties.getInstance().getProperty("BC_DEFAULT_ALT_BILLING") != null && OscarProperties.getInstance().getProperty("BC_DEFAULT_ALT_BILLING").equalsIgnoreCase("YES")) {
+                    if (CarlosProperties.getInstance().getProperty("BC_DEFAULT_ALT_BILLING") != null && CarlosProperties.getInstance().getProperty("BC_DEFAULT_ALT_BILLING").equalsIgnoreCase("YES")) {
                         thisForm.setXml_encounter("8");
                     }
 
@@ -1667,7 +1667,7 @@
                                                 }
                                             }
                                             request.setAttribute("paymentMethodList", types);
-                                            request.setAttribute("defaultPaymentMethod", OscarProperties.getInstance().getProperty("DEFAULT_PAYMENT_METHOD", ""));
+                                            request.setAttribute("defaultPaymentMethod", CarlosProperties.getInstance().getProperty("DEFAULT_PAYMENT_METHOD", ""));
                                         %>
                                         <select class="form-select" id="xml_encounter" name="xml_encounter">
                                             <c:forEach items="${paymentMethodList}" var="paymentMethod">

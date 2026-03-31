@@ -47,12 +47,12 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
@@ -205,7 +205,7 @@ public class PreventionPrintPdf {
         titlePhrase.add(new Chunk(demoInfo.toString(), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.NORMAL, Color.BLACK)));
 
         String mrp = request.getParameter("mrp");
-        if (mrp != null && OscarProperties.getInstance().getBooleanProperty("mrp_model", "yes")) {
+        if (mrp != null && CarlosProperties.getInstance().getBooleanProperty("mrp_model", "yes")) {
             Properties prop = (Properties) request.getSession().getAttribute("providerBean");
             titlePhrase.add(Chunk.NEWLINE);
             titlePhrase.add(new Chunk("MRP: " + prop.getProperty(mrp, "unknown"), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK)));
@@ -252,7 +252,7 @@ public class PreventionPrintPdf {
         boolean isImmunizationHeaderAdded = false, isScreeningsHeaderAdded = false;
 
         //1 - obtain number of lines of incoming prevention data
-        boolean showComments = OscarProperties.getInstance().getBooleanProperty("prevention_show_comments", "true");
+        boolean showComments = CarlosProperties.getInstance().getBooleanProperty("prevention_show_comments", "true");
 
         //3 - Start the column
         ct = new ColumnText(cb);
@@ -592,10 +592,10 @@ public class PreventionPrintPdf {
     }
 
     private void addPromoText() throws DocumentException, IOException {
-        if (OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null) {
+        if (CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null) {
             cb.beginText();
             cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED), 6);
-            cb.showTextAligned(PdfContentByte.ALIGN_CENTER, OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT"), PageSize.LETTER.getWidth() / 2, 5, 0);
+            cb.showTextAligned(PdfContentByte.ALIGN_CENTER, CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT"), PageSize.LETTER.getWidth() / 2, 5, 0);
             cb.endText();
         }
     }

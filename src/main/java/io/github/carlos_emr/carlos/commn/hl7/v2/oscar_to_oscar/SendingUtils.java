@@ -52,16 +52,17 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.SSLContext;
 
 import org.apache.commons.codec.binary.Base64;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.conn.ClientConnectionManager;
-import org.apache.http.conn.scheme.Scheme;
-import org.apache.http.conn.scheme.SchemeRegistry;
-import org.apache.http.conn.ssl.SSLSocketFactory;
-import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.entity.mime.content.StringBody;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.entity.mime.MultipartEntityBuilder;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.io.HttpClientConnectionManager;
+import org.apache.hc.client5.http.ssl.DefaultHostnameVerifier;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.util.Timeout;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -107,24 +108,23 @@ public final class SendingUtils {
     }
 
     private static int postData(String url, byte[] encryptedBytes, byte[] encryptedSecretKey, byte[] signature, String serviceName) throws IOException {
-        MultipartEntity multipartEntity = new MultipartEntity();
-
         String filename = serviceName + '_' + System.currentTimeMillis() + ".hl7";
-        multipartEntity.addPart("importFile", new ByteArrayBody(encryptedBytes, filename));
-        multipartEntity.addPart("key", new StringBody(new String(Base64.encodeBase64(encryptedSecretKey), MiscUtils.DEFAULT_UTF8_ENCODING)));
-        multipartEntity.addPart("signature", new StringBody(new String(Base64.encodeBase64(signature), MiscUtils.DEFAULT_UTF8_ENCODING)));
-        multipartEntity.addPart("service", new StringBody(serviceName));
-        multipartEntity.addPart("use_http_response_code", new StringBody("true"));
+
+        MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+        builder.addBinaryBody("importFile", encryptedBytes, ContentType.APPLICATION_OCTET_STREAM, filename);
+        builder.addTextBody("key", new String(Base64.encodeBase64(encryptedSecretKey), MiscUtils.DEFAULT_UTF8_ENCODING));
+        builder.addTextBody("signature", new String(Base64.encodeBase64(signature), MiscUtils.DEFAULT_UTF8_ENCODING));
+        builder.addTextBody("service", serviceName);
+        builder.addTextBody("use_http_response_code", "true");
 
         HttpPost httpPost = new HttpPost(url);
-        httpPost.setEntity(multipartEntity);
+        httpPost.setEntity(builder.build());
 
-        HttpClient httpClient = getSecureHttpClient();
-        httpClient.getParams().setParameter("http.connection.timeout", CONNECTION_TIME_OUT);
-        HttpResponse httpResponse = httpClient.execute(httpPost);
-        int statusCode = httpResponse.getStatusLine().getStatusCode();
-        logger.debug("StatusCode:" + statusCode);
-        return (statusCode);
+        try (CloseableHttpClient httpClient = getSecureHttpClient()) {
+            int statusCode = httpClient.execute(httpPost, response -> response.getCode());
+            logger.debug("StatusCode:" + statusCode);
+            return statusCode;
+        }
     }
 
     /**
@@ -132,27 +132,31 @@ public final class SendingUtils {
      * Previous implementation was vulnerable to man-in-the-middle attacks (CWE-295).
      * For environments requiring self-signed certificates, configure proper trust stores instead.
      */
-    private static HttpClient getSecureHttpClient() {
+    private static CloseableHttpClient getSecureHttpClient() {
         try {
-            // Use default SSL context with proper certificate validation
             SSLContext sslContext = SSLContext.getInstance("TLS");
-            // Initialize with null key managers and trust managers to use default certificate validation
             sslContext.init(null, null, new java.security.SecureRandom());
 
-            // Create SSL socket factory with proper hostname verification
-            SSLSocketFactory sslSocketFactory = new SSLSocketFactory(sslContext, 
-                SSLSocketFactory.STRICT_HOSTNAME_VERIFIER);
+            HttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
+                    .setSSLSocketFactory(SSLConnectionSocketFactoryBuilder.create()
+                            .setSslContext(sslContext)
+                            .setHostnameVerifier(new DefaultHostnameVerifier())
+                            .build())
+                    .build();
 
-            HttpClient httpClient = new DefaultHttpClient();
-            ClientConnectionManager connectionManager = httpClient.getConnectionManager();
-            SchemeRegistry schemeRegistry = connectionManager.getSchemeRegistry();
-            schemeRegistry.register(new Scheme("https", sslSocketFactory, 443));
-            
+            RequestConfig requestConfig = RequestConfig.custom()
+                    .setConnectionRequestTimeout(Timeout.ofMilliseconds(CONNECTION_TIME_OUT))
+                    .setResponseTimeout(Timeout.ofMilliseconds(CONNECTION_TIME_OUT))
+                    .build();
+
             logger.info("Using secure SSL configuration with proper certificate validation for HL7 sending");
-            return (new DefaultHttpClient(connectionManager, httpClient.getParams()));
+            return HttpClients.custom()
+                    .setConnectionManager(connectionManager)
+                    .setDefaultRequestConfig(requestConfig)
+                    .build();
         } catch (Exception e) {
             logger.error("Unexpected error creating secure HTTP client", e);
-            return (null);
+            return null;
         }
     }
 

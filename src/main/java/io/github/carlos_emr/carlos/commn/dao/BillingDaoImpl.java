@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.Billing;
@@ -113,7 +113,7 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
             params.put(param, serviceCodes.get(i));
         }
 
-        StringBuilder buf = new StringBuilder("FROM Billing b, BillingDetail bd where b.demographicNo = :demoNo and bd.billingNo = b.id");
+        StringBuilder buf = new StringBuilder("SELECT b, bd FROM Billing b, BillingDetail bd where b.demographicNo = :demoNo and bd.billingNo = b.id");
         params.put("demoNo", demoNo);
 
         if (serviceCodeValues.length() != 0) {
@@ -173,8 +173,11 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
     }
 
     @Override
+    /**
+     * Retrieves billing information based on the provided billing number.
+     */
     public List<Object[]> findBillings(Integer billing_no) {
-        Query query = entityManager.createQuery("FROM " + Billingmaster.class.getSimpleName() + " b, Billing bi where bi.id = b.billingNo and b.billingNo = ?1");
+        Query query = entityManager.createQuery("SELECT b, bi FROM " + Billingmaster.class.getSimpleName() + " b, Billing bi where bi.id = b.billingNo and b.billingNo = ?1");
         query.setParameter(1, billing_no);
         return query.getResultList();
     }
@@ -348,7 +351,7 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
 
     @Override
     public List<Object[]> findBillingsByStatus(String statusType) {
-        Query query = entityManager.createQuery("FROM Billing b, Billingmaster bm " +
+        Query query = entityManager.createQuery("SELECT b, bm FROM Billing b, Billingmaster bm " +
                 "WHERE b.id = bm.billingNo " +
                 "AND bm.billingstatus = ?1");
         query.setParameter(1, statusType);
@@ -358,7 +361,7 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
     @Override
     public List<Object[]> findOutstandingBills(Integer demographicNo, String billingType, List<String> statuses) {
         int counter = 1;
-        String q = "FROM Billingmaster bm, Billing b " +
+        String q = "SELECT bm, b FROM Billingmaster bm, Billing b " +
                 "WHERE bm.billingNo = b.id " +
                 "AND b.demographicNo = ?" + counter++ + " " + 
                 (statuses.isEmpty() ? "" : ("AND bm.billingstatus NOT IN ( ?" + counter++) + " ) ") +
@@ -376,7 +379,7 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
 
     @Override
     public List<Object[]> findByBillingMasterNo(Integer billingmasterNo) {
-        Query query = entityManager.createQuery("FROM Billingmaster b, Billing b1 " +
+        Query query = entityManager.createQuery("SELECT b, b1 FROM Billingmaster b, Billing b1 " +
                 "WHERE b1.id = b.billingNo " +
                 "AND b.billingmasterNo = ?1");
         query.setParameter(1, billingmasterNo);
@@ -385,7 +388,7 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
 
     @Override
     public List<Object[]> findBillingsByManyThings(Integer billing, Date billingDate, String ohipNo, String serviceCode) {
-        Query q = entityManager.createQuery("FROM Billing b, BillingDetail bd " +
+        Query q = entityManager.createQuery("SELECT b, bd FROM Billing b, BillingDetail bd " +
                 "WHERE b.id = ?1 " +
                 "AND b.billingDate = ?2 " +
                 "AND b.providerOhipNo = ?3 " +
@@ -423,7 +426,7 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
     public List<Object[]> countBillingVisitsByCreator(String providerNo, Date dateBegin, Date dateEnd) {
         String sql = "SELECT b.visitType, COUNT(b) FROM Billing b "
                 + "WHERE b.status <> 'D' "
-                + "AND b.appointmentNo <> '0' "
+                + "AND b.appointmentNo <> 0 "
                 + "AND b.creator = ?1 "
                 + "AND b.billingDate >= ?2 "
                 + "AND b.billingDate <= ?3 "
@@ -442,7 +445,7 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
     public List<Object[]> countBillingVisitsByProvider(String providerNo, Date dateBegin, Date dateEnd) {
         String sql = "SELECT b.visitType, COUNT(b) FROM Billing b "
                 + "WHERE b.status <> 'D' "
-                + "AND b.appointmentNo <> '0' "
+                + "AND b.appointmentNo <> 0 "
                 + "AND b.apptProviderNo = ?1 "
                 + "AND b.billingDate >= ?2 "
                 + "AND b.billingDate <= ?3 "

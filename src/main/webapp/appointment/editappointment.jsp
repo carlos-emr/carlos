@@ -66,7 +66,7 @@
 <%@ page import="io.github.carlos_emr.carlos.appt.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.OtherIdManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
@@ -98,9 +98,9 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
@@ -154,20 +154,20 @@
     ApptData apptObj = ApptUtil.getAppointmentFromSession(request);
 
     List<BillingONCHeader1> cheader1s = null;
-    if ("ON".equals(OscarProperties.getInstance().getProperty("billregion", "ON"))) {
+    if ("ON".equals(CarlosProperties.getInstance().getProperty("billregion", "ON"))) {
         cheader1s = cheader1Dao.getBillCheader1ByDemographicNo(Integer.parseInt(demographic_nox));
     }
 
     BillingONExtDao billingOnExtDao = (BillingONExtDao) SpringUtils.getBean(BillingONExtDao.class);
-    OscarProperties pros = OscarProperties.getInstance();
+    CarlosProperties pros = CarlosProperties.getInstance();
     String strEditable = pros.getProperty("ENABLE_EDIT_APPT_STATUS");
     String apptStatusHere = pros.getProperty("appt_status_here");
 
     AppointmentStatusMgr apptStatusMgr = new AppointmentStatusMgrImpl();
     List allStatus = apptStatusMgr.getAllActiveStatus();
 
-    String useProgramLocation = OscarProperties.getInstance().getProperty("useProgramLocation");
-    String moduleNames = OscarProperties.getInstance().getProperty("ModuleNames");
+    String useProgramLocation = CarlosProperties.getInstance().getProperty("useProgramLocation");
+    String moduleNames = CarlosProperties.getInstance().getProperty("ModuleNames");
     boolean caisiEnabled = moduleNames != null && org.apache.commons.lang3.StringUtils.containsIgnoreCase(moduleNames, "Caisi");
     boolean locationEnabled = caisiEnabled && (useProgramLocation != null && useProgramLocation.equals("true"));
 
@@ -225,7 +225,7 @@
 
     }
 
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     String displayStyle = "display:none";
     String myGroupNo = providerPreference.getMyGroupNo();
     boolean bMultipleSameDayGroupAppt = false;
@@ -1005,7 +1005,7 @@
                         <%
                             String searchMode = request.getParameter("search_mode");
                             if (searchMode == null || searchMode.isEmpty()) {
-                                searchMode = OscarProperties.getInstance().getProperty("default_search_mode", "search_name");
+                                searchMode = CarlosProperties.getInstance().getProperty("default_search_mode", "search_name");
                             }
                         %>
                         <input type="hidden" name="orderby" value="last_name, first_name">
@@ -1015,7 +1015,7 @@
                         <input type="hidden" name="limit1" value="0">
                         <input type="hidden" name="limit2" value="5">
                         <input type="hidden" name="ptstatus" value="active">
-                        <input type="submit" name="searchBtn" id="searchBtn" class="btn btn-secondary" style="margin-bottom:10px;"
+                        <input type="submit" name="searchBtn" id="searchBtn" class="btn btn-primary" style="margin-bottom:10px;"
                                onclick="parseSearch();document.forms['EDITAPPT'].displaymode.value='Search '"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnSearch"/>">
                     </td>

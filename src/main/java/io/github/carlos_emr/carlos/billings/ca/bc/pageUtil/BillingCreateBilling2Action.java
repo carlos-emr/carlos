@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.PaymentType;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.AgeValidator;
@@ -50,13 +50,13 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
@@ -361,7 +361,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
                                ArrayList<BillingItem> billItem, String serviceDate) {
         for (Iterator<BillingItem> iter = billItem.iterator(); iter.hasNext(); ) {
             BillingItem item = iter.next();
-            String[] cnlsCodes = OscarProperties.getInstance().getProperty(
+            String[] cnlsCodes = CarlosProperties.getInstance().getProperty(
                     "COUNSELING_CODES", "").split(",");
             Vector vCodes = new Vector(Arrays.asList(cnlsCodes));
             if (vCodes.contains(item.getServiceCode())) {

@@ -45,7 +45,9 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/tablefilter_all_min.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"/>
     <link rel="stylesheet" type="text/css" href="billingON.css"/>
     <title>Billing Reconcilliation</title>
 
@@ -287,9 +289,10 @@
 
     <table id="ra_table" width="100%" border="0" cellspacing="1" cellpadding="0"
            class="myIvory">
+        <thead>
         <tr class="myYellow">
             <th width="6%">Billing No</th>
-            <td width="7%">Claim No</td>
+            <th width="7%">Claim No</th>
             <!--  th width="14%">Provider </th -->
             <th width="14%">Patient</th>
             <th>Fam Doc</th>
@@ -305,6 +308,8 @@
             <th align=right>Error</th>
             <th width="0" align=right style="display:none">Site</th>
         </tr>
+        </thead>
+        <tbody>
 
             <%
 	aL = obj.getRASummary(raNo, proNo, OBbilling_no, CObilling_no,map);
@@ -349,7 +354,8 @@
             <% } }
 }
 %>
-        <!-- added another TR for table-filter js to automatically calculate totals based on filters -->
+        </tbody>
+        <tfoot>
         <tr class="myYellow">
             <td align="center"></td>
             <td></td>
@@ -365,9 +371,8 @@
             <td id="OBPay" align=right></td>
             <td align=right>&nbsp;</td>
             <td align=right width="0" style="display:none">&nbsp;</td>
-
-
         </tr>
+        </tfoot>
 
             <%
 
@@ -400,40 +405,53 @@ if(raHeader != null) {
 }
 
 %>
-        <script language="javascript" type="text/javascript">
+        <script type="text/javascript">
             document.getElementById('loadingMsg').style.display = 'none';
-            var totRowIndex = tf_Tag(tf_Id('ra_table'), "tr").length;
-            var table_Props = {
-                col_0: "none",
-                col_1: "none",
-                col_2: "none",
-                col_3: "none",
-                col_4: "none",
-                col_5: "none",
-                col_6: "none",
-                col_7: "none",
-                col_8: "none",
-                col_9: "none",
-                col_10: "none",
-                col_11: "none",
-                col_12: "select",
-                display_all_text: " [ Show all clinics ] ",
-                flts_row_css_class: "dummy",
-                flt_css_class: "positionFilter",
-                sort_select: true,
-                rows_always_visible: [totRowIndex],
-                col_operation: {
-                    id: ["amountSubmit", "amountPay", "clinicPay", "hospitalPay", "OBPay"],
-                    col: [7, 8, 9, 10, 11],
-                    operation: ["sum", "sum", "sum", "sum", "sum"],
-                    write_method: ["innerHTML", "innerHTML", "innerHTML", "innerHTML", "innerHTML"],
-                    exclude_row: [totRowIndex],
-                    decimal_precision: [2, 2, 2, 2, 2],
-                    tot_row_index: [totRowIndex]
-                }
-            };
-            var tf = setFilterGrid("ra_table", table_Props);
 
+            $(document).ready(function() {
+                var sumCols = [7, 8, 9, 10, 11];
+                var sumIds = ['amountSubmit', 'amountPay', 'clinicPay', 'hospitalPay', 'OBPay'];
+
+                function updateSums(api) {
+                    sumCols.forEach(function(colIdx, i) {
+                        var total = api.column(colIdx, {search: 'applied'}).data().reduce(function(a, b) {
+                            return a + (parseFloat(String(b).replace(/[^\d.-]/g, '')) || 0);
+                        }, 0);
+                        document.getElementById(sumIds[i]).textContent = total.toFixed(2);
+                    });
+                }
+
+                var table = $('#ra_table').DataTable({
+                    paging: false,
+                    info: false,
+                    searching: <%= bMultisites %>,
+                    ordering: true,
+                    autoWidth: false,
+                    columnDefs: [
+                        { targets: 13, visible: false }
+                    ],
+                    <% if (bMultisites) { %>
+                    initComplete: function() {
+                        var api = this.api();
+                        var siteCol = api.column(13);
+                        var $select = $('<select class="positionFilter"></select>');
+                        $select.append($('<option>').val('').text(' [ Show all clinics ] '));
+                        siteCol.data().unique().sort().each(function(d) {
+                            if (d && d.trim()) $select.append($('<option>').val(d.trim()).text(d.trim()));
+                        });
+                        $select.on('change', function() {
+                            siteCol.search($(this).val() ? '^' + $.fn.dataTable.util.escapeRegex($(this).val()) + '$' : '', true, false).draw();
+                        });
+                        $(api.table().container()).before($select);
+                    },
+                    <% } %>
+                    drawCallback: function() {
+                        updateSums(this.api());
+                    }
+                });
+
+                updateSums(table);
+            });
         </script>
 
 </body>

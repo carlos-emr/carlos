@@ -30,7 +30,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -51,7 +51,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%
     String demographic_no = request.getParameter("demo");
@@ -142,7 +142,7 @@
         <input type="text" id="statusNum" name="statusNum" maxlength="10" size="10" value="${ demoExt["statusNum"] }">
         <input type="hidden" name="statusNumOrig" value="${ demoExt["statusNum"] }">
     </td>
-    <% if (!OscarProperties.getInstance().isPropertyActive("showBandNumberOnly")) { %>
+    <% if (!CarlosProperties.getInstance().isPropertyActive("showBandNumberOnly")) { %>
     <td align="right" class="label disableStyle">
         <strong>First Nation Community:</strong>
     </td>

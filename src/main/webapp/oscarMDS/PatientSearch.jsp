@@ -31,7 +31,7 @@
 <%@ page import="java.util.*, java.sql.*,java.net.*, io.github.carlos_emr.carlos.db.DBPreparedHandler, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -202,7 +202,7 @@
                 int age = 0;
 
                 ResultSet rs = null;
-                Properties props = io.github.carlos_emr.OscarProperties.getInstance();
+                Properties props = io.github.carlos_emr.CarlosProperties.getInstance();
                 DBPreparedHandler db = new DBPreparedHandler();
 
                 String keyword = "";

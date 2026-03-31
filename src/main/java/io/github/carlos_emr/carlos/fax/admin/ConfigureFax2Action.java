@@ -25,7 +25,7 @@
  */
 package io.github.carlos_emr.carlos.fax.admin;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.StringUtils;
@@ -40,8 +40,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.form.JSONUtil;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -282,7 +282,7 @@ public class ConfigureFax2Action extends ActionSupport {
             jsonObject.put("success", false);
             jsonObject.put("message", ex.getMessage() == null ? DEFAULT_ERROR_MESSAGE : ex.getMessage());
             MiscUtils.getLogger().error("Fax configuration validation failed: {}", ex.getMessage(), ex);
-        } catch (javax.persistence.PersistenceException ex) {
+        } catch (jakarta.persistence.PersistenceException ex) {
             // Database errors - do not leak details
             jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", false);

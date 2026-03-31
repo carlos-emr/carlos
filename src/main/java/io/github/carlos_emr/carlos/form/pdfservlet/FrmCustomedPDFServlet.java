@@ -37,11 +37,11 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.List;
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.openpdf.text.*;
 import org.openpdf.text.pdf.*;
@@ -64,7 +64,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean;
 
 import org.owasp.encoder.Encode;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.prescript.data.RxPharmacyData;
@@ -105,11 +105,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      *
      * @param req HttpServletRequest containing prescription form parameters and fax details
      * @param res HttpServletResponse to write the PDF or fax status HTML to
-     * @throws javax.servlet.ServletException if a servlet error occurs
+     * @throws jakarta.servlet.ServletException if a servlet error occurs
      * @throws java.io.IOException if an I/O error occurs during PDF generation
      */
     @Override
-    public void service(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException, java.io.IOException {
+    public void service(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException, java.io.IOException {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
         boolean isFax = "oscarRxFax".equals(req.getParameter("__method"));
@@ -140,7 +140,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                         pdfid = pdfid.replaceAll("[^a-zA-Z0-9_-]", "");
                     }
                     String pdfFile = "prescription_" + pdfid + ".pdf";
-                    String document_dir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+                    String document_dir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
                     
                     // Use PathValidationUtils for proper path validation
                     File baseDirFile = new File(document_dir);
@@ -152,7 +152,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     }
 
                     // write to temporary file
-                    String tempPath = OscarProperties.getInstance().getProperty("fax_file_location", System.getProperty("java.io.tmpdir"));
+                    String tempPath = CarlosProperties.getInstance().getProperty("fax_file_location", System.getProperty("java.io.tmpdir"));
                     File tempDirFile = new File(tempPath);
                     File validatedTempPdf = PathValidationUtils.validatePath("prescription_" + pdfid + ".pdf", tempDirFile);
                     Path tempPdf = validatedTempPdf.toPath();
@@ -325,7 +325,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             this.patientDOB = patientDOB;
             this.sigDoctorName = sigDoctorName == null ? "" : sigDoctorName;
             this.rxDate = rxDate;
-            this.promoText = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
+            this.promoText = CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT");
             this.origPrintDate = origPrintDate;
             this.numPrint = numPrint;
             if (promoText == null) {
@@ -584,7 +584,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 /*
                  * Add preferred fax cover page disclaimer comment to bottom of Faxed Rx
                  */
-                String confidentiality = OscarProperties.getInstance().getProperty("DEFAULT_FAX_COVERPAGE_COMMENT", "");
+                String confidentiality = CarlosProperties.getInstance().getProperty("DEFAULT_FAX_COVERPAGE_COMMENT", "");
                 ColumnText columnText = new ColumnText(cb);
                 columnText.addText(new Chunk(confidentiality, new Font(bf, 9)));
                 columnText.setSimpleColumn(0, 0, page.getWidth(), 60, 10, Element.ALIGN_CENTER | Element.ALIGN_TOP);

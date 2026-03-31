@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet;
 
 /**
@@ -220,7 +220,7 @@ public interface MeasurementManager {
      */
     public static List<String> getFlowsheetDsHTML() {
         List<String> dsHtml = new ArrayList<String>();
-        String path_set_by_property = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_HTML_DIRECTORY");
+        String path_set_by_property = CarlosProperties.getInstance().getProperty("MEASUREMENT_DS_HTML_DIRECTORY");
 
         if (path_set_by_property != null) {
             File[] files1 = new File(path_set_by_property).listFiles();
@@ -233,7 +233,7 @@ public interface MeasurementManager {
         }
 
         URL path_of_resource = MeasurementFlowSheet.class.getClassLoader()
-                .getResource("/oscar/oscarEncounter/oscarMeasurements/flowsheets/html/");
+                .getResource("/oscar/encounter/oscarMeasurements/flowsheets/html/");
         File[] files2 = new File(path_of_resource.getPath()).listFiles();
 
         for (File file2 : files2) {

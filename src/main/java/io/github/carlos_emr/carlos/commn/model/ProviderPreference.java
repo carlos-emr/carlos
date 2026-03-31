@@ -32,20 +32,20 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 
-import javax.persistence.Column;
-import javax.persistence.Embeddable;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.JoinTable;
-import javax.persistence.PostLoad;
-import javax.persistence.PreUpdate;
-import javax.persistence.Temporal;
-import javax.persistence.TemporalType;
-import javax.persistence.ElementCollection;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
+import jakarta.persistence.ElementCollection;
 //import org.hibernate.annotations.CollectionOfElements;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 @Entity
 public class ProviderPreference extends AbstractModel<String> implements Serializable {
@@ -123,7 +123,7 @@ public class ProviderPreference extends AbstractModel<String> implements Seriali
     private String defaultServiceType = "no";
     private String defaultCaisiPmm = "disabled";
     private String defaultNewOscarCme = "disabled";
-    private boolean printQrCodeOnPrescriptions = Boolean.valueOf(OscarProperties.getInstance().getProperty("QR_CODE_ENABLED_PROVIDER_DEFAULT"));
+    private boolean printQrCodeOnPrescriptions = Boolean.valueOf(CarlosProperties.getInstance().getProperty("QR_CODE_ENABLED_PROVIDER_DEFAULT"));
     private int appointmentScreenLinkNameDisplayLength = 3;
     private int defaultDoNotDeleteBilling = 0;
     private String defaultDxCode = null;

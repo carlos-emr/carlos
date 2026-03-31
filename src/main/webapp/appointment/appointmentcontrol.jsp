@@ -71,5 +71,6 @@
     String operation = requestParamDict.getDef("displaymode", "");
 
     // redirect to a file associated with operation
-    pageContext.forward(opToFileDict.getDef(operation, ""));
+    out.clearBuffer();
+    request.getRequestDispatcher(opToFileDict.getDef(operation, "")).include(request, response);
 %>

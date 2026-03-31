@@ -35,9 +35,9 @@ import java.util.Date;
 import java.util.Properties;
 import java.util.ResourceBundle;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.appt.ApptStatusData;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
@@ -54,13 +54,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class EctSaveEncounter2Action extends ActionSupport {
@@ -149,28 +149,28 @@ public class EctSaveEncounter2Action extends ActionSupport {
                         "Sign,Save and Bill")) {
                     sessionbean.encounter = sessionbean.encounter + "\n" + "[" +
                             prop.
-                                    getString("oscarEncounter.class.EctSaveEncounterAction.msgSigned") +
+                                    getString("encounter.class.EctSaveEncounterAction.msgSigned") +
                             " " +
                             UtilDateUtilities.DateToString(date,
                                     prop.getString("date.yyyyMMddHHmmss"),
                                     httpservletrequest.getLocale()) +
                             " " +
                             prop.getString(
-                                    "oscarEncounter.class.EctSaveEncounterAction.msgSigBy") +
+                                    "encounter.class.EctSaveEncounterAction.msgSigBy") +
                             " " + sessionbean.userName + "]";
                 }
                 if (httpservletrequest.getParameter("btnPressed").equals(
                         "Sign,Save and Exit")) {
                     sessionbean.encounter = sessionbean.encounter + "\n" + "[" +
                             prop.
-                                    getString("oscarEncounter.class.EctSaveEncounterAction.msgSigned") +
+                                    getString("encounter.class.EctSaveEncounterAction.msgSigned") +
                             " " +
                             UtilDateUtilities.DateToString(date,
                                     prop.getString("date.yyyyMMddHHmmss"),
                                     httpservletrequest.getLocale()) +
                             " " +
                             prop.getString(
-                                    "oscarEncounter.class.EctSaveEncounterAction.msgSigBy") +
+                                    "encounter.class.EctSaveEncounterAction.msgSigBy") +
                             " " + sessionbean.userName + "]";
                 }
                 if (httpservletrequest.getParameter("btnPressed").equals(
@@ -178,19 +178,19 @@ public class EctSaveEncounter2Action extends ActionSupport {
                     sessionbean.encounter = sessionbean.encounter + "\n" + "[" +
                             prop.
                                     getString(
-                                            "oscarEncounter.class.EctSaveEncounterAction.msgVerAndSig") +
+                                            "encounter.class.EctSaveEncounterAction.msgVerAndSig") +
                             " " +
                             UtilDateUtilities.DateToString(date,
                                     prop.getString("date.yyyyMMddHHmmss"),
                                     httpservletrequest.getLocale()) +
                             " " +
                             prop.getString(
-                                    "oscarEncounter.class.EctSaveEncounterAction.msgSigBy") +
+                                    "encounter.class.EctSaveEncounterAction.msgSigBy") +
                             " " + sessionbean.userName + "]";
                 }
                 if (httpservletrequest.getParameter("btnPressed").equals("Split Chart")) {
                     sessionbean.subject = prop.getString(
-                            "oscarEncounter.class.EctSaveEncounterAction.msgSplitChart");
+                            "encounter.class.EctSaveEncounterAction.msgSplitChart");
                 }
                 sessionbean.template = "";
             } catch (Exception e) {
@@ -286,7 +286,7 @@ public class EctSaveEncounter2Action extends ActionSupport {
         if (httpservletrequest.getParameter("btnPressed").equals(
                 "Sign,Save and Bill")) {
 
-            String billRegion = OscarProperties.getInstance().getProperty(
+            String billRegion = CarlosProperties.getInstance().getProperty(
                     "billregion");
             //
             BillingSessionBean bean = new BillingSessionBean();

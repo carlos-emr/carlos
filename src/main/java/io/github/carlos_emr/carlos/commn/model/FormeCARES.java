@@ -31,7 +31,7 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.util.Date;
 
 @Entity

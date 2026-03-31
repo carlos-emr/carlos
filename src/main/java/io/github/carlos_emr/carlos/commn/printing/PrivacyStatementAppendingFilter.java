@@ -35,19 +35,19 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpServletResponseWrapper;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponseWrapper;
+import jakarta.servlet.http.HttpSession;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * Filter class for handling confidentiality note printing. This class works by appending a confidentiality note
@@ -81,7 +81,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
     private Set<String> exclusions = Collections.synchronizedSet(new HashSet<String>());
 
     private String getPrivacyStatement() {
-        if (OscarProperties.getConfidentialityStatement() == null || OscarProperties.getConfidentialityStatement().trim().isEmpty()) {
+        if (CarlosProperties.getConfidentialityStatement() == null || CarlosProperties.getConfidentialityStatement().trim().isEmpty()) {
             return "";
         }
         return "<style type=\"text/css\"><!--\n" +
@@ -95,7 +95,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 "}\n" +
                 "--></style>" +
                 "<p class=\"yesprint\"><b>\n" +
-                OscarProperties.getConfidentialityStatement() +
+                CarlosProperties.getConfidentialityStatement() +
                 "</b><br/>" +
                 "<b>END OF PRINTED DOCUMENT</b>" +
                 "</p>";

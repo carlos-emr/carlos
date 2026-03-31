@@ -60,7 +60,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 @Service
 public class FaxManagerImpl implements FaxManager {
@@ -794,10 +794,10 @@ public class FaxManagerImpl implements FaxManager {
 
         // Use PathValidationUtils for validation
         File file = new File(filePath);
-        File documentDir = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
+        File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
 
         try {
-            PathValidationUtils.validateExistingPath(file, documentDir);
+            file = PathValidationUtils.validateExistingPath(file, documentDir);
         } catch (SecurityException e) {
             // File not in document dir, check if it's in allowed temp directories
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
@@ -827,10 +827,10 @@ public class FaxManagerImpl implements FaxManager {
 
         // Use PathValidationUtils for robust path containment validation
         File file = new File(filePath);
-        File documentDir = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
+        File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
 
         try {
-            PathValidationUtils.validateExistingPath(file, documentDir);
+            file = PathValidationUtils.validateExistingPath(file, documentDir);
         } catch (SecurityException e) {
             // File not in document dir, check if it's in allowed temp directories
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {

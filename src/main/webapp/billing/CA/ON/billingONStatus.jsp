@@ -33,7 +33,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="org.owasp.encoder.Encode" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@page import="io.github.carlos_emr.carlos.util.*" %>
@@ -42,14 +42,14 @@
 <%@ page import="io.github.carlos_emr.carlos.util.LabelValueBean" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%--
     The taglib directive below imports the JSTL library. If you uncomment it,
     you must also add the JSTL library to the project. The Add Library... action
     on Libraries node in Projects view can be used to add the JSTL 1.1 library.
     --%>
 <%--
-    <%@taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+    <%@taglib uri="jakarta.tags.core" prefix="c"%>
     --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -57,7 +57,7 @@
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean isTeamBillingOnly = false;
     boolean isSiteAccessPrivacy = false;
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     boolean hideName = Boolean.valueOf(props.getProperty("invoice_reports.print.hide_name", "false"));
 %>
 <security:oscarSec objectName="_team_billing_only" roleName="<%=roleName$ %>" rights="r" reverse="false">
@@ -225,7 +225,7 @@
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
-        <script src="<%=request.getContextPath() %>/js/excellentexport.min.js"></script>
+        <script src="<%=request.getContextPath() %>/js/table-export.js"></script>
         <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script><!-- 1.13.4 -->
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
@@ -1130,9 +1130,9 @@
                     </tr>
                 </table><!-- inner -->
                 <%if (bList != null && !bList.isEmpty()) {%>
-                <a download="oscar_invoices.xls" href="#"
-                   onclick="return ExcellentExport.excel(this, 'bListTable', 'OSCAR Invoices');">Export to Excel</a>
-                <a download="oscar_invoices.csv" href="#" onclick="return ExcellentExport.csv(this, 'bListTable');">Export
+                <a download="carlos_invoices.xls" href="#"
+                   onclick="return TableExport.excel(this, 'bListTable', 'CARLOS Invoices');">Export to Excel</a>
+                <a download="carlos_invoices.csv" href="#" onclick="return TableExport.csv(this, 'bListTable');">Export
                     to CSV</a>
                 <%} %>
                 <% } %>

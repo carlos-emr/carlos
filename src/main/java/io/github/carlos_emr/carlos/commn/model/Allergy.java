@@ -30,17 +30,17 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import org.apache.commons.lang3.StringUtils;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.PrePersist;
-import javax.persistence.PreUpdate;
-import javax.persistence.Table;
-import javax.persistence.Temporal;
-import javax.persistence.TemporalType;
-import javax.persistence.Transient;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
+import jakarta.persistence.Transient;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -366,17 +366,17 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
     public String getLifeStageDesc() {
         String s = getLifeStage();
         if ("N".equals(s)) {
-            return "Newborn"; //"oscarEncounter.lifestage.opt.newborn"; //  = Newborn: Birth to 28 days
+            return "Newborn"; //"encounter.lifestage.opt.newborn"; //  = Newborn: Birth to 28 days
         } else if ("I".equals(s)) {
-            return "Infant";  // "oscarEncounter.lifestage.opt.infant"; // = Infant: 29 days to 2 years
+            return "Infant";  // "encounter.lifestage.opt.infant"; // = Infant: 29 days to 2 years
         } else if ("C".equals(s)) {
-            return "Child"; //"oscarEncounter.lifestage.opt.child"; // = Child: 2 years to 15 years
+            return "Child"; //"encounter.lifestage.opt.child"; // = Child: 2 years to 15 years
         } else if ("T".equals(s)) {
-            return "Adolescent"; //  "oscarEncounter.lifestage.opt.adolescent"; // = Adolescent: 16 to 17
+            return "Adolescent"; //  "encounter.lifestage.opt.adolescent"; // = Adolescent: 16 to 17
         } else if ("A".equals(s)) {
-            return "Adult";  //"oscarEncounter.lifestage.opt.adult"; // = Adult: 18 years
+            return "Adult";  //"encounter.lifestage.opt.adult"; // = Adult: 18 years
         }
-        return "Not Set"; //"oscarEncounter.lifestage.opt.notset"; // = Not Set
+        return "Not Set"; //"encounter.lifestage.opt.notset"; // = Not Set
     }
 
     public String getOnSetOfReactionDesc() {

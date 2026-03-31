@@ -78,7 +78,7 @@
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
     DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
@@ -90,8 +90,8 @@
 
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%
@@ -104,7 +104,7 @@
     int nStrShowLen = 20;
     String prov = (oscarVariables.getProperty("billregion", "")).trim().toUpperCase();
 
-    OscarProperties oscarProps = OscarProperties.getInstance();
+    CarlosProperties oscarProps = CarlosProperties.getInstance();
 
     ProvinceNames pNames = ProvinceNames.getInstance();
 
@@ -116,7 +116,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.title"/></title>
         <link rel="stylesheet" type="text/css"
-              href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
+              href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
 
     </head>
     <%

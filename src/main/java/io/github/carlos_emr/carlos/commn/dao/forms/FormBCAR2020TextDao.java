@@ -31,7 +31,7 @@ package io.github.carlos_emr.carlos.commn.dao.forms;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.form.model.FormBCAR2020Text;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import java.util.List;
 
 public class FormBCAR2020TextDao extends AbstractDaoImpl<FormBCAR2020Text> {

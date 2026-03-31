@@ -47,8 +47,8 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Logger;
@@ -56,7 +56,7 @@ import io.github.carlos_emr.carlos.integration.mcedt.McedtConstants;
 import io.github.carlos_emr.carlos.integration.mcedt.ResourceForm;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import ca.ontario.health.edt.Detail;
 import ca.ontario.health.edt.DetailData;
@@ -239,7 +239,7 @@ public class ActionUtils {
 
     public static List<File> getUploadList() {
         List<File> edtUploadList = new ArrayList<File>();
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         File outbox = new File(props.getProperty("ONEDT_OUTBOX", ""));
         FileFilter fileFilter = new FileFilter() {
             public boolean accept(File file) {
@@ -283,7 +283,7 @@ public class ActionUtils {
 
     public static void moveOhipToOutBox(Date startDate, Date endDate) {
         try {
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             File generatedFiles = new File(props.getProperty("HOME_DIR", ""));
             File outbox = new File(props.getProperty("ONEDT_OUTBOX", ""));
             FileFilter fileFilter = new FileFilter() {
@@ -318,7 +318,7 @@ public class ActionUtils {
 	 */
     public static void moveObecToOutBox(Date startDate, Date endDate) {
         try {
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             File generatedFiles = new File(props.getProperty("DOCUMENT_DIR", ""));
             File outbox = new File(props.getProperty("ONEDT_OUTBOX", ""));
             FileFilter fileFilter = new FileFilter() {
@@ -345,7 +345,7 @@ public class ActionUtils {
     }
 
     public static void createOnEDTOutboxDir() {
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         File dateDir = new File(props.getProperty("ONEDT_OUTBOX", ""));
         if (!dateDir.exists()) dateDir.mkdirs();
     }
@@ -354,7 +354,7 @@ public class ActionUtils {
         Date startDate = new Date();
         try {
             SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy HH:mm");
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             //File dateFile = new File(props.getProperty("ONEDT_OUTBOX", "") + ".timestamp");
             File dateDir = new File(props.getProperty("ONEDT_OUTBOX", ""));
             if (!dateDir.exists()) dateDir.mkdirs();
@@ -375,7 +375,7 @@ public class ActionUtils {
     public static void setOutboxTimestamp(Date endDate) {
         try {
             SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy HH:mm");
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             File dateFile = new File(props.getProperty("ONEDT_OUTBOX", "") + ".timestamp");
             if (!dateFile.exists()) dateFile.createNewFile();
             BufferedWriter bw = new BufferedWriter(new FileWriter(dateFile));
@@ -496,13 +496,13 @@ public class ActionUtils {
             }
             if (serviceId.length() == 6) return serviceId;
         }
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         serviceId = props.getProperty("mcedt.service.id");
         return serviceId;
     }
 
     public static List<String> getServiceIds() {
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         String id = props.getProperty("mcedt.service.id");
         String ids = props.getProperty("mcedt.service.designated.ids");
         List<String> serviceIds = new ArrayList<String>();
@@ -513,7 +513,7 @@ public class ActionUtils {
     }
 
     public static String getDefaultServiceId() {
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         String serviceId = props.getProperty("mcedt.service.id");
         return serviceId;
     }

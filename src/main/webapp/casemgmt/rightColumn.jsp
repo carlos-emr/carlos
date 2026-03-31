@@ -29,7 +29,7 @@
 --%>
 
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
@@ -66,7 +66,7 @@
 
     <div id="rightColLoader" style="width: 100%;">
         <h3 style="width: 100%; background-color: #CCCCFF;">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.LeftNavBar.msgLoading"/></h3>
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.LeftNavBar.msgLoading"/></h3>
     </div>
 </body>
 </html>

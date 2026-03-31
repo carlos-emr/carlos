@@ -439,12 +439,12 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
 
     @Override
     public void updateProvider(Provider provider) {
-        currentSession().update(provider);
+        currentSession().merge(provider);
     }
 
     @Override
     public void saveProvider(Provider provider) {
-        currentSession().save(provider);
+        currentSession().persist(provider);
     }
 
     @Override

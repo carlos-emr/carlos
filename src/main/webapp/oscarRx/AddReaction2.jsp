@@ -30,9 +30,9 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@page import="org.owasp.encoder.Encode" %>
@@ -245,14 +245,14 @@
 
 
                                 <tr valign="center">
-                                    <td><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.title"/>:</span>
+                                    <td><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.title"/>:</span>
                                         <select name="lifeStage">
-                                            <option value="" <%="".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.notset"/></option>
-                                            <option value="N" <%="N".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.newborn"/></option>
-                                            <option value="I" <%="I".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.infant"/></option>
-                                            <option value="C" <%="C".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.child"/></option>
-                                            <option value="T" <%="T".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.adolescent"/></option>
-                                            <option value="A" <%="A".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.lifestage.opt.adult"/></option>
+                                            <option value="" <%="".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.notset"/></option>
+                                            <option value="N" <%="N".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.newborn"/></option>
+                                            <option value="I" <%="I".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.infant"/></option>
+                                            <option value="C" <%="C".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.child"/></option>
+                                            <option value="T" <%="T".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.adolescent"/></option>
+                                            <option value="A" <%="A".equals(lifeStage) ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.lifestage.opt.adult"/></option>
                                         </select>
                                     </td>
                                 </tr>

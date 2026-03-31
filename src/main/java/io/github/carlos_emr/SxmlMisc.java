@@ -33,7 +33,7 @@ package io.github.carlos_emr;
 import java.util.Enumeration;
 import java.util.Properties;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.logging.log4j.Logger;
 

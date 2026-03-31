@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.utility.*;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import io.github.carlos_emr.carlos.model.security.Secrole;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
@@ -41,7 +41,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
-import org.apache.struts2.interceptor.SessionAware;
+import org.apache.struts2.action.SessionAware;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
@@ -62,7 +62,7 @@ import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFor
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.appt.ApptStatusData;
 import io.github.carlos_emr.carlos.form.JSONUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -71,9 +71,9 @@ import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -254,7 +254,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String url = "";
         if ("casemgmt".equals(request.getAttribute("from"))) {
 
-            String province = OscarProperties.getInstance().getProperty("billregion", "").trim().toUpperCase();
+            String province = CarlosProperties.getInstance().getProperty("billregion", "").trim().toUpperCase();
 
             EctSessionBean bean = (EctSessionBean) session.getAttribute("EctSessionBean");
 
@@ -269,7 +269,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             String Hour = Integer.toString(todayCal.get(Calendar.HOUR));
             String Min = Integer.toString(todayCal.get(Calendar.MINUTE));
 
-            String default_view = OscarProperties.getInstance().getProperty("default_view", "");
+            String default_view = CarlosProperties.getInstance().getProperty("default_view", "");
             String contextPath = request.getContextPath();
 
             url = bsurl + contextPath + "/billing.do?billRegion=" + java.net.URLEncoder.encode(province, "UTF-8") + "&billForm=" + java.net.URLEncoder.encode(default_view, "UTF-8") + "&hotclick=" + java.net.URLEncoder.encode("", "UTF-8") + "&appointment_no=" + bean.appointmentNo + "&appointment_date=" + bean.appointmentDate + "&start_time=" + Hour + ":" + Min + "&demographic_name=" + java.net.URLEncoder.encode(bean.patientLastName + "," + bean.patientFirstName, "UTF-8") + "&demographic_no=" + bean.demographicNo
@@ -295,7 +295,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         logger.debug("NoteId " + nId);
 
-        String maxTmpSave = OscarProperties.getInstance().getProperty("maxTmpSave", "off");
+        String maxTmpSave = CarlosProperties.getInstance().getProperty("maxTmpSave", "off");
         logger.debug("maxTmpSave " + maxTmpSave);
         // set date 2 weeks in past so we retrieve more recent saved notes
         Calendar cal = Calendar.getInstance();
@@ -328,7 +328,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             note.setProvider(prov);
             note.setDemographic_no(demono);
 
-            if (!OscarProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
+            if (!CarlosProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
                 this.insertReason(request, note);
             } else {
                 note.setNote("");
@@ -535,7 +535,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         note.setProvider(prov);
         note.setDemographic_no(demographicNo);
 
-        if (!OscarProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
+        if (!CarlosProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
             this.insertReason(request, note);
         } else {
             note.setNote("");
@@ -741,7 +741,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
                 String providerName = providerDao.getProviderName(providerNo);
 
-                String signature = "[" + props.getString("oscarEncounter.class.EctSaveEncounterAction.msgSigned") + " " + dt.format(now) + " " + props.getString("oscarEncounter.class.EctSaveEncounterAction.msgSigBy") + " " + providerName + "]";
+                String signature = "[" + props.getString("encounter.class.EctSaveEncounterAction.msgSigned") + " " + dt.format(now) + " " + props.getString("encounter.class.EctSaveEncounterAction.msgSigBy") + " " + providerName + "]";
                 note.setNote(note.getNote() + "\n" + signature);
             }
 
@@ -984,7 +984,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 issueNames.append(cIssue.getIssue().getDescription() + "\n");
             }
 
-            strNote += "\n" + new SimpleDateFormat("dd-MMM-yyyy", request.getLocale()).format(new Date()) + " " + props.getString("oscarEncounter.removedIssue.Msg") + ":\n" + issueNames.toString();
+            strNote += "\n" + new SimpleDateFormat("dd-MMM-yyyy", request.getLocale()).format(new Date()) + " " + props.getString("encounter.removedIssue.Msg") + ":\n" + issueNames.toString();
             note.setNote(strNote);
             removed = true;
         } else {
@@ -1009,7 +1009,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
             // if we have removed an issue add it to message body
             if (issueNames.length() > 0) {
-                strNote += "\n" + new SimpleDateFormat("dd-MMM-yyyy", request.getLocale()).format(new Date()) + " " + props.getString("oscarEncounter.removedIssue.Msg") + ":\n" + issueNames.toString();
+                strNote += "\n" + new SimpleDateFormat("dd-MMM-yyyy", request.getLocale()).format(new Date()) + " " + props.getString("encounter.removedIssue.Msg") + ":\n" + issueNames.toString();
                 note.setNote(strNote);
             }
 
@@ -1432,7 +1432,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy H:mm", Locale.ENGLISH);
             Date dateObserve = formatter.parse(observationDate);
             if (dateObserve.getTime() > now.getTime()) {
-                request.setAttribute("DateError", props.getString("oscarEncounter.futureDate.Msg"));
+                request.setAttribute("DateError", props.getString("encounter.futureDate.Msg"));
                 note.setObservation_date(now);
             } else note.setObservation_date(dateObserve);
         } else if (note.getObservation_date() == null) {
@@ -1677,7 +1677,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy H:mm", request.getLocale());
             Date dateObserve = formatter.parse(observationDate);
             if (dateObserve.getTime() > now.getTime()) {
-                request.setAttribute("DateError", props.getString("oscarEncounter.futureDate.Msg"));
+                request.setAttribute("DateError", props.getString("encounter.futureDate.Msg"));
                 note.setObservation_date(now);
             } else note.setObservation_date(dateObserve);
         } else if (note.getObservation_date() == null) {
@@ -1925,7 +1925,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
         }
 
-        if (OscarProperties.getInstance().getProperty("resident_review", "false").equalsIgnoreCase("true")) {
+        if (CarlosProperties.getInstance().getProperty("resident_review", "false").equalsIgnoreCase("true")) {
             String verifyStr = request.getParameter("verify");
             if (verifyStr != null && verifyStr.equalsIgnoreCase("on")) {
 
@@ -1973,7 +1973,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             } else {
                 providerview = loggedInInfo.getLoggedInProviderNo();
             }
-            String defaultView = OscarProperties.getInstance().getProperty("default_view", "");
+            String defaultView = CarlosProperties.getInstance().getProperty("default_view", "");
 
             Set setIssues = this.getCaseNote().getIssues();
             Iterator iter = setIssues.iterator();
@@ -2486,7 +2486,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         this.setIssueCheckList(caseIssueList);
         sessionFrm.setIssueCheckList(caseIssueList);
 
-        if (OscarProperties.getInstance().isCaisiLoaded() && iss != null) {
+        if (CarlosProperties.getInstance().isCaisiLoaded() && iss != null) {
             // reset current concern in CPP
             caseManagementMgr.removeIssueFromCPP(demono, iss);
         }
@@ -2564,7 +2564,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         sessionFrm.getIssueCheckList().get(ind.intValue()).getIssueDisplay().setMajor(oldList.get(ind.intValue()).getIssue().isMajor() ? "major" : "not major");
         sessionFrm.getIssueCheckList().get(ind.intValue()).getIssueDisplay().setResolved(oldList.get(ind.intValue()).getIssue().isResolved() ? "resolved" : "unresolved");
 
-        if (OscarProperties.getInstance().isCaisiLoaded()) {
+        if (CarlosProperties.getInstance().isCaisiLoaded()) {
             // get access right
             List accessRight = caseManagementMgr.getAccessRight(providerNo, demono, (String) session.getAttribute("case_program_id"));
 
@@ -2599,7 +2599,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         request.setAttribute("history", history);
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
-        request.setAttribute("title", props.getString("oscarEncounter.noteHistory.title"));
+        request.setAttribute("title", props.getString("encounter.noteHistory.title"));
         return "showHistory";
     }
 
@@ -2641,7 +2641,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 if (idx < arrIssues.length - 1) title.append(", ");
             }
         }
-        title.append(" " + props.getString("oscarEncounter.history.title"));
+        title.append(" " + props.getString("encounter.history.title"));
         request.setAttribute("title", title.toString());
 
         return "showHistory";
@@ -2763,7 +2763,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         for (int idx = 0; idx < noteIds.length; ++idx) {
             if (this.caseManagementMgr.getNote(noteIds[idx]).isLocked()) {
-                textStr = this.caseManagementMgr.getNote(noteIds[idx]).getObservation_date().toString() + " " + this.caseManagementMgr.getNote(noteIds[idx]).getProviderName() + " " + props.getString("oscarEncounter.noteBrowser.msgNoteLocked");
+                textStr = this.caseManagementMgr.getNote(noteIds[idx]).getObservation_date().toString() + " " + this.caseManagementMgr.getNote(noteIds[idx]).getProviderName() + " " + props.getString("encounter.noteBrowser.msgNoteLocked");
             } else {
 
                 textStr = this.caseManagementMgr.getNote(noteIds[idx]).getNote();
@@ -3421,7 +3421,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private Map<String, Object> mySessionMap;
 
     @Override
-    public void setSession(Map<String, Object> session) {
+    public void withSession(Map<String, Object> session) {
         this.mySessionMap = session;
     }
 

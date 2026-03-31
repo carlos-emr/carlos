@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.ContactDao;
@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 public class EctDisplayContacts2Action extends EctDisplayAction {
@@ -58,7 +58,7 @@ public class EctDisplayContacts2Action extends EctDisplayAction {
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
         try {
 
-            String healthCareTeamEnabled = OscarProperties.getInstance().getProperty("DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM", "true").toString();
+            String healthCareTeamEnabled = CarlosProperties.getInstance().getProperty("DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM", "true").toString();
             //Set left hand module heading and link
             String winName = "contact" + bean.demographicNo;
             String pathview, pathedit;
@@ -177,7 +177,7 @@ public class EctDisplayContacts2Action extends EctDisplayAction {
                         else
                             url = "alert('Cannot Edit');return false;";
                     } else if (contact.getType() == DemographicContact.TYPE_PROFESSIONALSPECIALIST) {
-                        url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/oscarEncounter/EditSpecialists.do?specId=" + contact.getContactId() + "'); return false;";
+                        url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/encounter/EditSpecialists.do?specId=" + contact.getContactId() + "'); return false;";
                     }
 
                 }

@@ -28,7 +28,7 @@
  */
 package io.github.carlos_emr.carlos.commn.model.inbox;
 
-import javax.persistence.Column;
+import jakarta.persistence.Column;
 import java.io.Serializable;
 
 

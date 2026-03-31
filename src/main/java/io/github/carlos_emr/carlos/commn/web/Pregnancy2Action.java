@@ -31,7 +31,7 @@ package io.github.carlos_emr.carlos.commn.web;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.form.*;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,14 +41,14 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import javax.imageio.ImageIO;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.awt.*;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
@@ -69,7 +69,7 @@ public class Pregnancy2Action extends ActionSupport {
     static String labReqVersion;
 
     static {
-        labReqVersion = OscarProperties.getInstance().getProperty("onare_labreqver", "07");
+        labReqVersion = CarlosProperties.getInstance().getProperty("onare_labreqver", "07");
         if (labReqVersion == "") {
             labReqVersion = "10";
         }
@@ -180,15 +180,7 @@ public class Pregnancy2Action extends ActionSupport {
         e.setDescription(mod.getDescription());
         episodeDao.persist(e);
 
-        //start up a new ar on enhanced form
-        try {
-            FrmONAREnhancedRecord f = new FrmONAREnhancedRecord();
-            Properties p = f.getFormRecord(loggedInInfo, demographicNo, 0);
-            p.setProperty("episodeId", String.valueOf(e.getId()));
-            f.saveFormRecord(p);
-        } catch (SQLException ee) {
-            MiscUtils.getLogger().error("Error", ee);
-        }
+        // formONAREnhancedRecord table removed (deprecated 2026-03-25); ONAR form creation disabled
 
         return SUCCESS;
     }

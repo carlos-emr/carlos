@@ -30,8 +30,8 @@
 --%>
 <!DOCTYPE html>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" buffer="none" %>
 
@@ -150,7 +150,7 @@
         </tr>
         </thead>
         <%
-            List<Security> securityList = securityDao.findAllOrderBy("user_name");
+            List<Security> securityList = securityDao.findAllOrderBy("userName");
 
             //if action is good, then give me the result
             String searchMode = request.getParameter("search_mode");

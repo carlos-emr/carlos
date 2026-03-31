@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Obr;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
@@ -51,10 +51,7 @@ public class Hl7ObrDao extends AbstractDaoImpl<Hl7Obr> {
     }
 
     public List<Object[]> findLabResultsByPid(Integer pid) {
-        String sql = "FROM Hl7Obr hl7_obr, Hl7Obx hl7_obx " +
-                "WHERE hl7_obr.id = hl7_obx.obrId " +
-                "AND hl7_obr.pidId = ?1 " +
-                "ORDER BY hl7_obr.diagnosticServiceSectId";
+        String sql = "SELECT hl7_obr, hl7_obx FROM Hl7Obr hl7_obr, Hl7Obx hl7_obx WHERE hl7_obr.id = hl7_obx.obrId AND hl7_obr.pidId = ?1 ORDER BY hl7_obr.diagnosticServiceSectId";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, pid);
         return query.getResultList();
@@ -71,10 +68,7 @@ public class Hl7ObrDao extends AbstractDaoImpl<Hl7Obr> {
     }
 
     public List<Object[]> findByMessageId(Integer messageId) {
-        String sql = "FROM Hl7Pid pid, Hl7Obr obr, Hl7Obx obx " +
-                "WHERE obr.pidId = pid.id " +
-                "AND obx.obrId = obr.id " +
-                "AND pid.messageId = ?1";
+        String sql = "SELECT pid, obr, obx FROM Hl7Pid pid, Hl7Obr obr, Hl7Obx obx WHERE obr.pidId = pid.id AND obx.obrId = obr.id AND pid.messageId = ?1";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, messageId);
         return query.getResultList();

@@ -29,8 +29,8 @@
 
 --%>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ page import="io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil.*" %>
 <%@ page import="java.util.*, java.sql.*, java.text.*, java.net.*" %>
@@ -83,7 +83,7 @@
         }
     </script>
     <link rel="stylesheet" type="text/css"
-          href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
+          href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
     <body topmargin="0" leftmargin="0" vlink="#0000FF"
           onload="window.focus();">
     <% 

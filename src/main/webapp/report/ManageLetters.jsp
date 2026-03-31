@@ -47,7 +47,7 @@
 <%@ page import="java.util.*,org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.ManageLetters" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <html>
     <head>

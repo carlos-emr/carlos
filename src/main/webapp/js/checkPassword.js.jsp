@@ -27,15 +27,15 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-    <%@ page import="io.github.carlos_emr.OscarProperties"%>
+    <%@ page import="io.github.carlos_emr.CarlosProperties"%>
     <%@ page import="org.springframework.web.util.JavaScriptUtils"%>
 
     <%@ page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
 
-    <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+    <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 
     <%!
-        OscarProperties op = OscarProperties.getInstance();
+        CarlosProperties op = CarlosProperties.getInstance();
     %>
 
     function validatePassword(pwd) {

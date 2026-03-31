@@ -33,8 +33,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import javax.xml.bind.annotation.XmlAnyElement;
-import javax.xml.bind.annotation.XmlSeeAlso;
+import jakarta.xml.bind.annotation.XmlAnyElement;
+import jakarta.xml.bind.annotation.XmlSeeAlso;
 
 @XmlSeeAlso(DemographicResponse.class)
 public class AbstractSearchResponse<T> implements Serializable {

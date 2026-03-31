@@ -35,9 +35,9 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FilenameUtils;
 
@@ -49,10 +49,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
@@ -75,11 +75,11 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
 
             if (!saveFile(file, fileName)) {
                 addActionError(getText("errors.fileNotAdded"));
-                response.sendRedirect(contextPath + "/oscarEncounter/oscarMeasurements/AddMeasurementStyleSheet.jsp");
+                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp");
                 return NONE;
             } else {
                 write2Database(fileName);
-                String msg = getText("oscarEncounter.oscarMeasurement.msgAddedStyleSheet", fileName);
+                String msg = getText("encounter.oscarMeasurement.msgAddedStyleSheet", fileName);
                 messages.add(msg);
                 request.setAttribute("messages", messages);
                 return SUCCESS;
@@ -120,7 +120,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
             }
 
             // Retrieve the target directory from properties
-            String uploadPath = OscarProperties.getInstance().getProperty("oscarMeasurement_css_upload_path");
+            String uploadPath = CarlosProperties.getInstance().getProperty("oscarMeasurement_css_upload_path");
             
             if (uploadPath == null || uploadPath.trim().isEmpty()) {
                 throw new IllegalArgumentException("Upload path not configured");

@@ -45,7 +45,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <style type="text/css" media="print">
     .header {
         display: none;
@@ -75,7 +75,7 @@
                 value="${cpp.otherFileNumber}"/></td>
     </tr>
 
-    <%if (!OscarProperties.getInstance().isTorontoRFQ()) { %>
+    <%if (!CarlosProperties.getInstance().isTorontoRFQ()) { %>
     <tr>
         <td><b>Primary Health Care Provider : </b><c:out
                 value="${cpp.primaryPhysician}"/></td>

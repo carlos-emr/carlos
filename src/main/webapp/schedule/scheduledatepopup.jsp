@@ -40,7 +40,7 @@
     ScheduleTemplateDao scheduleTemplateDao = SpringUtils.getBean(ScheduleTemplateDao.class);
 %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 
@@ -139,7 +139,7 @@
                             </select></td>
                         </tr>
                         <%
-                            OscarProperties props = OscarProperties.getInstance();
+                            CarlosProperties props = CarlosProperties.getInstance();
                             boolean bMoreAddr = bMultisites
                                     ? true
                                     : props.getProperty("scheduleSiteID", "").equals("") ? false : true;

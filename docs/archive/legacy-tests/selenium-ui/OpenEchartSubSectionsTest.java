@@ -212,7 +212,7 @@ public class OpenEchartSubSectionsTest extends BaseTest {
     public void testOpenFormsWindowSuccessful() throws InterruptedException {
         EchartContext ctx = navigateToEchartForPatient7();
         try {
-            clickEchartTabAndVerify(ctx, "Forms", "oscarEncounter/formlist.jsp", "Forms");
+            clickEchartTabAndVerify(ctx, "Forms", "encounter/formlist.jsp", "Forms");
         } finally {
             ctx.driver.quit();
         }

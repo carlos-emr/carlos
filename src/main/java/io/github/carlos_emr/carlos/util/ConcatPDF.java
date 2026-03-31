@@ -55,7 +55,8 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.pdfbox.io.MemoryUsageSetting;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.io.RandomAccessReadBuffer;
 import org.apache.pdfbox.multipdf.PDFMergerUtility;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -85,10 +86,10 @@ public class ConcatPDF {
             //load pdf file
             try {
                 if (o instanceof InputStream) {
-                    documentReader = PDDocument.load((InputStream) o);
+                    documentReader = Loader.loadPDF(((InputStream) o).readAllBytes());
                 } else {
                     Path fileName = Paths.get((String) o);
-                    documentReader = PDDocument.load(fileName.toFile());
+                    documentReader = Loader.loadPDF(fileName.toFile());
                 }
 
                 // remove encryption
@@ -106,7 +107,7 @@ public class ConcatPDF {
                 if (documentReader != null) {
                     documentReader.save(baos);
                     try (InputStream inputStream = new ByteArrayInputStream(baos.toByteArray())) {
-                        pdfMerger.addSource(inputStream);
+                        pdfMerger.addSource(new RandomAccessReadBuffer(inputStream));
                         documentReader.close();
                     }
                 }
@@ -123,7 +124,7 @@ public class ConcatPDF {
 
         try {
             pdfMerger.setDestinationStream(outputStream);
-            pdfMerger.mergeDocuments(MemoryUsageSetting.setupMainMemoryOnly());
+            pdfMerger.mergeDocuments(null);
         } catch (IOException e) {
             MiscUtils.getLogger().error("Document merge failed.", e);
             throw new RuntimeException("PDF merge failed after processing " + totalFiles + " documents", e);

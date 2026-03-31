@@ -59,11 +59,11 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%@taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <% if (session.getAttribute("user") == null)
     response.sendRedirect(request.getContextPath() + "/logout.htm");
@@ -1066,13 +1066,13 @@
                             <%}%>
                         </select><br>
 
-                        <%if (OscarProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %> Clinic
+                        <%if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %> Clinic
                         Nbr <% } else { %> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formVisitType"/> <% } %>: <br>
 
                         <input type="hidden" name="xml_visittype" value="<%=visittype%>">
                         <select style="font-size: 80%;" name="visittype">
                             <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgSelectVisitType"/></option>
-                            <% if (OscarProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
+                            <% if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
                             <%
                                 ClinicNbrDao cnDao = (ClinicNbrDao) SpringUtils.getBean(ClinicNbrDao.class);
                                 ArrayList<ClinicNbr> nbrs = cnDao.findAll();
@@ -1093,7 +1093,7 @@
                         </select><br>
 
 
-                        <%String clinicNo = OscarProperties.getInstance().getProperty("clinic_no", "").trim();%>
+                        <%String clinicNo = CarlosProperties.getInstance().getProperty("clinic_no", "").trim();%>
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/>: <br>
                         <select name="xml_slicode">
                             <option value="<%=clinicNo%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/></option>
@@ -1272,12 +1272,12 @@
                             <textarea name="comment" style="width:100%" rows=4><%=comment %></textarea>
                             <%
 
-                                if (thirdParty && bCh1 != null && OscarProperties.getInstance().hasProperty("invoice_due_date")) {
+                                if (thirdParty && bCh1 != null && CarlosProperties.getInstance().hasProperty("invoice_due_date")) {
                                     BillingONExt bExtDueDate = bExtDao.getDueDate(bCh1);
                                     String dueDateStr;
 
                                     if (bExtDueDate == null) {
-                                        Integer numDaysTilDue = Integer.parseInt(OscarProperties.getInstance().getProperty("invoice_due_date", "0"));
+                                        Integer numDaysTilDue = Integer.parseInt(CarlosProperties.getInstance().getProperty("invoice_due_date", "0"));
                                         dueDateStr = DateUtils.sumDate(bCh1.getBillingDate(), numDaysTilDue, request.getLocale());
                                     } else {
                                         dueDateStr = bExtDueDate.getValue();
@@ -1304,7 +1304,7 @@
                         <div class="col-md-5" id="thirdParty" style=" <%=thirdParty ? "" : "display:none"%>">
                             <a href="#" onclick="search3rdParty('billTo');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgPayer"/></a><br>
                             <textarea id="billTo" name="billTo" cols="32" rows=4><%=payer%></textarea>
-                            <% String useDemoClinicInfoOnInvoice = OscarProperties.getInstance().getProperty("useDemoClinicInfoOnInvoice", "");
+                            <% String useDemoClinicInfoOnInvoice = CarlosProperties.getInstance().getProperty("useDemoClinicInfoOnInvoice", "");
                                 if (bCh1 != null && !useDemoClinicInfoOnInvoice.isEmpty() && useDemoClinicInfoOnInvoice.equals("true")) {
                                     BillingONExt bExtUseBillTo = bExtDao.getUseBillTo(bCh1);
                                     String selectUseBillTo = "";
@@ -1333,7 +1333,7 @@
     <div>
 
 
-        <% if (thirdParty && bCh1 != null && OscarProperties.getInstance().hasProperty("invoice_due_date")) { %>
+        <% if (thirdParty && bCh1 != null && CarlosProperties.getInstance().hasProperty("invoice_due_date")) { %>
         <script>
             flatpickr("#invoiceDueDate", {dateFormat: "Y-m-d", allowInput: true});
         </script>

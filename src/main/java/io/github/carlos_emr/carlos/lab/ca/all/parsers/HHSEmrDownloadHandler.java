@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.integration.hl7.model.PatientId;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.Misc;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.model.Group;
@@ -640,7 +640,7 @@ public class HHSEmrDownloadHandler extends DefaultGenericHandler implements Mess
 
 
     public String getAccessionNum() {
-        String useOrderNumber = OscarProperties.getInstance().getProperty("hhs.emr.handler.accession.use_order_number", "false");
+        String useOrderNumber = CarlosProperties.getInstance().getProperty("hhs.emr.handler.accession.use_order_number", "false");
         if (useOrderNumber.equals("true")) {
             try {
                 String accessionNum = getString(terser.get("/.OBR-3-1"));

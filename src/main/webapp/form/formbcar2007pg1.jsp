@@ -44,13 +44,13 @@
 %>
 
 <%@ page import=" io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <%
     String formClass = "BCAR2007";

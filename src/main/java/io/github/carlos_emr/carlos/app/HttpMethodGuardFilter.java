@@ -24,14 +24,14 @@ package io.github.carlos_emr.carlos.app;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -96,7 +96,6 @@ public class HttpMethodGuardFilter implements Filter {
      * mapped to non-matching URL action names.</p>
      */
     private static final Set<String> MUTATOR_ACTION_NAMES = Set.of(
-            "oncallclinic",           // SaveOnCallClinic2Action
             "billingaddcode",         // BillingAddCode2Action (starts with "billing", not "add")
             "reprocessbill",          // BillingReProcessBill2Action
             "movemohfiles",           // ArchiveMOHFile2Action
@@ -260,7 +259,7 @@ public class HttpMethodGuardFilter implements Filter {
      * so their presence on GET indicates a CSRF or manipulation attempt.
      */
     private static final Set<String> JSP_MUTATOR_PARAMS = Set.of(
-            "dboperation", "submit", "submitFrm", "formAction"
+            "dboperation", "submit", "submitfrm", "formaction"
     );
 
     private Set<String> allowList = Collections.emptySet();

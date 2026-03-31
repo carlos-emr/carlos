@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * See bug 4195.
@@ -54,7 +54,7 @@ import io.github.carlos_emr.OscarProperties;
  */
 public class HRMFixMissingReportHelper {
 
-    private String downloadsDirectory = OscarProperties.getInstance().getProperty("OMD_downloads");
+    private String downloadsDirectory = CarlosProperties.getInstance().getProperty("OMD_downloads");
 
     private HRMDocumentDao hrmDocumentDao = (HRMDocumentDao) SpringUtils.getBean(HRMDocumentDao.class);
 
@@ -87,7 +87,7 @@ public class HRMFixMissingReportHelper {
                 if (tmpXMLholder.exists()) {
                     continue;
                 }
-                String place = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+                String place = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
                 tmpXMLholder = new File(place + File.separator + hrmReportFileLocation);
 
                 if (tmpXMLholder.exists()) {

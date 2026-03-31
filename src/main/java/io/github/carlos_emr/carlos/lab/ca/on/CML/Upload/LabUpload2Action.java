@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.lab.ca.on.CML.Upload;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -39,13 +39,13 @@ import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.on.CML.ABCDParser;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.nio.file.Files;
 import java.util.Date;
@@ -68,7 +68,7 @@ public class LabUpload2Action extends ActionSupport {
             proNo = "";
         }
         String key = request.getParameter("key");
-        String keyToMatch = OscarProperties.getInstance().getProperty("CML_UPLOAD_KEY");
+        String keyToMatch = CarlosProperties.getInstance().getProperty("CML_UPLOAD_KEY");
         MiscUtils.getLogger().debug("key=" + key);
         String outcome = "";
 
@@ -108,12 +108,12 @@ public class LabUpload2Action extends ActionSupport {
                 if (localFileName != null) {
                     // Validate the localFileName path using PathValidationUtils
                     File localFile = new File(localFileName);
-                    OscarProperties props = OscarProperties.getInstance();
+                    CarlosProperties props = CarlosProperties.getInstance();
                     String documentDir = props.getProperty("DOCUMENT_DIR");
                     if (documentDir != null) {
                         try {
                             File docDirFile = new File(documentDir);
-                            PathValidationUtils.validateExistingPath(localFile, docDirFile);
+                            localFile = PathValidationUtils.validateExistingPath(localFile, docDirFile);
                         } catch (SecurityException e) {
                             _logger.error("Invalid file path: " + localFileName);
                             outcome = "accessDenied";
@@ -177,7 +177,7 @@ public class LabUpload2Action extends ActionSupport {
         String retVal = null;
 
         try {
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             //properties must exist
             String place = props.getProperty("DOCUMENT_DIR");
 

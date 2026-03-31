@@ -31,7 +31,7 @@ package io.github.carlos_emr.carlos.webserv.rest.to;
 import java.io.Serializable;
 import java.util.List;
 
-import javax.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
 
 import io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentStatusTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentTo1;

@@ -34,7 +34,7 @@
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 <%
-    if (session.getValue("user") == null)
+    if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
     String curUser_no;
     curUser_no = (String) session.getAttribute("user");
@@ -59,7 +59,7 @@
         <title><%=bundle.getString(providertitle)%></title>
 
         <link rel="stylesheet" type="text/css"
-              href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
+              href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
               href="<c:out value="${ctx}"/>/share/calendar/calendar.css"

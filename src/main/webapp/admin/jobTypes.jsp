@@ -45,7 +45,7 @@
 %>
 
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -211,7 +211,7 @@
     <input type="button" class="btn btn-primary" value="Add New" onClick="addNewJobType()"/>
 
 
-    <div id="new-jobtype" title="OSCAR Job Type Editor">
+    <div id="new-jobtype" title="CARLOS Job Type Editor">
         <p class="validateTips"></p>
 
         <form id="jobTypeForm">

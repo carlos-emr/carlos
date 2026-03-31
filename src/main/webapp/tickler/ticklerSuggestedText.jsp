@@ -30,9 +30,10 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest, io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%
@@ -56,12 +57,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerEdit.title"/></title>
+    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/> - <fmt:message key="tickler.ticklerTextSuggest.textSuggestTitle"/></title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
     <script type="application/javascript">
         function setEmpty(selectbox) {
-            var emptyTxt = "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.AttachDocPopup.empty"/>";
+            var emptyTxt = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.empty"/>";
             var emptyVal = "0";
             var op = document.createElement("option");
             try {
@@ -139,23 +140,16 @@
             }
         }
     </script>
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"
-          type="text/css">
+    <%@ include file="/includes/global-head.jspf" %>
     <style>
-        table {
-            border-collapse: collapse;
-            width: 100%;
-        }
-
         .text-selection {
             width: 300px;
         }
-
     </style>
 </head>
-<body style="font-family:arial, sans-serif;">
+<body>
 <div class="container">
-    <h3>Tickler <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.textSuggestTitle"/></h3>
+    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/> <fmt:message key="tickler.ticklerTextSuggest.textSuggestTitle"/></h3>
     <form action="${pageContext.request.contextPath}/tickler/EditTicklerTextSuggest.do" method="post">
         <input type="hidden" name="method" value="updateTextSuggest">
         <table style="display: flex;justify-content: space-evenly;align-items: stretch;">
@@ -178,7 +172,7 @@
                             for (TicklerTextSuggest tTextSuggestActive : activeTexts) {
                         %>
                         <option
-                                value="<%=tTextSuggestActive.getId().toString()%>"><%=tTextSuggestActive.getSuggestedText()%>
+                                value="<%=tTextSuggestActive.getId().toString()%>"><%=Encode.forHtmlContent(tTextSuggestActive.getSuggestedText())%>
                         </option>
                         <% }
                         }
@@ -186,10 +180,10 @@
                     </select>
                 </td>
                 <td>
-                    <input type="button" class="btn btn-secondary" name="movetoInactive" value=">>"
+                    <input type="button" class="btn btn-outline-secondary" name="movetoInactive" value=">>"
                            onclick="swap('activeText','inactiveText')"/>
                     <br/>
-                    <input type="button" class="btn btn-secondary" name="movetoActive" value="<<"
+                    <input type="button" class="btn btn-outline-secondary" name="movetoActive" value="<<"
                            onclick="swap('inactiveText','activeText')"/>
                 </td>
                 <td style="vertical-align: top">
@@ -205,7 +199,7 @@
                             for (TicklerTextSuggest tTextSuggestInactive : inactiveTexts) {
                         %>
                         <option
-                                value="<%=tTextSuggestInactive.getId().toString()%>"><%=tTextSuggestInactive.getSuggestedText()%>
+                                value="<%=tTextSuggestInactive.getId().toString()%>"><%=Encode.forHtmlContent(tTextSuggestInactive.getSuggestedText())%>
                         </option>
                         <% }
                         }
@@ -232,9 +226,9 @@
                     <div class="mb-3 float-end">
                         <input type="button" class="btn btn-primary" name="saveTextChanges"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.save"/>"
-                               onclick="doSelect('activeText');doSelect('inactiveText');document.tsTicklerForm.submit();"/>
-                        <input type="button" class="btn btn-danger" name="cancelTextChanges"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.cancel"/>"
+                               onclick="doSelect('activeText');doSelect('inactiveText');this.form.submit();"/>
+                        <input type="button" class="btn btn-secondary" name="cancelTextChanges"
+                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
                                onclick="window.close()"/>
                     </div>
                 </td>

@@ -16,8 +16,8 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="org.apache.commons.lang3.StringUtils,io.github.carlos_emr.carlos.log.*" %>
 <%@page import="java.text.SimpleDateFormat" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -180,8 +180,9 @@
 
     String currentDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
 
-    boolean obgynShortcuts = OscarProperties.getInstance().getProperty("show_obgyn_shortcuts", "false").equalsIgnoreCase("true");
-    String formId = "0";
+    // formONAREnhancedRecord deprecated - obgynShortcuts and formId no longer used
+    // boolean obgynShortcuts = CarlosProperties.getInstance().getProperty("show_obgyn_shortcuts", "false").equalsIgnoreCase("true");
+    // String formId = "0";
 
 
     String btnDisabled = "disabled";
@@ -190,12 +191,13 @@
         btnDisabled = "";
         demographicNo = demographicLink.getDemographicNo().toString();
 
-        if (obgynShortcuts) {
-            List<EctFormData.PatientForm> formsONAREnhanced = Arrays.asList(EctFormData.getPatientFormsFromLocalAndRemote(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo, "formONAREnhancedRecord", true));
-            if (formsONAREnhanced != null && !formsONAREnhanced.isEmpty()) {
-                formId = formsONAREnhanced.get(0).getFormId();
-            }
-        }
+        // formONAREnhancedRecord table deprecated and removed - this lookup is disabled
+        // if (obgynShortcuts) {
+        //     List<EctFormData.PatientForm> formsONAREnhanced = Arrays.asList(EctFormData.getPatientFormsFromLocalAndRemote(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo, "formONAREnhancedRecord", true));
+        //     if (formsONAREnhanced != null && !formsONAREnhanced.isEmpty()) {
+        //         formId = formsONAREnhanced.get(0).getFormId();
+        //     }
+        // }
     }
 %>
 
@@ -416,7 +418,7 @@
                onClick="popupPatient(710, 1024,'<%= request.getContextPath() %>/tickler/ForwardDemographicTickler.do?docType=HRM&docId=<%=hrmReportId%>&demographic_no=', 'Tickler','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
         <input type="button" id="mainEchart_<%=hrmReportId%>"
                value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-               onClick="popupPatient(710, 1024,'<%= request.getContextPath() %>/oscarEncounter/IncomingEncounter.do?updateParent=false&reason=
+               onClick="popupPatient(710, 1024,'<%= request.getContextPath() %>/encounter/IncomingEncounter.do?updateParent=false&reason=
                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
         <input type="button" id="mainMaster_<%=hrmReportId%>"
                value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnMaster"/>"
@@ -424,6 +426,7 @@
         <input type="button" id="mainApptHistory_<%=hrmReportId%>"
                value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnApptHist"/>"
                onClick="popupPatient(710,1024,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?orderby=appttime&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25&demographic_no=','ApptHist','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
+        <%-- formONAREnhancedRecord deprecated and removed - ONAR shortcut buttons disabled
         <% if (obgynShortcuts && demographicLink != null) {%>
         <input type="button" value="AR1-ILI"
                onClick="popupONAREnhanced(290, 625, '<%=request.getContextPath()%>/form/formonarenhancedForm.jsp?demographic_no=<%=demographicNo %>&formId=<%=formId%>&section='+this.value)"/>
@@ -436,6 +439,7 @@
         <input type="button" value="AR2"
                onClick="popupPage(700, 1024, '<%=request.getContextPath()%>/form/formonarenhancedpg2.jsp?demographic_no=<%=demographicNo %>&formId=<%=formId%>&update=true')"/>
         <% } %>
+        --%>
     </div>
 
     <div id="reportViewer">
@@ -449,13 +453,13 @@
 
             <div id="hrmNotice">
                 This report was received from the Hospital Report Manager (HRM) at <%=(String) hrmReportTime %>.
-                <% if (hrmDuplicateNum != null && (hrmDuplicateNum > 0)) { %><br/><i>OSCAR has
+                <% if (hrmDuplicateNum != null && (hrmDuplicateNum > 0)) { %><br/><i>CARLOS has
                 received <%=String.valueOf(hrmDuplicateNum) %> duplicates of this report.</i><% } %>
                 <%
                     allDocumentsWithRelationship = (List<HRMDocument>) request.getAttribute("allDocumentsWithRelationship");
                     if (allDocumentsWithRelationship != null && allDocumentsWithRelationship.size() > 1) {
                 %>
-                <span id="similarNotice">OSCAR has also detected that the following reports are similar:
+                <span id="similarNotice">CARLOS has also detected that the following reports are similar:
 		<%
             List<Integer> seenBefore = new LinkedList<Integer>();
             for (HRMDocument relationshipDocument : allDocumentsWithRelationship) {

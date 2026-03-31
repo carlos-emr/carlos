@@ -52,7 +52,7 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ForwardingRules;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
@@ -91,7 +91,7 @@ public class ProviderLabRouting {
 
     public void routeMagic(int labId, String provider_no, String labType) {
         ForwardingRules fr = new ForwardingRules();
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         String autoFileLabs = props.getProperty("AUTO_FILE_LABS");
 
         ProviderLabRoutingDao dao = SpringUtils.getBean(ProviderLabRoutingDao.class);
@@ -149,7 +149,7 @@ public class ProviderLabRouting {
 
     public void route(String labId, String provider_no, String labType) throws SQLException {
         ForwardingRules fr = new ForwardingRules();
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         String autoFileLabs = props.getProperty("AUTO_FILE_LABS");
 
         ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);

@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.prevention.PreventionData;
 import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.*;
 
 public class EctDisplayPrevention2Action extends EctDisplayAction {
@@ -70,7 +70,7 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
             String winName = "prevention" + bean.demographicNo;
             int demographicNumber = Integer.valueOf(bean.demographicNo);
             String url = "popupPage(700, 960,'" + winName + "', '" + request.getContextPath() + "/oscarPrevention/index.jsp?demographic_no=" + bean.demographicNo + "')";
-            Dao.setLeftHeading(getText("oscarEncounter.LeftNavBar.Prevent"));
+            Dao.setLeftHeading(getText("encounter.LeftNavBar.Prevent"));
             Dao.setLeftURL(url);
 
             //set righthand link to same as left so we have visual consistency with other modules

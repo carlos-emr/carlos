@@ -35,7 +35,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <% long loadPage = System.currentTimeMillis(); %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
@@ -48,9 +48,9 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%
     String province = ((String) oscarVariables.getProperty("billregion", "")).trim().toUpperCase();
     EctSessionBean bean = null;
@@ -79,7 +79,7 @@
     if (bean == null) bean = new EctSessionBean();
     if (bean.appointmentNo == null) bean.appointmentNo = "0";
     String bsurl = (String) session.getAttribute("casemgmt_oscar_baseurl");
-    String backurl = bsurl + "/oscarEncounter/IncomingEncounter.do?";
+    String backurl = bsurl + "/encounter/IncomingEncounter.do?";
 //get programId
     String pgId = (String) session.getAttribute("case_program_id");
     if (pgId == null) pgId = "";
@@ -123,7 +123,7 @@
     function popUpMeasurements(vheight, vwidth, name, varpage) { //open a new popup window
         if (varpage != 'null') {
             name.options[0].selected = true;
-            var page = "<%=session.getAttribute("casemgmt_oscar_baseurl")%>" + "/oscarEncounter/oscarMeasurements/SetupMeasurements.do?groupName=" + varpage;
+            var page = "<%=session.getAttribute("casemgmt_oscar_baseurl")%>" + "/encounter/oscarMeasurements/SetupMeasurements.do?groupName=" + varpage;
             windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
             var popup = window.open(page, "", windowprops);
             if (popup != null) {
@@ -191,7 +191,7 @@
                 String curDay = Integer.toString(today.getDay());
                 String Hour = Integer.toString(today.getHours());
                 String Min = Integer.toString(today.getMinutes());
-                String eURL = "/oscarEncounter/IncomingEncounter.do?casetoEncounter=true&providerNo=" + bean.providerNo + "&appointmentNo=" + bean.appointmentNo + "&demographicNo=" + bean.demographicNo + "&curProviderNo=" + bean.providerNo + "&reason=" + java.net.URLEncoder.encode(" ", StandardCharsets.UTF_8) + "&userName=" + java.net.URLEncoder.encode(bean.patientFirstName + " " + bean.patientLastName, StandardCharsets.UTF_8) + "&curDate=" + curYear + "-" + curMonth + "-" + curDay + "&appointmentDate=" + curYear + "-" + curMonth + "-" + curDay + "&startTime=" + Hour + ":" + Min + "&status=t";%>
+                String eURL = "/encounter/IncomingEncounter.do?casetoEncounter=true&providerNo=" + bean.providerNo + "&appointmentNo=" + bean.appointmentNo + "&demographicNo=" + bean.demographicNo + "&curProviderNo=" + bean.providerNo + "&reason=" + java.net.URLEncoder.encode(" ", StandardCharsets.UTF_8) + "&userName=" + java.net.URLEncoder.encode(bean.patientFirstName + " " + bean.patientLastName, StandardCharsets.UTF_8) + "&curDate=" + curYear + "-" + curMonth + "-" + curDay + "&appointmentDate=" + curYear + "-" + curMonth + "-" + curDay + "&startTime=" + Hour + ":" + Min + "&status=t";%>
             <caisirole:SecurityAccess accessName="medical encounter" accessType="access"
                                       providerNo="<%=bean.providerNo%>" demoNo="<%=bean.demographicNo%>"
                                       programId="<%=pgId%>">
@@ -256,7 +256,7 @@
                 <!-- Consultations -->
                 <tr>
                     <td><a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/oscarEncounter/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp?de=<%=bean.demographicNo%>');return false;">Consultations</a>
+                           onClick="popupPage('<%=bsurl%>/encounter/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp?de=<%=bean.demographicNo%>');return false;">Consultations</a>
                     </td>
                 </tr>
 
@@ -268,13 +268,13 @@
                         <% if (EctImmImmunizationData.hasImmunizations(bean.demographicNo)) { %>
                         <tr>
                             <td><a style="color:red" href="javascript:void(0)"
-                                   onClick="popupPage('<%=bsurl%>/oscarEncounter/immunization/initSchedule.do');return false;">Immunizations</a>
+                                   onClick="popupPage('<%=bsurl%>/encounter/immunization/initSchedule.do');return false;">Immunizations</a>
                             </td>
                         </tr>
                         <% } else {%>
                         <tr>
                             <td><a href="javascript:void(0)"
-                                   onClick="popupPage('<%=bsurl%>/oscarEncounter/immunization/initSchedule.do');return false;">Immunizations</a>
+                                   onClick="popupPage('<%=bsurl%>/encounter/immunization/initSchedule.do');return false;">Immunizations</a>
                             </td>
                         </tr>
                         <% } %>
@@ -299,10 +299,10 @@
                 <caisirole:SecurityAccess accessName="oscarcomm" accessType="access" providerNo="<%=bean.providerNo%>"
                                           demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
 
-                    <% if (OscarProperties.getInstance().getProperty("oscarcomm", "").equals("on")) { %>
+                    <% if (CarlosProperties.getInstance().getProperty("oscarcomm", "").equals("on")) { %>
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/oscarEncounter/RemoteAttachments.jsp');return false;">OscarComm</a>
+                               onClick="popupPage('<%=bsurl%>/encounter/RemoteAttachments.jsp');return false;">CARLOS Messenger</a>
                         </td>
                     </tr>
                     <% } %>
@@ -382,7 +382,7 @@
                 <tr>
                     <td>
                         <a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/oscarEncounter/formlist.jsp?demographic_no=<%=bean.demographicNo%>'); return false;">-old
+                           onClick="popupPage('<%=bsurl%>/encounter/formlist.jsp?demographic_no=<%=bean.demographicNo%>'); return false;">-old
                             forms-</a>
                     </td>
                 </tr>
@@ -449,7 +449,7 @@
                             %>* <% }
                         %>
                             <a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=bean.demographicNo%>&template=<%=flowsheet%>','flowsheet')"><%=MeasurementTemplateFlowSheetConfig.getInstance().getDisplayName(flowsheet)%>
+                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=bean.demographicNo%>&template=<%=flowsheet%>','flowsheet')"><%=MeasurementTemplateFlowSheetConfig.getInstance().getDisplayName(flowsheet)%>
                             </a><br/>
                             <%}%>
                         </td>
@@ -472,7 +472,7 @@
                                 for (String flowsheet : flowsheets) {
                             %>
                             <a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=bean.demographicNo%>&template=<%=flowsheet%>','flowsheet')"><%=MeasurementTemplateFlowSheetConfig.getInstance().getDisplayName(flowsheet)%>
+                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=bean.demographicNo%>&template=<%=flowsheet%>','flowsheet')"><%=MeasurementTemplateFlowSheetConfig.getInstance().getDisplayName(flowsheet)%>
                             </a>
                             <%}%>
 
@@ -494,7 +494,7 @@
                     <tr>
                         <td>
                             <a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/oscarEncounter/oscarMeasurements/SetupHistoryIndex.do'); return false;">-Old
+                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/SetupHistoryIndex.do'); return false;">-Old
                                 Measurements--</a>
                         </td>
                     </tr>
@@ -555,7 +555,7 @@
                 <tr>
                     <td>
                         <a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/oscarEncounter/calculators.jsp?sex=<%=bean.patientSex%>&age=<%=pAge%>'); return false;">calculators</a><br>
+                           onClick="popupPage('<%=bsurl%>/encounter/calculators.jsp?sex=<%=bean.patientSex%>&age=<%=pAge%>'); return false;">calculators</a><br>
                     </td>
                 </tr>
 

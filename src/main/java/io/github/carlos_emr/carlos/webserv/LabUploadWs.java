@@ -37,16 +37,16 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.springframework.stereotype.Component;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 
-import javax.jws.WebParam;
-import javax.jws.WebService;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.jws.WebParam;
+import jakarta.jws.WebService;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -138,7 +138,7 @@ public class LabUploadWs extends AbstractWs {
          * for Exelleris lab versions used in Ontario.
          * This wont be a forever solution.
          */
-        if (OscarProperties.getInstance().isOntarioBillingRegion()) {
+        if (CarlosProperties.getInstance().isOntarioBillingRegion()) {
             labType = LabType.ExcellerisON;
         }
 
@@ -254,7 +254,7 @@ public class LabUploadWs extends AbstractWs {
             throws Exception {
         HttpServletRequest request = getHttpServletRequest();
 
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         String labFolderPath = props.getProperty("DOCUMENT_DIR") + "labs";
         String retVal = "";
 

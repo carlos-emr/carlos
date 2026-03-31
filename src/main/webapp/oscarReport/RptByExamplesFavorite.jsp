@@ -45,11 +45,11 @@
 %>
 
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.data.*" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <link rel="stylesheet" type="text/css"
-      href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
+      href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
 <html>
     <script language="JavaScript" type="text/JavaScript">
 

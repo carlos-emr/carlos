@@ -29,11 +29,11 @@
 
 --%>
 <%@ page
-        import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+        import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.DigitalSignatureUtils" %>
@@ -137,7 +137,7 @@
             Vector vecAddress = null;
             Vector vecAddressPhone = null;
             Vector vecAddressFax = null;
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             if (bMultisites) {
                 String appt_no = (String) session.getAttribute("cur_appointment_no");
                 String location = null;
@@ -465,7 +465,7 @@
             function openEncounter() {
                 var windowprops = "height=710,width=1024,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=20,left=20";
                 var currentDate = new Date().toISOString().substring(0, 10);
-                var url = "<%= request.getContextPath() %>/oscarEncounter/IncomingEncounter.do?providerNo=<%= bean.getProviderNo() %>&demographicNo=<%= bean.getDemographicNo() %>&curProviderNo=<%= bean.getProviderNo() %>&userName=<%=Encode.forUriComponent(ProviderData.getProviderName(bean.getProviderNo()))%>&curDate=" + currentDate;
+                var url = "<%= request.getContextPath() %>/encounter/IncomingEncounter.do?providerNo=<%= bean.getProviderNo() %>&demographicNo=<%= bean.getDemographicNo() %>&curProviderNo=<%= bean.getProviderNo() %>&userName=<%=Encode.forUriComponent(ProviderData.getProviderName(bean.getProviderNo()))%>&curDate=" + currentDate;
 
                 if (window.parent.opener && window.parent.opener.document.forms["caseManagementEntryForm"] != undefined) {
                     // redirect if encounter window open
@@ -528,7 +528,7 @@
         <script type="text/javascript">
             var POLL_TIME = 1500;
             var counter = 0;
-            var isRxFaxEnabled = "<%=OscarProperties.getInstance().isRxFaxEnabled()%>";
+            var isRxFaxEnabled = "<%=CarlosProperties.getInstance().isRxFaxEnabled()%>";
 
             function refreshImage() {
                 counter = counter + 1;
@@ -559,7 +559,7 @@
 
             var isSignatureDirty = false;
             var isSignatureSaved = false;
-            <% if (OscarProperties.getInstance().isRxFaxEnabled()) { %>
+            <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { %>
             var hasFaxNumber = <%= pharmacy != null && pharmacy.getFax() != null && pharmacy.getFax().trim().length() > 0 ? "true" : "false" %>;
             <% } %>
 
@@ -567,12 +567,12 @@
                 isSignatureDirty = e.isDirty;
                 isSignatureSaved = e.isSave;
                 e.target.onbeforeunload = null;
-                <% if (OscarProperties.getInstance().isRxFaxEnabled()) { //%>
+                <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { //%>
                 let disabled = !hasFaxNumber || !e.isSave;
                 toggleFaxButtons(disabled);
                 <% } %>
                 if (e.isSave) {
-                    <% if (OscarProperties.getInstance().isRxFaxEnabled()) { //%>
+                    <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { //%>
                     if (hasFaxNumber) {
                         e.target.onbeforeunload = unloadMess;
                     }
@@ -807,7 +807,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                                                     onClick="printPaste2Parent(true, false, true);"/></span>
                                             </td>
                                         </tr>
-                                        <% if (OscarProperties.getInstance().isRxFaxEnabled()) {
+                                        <% if (CarlosProperties.getInstance().isRxFaxEnabled()) {
                                             FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
                                             List<FaxConfig> faxConfigs = faxManager.getFaxGatewayAccounts(loggedInInfo);
                                         %>
@@ -879,7 +879,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         </tr>
 
                                         <%}%>
-                                        <% if (OscarProperties.getInstance().isRxSignatureEnabled()) { %>
+                                        <% if (CarlosProperties.getInstance().isRxSignatureEnabled()) { %>
                                         <%-- Topaz signature pad check removed - HTML5 signature is now standard --%>
 						<% if (bean.getStashSize() == 0 || Objects.isNull(bean.getStashItem(0).getDigitalSignatureId())) { %>
                                         <tr>

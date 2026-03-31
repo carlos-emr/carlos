@@ -32,7 +32,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.Security;
 import org.springframework.stereotype.Repository;
@@ -45,8 +45,16 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
     }
 
     @Override
-    public List<Security> findAllOrderBy(String columnName) {
-        Query query = entityManager.createQuery("SELECT s FROM Security s ORDER BY " + columnName);
+    public List<Security> findAllOrderBy(String propertyName) {
+        String hql;
+        if ("userName".equals(propertyName)) {
+            hql = "SELECT s FROM Security s ORDER BY s.userName";
+        } else if ("providerNo".equals(propertyName)) {
+            hql = "SELECT s FROM Security s ORDER BY s.providerNo";
+        } else {
+            throw new IllegalArgumentException("Unsupported order property: " + propertyName);
+        }
+        Query query = entityManager.createQuery(hql);
         @SuppressWarnings("unchecked")
         List<Security> secList = query.getResultList();
         return secList;
@@ -112,7 +120,7 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
 
     @Override
     public List<Object[]> findProviders() {
-        String sql = "FROM Security s, Provider p WHERE p.providerNo = s.providerNo ORDER BY p.lastName";
+        String sql = "SELECT s, p FROM Security s, Provider p WHERE p.providerNo = s.providerNo ORDER BY p.lastName";
         Query query = entityManager.createQuery(sql);
         return query.getResultList();
     }

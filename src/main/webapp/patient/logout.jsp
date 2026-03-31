@@ -32,7 +32,7 @@
 <%@page import="java.util.HashMap" %>
 <%
   if(session != null) {
-    Object user = session.getValue("patient");
+    Object user = session.getAttribute("patient");
     if (user != null) {
       HashMap hash=(HashMap)application.getAttribute("monitor");
       session.invalidate();

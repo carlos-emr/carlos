@@ -8,6 +8,7 @@ import java.util.Collection;
 import org.apache.cxf.message.Attachment;
 import org.apache.log4j.Logger;
 import org.apache.xml.security.signature.XMLSignatureInput;
+import org.apache.xml.security.signature.XMLSignatureStreamInput;
 import org.apache.xml.security.utils.resolver.ResourceResolverContext;
 import org.apache.xml.security.utils.resolver.ResourceResolverException;
 import org.apache.xml.security.utils.resolver.ResourceResolverSpi;
@@ -101,7 +102,7 @@ public class AttachmentResolverSpi extends ResourceResolverSpi {
 		
 		XMLSignatureInput result;
 		try {
-			result = new XMLSignatureInput(attachment.getDataHandler().getInputStream());
+			result = new XMLSignatureStreamInput(attachment.getDataHandler().getInputStream());
 		} catch (IOException e) {
 			logger.error("Unable to create xml signature input", e);
 			

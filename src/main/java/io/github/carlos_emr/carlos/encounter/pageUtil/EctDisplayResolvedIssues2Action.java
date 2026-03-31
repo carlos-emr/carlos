@@ -33,7 +33,7 @@ import io.github.carlos_emr.carlos.utility.CppUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -53,7 +53,7 @@ public class EctDisplayResolvedIssues2Action extends EctDisplayAction {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         // set lefthand module heading and link
-        navBarDisplayDAO.setLeftHeading(getText("oscarEncounter.NavBar.resolvedIssues"));
+        navBarDisplayDAO.setLeftHeading(getText("encounter.NavBar.resolvedIssues"));
 
         navBarDisplayDAO.setLeftURL("$('check_issue').value='';document.caseManagementViewForm.submit();");
 

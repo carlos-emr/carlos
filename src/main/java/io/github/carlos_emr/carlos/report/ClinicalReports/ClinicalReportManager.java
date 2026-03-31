@@ -43,7 +43,7 @@ import org.jdom2.Element;
 import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * @author jay
@@ -196,7 +196,7 @@ public class ClinicalReportManager {
             String[] flowsheetsArray = {"oscar/oscarReport/ClinicalReports/ClinicalReports.xml"
             };
 
-            OscarProperties properties = OscarProperties.getInstance();
+            CarlosProperties properties = CarlosProperties.getInstance();
             String userConfigFilePath = (String) properties.get("CLINICAL_REPORT_CONFIG_FILE");
             boolean userConfigLoaded = false;
 

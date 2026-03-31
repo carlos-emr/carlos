@@ -33,7 +33,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.net.URL;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 import org.apache.logging.log4j.Logger;
 import org.kie.api.KieBase;
@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * Default Spring implementation of the {@link PreventionDS} prevention decision support service.
@@ -61,7 +61,7 @@ import io.github.carlos_emr.OscarProperties;
  * <ol>
  *   <li><strong>Filesystem / classpath property path (Priority 1)</strong> --
  *       If the {@code PREVENTION_FILE} property is set in
- *       {@link OscarProperties}, the value is interpreted as either:
+ *       {@link CarlosProperties}, the value is interpreted as either:
  *       <ul>
  *         <li>An absolute filesystem path to a {@code .drl} file, loaded via
  *             {@link DroolsHelper#loadFromInputStream(java.io.InputStream)}</li>
@@ -90,7 +90,7 @@ import io.github.carlos_emr.OscarProperties;
  *
  * <h3>Migration Note</h3>
  * <p>This class was migrated from the legacy Drools 2.0 API ({@code RuleBase},
- * {@code WorkingMemory}) to the modern KIE API (Drools 7.74.1) as part of the
+ * {@code WorkingMemory}) to the modern KIE API (Drools 10.0.0) as part of the
  * CARLOS EMR Drools migration. The three-tier loading strategy and rule evaluation
  * semantics are preserved from the original implementation.</p>
  *
@@ -150,7 +150,7 @@ public class PreventionDSImpl implements PreventionDS {
      * <h4>Loading Priority</h4>
      * <ol>
      *   <li><strong>PREVENTION_FILE property</strong> -- Checks
-     *       {@link OscarProperties} for the {@code PREVENTION_FILE} property.
+     *       {@link CarlosProperties} for the {@code PREVENTION_FILE} property.
      *       If set, attempts to load from the filesystem path first, then
      *       interprets {@code classpath:} prefixed values as classpath resources.</li>
      *   <li><strong>ResourceStorage database</strong> -- Queries
@@ -169,7 +169,7 @@ public class PreventionDSImpl implements PreventionDS {
     private void loadRuleBase() {
         try {
             boolean fileFound = false;
-            String preventionPath = OscarProperties.getInstance().getProperty("PREVENTION_FILE");
+            String preventionPath = CarlosProperties.getInstance().getProperty("PREVENTION_FILE");
 
             // Priority 1: Load from filesystem path or classpath: property
             if (preventionPath != null) {

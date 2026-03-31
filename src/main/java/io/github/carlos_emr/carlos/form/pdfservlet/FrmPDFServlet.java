@@ -38,13 +38,13 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Properties;
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -117,7 +117,7 @@ public class FrmPDFServlet extends HttpServlet {
     }
 
     /** Delegates all GET requests to {@link #doPost(HttpServletRequest, HttpServletResponse)}. */
-    public void doGet(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
+    public void doGet(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
         doPost(req, res);
     }
@@ -129,10 +129,10 @@ public class FrmPDFServlet extends HttpServlet {
      *
      * @param req HttpServletRequest containing form field values and configuration parameters
      * @param res HttpServletResponse to write the generated PDF bytes to
-     * @throws javax.servlet.ServletException if a servlet error occurs
+     * @throws jakarta.servlet.ServletException if a servlet error occurs
      * @throws java.io.IOException if an I/O error occurs during PDF generation
      */
-    public void doPost(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
+    public void doPost(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
 
         ByteArrayOutputStream baosPDF = null;
@@ -456,7 +456,7 @@ public class FrmPDFServlet extends HttpServlet {
 
             // create a reader for a certain document
             //String propFilename = "../../OscarDocument/" + getProjectName() + "/form/" + template;
-            String propFilename = OscarProperties.getInstance().getProperty("pdfFORMDIR", "") + "/" + template;
+            String propFilename = CarlosProperties.getInstance().getProperty("pdfFORMDIR", "") + "/" + template;
             float height;
             int n;
             try {
@@ -607,12 +607,12 @@ public class FrmPDFServlet extends HttpServlet {
                                     .parseInt(cfgVal[1].trim()), (height - Integer.parseInt(cfgVal[2].trim())), 0);
                             cb.endText();
                         } else if (tempName.toString().equals("forms_promotext")) {
-//	                        if ( OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null ){
+//	                        if ( CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null ){
 //	                            log.info("adding user placed forms_promotext");
 //	                            cb.beginText();
 //	                            cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
 //	                            cb.showTextAligned((cfgVal[0].trim().equals("left") ? PdfContentByte.ALIGN_LEFT : (cfgVal[0].trim().equals("right") ? PdfContentByte.ALIGN_RIGHT : PdfContentByte.ALIGN_CENTER)),
-//	                                    OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT"),
+//	                                    CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT"),
 //	                                    Integer.parseInt(cfgVal[1].trim()),
 //	                                    (height - Integer.parseInt(cfgVal[2].trim())),
 //	                                    0);
@@ -634,7 +634,7 @@ public class FrmPDFServlet extends HttpServlet {
                     }
 
                     //----------
-                    if (OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null && printCfg[i - 1].getProperty("forms_promotext") == null) {
+                    if (CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null && printCfg[i - 1].getProperty("forms_promotext") == null) {
                         // Promo text rendering was already disabled (commented out) before the OpenPDF migration.
                         // If needed, re-implement using PdfWriterFactory page event stampers.
                     }
@@ -877,7 +877,7 @@ public class FrmPDFServlet extends HttpServlet {
         // Now cleanFilename is safe to use
         
         // Try loading from file system
-        String pdfFormDir = OscarProperties.getInstance().getProperty("pdfFORMDIR", "");
+        String pdfFormDir = CarlosProperties.getInstance().getProperty("pdfFORMDIR", "");
         if (!pdfFormDir.isEmpty()) {
             Properties fsProps = loadFromFileSystem(pdfFormDir, cleanFilename);
             if (fsProps != null) {

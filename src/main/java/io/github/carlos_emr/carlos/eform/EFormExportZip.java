@@ -37,7 +37,7 @@ package io.github.carlos_emr.carlos.eform;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
 
@@ -135,7 +135,7 @@ public class EFormExportZip {
 
 
     public File getImageFile(String imageFileName) throws Exception {
-        String home_dir = OscarProperties.getInstance().getEformImageDirectory();
+        String home_dir = CarlosProperties.getInstance().getEformImageDirectory();
 
         File file = null;
         try {

@@ -32,8 +32,8 @@ package io.github.carlos_emr.carlos.commn.web;
 
 import java.util.Date;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.FlowSheetDrugDao;
@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
@@ -137,7 +137,7 @@ public class FlowSheetDrug2Action extends ActionSupport {
 
         flowSheetDrugDao.persist(cust);
 
-        return "/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + demographicNo + "&template=" + flowsheet;
+        return "/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + demographicNo + "&template=" + flowsheet;
     }
 
     /**
@@ -181,6 +181,6 @@ public class FlowSheetDrug2Action extends ActionSupport {
 
         flowSheetDxDao.persist(cust);
 
-        return "/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + demographicNo + "&template=" + flowsheet;
+        return "/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + demographicNo + "&template=" + flowsheet;
     }
 }

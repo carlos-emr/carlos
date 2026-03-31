@@ -28,7 +28,7 @@
  */
 package io.github.carlos_emr.carlos.renal.web;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -49,8 +49,8 @@ import io.github.carlos_emr.carlos.renal.ORNPreImplementationReportThread;
 import io.github.carlos_emr.carlos.form.FrmLabReq07Record;
 import io.github.carlos_emr.carlos.form.FrmLabReq10Record;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -59,7 +59,7 @@ import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class Renal2Action extends ActionSupport {
@@ -74,7 +74,7 @@ public class Renal2Action extends ActionSupport {
     static String labReqVersion;
 
     static {
-        labReqVersion = OscarProperties.getInstance().getProperty("orn_labreqver", "07");
+        labReqVersion = CarlosProperties.getInstance().getProperty("orn_labreqver", "07");
         if (labReqVersion == "") {
             labReqVersion = "10";
         }
@@ -238,7 +238,7 @@ public class Renal2Action extends ActionSupport {
         }
 
         if ((latestEgfr != null && latestEgfr < 30) || (latestAcr != null && latestAcr >= 60)) {
-            nextSteps = "<a href=\"javascript:void();\" onclick=\"window.open('" + request.getContextPath() + "/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=" + demographicNo + "&teamVar=','Consultation" + demographicNo + "','width=960,height=700');return false;\">Refer to Nephrology</a>";
+            nextSteps = "<a href=\"javascript:void();\" onclick=\"window.open('" + request.getContextPath() + "/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=" + demographicNo + "&teamVar=','Consultation" + demographicNo + "','width=960,height=700');return false;\">Refer to Nephrology</a>";
         }
 
         if ((latestAcr != null && latestAcr > 2.8 && latestAcr < 60) && (latestEgfr != null && latestEgfr > 30)) {
@@ -255,7 +255,7 @@ public class Renal2Action extends ActionSupport {
 
         if (latestEgfr != null && aYearAgoEgfr != null) {
             if ((aYearAgoEgfr.doubleValue() - latestEgfr.doubleValue()) > 20) {
-                nextSteps = "Check ACR, and if drop pesistent, <a href=\"javascript:void();\" onclick=\"window.open('" + request.getContextPath() + "/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=" + demographicNo + "&teamVar=','Consultation" + demographicNo + "','width=960,height=700');return false;\">Refer to Nephrology</a>";
+                nextSteps = "Check ACR, and if drop pesistent, <a href=\"javascript:void();\" onclick=\"window.open('" + request.getContextPath() + "/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=" + demographicNo + "&teamVar=','Consultation" + demographicNo + "','width=960,height=700');return false;\">Refer to Nephrology</a>";
             }
         }
 
@@ -278,7 +278,7 @@ public class Renal2Action extends ActionSupport {
         String demographicNo = request.getParameter("demographic_no");
         response.setContentType("text/html;charset=UTF-8");
         try {
-            String documentDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR", "");
+            String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "");
             File f = new File(documentDir, "orn_patient_letter.txt");
             String template = IOUtils.toString(new FileInputStream(f));
 
@@ -291,7 +291,7 @@ public class Renal2Action extends ActionSupport {
             if (d.getProviderNo() != null && d.getProviderNo().length() > 0) {
                 velocityContext.put("mrp", providerDao.getProvider(d.getProviderNo()));
             } else {
-                velocityContext.put("mrp", OscarProperties.getInstance().getProperty("orn.default_mrp", ""));
+                velocityContext.put("mrp", CarlosProperties.getInstance().getProperty("orn.default_mrp", ""));
             }
 
 
@@ -365,7 +365,7 @@ public class Renal2Action extends ActionSupport {
         // if(success) {
 
         // 	try {
-        // 		String documentDir = oscar.OscarProperties.getInstance().getProperty("DOCUMENT_DIR","");
+        // 		String documentDir = oscar.CarlosProperties.getInstance().getProperty("DOCUMENT_DIR","");
         // 		File f = new File(documentDir,"orn_patient_letter.txt");
         //         String template=IOUtils.toString(new FileInputStream(f));
 
@@ -378,7 +378,7 @@ public class Renal2Action extends ActionSupport {
         //         if(d.getProviderNo() != null && d.getProviderNo().length()>0) {
         //         	mrp = providerDao.getProvider(d.getProviderNo());
         //         } else {
-        //         	mrp = providerDao.getProvider(OscarProperties.getInstance().getProperty("orn.default_mrp",""));
+        //         	mrp = providerDao.getProvider(CarlosProperties.getInstance().getProperty("orn.default_mrp",""));
         //         }
         //         velocityContext.put("mrp", mrp);
 
@@ -392,8 +392,8 @@ public class Renal2Action extends ActionSupport {
         //            public void prepare(MimeMessage mimeMessage) throws Exception {
         //               MimeMessageHelper message = new MimeMessageHelper(mimeMessage);
         //               message.setTo(d.getEmail());
-        //               message.setSubject(OscarProperties.getInstance().getProperty("orn.email.subject", "Important Message from " +  mrp1));
-        //               message.setFrom(OscarProperties.getInstance().getProperty("orn.email.from","no-reply@oscarmcmaster.org"));
+        //               message.setSubject(CarlosProperties.getInstance().getProperty("orn.email.subject", "Important Message from " +  mrp1));
+        //               message.setFrom(CarlosProperties.getInstance().getProperty("orn.email.from","no-reply@oscarmcmaster.org"));
         //               message.setText(letter, true);
         //            }
         //         };

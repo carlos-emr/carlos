@@ -30,9 +30,9 @@ package io.github.carlos_emr.carlos.renal;
 
 import java.io.StringWriter;
 
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.JAXBException;
-import javax.xml.bind.Marshaller;
+import jakarta.xml.bind.JAXBContext;
+import jakarta.xml.bind.JAXBException;
+import jakarta.xml.bind.Marshaller;
 
 import io.github.carlos_emr.carlos.commn.dao.ORNPreImplementationReportLogDao;
 import io.github.carlos_emr.carlos.commn.model.ORNPreImplementationReportLog;

@@ -35,7 +35,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -50,7 +50,7 @@ public class EctDisplayDiagram2Action extends EctDisplayAction {
         }
 
         //set text for lefthand module title
-        Dao.setLeftHeading(getText("oscarEncounter.LeftNavBar.Diagrams"));
+        Dao.setLeftHeading(getText("encounter.LeftNavBar.Diagrams"));
 
         //set link for lefthand module title
         String winName = "Diagrams" + bean.demographicNo;

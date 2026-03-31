@@ -22,6 +22,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    billingDeleteWithoutNo.jsp - CLINICAID billing removal (unbill).
+    Removes billing records and rolls back appointment status.
+    Refreshes the schedule page via BroadcastChannel.
+    @since 2006 (original)
+--%>
 <%
     String curUser_no = (String) session.getAttribute("user");
 %>
@@ -68,7 +74,7 @@
     <h1>Successful Removed billed status</h1>
 
     <script LANGUAGE="JavaScript">
-        self.opener.refresh();
+        try { if (self.opener && self.opener.refresh) { self.opener.refresh(); } else { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); } } catch(e) { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); }
     </script>
     <p></p>
 

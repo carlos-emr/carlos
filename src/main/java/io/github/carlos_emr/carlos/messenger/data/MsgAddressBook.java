@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.messenger.data;
 
 import java.util.List;
 
-import javax.servlet.jsp.JspWriter;
+import jakarta.servlet.jsp.JspWriter;
 
 import io.github.carlos_emr.carlos.commn.dao.OscarCommLocationsDao;
 import io.github.carlos_emr.carlos.commn.model.OscarCommLocations;

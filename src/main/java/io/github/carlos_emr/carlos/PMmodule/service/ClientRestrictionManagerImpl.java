@@ -38,7 +38,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramClientRestrictionDAO;
 import io.github.carlos_emr.carlos.PMmodule.exception.ClientAlreadyRestrictedException;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramClientRestriction;
-import org.springframework.beans.factory.annotation.Required;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 @Transactional
@@ -170,7 +170,7 @@ public class ClientRestrictionManagerImpl implements ClientRestrictionManager {
         return programClientRestrictionDAO;
     }
 
-    @Required
+    @Autowired
     public void setProgramClientRestrictionDAO(ProgramClientRestrictionDAO programClientRestrictionDAO) {
         this.programClientRestrictionDAO = programClientRestrictionDAO;
     }

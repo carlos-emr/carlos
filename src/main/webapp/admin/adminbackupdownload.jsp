@@ -37,13 +37,13 @@
       java.net.*,
       org.apache.commons.io.FileUtils,
       org.apache.commons.text.StringEscapeUtils,
-      io.github.carlos_emr.OscarProperties,
+      io.github.carlos_emr.CarlosProperties,
       io.github.carlos_emr.carlos.util.FileSortByDate
 " %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core"   prefix="c"   %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt"    prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core"   prefix="c"   %>
+<%@ taglib uri="jakarta.tags.fmt"    prefix="fmt" %>
 
 <%
     // 1) Null-safe session check
@@ -75,7 +75,7 @@
 
 <%
     // Load backup_path
-    Properties oscarVars = OscarProperties.getInstance();
+    Properties oscarVars = CarlosProperties.getInstance();
     String backuppath = oscarVars.getProperty("backup_path");
     session.setAttribute("backupfilepath", backuppath);
 

@@ -139,6 +139,7 @@
     <bean id="oscarLogDao" class="io.github.carlos_emr.carlos.commn.dao.OscarLogDaoImpl" autowire="byName" />
     <bean id="providerPreferenceDao" class="io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDaoImpl" autowire="byName" />
     <bean id="EFormDao" class="io.github.carlos_emr.carlos.commn.dao.EFormDaoImpl" autowire="byName" />
+    <bean id="eFormAssetDeployer" class="io.github.carlos_emr.carlos.eform.EFormAssetDeployer" />
     <bean id="encounterFormDao" class="io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoImpl" autowire="byName" />
     <bean id="systemMessageDao" class="io.github.carlos_emr.carlos.commn.dao.SystemMessageDaoImpl" autowire="byName" />
     <bean id="billingPaymentTypeDao" class="io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDaoImpl" autowire="byName" />
@@ -173,25 +174,25 @@
 	<bean id="measurementTemplateFlowSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig">
 		<property name="flowSheets">
 			<list>
-				<!--value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/diabetesFlowsheet.xml</value-->
-				<!--value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/hypertensionFlowsheet.xml</value-->
-				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/hivFlowsheet.xml</value>
-				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/inrFlowsheet.xml</value>
-				<!--value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/omdChf.xml</value-->
-				<!--value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/inrFlowsheet2.xml</value-->
+				<!--value>classpath:oscar/encounter/oscarMeasurements/flowsheets/diabetesFlowsheet.xml</value-->
+				<!--value>classpath:oscar/encounter/oscarMeasurements/flowsheets/hypertensionFlowsheet.xml</value-->
+				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/hivFlowsheet.xml</value>
+				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/inrFlowsheet.xml</value>
+				<!--value>classpath:oscar/encounter/oscarMeasurements/flowsheets/omdChf.xml</value-->
+				<!--value>classpath:oscar/encounter/oscarMeasurements/flowsheets/inrFlowsheet2.xml</value-->
 
 
-				<!--<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/physicalFunctionFlowsheet.xml</value -->
-				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/omdAsthmaFlowsheet.xml</value>
-				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/omdCOPDFlowsheet.xml</value>
-				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/omdChf.xml</value>
-				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/omdHypertensionFlowsheet.xml</value>
-				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/omdDiabetesFlowsheet.xml</value>
-				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/diabetesQueensFlowsheet.xml</value>
-				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/ckdFlowsheet.xml</value>
-				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/painAssistant.xml</value>
-				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/periodicHealthVisit.xml</value>
-				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/hepCFlowsheet.xml</value>
+				<!--<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/physicalFunctionFlowsheet.xml</value -->
+				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/omdAsthmaFlowsheet.xml</value>
+				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/omdCOPDFlowsheet.xml</value>
+				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/omdChf.xml</value>
+				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/omdHypertensionFlowsheet.xml</value>
+				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/omdDiabetesFlowsheet.xml</value>
+				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/diabetesQueensFlowsheet.xml</value>
+				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/ckdFlowsheet.xml</value>
+				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/painAssistant.xml</value>
+				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/periodicHealthVisit.xml</value>
+				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/hepCFlowsheet.xml</value>
 				
 			</list>
 		</property>

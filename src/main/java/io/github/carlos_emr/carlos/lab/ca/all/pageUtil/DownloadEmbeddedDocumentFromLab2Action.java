@@ -30,8 +30,8 @@ package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
 import java.io.OutputStream;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import org.apache.commons.codec.binary.Base64;
@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class DownloadEmbeddedDocumentFromLab2Action extends ActionSupport {

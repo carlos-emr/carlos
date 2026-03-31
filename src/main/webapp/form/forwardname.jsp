@@ -40,8 +40,8 @@
 <%
     // forward to the page 'form_link'
     if (true) {
-        out.clear();
-        pageContext.forward(request.getParameter("form_link") + "?demographic_no=" + request.getParameter("demographic_no")); //+ "&study_no=" + request.getParameter("study_no") ); //forward request&response to the target page "&formId=" + request.getParameter("formId") +
+        out.clearBuffer();
+        request.getRequestDispatcher(request.getParameter("form_link") + "?demographic_no=" + request.getParameter("demographic_no")).include(request, response);
         return;
     }
 %>

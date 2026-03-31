@@ -31,10 +31,10 @@
 --%>
 
 <%@page import="java.util.*, java.io.*, io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -60,7 +60,7 @@
 
         <%
             if (request.getParameter("action") != null && request.getParameter("action").equals("save")) {
-                String documentDir = io.github.carlos_emr.OscarProperties.getInstance().getProperty("DOCUMENT_DIR", "");
+                String documentDir = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "");
                 try {
                     File f = new File(documentDir, "orn_patient_letter.txt");
                     PrintWriter pw = new PrintWriter(new FileWriter(f), true);
@@ -76,7 +76,7 @@
         <%
             String currentLetter = "";
 
-            String documentDir = io.github.carlos_emr.OscarProperties.getInstance().getProperty("DOCUMENT_DIR", "");
+            String documentDir = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "");
             File f = new File(documentDir, "orn_patient_letter.txt");
             if (f.exists()) {
                 try {

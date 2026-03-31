@@ -39,7 +39,7 @@ import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class RxUtil {
 
@@ -95,7 +95,7 @@ public class RxUtil {
         special = m.replaceAll("");
         MiscUtils.getLogger().debug("after trimming mitte special=" + special);
         //assume drug name is before method and drug name is the first part of the instruction.
-        String rx_enhance = OscarProperties.getInstance().getProperty("rx_enhance");
+        String rx_enhance = CarlosProperties.getInstance().getProperty("rx_enhance");
         //rx_enhance changes the behavior by not deleting anything up to the words Take, apply..
         if (!(rx_enhance != null && rx_enhance.equals("true"))) {
             if (special.indexOf("Take") != -1) {

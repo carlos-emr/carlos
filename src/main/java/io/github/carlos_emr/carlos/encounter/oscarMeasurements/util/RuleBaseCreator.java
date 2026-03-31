@@ -86,10 +86,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *
  * <h3>Drools Migration History</h3>
  * <p>This class was originally written for Drools 2.0, which used an XML-based rule
- * format. As part of the Drools 2.0 to 7.74.1.Final migration, the XML generation
- * was replaced with DRL text generation. The {@code getRule()} method now produces
- * modern DRL syntax with condition expressions, and {@code getRuleBase()} uses
- * the KIE API via {@link DroolsHelper} instead of the legacy
+ * format. As part of the Drools 2.0 &rarr; 7.74.1 &rarr; 10.0.0 migration, the XML
+ * generation was replaced with DRL text generation. The {@code getRule()} method now
+ * produces modern DRL syntax with condition expressions, and {@code getRuleBase()} uses
+ * the standard KIE API via {@link DroolsHelper} instead of the legacy
  * {@code org.drools.io.RuleBaseLoader}.</p>
  *
  * <h3>Usage in CARLOS EMR</h3>
@@ -190,7 +190,7 @@ public class RuleBaseCreator {
             KieBase kieBase = RuleBaseFactory.getRuleBase(cacheKey);
             if (kieBase != null) return kieBase;
 
-            // Cache miss: compile the DRL via KieHelper and store the result.
+            // Cache miss: compile the DRL via DroolsHelper and store the result.
             // DroolsHelper throws DroolsCompilationException if the DRL contains
             // compilation errors.
             kieBase = DroolsHelper.createKieBaseFromDrl(drlString);

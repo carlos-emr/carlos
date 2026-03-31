@@ -48,11 +48,11 @@
 <%@page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
-<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
-<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 
 <%
     String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -92,7 +92,7 @@
 </div>
 </div>
         <c:choose>
-            <c:when test='${param.title == "oscarEncounter.oMeds.title" || param.title == "oscarEncounter.riskFactors.title" || param.title == "oscarEncounter.famHistory.title"|| param.noheight == "true"}'>
+            <c:when test='${param.title == "encounter.oMeds.title" || param.title == "encounter.riskFactors.title" || param.title == "encounter.famHistory.title"|| param.noheight == "true"}'>
                 <div style='clear:both;' class='topBox-notes'>
             </c:when>
             <c:otherwise>
@@ -131,7 +131,7 @@
 
             String htmlNoteTxt = note.getNote() + addlData;
 
-            boolean singleLine = Boolean.valueOf(OscarProperties.getInstance().getProperty("echart.cpp.single_line", "false"));
+            boolean singleLine = Boolean.valueOf(CarlosProperties.getInstance().getProperty("echart.cpp.single_line", "false"));
             UserPropertyDAO userPropertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
             UserProperty prop = userPropertyDao.getProp(loggedInInfo.getLoggedInProviderNo(), UserProperty.CPP_SINGLE_LINE);
             if (prop != null) {
@@ -163,7 +163,7 @@
 %>
     <span id="spanListNote<%= note.getId() %>">
         <c:choose>
-            <c:when test='${param.title == "oscarEncounter.oMeds.title" || param.title == "oscarEncounter.riskFactors.title" || param.title == "oscarEncounter.famHistory.title" || param.noheight == "true"}'>
+            <c:when test='${param.title == "encounter.oMeds.title" || param.title == "encounter.riskFactors.title" || param.title == "encounter.famHistory.title" || param.noheight == "true"}'>
                 <a class="links"
                    onmouseover="this.className='linkhover'"
                    onmouseout="this.className='links'"

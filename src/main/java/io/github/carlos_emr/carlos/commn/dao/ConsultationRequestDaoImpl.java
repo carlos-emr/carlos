@@ -31,11 +31,10 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.math.BigInteger;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
 import io.github.carlos_emr.carlos.commn.NativeSql;
@@ -52,7 +51,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         Query query = entityManager.createNativeQuery("select count(*) from consultationRequests where referalDate < ?1 and status != 4");
         query.setParameter(1, referralDateCutoff);
 
-        return ((BigInteger) query.getSingleResult()).intValue();
+        return ((Number) query.getSingleResult()).intValue();
     }
 
     public int getCountReferralsAfterCutOffDateAndNotCompleted(Date referralDateCutoff, String sendto) {
@@ -60,7 +59,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         query.setParameter(1, referralDateCutoff);
         query.setParameter(2, sendto);
 
-        return ((BigInteger) query.getSingleResult()).intValue();
+        return ((Number) query.getSingleResult()).intValue();
     }
 
     public List<ConsultationRequest> getConsults(Integer demoNo) {
@@ -84,7 +83,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
 					"LEFT JOIN Provider p on d.ProviderNo = p.ProviderNo WHERE 1=1 ");
 
         if (!showCompleted) {
-            sql.append("and cr.status != 4 ");
+            sql.append("and cr.status != '4' ");
         }
 
         if (!team.isEmpty()) {

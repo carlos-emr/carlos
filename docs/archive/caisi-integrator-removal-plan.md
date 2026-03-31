@@ -307,9 +307,9 @@ Files:
 21. `form/formlabreq07.jsp`
 22. `form/formlabreq10.jsp`
 23. `documentManager/documentReport.jsp`
-24. `oscarEncounter/formlist.jsp`
-25. `oscarEncounter/oscarMeasurements/DisplayHistory.jsp`
-26. `oscarEncounter/oscarMeasurements/TemplateFlowSheetPage.jspf`
+24. `encounter/formlist.jsp`
+25. `encounter/oscarMeasurements/DisplayHistory.jsp`
+26. `encounter/oscarMeasurements/TemplateFlowSheetPage.jspf`
 27. `messenger/ViewMessage.jsp`
 28. `PMmodule/Admin/Facility/EditFacility.jsp` — integrator config fields only
 29. `PMmodule/Admin/Facility/ViewFacility.jsp` — integrator status display only

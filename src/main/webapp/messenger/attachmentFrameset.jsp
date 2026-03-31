@@ -49,7 +49,7 @@
   @since 2003
 --%>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
@@ -62,7 +62,7 @@
 String demographic_no = request.getParameter("demographic_no");
 %>
 
-    <title>OSCAR attachment</title>
+    <title>CARLOS Attachment</title>
 
         <% if ( demographic_no != null ) { %>
     <%-- Create frameset when demographic is provided --%>

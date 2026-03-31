@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.drools.RuleBaseFactory;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * Factory for creating {@link WorkFlowDS} instances by loading and compiling DRL rule files.
@@ -54,7 +54,7 @@ import io.github.carlos_emr.OscarProperties;
  * <p>The factory uses a two-tier loading strategy to allow site-specific rule customization:</p>
  * <ol>
  *   <li><strong>Filesystem first</strong> - If the {@code WORKFLOW_DS_DIRECTORY} property is
- *       set in {@link OscarProperties}, the factory looks for the DRL file in that directory.
+ *       set in {@link CarlosProperties}, the factory looks for the DRL file in that directory.
  *       This allows deployments to override default rules with site-specific versions without
  *       modifying the application archive.</li>
  *   <li><strong>Classpath fallback</strong> - If no filesystem file is found (or the property
@@ -74,7 +74,7 @@ import io.github.carlos_emr.OscarProperties;
  *
  * <h3>Migration Note</h3>
  * <p>Migrated from legacy Drools 2.0 {@code RuleBase} / {@code RuleBaseLoader} API to the
- * modern KIE API (Drools 7.74.1). Rule loading now delegates to
+ * modern KIE API (Drools 10.0.0). Rule loading now delegates to
  * {@link DroolsHelper#loadFromInputStream(java.io.InputStream)} and
  * {@link DroolsHelper#loadFromUrl(URL)} instead of the removed
  * {@code org.drools.io.RuleBaseLoader}.</p>
@@ -122,7 +122,7 @@ public final class WorkFlowDSFactory {
      * <p>The loading process follows a two-tier priority:</p>
      * <ol>
      *   <li><strong>Filesystem (highest priority)</strong> - Checks the directory specified by
-     *       the {@code WORKFLOW_DS_DIRECTORY} property in {@link OscarProperties}. If the
+     *       the {@code WORKFLOW_DS_DIRECTORY} property in {@link CarlosProperties}. If the
      *       property is set and the file exists and is readable at
      *       {@code <WORKFLOW_DS_DIRECTORY>/<filename>}, it is loaded via
      *       {@link DroolsHelper#loadFromInputStream(java.io.InputStream)}.</li>
@@ -158,7 +158,7 @@ public final class WorkFlowDSFactory {
             // Priority 1: Attempt to load DRL from the filesystem directory.
             // The WORKFLOW_DS_DIRECTORY property allows site-specific rule overrides
             // without modifying the deployed application.
-            String workflowDirPath = OscarProperties.getInstance().getProperty("WORKFLOW_DS_DIRECTORY");
+            String workflowDirPath = CarlosProperties.getInstance().getProperty("WORKFLOW_DS_DIRECTORY");
 
             if (workflowDirPath != null) {
                 File allowedDir = new File(workflowDirPath);

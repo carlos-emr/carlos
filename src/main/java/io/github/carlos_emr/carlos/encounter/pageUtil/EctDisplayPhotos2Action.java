@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -71,7 +71,7 @@ public class EctDisplayPhotos2Action extends EctDisplayAction {
             if (inboxflag) {
                 url = "popupPage(600,1024,'" + winName + "', '" + request.getContextPath() +
                         "/mod/docmgmtComp/DocList.do?method=list&&demographic_no=" + bean.demographicNo + "');";
-                Dao.setLeftHeading(getText("oscarEncounter.Index.inboxManager"));
+                Dao.setLeftHeading(getText("encounter.Index.inboxManager"));
             }
             Dao.setLeftURL(url);
 

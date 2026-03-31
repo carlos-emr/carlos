@@ -29,7 +29,7 @@ package io.github.carlos_emr.carlos.webserv.rest.to;
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-import javax.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
 
 @XmlRootElement
 public class Creds {

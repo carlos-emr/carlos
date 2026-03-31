@@ -31,7 +31,6 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.Objects;
-import java.math.BigInteger;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -49,14 +48,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
-import javax.persistence.PersistenceException;
+import jakarta.persistence.PersistenceException;
 
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utils.Utility;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.hibernate.HibernateException;
-import org.hibernate.Query;
+import org.hibernate.query.Query;
 import org.hibernate.query.NativeQuery;
 import org.hibernate.Session;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -83,7 +82,7 @@ import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
@@ -270,7 +269,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         Iterator iter = results.iterator();
         while (iter.hasNext()) {
             Object[] result = (Object[]) iter.next();
-            if (((BigInteger) result[3]).intValue() == 0) {
+            if (((Number) result[3]).intValue() == 0) {
                 Demographic d = new Demographic();
                 d.setDemographicNo((Integer) result[0]);
                 d.setFirstName((String) result[1]);
@@ -1482,9 +1481,13 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             objExists = clientExistsThenEvict(demographic.getDemographicNo());
         }
 
-        currentSession().saveOrUpdate(demographic);
+        if (objExists) {
+            currentSession().merge(demographic);
+        } else {
+            currentSession().persist(demographic);
+        }
 
-        if (OscarProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
+        if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
             (new HL7A04Generator()).generateHL7A04(demographic);
         }
 
@@ -2056,9 +2059,13 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             objExists = clientExistsThenEvict(client.getDemographicNo());
 
         client.setLastUpdateDate(new Date());
-        currentSession().saveOrUpdate(client);
+        if (objExists) {
+            currentSession().merge(client);
+        } else {
+            currentSession().persist(client);
+        }
 
-        if (OscarProperties.getInstance().isHL7A04GenerationEnabled() && !objExists)
+        if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists)
             (new HL7A04Generator()).generateHL7A04(client);
 
         // the new way
@@ -2661,7 +2668,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
                 sqlQuery.setParameter(key, params.get(key));
                 MiscUtils.getLogger().warn(key + "=" + params.get(key));
             }
-            Integer result = ((BigInteger) sqlQuery.uniqueResult()).intValue();
+            Integer result = ((Number) sqlQuery.uniqueResult()).intValue();
             return result;
     }
 
@@ -2696,7 +2703,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
     private String generateDemographicSearchQuery(LoggedInInfo loggedInInfo, DemographicSearchRequest searchRequest,
                                                   Map<String, Object> params, String select) {
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
 
         params.put("keyword", searchRequest.getKeyword());
 

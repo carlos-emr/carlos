@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import java.math.BigInteger;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -46,10 +46,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.Query;
-import javax.persistence.Tuple;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.Query;
+import jakarta.persistence.Tuple;
 
 public class CategoryData {
 
@@ -564,7 +564,7 @@ public class CategoryData {
 		List<Tuple> results = query.getResultList();
 
 		for (Tuple result : results) {
-			Integer hrmCount = result.get("count", BigInteger.class).intValue(); // Extracting count as Integer
+			Integer hrmCount = ((Number) result.get("count")).intValue(); // Extracting count as Integer
 			Integer id = result.get("demographic_no", Integer.class); // Extracting demographicNo as Integer
 
 			// Updating patient info if it already exists
@@ -608,7 +608,7 @@ public class CategoryData {
 
 		// Process the results
 		for (Tuple result : results) {
-			Integer hrmCount = result.get("count", BigInteger.class).intValue(); // Extracting count as Integer
+			Integer hrmCount = ((Number) result.get("count")).intValue(); // Extracting count as Integer
 			count += hrmCount; // Accumulate the total count
         }
 

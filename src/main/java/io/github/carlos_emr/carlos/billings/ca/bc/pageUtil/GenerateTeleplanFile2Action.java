@@ -32,8 +32,8 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.Misc;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.TeleplanFileWriter;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.TeleplanSubmission;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillActivityDAO;
@@ -56,7 +56,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  *
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GenerateTeleplanFile2Action extends ActionSupport {
@@ -73,8 +73,8 @@ public class GenerateTeleplanFile2Action extends ActionSupport {
     public String execute() throws Exception {
         MiscUtils.getLogger().debug("SimulateTeleplanAction2 action jackson");
 
-        String home_dir = OscarProperties.getInstance().getProperty("HOME_DIR");
-        String dataCenterId = OscarProperties.getInstance().getProperty("dataCenterId");
+        String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
+        String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
 
         String batchCount = "0";
         String providerNo = request.getParameter("user");

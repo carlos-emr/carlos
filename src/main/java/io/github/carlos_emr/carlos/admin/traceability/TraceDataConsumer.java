@@ -33,8 +33,8 @@ import java.io.InputStream;
 import java.net.InetAddress;
 import java.util.concurrent.Callable;
 
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Read compressed data from input stream,

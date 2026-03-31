@@ -30,8 +30,8 @@
 
 package io.github.carlos_emr.carlos.login;
 
-import io.github.carlos_emr.OscarProperties;
-import com.opensymphony.xwork2.ActionSupport;
+import io.github.carlos_emr.CarlosProperties;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -43,8 +43,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -111,7 +111,7 @@ public class UploadLoginText2Action extends ActionSupport {
         try {
             if (importFile.getName().length() > 0) {
                 fis = Files.newInputStream(importFile.toPath());
-                String savePath = OscarProperties.getInstance().getProperty("DOCUMENT_DIR") + "/OSCARloginText.txt";
+                String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "/OSCARloginText.txt";
                 fos = new FileOutputStream(savePath);
                 byte[] buf = new byte[128 * 1024];
                 int i = 0;

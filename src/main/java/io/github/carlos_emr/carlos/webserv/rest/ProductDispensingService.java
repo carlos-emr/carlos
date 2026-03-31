@@ -30,17 +30,17 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import java.util.List;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MultivaluedMap;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MultivaluedMap;
 
-import org.apache.http.impl.cookie.DateUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import io.github.carlos_emr.carlos.commn.model.DrugProduct;
 import io.github.carlos_emr.carlos.commn.model.DrugProductTemplate;
 import io.github.carlos_emr.carlos.commn.model.ProductLocation;
@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.DrugProductResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.DrugProductTemplateResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.ProductLocationResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugProductTemplateTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugProductTo1;
@@ -208,14 +208,10 @@ public class ProductDispensingService extends AbstractServiceImpl {
     @POST
     @Path("/deleteDrugProduct/{drugProductId}")
     @Produces("application/json")
-    public GenericRESTResponse deleteDrugProduct(@PathParam("drugProductId") Integer drugProductId) {
+    public RestResponse<String> deleteDrugProduct(@PathParam("drugProductId") Integer drugProductId) {
         drugProductManager.deleteDrugProduct(getLoggedInInfo(), drugProductId);
 
-        GenericRESTResponse response = new GenericRESTResponse();
-        response.setMessage("Product deleted");
-
-
-        return response;
+        return RestResponse.successResponse("Product deleted");
     }
 
     @GET
@@ -239,11 +235,8 @@ public class ProductDispensingService extends AbstractServiceImpl {
     @GET
     @Path("/status/{drugId}")
     @Produces("application/json")
-    public GenericRESTResponse getDispensingStatus(@PathParam("drugId") Integer drugId) {
-        GenericRESTResponse response = new GenericRESTResponse();
-        response.setMessage(drugDispensingManager.getStatus(drugId));
-
-        return response;
+    public RestResponse<String> getDispensingStatus(@PathParam("drugId") Integer drugId) {
+        return RestResponse.successResponse(drugDispensingManager.getStatus(drugId));
     }
 
     @GET

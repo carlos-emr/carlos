@@ -41,14 +41,14 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -71,23 +71,23 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
             String roleName$ = request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user");
 
             //set text for lefthand module title
-            Dao.setLeftHeading(getText("oscarEncounter.Index.measurements"));
+            Dao.setLeftHeading(getText("encounter.Index.measurements"));
 
             //set link for lefthand module title
             String winName = "measurements" + bean.demographicNo;
-            String url = "popupPage(600,1000,'" + winName + "','" + request.getContextPath() + "/oscarEncounter/oscarMeasurements/SetupHistoryIndex.do')";
+            String url = "popupPage(600,1000,'" + winName + "','" + request.getContextPath() + "/encounter/oscarMeasurements/SetupHistoryIndex.do')";
             Dao.setLeftURL(url.toString());
 
             //we're going to display a pop up menu of measurement groups
             Dao.setRightHeadingID(menuId);
-            Dao.setMenuHeader(getText("oscarEncounter.LeftNavBar.InputGrps"));
+            Dao.setMenuHeader(getText("encounter.LeftNavBar.InputGrps"));
             Dao.setRightURL("return !showMenu('" + menuId + "', event);");
 
             SecurityManager securityMgr = new SecurityManager();
 
             ArrayList<String> flowsheets = MeasurementTemplateFlowSheetConfig.getInstance().getUniveralFlowsheets();
 
-            if (!OscarProperties.getInstance().getBooleanProperty("new_flowsheet_enabled", "true")) {
+            if (!CarlosProperties.getInstance().getBooleanProperty("new_flowsheet_enabled", "true")) {
                 flowsheets.remove("diab3");
             }
 
@@ -106,7 +106,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
                     winName = flowsheetName + bean.demographicNo;
                     hash = Math.abs(winName.hashCode());
-                    url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath() + "/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + bean.demographicNo + "&template=" + flowsheetName + "');return false;";
+                    url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + bean.demographicNo + "&template=" + flowsheetName + "');return false;";
                     item.setLinkTitle(dispname);
                     dispname = StringUtils.maxLenString(dispname, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
                     item.setTitle(dispname);
@@ -136,7 +136,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
                     winName = flowsheetName + bean.demographicNo;
                     hash = Math.abs(winName.hashCode());
-                    url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath() + "/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + bean.demographicNo + "&template=" + flowsheetName + "');return false;";
+                    url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + bean.demographicNo + "&template=" + flowsheetName + "');return false;";
                     item.setLinkTitle(dispname);
                     dispname = StringUtils.maxLenString(dispname, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
                     item.setTitle(dispname);
@@ -161,7 +161,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
 					winName = flowsheetName + bean.demographicNo;
 					hash = Math.abs(winName.hashCode());
-					url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath() + "/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + bean.demographicNo + "&name=" + flowsheetName + "');return false;";
+					url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + bean.demographicNo + "&name=" + flowsheetName + "');return false;";
 					item.setLinkTitle(dispname);
 					dispname = StringUtils.maxLenString(dispname, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
 					item.setTitle(dispname);
@@ -192,7 +192,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
                     winName = flowsheetName + bean.demographicNo;
                     hash = Math.abs(winName.hashCode());
-                    url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath() + "/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + bean.demographicNo + "&template=" + flowsheetName + "');return false;";
+                    url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + bean.demographicNo + "&template=" + flowsheetName + "');return false;";
                     item.setLinkTitle(dispname);
                     dispname = StringUtils.maxLenString(dispname, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
                     item.setTitle(dispname);
@@ -209,7 +209,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
                 MeasurementGroupStyle group = groups.get(j);
                 winName = group.getGroupName() + bean.demographicNo;
                 hash = Math.abs(winName.hashCode());
-                url = "popupPage(500,1000,'" + hash + "','" + request.getContextPath() + "/oscarEncounter/oscarMeasurements/SetupMeasurements.do?demographicNo=" + bean.demographicNo + "&groupName=" + group.getGroupName() + "');measurementLoaded('" + hash + "')";
+                url = "popupPage(500,1000,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/SetupMeasurements.do?demographicNo=" + bean.demographicNo + "&groupName=" + group.getGroupName() + "');measurementLoaded('" + hash + "')";
                 Dao.addPopUpUrl(url);
                 Dao.addPopUpText(group.getGroupName());
             }
@@ -254,7 +254,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
                     //tmp += "<span class=\"measureCol3\">" + formattedDate + "</span><br style=\"clear:both\">";
                     item.setTitle(tmp);
                     item.setDate(date);
-                    item.setURL("popupPage(300,800,'" + hash + "','" + request.getContextPath() + "/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?type=" + type + "'); return false;");
+                    item.setURL("popupPage(300,800,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/SetupDisplayHistory.do?type=" + type + "'); return false;");
                     Dao.addItem(item);
                 }
 

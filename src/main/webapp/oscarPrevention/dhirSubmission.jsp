@@ -29,11 +29,14 @@
 
 --%>
 
-<%@page import="org.apache.http.impl.client.HttpClients" %>
-<%@page import="org.apache.http.impl.client.CloseableHttpClient" %>
-<%@page import="org.apache.http.client.config.RequestConfig" %>
-<%@page import="org.apache.http.conn.ssl.SSLConnectionSocketFactory" %>
-<%@page import="org.apache.http.conn.ssl.SSLContexts" %>
+<%@page import="org.apache.hc.client5.http.impl.classic.HttpClients" %>
+<%@page import="org.apache.hc.client5.http.impl.classic.CloseableHttpClient" %>
+<%@page import="org.apache.hc.client5.http.config.RequestConfig" %>
+<%@page import="org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder" %>
+<%@page import="org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder" %>
+<%@page import="org.apache.hc.client5.http.io.HttpClientConnectionManager" %>
+<%@page import="org.apache.hc.core5.ssl.SSLContexts" %>
+<%@page import="org.apache.hc.core5.util.Timeout" %>
 <%@page import="java.util.UUID" %>
 <%@page import="java.util.Random" %>
 <%@page import="java.util.List" %>
@@ -51,35 +54,31 @@
 <%@page import="java.io.InputStream" %>
 <%@page import="org.apache.commons.io.IOUtils" %>
 <%@page import="com.sun.codemodel.fmt.JSerializedObject" %>
-<%@page import="org.apache.http.entity.ByteArrayEntity" %>
-<%@page import="org.apache.http.HttpEntity" %>
-<%@page import="org.apache.http.client.methods.HttpPost" %>
+<%@page import="org.apache.hc.core5.http.io.entity.ByteArrayEntity" %>
+<%@page import="org.apache.hc.core5.http.HttpEntity" %>
+<%@page import="org.apache.hc.client5.http.classic.methods.HttpPost" %>
+<%@page import="org.apache.hc.core5.http.ContentType" %>
 <%@page import="org.apache.logging.log4j.Logger" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="java.io.UnsupportedEncodingException" %>
 <%@page import="java.io.IOException" %>
 <%@page import="java.text.SimpleDateFormat" %>
-<%@page import="org.apache.http.util.EntityUtils" %>
-<%@page import="org.apache.http.impl.client.DefaultHttpClient" %>
-<%@page import="org.apache.http.impl.conn.PoolingClientConnectionManager" %>
-<%@page import="org.apache.http.conn.scheme.Scheme" %>
-<%@page import="org.apache.http.conn.ssl.SSLSocketFactory" %>
+<%@page import="org.apache.hc.core5.http.io.entity.EntityUtils" %>
 <%@page import="javax.net.ssl.TrustManager" %>
-<%@page import="org.apache.http.conn.ClientConnectionManager" %>
-<%@page import="org.apache.http.conn.scheme.SchemeRegistry" %>
 <%@page import="java.security.SecureRandom" %>
 <%@page import="io.github.carlos_emr.carlos.utility.CxfClientUtils" %>
 <%@page import="javax.net.ssl.SSLContext" %>
 <%@page import="java.security.KeyManagementException" %>
 <%@page import="java.security.NoSuchAlgorithmException" %>
-<%@page import="org.apache.http.client.methods.HttpGet" %>
-<%@page import="javax.servlet.http.Cookie" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
-<%@page import="org.apache.http.client.HttpClient" %>
-<%@page import="org.apache.http.HttpResponse" %>
-<%@page import="org.codehaus.jettison.json.*" %>
+<%@page import="org.apache.hc.client5.http.classic.methods.HttpGet" %>
+<%@page import="jakarta.servlet.http.Cookie" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
+<%@page import="org.apache.hc.client5.http.classic.HttpClient" %>
+<%@page import="com.fasterxml.jackson.databind.ObjectMapper" %>
+<%@page import="com.fasterxml.jackson.databind.JsonNode" %>
+<%@page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%
     DHIRSubmissionManager submissionManager = SpringUtils.getBean(DHIRSubmissionManager.class);
@@ -87,7 +86,7 @@
 
     Logger logger = MiscUtils.getLogger();
 
-    OscarProperties oscarProperties = OscarProperties.getInstance();
+    CarlosProperties oscarProperties = CarlosProperties.getInstance();
 
     String oneIdEmail = session.getAttribute("oneIdEmail") != null ? session.getAttribute("oneIdEmail").toString() : "";
 
@@ -101,7 +100,7 @@
     }
     //logger.debug("providerEmail is " + providerEmail);
 
-    String backendEconsultUrl = OscarProperties.getInstance().getProperty("backendEconsultUrl");
+    String backendEconsultUrl = CarlosProperties.getInstance().getProperty("backendEconsultUrl");
 
 
     String url = backendEconsultUrl + "/api/test";
@@ -143,7 +142,7 @@
 <html>
 
     <head>
-        <title>OSCAR Prevention Review Screen</title><!--I18n-->
+        <title>CARLOS Prevention Review Screen</title><!--I18n-->
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
 
@@ -335,8 +334,9 @@
 
                 <%
                     try {
+                        ObjectMapper dhirMapper = new ObjectMapper();
                         String theString = AbstractFhirMessageBuilder.getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(bundle);
-                        JSONObject jbundle = new JSONObject(theString);
+                        JsonNode jbundle = dhirMapper.readTree(theString);
 
                         String clientRequestId = UUID.randomUUID().toString();
 
@@ -349,40 +349,34 @@
                         httpPost.addHeader("x-oneid-email", providerEmail);
                         httpPost.addHeader("x-access-token", oneIdToken);
 
-                        JSONObject obj = new JSONObject();
-                        obj.put("url", OscarProperties.getInstance().getProperty("dhir.url"));
+                        ObjectNode obj = dhirMapper.createObjectNode();
+                        obj.put("url", CarlosProperties.getInstance().getProperty("dhir.url"));
                         obj.put("service", "DHIR");
-                        obj.put("body", jbundle);
+                        obj.set("body", jbundle);
                         obj.put("client-request-id", clientRequestId);
                         obj.put("client-app-desc", "EMR");
 
-                        HttpEntity reqEntity = new ByteArrayEntity(obj.toString().getBytes("UTF-8"));
+                        HttpEntity reqEntity = new ByteArrayEntity(obj.toString().getBytes("UTF-8"), ContentType.APPLICATION_JSON);
                         httpPost.setEntity(reqEntity);
                         httpPost.setHeader("Content-type", "application/json");
 
                         HttpClient httpClient = getHttpClient2();
-                        HttpResponse httpResponse = httpClient.execute(httpPost);
-                        String entity = EntityUtils.toString(httpResponse.getEntity());
+                        String entity = ((CloseableHttpClient) httpClient).execute(httpPost,
+                                resp -> EntityUtils.toString(resp.getEntity()));
 
-                        JSONObject object = new JSONObject(entity);
+                        JsonNode object = dhirMapper.readTree(entity);
                         logger.info("object=" + object.toString());
 
-                        Integer code = (Integer) object.get("code");
+                        int code = object.get("code").asInt();
 
                         if (code >= 200 && code < 300) {
                             String val = null;
                             String clientId = null;
                             if (object != null) {
-                                JSONObject headers = (JSONObject) object.get("headers");
-                                try {
-                                    val = (String) headers.get("hialTxId");
-                                } catch (JSONException je) {
-
-                                }
-                                try {
-                                    clientId = (String) headers.get("client-response-id");
-                                } catch (JSONException je) {
-
+                                JsonNode headers = object.get("headers");
+                                if (headers != null) {
+                                    val = headers.has("hialTxId") ? headers.get("hialTxId").asText() : null;
+                                    clientId = headers.has("client-response-id") ? headers.get("client-response-id").asText() : null;
                                 }
                             }
 
@@ -406,16 +400,10 @@
                         String clientId = null;
 
                         if (object != null) {
-                            JSONObject headers = (JSONObject) object.get("headers");
-                            try {
-                                val = (String) headers.get("hialTxId");
-                            } catch (JSONException je) {
-
-                            }
-                            try {
-                                clientId = (String) headers.get("client-response-id");
-                            } catch (JSONException je) {
-
+                            JsonNode headers = object.get("headers");
+                            if (headers != null) {
+                                val = headers.has("hialTxId") ? headers.get("hialTxId").asText() : null;
+                                clientId = headers.has("client-response-id") ? headers.get("client-response-id").asText() : null;
                             }
                         }
 
@@ -444,16 +432,10 @@
                         String val = null;
                         String clientId = null;
                         if (object != null) {
-                            JSONObject headers = (JSONObject) object.get("headers");
-                            try {
-                                val = (String) headers.get("hialTxId");
-                            } catch (JSONException je) {
-
-                            }
-                            try {
-                                clientId = (String) headers.get("client-response-id");
-                            } catch (JSONException je) {
-
+                            JsonNode headers = object.get("headers");
+                            if (headers != null) {
+                                val = headers.has("hialTxId") ? headers.get("hialTxId").asText() : null;
+                                clientId = headers.has("client-response-id") ? headers.get("client-response-id").asText() : null;
                             }
                         }
 
@@ -509,16 +491,27 @@
     protected HttpClient getHttpClient2() throws Exception {
 
         //setup SSL
-        SSLContext sslcontext = SSLContexts.custom().useTLS().build();
+        SSLContext sslcontext = SSLContexts.custom().build();
         sslcontext.getDefaultSSLParameters().setNeedClientAuth(true);
         sslcontext.getDefaultSSLParameters().setWantClientAuth(true);
-        SSLConnectionSocketFactory sf = new SSLConnectionSocketFactory(sslcontext);
+
+        HttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
+                .setSSLSocketFactory(SSLConnectionSocketFactoryBuilder.create()
+                        .setSslContext(sslcontext)
+                        .build())
+                .build();
 
         //setup timeouts
-        int timeout = Integer.parseInt(OscarProperties.getInstance().getProperty("dhir.timeout", "60"));
-        RequestConfig config = RequestConfig.custom().setSocketTimeout(timeout * 1000).setConnectTimeout(timeout * 1000).build();
+        int timeout = Integer.parseInt(CarlosProperties.getInstance().getProperty("dhir.timeout", "60"));
+        RequestConfig config = RequestConfig.custom()
+                .setResponseTimeout(Timeout.ofSeconds(timeout))
+                .setConnectionRequestTimeout(Timeout.ofSeconds(timeout))
+                .build();
 
-        CloseableHttpClient httpclient3 = HttpClients.custom().setDefaultRequestConfig(config).setSSLSocketFactory(sf).build();
+        CloseableHttpClient httpclient3 = HttpClients.custom()
+                .setDefaultRequestConfig(config)
+                .setConnectionManager(connectionManager)
+                .build();
 
         return httpclient3;
 

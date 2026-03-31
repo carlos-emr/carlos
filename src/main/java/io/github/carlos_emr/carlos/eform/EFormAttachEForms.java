@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * @author rjonasz
@@ -63,7 +63,7 @@ public class EFormAttachEForms {
         consultationId = req;
         eForms = new ArrayList<String>(d.length);
 
-        if (OscarProperties.getInstance().isPropertyActive("consultation_indivica_attachment_enabled")) {
+        if (CarlosProperties.getInstance().isPropertyActive("consultation_indivica_attachment_enabled")) {
             for (int idx = 0; idx < d.length; ++idx) {
                 eForms.add(d[idx]);
             }

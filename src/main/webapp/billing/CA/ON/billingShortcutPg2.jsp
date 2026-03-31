@@ -45,14 +45,14 @@
     String premiumFlag = "";
     String service_form = "";
 %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ page errorPage="/errorpage.jsp" import="java.util.*,java.math.*,java.net.*,java.sql.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.*" %>
 
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
@@ -62,7 +62,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingSavePrep" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%
@@ -365,7 +365,7 @@
                 int nBillDetailNo = 0;
 
                 // for new billing
-                OscarProperties props = OscarProperties.getInstance();
+                CarlosProperties props = CarlosProperties.getInstance();
                 if (props.getProperty("isNewONbilling", "").equals("true")) {
                     BillingSavePrep saveObj = new BillingSavePrep();
                     // combine two vecs into one
@@ -476,7 +476,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>OscarBilling</title>
+    <title>CARLOS Billing</title>
     <script language="JavaScript">
         <!--
         function onSave() {

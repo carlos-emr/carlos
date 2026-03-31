@@ -1,13 +1,13 @@
 package ca.ontario.health.hcv;
 
-import javax.xml.ws.ResponseWrapper;
-import javax.jws.WebMethod;
-import javax.xml.ws.RequestWrapper;
-import javax.jws.WebResult;
-import javax.jws.WebParam;
+import jakarta.xml.ws.ResponseWrapper;
+import jakarta.jws.WebMethod;
+import jakarta.xml.ws.RequestWrapper;
+import jakarta.jws.WebResult;
+import jakarta.jws.WebParam;
 import ca.ontario.health.ebs.idp.ObjectFactory;
-import javax.xml.bind.annotation.XmlSeeAlso;
-import javax.jws.WebService;
+import jakarta.xml.bind.annotation.XmlSeeAlso;
+import jakarta.jws.WebService;
 
 @WebService(targetNamespace = "http://hcv.health.ontario.ca/", name = "HCValidation")
 @XmlSeeAlso({ ObjectFactory.class, ca.ontario.health.ebs.ObjectFactory.class, ca.ontario.health.ebs.msa.ObjectFactory.class, ca.ontario.health.hcv.ObjectFactory.class })
