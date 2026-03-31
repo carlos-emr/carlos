@@ -28,69 +28,66 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    dxResearchNewQuickList.jsp - Create a new diagnosis quick list
 
+    Purpose:
+    Popup form that accepts a name for a new quick list. On submit, posts to
+    dxResearchLoadQuickListItems.do which creates the list and opens the
+    edit view (dxResearchEditQuickList.jsp).
 
-<%@ page import="java.util.*,io.github.carlos_emr.carlos.report.pageUtil.*" %>
+    Opened from dxResearchCustomization.jsp "Add New Quick List" button.
+
+    @since 2006-01-01 (original OSCAR implementation)
+--%>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
-
-<link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/oscarResearch/oscarDxResearch/dxResearch.css">
+<!DOCTYPE html>
 <html>
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.selectQuickList"/>
-        </title>
-
+        <%@ include file="/includes/global-head.jspf" %>
+        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.selectQuickList"/></title>
         <script type="text/javascript">
-
             function setfocus() {
                 window.focus();
-                window.resizeTo(450, 220);
+                window.resizeTo(450, 280);
             }
         </script>
-
     </head>
 
-    <body class="BodyStyle" vlink="#0000FF" rightmargin="0" leftmargin="0"
-          topmargin="0" marginwidth="0" marginheight="0" onload="setfocus()">
-          
-    <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems.do" method="post">
-        <table width="100%" border="0" cellspacing="0" cellpadding="0">
-            <tr>
-                <td>
-                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                        <tr bgcolor="#000000">
-                            <td class="subject" colspan="2">&nbsp;&nbsp;&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgDxResearch"/></td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-            <tr>
-                <td>
-                    <table width="100%" border="0" cellpadding="0" cellspacing="1"
-                           bgcolor="#EEEEFF" height="125">
-                        <tr>
-                            <td align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.pleaseEnterTheNewQuickListName"/>:
-                                <input type="text" name="quickListName"/></td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <table>
-                                    <tr>
-                                        <input type="hidden" name="forward" value="error"/>
-                                        <td><input type="button" class="mbttn" name="Button"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
-                                                   onClick="window.close()"></td>
-                                        <td><input type="submit" class="mbttn" name="Button"
-                                                   value="Continue"/></td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </form>
+    <body onload="setfocus()">
+    <div class="container pt-2">
+
+        <%-- Page header matching search.jsp / report.jsp pattern --%>
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="page-header-icon" viewBox="0 0 16 16">
+                    <path d="M2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2zm6.5 4.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3a.5.5 0 0 1 1 0"/>
+                </svg>
+                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.msgDxResearch"/>
+            </h4>
+        </div>
+
+        <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems.do" method="post">
+            <input type="hidden" name="forward" value="error"/>
+
+            <div class="mt-3">
+                <label class="form-label" for="quickListName">
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.pleaseEnterTheNewQuickListName"/>:
+                </label>
+                <input type="text" class="form-control" name="quickListName" id="quickListName"/>
+            </div>
+
+            <div class="mt-3 d-flex gap-2">
+                <input type="submit" class="btn btn-primary" name="Button"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnContinue"/>"/>
+                <input type="button" class="btn btn-secondary" name="Button"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                       onclick="window.close()">
+            </div>
+        </form>
+
+    </div>
     </body>
 </html>

@@ -72,6 +72,16 @@ a:hover {
     color: color-mix(in srgb, var(--carlos-link) 75%, black);
 }
 
+/* Bootstrap form focus ring — retheme from default blue (#0d6efd) to CARLOS blue.
+   Applies to .form-control, .form-select, and any element using Bootstrap focus styles. */
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus,
+.btn:focus {
+    border-color: var(--carlos-primary);
+    box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--carlos-primary) 25%, transparent);
+}
+
 /* Base resets */
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
@@ -88,6 +98,9 @@ body {
     padding: 12px 15px;
     border-bottom: 1px solid var(--carlos-border);
     margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .page-header-title {
