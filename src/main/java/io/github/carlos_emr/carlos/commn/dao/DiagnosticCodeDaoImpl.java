@@ -124,6 +124,9 @@ public class DiagnosticCodeDaoImpl extends AbstractDaoImpl<DiagnosticCode> imple
     }
 
 
+    /**
+     * Retrieves a list of DiagnosticCode based on the specified bill region and service type.
+     */
     public List<DiagnosticCode> findByRegionAndType(String billRegion, String serviceType) {
         Query query = entityManager.createQuery("SELECT d, c FROM DiagnosticCode d, CtlDiagCode c " +
                 "WHERE d.diagnosticCode = c.diagnosticCode " +
