@@ -403,7 +403,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.file1 = new File(uploaded.getAbsolutePath());
+            this.file1 = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
             this.file1ContentType = uploaded.getContentType();
             this.file1FileName = uploaded.getOriginalName();
         }

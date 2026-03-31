@@ -139,7 +139,7 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.image = new File(uploaded.getAbsolutePath());
+            this.image = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
             this.imageFileContentType = uploaded.getContentType();
             this.imageFileName = uploaded.getOriginalName();
         }

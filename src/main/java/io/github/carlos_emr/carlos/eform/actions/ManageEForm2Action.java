@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormExportZip;
 import io.github.carlos_emr.carlos.eform.data.EForm;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -112,7 +113,7 @@ public class ManageEForm2Action extends ActionSupport implements UploadedFilesAw
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.zippedForm = new File(uploaded.getAbsolutePath());
+            this.zippedForm = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
         }
     }
 
