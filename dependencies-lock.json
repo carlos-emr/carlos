@@ -34,19 +34,19 @@
   }, {
     "groupId" : "ca.uhn.hapi.fhir",
     "artifactId" : "org.hl7.fhir.dstu3",
-    "version" : "6.9.0",
+    "version" : "6.9.4",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:418c8a5fSkA9MYCVMtbSMj5Q5MPkKsktmB9QumetkRswUMrsbkURzHB07fXO8QjdvX0lQWIC89iumDk3OJL4Pg=="
+    "integrity" : "sha512:KL2GeiGIAvHg7NbVQ+dcNbMjv0iKIJ40c6pmCdFGRQqlii5yeT/L9xVXUo08O2i3CnmWC+uZstgci64/GZpvBg=="
   }, {
     "groupId" : "ca.uhn.hapi.fhir",
     "artifactId" : "org.hl7.fhir.utilities",
-    "version" : "6.9.0",
+    "version" : "6.9.4",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:GQyoUjS1NifPBtHh64ks9KU3snmWoefyabQFxylMtmX4yu0N4/JAo8MkqrFHVkjrZIz+DQm0yzULlWySze4ohw=="
+    "integrity" : "sha512:ZxLeEItb6jugXgLZ7gvWdIdUAqTyn2LZuAd96nqsBIKSqUTxIazIL+ly7rMrWDxccHRN3NUkMSPGVaWkVj7Iuw=="
   }, {
     "groupId" : "ca.uhn.hapi",
     "artifactId" : "hapi-base",
@@ -3343,7 +3343,7 @@
     "groupId" : "org.springframework",
     "artifactId" : "spring-test",
     "version" : "7.0.6",
-    "scope" : "compile",
+    "scope" : "test",
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:HxUYfIpEzgmY/1DgzW6upuQ/PSGmpMvnitAviABpNLntP2KDvzOo/Y2UOLEmXa1hRxXfa9OOZqYhcuaHfw3ZcQ=="

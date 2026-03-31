@@ -246,16 +246,17 @@
             </dependency>
             <!-- Override transitive org.hl7.fhir.core (6.5.27) from hapi-fhir-structures-dstu3.
                  Fixes: CVE-2024-45294, CVE-2024-51132, CVE-2024-52007 (all patched in 6.4.0),
-                 CVE-2026-33180 HTTP auth credential leak in redirects (patched in 6.9.0). -->
+                 CVE-2026-33180 HTTP auth credential leak in redirects (patched in 6.9.0),
+                 CVE-2026-34359 credential leak via URL prefix matching on redirect (patched in 6.9.4). -->
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.utilities</artifactId>
-                <version>6.9.0</version>
+                <version>6.9.4</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3</artifactId>
-                <version>6.9.0</version>
+                <version>6.9.4</version>
             </dependency>
             <!-- Override transitive Artemis 2.50.0 from cxf-services-wsn-core.
                  Security fix for missing authentication on critical functions (patched in 2.52.0);
