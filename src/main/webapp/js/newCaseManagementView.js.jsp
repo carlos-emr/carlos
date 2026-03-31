@@ -167,11 +167,11 @@
         }
     }
 
-    // Use visibilitychange for reliable lock release (fires more reliably than beforeunload)
-    document.addEventListener('visibilitychange', function() {
-        if (document.visibilityState === 'hidden') {
-            onClosing();
-        }
+    // Use pagehide for lock release on actual page unload (navigation, tab close, window close).
+    // Do NOT use visibilitychange here — it fires on tab switch and minimize, which would
+    // prematurely release the note lock while the user is still editing.
+    window.addEventListener('pagehide', function() {
+        onClosing();
     });
 
     var numMenus = 3;
@@ -2292,6 +2292,11 @@ function updateCPPNote() {
     var encTimeMandatory;
     function ajaxSaveNote(div, noteId, noteTxt) {
 
+        if (lostNoteLock) {
+            alert("Your note lock has been lost. Please copy your note text, close this window, and reopen the chart.");
+            return false;
+        }
+
         if ($("observationDate") != null && $("observationDate").value.length > 0 && !validDate()) {
             alert(pastObservationDateError);
             return false;
@@ -2379,10 +2384,14 @@ function updateCPPNote() {
                 evalScripts: true,
                 postBody: params,
                 onFailure: function (request) {
-                    if (request.status == 403)
+                    if (request.status == 409) {
+                        lostNoteLock = true;
+                        alert("Your note lock has been lost. Please copy your note text, close this window, and reopen the chart.");
+                    } else if (request.status == 403) {
                         alert(sessionExpiredError);
-                    else
+                    } else {
                         alert(savingNoteError + " " + request.status + " " + request.responseText);
+                    }
                 }
             }
         );

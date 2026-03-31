@@ -635,6 +635,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             casemgmtNoteLock = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demoNo);
         }
 
+        if (casemgmtNoteLock == null) {
+            logger.warn("updateNoteLock: lock not found for demographic {} noteId {} - lock may have been released", demoNo, noteId);
+            return null;
+        }
+
         casemgmtNoteLock.setIpAddress(request.getRemoteAddr());
         casemgmtNoteLock.setSessionId(request.getRequestedSessionId());
         logger.debug("UPDATING LOCK DEMO " + demoNo + " SESSION " + casemgmtNoteLock.getSessionId() + " LOCK IP " + casemgmtNoteLock.getIpAddress());
@@ -838,6 +843,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String userName = loggedInInfo.getLoggedInProvider().getFullName();
 
         String demo = getDemographicNo(request);
+
+        if (!hasNoteLock(demo)) {
+            logger.debug("issueNoteSave rejected: no valid lock for demographic " + demo);
+            return "windowCloseError";
+        }
 
         String noteId = request.getParameter("noteId");
         logger.debug("SAVING NOTE " + noteId + " STRING: " + strNote);
@@ -1224,23 +1234,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName);
 
-        //compare locks and see if they are the same
-        CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo);
-
-        try {
-            if (casemgmtNoteLockSession == null) {
-                throw new Exception("SESSION CASEMANAGEMENT NOTE LOCK OBJECT IS NULL");
-            }
-
-            CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.find(casemgmtNoteLockSession.getId());
-            //if other window has acquired lock we reject save
-            if (!casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId()) || !request.getRequestedSessionId().equals(casemgmtNoteLockSession.getSessionId())) {
-                logger.debug("DO NOT HAVE LOCK FOR " + demo + " PROVIDER " + providerNo + " CONTINUE SAVING LOCAL SESSION " + request.getRequestedSessionId() + " LOCAL IP " + request.getRemoteAddr() + " LOCK SESSION " + casemgmtNoteLockSession.getSessionId() + " LOCK IP " + casemgmtNoteLockSession.getIpAddress());
-                return -1L;
-            }
-        } catch (Exception e) {
-            //Exception thrown if other window has saved and exited so lock is gone
-            logger.error("Lock not found for " + demo + " providers " + providerNo + " IP " + request.getRemoteAddr(), e);
+        if (!hasNoteLock(demo)) {
+            logger.debug("DO NOT HAVE LOCK FOR " + demo + " PROVIDER " + providerNo + " SESSION " + request.getRequestedSessionId() + " IP " + request.getRemoteAddr());
             return -1L;
         }
 
@@ -1454,10 +1449,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         this.setCaseNote(note);
 
         //update lock to new note id
-        casemgmtNoteLockSession.setNoteId(note.getId());
-        logger.debug("UPDATING NOTE ID in LOCK");
-        casemgmtNoteLockDao.merge(casemgmtNoteLockSession);
-        session.setAttribute("casemgmtNoteLock" + demo, casemgmtNoteLockSession);
+        CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo);
+        if (casemgmtNoteLockSession != null) {
+            casemgmtNoteLockSession.setNoteId(note.getId());
+            logger.debug("UPDATING NOTE ID in LOCK");
+            casemgmtNoteLockDao.merge(casemgmtNoteLockSession);
+            session.setAttribute("casemgmtNoteLock" + demo, casemgmtNoteLockSession);
+        }
         session.removeAttribute(attrib_name);
 
         try {
@@ -1624,6 +1622,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoDOB", getDemoDOB(demono));
 
+        if (!hasNoteLock(demono)) {
+            return "windowCloseError";
+        }
+
         request.setAttribute("from", request.getParameter("from"));
         long noteId = noteSave();
 
@@ -1652,6 +1654,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         logger.debug("Saving Note" + request.getParameter("nId"));
         logger.debug("Text -- " + noteTxt);
         String demo = getDemographicNo(request);
+
+        if (!hasNoteLock(demo)) {
+            logger.debug("ajaxsave rejected: no valid lock for demographic " + demo);
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            return null;
+        }
+
         Provider provider = loggedInInfo.getLoggedInProvider();
 
         CaseManagementNote note;
@@ -1820,6 +1829,38 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         LogAction.addLog((String) session.getAttribute("user"), logAction, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
 
         return "issueList_ajax";
+    }
+
+    /**
+     * Checks whether the current HTTP session holds a valid note lock for the given demographic.
+     * Performs two validations:
+     * <ol>
+     *   <li>The database lock's session ID matches the session-stored lock's session ID
+     *       (detects if another window/session has taken over the lock)</li>
+     *   <li>The current request's session ID matches the session-stored lock's session ID
+     *       (detects session ID staleness after rotation or migration)</li>
+     * </ol>
+     *
+     * @param demo String the demographic number to check lock ownership for
+     * @return boolean true if this session owns the lock, false otherwise
+     */
+    private boolean hasNoteLock(String demo) {
+        HttpSession session = request.getSession();
+        CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo);
+        try {
+            if (casemgmtNoteLockSession == null) {
+                return false;
+            }
+            CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.find(casemgmtNoteLockSession.getId());
+            if (casemgmtNoteLock == null) {
+                return false;
+            }
+            return casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId())
+                && request.getRequestedSessionId().equals(casemgmtNoteLockSession.getSessionId());
+        } catch (Exception e) {
+            logger.error("Lock check failed for demographic " + demo, e);
+            return false;
+        }
     }
 
     private void releaseNoteLock(String providerNo, Integer demographicNo, Long noteId) {
@@ -2681,20 +2722,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String note = request.getParameter("note");
         String noteId = request.getParameter("note_id");
 
-        //compare locks and see if they are the same
-        CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) request.getSession().getAttribute("casemgmtNoteLock" + demographicNo);
-        try {
-            //if other window has acquired lock don't save
-            CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.find(casemgmtNoteLockSession.getId());
-            if (!casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId())) {
-                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                return null;
-            }
-        } catch (Exception e) {
-            //Exception thrown if other window has saved and exited so lock is gone
+        if (!hasNoteLock(demographicNo)) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return null;
-
         }
 
         if (note == null || note.length() == 0) {
