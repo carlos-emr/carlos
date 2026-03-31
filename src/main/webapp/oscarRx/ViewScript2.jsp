@@ -235,7 +235,9 @@
                 }
             }
         %>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css">
+        <script src="<%= request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
@@ -701,7 +703,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 
                                         function clearPendingFax() {
                                             parent.window.location = "<%= request.getContextPath() %>/oscarRx/close.html";
-                                            try { var m = parent.document.getElementById('carlosModal'); if (m) { bootstrap.Modal.getInstance(m)?.hide(); } } catch(e) { parent.window.location = '<%= request.getContextPath() %>/oscarRx/close.html'; }
+                                            try { var m = parent.document.getElementById('carlosModal'); if (m) { parent.bootstrap.Modal.getInstance(m)?.hide(); } } catch(e) { parent.window.location = '<%= request.getContextPath() %>/oscarRx/close.html'; }
                                         }
 
                                         function ShowDrugInfo(drug) {
@@ -858,7 +860,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                              value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgCreateNewRx"/>"
                                                              class="btn btn-outline-secondary"
                                                              style="width: 210px"
-                                                             onClick="resetStash();resetReRxDrugList();try{var m=parent.document.getElementById('carlosModal');if(m){bootstrap.Modal.getInstance(m)?.hide();}}catch(e){}"/></span>
+                                                             onClick="resetStash();resetReRxDrugList();try{var m=parent.document.getElementById('carlosModal');if(m){parent.bootstrap.Modal.getInstance(m)?.hide();}}catch(e){}"/></span>
                                             </td>
                                         </tr>
                                         <tr>

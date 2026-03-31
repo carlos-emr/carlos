@@ -642,7 +642,7 @@
                         }
                         /////////////////////
                         preStr = preStr + "\n";
-                        preStr = preStr + "Qty:" + frm2.quantity.value + " " + frm2.unitName.value + "\n" + "Repeats:" + frm2.txtRepeat.value;
+                        preStr = preStr + "<fmt:setBundle basename='oscarResources'/><fmt:message key='WriteScript.msgQtyMitte'/>:" + frm2.quantity.value + " " + frm2.unitName.value + "\n" + "<fmt:setBundle basename='oscarResources'/><fmt:message key='WriteScript.msgRepeats'/>:" + frm2.txtRepeat.value;
                         if (frm2.nosubs.checked) {
                             preStr = preStr + " No Subs";
                         }
