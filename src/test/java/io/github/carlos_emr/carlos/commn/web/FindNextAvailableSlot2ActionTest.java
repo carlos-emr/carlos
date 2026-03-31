@@ -261,8 +261,8 @@ class FindNextAvailableSlot2ActionTest extends CarlosWebTestBase {
     class SlotFinding {
 
         @Test
-        @DisplayName("Should return third available slot (TARGET_SLOT_ORDINAL=3)")
-        void shouldReturnThirdSlot_whenMultipleSlotsAvailable() throws Exception {
+        @DisplayName("Should return first available slot (TARGET_SLOT_ORDINAL=1)")
+        void shouldReturnFirstSlot_whenMultipleSlotsAvailable() throws Exception {
             addRequestParameter("providerNos", TEST_PROVIDER);
             // 96 slots of 15 min each, all open
             setTimecodeForAllDays(allOpenTimecode());
@@ -270,8 +270,8 @@ class FindNextAvailableSlot2ActionTest extends CarlosWebTestBase {
             Map<String, Object> result = executeAndParseJson();
 
             assertThat(result.get("found")).isEqualTo(true);
-            // 3rd slot at index 2 → 2 * 15min = 30min = 00:30
-            assertThat(result.get("startTime")).isEqualTo("00:30");
+            // 1st slot at index 0 → 0 * 15min = 0min = 00:00
+            assertThat(result.get("startTime")).isEqualTo("00:00");
             assertThat(result.get("duration")).isEqualTo(15);
             assertThat(result.get("providerNo")).isEqualTo(TEST_PROVIDER);
         }
@@ -291,8 +291,8 @@ class FindNextAvailableSlot2ActionTest extends CarlosWebTestBase {
             Map<String, Object> result = executeAndParseJson();
 
             assertThat(result.get("found")).isEqualTo(true);
-            // Booking 00:00-01:30 occupies slots 0-6, first open at index 7 (01:45), third at index 9 (02:15)
-            assertThat(result.get("startTime")).isEqualTo("02:15");
+            // Booking 00:00-01:30 occupies slots 0-6, first open at index 7 (01:45)
+            assertThat(result.get("startTime")).isEqualTo("01:45");
         }
 
         @Test
