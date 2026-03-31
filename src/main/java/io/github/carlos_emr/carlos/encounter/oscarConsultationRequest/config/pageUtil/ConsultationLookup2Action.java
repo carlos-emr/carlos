@@ -2,7 +2,9 @@ package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pa
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -19,6 +21,7 @@ import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.ServiceSpecialists;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data.ConsultationServiceDto;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data.SpecialistDto;
+import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data.SpecialistWithServiceDto;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -68,6 +71,8 @@ public class ConsultationLookup2Action extends ActionSupport {
             return getServices();
         } else if ("getSpecialists".equals(method)) {
             return getSpecialists();
+        } else if ("getAllSpecialists".equals(method)) {
+            return getAllSpecialists();
         }
 
         MiscUtils.getLogger().warn("Invalid method parameter: " + method);
@@ -163,6 +168,77 @@ public class ConsultationLookup2Action extends ActionSupport {
             return handleServerError(
                 "Error retrieving specialists",
                 "Error retrieving specialists",
+                e
+            );
+        }
+    }
+
+    /**
+     * Returns all specialists across all services as JSON, grouped by specialist.
+     * Each entry includes the list of service IDs and service names the specialist belongs to.
+     *
+     * URL: ConsultationLookup2Action.do?method=getAllSpecialists
+     *
+     * Response format:
+     * [
+     *   {
+     *     "specId": 297,
+     *     "name": "Smith, John MD",
+     *     "phone": "555-1234",
+     *     "fax": "555-5678",
+     *     "address": "123 Main St",
+     *     "annotation": "",
+     *     "serviceIds": [53, 57],
+     *     "serviceNames": ["Cardiology", "Internal Medicine"]
+     *   }
+     * ]
+     *
+     * @return null (response written directly to output stream)
+     */
+    private String getAllSpecialists() {
+        try {
+            List<Object[]> results = serviceSpecialistsDao.findAllSpecialistsWithService();
+
+            // Group by specId using a LinkedHashMap to preserve insertion order (already sorted by lastName)
+            Map<Integer, SpecialistWithServiceDto> grouped = new LinkedHashMap<>();
+
+            for (Object[] row : results) {
+                ServiceSpecialists serviceSpec = (ServiceSpecialists) row[0];
+                ProfessionalSpecialist specialist = (ProfessionalSpecialist) row[1];
+                ConsultationServices service = (ConsultationServices) row[2];
+
+                Integer specId = serviceSpec.getId().getSpecId();
+                Integer serviceId = serviceSpec.getId().getServiceId();
+                String serviceName = nullSafe(service.getServiceDesc());
+
+                if (grouped.containsKey(specId)) {
+                    grouped.get(specId).getServiceIds().add(serviceId);
+                    grouped.get(specId).getServiceNames().add(serviceName);
+                } else {
+                    List<Integer> serviceIds = new ArrayList<>();
+                    serviceIds.add(serviceId);
+                    List<String> serviceNames = new ArrayList<>();
+                    serviceNames.add(serviceName);
+                    grouped.put(specId, new SpecialistWithServiceDto(
+                        specId,
+                        formatSpecialistName(specialist),
+                        nullSafe(specialist.getPhoneNumber()),
+                        nullSafe(specialist.getFaxNumber()),
+                        nullSafe(specialist.getStreetAddress()),
+                        nullSafe(specialist.getAnnotation()),
+                        serviceIds,
+                        serviceNames
+                    ));
+                }
+            }
+
+            writeJsonResponse(new ArrayList<>(grouped.values()));
+            return null;
+
+        } catch (Exception e) {
+            return handleServerError(
+                "Error retrieving all specialists",
+                "Error retrieving all specialists",
                 e
             );
         }

@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
 import io.github.carlos_emr.carlos.managers.PrescriptionManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -60,6 +61,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
 
 
     private static Logger logger = MiscUtils.getLogger();
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private PrescriptionManager prescriptionManager = SpringUtils.getBean(PrescriptionManager.class);
     private CaseManagementManager caseManagementManager = SpringUtils.getBean(CaseManagementManager.class);
     private AllergyManager allergyManager = SpringUtils.getBean(AllergyManager.class);
@@ -72,6 +74,9 @@ public class ConsultationClinicalData2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_con", "r", null)) {
+            throw new SecurityException("missing required security object _con");
+        }
         String method = request.getParameter("method");
         if ("fetchLongTermMedications".equals(method)) {
             return fetchLongTermMedications();
@@ -105,7 +110,18 @@ public class ConsultationClinicalData2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String demographicNo = request.getParameter("demographicNo");
-        List<Drug> medications = prescriptionManager.getLongTermDrugs(loggedInInfo, Integer.parseInt(demographicNo));
+        if (demographicNo == null || demographicNo.isBlank()) {
+            logger.warn("fetchLongTermMedications called without demographicNo");
+            return null;
+        }
+        int demoId;
+        try {
+            demoId = Integer.parseInt(demographicNo);
+        } catch (NumberFormatException e) {
+            logger.warn("fetchLongTermMedications: invalid demographicNo '{}'", demographicNo);
+            return null;
+        }
+        List<Drug> medications = prescriptionManager.getLongTermDrugs(loggedInInfo, demoId);
 
         if (medications != null) {
             medicationToJson(response, medications, "LongTermMedications");
@@ -120,7 +136,18 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String demographicNo = request.getParameter("demographicNo");
 
-        List<Allergy> allergies = allergyManager.getActiveAllergies(loggedInInfo, Integer.parseInt(demographicNo));
+        if (demographicNo == null || demographicNo.isBlank()) {
+            logger.warn("fetchAllergies called without demographicNo");
+            return null;
+        }
+        int demoId;
+        try {
+            demoId = Integer.parseInt(demographicNo);
+        } catch (NumberFormatException e) {
+            logger.warn("fetchAllergies: invalid demographicNo '{}'", demographicNo);
+            return null;
+        }
+        List<Allergy> allergies = allergyManager.getActiveAllergies(loggedInInfo, demoId);
 
         ObjectNode json = objectMapper.createObjectNode();
         json.put("noteType", "Allergies");
@@ -148,7 +175,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
 
         json.put("note", stringBuilder.toString());
 
-        response.setContentType("text/javascript");
+        response.setContentType("application/json");
 
         try {
             response.getWriter().write(json.toString());
@@ -176,6 +203,18 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         String noteType = "RiskFactors";
 
         Issue issue = caseManagementManager.getIssueByCode(noteType);
+        if (issue == null) {
+            ObjectNode emptyJson = objectMapper.createObjectNode();
+            emptyJson.put("noteType", noteType);
+            emptyJson.put("note", "");
+            response.setContentType("application/json");
+            try {
+                response.getWriter().write(emptyJson.toString());
+            } catch (IOException e) {
+                logger.error("Error writing empty response for missing issue code: ", e);
+            }
+            return null;
+        }
         List<CaseManagementNote> riskFactors = caseManagementManager.getNotes(loggedInInfo, demographicNo, new String[]{issue.getId() + ""});
 
         ObjectNode json = objectMapper.createObjectNode();
@@ -191,7 +230,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
 
         json.put("note", stringBuilder.toString());
 
-        response.setContentType("text/javascript");
+        response.setContentType("application/json");
         try {
             response.getWriter().write(json.toString());
         } catch (IOException e) {
@@ -207,8 +246,34 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String issueType = request.getParameter("issueType");
         String demographicNo = request.getParameter("demographicNo");
-        IssueType issueTypeEnum = IssueType.valueOf(issueType.toUpperCase());
+        if (issueType == null || issueType.isBlank()) {
+            logger.warn("fetchIssueNote called without issueType");
+            return null;
+        }
+        IssueType issueTypeEnum;
+        try {
+            issueTypeEnum = IssueType.valueOf(issueType.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            logger.warn("fetchIssueNote: unrecognised issueType '{}'", issueType);
+            return null;
+        }
         Issue issue = caseManagementManager.getIssueByCode(issueTypeEnum);
+
+        if (issue == null) {
+            // Issue code not seeded in this database (e.g. FamHistory requires CAISI data).
+            // Return empty note so the client doesn't receive a 500 error.
+            ObjectNode emptyJson = objectMapper.createObjectNode();
+            emptyJson.put("noteType", issueTypeEnum.name());
+            emptyJson.put("note", "");
+            response.setContentType("application/json");
+            try {
+                response.getWriter().write(emptyJson.toString());
+            } catch (IOException e) {
+                logger.error("Error writing empty response for missing issue code: ", e);
+            }
+            return null;
+        }
+
         List<CaseManagementNote> issueNoteList = caseManagementManager.getActiveNotes(loggedInInfo, demographicNo, new String[]{issue.getId() + ""});
 
         ObjectNode json = objectMapper.createObjectNode();
@@ -224,7 +289,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
 
         json.put("note", stringBuilder.toString());
 
-        response.setContentType("text/javascript");
+        response.setContentType("application/json");
         try {
             response.getWriter().write(json.toString());
         } catch (IOException e) {
@@ -257,7 +322,7 @@ public class ConsultationClinicalData2Action extends ActionSupport {
 
         json.put("note", stringBuilder.toString());
 
-        response.setContentType("text/javascript");
+        response.setContentType("application/json");
         try {
             response.getWriter().write(json.toString());
         } catch (IOException e) {

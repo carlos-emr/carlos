@@ -65,6 +65,18 @@
     --bs-btn-active-color: #fff;
 }
 
+/* Bootstrap pagination — retheme to CARLOS blue via Bootstrap's own CSS
+   custom properties. Must target .pagination (not .page-link) because Bootstrap
+   defines these variables on the parent <ul> and child elements inherit them. */
+.pagination {
+    --bs-pagination-color: var(--carlos-primary);
+    --bs-pagination-hover-color: color-mix(in srgb, var(--carlos-primary) 75%, black);
+    --bs-pagination-hover-border-color: var(--carlos-primary);
+    --bs-pagination-focus-color: var(--carlos-primary);
+    --bs-pagination-active-bg: var(--carlos-primary);
+    --bs-pagination-active-border-color: var(--carlos-primary);
+}
+
 a {
     color: var(--carlos-link);
 }
@@ -72,6 +84,16 @@ a {
 a:hover {
     color: #28619a;
     color: color-mix(in srgb, var(--carlos-link) 75%, black);
+}
+
+/* Bootstrap form focus ring — retheme from default blue (#0d6efd) to CARLOS blue.
+   Applies to .form-control, .form-select, and any element using Bootstrap focus styles. */
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus,
+.btn:focus {
+    border-color: var(--carlos-primary);
+    box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--carlos-primary) 25%, transparent);
 }
 
 /* Base resets */
@@ -91,6 +113,9 @@ body {
     padding: 12px 15px;
     border-bottom: 1px solid var(--carlos-border);
     margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .page-header-bar--flex {
