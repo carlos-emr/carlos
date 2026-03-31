@@ -97,7 +97,7 @@ class ScheduleWsEndpointTest extends CarlosSoapTestBase {
         void shouldReturnTemplateCodes_whenCodesExist() {
             List<ScheduleTemplateCode> codes = new ArrayList<>();
             ScheduleTemplateCode code = new ScheduleTemplateCode();
-            code.setCode("A");
+            code.setCode('A');
             code.setDescription("Available");
             codes.add(code);
             when(scheduleManager.getScheduleTemplateCodes()).thenReturn(codes);
@@ -109,14 +109,14 @@ class ScheduleWsEndpointTest extends CarlosSoapTestBase {
         }
 
         @Test
-        @DisplayName("should return empty array when no template codes")
+        @DisplayName("should return null or empty array when no template codes (JAXB empty array serialization)")
         void shouldReturnEmptyArray_whenNoTemplateCodes() {
             when(scheduleManager.getScheduleTemplateCodes()).thenReturn(new ArrayList<>());
 
             ScheduleWs proxy = createClient(ScheduleWs.class);
             ScheduleTemplateCodeTransfer[] result = proxy.getScheduleTemplateCodes();
 
-            assertThat(result).isNotNull().isEmpty();
+            assertThat(result).isNullOrEmpty();
         }
     }
 
@@ -166,7 +166,6 @@ class ScheduleWsEndpointTest extends CarlosSoapTestBase {
         void shouldReturnAppointmentTypes_whenTypesExist() {
             List<AppointmentType> types = new ArrayList<>();
             AppointmentType type = new AppointmentType();
-            type.setId(1);
             type.setName("General");
             types.add(type);
             when(scheduleManager.getAppointmentTypes()).thenReturn(types);
@@ -178,14 +177,14 @@ class ScheduleWsEndpointTest extends CarlosSoapTestBase {
         }
 
         @Test
-        @DisplayName("should return empty array when no appointment types")
+        @DisplayName("should return null or empty array when no appointment types (JAXB empty array serialization)")
         void shouldReturnEmptyArray_whenNoAppointmentTypes() {
             when(scheduleManager.getAppointmentTypes()).thenReturn(new ArrayList<>());
 
             ScheduleWs proxy = createClient(ScheduleWs.class);
             AppointmentTypeTransfer[] result = proxy.getAppointmentTypes();
 
-            assertThat(result).isNotNull().isEmpty();
+            assertThat(result).isNullOrEmpty();
         }
     }
 
@@ -214,7 +213,7 @@ class ScheduleWsEndpointTest extends CarlosSoapTestBase {
         }
 
         @Test
-        @DisplayName("should return empty array when no appointments after date")
+        @DisplayName("should return null or empty array when no appointments after date (JAXB empty array serialization)")
         void shouldReturnEmptyArray_whenNoAppointmentsAfterDate() {
             when(scheduleManager.getAppointmentUpdatedAfterDate(any(LoggedInInfo.class), any(Date.class), anyInt()))
                 .thenReturn(new ArrayList<>());
@@ -222,7 +221,7 @@ class ScheduleWsEndpointTest extends CarlosSoapTestBase {
             ScheduleWs proxy = createClient(ScheduleWs.class);
             AppointmentTransfer[] result = proxy.getAppointmentsUpdatedAfterDate(new Date(), 10, false);
 
-            assertThat(result).isNotNull().isEmpty();
+            assertThat(result).isNullOrEmpty();
         }
     }
 }

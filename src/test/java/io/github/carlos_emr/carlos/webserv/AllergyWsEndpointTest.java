@@ -92,6 +92,7 @@ class AllergyWsEndpointTest extends CarlosSoapTestBase {
         void shouldReturnAllergyTransfer_whenValidIdProvided() {
             Allergy allergy = new Allergy();
             allergy.setId(42);
+            allergy.setDemographicNo(100);
             allergy.setDescription("Penicillin");
             when(allergyManager.getAllergy(any(LoggedInInfo.class), eq(42))).thenReturn(allergy);
 
@@ -124,6 +125,7 @@ class AllergyWsEndpointTest extends CarlosSoapTestBase {
             List<Allergy> allergies = new ArrayList<>();
             Allergy a1 = new Allergy();
             a1.setId(1);
+            a1.setDemographicNo(100);
             a1.setDescription("Peanut");
             allergies.add(a1);
             when(allergyManager.getUpdatedAfterDate(any(LoggedInInfo.class), any(Date.class), anyInt()))
@@ -136,7 +138,7 @@ class AllergyWsEndpointTest extends CarlosSoapTestBase {
         }
 
         @Test
-        @DisplayName("should return empty array when no results")
+        @DisplayName("should return null or empty array when no results (JAXB empty array serialization)")
         void shouldReturnEmptyArray_whenNoResults() {
             when(allergyManager.getUpdatedAfterDate(any(LoggedInInfo.class), any(Date.class), anyInt()))
                 .thenReturn(new ArrayList<>());
@@ -144,7 +146,7 @@ class AllergyWsEndpointTest extends CarlosSoapTestBase {
             AllergyWs proxy = createClient(AllergyWs.class);
             AllergyTransfer[] result = proxy.getAllergiesUpdatedAfterDate(new Date(), 10);
 
-            assertThat(result).isNotNull().isEmpty();
+            assertThat(result).isNullOrEmpty();
         }
     }
 
@@ -159,6 +161,7 @@ class AllergyWsEndpointTest extends CarlosSoapTestBase {
             List<Allergy> allergies = new ArrayList<>();
             Allergy a = new Allergy();
             a.setId(10);
+            a.setDemographicNo(100);
             allergies.add(a);
             when(allergyManager.getByDemographicIdUpdatedAfterDate(any(LoggedInInfo.class), eq(100), any(Date.class)))
                 .thenReturn(allergies);

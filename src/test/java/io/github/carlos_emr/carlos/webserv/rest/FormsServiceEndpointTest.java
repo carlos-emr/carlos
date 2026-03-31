@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -95,7 +96,7 @@ class FormsServiceEndpointTest extends CarlosRestTestBase {
             eformData.setSubject("BP Check");
 
             when(mockFormsManager.findByDemographicId(any(LoggedInInfo.class), eq(123)))
-                .thenReturn(List.of(eformData));
+                .thenReturn(new ArrayList<>(List.of(eformData)));
 
             Response response = request().path("/forms/123/all")
                 .query("heading", "Completed")
@@ -110,12 +111,11 @@ class FormsServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should return 200 with available eforms when heading is not Completed")
         void shouldReturn200WithAvailableEForms_whenHeadingIsNotCompleted() {
             EForm eform = new EForm();
-            eform.setId(5);
             eform.setFormName("Referral Form");
             eform.setSubject("Specialist Referral");
 
             when(mockFormsManager.findByStatus(any(LoggedInInfo.class), eq(true), isNull()))
-                .thenReturn(List.of(eform));
+                .thenReturn(new ArrayList<>(List.of(eform)));
 
             Response response = request().path("/forms/123/all")
                 .query("heading", "Available")
@@ -136,7 +136,6 @@ class FormsServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should return 200 with all eform names")
         void shouldReturn200WithAllEFormNames_whenEFormsExist() {
             EForm eform = new EForm();
-            eform.setId(1);
             eform.setFormName("Intake Form");
 
             when(mockFormsManager.findByStatus(any(LoggedInInfo.class), eq(true), eq(EFormSortOrder.NAME)))

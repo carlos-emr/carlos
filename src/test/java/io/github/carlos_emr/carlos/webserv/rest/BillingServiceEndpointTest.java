@@ -36,7 +36,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.commn.model.BillingService.BillingServiceType;
 import io.github.carlos_emr.carlos.managers.BillingManager;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;

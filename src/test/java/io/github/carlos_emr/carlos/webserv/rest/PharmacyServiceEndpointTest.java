@@ -28,6 +28,7 @@ import static org.mockito.Mockito.when;
 import java.util.Collections;
 import java.util.List;
 
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.DisplayName;
@@ -74,7 +75,7 @@ class PharmacyServiceEndpointTest extends CarlosRestTestBase {
             pharmacy.setName("Test Pharmacy");
             when(mockPharmacyInfoDao.findAll(any(), any())).thenReturn(List.of(pharmacy));
 
-            Response response = request().path("/pharmacies/").get();
+            Response response = request().replaceHeader("Accept", "*/*").path("/pharmacies/").get();
 
             assertThat(response.getStatus()).isEqualTo(200);
         }
@@ -84,7 +85,7 @@ class PharmacyServiceEndpointTest extends CarlosRestTestBase {
         void shouldReturn200WithEmptyList_whenNoPharmaciesExist() {
             when(mockPharmacyInfoDao.findAll(any(), any())).thenReturn(Collections.emptyList());
 
-            Response response = request().path("/pharmacies/").get();
+            Response response = request().replaceHeader("Accept", "*/*").path("/pharmacies/").get();
 
             assertThat(response.getStatus()).isEqualTo(200);
         }
@@ -102,7 +103,7 @@ class PharmacyServiceEndpointTest extends CarlosRestTestBase {
             pharmacy.setName("Downtown Pharmacy");
             when(mockPharmacyInfoDao.find(eq(1))).thenReturn(pharmacy);
 
-            Response response = request().path("/pharmacies/1").get();
+            Response response = request().replaceHeader("Accept", "*/*").path("/pharmacies/1").get();
 
             assertThat(response.getStatus()).isEqualTo(200);
         }
@@ -121,7 +122,7 @@ class PharmacyServiceEndpointTest extends CarlosRestTestBase {
             when(mockPharmacyInfoDao.find(eq(1))).thenReturn(pharmacy);
             when(mockPharmacyInfoDao.saveEntity(any(PharmacyInfo.class))).thenReturn(pharmacy);
 
-            Response response = request().path("/pharmacies/1").delete();
+            Response response = request().replaceHeader("Accept", "*/*").path("/pharmacies/1").delete();
 
             assertThat(response.getStatus()).isEqualTo(200);
         }

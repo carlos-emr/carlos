@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -127,6 +128,10 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
         demo.setDemographicNo(id);
         demo.setFirstName(firstName);
         demo.setLastName(lastName);
+        demo.setDateOfBirth("15");
+        demo.setMonthOfBirth("06");
+        demo.setYearOfBirth("1980");
+        demo.setSex("M");
         return demo;
     }
 
@@ -144,7 +149,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             when(mockDemographicManager.getActiveDemographics(any(LoggedInInfo.class), eq(0), eq(10)))
                 .thenReturn(List.of(demo));
 
-            Response response = request().path("/demographics")
+            Response response = request().replaceHeader("Accept", "*/*").path("/demographics")
                 .query("offset", 0)
                 .query("limit", 10)
                 .get();
@@ -160,7 +165,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             when(mockDemographicManager.getActiveDemographics(any(LoggedInInfo.class), eq(0), eq(0)))
                 .thenReturn(Collections.emptyList());
 
-            Response response = request().path("/demographics").get();
+            Response response = request().replaceHeader("Accept", "*/*").path("/demographics").get();
 
             assertThat(response.getStatus()).isEqualTo(200);
         }

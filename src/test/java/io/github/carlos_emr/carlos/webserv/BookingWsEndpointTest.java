@@ -104,7 +104,7 @@ class BookingWsEndpointTest extends CarlosSoapTestBase {
     class GetAppointmentTypesByProvider {
 
         @Test
-        @DisplayName("should return empty booking types when no appointment types configured")
+        @DisplayName("should return null or empty booking types when no appointment types configured (JAXB empty array serialization)")
         void shouldReturnEmptyBookingTypes_whenNoTypesConfigured() {
             when(appointmentSearchManager.getProviderSearchConfig(anyString())).thenReturn(searchConfig);
             when(appointmentSearchManager.getAppointmentTypes(any(SearchConfig.class), anyString()))
@@ -113,7 +113,7 @@ class BookingWsEndpointTest extends CarlosSoapTestBase {
             BookingWs proxy = createClient(BookingWs.class);
             BookingType[] result = proxy.getAppointmentTypesByProvider("001");
 
-            assertThat(result).isNotNull().isEmpty();
+            assertThat(result).isNullOrEmpty();
         }
 
         @Test

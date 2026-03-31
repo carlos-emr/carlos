@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.casemgmt.service.NoteSelectionCriteria;
 import io.github.carlos_emr.carlos.casemgmt.service.NoteSelectionResult;
 import io.github.carlos_emr.carlos.casemgmt.service.NoteService;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -165,8 +166,8 @@ class NotesServiceEndpointTest extends CarlosRestTestBase {
             when(mockProgramManager2.getCurrentProgramInDomain(any(LoggedInInfo.class), eq("100")))
                 .thenReturn(pp);
 
-            // NoteService.getNotesWithFilter will be called; mock it to return empty result
-            when(mockNoteService.getNotesWithFilter(any(), any()))
+            // NoteService.findNotes will be called; mock it to return empty result
+            when(mockNoteService.findNotes(any(LoggedInInfo.class), any(NoteSelectionCriteria.class)))
                 .thenReturn(new NoteSelectionResult());
 
             ObjectNode body = objectMapper.createObjectNode();

@@ -71,8 +71,9 @@ class ProgramWsEndpointTest extends CarlosSoapTestBase {
     @DisplayName("should return all programs via SOAP")
     void shouldReturnAllPrograms_viaSoap() {
         Program program = new Program();
-        program.setId(1L);
+        program.setId(1);
         program.setName("Test Program");
+        program.setFacilityId(1);
         when(mockProgramManager.getAllPrograms(any(LoggedInInfo.class)))
             .thenReturn(List.of(program));
 
@@ -83,7 +84,7 @@ class ProgramWsEndpointTest extends CarlosSoapTestBase {
     }
 
     @Test
-    @DisplayName("should return empty array when no programs")
+    @DisplayName("should return null or empty array when no programs (JAXB empty array serialization)")
     void shouldReturnEmptyArray_whenNoProgramsExist() {
         when(mockProgramManager.getAllPrograms(any(LoggedInInfo.class)))
             .thenReturn(Collections.emptyList());
@@ -91,13 +92,15 @@ class ProgramWsEndpointTest extends CarlosSoapTestBase {
         ProgramWs proxy = createClient(ProgramWs.class);
         ProgramTransfer[] results = proxy.getAllPrograms();
 
-        assertThat(results).isEmpty();
+        assertThat(results).isNullOrEmpty();
     }
 
     @Test
     @DisplayName("should return all program providers via SOAP")
     void shouldReturnAllProgramProviders_viaSoap() {
         ProgramProvider pp = new ProgramProvider();
+        pp.setProgramId(1L);
+        pp.setProviderNo("999");
         when(mockProgramManager.getAllProgramProviders(any(LoggedInInfo.class)))
             .thenReturn(List.of(pp));
 

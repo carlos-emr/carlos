@@ -82,7 +82,6 @@ class LabServiceEndpointTest extends CarlosRestTestBase {
 
     private Hl7TextMessage createTestHl7Message(int id) {
         Hl7TextMessage msg = new Hl7TextMessage();
-        msg.setId(id);
         msg.setType("HL7");
         msg.setServiceName("TestLab");
         return msg;

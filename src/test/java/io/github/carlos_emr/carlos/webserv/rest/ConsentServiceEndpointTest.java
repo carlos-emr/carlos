@@ -153,7 +153,8 @@ class ConsentServiceEndpointTest extends CarlosRestTestBase {
             ConsentTypeTo1 input = new ConsentTypeTo1();
             input.setName("New Consent");
             input.setDescription("Test description");
-            input.setType(1);
+            input.setType("1");
+            input.setActive(true);
 
             Response response = request().path("/consentService/consentType")
                 .post(Entity.json(input));

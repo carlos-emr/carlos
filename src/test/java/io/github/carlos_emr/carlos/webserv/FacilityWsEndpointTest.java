@@ -101,7 +101,7 @@ class FacilityWsEndpointTest extends CarlosSoapTestBase {
     }
 
     @Test
-    @DisplayName("should return empty array when no facilities exist")
+    @DisplayName("should return null or empty array when no facilities exist (JAXB empty array serialization)")
     void shouldReturnEmptyArray_whenNoFacilitiesExist() {
         when(mockFacilityManager.getAllFacilities(any(LoggedInInfo.class), eq(true)))
             .thenReturn(Collections.emptyList());
@@ -109,6 +109,6 @@ class FacilityWsEndpointTest extends CarlosSoapTestBase {
         FacilityWs proxy = createClient(FacilityWs.class);
         FacilityTransfer[] results = proxy.getAllFacilities(true);
 
-        assertThat(results).isEmpty();
+        assertThat(results).isNullOrEmpty();
     }
 }

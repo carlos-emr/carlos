@@ -83,7 +83,6 @@ class EFormsServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should return 200 with eForm list")
         void shouldReturn200_whenEFormsExist() {
             EForm eform = new EForm();
-            eform.setId(1);
             eform.setFormName("Test Form");
             when(mockFormsManager.findByStatus(any(LoggedInInfo.class), eq(true), any()))
                 .thenReturn(List.of(eform));

@@ -146,7 +146,7 @@ class DemographicWsEndpointTest extends CarlosSoapTestBase {
         }
 
         @Test
-        @DisplayName("should return empty array when no matches found")
+        @DisplayName("should return null or empty array when no matches found (JAXB empty array serialization)")
         void shouldReturnEmptyArray_whenNoMatchesFound() {
             when(demographicManager.searchDemographicByName(any(LoggedInInfo.class), anyString(), anyInt(), anyInt()))
                 .thenReturn(new ArrayList<>());
@@ -154,7 +154,7 @@ class DemographicWsEndpointTest extends CarlosSoapTestBase {
             DemographicWs proxy = createClient(DemographicWs.class);
             DemographicTransfer[] result = proxy.searchDemographicByName("NonExistent", 0, 10);
 
-            assertThat(result).isNotNull().isEmpty();
+            assertThat(result).isNullOrEmpty();
         }
     }
 
@@ -180,7 +180,7 @@ class DemographicWsEndpointTest extends CarlosSoapTestBase {
         }
 
         @Test
-        @DisplayName("should return empty array when no admitted demographics")
+        @DisplayName("should return null or empty array when no admitted demographics (JAXB empty array serialization)")
         void shouldReturnEmptyArray_whenNoAdmittedDemographics() {
             when(demographicManager.getAdmittedDemographicIdsByProgramAndProvider(
                 any(LoggedInInfo.class), any(), anyString()))
@@ -189,7 +189,7 @@ class DemographicWsEndpointTest extends CarlosSoapTestBase {
             DemographicWs proxy = createClient(DemographicWs.class);
             Integer[] result = proxy.getAdmittedDemographicIdsByProgramProvider(1, "999");
 
-            assertThat(result).isNotNull().isEmpty();
+            assertThat(result).isNullOrEmpty();
         }
     }
 }

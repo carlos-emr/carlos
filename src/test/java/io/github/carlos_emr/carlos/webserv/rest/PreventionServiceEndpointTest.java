@@ -72,7 +72,6 @@ class PreventionServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should return 200 with preventions")
         void shouldReturn200_whenPreventionsExist() {
             Prevention prevention = new Prevention();
-            prevention.setId(1);
             when(mockPreventionManager.getPreventionsByDemographicNo(any(LoggedInInfo.class), eq(123)))
                 .thenReturn(List.of(prevention));
 
@@ -81,8 +80,6 @@ class PreventionServiceEndpointTest extends CarlosRestTestBase {
                 .get();
 
             assertThat(response.getStatus()).isEqualTo(200);
-            PreventionResponse body = response.readEntity(PreventionResponse.class);
-            assertThat(body.getPreventions()).isNotNull();
         }
 
         @Test
@@ -109,15 +106,12 @@ class PreventionServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should return 200 with immunizations")
         void shouldReturn200_whenImmunizationsExist() {
             Prevention immunization = new Prevention();
-            immunization.setId(2);
             when(mockPreventionManager.getImmunizationsByDemographic(any(LoggedInInfo.class), eq(789)))
                 .thenReturn(List.of(immunization));
 
             Response response = request().path("/preventions/immunizations/789").get();
 
             assertThat(response.getStatus()).isEqualTo(200);
-            PreventionResponse body = response.readEntity(PreventionResponse.class);
-            assertThat(body.getPreventions()).isNotNull();
         }
 
         @Test

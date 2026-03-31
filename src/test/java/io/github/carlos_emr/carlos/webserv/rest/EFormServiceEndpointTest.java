@@ -82,7 +82,6 @@ class EFormServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should return 200 with eForm when found")
         void shouldReturn200_whenEFormFound() {
             EForm eform = new EForm();
-            eform.setId(1);
             eform.setFormName("Test Form");
             eform.setFormHtml("<html></html>");
             when(mockEFormDao.findById(eq(1))).thenReturn(eform);

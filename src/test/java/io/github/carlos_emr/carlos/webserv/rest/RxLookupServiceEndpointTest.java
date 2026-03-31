@@ -103,7 +103,7 @@ class RxLookupServiceEndpointTest extends CarlosRestTestBase {
 
         @Test
         @DisplayName("should return 200 with drug details")
-        void shouldReturn200_whenDrugFound() {
+        void shouldReturn200_whenDrugFound() throws Exception {
             DrugSearchTo1 drug = new DrugSearchTo1();
             when(mockDrugLookUpManager.details(eq("12345"))).thenReturn(drug);
 
@@ -116,7 +116,7 @@ class RxLookupServiceEndpointTest extends CarlosRestTestBase {
 
         @Test
         @DisplayName("should return 200 with failure when drug not found")
-        void shouldReturn200WithFailure_whenDrugNotFound() {
+        void shouldReturn200WithFailure_whenDrugNotFound() throws Exception {
             when(mockDrugLookUpManager.details(eq("99999"))).thenReturn(null);
 
             Response response = request().path("/rxlookup/details")

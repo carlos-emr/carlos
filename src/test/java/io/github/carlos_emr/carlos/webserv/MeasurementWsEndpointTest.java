@@ -94,7 +94,6 @@ class MeasurementWsEndpointTest extends CarlosSoapTestBase {
         @DisplayName("should return measurement transfer when found")
         void shouldReturnMeasurementTransfer_whenFound() {
             Measurement measurement = new Measurement();
-            measurement.setId(25);
             measurement.setType("BP");
             when(measurementManager.getMeasurement(any(LoggedInInfo.class), eq(25))).thenReturn(measurement);
 
@@ -137,14 +136,14 @@ class MeasurementWsEndpointTest extends CarlosSoapTestBase {
         }
 
         @Test
-        @DisplayName("should return empty array when no maps exist")
+        @DisplayName("should return null or empty array when no maps exist (JAXB empty array serialization)")
         void shouldReturnEmptyArray_whenNoMapsExist() {
             when(measurementManager.getMeasurementMaps()).thenReturn(Collections.emptyList());
 
             MeasurementWs proxy = createClient(MeasurementWs.class);
             MeasurementMapTransfer[] result = proxy.getMeasurementMaps();
 
-            assertThat(result).isNotNull().isEmpty();
+            assertThat(result).isNullOrEmpty();
         }
     }
 
@@ -158,7 +157,6 @@ class MeasurementWsEndpointTest extends CarlosSoapTestBase {
         void shouldReturnMeasurements_createdAfterDate() {
             List<Measurement> measurements = new ArrayList<>();
             Measurement m = new Measurement();
-            m.setId(3);
             measurements.add(m);
             when(measurementManager.getCreatedAfterDate(any(LoggedInInfo.class), any(Date.class), anyInt()))
                 .thenReturn(measurements);

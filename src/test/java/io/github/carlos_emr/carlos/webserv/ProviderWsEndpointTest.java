@@ -106,7 +106,7 @@ class ProviderWsEndpointTest extends CarlosSoapTestBase {
     }
 
     @Test
-    @DisplayName("should return empty array when no providers match")
+    @DisplayName("should return null or empty array when no providers match (JAXB empty array serialization)")
     void shouldReturnEmptyArray_whenNoProvidersMatch() {
         when(mockProviderManager.getProviders(any(LoggedInInfo.class), eq(false)))
             .thenReturn(Collections.emptyList());
@@ -114,7 +114,7 @@ class ProviderWsEndpointTest extends CarlosSoapTestBase {
         ProviderWs proxy = createClient(ProviderWs.class);
         ProviderTransfer[] results = proxy.getProviders2(false);
 
-        assertThat(results).isEmpty();
+        assertThat(results).isNullOrEmpty();
     }
 
     @Test

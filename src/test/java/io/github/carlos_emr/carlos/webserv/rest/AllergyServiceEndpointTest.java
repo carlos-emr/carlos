@@ -74,6 +74,7 @@ class AllergyServiceEndpointTest extends CarlosRestTestBase {
         allergy.setId(id);
         allergy.setDescription(description);
         allergy.setArchived(false);
+        allergy.setDemographicNo(123);
         return allergy;
     }
 
