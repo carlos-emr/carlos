@@ -260,6 +260,9 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
      * @param maxResults int the maximum number of results to return
      * @return List&lt;ProfessionalSpecialist&gt; list of matching healthcare specialists, empty if none found
      */
+    /**
+     * Retrieves a list of ProfessionalSpecialist entities whose phone number contains the specified substring.
+     */
     public List<ProfessionalSpecialist> findByPhoneContains(String phone, int maxResults) {
         if (phone == null || phone.trim().isEmpty()) {
             return java.util.Collections.emptyList();
