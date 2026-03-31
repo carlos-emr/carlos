@@ -82,6 +82,7 @@ import java.lang.reflect.Array;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import org.owasp.encoder.Encode;
 
 public class CaseManagementEntry2Action extends ActionSupport implements SessionAware {
 
@@ -2768,7 +2769,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
                 textStr = this.caseManagementMgr.getNote(noteIds[idx]).getNote();
             }
-            textStr = textStr.replaceAll("\n", "<br>");
+            textStr = Encode.forHtml(textStr).replace("\n", "<br>");
             out.println(textStr);
             out.println("<br><br>");
         }
