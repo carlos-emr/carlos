@@ -89,7 +89,7 @@ class AllergyServiceEndpointTest extends CarlosRestTestBase {
             when(mockAllergyManager.getActiveAllergies(any(LoggedInInfo.class), eq(123)))
                 .thenReturn(List.of(testAllergy));
 
-            Response response = client.path("/allergies/active")
+            Response response = request().path("/allergies/active")
                 .query("demographicNo", 123)
                 .get();
 
@@ -104,7 +104,7 @@ class AllergyServiceEndpointTest extends CarlosRestTestBase {
             when(mockAllergyManager.getActiveAllergies(any(LoggedInInfo.class), eq(456)))
                 .thenReturn(Collections.emptyList());
 
-            Response response = client.path("/allergies/active")
+            Response response = request().path("/allergies/active")
                 .query("demographicNo", 456)
                 .get();
 
@@ -123,7 +123,7 @@ class AllergyServiceEndpointTest extends CarlosRestTestBase {
             when(mockAllergyManager.getActiveAllergies(any(LoggedInInfo.class), eq(789)))
                 .thenReturn(allergies);
 
-            Response response = client.path("/allergies/active")
+            Response response = request().path("/allergies/active")
                 .query("demographicNo", 789)
                 .get();
 

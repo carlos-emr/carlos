@@ -47,7 +47,7 @@ class MyServiceEndpointTest extends CarlosRestTestBase {
     void shouldReturn200_whenGetEndpoint() {
         when(mockManager.getData(any(), eq(1))).thenReturn(testData);
 
-        Response response = client.path("/mypath")
+        Response response = request().path("/mypath")
             .query("id", 1)
             .get();
 
@@ -61,7 +61,7 @@ class MyServiceEndpointTest extends CarlosRestTestBase {
 ### Key Points
 
 - **`getServiceBean()`**: Return the JAX-RS service instance with mocked dependencies injected via `injectDependency()`.
-- **`client`**: Pre-configured CXF `WebClient` with JSON accept/content-type. Use `.path()`, `.query()`, `.get()`, `.post()`, etc.
+- **`request()`**: Returns a fresh CXF `WebClient` copy reset to the base address. Always use `request()` instead of `client` directly to avoid path accumulation across calls.
 - **`mockLoggedInInfo`**: Pre-injected into the CXF message — `AbstractServiceImpl.getLoggedInInfo()` works automatically.
 - **`mockServletRequest`**: Accessible if you need to set custom request headers or parameters.
 - **Jackson ObjectMapper**: Configured to match production (JAXB + Jackson annotation introspector pair).
@@ -74,7 +74,7 @@ void shouldReturn200_whenPostingData() {
     MyTransferObject input = new MyTransferObject();
     input.setName("test");
 
-    Response response = client.path("/mypath")
+    Response response = request().path("/mypath")
         .post(jakarta.ws.rs.client.Entity.json(input));
 
     assertThat(response.getStatus()).isEqualTo(200);

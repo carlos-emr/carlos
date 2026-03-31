@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.test.base;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import jakarta.xml.ws.handler.MessageContext;
+
 import org.apache.cxf.endpoint.Server;
 import org.apache.cxf.jaxws.JaxWsProxyFactoryBean;
 import org.apache.cxf.jaxws.JaxWsServerFactoryBean;
@@ -78,6 +80,12 @@ import org.springframework.mock.web.MockHttpSession;
  * interceptor injects a mock {@link LoggedInInfo} into the CXF message
  * context, satisfying {@code AbstractWs.getLoggedInInfo()}. The mock is
  * accessible via {@link #mockLoggedInInfo}.</p>
+ *
+ * <p><b>Mockito lifecycle:</b> This class calls
+ * {@code MockitoAnnotations.openMocks(this)} in its {@code @BeforeEach},
+ * which initializes {@code @Mock} fields in both this class and subclasses.
+ * Subclasses should NOT call {@code openMocks} themselves — doing so would
+ * open a second Mockito session for the same fields.</p>
  *
  * @since 2026-03-31
  * @see CarlosUnitTestBase
@@ -139,7 +147,7 @@ public abstract class CarlosSoapTestBase extends CarlosUnitTestBase {
         MockHttpSession mockSession = new MockHttpSession();
         mockServletRequest.setSession(mockSession);
 
-        String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
+        String key = new LoggedInInfo().LOGGED_IN_INFO_KEY;
         mockServletRequest.setAttribute(key, mockLoggedInInfo);
         mockSession.setAttribute(key, mockLoggedInInfo);
 
@@ -202,7 +210,11 @@ public abstract class CarlosSoapTestBase extends CarlosUnitTestBase {
 
         @Override
         public void handleMessage(Message message) {
+            // Required for CXF HTTP destination layer
             message.put(AbstractHTTPDestination.HTTP_REQUEST, mockRequest);
+            // Required for JAX-WS WebServiceContext: AbstractWs.getHttpServletRequest()
+            // reads from MessageContext.SERVLET_REQUEST, not AbstractHTTPDestination
+            message.put(MessageContext.SERVLET_REQUEST, mockRequest);
         }
     }
 }

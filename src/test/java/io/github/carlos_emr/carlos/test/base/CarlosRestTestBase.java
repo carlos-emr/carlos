@@ -91,6 +91,12 @@ import org.springframework.mock.web.MockHttpSession;
  * {@code AbstractServiceImpl.getLoggedInInfo()} without requiring real sessions
  * or OAuth. The mock is accessible via {@link #mockLoggedInInfo}.</p>
  *
+ * <p><b>Mockito lifecycle:</b> This class calls
+ * {@code MockitoAnnotations.openMocks(this)} in its {@code @BeforeEach},
+ * which initializes {@code @Mock} fields in both this class and subclasses.
+ * Subclasses should NOT call {@code openMocks} themselves — doing so would
+ * open a second Mockito session for the same fields.</p>
+ *
  * @since 2026-03-31
  * @see CarlosUnitTestBase
  * @see CarlosSoapTestBase
@@ -153,8 +159,11 @@ public abstract class CarlosRestTestBase extends CarlosUnitTestBase {
         MockHttpSession mockSession = new MockHttpSession();
         mockServletRequest.setSession(mockSession);
 
-        // Set LoggedInInfo in both session and request attributes
-        String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
+        // Set LoggedInInfo in both session and request attributes.
+        // Both locations are needed: AbstractServiceImpl.getLoggedInInfo() reads
+        // from session first, but falls back to request attributes when the session
+        // value has a null loggedInProvider (which mocks do by default).
+        String key = new LoggedInInfo().LOGGED_IN_INFO_KEY;
         mockServletRequest.setAttribute(key, mockLoggedInInfo);
         mockSession.setAttribute(key, mockLoggedInInfo);
 
@@ -183,6 +192,18 @@ public abstract class CarlosRestTestBase extends CarlosUnitTestBase {
         if (mockitoCloseable != null) {
             mockitoCloseable.close();
         }
+    }
+
+    /**
+     * Returns a fresh {@link WebClient} copy that is reset to the base address.
+     * Use this instead of accessing {@link #client} directly to avoid path
+     * accumulation — CXF's {@code WebClient.path()} appends to the current
+     * URI rather than replacing it.
+     *
+     * @return a fresh WebClient copy with JSON accept/content-type
+     */
+    protected WebClient request() {
+        return WebClient.fromClient(client, true);
     }
 
     /**
