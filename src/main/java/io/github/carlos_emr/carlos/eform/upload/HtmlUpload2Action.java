@@ -101,7 +101,12 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
             this.formHtmlContentType = uploaded.getContentType();
             String rawName = uploaded.getOriginalName();
             if (rawName != null) {
-                this.formHtmlFileName = MiscUtils.sanitizeFileName(FilenameUtils.getName(rawName));
+                String sanitizedName = MiscUtils.sanitizeFileName(FilenameUtils.getName(rawName));
+                if (sanitizedName == null || sanitizedName.trim().isEmpty()) {
+                    this.formHtmlFileName = null;
+                } else {
+                    this.formHtmlFileName = sanitizedName;
+                }
             } else {
                 this.formHtmlFileName = null;
             }
