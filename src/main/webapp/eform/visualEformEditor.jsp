@@ -2968,7 +2968,7 @@ var EFORM_I18N = {
                             if ($img == null || $img.length <= 0) {
                                 $img = addBackgroundImage($pageDiv, src);
                             } else {
-                                $img.attr('src', encodeURI(src));
+                                $img.attr('src', encodeURIComponent(src));
                             }
                             $img.on('load', function() {
                                 var css;

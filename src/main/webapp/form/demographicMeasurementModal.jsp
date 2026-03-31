@@ -213,14 +213,14 @@
         let measurementInstructionElement = document.getElementById('measurementInstruction');
         let currentMeasurementObservationDateElement = document.getElementById('currentMeasurementObservationDate');
         currentMeasurementValueElement.value = currentMeasurementValue;
-        measurementInstructionElement.innerHTML = DOMPurify.sanitize(measurementInstruction);
+        measurementInstructionElement.textContent = measurementInstruction;
         currentMeasurementObservationDateElement.value = currentMeasurementObservationDate;
         existingMeasurementUsed = true;
     }
 
     function resetInstructions(measurementType) {
         let measurementInstructionElement = document.getElementById('measurementInstruction');
-        measurementInstructionElement.innerHTML = DOMPurify.sanitize(measurementTypeMap[measurementType].instructions);
+        measurementInstructionElement.textContent = measurementTypeMap[measurementType].instructions;
         existingMeasurementUsed = false;
     }
 
@@ -229,7 +229,8 @@
      * Calls callback(true) on Save, callback(false) on Okay.
      * Supports keyboard dismissal (ESC cancels) and overlay-click to cancel.
      * Note: bodyHtml is constructed from server measurement data within displayDemographicMeasurements(),
-     * not from user input, so innerHTML assignment is safe here (same pattern as the former alertify.confirm).
+     * not from user input. It contains onclick/onkeydown handlers that must be preserved, so
+     * DOMPurify cannot be used here (it strips event handler attributes by default).
      */
     function showMeasurementDialog(bodyHtml, callback) {
         var overlay = document.createElement('div');
@@ -240,7 +241,7 @@
 
         var bodyDiv = document.createElement('div');
         bodyDiv.className = 'meas-dialog-body';
-        bodyDiv.innerHTML = DOMPurify.sanitize(bodyHtml);
+        bodyDiv.innerHTML = bodyHtml;
 
         var footer = document.createElement('div');
         footer.className = 'meas-dialog-footer';
