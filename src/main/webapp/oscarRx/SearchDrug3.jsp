@@ -1797,15 +1797,6 @@ function saveCustomName(element){
 function updateDeleteOnCloseRxBox(){
     document.getElementById('deleteOnCloseRxBox').value='true';
 }
-function clearPending(actionValue) {
-    var form = document.forms["RxClearPendingForm"];
-    if (form && form.elements["action"]) {
-        form.elements["action"].value = actionValue;
-        form.submit();
-    } else {
-        console.warn("RxClearPendingForm not found, skipping clearPending()");
-    }
-}
 function popForm2(scriptId){
         try{
             var url = ctx + "/oscarRx/ViewScript2.jsp?scriptId="+scriptId;
