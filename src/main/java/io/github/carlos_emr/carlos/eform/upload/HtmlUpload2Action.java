@@ -42,6 +42,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
+import org.apache.commons.io.FilenameUtils;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
@@ -98,7 +100,17 @@ public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAwa
             UploadedFile uploaded = uploadedFiles.get(0);
             this.formHtml = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
             this.formHtmlContentType = uploaded.getContentType();
-            this.formHtmlFileName = uploaded.getOriginalName();
+            String rawName = uploaded.getOriginalName();
+            if (rawName != null) {
+                String sanitizedName = MiscUtils.sanitizeFileName(FilenameUtils.getName(rawName));
+                if (sanitizedName == null || sanitizedName.trim().isEmpty()) {
+                    this.formHtmlFileName = null;
+                } else {
+                    this.formHtmlFileName = sanitizedName;
+                }
+            } else {
+                this.formHtmlFileName = null;
+            }
         }
     }
 
