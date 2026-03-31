@@ -144,7 +144,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
             throw new IllegalArgumentException();
         }
 
-        ProgramProvider result = currentSession().get(ProgramProvider.class, id);
+        ProgramProvider result = currentSession().find(ProgramProvider.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramProvider: id=" + id + ",found=" + (result != null));

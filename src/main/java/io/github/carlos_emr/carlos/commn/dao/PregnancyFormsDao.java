@@ -35,16 +35,19 @@ package io.github.carlos_emr.carlos.commn.dao;
 public interface PregnancyFormsDao {
 
     /** @deprecated formONAREnhancedRecord table removed (2026-03-25) */
+    @Deprecated
     public static Integer getLatestFormIdByPregnancy(Integer episodeId) {
         return 0;
     }
 
     /** @deprecated formONAREnhancedRecord table removed (2026-03-25) */
+    @Deprecated
     public static Integer getLatestFormIdByDemographicNo(Integer demographicNo) {
         return 0;
     }
 
     /** @deprecated formONAR table removed (2026-03-25) */
+    @Deprecated
     public static Integer getLatestAR2005FormIdByDemographicNo(Integer demographicNo) {
         return 0;
     }

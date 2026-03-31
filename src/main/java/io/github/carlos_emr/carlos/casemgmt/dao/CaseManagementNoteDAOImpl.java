@@ -128,8 +128,8 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
 
     @Override
     public CaseManagementNote getNote(Long id) {
-        CaseManagementNote note = currentSession().get(CaseManagementNote.class, id);
-        // currentSession().get() returns null when no record exists for the given id;
+        CaseManagementNote note = currentSession().find(CaseManagementNote.class, id);
+        // currentSession().find() returns null when no record exists for the given id;
         // guard prevents NPE on lazy-collection initialization for deleted or missing notes
         if (note != null) {
             Hibernate.initialize(note.getIssues());

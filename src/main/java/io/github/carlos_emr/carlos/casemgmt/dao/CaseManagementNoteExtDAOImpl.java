@@ -45,7 +45,7 @@ public class CaseManagementNoteExtDAOImpl extends AbstractHibernateDao implement
 
     @Override
     public CaseManagementNoteExt getNoteExt(Long id) {
-        CaseManagementNoteExt noteExt = currentSession().get(CaseManagementNoteExt.class, id);
+        CaseManagementNoteExt noteExt = currentSession().find(CaseManagementNoteExt.class, id);
         return noteExt;
     }
 

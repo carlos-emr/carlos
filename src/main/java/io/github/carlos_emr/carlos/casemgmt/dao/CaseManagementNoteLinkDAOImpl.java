@@ -43,7 +43,7 @@ public class CaseManagementNoteLinkDAOImpl extends AbstractHibernateDao implemen
 
     @Override
     public CaseManagementNoteLink getNoteLink(Long id) {
-        CaseManagementNoteLink noteLink = currentSession().get(CaseManagementNoteLink.class, id);
+        CaseManagementNoteLink noteLink = currentSession().find(CaseManagementNoteLink.class, id);
         return noteLink;
     }
 

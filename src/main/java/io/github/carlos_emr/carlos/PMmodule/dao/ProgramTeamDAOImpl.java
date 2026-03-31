@@ -57,7 +57,7 @@ public class ProgramTeamDAOImpl extends AbstractHibernateDao implements ProgramT
             log.debug("teamExists: called with null teamId, returning false");
             return false;
         }
-        boolean exists = currentSession().get(ProgramTeam.class, teamId) != null;
+        boolean exists = currentSession().find(ProgramTeam.class, teamId) != null;
         log.debug("teamExists: " + exists);
 
         return exists;
@@ -99,7 +99,7 @@ public class ProgramTeamDAOImpl extends AbstractHibernateDao implements ProgramT
             throw new IllegalArgumentException();
         }
 
-        ProgramTeam result = currentSession().get(ProgramTeam.class, id);
+        ProgramTeam result = currentSession().find(ProgramTeam.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramTeam: id=" + id + ",found=" + (result != null));

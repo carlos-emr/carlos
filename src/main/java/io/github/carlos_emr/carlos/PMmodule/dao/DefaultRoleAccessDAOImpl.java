@@ -47,7 +47,7 @@ public class DefaultRoleAccessDAOImpl extends AbstractHibernateDao implements De
     }
 
     public DefaultRoleAccess getDefaultRoleAccess(Long id) {
-        return currentSession().get(DefaultRoleAccess.class, id);
+        return currentSession().find(DefaultRoleAccess.class, id);
     }
 
     public List<DefaultRoleAccess> getDefaultRoleAccesses() {

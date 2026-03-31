@@ -80,7 +80,7 @@ public class ProgramClientRestrictionDAOImpl extends AbstractHibernateDao implem
     }
 
     public ProgramClientRestriction find(int restrictionId) {
-        return setRelationships(currentSession().get(ProgramClientRestriction.class, restrictionId));
+        return setRelationships(currentSession().find(ProgramClientRestriction.class, restrictionId));
     }
 
     public Collection<ProgramClientRestriction> findForProgram(int programId) {

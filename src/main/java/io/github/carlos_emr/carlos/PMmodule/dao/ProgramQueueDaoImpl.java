@@ -51,7 +51,7 @@ public class ProgramQueueDaoImpl extends AbstractHibernateDao implements Program
             throw new IllegalArgumentException();
         }
 
-        ProgramQueue result = currentSession().get(ProgramQueue.class, queueId);
+        ProgramQueue result = currentSession().find(ProgramQueue.class, queueId);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramQueue: queueId=" + queueId + ", found=" + (result != null));

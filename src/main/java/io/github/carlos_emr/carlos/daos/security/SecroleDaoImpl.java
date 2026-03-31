@@ -62,7 +62,7 @@ public class SecroleDaoImpl extends AbstractHibernateDao implements SecroleDao {
             throw new IllegalArgumentException();
         }
 
-        Secrole result = currentSession().get(Secrole.class, Long.valueOf(id));
+        Secrole result = currentSession().find(Secrole.class, Long.valueOf(id));
 
         logger.debug("getRole: id=" + id + ",found=" + (result != null));
 

@@ -960,6 +960,7 @@ public final class Login2Action extends ActionSupport {
      * @throws Exception if SHA MessageDigest algorithm is not available
      * @deprecated SHA-1 is cryptographically weak; migrate to BCrypt or PBKDF2
      */
+    @Deprecated
     private String encodePassword(String password) throws Exception {
 
         MessageDigest md = MessageDigest.getInstance("SHA");

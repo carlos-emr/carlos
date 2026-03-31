@@ -64,7 +64,7 @@ public class ProgramClientStatusDAOImpl extends AbstractHibernateDao implements 
         }
 
         ProgramClientStatus pcs = null;
-        pcs = currentSession().get(ProgramClientStatus.class, Integer.valueOf(id));
+        pcs = currentSession().find(ProgramClientStatus.class, Integer.valueOf(id));
         if (pcs != null) return pcs;
         else return null;
     }

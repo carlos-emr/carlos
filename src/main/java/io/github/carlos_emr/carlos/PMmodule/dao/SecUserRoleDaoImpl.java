@@ -104,7 +104,7 @@ public class SecUserRoleDaoImpl extends AbstractHibernateDao implements SecUserR
 
     @Override
     public SecUserRole find(Long id) {
-        return currentSession().get(SecUserRole.class, id);
+        return currentSession().find(SecUserRole.class, id);
     }
 
     @Override
