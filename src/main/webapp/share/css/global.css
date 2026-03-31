@@ -51,6 +51,18 @@
     --bs-btn-active-border-color: color-mix(in srgb, var(--carlos-primary) 70%, black);
 }
 
+/* Bootstrap pagination — retheme to CARLOS blue via Bootstrap's own CSS
+   custom properties. Must target .pagination (not .page-link) because Bootstrap
+   defines these variables on the parent <ul> and child elements inherit them. */
+.pagination {
+    --bs-pagination-color: var(--carlos-primary);
+    --bs-pagination-hover-color: color-mix(in srgb, var(--carlos-primary) 75%, black);
+    --bs-pagination-hover-border-color: var(--carlos-primary);
+    --bs-pagination-focus-color: var(--carlos-primary);
+    --bs-pagination-active-bg: var(--carlos-primary);
+    --bs-pagination-active-border-color: var(--carlos-primary);
+}
+
 a {
     color: var(--carlos-link);
 }
