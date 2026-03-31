@@ -18,7 +18,8 @@ function restoreCheckboxStates() {
   // set matching checkboxes in one pass
   checkedNames.forEach(function(name) {
     // note the [i] for case-insensitive attr match in modern browsers
-    const selector = 'input[type="checkbox"][name="' + name + '" i]';
+    var safeName = name.replace(/[^\w.\-:]/g, '');
+    const selector = 'input[type="checkbox"][name="' + safeName + '" i]';
     document.querySelectorAll(selector).forEach(cb => cb.checked = true);
   });
 }

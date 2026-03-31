@@ -79,9 +79,17 @@ function addDemoToHrm(reportId) {
         data: "method=assignDemographic&reportId=" + reportId + "&demographicNo=" + demographicNo,
         success: function (data) {
             if (data != null && data.indexOf('Success') !== -1) {
-                document.getElementById("demostatus" + reportId).innerHTML = data + "<br/>" +
-                    document.getElementById('autocompletedemo' + reportId + 'hrm').value.split('(')[0] +
-                    "<a href=\"#\" onclick=\"removeDemoFromHrm('" + reportId + "')\">(remove)</a>";
+                var container = document.getElementById("demostatus" + reportId);
+                container.textContent = '';
+                container.appendChild(document.createTextNode(data));
+                container.appendChild(document.createElement('br'));
+                var demoName = document.getElementById('autocompletedemo' + reportId + 'hrm').value.split('(')[0];
+                container.appendChild(document.createTextNode(demoName));
+                var removeLink = document.createElement('a');
+                removeLink.href = '#';
+                removeLink.textContent = '(remove)';
+                removeLink.addEventListener('click', function(e) { e.preventDefault(); removeDemoFromHrm(reportId); });
+                container.appendChild(removeLink);
                 document.getElementById('autocompletedemo' + reportId + 'hrm').style.display = 'none';
                 toggleButtonBar(true, reportId);
             }
@@ -105,8 +113,13 @@ function removeDemoFromHrm(reportId) {
         data: "method=removeDemographic&reportId=" + reportId,
         success: function (data) {
             if (data != null && data.indexOf('Success') !== -1) {
-                document.getElementById("demostatus" + reportId).innerHTML = data + "<br/>" +
-                    "<i>Not currently linked</i>";
+                var container = document.getElementById("demostatus" + reportId);
+                container.textContent = '';
+                container.appendChild(document.createTextNode(data));
+                container.appendChild(document.createElement('br'));
+                var italic = document.createElement('i');
+                italic.textContent = 'Not currently linked';
+                container.appendChild(italic);
                 document.getElementById('autocompletedemo' + reportId + 'hrm').value = "";
                 document.getElementById('autocompletedemo' + reportId + 'hrm').style.display = '';
                 document.getElementById('demofind' + reportId + 'hrm').value = null;

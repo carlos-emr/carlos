@@ -357,6 +357,7 @@ function loadTemplate(selectname){
   	var cursel = document.getElementById(selectname).selectedIndex;
   	if (cursel != 0) { // First one is a label
     	var selected = document.getElementById(selectname).options[cursel].value;
+		if (!/^[\w.\-]+$/.test(selected)) { console.warn('loadTemplate: rejected template name:', selected); return; }
 		//document.getElementById(cfg_editorname).src = cfg_filesrc + selected + '.html' ; //FF != IE
 		window.frames[0].location = cfg_filesrc + selected; //FF & IE ***ASSUMES 1 iframe!
 		document.getElementById('subject').value = selected == 'blank.rtl' ? "" : selected.substring(0, selected.lastIndexOf("."));		

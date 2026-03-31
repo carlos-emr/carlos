@@ -275,11 +275,9 @@
                 }
             }
 
-            // Then, decode HTML entities
-            // Create a temporary element to leverage browser's HTML decoding
-            const textarea = document.createElement('textarea');
-            textarea.innerHTML = normalized;
-            normalized = textarea.value;
+            // Then, decode HTML entities using DOMParser (safe — no script execution)
+            var doc = new DOMParser().parseFromString(normalized, 'text/html');
+            normalized = doc.documentElement.textContent;
 
             return normalized.trim();
         }

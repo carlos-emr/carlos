@@ -479,7 +479,10 @@
 				}
 
 			} else {
-				$io = $('<iframe name="' + id + '" src="' + s.iframeSrc + '" />', ownerDocument);
+				var iframeEl = ownerDocument.createElement('iframe');
+				iframeEl.name = id;
+				iframeEl.src = s.iframeSrc || 'about:blank';
+				$io = $(iframeEl);
 				$io.css({position: 'absolute', top: '-1000px', left: '-1000px'});
 			}
 			io = $io[0];
@@ -668,12 +671,18 @@
 							if (s.extraData.hasOwnProperty(n)) {
 								// if using the $.param format that allows for multiple values with the same name
 								if ($.isPlainObject(s.extraData[n]) && s.extraData[n].hasOwnProperty('name') && s.extraData[n].hasOwnProperty('value')) {
+									var hiddenInput1 = ownerDocument.createElement('input');
+									hiddenInput1.type = 'hidden';
+									hiddenInput1.name = s.extraData[n].name;
 									extraInputs.push(
-										$('<input type="hidden" name="' + s.extraData[n].name + '">', ownerDocument).val(s.extraData[n].value)
+										$(hiddenInput1).val(s.extraData[n].value)
 											.appendTo(form)[0]);
 								} else {
+									var hiddenInput2 = ownerDocument.createElement('input');
+									hiddenInput2.type = 'hidden';
+									hiddenInput2.name = n;
 									extraInputs.push(
-										$('<input type="hidden" name="' + n + '">', ownerDocument).val(s.extraData[n])
+										$(hiddenInput2).val(s.extraData[n])
 											.appendTo(form)[0]);
 								}
 							}

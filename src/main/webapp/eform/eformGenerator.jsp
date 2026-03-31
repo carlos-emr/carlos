@@ -261,14 +261,14 @@ and other liscences (MIT, LGPL etc) as indicated
             if (img.value == "") {
                 return;
             }
-            if (bg.src.indexOf(img.value) > 0) {
+            if (bg.src.indexOf(encodeURIComponent(img.value)) > 0) {
                 var r = confirm('<fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.loadFileAgain"/> ' + img.value + ' <fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.Again"/>');
                 if (r != true) {
                     return;
                 }
             }
             //Boilerplate mod to set the path for image function
-            bg.src = ("<%=request.getContextPath()%>" + "/eform/displayImage.do?imagefile=" + img.value);
+            bg.src = ("<%=request.getContextPath()%>" + "/eform/displayImage.do?imagefile=" + encodeURIComponent(img.value));
             PageNum = PageNum + 1;
 
             DrawPage(jg, PageNum, img.value, bg.width)

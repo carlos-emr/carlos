@@ -29,6 +29,7 @@
 
 --%>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
+<script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
 <script type="text/javascript" src="${pageContext.request.contextPath}/library/moment.js"></script>
 
 <style type="text/css">
@@ -212,14 +213,14 @@
         let measurementInstructionElement = document.getElementById('measurementInstruction');
         let currentMeasurementObservationDateElement = document.getElementById('currentMeasurementObservationDate');
         currentMeasurementValueElement.value = currentMeasurementValue;
-        measurementInstructionElement.innerHTML = measurementInstruction;
+        measurementInstructionElement.innerHTML = DOMPurify.sanitize(measurementInstruction);
         currentMeasurementObservationDateElement.value = currentMeasurementObservationDate;
         existingMeasurementUsed = true;
     }
 
     function resetInstructions(measurementType) {
         let measurementInstructionElement = document.getElementById('measurementInstruction');
-        measurementInstructionElement.innerHTML = measurementTypeMap[measurementType].instructions;
+        measurementInstructionElement.innerHTML = DOMPurify.sanitize(measurementTypeMap[measurementType].instructions);
         existingMeasurementUsed = false;
     }
 
@@ -239,7 +240,7 @@
 
         var bodyDiv = document.createElement('div');
         bodyDiv.className = 'meas-dialog-body';
-        bodyDiv.innerHTML = bodyHtml; // NOSONAR: content built from server data, not user input
+        bodyDiv.innerHTML = DOMPurify.sanitize(bodyHtml);
 
         var footer = document.createElement('div');
         footer.className = 'meas-dialog-footer';

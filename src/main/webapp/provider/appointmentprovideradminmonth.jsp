@@ -417,7 +417,7 @@
                         a = self.location.href.substring(0, self.location.href.lastIndexOf("&providerview="));
                     else
                         a = self.location.href;
-                    self.location.href = a + "&providerview=" + s.options[s.selectedIndex].value;
+                    self.location.href = a + "&providerview=" + encodeURIComponent(s.options[s.selectedIndex].value);
                 }
             }
 

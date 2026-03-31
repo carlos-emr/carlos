@@ -1192,7 +1192,11 @@ function dialogs(page) {
 }
 
 function onPageChange(pageNo) {
-    var url = pageNo !== '6' ? 'formBCAR2020pg' + pageNo + '.jsp?demographic_no=' + demographicNo + '&formId=' + formId + '&provNo=' + provNo : 'formBCAR2020Attachments.jsp?demographic_no=' + demographicNo + '&formId=' + formId + '&provNo=' + provNo;
+    var params = 'demographic_no=' + encodeURIComponent(demographicNo)
+        + '&formId=' + encodeURIComponent(formId)
+        + '&provNo=' + encodeURIComponent(provNo);
+    var page = pageNo !== '6' ? 'formBCAR2020pg' + pageNo + '.jsp' : 'formBCAR2020Attachments.jsp';
+    var url = page + '?' + params;
 
     var result = false;
     var isValid = validate();

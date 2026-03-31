@@ -42,6 +42,7 @@
     <script type="text/javascript">
         function popupPage(vheight, vwidth, varpage) { //open a new popup window
             var page = "" + varpage;
+            if (/^(javascript|data|vbscript):/i.test(page)) { console.error('popupPage: blocked dangerous protocol'); return; }
             windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";//360,680
             window.location = page;
         }
