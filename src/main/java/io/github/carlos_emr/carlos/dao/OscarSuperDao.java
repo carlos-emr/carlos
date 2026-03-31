@@ -53,6 +53,10 @@ public abstract class OscarSuperDao {
     }
 
     protected JdbcTemplate getJdbcTemplate() {
+        if (jdbcTemplate == null) {
+            throw new IllegalStateException(
+                    "JdbcTemplate has not been initialized. Ensure setDataSource(DataSource) is called for " + getClass().getName());
+        }
         return jdbcTemplate;
     }
 
