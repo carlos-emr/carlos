@@ -57,7 +57,9 @@
  *   <li>{@code load} - optional: URL to load into the dynamic content pane on page load</li>
  * </ul>
  *
- * @since 2001-01-01 (original McMaster), 2026-03-19 (Bootstrap 5.3 modernization)
+ * @since 2026-03-21 (Bootstrap 5.3 modernization, CARLOS EMR). Original administration dashboard
+ *        was introduced in legacy OSCAR EMR prior to the CARLOS fork; refer to git history
+ *        for the earliest introduction date.
  */
 --%>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -107,11 +109,12 @@
     int curDay = cal.get(Calendar.DAY_OF_MONTH);
 %>
 
+<fmt:setBundle basename="oscarResources"/>
 <!doctype html>
 <html lang="en">
 
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.page.title"/></title>
+    <title><fmt:message key="admin.admin.page.title"/></title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
     <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
@@ -294,32 +297,32 @@
     <div class="d-print-none d-flex justify-content-end align-items-center gap-3">
         <span class="d-flex align-items-center gap-1">
             <i class="fa-solid fa-circle-question"></i>
-            <%if (resourcehelpHtml == null || resourcehelpHtml.isEmpty()) { %>
-            <a href="#" ONCLICK="popupPage(600,750,'<%=Encode.forJavaScript(resourcebaseurl)%>');return false;" title=""
-               onmouseover="window.status='';return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a>
+            <%if (resourcehelpHtml.isEmpty()) { %>
+            <a href="#" ONCLICK="popupPage(600,750,'<%=Encode.forJavaScriptAttribute(resourcebaseurl)%>');return false;" title=""
+               onmouseover="window.status='';return true"><fmt:message key="global.help"/></a>
             <%} else {%>
-            <span id="help-link">
+            <div id="help-link">
                 <a href="javascript:void(0)"
-                   onclick="document.getElementById('helpHtml').style.display='block';document.getElementById('helpHtml').style.right='0px';"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a>
+                   onclick="document.getElementById('helpHtml').style.display='block';document.getElementById('helpHtml').style.right='0px';"><fmt:message key="global.help"/></a>
 
                 <div id="helpHtml">
-                    <div class="help-title"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></div>
+                    <div class="help-title"><fmt:message key="global.help"/></div>
 
                     <div class="help-body">
 
-                        <%=Encode.forHtml(resourcehelpHtml)%>
+                        <%=resourcehelpHtml%>
                     </div>
                     <a href="javascript:void(0)" class="help-close"
-                       onclick="document.getElementById('helpHtml').style.right='-280px';document.getElementById('helpHtml').style.display='none'"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.close"/></a>
+                       onclick="document.getElementById('helpHtml').style.right='-280px';document.getElementById('helpHtml').style.display='none'"><fmt:message key="global.close"/></a>
                 </div>
 
-            </span>
+            </div>
             <%}%>
         </span>
         <span class="d-flex align-items-center gap-1">
             <i class="fa-solid fa-circle-info"></i>
             <a href="javascript:void(0)"
-               onClick="window.open('<%=request.getContextPath()%>/encounter/About.jsp','About CARLOS EMR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
+               onClick="window.open('<%=request.getContextPath()%>/encounter/About.jsp','About CARLOS EMR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:message key="global.about"/></a>
         </span>
     </div>
 
@@ -343,7 +346,7 @@
                     <div class="card card-body bg-body-tertiary quick-links">
                         <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/unLock.jsp"><i
                                 class="fa-solid fa-user fa-4x"></i>
-                            <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.unlockAcct"/></h5></a>
+                            <h5><fmt:message key="admin.admin.unlockAcct"/></h5></a>
                     </div>
                 </security:oscarSec>
 
@@ -352,13 +355,13 @@
                     <div class="card card-body bg-body-tertiary quick-links">
                         <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/provideraddarecordhtm.jsp"><i
                                 class="fa-solid fa-user fa-4x"></i>
-                            <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddProvider"/></h5></a>
+                            <h5><fmt:message key="admin.admin.btnAddProvider"/></h5></a>
                     </div>
 
                     <div class="card card-body bg-body-tertiary quick-links">
                         <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/securityaddarecord.jsp"><i
                                 class="fa-solid fa-user fa-4x"></i>
-                            <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddLogin"/></h5></a>
+                            <h5><fmt:message key="admin.admin.btnAddLogin"/></h5></a>
                     </div>
                 </security:oscarSec>
 
@@ -367,7 +370,7 @@
                     <div class="card card-body bg-body-tertiary quick-links">
                         <a href="${ctx}/eform/efmformmanager.jsp" class="contentLink defaultForms"><i
                                 class="fa-solid fa-file fa-4x"></i>
-                            <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgManageEFrm"/></h5></a>
+                            <h5><fmt:message key="eform.showmyform.msgManageEFrm"/></h5></a>
                     </div>
                 </security:oscarSec>
 
@@ -375,15 +378,15 @@
                                    reverse="<%=false%>">
                     <div class="card card-body bg-body-tertiary quick-links">
                         <a href="javascript:void(0);" class="xlink" rel="${ctx}/schedule/scheduletemplatesetting.jsp"
-                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleSettingTitle"/>"><i
+                           title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><i
                                 class="fa-solid fa-calendar fa-4x"></i>
-                            <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleSetting"/></h5></a>
+                            <h5><fmt:message key="admin.admin.scheduleSetting"/></h5></a>
                     </div>
 
                     <div class="card card-body bg-body-tertiary quick-links">
                         <a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/admindisplaymygroup.jsp"><i
                                 class="fa-solid fa-calendar fa-4x"></i>
-                            <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></h5></a>
+                            <h5><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></h5></a>
                     </div>
                 </security:oscarSec>
 
@@ -392,7 +395,7 @@
                     <div class="card card-body bg-body-tertiary quick-links">
                         <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/providertemplate.jsp"><i
                                 class="fa-solid fa-suitcase-medical fa-4x"></i>
-                            <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnInsertTemplate"/></h5></a>
+                            <h5><fmt:message key="admin.admin.btnInsertTemplate"/></h5></a>
                     </div>
                 </security:oscarSec>
 
@@ -401,7 +404,7 @@
                     <div class="card card-body bg-body-tertiary quick-links">
                         <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/providerPrivilege.jsp"><i
                                 class="fa-solid fa-wrench fa-4x"></i>
-                            <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.assignRightsObject"/></h5></a>
+                            <h5><fmt:message key="admin.admin.assignRightsObject"/></h5></a>
                     </div>
                 </security:oscarSec>
             </div>
@@ -577,7 +580,7 @@
     function popupPage(vheight, vwidth, varpage) {
         var page = "" + varpage;
         windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
-        var popup = window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>", windowprops);
+        var popup = window.open(page, "<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>", windowprops);
         if (popup != null) {
             if (popup.opener == null) {
                 popup.opener = self;
