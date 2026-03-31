@@ -34,6 +34,8 @@ import org.apache.struts2.ActionSupport;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.BatchEligibilityDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
@@ -61,7 +63,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
-public class BillingDocumentErrorReportUpload2Action extends ActionSupport {
+public class BillingDocumentErrorReportUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -396,6 +398,16 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport {
     private String file1ContentType; // Content type of the uploaded file
 
     private String filename; // Filename parameter from request
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.file1 = new File(uploaded.getAbsolutePath());
+            this.file1ContentType = uploaded.getContentType();
+            this.file1FileName = uploaded.getOriginalName();
+        }
+    }
 
     public File getFile1() {
         return file1;

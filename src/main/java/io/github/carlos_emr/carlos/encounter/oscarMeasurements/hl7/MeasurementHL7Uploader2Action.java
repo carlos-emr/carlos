@@ -66,9 +66,11 @@ import ca.uhn.hl7v2.validation.impl.NoValidation;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
-public class MeasurementHL7Uploader2Action extends ActionSupport {
+public class MeasurementHL7Uploader2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -249,6 +251,14 @@ public class MeasurementHL7Uploader2Action extends ActionSupport {
     }
 
     private File importFile;
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.importFile = new File(uploaded.getAbsolutePath());
+        }
+    }
 
     public File getImportFile() {
         return importFile;

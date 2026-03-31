@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
+<!--
+    CARLOS EMR - Clinical Actions
+    Contains action mappings for diagnosis research, prevention/immunization, case management notes, clinical decision support, and renal care.
+-->
+<struts>
+    <package name="clinical" namespace="/" extends="struts-default">
+
+        <action name="encounter/decisionSupport/guidelineAction" class="io.github.carlos_emr.carlos.decisionSupport.web.DSGuideline2Action" method="execute">
+            <result name="guidelineList">/encounter/decisionSupport/guidelineList.jsp</result>
+            <result name="guidelineDetail">/encounter/decisionSupport/guidelineDetail.jsp</result>
+        </action>
+        <action name="encounter/MeasurementData" class="io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action"/>
+        <action name="oscarResearch/oscarDxResearch/setupDxResearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxSetupResearch2Action">
+            <result name="success">/oscarResearch/oscarDxResearch/dxResearch.jsp</result>
+        </action>
+        <action name="oscarResearch/dxresearch/setupDxResearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxSetupResearch2Action">
+            <result name="success">/oscarResearch/oscarDxResearch/dxResearch.jsp</result>
+        </action>
+        <action name="oscarResearch/oscarDxResearch/dxResearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearch2Action">
+            <result name="codeSearch">/oscarResearch/oscarDxResearch/dxcodeSearch.do</result>
+            <result name="success">/oscarResearch/oscarDxResearch/setupDxResearch.do</result>
+            <result name="codeList">/oscarResearch/oscarDxResearch/quickCodeList.jsp</result>
+        </action>
+        <action name="oscarResearch/oscarDxResearch/dxResearchCodeSearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchCodeSearch2Action">
+            <result name="success">/oscarResearch/oscarDxResearch/dxResearchCodeSearch.jsp</result>
+        </action>
+        <action name="oscarResearch/oscarDxResearch/dxResearchUpdate" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchUpdate2Action">
+            <result name="success">/oscarResearch/oscarDxResearch/setupDxResearch.do</result>
+        </action>
+        <action name="oscarResearch/dxresearch/dxResearchUpdate" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchUpdate2Action">
+            <result name="success">/oscarResearch/oscarDxResearch/setupDxResearch.do</result>
+        </action>
+        <action name="oscarResearch/oscarDxResearch/dxResearchLoadQuickList" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchLoadQuickList2Action">
+            <result name="success">/oscarResearch/oscarDxResearch/dxResearchSelectQuickList.jsp</result>
+        </action>
+        <action name="oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchLoadQuickListItems2Action">
+            <result name="success">/oscarResearch/oscarDxResearch/dxResearchEditQuickList.jsp</result>
+        </action>
+        <action name="oscarResearch/oscarDxResearch/dxResearchUpdateQuickList" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchUpdateQuickList2Action">
+            <result name="success">/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems.do</result>
+        </action>
+        <action name="dxCodeSearchJSON" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxCodeSearchJSON2Action"/>
+        <action name="oscarResearch/oscarDxResearch/dxResearchLoadAssociations" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchLoadAssociations2Action">
+            <interceptor-ref name="defaultStack"/>
+            <result name="success">/oscarResearch/oscarDxResearch/dxResearchSelectAssociations.jsp</result>
+        </action>
+        <action name="oscarPrevention/AddPrevention" class="io.github.carlos_emr.carlos.prevention.pageUtil.AddPrevention2Action">
+            <result name="success">/oscarPrevention/close.jsp</result>
+            <result name="review">/oscarPrevention/review.jsp</result>
+            <result name="form">/oscarPrevention/AddPreventionData.jsp</result>
+        </action>
+        <action name="oscarPrevention/PreventionReport" class="io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReport2Action">
+            <result name="success">/oscarPrevention/PreventionReporting.jsp</result>
+        </action>
+        <action name="oscarPrevention/printPrevention" class="io.github.carlos_emr.carlos.prevention.pageUtil.PreventionPrint2Action">
+            <result name="error">/oscarPrevention/index.jsp</result>
+        </action>
+        <action name="CaseManagementView" class="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementView2Action" method="execute">
+            <result name="view">/casemgmt/CaseManagementView.jsp</result>
+            <result name="ajaxView">/casemgmt/ChartNotes.jsp</result>
+            <result name="ajaxDisplayNotes">/casemgmt/ChartNotesAjax.jsp</result>
+            <result name="page.casemgmt.view">/casemgmt/encounterLayout.jsp</result>
+            <result name="page.newcasemgmt.view">/casemgmt/newEncounterLayout.jsp</result>
+            <result name="domain-error">/casemgmt/domain-error.jsp</result>
+            <result name="clientNeverInTheProgramError">/casemgmt/clientNeverInTheProgramError.jsp</result>
+            <result name="unlockForm">/casemgmt/unlockNoteForm.jsp</result>
+            <result name="unlockSuccess">/casemgmt/unlockNoteSuccess.jsp</result>
+            <result name="unlockError">/casemgmt/unlockNoteError.jsp</result>
+            <result name="unlock_ajax">/casemgmt/unlockAjax.jsp</result>
+            <result name="expired">/casemgmt/expired.jsp</result>
+            <result name="listNotes">/casemgmt/viewNotes.jsp</result>
+            <result name="displayNote">/casemgmt/displayNote.jsp</result>
+            <result name="clientHistoryPrintPreview">/casemgmt/client_history_printPreview.jsp</result>
+        </action>
+        <action name="CaseManagementEntry" class="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntry2Action" method="execute">
+            <result name="setUpMainEncounterPage">/casemgmt/newEncounterLayout.jsp</result>
+            <result name="view">/casemgmt/CaseManagementEntry.jsp</result>
+            <result name="list">/CaseManagementView.do?method=view</result>
+            <result name="listCPPNotes" type="redirect">
+            <param name="location">${reloadUrl}</param>
+        </result>
+            <result name="IssueSearch">/casemgmt/IssueSearch.jsp</result>
+            <result name="NoDemoERR">/casemgmt/noDemo.jsp</result>
+            <result name="windowClose">/casemgmt/close.jsp</result>
+            <result name="windowCloseError">/casemgmt/closeWithError.jsp</result>
+            <result name="historyview">/casemgmt/historyview.jsp</result>
+            <result name="showHistory">/casemgmt/showHistory.jsp</result>
+            <result name="issueAutoCompletion">/casemgmt/IssueList.jsp</result>
+            <result name="issueList_ajax">/casemgmt/noteIssueList.jsp</result>
+            <result name="expired">/casemgmt/expired.jsp</result>
+        </action>
+        <action name="OscarChartPrint" class="io.github.carlos_emr.carlos.casemgmt.web.EChartPrint2Action"/>
+        <action name="ClientImage" class="io.github.carlos_emr.carlos.casemgmt.web.ClientImage2Action" method="execute">
+            <interceptor-ref name="defaultStack">
+                <param name="actionFileUpload.allowedTypes">image/jpeg,image/gif</param>
+            </interceptor-ref>
+            <result name="success">/casemgmt/uploadimage.jsp</result>
+        </action>
+        <action name="casemgmt/ExtPrintRegistry" class="io.github.carlos_emr.carlos.casemgmt.web.ExtPrintRegistry2Action"/>
+        <action name="casemgmt/RegisterCppCode" class="io.github.carlos_emr.carlos.casemgmt.web.RegisterCppCode2Action"/>
+        <action name="ArchiveView" class="io.github.carlos_emr.carlos.casemgmt.web.ArchiveView2Action" method="execute">
+            <result name="view">/provider/providercontrol.jsp</result>
+        </action>
+        <action name="renal/CkdDSA" class="io.github.carlos_emr.carlos.renal.web.CkdDSA2Action">
+            <result name="detail">/renal/ckd_dsa_detail.jsp</result>
+        </action>
+        <action name="renal/Renal" class="io.github.carlos_emr.carlos.renal.web.Renal2Action"/>
+
+    </package>
+</struts>

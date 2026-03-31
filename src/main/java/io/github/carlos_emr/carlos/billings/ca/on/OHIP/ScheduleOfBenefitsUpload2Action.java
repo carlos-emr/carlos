@@ -50,9 +50,11 @@ import io.github.carlos_emr.CarlosProperties;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
-public class ScheduleOfBenefitsUpload2Action extends ActionSupport {
+public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -167,6 +169,15 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport {
     private boolean updateAnaesthetistFees;
     private BigDecimal updateAssistantFeesValue;
     private BigDecimal updateAnaesthetistFeesValue;
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.importFile = new File(uploaded.getAbsolutePath());
+            this.importFileFileName = uploaded.getOriginalName();
+        }
+    }
 
     public File getImportFile() {
         return importFile;

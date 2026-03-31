@@ -55,24 +55,64 @@ import io.github.carlos_emr.carlos.util.SqlUtils;
 
 public interface CaseManagementNoteDAO {
 
+    /**
+     * Retrieves all case management notes.
+     */
     public List<CaseManagementNote> findAll();
 
+    /**
+     * Retrieves a list of editors associated with a given case management note.
+     *
+     * @param note the CaseManagementNote for which to retrieve editors
+     * @return a list of Provider objects representing the editors
+     */
     public List<Provider> getEditors(CaseManagementNote note);
 
+    /**
+     * Retrieves a list of all editors associated with the given demographic number.
+     */
     public List<Provider> getAllEditors(String demographicNo);
 
+    /**
+     * Retrieves the history of a specific case management note.
+     *
+     * @param note the CaseManagementNote for which to retrieve the history
+     * @return a list of CaseManagementNote representing the history
+     */
     public List<CaseManagementNote> getHistory(CaseManagementNote note);
 
+    /**
+     * Retrieves the history of case management notes for the specified issue IDs.
+     *
+     * @param issueIds a string containing the issue IDs
+     * @param demoNo a string representing the demo number
+     * @return a list of CaseManagementNote objects associated with the given issue IDs
+     */
     public List<CaseManagementNote> getIssueHistory(String issueIds, String demoNo);
 
+    /**
+     * Retrieves a case management note by its identifier.
+     *
+     * @param id the identifier of the note to retrieve; must not be null
+     * @return the CaseManagementNote associated with the given id
+     */
     public CaseManagementNote getNote(Long id);
 
     public List<CaseManagementNote> getNotes(List<Long> ids);
 
+    /**
+     * Retrieves the most recent case management note for the specified UUID.
+     */
     public CaseManagementNote getMostRecentNote(String uuid);
 
+    /**
+     * Retrieves a list of case management notes associated with the specified UUID.
+     */
     public List<CaseManagementNote> getNotesByUUID(String uuid);
 
+    /**
+     * Retrieves case management notes based on the provided demographic number, issue ID, and stale date.
+     */
     public List<CaseManagementNote> getCPPNotes(String demoNo, long issueId, String staleDate);
 
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no, String[] issues, String staleDate);
@@ -81,14 +121,45 @@ public interface CaseManagementNoteDAO {
 
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no);
 
+    /**
+     * Retrieves a list of case management notes for a specific demographic since a given date.
+     *
+     * @param demographic_no the demographic identifier; must not be null
+     * @param date the date from which to retrieve notes; must not be null
+     * @return a list of CaseManagementNote objects
+     */
     public List<CaseManagementNote> getNotesByDemographicSince(String demographic_no, Date date);
 
+    /**
+     * Retrieves the count of notes associated with a specific demographic ID.
+     *
+     * @param demographic_no the demographic ID to filter notes
+     * @return the count of notes for the specified demographic ID
+     */
     public long getNotesCountByDemographicId(String demographic_no);
 
+    /**
+     * Retrieves raw note information based on the specified demographic number.
+     *
+     * @param demographic_no the demographic number to filter notes
+     * @return a list of raw note information as Object arrays
+     */
     public List<Object[]> getRawNoteInfoByDemographic(String demographic_no);
 
+    /**
+     * Retrieves a list of raw note information maps based on the specified demographic number.
+     *
+     * @param demographic_no the demographic number to filter notes
+     * @return a list of maps containing raw note information
+     */
     public List<Map<String, Object>> getRawNoteInfoMapByDemographic(String demographic_no);
 
+    /**
+     * Retrieves a list of unsigned raw note information maps by demographic number.
+     *
+     * @param demographic_no the demographic number to filter notes
+     * @return a list of maps containing unsigned raw note information
+     */
     public List<Map<String, Object>> getUnsignedRawNoteInfoMapByDemographic(String demographic_no);
 
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no, Integer maxNotes);
@@ -99,29 +170,42 @@ public interface CaseManagementNoteDAO {
 
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no, String[] issueIds);
 
+    /**
+     * Retrieves case management notes based on demographic number and issue codes.
+     */
     public Collection<CaseManagementNote> findNotesByDemographicAndIssueCode(Integer demographic_no,
                                                                              String[] issueCodes);
 
+    /**
+     * Retrieves case management notes based on demographic and date range.
+     */
     public List<CaseManagementNote> getNotesByDemographicDateRange(String demographic_no, Date startDate, Date endDate);
 
+    /**
+     * Retrieves a list of case management notes based on demographic criteria with pagination.
+     */
     public List<CaseManagementNote> getNotesByDemographicLimit(String demographic_no, Integer offset,
                                                                Integer numToReturn);
 
+    /**
+     * Updates a case management note.
+     *
+     * @param note the CaseManagementNote to update; must not be null
+     */
     public void updateNote(CaseManagementNote note);
 
     /**
-     * Saves a case management note, handling both new and existing (detached) entities.
+     * Saves a case management note.
      *
      * @param note CaseManagementNote the note entity to save; must not be null
      */
     public void saveNote(CaseManagementNote note);
 
     /**
-     * Saves a case management note and returns the managed entity. For existing notes,
-     * callers should use the returned reference as merge may return a different instance.
+     * Saves a case management note and returns the managed entity.
      *
-     * @param note CaseManagementNote the note entity to save; must not be null
-     * @return Object the managed CaseManagementNote instance after persist or merge
+     * @param note the note entity to save; must not be null
+     * @return the managed CaseManagementNote instance after persist or merge
      */
     public Object saveAndReturn(CaseManagementNote note);
 

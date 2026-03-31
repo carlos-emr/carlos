@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
+<!--
+    CARLOS EMR - Provider Actions
+    Contains action mappings for provider preferences, inbox, email, fax, printing, scratch pads, and signature management.
+-->
+<struts>
+    <package name="provider" namespace="/" extends="struts-default">
+
+        <action name="web/inboxhub/Inboxhub" class="io.github.carlos_emr.carlos.inboxhub.display.ManageInboxhub2Action" method="execute">
+            <result name="success">/web/inboxhub/Inboxhub.jsp</result>
+            <result name="displayList">/web/inboxhub/InboxhubListMode.jsp</result>
+            <result name="displayView">/web/inboxhub/InboxhubViewMode.jsp</result>
+            <result name="unauthorized">/securityError.jsp</result>
+            <result name="error">/failure.jsp</result>
+        </action>
+        <action name="admin/ManageFax" class="io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action">
+            <result name="completed">/admin/manageFax.jsp</result>
+        </action>
+        <action name="admin/ManageFaxes" class="io.github.carlos_emr.carlos.fax.admin.ManageFaxes2Action">
+            <result name="faxstatus">/admin/faxStatusResults.jspf</result>
+        </action>
+        <action name="fax/faxAction" class="io.github.carlos_emr.carlos.fax.action.Fax2Action">
+            <result name="preview">/fax/CoverPage.jsp</result>
+            <result name="error">/errorpage.jsp</result>
+            <result name="CONSULTATION">/encounter/ViewRequest.do</result>
+            <result name="EFORM">/eform/efmshowform_data.jsp</result>
+            <result name="eFormError">/eform/efmshowform_data.jsp?error=true</result>
+        </action>
+        <action name="admin/ManageEmails" class="io.github.carlos_emr.carlos.email.admin.ManageEmails2Action">
+            <result name="show">/admin/manageEmails.jsp</result>
+            <result name="emailstatus">/admin/emailStatusResults.jspf</result>
+            <result name="compose">/email/emailCompose.jsp</result>
+        </action>
+        <action name="email/emailComposeAction" class="io.github.carlos_emr.carlos.email.action.EmailCompose2Action">
+            <result name="compose">/email/emailCompose.jsp</result>
+            <result name="eFormError">/eform/efmshowform_data.jsp?error=true</result>
+        </action>
+        <action name="email/emailSendAction" class="io.github.carlos_emr.carlos.email.action.EmailSend2Action">
+            <result name="success">/email/emailCompose.jsp</result>
+            <result name="EFORM">/eform/efmshowform_data.jsp</result>
+        </action>
+        <action name="setProviderStaleDate" class="io.github.carlos_emr.carlos.provider.web.ProviderProperty2Action" method="execute">
+            <result name="success">/provider/setNoteStaleDate.jsp</result>
+            <result name="gen">/provider/setGenProperty.jsp</result>
+            <result name="genRxPageSize">/provider/setGenRxPageSizeProperty.jsp</result>
+            <result name="genHl7LabResultPrefs">/provider/setHl7LabResultPrefs.jsp</result>
+            <result name="genRxDefaultQuantity">/provider/setGenRxDefaultQuantityProperty.jsp</result>
+            <result name="genRxProfileView">/provider/setGenRxProfileViewProperty.jsp</result>
+            <result name="genRxUseRx3">/provider/setToUseRx3.jsp</result>
+            <result name="genDefaultDocQueue">/provider/setDocDefaultQueue.jsp</result>
+            <result name="genShowPatientDOB">/provider/setShowPatientDOB.jsp</result>
+            <result name="genCppSingleLine">/provider/setCppSingleLine.jsp</result>
+            <result name="genAckCommentLab">/provider/setLabAckComment.jsp</result>
+            <result name="genLabRecallPrefs">/provider/setLabRecallPrefs.jsp</result>
+            <result name="genEncounterWindowSize">/provider/setEncounterWindowSize.jsp</result>
+            <result name="genQuickChartSize">/provider/setQuickChartSize.jsp</result>
+            <result name="genEDocBrowserInDocumentReport">/provider/setEDocBrowserInDocumentReport.jsp</result>
+            <result name="genEDocBrowserInMasterFile">/provider/setEDocBrowserInMasterFile.jsp</result>
+            <result name="genPatientNameLength">/provider/setPatientNameLength.jsp</result>
+            <result name="genDisplayDocumentAs">/provider/setDisplayDocumentAs.jsp</result>
+            <result name="genAppointmentCardPrefs">/provider/setAppointmentCardPrefs.jsp</result>
+            <result name="genDashboardPrefs">/provider/setDashboardPrefs.jsp</result>
+            <result name="genPreventionPrefs">/provider/setPreventionPrefs.jsp</result>
+            <result name="genLabMacroPrefs">/provider/setLabMacroPrefs.jsp</result>
+        </action>
+        <action name="setTicklerPreferences" class="io.github.carlos_emr.carlos.provider.web.ProviderProperty2Action" method="execute">
+            <result name="success">/provider/setTicklerPreferences.jsp</result>
+            <result name="complete">/provider/setTicklerPreferences.jsp</result>
+            <result name="error">/provider/setTicklerPreferences.jsp?error</result>
+        </action>
+        <action name="provider/rxInteractionWarningLevel" class="io.github.carlos_emr.carlos.provider.web.ProviderRxInteractionWarningLevel2Action"/>
+        <action name="Scratch" class="io.github.carlos_emr.carlos.scratch.Scratch2Action">
+            <result name="success">/scratch</result>
+            <result name="scratchPadVersion">/scratch/version.jsp</result>
+        </action>
+        <action name="provider/UserPreference" class="io.github.carlos_emr.carlos.provider.web.UserPreference2Action">
+            <result name="form">/provider/UserPreferences.jsp</result>
+        </action>
+        <action name="provider/providerSignatureImage" class="io.github.carlos_emr.carlos.provider.web.ProviderSignatureImage2Action"/>
+        <action name="provider/providerSignatureStamp" class="io.github.carlos_emr.carlos.provider.web.ProviderSignatureStamp2Action">
+            <interceptor-ref name="defaultStack">
+            <param name="actionFileUpload.allowedTypes">image/png,image/jpeg,image/gif</param>
+            <param name="actionFileUpload.maximumSize">2097152</param>
+        </interceptor-ref>
+            <result name="input" type="httpheader">
+            <param name="status">400</param>
+        </result>
+        </action>
+        <action name="provider/CppPreferences" class="io.github.carlos_emr.carlos.provider.web.CppPreferences2Action">
+            <result name="form">/provider/cpp_preferences.jsp</result>
+            <result name="exit">/encounter/close.jsp</result>
+        </action>
+        <action name="DocumentDescriptionTemplate" class="io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action"/>
+        <action name="PrinterList" class="io.github.carlos_emr.carlos.printer.PrinterList2Action"/>
+        <action name="saveWorkView" class="io.github.carlos_emr.carlos.provider.web.ProviderView2Action" method="execute"/>
+        <action name="Provider/showPersonal" class="io.github.carlos_emr.carlos.provider.web.DisplayPersonalInfoAppointment2Action"/>
+
+    </package>
+</struts>

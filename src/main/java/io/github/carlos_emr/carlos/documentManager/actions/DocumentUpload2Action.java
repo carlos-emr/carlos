@@ -58,9 +58,13 @@ import io.github.carlos_emr.carlos.log.LogConst;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
-public class DocumentUpload2Action extends ActionSupport {
+import java.util.List;
+
+public class DocumentUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -384,6 +388,22 @@ public class DocumentUpload2Action extends ActionSupport {
     private File filedata;
     private String filedataFileName;
     private String filedataContentType;
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null) {
+            for (UploadedFile uploaded : uploadedFiles) {
+                String inputName = uploaded.getInputName();
+                if ("filedata".equals(inputName)) {
+                    this.filedata = new File(uploaded.getAbsolutePath());
+                    this.filedataContentType = uploaded.getContentType();
+                    this.filedataFileName = uploaded.getOriginalName();
+                } else if ("docFile".equals(inputName)) {
+                    this.docFile = new File(uploaded.getAbsolutePath());
+                }
+            }
+        }
+    }
 
     private String docPublic = "";
     private String mode = "";
