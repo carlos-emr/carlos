@@ -1474,7 +1474,7 @@ var EFORM_I18N = {
             if (/^https?:\/\//i.test(url)) return true;
             if (/^data:image\//i.test(url)) return true;
             if (/^[\w][\w.\- ]*$/.test(url)) return true; // simple filename
-            console.warn('isValidImageSrc: rejected URL:', url.substring(0, 50));
+            console.error('isValidImageSrc: rejected URL:', url.substring(0, 50));
             return false;
         }
 
@@ -2154,6 +2154,8 @@ var EFORM_I18N = {
                     class: "signature_image"
                 });
                 $img.appendTo($canvasFrame);
+            } else if (src && src.length > 0) {
+                $canvasFrame.append($("<div>").text("Signature could not be displayed").css({color: 'red', fontSize: '0.8em', padding: '4px'}));
             }
 
             if (signaturePadLoaded) {
@@ -2280,6 +2282,8 @@ var EFORM_I18N = {
                     width: "100%",
                     height: "100%"
                 }));
+            } else {
+                $widget.append($("<span>").text("Image could not be loaded (invalid source)").css({color: 'red', fontSize: '0.8em', padding: '4px'}));
             }
 
             $parent.append($widget);
@@ -4663,6 +4667,8 @@ var EFORM_I18N = {
                         class: "signature_image"
                     });
                     $img.appendTo($canvasFrame);
+                } else if (src && src.length > 0) {
+                    $canvasFrame.append($("<div>").text("Signature could not be displayed").css({color: 'red', fontSize: '0.8em', padding: '4px'}));
                 }
 
                 // if signature pad loaded correctly and eform viewed on screen

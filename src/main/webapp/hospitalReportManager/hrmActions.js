@@ -93,6 +93,11 @@ function addDemoToHrm(reportId) {
                 document.getElementById('autocompletedemo' + reportId + 'hrm').style.display = 'none';
                 toggleButtonBar(true, reportId);
             }
+        },
+        error: function (xhr, status, err) {
+            console.error('Failed to assign demographic to HRM report:', status, err);
+            var container = document.getElementById("demostatus" + reportId);
+            container.textContent = 'Error: could not assign patient. Please try again.';
         }
     });
 }
@@ -125,6 +130,11 @@ function removeDemoFromHrm(reportId) {
                 document.getElementById('demofind' + reportId + 'hrm').value = null;
                 toggleButtonBar(false, reportId);
             }
+        },
+        error: function (xhr, status, err) {
+            console.error('Failed to remove demographic from HRM report:', status, err);
+            var container = document.getElementById("demostatus" + reportId);
+            container.textContent = 'Error: could not remove patient link. Please try again.';
         }
     });
 }
