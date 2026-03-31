@@ -46,14 +46,15 @@ import jakarta.servlet.http.Part;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -77,7 +78,7 @@ import java.util.regex.Pattern;
  * upload endpoints (which call {@code request.getParts()} directly) receive properly
  * parsed parts from the cached body. Without this override, {@code getParts()} delegates
  * to the original Tomcat {@code Request} which tries to read the already-consumed
- * stream and returns empty parts.</p>
+ * stream and returns an empty collection or fails.</p>
  */
 public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
 
@@ -227,7 +228,14 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         }
 
         if (cachedBytes == null) {
-            cacheInputStream();
+            try {
+                cacheInputStream();
+            } catch (IOException e) {
+                LOGGER.error("Failed to cache multipart input stream for getParts() "
+                        + "(URI: {}). File upload will fail for this request.",
+                        getRequestURI(), e);
+                throw e;
+            }
         }
 
         try {
@@ -236,9 +244,14 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
 
             FileUpload upload = new FileUpload();
             upload.setFileItemFactory(factory);
+            // Uses MAX_BODY_SIZE (500 MB, matching struts.multipart.maxSize) rather than
+            // web.xml's 50 MB, since this wrapper serves all multipart requests including
+            // Struts-routed uploads with higher limits.
             upload.setFileSizeMax(MAX_BODY_SIZE);
             upload.setSizeMax(MAX_BODY_SIZE);
 
+            // Note: toByteArray() copies the buffer. For a request near MAX_BODY_SIZE (500 MB),
+            // peak memory will temporarily be ~2x the body size.
             byte[] body = cachedBytes.toByteArray();
 
             UploadContext ctx = new UploadContext() {
@@ -270,6 +283,8 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             }
             cachedParts = Collections.unmodifiableList(parts);
         } catch (FileUploadException e) {
+            LOGGER.error("Failed to parse multipart parts from cached bytes (URI: {}, bodySize: {} bytes)",
+                    getRequestURI(), cachedBytes.size(), e);
             throw new ServletException("Failed to parse multipart request from cached bytes", e);
         }
 
@@ -287,7 +302,7 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
     @Override
     public Part getPart(String name) throws IOException, ServletException {
         for (Part part : getParts()) {
-            if (part.getName().equals(name)) {
+            if (Objects.equals(part.getName(), name)) {
                 return part;
             }
         }
@@ -528,14 +543,19 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
      * Adapts a Tomcat {@link FileItem} to the {@link Part} interface.
      *
      * <p>Used by {@link #getParts()} to wrap multipart parts parsed from the cached
-     * request body. All methods delegate to the underlying {@code FileItem}.</p>
+     * request body. Methods delegate to the underlying {@code FileItem}, with minor
+     * adaptations for API signature differences and null safety.</p>
+     *
+     * <p><strong>Naming inversion warning:</strong> {@code FileItem.getName()} returns
+     * the submitted filename, while {@code Part.getName()} returns the form field name.
+     * This adapter maps them correctly but the crossed naming is a maintenance hazard.</p>
      */
     private static class FileItemPart implements Part {
 
         private final FileItem fileItem;
 
         FileItemPart(FileItem fileItem) {
-            this.fileItem = fileItem;
+            this.fileItem = Objects.requireNonNull(fileItem, "fileItem must not be null");
         }
 
         @Override
@@ -548,11 +568,13 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             return fileItem.getContentType();
         }
 
+        /** Returns the form field name ({@code FileItem} calls this {@code getFieldName()}). */
         @Override
         public String getName() {
             return fileItem.getFieldName();
         }
 
+        /** Returns the original client filename ({@code FileItem} calls this {@code getName()}). */
         @Override
         public String getSubmittedFileName() {
             return fileItem.getName();
@@ -563,20 +585,26 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             return fileItem.getSize();
         }
 
+        /**
+         * Not supported. Callers should use {@link #getInputStream()} with
+         * {@code PathValidationUtils.validatePath()} instead.
+         *
+         * @throws UnsupportedOperationException always
+         */
         @Override
         public void write(String fileName) throws IOException {
-            try {
-                fileItem.write(new File(fileName));
-            } catch (IOException e) {
-                throw e;
-            } catch (Exception e) {
-                throw new IOException("Failed to write part to " + fileName, e);
-            }
+            throw new UnsupportedOperationException(
+                    "FileItemPart.write() is not supported. "
+                    + "Use Part.getInputStream() with PathValidationUtils.validatePath() instead.");
         }
 
         @Override
         public void delete() throws IOException {
-            fileItem.delete();
+            try {
+                fileItem.delete();
+            } catch (UncheckedIOException e) {
+                throw e.getCause();
+            }
         }
 
         @Override
