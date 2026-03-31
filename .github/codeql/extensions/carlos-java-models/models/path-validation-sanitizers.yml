@@ -5,6 +5,10 @@
 # file paths and throw SecurityException on invalid input, making their
 # return values safe from path traversal (CWE-022).
 #
+# IMPORTANT: Method signatures MUST use fully qualified type names (e.g.,
+# java.io.File, not File) for CodeQL to match them. Types in java.lang
+# (e.g., String) do not need qualification.
+#
 # See: src/main/java/io/github/carlos_emr/carlos/utility/PathValidationUtils.java
 
 extensions:
@@ -18,20 +22,20 @@ extensions:
     data:
       # validatePath(String, File) -> File
       # Sanitizes user-provided filename and validates path within allowed directory
-      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validatePath", "(String,File)", "summary", "manual"]
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validatePath", "(String,java.io.File)", "summary", "manual"]
 
       # validateExistingPath(File, File) -> File
       # Validates existing file path is within allowed directory
-      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateExistingPath", "(File,File)", "summary", "manual"]
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateExistingPath", "(java.io.File,java.io.File)", "summary", "manual"]
 
       # validateUpload(File) -> File
       # Validates uploaded source file is from allowed temp location
-      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateUpload", "(File)", "summary", "manual"]
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateUpload", "(java.io.File)", "summary", "manual"]
 
       # validateUpload(File, String, File) -> File
       # End-to-end upload validation: source + filename sanitization + destination
-      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateUpload", "(File,String,File)", "summary", "manual"]
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateUpload", "(java.io.File,String,java.io.File)", "summary", "manual"]
 
       # isInAllowedTempDirectory(File) -> boolean
       # Guard condition: checks if file is in allowed temp directory
-      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "isInAllowedTempDirectory", "(File)", "summary", "manual"]
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "isInAllowedTempDirectory", "(java.io.File)", "summary", "manual"]
