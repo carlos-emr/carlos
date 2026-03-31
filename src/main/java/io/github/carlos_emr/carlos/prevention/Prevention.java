@@ -389,7 +389,9 @@ public class Prevention {
         long diffDays = -1;
         if (dStart == null || dEnd == null) return -1;
         try {
-            long timeDiff = dStart.getTime() - dEnd.getTime();
+            // Compute dEnd − dStart so that past dates yield positive day counts
+            // (consistent with UtilDateUtilities.getNumDays and getHowManyMonthsSinceLast)
+            long timeDiff = dEnd.getTime() - dStart.getTime();
             diffDays = timeDiff / (24 * 60 * 60 * 1000);
         } catch (Exception e) {
         }
