@@ -82,11 +82,12 @@
 %>
 
 
+<fmt:setBundle basename="oscarResources"/>
 <html>
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.title"/></title>
+        <title><fmt:message key="ViewScript.title"/></title>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <c:if test="${empty sessionScope.RxSessionBean}">
@@ -243,8 +244,7 @@
 
         <%-- Pre-declare i18n messages used in JavaScript so they can be safely embedded
              in JavaScript string literals using OWASP forJavaScript() encoding --%>
-        <fmt:setBundle basename="oscarResources"/>
-        <fmt:message key="ViewScript.js.msieNotPermitted"  var="msg_msieNotPermitted"/>
+                <fmt:message key="ViewScript.js.msieNotPermitted"  var="msg_msieNotPermitted"/>
         <fmt:message key="ViewScript.js.signatureSent"     var="msg_signatureSent"/>
         <fmt:message key="ViewScript.js.signatureDirty"    var="msg_signatureDirty"/>
         <fmt:message key="ViewScript.msgRemovePharmacyInfo" var="msg_removePharmacyInfo"/>
@@ -687,7 +687,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                 <td valign=top><form name="RxClearPendingForm" action="${pageContext.request.contextPath}/oscarRx/clearPending.do" method="post">
                                     <input type="hidden" name="action" id="action" value=""/>
                                     <div class="warning-note" id="faxWarningNote">
-                                        <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgWarning"/></strong> <fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgFaxWarning"/><br/><br/><fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgFaxWarningHelp"/>
+                                        <strong><fmt:message key="ViewScript.msgWarning"/></strong> <fmt:message key="ViewScript.msgFaxWarning"/><br/><br/><fmt:message key="ViewScript.msgFaxWarningHelp"/>
                                     </div>
                                 </form>
                                     <script type="text/javascript">
@@ -703,7 +703,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 
                                         function clearPendingFax() {
                                             parent.window.location = "<%= request.getContextPath() %>/oscarRx/close.html";
-                                            try { var m = parent.document.getElementById('carlosModal'); if (m) { parent.bootstrap.Modal.getInstance(m)?.hide(); } } catch(e) { parent.window.location = '<%= request.getContextPath() %>/oscarRx/close.html'; }
+                                            try { var m = parent.document.getElementById('carlosModal'); if (m) { var bs = (typeof parent.bootstrap !== 'undefined') ? parent.bootstrap : (typeof bootstrap !== 'undefined' ? bootstrap : null); if (bs) { var modal = bs.Modal.getInstance(m); if (modal) { modal.hide(); } } } } catch(e) { parent.window.location = '<%= request.getContextPath() %>/oscarRx/close.html'; }
                                         }
 
                                         function ShowDrugInfo(drug) {
@@ -742,7 +742,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                             try { var dlg = parent.document.querySelector('#carlosModal .modal-dialog'); if (dlg) dlg.classList.add('modal-xl'); } catch(e) {}
                                             document.getElementById('preview').style.width = "600px";
                                             frames['preview'].document.getElementById('pharmInfo').innerHTML = text;
-                                            document.getElementById("selectedPharmacy").innerHTML = '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/>';
+                                            document.getElementById("selectedPharmacy").innerHTML = '<fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/>';
                                         }
 
                                         function reducePreview() {
@@ -757,7 +757,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <% //vecAddress=null;
                                             if (vecAddress != null) { %>
                                         <tr>
-                                            <td align="left" colspan=2><fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgAddress"/>
+                                            <td align="left" colspan=2><fmt:message key="ViewScript.msgAddress"/>
                                                 <select name="addressSel" id="addressSel" onChange="addressSelect()"
                                                         style="width:200px;">
                                                     <% String rxAddr = (String) session.getAttribute("RX_ADDR");
@@ -776,13 +776,13 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         </tr>
                                         <% } %>
                                         <tr>
-                                            <td colspan=2 style="font-weight: bold;"><span><fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgActions"/></span>
+                                            <td colspan=2 style="font-weight: bold;"><span><fmt:message key="ViewScript.msgActions"/></span>
                                             </td>
                                         </tr>
 
                                         <tr>
                                             <!--td width=10px></td-->
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgPageSize"/>
+                                            <td><fmt:message key="ViewScript.msgPageSize"/>
                                                 <select name="printPageSize" id="printPageSize"
                                                         style="height:20px;font-size:10px">
                                                     <%
@@ -800,7 +800,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         </tr>
                                         <tr>
                                             <td style="padding-bottom: 0"><span><input type=button
-                                                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgPrint"/>"
+                                                                                       value="<fmt:message key="ViewScript.msgPrint"/>"
                                                                                        class="btn btn-outline-secondary"
                                                                                        style="width: 210px"
                                                                                        onClick="javascript:printIframe();"/></span>
@@ -809,7 +809,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <tr>
                                             <td style="padding-top: 0"><span><input type=button
                                                     <%=reprint.equals("true") ? "disabled='true'" : ""%>
-                                                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgPrintAndPaste"/>"
+                                                                                    value="<fmt:message key="ViewScript.msgPrintAndPaste"/>"
                                                                                     class="btn btn-outline-primary"
                                                                                     style="width: 210px"
                                                                                     onClick="printPaste2Parent(true, false, true);"/></span>
@@ -821,7 +821,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         %>
                                         <tr>
                                             <td style="padding-bottom: 0">
-                                                <span><fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgFromFaxNumber"/></span>
+                                                <span><fmt:message key="ViewScript.msgFromFaxNumber"/></span>
                                                 <select id="faxNumber" name="faxNumber">
                                                     <%
                                                         for (FaxConfig faxConfig : faxConfigs) {
@@ -841,13 +841,13 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 								? "disabled" : "";
 					%>
                                         <tr>
-						<td style="padding-top: 0; padding-bottom: 0"><span><input type=button value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgFax"/>"
+						<td style="padding-top: 0; padding-bottom: 0"><span><input type=button value="<fmt:message key="ViewScript.msgFax"/>"
 										 class="btn btn-outline-secondary" id="faxButton" style="width: 210px"
 										 onClick="sendFax();" <%=isFaxDisabled%>/></span>
                                             </td>
                                         </tr>
                                         <tr>
-                            <td style="padding-top: 0"><span><input type=button value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgFaxAndPaste"/>"
+                            <td style="padding-top: 0"><span><input type=button value="<fmt:message key="ViewScript.msgFaxAndPaste"/>"
                                     class="btn btn-outline-primary" id="faxPasteButton" style="width: 210px"
                                     onClick="printPaste2Parent(false, true, true);sendFax();" <%=isFaxDisabled%>/></span>
 
@@ -857,15 +857,15 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <% } %>
                                         <tr>
                                             <td><span><input type=button
-                                                             value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgCreateNewRx"/>"
+                                                             value="<fmt:message key="ViewScript.msgCreateNewRx"/>"
                                                              class="btn btn-outline-secondary"
                                                              style="width: 210px"
-                                                             onClick="resetStash();resetReRxDrugList();try{var m=parent.document.getElementById('carlosModal');if(m){parent.bootstrap.Modal.getInstance(m)?.hide();}}catch(e){}"/></span>
+                                                             onClick="resetStash();resetReRxDrugList();try{var m=parent.document.getElementById('carlosModal');if(m){var bs=(typeof parent.bootstrap!=='undefined')?parent.bootstrap:(typeof bootstrap!=='undefined'?bootstrap:null);if(bs){var modal=bs.Modal.getInstance(m);if(modal){modal.hide();}}}}catch(e){}"/></span>
                                             </td>
                                         </tr>
                                         <tr>
                                             <td><span><input type=button
-                                                             value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgBackToOscar"/>"
+                                                             value="<fmt:message key="ViewScript.msgBackToOscar"/>"
                                                              class="btn btn-outline-secondary" style="width: 210px"
                                                              onClick="javascript:clearPending('close');parent.window.close();"/></span>
                                             </td>
@@ -874,14 +874,14 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                             if (request.getSession().getAttribute("rePrint") == null) {%>
 
                                         <tr>
-                                            <td colspan=2 style="font-weight: bold"><span><fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgAddNotesRx"/></span></td>
+                                            <td colspan=2 style="font-weight: bold"><span><fmt:message key="ViewScript.msgAddNotesRx"/></span></td>
                                         </tr>
                                         <tr>
                                             <!--td width=10px></td-->
                                             <td>
                                                 <textarea id="additionalNotes" style="width: 200px"
                                                           onchange="javascript:addNotes();"></textarea>
-                                                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgAdditionalRxNotes"/>"
+                                                <input type="button" value="<fmt:message key="ViewScript.msgAdditionalRxNotes"/>"
                                                        class="btn btn-outline-secondary" onclick="javascript:addNotes();"/>
                                             </td>
                                         </tr>
@@ -891,7 +891,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <%-- Topaz signature pad check removed - HTML5 signature is now standard --%>
 						<% if (bean.getStashSize() == 0 || Objects.isNull(bean.getStashItem(0).getDigitalSignatureId())) { %>
                                         <tr>
-                                            <td colspan=2 style="font-weight: bold"><span><fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgSignature"/></span></td>
+                                            <td colspan=2 style="font-weight: bold"><span><fmt:message key="ViewScript.msgSignature"/></span></td>
                                         </tr>
                                         <tr>
                                             <td>
@@ -904,7 +904,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 						<% } %>
                                         <%}%>
                                         <tr>
-                                            <td colspan=2 style="font-weight: bold"><span><fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgDrugInfo"/></span></td>
+                                            <td colspan=2 style="font-weight: bold"><span><fmt:message key="ViewScript.msgDrugInfo"/></span></td>
                                         </tr>
                                         <%
                                             for (int i = 0; i < bean.getStashSize(); i++) {
