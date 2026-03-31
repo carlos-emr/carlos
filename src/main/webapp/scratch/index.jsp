@@ -295,7 +295,7 @@
                             var isHex = code[1].toLowerCase() === "x";
                             var raw = isHex ? code.slice(2) : code.slice(1);
                             var cp = parseInt(raw, isHex ? 16 : 10);
-                            return isFinite(cp) ? String.fromCodePoint(cp) : match;
+                            return (isFinite(cp) && cp >= 0 && cp <= 0x10FFFF) ? String.fromCodePoint(cp) : match;
                         }
                         return match;
                 }

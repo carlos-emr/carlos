@@ -2191,8 +2191,14 @@ var EFORM_I18N = {
 
                 // define a custom update trigger action. this allows the eform to store the signature.
                 $element.on("signatureChange", function() {
-                    $data.val(signPad.toDataURL());
-                    $img.prop('src', signPad.toDataURL());
+                    var dataUrl = signPad.toDataURL();
+                    $data.val(dataUrl);
+                    if (!$img) {
+                        $img = $("<img>", { src: dataUrl, alt: "signature", class: "signature_image" });
+                        $img.appendTo($canvasFrame).hide();
+                    } else {
+                        $img.prop('src', dataUrl);
+                    }
                     if ($element.attr('slaveSigPad')) {
                         var $slavePad = $("#" + $element.attr('slaveSigPad')); // get slave pad by id
                         updateSlaveSignature(canvas, $slavePad.find("canvas").get(0));
@@ -2209,7 +2215,7 @@ var EFORM_I18N = {
             }
             // not loaded so not using the canvas, show signature as an image instead.
             else {
-                $img.show();
+                if ($img) $img.show();
             }
         }
 
@@ -4697,8 +4703,14 @@ var EFORM_I18N = {
                     }
                     // define a custom update trigger action. this allows the eform to store the signature.
                     $this.on("signatureChange", function() {
-                        $data.val(signPad.toDataURL());
-                        $img.prop('src', signPad.toDataURL());
+                        var dataUrl = signPad.toDataURL();
+                        $data.val(dataUrl);
+                        if (!$img) {
+                            $img = $("<img>", { src: dataUrl, alt: "signature", class: "signature_image" });
+                            $img.appendTo($canvasFrame).hide();
+                        } else {
+                            $img.prop('src', dataUrl);
+                        }
                         if ($this.attr('slaveSigPad')) {
                             var $slavePad = $("#" + $this.attr('slaveSigPad')); // get slave pad by id
                             updateSlaveSignature(canvas, $slavePad.find("canvas").get(0));
@@ -4716,7 +4728,7 @@ var EFORM_I18N = {
                 // not using the canvas, show signature as an image instead.
                 else {
                     console.info("static signature pad initializing");
-                    $img.show();
+                    if ($img) $img.show();
                 }
             });
         });
