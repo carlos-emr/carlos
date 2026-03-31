@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
+<!--
+    CARLOS EMR - Billing Actions
+    Contains action mappings for BC and Ontario provincial billing, payments, and invoice management.
+-->
+<struts>
+    <package name="billing" namespace="/" extends="struts-default">
+
+        <action name="quickBillingBC" class="io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBC2Action">
+            <result name="success">/billing/CA/BC/quickBillingBC.jsp</result>
+            <result name="searchdx">billing/CA/BC/billingDigNewSearch.jsp</result>
+            <result name="error">/billing/CA/BC/quickBillingBC.jsp</result>
+        </action>
+        <action name="saveQuickBillingBC" class="io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBCSave2Action">
+            <result name="saved">/quickBillingBC.do</result>
+            <result name="error">/billing/CA/BC/quickBillingBC.jsp?saved=false</result>
+        </action>
+        <action name="admin/GstControl" class="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action">
+            <result name="success">/admin/gstControl.jsp</result>
+        </action>
+        <action name="admin/manageCSSStyles" class="io.github.carlos_emr.carlos.billing.CA.ON.web.ManageCSS2Action">
+            <result name="init">/admin/manageCSSStyles.jsp</result>
+        </action>
+        <action name="billing" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.Billing2Action">
+            <result name="BC">/billing/CA/BC/billingBC.jsp</result>
+            <result name="ON">/billing/CA/ON/billingOB.jsp</result>
+        </action>
+        <action name="billing/CA/BC/CreateBilling" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingCreateBilling2Action">
+            <result name="success">/billing/CA/BC/billingCreated.jsp</result>
+            <result name="WCB">/billing/CA/BC/formwcb.jsp?fromBilling=true</result>
+        </action>
+        <action name="billing/CA/BC/SaveBilling" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action">
+            <result name="success">/billing/CA/BC/billingSaved.jsp</result>
+            <result name="anotherBill">/billing/CA/BC/billingBC.jsp</result>
+        </action>
+        <action name="billing/CA/BC/billingView" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingView2Action">
+            <result name="success">/billing/CA/BC/billingView.jsp</result>
+            <result name="ON">/billing/CA/ON/billingOB2.jsp</result>
+            <result name="private">/billing/CA/BC/billReceipt.jsp</result>
+        </action>
+        <action name="billing/CA/ON/BatchBill" class="io.github.carlos_emr.carlos.billing.CA.ON.web.BatchBill2Action">
+            <result name="saved">/billing/CA/ON/batchsaved.jsp</result>
+            <result name="error">/billing/CA/ON/batcherror.jsp</result>
+            <result name="success">/billing/CA/ON/batchBilling.jsp</result>
+        </action>
+        <action name="billing/CA/BC/formwcb" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.WCBAction22Action">
+            <result name="success">/billing/CA/BC/billingCreated.jsp</result>
+            <result name="newbill">/billing.do?newWCBClaim=1</result>
+            <result name="viewformwcb">/billing/CA/BC/viewformwcb.do</result>
+            <result name="saveAndClose">/billing/CA/BC/wcbClose.jsp</result>
+        </action>
+        <action name="billing/CA/BC/viewformwcb" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewWCB2Action">
+            <result name="success">/billing/CA/BC/formwcb.jsp</result>
+        </action>
+        <action name="billing/CA/BC/billingTeleplanCorrectionWCB" class="io.github.carlos_emr.carlos.billings.ca.bc.administration.TeleplanCorrectionActionWCB2Action">
+            <result name="success">/billing/CA/BC/billingTeleplanCorrectionWCB.jsp</result>
+            <result name="failure">/billing/CA/BC/billingTeleplanCorrectionWCB.jsp</result>
+        </action>
+        <action name="billing/CA/BC/reprocessBill" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingReProcessBill2Action">
+            <result name="success">/billing/CA/BC/adjustBill.jsp</result>
+            <result name="save">/billing/CA/BC/billStatus.jsp</result>
+        </action>
+        <action name="billing/CA/BC/billingEditCode" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingEditCode2Action">
+            <result name="success">/billing/CA/BC/billingCodeAdjust.jsp</result>
+            <result name="private">/billing/CA/BC/billingPrivateCodeAdjust.jsp</result>
+        </action>
+        <action name="billing/CA/BC/billingAddCode" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingAddCode2Action">
+            <result name="success">/billing/CA/BC/billingCodeAdjust.jsp</result>
+            <result name="normalCodeError">/billing/CA/BC/billingAddCode.jsp</result>
+            <result name="private">/billing/CA/BC/billingPrivateCodeAdjust.jsp</result>
+            <result name="privateCodeError">/billing/CA/BC/billingAddPrivateCode.jsp</result>
+        </action>
+        <action name="billing/CA/BC/UpdateBilling" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action">
+            <result name="success">/billing/CA/BC/billReceipt.jsp</result>
+            <result name="successAndClose">/billing/CA/BC/billingSaved.jsp</result>
+        </action>
+        <action name="oscarBilling/DocumentErrorReportUpload" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingDocumentErrorReportUpload2Action">
+            <result name="success">/billing/CA/ON/billingEAreport.jsp</result>
+            <result name="outside">/billing/CA/ON/billingLreport.jsp</result>
+            <result name="error">/billing/CA/ON/billingOBECEA.jsp</result>
+        </action>
+        <action name="billing/CA/BC/createBillingReportAction" class="io.github.carlos_emr.carlos.billings.ca.bc.MSP.CreateBillingReport2Action"/>
+        <action name="billing/CA/BC/associateCodesAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.AssociateCodes2Action">
+            <result name="success">/billing/CA/BC/showServiceCodeAssocs.do</result>
+        </action>
+        <action name="billing/CA/BC/showServiceCodeAssocs" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ShowServiceCodeAssocs2Action">
+            <result name="success">/billing/CA/BC/manageSVCDXAssoc.jsp</result>
+        </action>
+        <action name="billing/CA/BC/deleteServiceCodeAssoc" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.DeleteServiceCodeAssoc2Action">
+            <result name="success">/billing/CA/BC/showServiceCodeAssocs.do</result>
+        </action>
+        <action name="billing/CA/BC/editServiceCodeAssocAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.EditServiceCodeAssoc2Action">
+            <result name="success">/billing/CA/BC/dxcode_svccode_assoc.jsp</result>
+        </action>
+        <action name="billing/CA/BC/saveAssocAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveAssoc2Action">
+            <result name="success">/billing/CA/BC/showServiceCodeAssocs.do</result>
+        </action>
+        <action name="billing/CA/BC/AddReferralDoc" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.AddReferralDoc2Action">
+            <result name="success">/billing/CA/BC/billingManageReferralDoc.jsp</result>
+            <result name="error">/billing/CA/BC/billingAddReferralDoc.jsp</result>
+        </action>
+        <action name="billing/CA/ON/benefitScheduleUpload" class="io.github.carlos_emr.carlos.billings.ca.on.OHIP.ScheduleOfBenefitsUpload2Action">
+            <result name="forceUpdate">/billing/CA/ON/benefitScheduleChange.do</result>
+            <result name="success">/billing/CA/ON/ScheduleOfBenefitsUpload.jsp</result>
+        </action>
+        <action name="billing/CA/ON/benefitScheduleChange" class="io.github.carlos_emr.carlos.billings.ca.on.OHIP.ScheduleOfBenefitsUpdate2Action">
+            <result name="success">/billing/CA/ON/ScheduleOfBenefitsUpload.jsp</result>
+        </action>
+        <action name="billing/CA/BC/receivePaymentAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ReceivePayment2Action">
+            <result name="success">/billing/CA/BC/receivePayment.jsp</result>
+        </action>
+        <action name="billing/CA/BC/viewReceivePaymentAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewReceivePayment2Action">
+            <result name="success">/billing/CA/BC/receivePayment.jsp</result>
+        </action>
+        <action name="billing/CA/BC/saveBillingPreferencesAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveBillingPreferences2Action">
+            <result name="success">/billing/CA/BC/viewBillingPreferencesAction.do</result>
+        </action>
+        <action name="billing/CA/BC/viewBillingPreferencesAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingPreferences2Action">
+            <result name="success">/billing/CA/BC/billingPreferences.jsp</result>
+        </action>
+        <action name="billing/CA/BC/supServiceCodeAssocAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2Action">
+            <result name="success">/billing/CA/BC/billingSVCTrayAssoc.jsp</result>
+        </action>
+        <action name="billing/CA/BC/GenerateTeleplanFile" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action">
+            <result name="success">/billing/CA/BC/TeleplanSubmission.jsp</result>
+        </action>
+        <action name="billing/CA/BC/ProcessRemittance" class="io.github.carlos_emr.carlos.billings.ca.bc.MSP.GenTa2Action">
+            <result name="C12">/billing/CA/BC/billStatus.jsp</result>
+            <result name="S21">/billing/CA/BC/viewReconcileReports.jsp</result>
+        </action>
+        <action name="billing/CA/BC/SimulateTeleplanFile" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SimulateTeleplanFile2Action">
+            <result name="success">/billing/CA/BC/TeleplanSimulation.jsp</result>
+        </action>
+        <action name="billing/CA/BC/ManageTeleplan" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action">
+            <result name="success">/billing/CA/BC/teleplan/ManageTeleplan.jsp</result>
+            <result name="codelist">/billing/CA/BC/teleplan/ManageBillingCodes.jsp</result>
+            <result name="submission">/billing/CA/BC/TeleplanSubmission.jsp</result>
+            <result name="remit">/billing/CA/BC/ProcessRemittance.do</result>
+            <result name="checkElig">/billing/CA/BC/checkEligibility.jsp</result>
+        </action>
+        <action name="billing/CA/ON/moveMOHFiles" class="io.github.carlos_emr.carlos.billing.CA.ON.web.MoveMOHFiles2Action">
+            <result name="success">/billing/CA/ON/viewMOHFiles.jsp</result>
+        </action>
+        <action name="billing/CA/ON/managePaymentType" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.PaymentType2Action" method="execute">
+            <result name="success">/billing/CA/ON/manageBillingPaymentType.jsp</result>
+        </action>
+        <action name="billing/CA/ON/endYearStatement" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.PatientEndYearStatement2Action">
+            <result name="success">/billing/CA/ON/endYearStatement.jsp</result>
+            <result name="failure">/billing/CA/ON/endYearStatement.jsp</result>
+        </action>
+        <action name="billing/CA/ON/BillingONCorrection" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrection2Action">
+            <result name="success">/billing/CA/ON/billingONCorrection.jsp</result>
+            <result name="failure">/failure.jsp</result>
+            <result name="submitClose">/close.html</result>
+            <result name="closeReload">/billing/CA/ON/billingONCorrection.jsp?billing_no=</result>
+            <result name="adminReload">/billing/CA/ON/billingONCorrection.jsp?billing_no=&amp;admin&amp;success</result>
+        </action>
+        <action name="billing/CA/ON/billingON3rdPayments" class="io.github.carlos_emr.carlos.billing.CA.ON.web.BillingONPayments2Action" method="execute">
+            <result name="success">/billing/CA/ON/billingON3rdPayments.jsp</result>
+            <result name="failure">/billing/CA/ON/billingON3rdPayments.jsp</result>
+            <result name="viewPayment">/billing/CA/ON/billingON3rdViewPayment.jsp</result>
+        </action>
+        <action name="billing/ca/on/DisplayInvoiceLogo" class="io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action"/>
+
+    </package>
+</struts>

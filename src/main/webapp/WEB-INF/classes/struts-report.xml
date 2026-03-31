@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
+<!--
+    CARLOS EMR - Reports Actions
+    Contains action mappings for clinical reports, demographic reports, measurement reports, and data export.
+-->
+<struts>
+    <package name="report" namespace="/" extends="struts-default">
+
+        <action name="report/printLabDaySheetAction" class="io.github.carlos_emr.carlos.report.pageUtil.printLabDaySheet2Action"/>
+        <action name="oscarReport/ShowConsult" class="io.github.carlos_emr.carlos.report.pageUtil.RptShowConsult2Action">
+            <result name="success">/encounter/oscarConsultationRequest/ConsultationFormPrint.jsp</result>
+        </action>
+        <action name="oscarReport/FluBilling" class="io.github.carlos_emr.carlos.report.pageUtil.RptFluBilling2Action">
+            <result name="success">/oscarReport/oscarReportFluBilling.jsp</result>
+        </action>
+        <action name="oscarReport/RptByExample" class="io.github.carlos_emr.carlos.report.pageUtil.RptByExample2Action">
+            <result name="success">/oscarReport/RptByExample.jsp</result>
+        </action>
+        <action name="oscarReport/RptViewAllQueryByExamples" class="io.github.carlos_emr.carlos.report.pageUtil.RptViewAllQueryByExamples2Action">
+            <result name="success">/oscarReport/RptViewAllQueryByExamples.jsp</result>
+        </action>
+        <action name="oscarReport/RptByExamplesFavorite" class="io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action">
+            <result name="edit">/oscarReport/RptByExamplesFavorite.jsp</result>
+            <result name="success">/oscarReport/RptByExamplesAllFavorites.jsp</result>
+        </action>
+        <action name="oscarReport/RptByExamplesAllFavorites" class="io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesAllFavorites2Action">
+            <result name="success">/oscarReport/RptByExamplesAllFavorites.jsp</result>
+        </action>
+        <action name="report/DemographicReport" class="io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Action">
+            <result name="success">/oscarReport/ReportDemographicReport.jsp</result>
+            <result name="failure">/oscar_sfhc/JAYREPORTS/DemographicReport.jsp</result>
+        </action>
+        <action name="report/CreateDemographicSet" class="io.github.carlos_emr.carlos.report.pageUtil.RptCreateDemographicSet2Action">
+            <result name="success">/oscarReport/ReportDemographicReport.jsp</result>
+        </action>
+        <action name="oscarReport/obec" class="io.github.carlos_emr.carlos.report.pageUtil.Obec2Action">
+            <result name="success">/oscarReport/obec.jsp</result>
+        </action>
+        <action name="oscarReport/oscarMeasurements/SetupSelectCDMReport" class="io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil.RptSetupSelectCDMReport2Action">
+            <result name="continue">/oscarReport/oscarMeasurements/SelectCDMReport.jsp</result>
+        </action>
+        <action name="oscarReport/oscarMeasurements/SelectCDMReport" class="io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil.RptSelectCDMReport2Action">
+            <result name="patientWhoMetGuideline">/oscarReport/oscarMeasurements/InitializePatientsMetGuidelineCDMReport.jsp</result>
+            <result name="patientInAbnormalRange">/oscarReport/oscarMeasurements/InitializePatientsInAbnormalRangeCDMReport.jsp</result>
+            <result name="freqencyOfReleventTests">/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport.jsp</result>
+        </action>
+        <action name="oscarReport/oscarMeasurements/InitializePatientsMetGuidelineCDMReport" class="io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil.RptInitializePatientsMetGuidelineCDMReport2Action">
+            <result name="success">/oscarReport/oscarMeasurements/CDMReport.jsp</result>
+        </action>
+        <action name="oscarReport/oscarMeasurements/InitializePatientsInAbnormalRangeCDMReport" class="io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil.RptInitializePatientsInAbnormalRangeCDMReport2Action">
+            <result name="success">/oscarReport/oscarMeasurements/CDMReport.jsp</result>
+        </action>
+        <action name="oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport" class="io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil.RptInitializeFrequencyOfRelevantTestsCDMReport2Action">
+            <result name="success">/oscarReport/oscarMeasurements/CDMReport.jsp</result>
+        </action>
+        <action name="report/DemographicSetEdit" class="io.github.carlos_emr.carlos.report.pageUtil.DemographicSetEdit2Action">
+            <result name="success">/oscarReport/demographicSetEdit.jsp</result>
+        </action>
+        <action name="report/SetEligibility" class="io.github.carlos_emr.carlos.report.pageUtil.DemographicSetEligibility2Action">
+            <result name="success">/oscarReport/demographicSetEdit.jsp</result>
+        </action>
+        <action name="RunClinicalReport" class="io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil.RunClinicalReport2Action">
+            <result name="success">/report/ClinicalReports.jsp</result>
+        </action>
+        <action name="report/RemoveClinicalReport" class="io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil.RemoveClinicalReportFromHistory2Action">
+            <result name="success">/report/ClinicalReports.jsp</result>
+        </action>
+        <action name="report/DeleteDemographicReport" class="io.github.carlos_emr.carlos.report.pageUtil.RptDemographQueryFavouriteDelete2Action">
+            <result name="success">/oscarReport/ReportDemographicReport.jsp</result>
+        </action>
+        <action name="report/GenerateEnvelopes" class="io.github.carlos_emr.carlos.report.pageUtil.GenerateEnvelopes2Action">
+            <result name="success">/oscarReport/ReportDemographicReport.jsp</result>
+        </action>
+        <action name="report/GenerateSpreadsheet" class="io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientSpreadSheetList2Action">
+            <result name="success">/oscarReport/ReportDemographicReport.jsp</result>
+        </action>
+        <action name="report/GenerateLetters" class="io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientLetters2Action">
+            <result name="success">/oscarReport/ReportDemographicReport.jsp</result>
+        </action>
+        <action name="report/ManageLetters" class="io.github.carlos_emr.carlos.report.pageUtil.ManagePatientLetters2Action">
+            <result name="success">/report/GenerateLetters.jsp</result>
+            <result name="success_manage_from_prevention">/oscarPrevention/PreventionReporting.jsp</result>
+        </action>
+        <action name="report/DownloadLetter" class="io.github.carlos_emr.carlos.report.pageUtil.DownloadPatientLetters2Action">
+            <result name="success">/report/GenerateLetters.jsp</result>
+        </action>
+        <action name="report/DeleteLetter" class="io.github.carlos_emr.carlos.report.pageUtil.DeletePatientLetters2Action">
+            <result name="success">/report/ManageLetters.jsp</result>
+        </action>
+        <action name="oscarReport/reportByTemplate/GenerateReportAction" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateReport2Action">
+            <result name="success">/oscarReport/reportByTemplate/resultReport.jsp</result>
+            <result name="fail">/oscarReport/reportByTemplate/reportConfiguration.jsp</result>
+        </action>
+        <action name="oscarReport/reportByTemplate/exportTemplateAction" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.ExportTemplate2Action">
+            <result name="success">/oscarReport/reportByTemplate/reportConfiguration.jsp</result>
+            <result name="fail">/oscarReport/reportByTemplate/reportConfiguration.jsp</result>
+        </action>
+        <action name="oscarReport/reportByTemplate/addEditTemplatesAction" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.ManageTemplates2Action">
+            <result name="done">/oscarReport/reportByTemplate/reportConfiguration.jsp</result>
+            <result name="success">/oscarReport/reportByTemplate/addEditTemplate.jsp</result>
+            <result name="fail">/oscarReport/reportByTemplate/addEditTemplate.jsp</result>
+            <result name="deleted">/oscarReport/reportByTemplate/homePage.jsp</result>
+        </action>
+        <action name="oscarReport/reportByTemplate/generateOutFilesAction" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateOutFiles2Action">
+            <result name="success">/oscarReport/reportByTemplate/resultReport.jsp</result>
+        </action>
+        <action name="oscarReport/reportByTemplate/uploadTemplates" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.UploadTemplates2Action">
+            <result name="success">/oscarReport/reportByTemplate/addEditTemplate.jsp</result>
+        </action>
+        <action name="oscarReport/reportByTemplate/rbtGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTGetGroup2Action">
+            <result name="success">/oscarReport/reportByTemplate/templateGroups.jsp</result>
+        </action>
+        <action name="oscarReport/reportByTemplate/actions/tempInGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTGetTemplatesInGroup2Action">
+            <result name="success">/oscarReport/reportByTemplate/templateGroups.jsp</result>
+        </action>
+        <action name="oscarReport/reportByTemplate/actions/addGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTAddGroup2Action">
+            <result name="success">/oscarReport/reportByTemplate/rbtGroup.do</result>
+        </action>
+        <action name="oscarReport/reportByTemplate/actions/rbtAddToGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTAddToGroup2Action">
+            <result name="success">/oscarReport/reportByTemplate/actions/tempInGroup.do</result>
+        </action>
+        <action name="oscarReport/reportByTemplate/actions/remFromGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTRemoveFromGroup2Action">
+            <result name="success">/oscarReport/reportByTemplate/actions/tempInGroup.do</result>
+        </action>
+        <action name="oscarReport/reportByTemplate/actions/delGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTDeleteGroup2Action">
+            <result name="success">/oscarReport/reportByTemplate/rbtGroup.do</result>
+        </action>
+        <action name="appointment/printAppointmentReceiptAction" class="io.github.carlos_emr.carlos.report.pageUtil.PrintAppointmentReceipt2Action"/>
+
+    </package>
+</struts>

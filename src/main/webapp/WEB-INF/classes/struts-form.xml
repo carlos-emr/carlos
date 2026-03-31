@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
+<!--
+    CARLOS EMR - Forms & Dashboard Actions
+    Contains action mappings for medical forms, dashboard displays, flowsheets, and vaccine management.
+-->
+<struts>
+    <package name="form" namespace="/" extends="struts-default">
+
+        <action name="web/dashboard/display/DashboardDisplay" class="io.github.carlos_emr.carlos.dashboard.display.DisplayDashboard2Action">
+            <result name="success">/web/dashboard/display/DashboardDisplay.jsp</result>
+            <result name="unauthorized">/securityError.jsp</result>
+            <result name="error">/failure.jsp</result>
+        </action>
+        <action name="web/dashboard/display/DrilldownDisplay" class="io.github.carlos_emr.carlos.dashboard.display.DisplayDrilldown2Action">
+            <result name="success">/web/dashboard/display/DrilldownDisplay.jsp</result>
+            <result name="unauthorized">/securityError.jsp</result>
+            <result name="error">/failure.jsp</result>
+        </action>
+        <action name="web/dashboard/display/AssignTickler" class="io.github.carlos_emr.carlos.dashboard.admin.AssignTickler2Action">
+            <result name="success">/web/dashboard/display/AssignTickler.jsp</result>
+            <result name="unauthorized">/securityError.jsp</result>
+            <result name="error">/failure.jsp</result>
+        </action>
+        <action name="web/dashboard/display/ExportResults" class="io.github.carlos_emr.carlos.dashboard.admin.ExportResults2Action">
+            <result name="unauthorized">/securityError.jsp</result>
+            <result name="error">/failure.jsp</result>
+        </action>
+        <action name="web/dashboard/display/DisplayIndicator" class="io.github.carlos_emr.carlos.dashboard.display.DisplayIndicator2Action">
+            <result name="success">/web/dashboard/display/IndicatorPanel.jsp</result>
+            <result name="unauthorized">/securityError.jsp</result>
+            <result name="error">/failure.jsp</result>
+        </action>
+        <action name="web/dashboard/display/BulkPatientAction" class="io.github.carlos_emr.carlos.dashboard.admin.BulkPatientDashboard2Action">
+            <result name="unauthorized">/securityError.jsp</result>
+            <result name="error">/failure.jsp</result>
+        </action>
+        <action name="formBPMH" class="io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action">
+            <result name="saved">/formBPMH.do?method=fetch</result>
+            <result name="success">/form/pharmaForms/formBPMH.jsp</result>
+        </action>
+        <action name="formeCARES" class="io.github.carlos_emr.carlos.form.eCARES.EcaresForm2Action">
+            <result name="success">/form/eCARES/formeCARES.jsp</result>
+            <result name="tickler">/tickler/ticklerAddWidget.jsp</result>
+        </action>
+        <action name="form/setupSelect" class="io.github.carlos_emr.carlos.form.pageUtil.FrmSetupSelect2Action">
+            <result name="continue">/form/formselect.jsp</result>
+        </action>
+        <action name="form/select" class="io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action">
+            <result name="success">/form/setupSelect.do</result>
+        </action>
+        <action name="form/xmlUpload" class="io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action">
+            <result name="success">/form/formXmlUpload.jsp</result>
+        </action>
+        <action name="form/formname" class="io.github.carlos_emr.carlos.form.Frm2Action">
+            <result name="exit">/encounter/close.jsp</result>
+            <result name="print">/form/forwardprint.jsp</result>
+            <result name="printAll">/form/createpdf</result>
+            <result name="printAllJasperReport">/form/formPdfJasperReport.do</result>
+            <result name="printLabReq">/form/formlabreqprint.jsp</result>
+            <result name="save">/form/forwardname.jsp</result>
+            <result name="graph">/form/createpdf</result>
+            <result name="failure">/errorpage.jsp</result>
+        </action>
+        <action name="form/forwardshortcutname" class="io.github.carlos_emr.carlos.form.pageUtil.FormForward2Action"/>
+        <action name="form/SetupForm" class="io.github.carlos_emr.carlos.form.pageUtil.FrmSetupForm2Action"/>
+        <action name="form/SubmitForm" class="io.github.carlos_emr.carlos.form.pageUtil.FrmForm2Action"/>
+        <action name="form/RHPrevention" class="io.github.carlos_emr.carlos.form.pageUtil.FrmFormRHPrevention2Action">
+            <result name="success">/form/formRhImmuneGlobulin.jsp</result>
+        </action>
+        <action name="form/AddRHWorkFlow" class="io.github.carlos_emr.carlos.form.pageUtil.FrmFormAddRHWorkFlow2Action">
+            <result name="success">/form/RHPrevention.do</result>
+        </action>
+        <action name="VaccineProviderReport" class="io.github.carlos_emr.carlos.vaccine.VaccineProviderReport2Action" method="execute">
+            <result name="report">/PMmodule/vaccine/vaccine_provider_report.jsp</result>
+        </action>
+        <action name="form/BCAR2020" class="io.github.carlos_emr.carlos.form.FrmBCAR20202Action">
+            <result name="pg1">/form/formBCAR2020pg1.jsp</result>
+            <result name="pg2">/form/formBCAR2020pg2.jsp</result>
+            <result name="pg3">/form/formBCAR2020pg3.jsp</result>
+            <result name="pg4">/form/formBCAR2020pg4.jsp</result>
+            <result name="pg5">/form/formBCAR2020pg5.jsp</result>
+            <result name="pg6">/form/formBCAR2020Attachments.jsp</result>
+            <result name="exit">/encounter/close.jsp</result>
+        </action>
+        <action name="admin/Flowsheet" class="io.github.carlos_emr.carlos.flowsheet.Flowsheet2Action"/>
+
+    </package>
+</struts>
