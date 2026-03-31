@@ -30,10 +30,12 @@ package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 
 import ca.ontario.health.edt.*;
 import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.apache.cxf.helpers.FileUtils;
 import org.apache.logging.log4j.Logger;
-import org.apache.struts2.ServletActionContext;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.integration.mcedt.DelegateFactory;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtMessageCreator;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -53,7 +55,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
-public class Upload2Action extends ActionSupport {
+public class Upload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -419,6 +421,19 @@ public class Upload2Action extends ActionSupport {
     private File addUploadFile;
     private String addUploadFileFileName;
     private String addUploadFileContentType;
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.addUploadFile = new File(uploaded.getAbsolutePath());
+            this.addUploadFileContentType = uploaded.getContentType();
+            this.addUploadFileFileName = uploaded.getOriginalName();
+            // Replicate side effects from the original setters
+            this.setFileName(uploaded.getOriginalName());
+            this.setResourceType(uploaded.getContentType());
+        }
+    }
 
     public String getDescription() {
         return description;

@@ -394,6 +394,12 @@
             <version>6.1.0</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.tomcat</groupId>
+            <artifactId>tomcat-coyote</artifactId>
+            <version>11.0.20</version>
+            <scope>provided</scope>
+        </dependency>
 
         <!-- hapi/HL7 -->
         <dependency>
