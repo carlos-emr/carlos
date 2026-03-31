@@ -2522,14 +2522,15 @@
     <script>
 
     /**
-     * Builds the addappointment.jsp URL pre-filled with slot and patient info.
+     * Builds the addappointment.jsp URL pre-filled with slot coordinates.
      * Uses bFirstDisp=false so patient alert and status banners load server-side.
+     * Patient name is resolved server-side in addappointment.jsp via demographic_no
+     * (no name PHI transmitted through the URL).
      * Requires appointment_date in YYYY-MM-DD format.
      */
-    function buildApptUrl(ctx, demographicNo, formattedName, providerNo, startTime, endTime, duration, appointmentDate) {
+    function buildApptUrl(ctx, demographicNo, providerNo, startTime, endTime, duration, appointmentDate) {
         return ctx + '/appointment/addappointment.jsp'
             + '?demographic_no='   + encodeURIComponent(demographicNo)
-            + '&name='             + encodeURIComponent(formattedName)
             + '&provider_no='      + encodeURIComponent(providerNo)
             + '&bFirstDisp=false'
             + '&appointment_date=' + encodeURIComponent(appointmentDate)
@@ -2824,9 +2825,10 @@
             badgeEl.style.opacity = '0.6';
             badgeEl.style.pointerEvents = 'none';
 
+            // No startDate: backend defaults to tomorrow, so today's (possibly past) open slots
+            // are not counted toward the 3-slot target.
             var url = ctx + '/demographic/FindNextAvailableSlot.do'
-                + '?providerNos=' + encodeURIComponent(mrpProviderNo)
-                + '&startDate='   + encodeURIComponent(scheduleCurrentDate);
+                + '?providerNos=' + encodeURIComponent(mrpProviderNo);
 
             fetch(url, { credentials: 'same-origin' })
                 .then(function(r) {
@@ -2856,7 +2858,8 @@
                     var appointmentDate = slot.year + '-' + mm + '-' + dd;
 
                     // Store pending appointment in sessionStorage so the page-load handler can open the popup.
-                    // Only non-PHI scheduling coordinates are stored; appointmentDate is derived on load from year/month/day.
+                    // Only scheduling coordinates are stored (no PHI); patient name is resolved server-side
+                    // by addappointment.jsp via demographic_no. appointmentDate is derived on load from year/month/day.
                     try {
                         sessionStorage.setItem('carlosPendingAppt', JSON.stringify({
                             demographicNo: item.demographicNo,
@@ -2870,7 +2873,7 @@
                         }));
                     } catch (storageErr) {
                         // sessionStorage unavailable — open popup directly (no schedule navigation)
-                        popupPage(360, 780, buildApptUrl(ctx, item.demographicNo, '',
+                        popupPage(360, 780, buildApptUrl(ctx, item.demographicNo,
                             slot.providerNo, slot.startTime, endTime, slot.duration, appointmentDate));
                         hideDropdown();
                         return;
@@ -3003,7 +3006,6 @@
         var derivedApptDate = pending.year ? (pending.year + '-' + mm2 + '-' + dd2) : '';
         var popupUrl = buildApptUrl(ctx2,
             pending.demographicNo,
-            '',
             pending.providerNo,
             pending.startTime,
             pending.endTime || '',

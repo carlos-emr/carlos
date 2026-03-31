@@ -2929,6 +2929,9 @@ if (userAgent != null) {
                                         <i class="fa-solid fa-chevron-down collapse-icon"></i>
                                     </a>
                                     <% if (thisForm.geteReferralId() == null) { %>
+                                    <%-- Import dropdown: data-target (not data-bs-target) is required because
+                                         buildImportMenus() reads it via jQuery .data('target') to generate
+                                         menu item IDs that reference the correct textarea. --%>
                                     <div class="dropdown consult-import-dropdown">
                                         <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:0.75rem;">
                                             <i class="fa-solid fa-file-import me-1"></i>Import
