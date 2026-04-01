@@ -210,18 +210,16 @@ public class NextAppointmentSearchHelper {
                         }
                     }
 
-                    //TODO: is there a default appt length somewhere?
-                    int duration = 15;
-                    if (searchBean.getCode().length() > 0) {
-                        //load the template code
-                        ScheduleTemplateCode stc = scheduleTemplateCodeDao.getByCode(searchBean.getCode().charAt(0));
-                        if (stc == null) {
-                            logger.error("Error - ScheduleTemplateCode not found!!!");
-                            continue;
-                        }
-                        //check the duration
-                        if (stc.getDuration() != null && stc.getDuration().length() > 0) {
+                    // Look up duration from the ScheduleTemplateCode for the actual slot code
+                    // (e.g. 'A' = 30 min). This gives the correct appointment length even when
+                    // not filtering by code. Falls back to slotSize when no template code is defined.
+                    int duration = slotSize;
+                    ScheduleTemplateCode stc = scheduleTemplateCodeDao.getByCode(slot);
+                    if (stc != null && stc.getDuration() != null && !stc.getDuration().isEmpty()) {
+                        try {
                             duration = Integer.parseInt(stc.getDuration());
+                        } catch (NumberFormatException e) {
+                            logger.warn("NextAppointmentSearchHelper: invalid duration '{}' for code '{}'; using slotSize {}", stc.getDuration(), slot, slotSize);
                         }
                     }
 
