@@ -1757,11 +1757,11 @@ for (Provider providerItem: prList) {
 		String prov_no = "prov_"+providerItem.getProviderNo();
 
 		%>
-        providerData['<%=prov_no%>'] = {};
+        providerData['<%=Encode.forJavaScript(prov_no)%>'] = {};
 
-        providerData['<%=prov_no%>'].address = "<%=Encode.forJavaScript(providerItem.getFullAddress())%>";
-        providerData['<%=prov_no%>'].phone = "<%=Encode.forJavaScript(providerItem.getClinicPhone())%>";
-        providerData['<%=prov_no%>'].fax = "<%=Encode.forJavaScript(providerItem.getClinicFax())%>";
+        providerData['<%=Encode.forJavaScript(prov_no)%>'].address = "<%=Encode.forJavaScript(providerItem.getFullAddress())%>";
+        providerData['<%=Encode.forJavaScript(prov_no)%>'].phone = "<%=Encode.forJavaScript(providerItem.getClinicPhone())%>";
+        providerData['<%=Encode.forJavaScript(prov_no)%>'].fax = "<%=Encode.forJavaScript(providerItem.getClinicFax())%>";
 
         <%	}
 }
@@ -1774,10 +1774,10 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
 		for (Program program : programList) {
 			String progNo = "prog_" + program.getId();
 %>
-        providerData['<%=progNo %>'] = {};
-        providerData['<%=progNo %>'].address = '<%=(program.getAddress() != null && !program.getAddress().trim().isEmpty()) ? Encode.forJavaScript(program.getAddress()) : (Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal())) %>';
-        providerData['<%=progNo %>'].phone = '<%=(program.getPhone() != null && !program.getPhone().trim().isEmpty()) ? Encode.forJavaScript(program.getPhone()) : Encode.forJavaScript(clinic.getClinicPhone()) %>';
-        providerData['<%=progNo %>'].fax = '<%=(program.getFax() != null && !program.getFax().trim().isEmpty()) ? Encode.forJavaScript(program.getFax()) : Encode.forJavaScript(clinic.getClinicFax()) %>';
+        providerData['<%=Encode.forJavaScript(progNo)%>'] = {};
+        providerData['<%=Encode.forJavaScript(progNo)%>'].address = '<%=(program.getAddress() != null && !program.getAddress().trim().isEmpty()) ? Encode.forJavaScript(program.getAddress()) : (Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal())) %>';
+        providerData['<%=Encode.forJavaScript(progNo)%>'].phone = '<%=(program.getPhone() != null && !program.getPhone().trim().isEmpty()) ? Encode.forJavaScript(program.getPhone()) : Encode.forJavaScript(clinic.getClinicPhone()) %>';
+        providerData['<%=Encode.forJavaScript(progNo)%>'].fax = '<%=(program.getFax() != null && !program.getFax().trim().isEmpty()) ? Encode.forJavaScript(program.getFax()) : Encode.forJavaScript(clinic.getClinicFax()) %>';
         <%
 		}
 	}
@@ -1842,14 +1842,14 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
 
         function refreshImage() {
             counter = counter + 1;
-            document.getElementById('signatureImgTag').src = '<%=imageUrl%>&rand=' + counter;
-            document.getElementById('signatureImg').value = '<%=signatureRequestId%>';
+            document.getElementById('signatureImgTag').src = '<%=Encode.forJavaScript(imageUrl)%>&rand=' + counter;
+            document.getElementById('signatureImg').value = '<%=Encode.forJavaScript(signatureRequestId)%>';
         }
 
         function showSignatureImage() {
             if (document.getElementById('signatureImg') != null && document.getElementById('signatureImg').value.length > 0) {
 
-                document.getElementById('signatureImgTag').src = "<%=storedImgUrl %>" + encodeURIComponent(document.getElementById('signatureImg').value);
+                document.getElementById('signatureImgTag').src = "<%=Encode.forJavaScript(storedImgUrl)%>" + encodeURIComponent(document.getElementById('signatureImg').value);
                 document.getElementById('newSignature').value = "false";
                 document.getElementById("signatureFrame").style.display = "none";
                 document.getElementById('signatureShow').style.display = "block";
@@ -1889,7 +1889,7 @@ if (userAgent != null) {
             }
         }
 
-        var requestIdKey = "<%=signatureRequestId %>";
+        var requestIdKey = "<%=Encode.forJavaScript(signatureRequestId)%>";
 
         function AddOtherFaxProvider() {
             var name = jQuery("#searchHealthCareTeamInput").val();
@@ -2103,13 +2103,13 @@ if (userAgent != null) {
         %>
 
         <% if (!props.isConsultationFaxEnabled() || !CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
-        <input type="hidden" name="providerNo" value="<%=providerNo%>">
+        <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(providerNo)%>">
         <% } %>
         <input type="hidden" name="demographicNo" id="demographicNo" value="<%=Encode.forHtmlAttribute(demo)%>">
-        <input type="hidden" name="requestId" id="requestId" value="<%=requestId%>">
-        <input type="hidden" name="ext_appNo" value="<%=request.getParameter("appNo") %>">
+        <input type="hidden" name="requestId" id="requestId" value="<%=Encode.forHtmlAttribute(requestId != null ? requestId : "")%>">
+        <input type="hidden" name="ext_appNo" value="<%=Encode.forHtmlAttribute(request.getParameter("appNo") != null ? request.getParameter("appNo") : "")%>">
         <input type="hidden" name="source"
-               value="<%=(requestId!=null)?thisForm.getSource():request.getParameter("source") %>">
+               value="<%=Encode.forHtmlAttribute((requestId != null) ? thisForm.getSource() : (request.getParameter("source") != null ? request.getParameter("source") : ""))%>">
         <input type="hidden" name="submission" value="">
         <input type="hidden" id="saved" value="false">
         <input type="hidden" id="contextPath" value="${pageContext.request.contextPath}">
@@ -2187,7 +2187,7 @@ if (userAgent != null) {
                                                 <%-- <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.attachDoc"/> --%>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
                                                title="Add Attachment"
-                                               data-poload="${ ctx }/previewDocs.do?method=fetchConsultDocuments&amp;demographicNo=<%=demo%>&amp;requestId=<%=requestId%>">
+                                               data-poload="${ ctx }/previewDocs.do?method=fetchConsultDocuments&amp;demographicNo=<%=Encode.forUriComponent(demo)%>&amp;requestId=<%=Encode.forUriComponent(requestId != null ? requestId : "")%>">
                                                 Manage Attachments
                                             </a>
                                             <input type="hidden" id="isOceanEReferral"
@@ -2196,7 +2196,7 @@ if (userAgent != null) {
                                             } else { %>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
                                                title="Add Attachment"
-                                               data-poload="${ ctx }/previewDocs.do?method=fetchConsultDocuments&amp;demographicNo=<%=demo%>&amp;requestId=<%=requestId%>">
+                                               data-poload="${ ctx }/previewDocs.do?method=fetchConsultDocuments&amp;demographicNo=<%=Encode.forUriComponent(demo)%>&amp;requestId=<%=Encode.forUriComponent(requestId != null ? requestId : "")%>">
                                                 Manage Attachments
                                             </a>
 
@@ -2390,7 +2390,7 @@ if (userAgent != null) {
                                         <div class="row g-2" style="font-size:0.85rem;">
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAddress"/></small><br>
-                                                <%=thisForm.getPatientAddress().replace("null", "")%>
+                                                <%=Encode.forHtml(thisForm.getPatientAddress().replace("null", ""))%>
                                             </div>
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPhone"/></small>: <%=Encode.forHtml(thisForm.getPatientPhone())%><br>
@@ -2428,7 +2428,7 @@ if (userAgent != null) {
                                                     for (Provider p : prList) {
                                                         if (p.getProviderNo().compareTo("-1") != 0) {
                                                 %>
-                                                <option value="<%=p.getProviderNo() %>" <%=((consultUtil.providerNo != null && consultUtil.providerNo.equalsIgnoreCase(p.getProviderNo())) || (consultUtil.providerNo == null && referringProviderDefault.equalsIgnoreCase(p.getProviderNo())) ? "selected" : "") %>>
+                                                <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>" <%=((consultUtil.providerNo != null && consultUtil.providerNo.equalsIgnoreCase(p.getProviderNo())) || (consultUtil.providerNo == null && referringProviderDefault.equalsIgnoreCase(p.getProviderNo())) ? "selected" : "") %>>
                                                     <%=Encode.forHtmlContent(p.getFirstName().replace("Dr.", "")) %>&nbsp;<%=Encode.forHtmlContent(p.getSurname()) %>
                                                 </option>
                                                 <% }
@@ -2458,7 +2458,7 @@ if (userAgent != null) {
                                                     String refDateFormatted = year + "-" + (mon.length() == 1 ? "0" + mon : mon) + "-" + (day.length() == 1 ? "0" + day : day);
                                                 %>
                                                 <input type="date" class="form-control form-control-sm" id="referalDate" name="referalDate"
-                                                           value="<%=refDateFormatted%>"/>
+                                                           value="<%=Encode.forHtmlAttribute(refDateFormatted)%>"/>
                                                 <%
                                                     }
                                                 %>
@@ -2473,7 +2473,7 @@ if (userAgent != null) {
                                                     String refDateFormattedLocked = year + "-" + (mon.length() == 1 ? "0" + mon : mon) + "-" + (day.length() == 1 ? "0" + day : day);
                                                 %>
                                                 <input type="date" class="form-control form-control-sm" id="referalDate" name="referalDate" readonly
-                                                           value="<%=refDateFormattedLocked%>"/>
+                                                           value="<%=Encode.forHtmlAttribute(refDateFormattedLocked)%>"/>
                                             </td>
 
                                         </oscar:oscarPropertiesCheck>
@@ -2537,7 +2537,7 @@ if (userAgent != null) {
                                             </td>
                                             <td class="consult-form-label" style="font-size:11px;">
                                                 <a href="javascript:void(0);"
-                                                   onclick="popupPage(500,700,'${ctx}/demographic/Contact.do?method=manageContactList&contactList=HCT&view=detached&demographic_no=<%=demo%>' ); return false;">
+                                                   onclick="popupPage(500,700,'${ctx}/demographic/Contact.do?method=manageContactList&contactList=HCT&view=detached&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demo))%>' ); return false;">
                                                     edit Health Care Team
                                                 </a>
                                             </td>
@@ -2679,8 +2679,8 @@ if (userAgent != null) {
                                                     if (te.equals(defaultSiteName))
                                                         defaultSiteId = siteIds.get(i);
                                                 %>
-                                                <option value="<%=te%>"
-                                                             style='<%="background-color: "+bg%>'><%=te%>
+                                                <option value="<%=Encode.forHtmlAttribute(te)%>"
+                                                             style="background-color: <%=Encode.forHtmlAttribute(bg)%>"><%=Encode.forHtml(te)%>
                                                 </option>
                                                 <% }%>
                                             </select>
@@ -2701,7 +2701,7 @@ if (userAgent != null) {
                                                     String te = (String) consultUtil.teamVec.elementAt(i);
                                                     String selectedTeam = (te.equals(thisForm.getSendTo())) ? "selected" : "";
                                             %>
-                                            <option value="<%=te%>" <%=selectedTeam%>><%=te%>
+                                            <option value="<%=Encode.forHtmlAttribute(te)%>" <%=selectedTeam%>><%=Encode.forHtml(te)%>
                                             </option>
                                             <%
                                                 }
@@ -2773,7 +2773,7 @@ if (userAgent != null) {
                                                     for (Provider p : prList) {
                                                         if (p.getProviderNo().compareTo("-1") != 0 && (p.getFirstName() != null || p.getSurname() != null)) {
                                                 %>
-                                                <option value="<%=p.getProviderNo() %>"
+                                                <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"
                                                         <%=(thisForm.getLetterheadName() != null && !thisForm.getLetterheadName().isEmpty() && thisForm.getLetterheadName().equalsIgnoreCase(p.getProviderNo())) ? "selected" : ((thisForm.getLetterheadName() == null || thisForm.getLetterheadName().isEmpty()) && p.getProviderNo().equalsIgnoreCase(providerDefault) && lhndType.equals("providers") ? "selected" : "") %>>
                                                     <%=Encode.forHtmlContent(p.getSurname())%>
                                                     ,&nbsp;<%=Encode.forHtmlContent(p.getFirstName().replace("Dr.", ""))%>
@@ -3030,7 +3030,7 @@ if (userAgent != null) {
                                 <input type="hidden" name="signatureImg" id="signatureImg"
                                        value="<%=(consultUtil.signatureImg != null ? Encode.forHtmlAttribute(consultUtil.signatureImg) : "") %>"/>
                                 <input type="hidden" name="newSignatureImg" id="newSignatureImg"
-                                       value="<%=signatureRequestId %>"/>
+                                       value="<%=Encode.forHtmlAttribute(signatureRequestId)%>"/>
 
                                 <% if (hasStampSignature) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.altProviderSig" var="providerSigAlt"/>
@@ -3174,7 +3174,7 @@ if (userAgent != null) {
                 if("${pageScope.lhndType eq 'providers'}" === "true"){
                     switchProvider("${pageScope.providerDefault}");
                 } else if("${pageScope.lhndType eq 'clinic'}" === "true"){
-                    switchProvider("<%=clinic.getClinicName()%>");
+                    switchProvider("<%=Encode.forJavaScript(clinic.getClinicName())%>");
                 } else {
                     switchProvider("-1");
                 }
@@ -3251,7 +3251,7 @@ if (userAgent != null) {
                                 // addFormIfNotFound only handles form (formNo) attachments;
                                 // skip pre-check for labs, docs, eForms, HRM not found in dialog
                                 if (delegate.startsWith("#formNo")) {
-                                    element = addFormIfNotFound(data, '<%=demo%>', delegate);
+                                    element = addFormIfNotFound(data, '<%=Encode.forJavaScript(demo)%>', delegate);
                                 } else {
                                     return;
                                 }
