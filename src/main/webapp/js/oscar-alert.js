@@ -29,6 +29,19 @@
 let oscarAlert;
 
 /**
+ * Escapes a string for safe insertion into HTML to prevent XSS.
+ * Uses a temporary DOM text node so the browser's own escaping is applied.
+ * @param {string} text - the raw string to escape
+ * @returns {string} HTML-encoded string safe for use in innerHTML
+ */
+function escapeHtml(text) {
+    const node = document.createTextNode(String(text));
+    const div = document.createElement('div');
+    div.appendChild(node);
+    return div.innerHTML;
+}
+
+/**
  * Create and display a Bootstrap alert with the given message, type, and duration
  * @param {string} alertId - unique identifier for the alert div
  * @param {string} message - the message to display inside the alert
@@ -154,9 +167,11 @@ class OscarAlert {
     }
 
     getInnerHTML(message) {
+        const safeMessage = escapeHtml(message);
+        const safeId = escapeHtml(this.alertDiv.id);
         return `
-            <strong>${this.getLabel()}</strong> ${message}
-            <br> <small>${this.getDismissalMessage()}<span id="countdown-${this.alertDiv.id}">${this.countdown}</span> seconds.</small>
+            <strong>${this.getLabel()}</strong> ${safeMessage}
+            <br> <small>${this.getDismissalMessage()}<span id="countdown-${safeId}">${this.countdown}</span> seconds.</small>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" ></button>
         `;
     }
