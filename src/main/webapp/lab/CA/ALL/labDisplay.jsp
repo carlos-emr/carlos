@@ -571,7 +571,9 @@ input[id^='acklabel_']{
             var text = providerNo + "_" + segmentId + "commentText";
             var textEl = document.getElementById(text);
             if (textEl != null) {
-                comment = textEl.innerHTML;
+                // Use textContent (not innerHTML) to get decoded text, preventing
+                // progressive HTML-entity double-encoding on each comment edit cycle.
+                comment = textEl.textContent;
                 if (comment == null) {
                     comment = "";
                 }
@@ -604,7 +606,7 @@ input[id^='acklabel_']{
         }
 
         function linkreq(rptId, reqId) {
-            var link = "<%= request.getContextPath() %>/lab/LinkReq.jsp?table=hl7TextMessage&rptid=" + rptId + "&reqid=" + reqId + "<%=demographicID != null ? "&demographicNo=" + demographicID : ""%>";
+            var link = "<%= request.getContextPath() %>/lab/LinkReq.jsp?table=hl7TextMessage&rptid=" + rptId + "&reqid=" + reqId + "<%=demographicID != null ? "&demographicNo=" + Encode.forJavaScript(demographicID) : ""%>";
             window.open(link, "linkwin", "width=500, height=200");
         }
 
@@ -660,7 +662,7 @@ input[id^='acklabel_']{
                             demoid = json.demoId;
                             if (demoid != null && demoid.length > 0) {
                                 window.popup(700, 980, '${pageContext.request.contextPath}/messenger/SendDemoMessage.do?demographic_no=' + demoid + "&recall", 'msgRecall');
-                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler.do?docType=HL7&docId=' + labid + '&demographic_no=' + demoid + '<%=ticklerAssignee%>&priority=<%=recallTicklerPriority%>&recall', 'ticklerRecall');
+                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler.do?docType=HL7&docId=' + labid + '&demographic_no=' + demoid + '<%=Encode.forJavaScript(ticklerAssignee)%>&priority=<%=Encode.forJavaScript(recallTicklerPriority)%>&recall', 'ticklerRecall');
                             }
                         } else if (action === 'ticklerLab') {
                             console.log("Setting lab Tickler. Labid: " + labid + " Demoid: " + demoid);
@@ -1033,7 +1035,7 @@ input[id^='acklabel_']{
                                        onClick="popupStart(360, 680, '<%= request.getContextPath() %>/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'encounter')">
                                 <% } %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="Req# <%=Encode.forHtmlAttribute(reqTableID)%>" title="Link to Requisition"
-                                       onclick="linkreq('<%=Encode.forJavaScript(segmentID)%>','<%=reqID%>');">
+                                       onclick="linkreq('<%=Encode.forJavaScript(segmentID)%>','<%=Encode.forJavaScript(reqID)%>');">
 
 
                                 <% if (bShortcutForm) { %>
@@ -1041,8 +1043,8 @@ input[id^='acklabel_']{
                                        onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=formName%>&demographic_no=<%=demographicID%>', '<%=Encode.forJavaScript(formNameShort)%>')">
                                 <% } %>
                                 <% if (bShortcutForm2) { %>
-                                <input type="button" class="btn btn-sm btn-outline-secondary" value="<%=formName2Short%>"
-                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=formName2%>&demographic_no=<%=demographicID%>', '<%=formName2Short%>')">
+                                <input type="button" class="btn btn-sm btn-outline-secondary" value="<%=Encode.forHtmlAttribute(formName2Short)%>"
+                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=formName2%>&demographic_no=<%=demographicID%>', '<%=Encode.forJavaScript(formName2Short)%>')">
                                 <% } %>
 
                                 <% if (recall) {%>
@@ -1350,7 +1352,7 @@ input[id^='acklabel_']{
                                         </td>
                                         <td>
                                             <div class="FieldData">
-                                                <%= dateLabReceived %>
+                                                <%= Encode.forHtml(dateLabReceived) %>
                                             </div>
                                         </td>
                                     </tr>
@@ -1408,7 +1410,7 @@ input[id^='acklabel_']{
                                     </tr>
                                     <% } %>
                                     <%
-                                        String comment =Encode.forHtml(handler.getNteForPID());
+                                        String comment = handler.getNteForPID();
                                         if (comment != null && !comment.equals("")) {%>
                                     <tr>
                                         <td>
@@ -1502,9 +1504,9 @@ input[id^='acklabel_']{
                                              class="<%=ticklerClass%>">
                                             <table style="width:100%;">
                                                 <tr>
-                                                    <td><b>Priority:</b> <%=flag%> <%=tickler.getPriority()%>
+                                                    <td><b>Priority:</b> <%=flag%> <%=Encode.forHtml(tickler.getPriority().toString())%>
                                                     </td>
-                                                    <td><b>Service Date:</b> <%=tickler.getServiceDate()%>
+                                                    <td><b>Service Date:</b> <%=Encode.forHtml(String.valueOf(tickler.getServiceDate()))%>
                                                     </td>
                                                     <td><b>Assigned
                                                         To:</b> <%=tickler.getAssignee() != null ? Encode.forHtml(tickler.getAssignee().getLastName() + ", " + tickler.getAssignee().getFirstName()) : "N/A"%>
@@ -1893,7 +1895,7 @@ input[id^='acklabel_']{
                 </td>
                 <td style="text-align:center; vertical-align:top;  ">
                     <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
+                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=Encode.forJavaScript(demographicID)%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
                         <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
                                                           width="13"/><%} else { %><img
                             src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
@@ -1939,7 +1941,7 @@ input[id^='acklabel_']{
                 </td>
                 <td style="vertical-align:center; text-align:left;">
                     <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
+                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=Encode.forJavaScript(demographicID)%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
                         <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
                                                           width="13"/><%} else { %><img
                             src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
@@ -2037,7 +2039,7 @@ input[id^='acklabel_']{
 
                 <td style="vertical-align:top;  text-align:left;">
                     <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
+                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=Encode.forJavaScript(demographicID)%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
                         <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
                                                           width="13"/><%} else { %><img
                             src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
@@ -2079,7 +2081,8 @@ input[id^='acklabel_']{
 										    	RTFEditorKit rtfParser = new RTFEditorKit();
 										    	javax.swing.text.Document doc = rtfParser.createDefaultDocument();
 										    	rtfParser.read(rtfStream, doc, 0);
-										    	String rtfText = doc.getText(0, doc.getLength()).replaceAll("\n", "<br>");
+										    	// IMPORTANT: HTML-encode FIRST (XSS prevention), then convert newlines to <br>.
+										    	String rtfText = Encode.forHtml(doc.getText(0, doc.getLength())).replaceAll("\n", "<br>");
 										    	String disclaimer = "<br>IMPORTANT DISCLAIMER: You are viewing a PREVIEW of the original report. The rich text formatting contained in the original report may convey critical information that must be considered for clinical decision making. Please refer to the ORIGINAL report, by clicking 'Print', prior to making any decision on diagnosis or treatment.";%>
                 <td style="text-align:left"><%= rtfText + disclaimer %>
                 </td>
@@ -2234,7 +2237,7 @@ input[id^='acklabel_']{
 
             </td>
             <td style="vertical-align:top;  text-align:left;"><a href="javascript:void(0);" title="Annotation"
-                                               onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
+                                               onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=Encode.forJavaScript(demographicID)%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
                 <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
                                                   width="13"/><%} else { %><img
                     src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"/> <%} %>
@@ -2280,7 +2283,7 @@ input[id^='acklabel_']{
                 </td>
                 <td style="vertical-align:top;  text-align:left;">
                     <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(1) + "-" + String.valueOf(1) %>','anwin','width=400,height=500');">
+                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=Encode.forJavaScript(demographicID)%>&amp;other_id=<%=String.valueOf(1) + "-" + String.valueOf(1) %>','anwin','width=400,height=500');">
                         <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
                                                           width="13"/><%} else { %><img
                             src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
@@ -2328,7 +2331,7 @@ input[id^='acklabel_']{
                 if (handler.getOBXName(j, k).equals("")) {
                     String result = handler.getOBXResult(j, k);%>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;">
-                <td colspan="7" style="vertical-align:top; text-align:left;"><%=result%>
+                <td colspan="7" style="vertical-align:top; text-align:left;"><%=Encode.forHtml(result)%>
                 </td>
             </tr>
             <%
