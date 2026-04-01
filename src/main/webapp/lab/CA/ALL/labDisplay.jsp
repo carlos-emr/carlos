@@ -571,6 +571,8 @@ input[id^='acklabel_']{
             var text = providerNo + "_" + segmentId + "commentText";
             var textEl = document.getElementById(text);
             if (textEl != null) {
+                // Use textContent (not innerHTML) to get decoded text, preventing
+                // progressive HTML-entity double-encoding on each comment edit cycle.
                 comment = textEl.textContent;
                 if (comment == null) {
                     comment = "";
@@ -1408,7 +1410,7 @@ input[id^='acklabel_']{
                                     </tr>
                                     <% } %>
                                     <%
-                                        String comment =Encode.forHtml(handler.getNteForPID());
+                                        String comment = handler.getNteForPID();
                                         if (comment != null && !comment.equals("")) {%>
                                     <tr>
                                         <td>
@@ -1868,7 +1870,7 @@ input[id^='acklabel_']{
 
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=Encode.forHtml(obxName)%>
+                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=Encode.forJavaScript(demographicID)%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=Encode.forHtml(obxName)%>
                 </a>
                     &nbsp;<%if (loincCode != null) { %>
                     <a href="javascript:popupStart('660','1000','http://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%=Encode.forUriComponent(loincCode)%>&informationRecipient.languageCode.c=en')">
@@ -1893,7 +1895,7 @@ input[id^='acklabel_']{
                 </td>
                 <td style="text-align:center; vertical-align:top;  ">
                     <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
+                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=Encode.forJavaScript(demographicID)%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
                         <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
                                                           width="13"/><%} else { %><img
                             src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
@@ -1914,7 +1916,7 @@ input[id^='acklabel_']{
                 if (!obxName.equals("")) { %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=Encode.forHtml(obxName)%>
+                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=Encode.forJavaScript(demographicID)%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=Encode.forHtml(obxName)%>
                 </a>
                     &nbsp;
                     <%if (loincCode != null) { %>
@@ -1939,7 +1941,7 @@ input[id^='acklabel_']{
                 </td>
                 <td style="vertical-align:center; text-align:left;">
                     <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
+                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=Encode.forJavaScript(demographicID)%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
                         <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
                                                           width="13"/><%} else { %><img
                             src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
@@ -1978,7 +1980,7 @@ input[id^='acklabel_']{
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=Encode.forHtml(obxName)%>
+                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=Encode.forJavaScript(demographicID)%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=Encode.forHtml(obxName)%>
                 </a>
                     &nbsp;<%if (loincCode != null) { %>
                     <a href="javascript:popupStart('660','1000','http://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%=Encode.forUriComponent(loincCode)%>&informationRecipient.languageCode.c=en')">
@@ -2037,7 +2039,7 @@ input[id^='acklabel_']{
 
                 <td style="vertical-align:top;  text-align:left;">
                     <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
+                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=Encode.forJavaScript(demographicID)%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
                         <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
                                                           width="13"/><%} else { %><img
                             src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
@@ -2063,10 +2065,10 @@ input[id^='acklabel_']{
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%="NarrativeRes"%>"><%
                                    			if(handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k-1)) && (obxCount>1) && ! handler.getMsgType().equals("MEDITECH") ){%>
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier='<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8")%>')"></a><%
+                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=Encode.forJavaScript(demographicID)%>&labType=HL7&identifier='<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8")%>')"></a><%
                                    			}else if(! handler.getMsgType().equals("MEDITECH") ) {%>
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=Encode.forHtml(obxName)%>
+                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=Encode.forJavaScript(demographicID)%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=Encode.forHtml(obxName)%>
                 </a>
                         <%}%>
                         <%if(isVIHARtf){
@@ -2079,7 +2081,8 @@ input[id^='acklabel_']{
 										    	RTFEditorKit rtfParser = new RTFEditorKit();
 										    	javax.swing.text.Document doc = rtfParser.createDefaultDocument();
 										    	rtfParser.read(rtfStream, doc, 0);
-										    	String rtfText = doc.getText(0, doc.getLength()).replaceAll("\n", "<br>");
+										    	// IMPORTANT: HTML-encode FIRST (XSS prevention), then convert newlines to <br>.
+										    	String rtfText = Encode.forHtml(doc.getText(0, doc.getLength())).replaceAll("\n", "<br>");
 										    	String disclaimer = "<br>IMPORTANT DISCLAIMER: You are viewing a PREVIEW of the original report. The rich text formatting contained in the original report may convey critical information that must be considered for clinical decision making. Please refer to the ORIGINAL report, by clicking 'Print', prior to making any decision on diagnosis or treatment.";%>
                 <td style="text-align:left"><%= rtfText + disclaimer %>
                 </td>
@@ -2102,7 +2105,7 @@ input[id^='acklabel_']{
 
                     <% if(handler.getMsgType().equals("PATHL7") && !isAllowedDuplicate && (obxCount>1) && handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k-1)) && (handler.getOBXValueType(j, k).equals("TX") || handler.getOBXValueType(j, k).equals("FT"))){%>
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"></a><%
+                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=Encode.forJavaScript(demographicID)%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"></a><%
                                    			} else {
 
 
@@ -2111,7 +2114,7 @@ input[id^='acklabel_']{
                 <td></td>
                     <% } else { %>
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=Encode.forHtml(obxName)%>
+                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=Encode.forJavaScript(demographicID)%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=Encode.forHtml(obxName)%>
                 </a>
 
                     <% if (loincCode != null) { %>
@@ -2234,7 +2237,7 @@ input[id^='acklabel_']{
 
             </td>
             <td style="vertical-align:top;  text-align:left;"><a href="javascript:void(0);" title="Annotation"
-                                               onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
+                                               onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=Encode.forJavaScript(demographicID)%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
                 <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
                                                   width="13"/><%} else { %><img
                     src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"/> <%} %>
@@ -2280,7 +2283,7 @@ input[id^='acklabel_']{
                 </td>
                 <td style="vertical-align:top;  text-align:left;">
                     <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(1) + "-" + String.valueOf(1) %>','anwin','width=400,height=500');">
+                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=Encode.forJavaScript(demographicID)%>&amp;other_id=<%=String.valueOf(1) + "-" + String.valueOf(1) %>','anwin','width=400,height=500');">
                         <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
                                                           width="13"/><%} else { %><img
                             src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"

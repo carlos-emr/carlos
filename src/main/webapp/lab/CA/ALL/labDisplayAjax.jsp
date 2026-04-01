@@ -208,6 +208,8 @@
 
         var textEl = document.getElementById(text);
         if (textEl != null) {
+            // Use textContent (not innerHTML) to get decoded text, preventing
+            // progressive HTML-entity double-encoding on each comment edit cycle.
             commentVal = textEl.textContent;
             if (commentVal == null) {
                 commentVal = "";
@@ -1131,6 +1133,8 @@
 											    	RTFEditorKit rtfParser = new RTFEditorKit();
 											    	javax.swing.text.Document doc = rtfParser.createDefaultDocument();
 											    	rtfParser.read(rtfStream, doc, 0);
+											    	// IMPORTANT: HTML-encode FIRST (XSS prevention), then convert newlines to <br>.
+											    	// Reversing this order would encode the <br> tags themselves.
 											    	String rtfText = Encode.forHtml(doc.getText(0, doc.getLength())).replaceAll("\n", "<br>");
 											    	String disclaimer = "<br>IMPORTANT DISCLAIMER: You are viewing a PREVIEW of the original report. The rich text formatting contained in the original report may convey critical information that must be considered for clinical decision making. Please refer to the ORIGINAL report, by clicking 'Print', prior to making any decision on diagnosis or treatment.";%>
                     <td align="left"><%= rtfText + disclaimer %>
