@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 
 import java.io.Serializable;
@@ -49,7 +50,9 @@ public class BillingDetailTo1 implements Serializable {
     private String providerNo;
     private Integer appointmentNo;
     private String province;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date billingDate;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date billingTime;
     private BigDecimal total;
     private BigDecimal paid;
