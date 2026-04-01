@@ -115,6 +115,9 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentComment;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -2741,6 +2744,23 @@ public class DemographicExportAction42Action extends ActionSupport {
                 break;
         }
 
+        String exportedIds = String.join(",", list);
+        if (exportedIds.length() > 500) {
+            int lastComma = exportedIds.lastIndexOf(',', 500);
+            exportedIds = (lastComma > 0 ? exportedIds.substring(0, lastComma) : exportedIds.substring(0, 500)) + "...";
+        }
+        OscarLog exportAuditLog = new OscarLog();
+        if (loggedInInfo.getLoggedInSecurity() != null) {
+            exportAuditLog.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
+        }
+        if (loggedInInfo.getLoggedInProvider() != null) {
+            exportAuditLog.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+        }
+        exportAuditLog.setAction(LogConst.EXPORT);
+        exportAuditLog.setContent(LogConst.CON_DEMOGRAPHIC);
+        exportAuditLog.setIp(loggedInInfo.getIp());
+        exportAuditLog.setData("Exported " + list.size() + " records; outcome=" + ffwd + "; ids=" + exportedIds);
+        LogAction.addLogSynchronous(exportAuditLog);
         return ffwd;
     }
 
