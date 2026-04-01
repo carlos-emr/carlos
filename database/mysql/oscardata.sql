@@ -1334,7 +1334,7 @@ INSERT INTO `measurementType` (`type`, `typeDisplayName`, `typeDescription`, `me
 INSERT INTO mygroup VALUES ('IT Support','88888','Support','IT',NULL,NULL);
 
 
-insert into ProviderPreference (providerNo, startHour, endHour, everyMin, myGroupNo, colourTemplate, defaultCaisiPmm, defaultNewOscarCme, printQrCodeOnPrescriptions, lastUpdated, appointmentScreenLinkNameDisplayLength,defaultDoNotDeleteBilling,eRxEnabled,eRxTrainingMode) values ('999998','8','18','15','.default','deepblue','disabled','disabled', 0, now(), 3,0,0,0);
+insert into ProviderPreference (providerNo, startHour, endHour, everyMin, myGroupNo, colourTemplate, defaultCaisiPmm, defaultNewOscarCme, printQrCodeOnPrescriptions, lastUpdated, appointmentScreenLinkNameDisplayLength,defaultDoNotDeleteBilling) values ('999998','8','18','15','.default','deepblue','disabled','disabled', 0, now(), 3,0);
 
 --
 -- Dumping data for table 'provider'
