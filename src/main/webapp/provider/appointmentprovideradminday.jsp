@@ -45,11 +45,11 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
-<%@page import="io.github.carlos_emr.carlos.util.*" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
-<%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
+<%@ page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.*" %>
 <%@ page import="java.util.*,java.text.*,java.net.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="org.apache.commons.lang3.*" %>
@@ -454,6 +454,7 @@
 <html>
     <head>
         <title><%=WordUtils.capitalize(userlastname + ", " + org.apache.commons.lang3.StringUtils.substring(userfirstname, 0, 1)) + "-"%><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.title"/></title>
+        <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
         <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <link rel="stylesheet"
