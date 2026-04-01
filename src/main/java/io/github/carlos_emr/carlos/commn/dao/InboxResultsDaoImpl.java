@@ -116,11 +116,12 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
         if (docNo != null && providerNo != null) {
             int dn = Integer.parseInt(docNo.trim());
             providerNo = providerNo.trim();
-            String sql = "select * from providerLabRouting plr where plr.lab_type='DOC' and plr.lab_no=" + dn
-                + " and plr.provider_no='" + providerNo + "'";
+            String sql = "select * from providerLabRouting plr where plr.lab_type='DOC' and plr.lab_no=? and plr.provider_no=?";
             try {
 
                 Query q = entityManager.createNativeQuery(sql);
+                q.setParameter(1, dn);
+                q.setParameter(2, providerNo);
                 List<Object[]> rs = q.getResultList();
 
                 logger.debug(sql);
