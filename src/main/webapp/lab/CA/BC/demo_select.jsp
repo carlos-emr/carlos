@@ -50,6 +50,9 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="java.net.URLEncoder" %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
 <%
 
     String postTo = request.getParameter("postTo");
@@ -67,7 +70,7 @@
         keyword = ConversionUtils.fromIntString(keyword);
     }
 
-    String url = "demo_select.jsp?keyword=" + keyword + "&postTo=" + postTo + (column.equals("") ? "" : "&column=" + column);
+    String url = "demo_select.jsp?keyword=" + URLEncoder.encode(String.valueOf(keyword), StandardCharsets.UTF_8) + "&postTo=" + URLEncoder.encode(postTo, StandardCharsets.UTF_8) + (column.equals("") ? "" : "&column=" + URLEncoder.encode(column, StandardCharsets.UTF_8));
 
     DemographicDao dao = SpringUtils.getBean(DemographicDao.class);
 
@@ -82,7 +85,7 @@
     <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/oscar.css">
     <script language="JavaScript">
         function PopupReturn(index) {
-            window.opener.location = '<%=postTo.replaceAll("-","&")%>' + index;
+            window.opener.location = '<%=Encode.forJavaScript(postTo.replaceAll("-","&"))%>' + index;
             window.opener.focus();
             window.close();
         };
@@ -99,8 +102,8 @@
     </table>
     <table>
         <tr>
-            <td><input type="hidden" name="postTo" value="<%=postTo%>"/> <input
-                    type="text" name="keyword" value="<%=keyword%>"/> <input
+            <td><input type="hidden" name="postTo" value="<%=Encode.forHtmlAttribute(postTo)%>"/> <input
+                    type="text" name="keyword" value="<%=Encode.forHtmlAttribute(String.valueOf(keyword))%>"/> <input
                     type="submit" value="Search"/></td>
         </tr>
     </table>
@@ -110,29 +113,29 @@
             <td width="10%" class="Text"><input type="radio" name="column"
                                                 value="DemographicNo"
                     <%=(column.equals("DemographicNo") ? "checked" : "")%> /><a
-                    href="<%=url%>&orderby=DemographicNo">Demo No</a></td>
+                    href="<%=Encode.forHtmlAttribute(url + "&orderby=DemographicNo")%>">Demo No</a></td>
             <td width="20%" class="Text"><input type="radio" name="column"
                                                 value="LastName" <%=(column.equals("LastName") ? "checked" : "")%> /><a
-                    href="<%=url%>">Last Name</a></td>
+                    href="<%=Encode.forHtmlAttribute(url)%>">Last Name</a></td>
             <td width="15%" class="Text"><input type="radio" name="column"
                                                 value="FirstName" <%=(column.equals("FirstName") ? "checked" : "")%> /><a
-                    href="<%=url%>&orderby=FirstName">First Name</a></td>
+                    href="<%=Encode.forHtmlAttribute(url + "&orderby=FirstName")%>">First Name</a></td>
             <td width="10%" class="Text" align="center"><input type="radio"
                                                                name="column" value="ChartNo"
                     <%=(column.equals("ChartNo") ? "checked" : "")%> /><a
-                    href="<%=url%>&orderby=ChartNo">Chart#</a></td>
+                    href="<%=Encode.forHtmlAttribute(url + "&orderby=ChartNo")%>">Chart#</a></td>
             <td width="2%" class="Text" align="center"><input type="radio"
                                                               name="column"
                                                               value="Sex" <%=(column.equals("Sex") ? "checked" : "")%> /><a
-                    href="<%=url%>&orderby=Sex">Sex</a></td>
+                    href="<%=Encode.forHtmlAttribute(url + "&orderby=Sex")%>">Sex</a></td>
             <td width="15%" class="Text" align="center"><input type="radio"
                                                                name="column" value="YearOfBirth"
                     <%=(column.equals("YearOfBirth") ? "checked" : "")%> /><a
-                    href="<%=url%>&orderby=YearOfBirth">DOB</a></td>
+                    href="<%=Encode.forHtmlAttribute(url + "&orderby=YearOfBirth")%>">DOB</a></td>
             <td width="2%" class="Text" align="center"><input type="radio"
                                                               name="column" value="PatientStatus"
                     <%=(column.equals("PatientStatus") ? "checked" : "")%> /><a
-                    href="<%=url%>&orderby=PatientStatus">Status</a></td>
+                    href="<%=Encode.forHtmlAttribute(url + "&orderby=PatientStatus")%>">Status</a></td>
         </tr>
         <%
             boolean other = true;
@@ -141,20 +144,20 @@
         %>
         <tr class="<%=(other? "LightBG" : "WhiteBG")%>">
             <td class="Text" align="center"><a
-                    href="javascript:PopupReturn('<%=d.getDemographicNo()%>')">
-                <%=d.getDemographicNo()%>
+                    href="javascript:PopupReturn('<%=Encode.forJavaScript(String.valueOf(d.getDemographicNo()))%>')">
+                <%=Encode.forHtml(String.valueOf(d.getDemographicNo()))%>
             </a></td>
-            <td class="Text"><%=Misc.toUpperLowerCase(d.getLastName())%>
+            <td class="Text"><%=Encode.forHtml(Misc.toUpperLowerCase(d.getLastName()))%>
             </td>
-            <td class="Text"><%=Misc.toUpperLowerCase(d.getFirstName())%>
+            <td class="Text"><%=Encode.forHtml(Misc.toUpperLowerCase(d.getFirstName()))%>
             </td>
-            <td class="Text" align="center"><%=Misc.check(d.getChartNo(), "")%>
+            <td class="Text" align="center"><%=Encode.forHtml(Misc.check(d.getChartNo(), ""))%>
             </td>
-            <td class="Text" align="center"><%=Misc.check(d.getSex(), "")%>
+            <td class="Text" align="center"><%=Encode.forHtml(Misc.check(d.getSex(), ""))%>
             </td>
-            <td class="Text" align="center" nowrap><%= d.getBirthDayAsString()%>
+            <td class="Text" align="center" nowrap><%=Encode.forHtml(d.getBirthDayAsString())%>
             </td>
-            <td class="Text" align="center"><%=Misc.check(d.getPatientStatus(), "")%>
+            <td class="Text" align="center"><%=Encode.forHtml(Misc.check(d.getPatientStatus(), ""))%>
             </td>
         </tr>
         <%
@@ -168,10 +171,10 @@
         %>
         <tr>
             <td width="50%" colspan="3" align="right" class="SmallerText">
-                &nbsp;<%=(start > 0 ? "<a href=" + previous + ">previous</a>" : "")%>
+                &nbsp;<%=(start > 0 ? "<a href=\"" + Encode.forHtmlAttribute(previous) + "\">previous</a>" : "")%>
             </td>
             <td width="50%" colspan="4" align="left" class="SmallerText">
-                | <%=(count == 10 ? "<a href=" + next + ">next</a>" : "")%>&nbsp;
+                | <%=(count == 10 ? "<a href=\"" + Encode.forHtmlAttribute(next) + "\">next</a>" : "")%>&nbsp;
             </td>
         </tr>
     </table>

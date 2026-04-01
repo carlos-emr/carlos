@@ -25,6 +25,7 @@
 
 <%@ page import="java.util.*, java.sql.*" errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 
@@ -127,7 +128,7 @@
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="functionid"
-                                    value="<%=request.getParameter("functionid")%> " size="20">
+                                    value="<%=Encode.forHtmlAttribute(request.getParameter("functionid") != null ? request.getParameter("functionid") : "")%>" size="20">
                             </font></td>
                             <td rowspan="8" width="21%" valign="middle">
                                 <p><br>
@@ -141,7 +142,7 @@
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="demo_name"
-                                    value="<%=request.getParameter("demographic_name")%>" size="20">
+                                    value="<%=Encode.forHtmlAttribute(request.getParameter("demographic_name") != null ? request.getParameter("demographic_name") : "")%>" size="20">
                             </font></td>
                         </tr>
                         <tr>
@@ -151,7 +152,7 @@
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="demo_dob"
-                                    value="<%=request.getParameter("dob")%>" size="20"> </font></td>
+                                    value="<%=Encode.forHtmlAttribute(request.getParameter("dob") != null ? request.getParameter("dob") : "")%>" size="20"> </font></td>
                         </tr>
                         <tr>
                             <td width="29%"><font
@@ -160,7 +161,7 @@
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="demo_hin"
-                                    value="<%=request.getParameter("hin")%>" size="20"> </font></td>
+                                    value="<%=Encode.forHtmlAttribute(request.getParameter("hin") != null ? request.getParameter("hin") : "")%>" size="20"> </font></td>
                         </tr>
                         <tr>
                             <td width="29%"><font
@@ -234,7 +235,7 @@
                                     type="text" name="dispcreator" readonly
                                     value="<%=proLast1%>, <%=proFirst1%>" size="20"> <input
                                     type="hidden" name="doccreator"
-                                    value="<%=request.getParameter("creator")%>" size="20"> <input
+                                    value="<%=Encode.forHtmlAttribute(request.getParameter("creator") != null ? request.getParameter("creator") : "")%>" size="20"> <input
                                     type="hidden" name="orderby" value="updatedatetime desc" size="20">
                             </font></td>
                         </tr>

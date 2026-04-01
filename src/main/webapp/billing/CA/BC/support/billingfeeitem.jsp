@@ -28,6 +28,7 @@
 
 --%>
 <%@page import="java.math.*, java.util.*,  io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.commn.model.*,io.github.carlos_emr.carlos.util.*" %>
+
 <%@page import="org.springframework.web.context.WebApplicationContext,org.springframework.web.context.support.WebApplicationContextUtils, io.github.carlos_emr.carlos.entities.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
@@ -43,6 +44,9 @@
     String field = request.getParameter("field");
     String info = request.getParameter("info");
     String feeField = request.getParameter("feeField");
+    if (form != null && !form.matches("[a-zA-Z_][a-zA-Z0-9_]*")) { form = ""; }
+    if (field != null && !field.matches("[a-zA-Z_][a-zA-Z0-9_]*")) { field = ""; }
+    if (feeField != null && !feeField.matches("[a-zA-Z_][a-zA-Z0-9_]*")) { feeField = ""; }
     String searchStr = request.getParameter("searchStr");
     String serviceDate = request.getParameter("serviceDate");
     Date serDate = UtilDateUtilities.StringToDate(serviceDate, "yyyyMMdd");
@@ -64,7 +68,8 @@
 
 <html>
     <head>
-    <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+    <%-- S5131: getServerName() returns the Host header — safe when deployed behind a reverse proxy that validates the Host header (required for production) --%>
+    <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>"> <%-- NOSONAR --%>
     <title>CARLOS Billing Fee Item</title>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/oscar.css">
     </head>

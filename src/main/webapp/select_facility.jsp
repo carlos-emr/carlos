@@ -27,6 +27,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.FacilityDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Facility" %>
@@ -49,7 +50,7 @@
             Facility facility = facilityDao.find(facilityId);
     %>
     <li>
-        <a href='?nextPage=<%=request.getParameter("nextPage")%>&<%=Login2Action.SELECTED_FACILITY_ID%>=<%=facility.getId()%>'><%=facility.getName()%>
+        <a href='?nextPage=<%=Encode.forUriComponent(request.getParameter("nextPage") != null ? request.getParameter("nextPage") : "")%>&<%=Login2Action.SELECTED_FACILITY_ID%>=<%=facility.getId()%>'><%=Encode.forHtml(facility.getName())%>
         </a></li>
     <%
         }

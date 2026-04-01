@@ -53,6 +53,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.GroupNoteDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.GroupNoteLink" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%
 	ProgramManager programManager = (ProgramManager)SpringUtils.getBean(ProgramManager.class);
 	AdmissionManager admissionManager = (AdmissionManager)SpringUtils.getBean(AdmissionManager.class);
@@ -115,7 +116,7 @@
 
 <h5>Select clients for group note</h5>
 <form action="groupNoteSelectAction.jsp" method="post">
-    <input type="hidden" name="demographicNo" value="<%=demographicNo%>"/>
+    <input type="hidden" name="demographicNo" value="<%=Encode.forHtmlAttribute(demographicNo)%>"/>
     <table>
 
         <%
@@ -153,7 +154,7 @@
     <input type="button" value="cancel" onclick="window.close();"/> &nbsp;&nbsp; <input type="submit"
                                                                                         value="Enter note into selected clients"
                                                                                         onclick="return confirmGroupNote();"/>
-    <input type="hidden" name="programId" value="<%=request.getParameter("programId")%>"/>
+    <input type="hidden" name="programId" value="<%=Encode.forHtmlAttribute(request.getParameter("programId") != null ? request.getParameter("programId") : "")%>"/>
 </form>
 <% } %>
 </body>

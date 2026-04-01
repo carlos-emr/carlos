@@ -47,6 +47,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS00Dao" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS00" %>
 
 <%
@@ -112,7 +113,7 @@
     <tr bgcolor="#333333">
         <th align='CENTRE'>
             <form action="genTAS00.jsp"><input type="hidden" name="rano"
-                                               value="<%=raNo%>"> <select name="proNo">
+                                               value="<%=Encode.forHtmlAttribute(raNo)%>"> <select name="proNo">
                 <option value="all" <%=proNo.equals("all") ? "selected" : ""%>>All
                     Providers
                 </option>

@@ -55,6 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Form" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FormDao" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%
     RecycleBinDao recycleBinDao = SpringUtils.getBean(RecycleBinDao.class);
     FormDao formDao = SpringUtils.getBean(FormDao.class);
@@ -158,7 +159,7 @@
         <tr bgcolor="#eeeeee">
             <td align="center"><input type="hidden" name="formnum"
                                       value="<%=i%>"> <input type="hidden" name="demographic_no"
-                                                             value="<%=request.getParameter("demographic_no")%>"> <input
+                                                             value="<%=Encode.forHtmlAttribute(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%>"> <input
                     type="submit" name="submit" value="Delete"><input
                     type="button" name="button" value="Cancel" onClick="window.close()">
             </td>

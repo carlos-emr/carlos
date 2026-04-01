@@ -3,7 +3,8 @@
 
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.title"/> - <oscar:nameage
                 demographicNo="${bean.demographicNo}"/></title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <%-- S5131: getServerName() returns the Host header — safe when deployed behind a reverse proxy that validates the Host header (required for production) --%>
+        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>"> <%-- NOSONAR --%>
 
         <script type="text/javascript"
                 src="${ctx}/share/javascript/Oscar.js"></script>

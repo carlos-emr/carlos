@@ -207,6 +207,7 @@
 
 
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <html>
 <head>
     <title>Link to Lab Requisition</title>
@@ -220,9 +221,9 @@
 <body <%=(close) ? "onLoad=\"closeItUp()\" " : "" %>>
 
 <form action="LinkReq.jsp" method="post">
-    <input type="hidden" name="table" value="<%=table%>"/>
-    <input type="hidden" name="rptid" value="<%=rptId%>"/>
-    <input type="hidden" name="reqid" value="<%=reqId%>"/>
+    <input type="hidden" name="table" value="<%=Encode.forHtmlAttribute(table != null ? table : "")%>"/>
+    <input type="hidden" name="rptid" value="<%=Encode.forHtmlAttribute(rptId != null ? rptId : "")%>"/>
+    <input type="hidden" name="reqid" value="<%=Encode.forHtmlAttribute(reqId != null ? reqId : "")%>"/>
 
     <p>&nbsp;</p>
     Requisition Date: <%=reqDateLink%>

@@ -166,7 +166,7 @@ if (measurementHash != null &&
 <!--
 CIPRO : J01MA02 S01AX13 S03AA07
 
-RENAL DOSING INFORMATION ATC: <%=atc%>  Demographic: <%=demographicNo%>
+RENAL DOSING INFORMATION ATC: <%=Encode.forHtml(atc)%>  Demographic: <%=Encode.forHtml(demographicNo)%>
 <br/>
 Clcr = {(140 - age ) X weight[kg] )} / (sCr [umol/L] X 0.8) if female X 0.85
 <br/>
@@ -257,7 +257,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
             <tr>
                 <td align="center" style="border-top: 2px black solid;"><%=setNA(sCrb, sCr)%> sCr
                     <a href="javascript: function myFunction() {return false; }"
-                       onclick="popup(500,1000,'<%= request.getContextPath() %>/encounter/oscarMeasurements/SetupMeasurements.do?groupName=Renal Dosing&amp;demographic_no=<%=demographicNo%>','dddsfds'); return false;">
+                       onclick="popup(500,1000,'<%= request.getContextPath() %>/encounter/oscarMeasurements/SetupMeasurements.do?groupName=Renal Dosing&amp;demographic_no=<%=Encode.forUriComponent(demographicNo)%>','dddsfds'); return false;">
                         [umol/L <%=UtilDateUtilities.DateToString(sCrDate, "yyyy-MMM-dd")%>]
                     </a>
                 </td>

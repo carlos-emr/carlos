@@ -37,6 +37,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Encounter" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%
     EncounterTemplateDao encounterTemplateDao = SpringUtils.getBean(EncounterTemplateDao.class);
     EncounterDao encounterDao = SpringUtils.getBean(EncounterDao.class);
@@ -116,7 +117,7 @@
 %>
 
 <center><input type="button" value="Print Preview"
-               onClick="popupPage(600,800, 'providerencounterprint.jsp?encounter_no=<%=request.getParameter("encounter_no")%>&demographic_no=<%=request.getParameter("demographic_no")%>&username=<%=request.getParameter("username")%>')">
+               onClick="popupPage(600,800, 'providerencounterprint.jsp?encounter_no=<%=Encode.forUriComponent(request.getParameter("encounter_no") != null ? request.getParameter("encounter_no") : "")%>&demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%>&username=<%=Encode.forUriComponent(request.getParameter("username") != null ? request.getParameter("username") : "")%>')">
     <input type="button" value="Close this window" onClick="self.close()">
 </center>
 </body>

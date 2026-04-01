@@ -50,6 +50,7 @@
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS00" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS22Dao" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS22" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS23Dao" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS23" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS25Dao" %>
@@ -109,7 +110,7 @@
     <tr bgcolor="#333333">
         <th align='CENTRE'>
             <form action="genTAS22.jsp"><input type="hidden" name="rano"
-                                               value="<%=raNo%>"> <select name="proNo">
+                                               value="<%=Encode.forHtmlAttribute(raNo)%>"> <select name="proNo">
                 <option value="all" <%=proNo.equals("all") ? "selected" : ""%>>All
                     Providers
                 </option>

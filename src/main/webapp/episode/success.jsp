@@ -28,7 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
+<%@ page import="org.owasp.encoder.Encode" %>
 <html>
 <head>
     <title></title>
@@ -41,7 +41,7 @@
                 }
                 if(parentAjaxId != null) {
             %>
-            window.opener.reloadNav('<%=parentAjaxId%>');
+            window.opener.reloadNav('<%=Encode.forJavaScript(parentAjaxId)%>');
             window.close();
             <% } else { %>
             window.opener.location.reload();

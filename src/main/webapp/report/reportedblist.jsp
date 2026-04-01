@@ -66,6 +66,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Form" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FormDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%
@@ -203,12 +204,12 @@
     nLastPage=Integer.parseInt(strLimit1)-Integer.parseInt(strLimit2);
     if(nLastPage>=0) {
 %> <a
-                href="reportedblist.jsp?startDate=<%=request.getParameter("startDate")%>&endDate=<%=request.getParameter("endDate")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>">Last
+                href="reportedblist.jsp?startDate=<%=Encode.forUriComponent(request.getParameter("startDate") != null ? request.getParameter("startDate") : "")%>&endDate=<%=Encode.forUriComponent(request.getParameter("endDate") != null ? request.getParameter("endDate") : "")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>">Last
             Page</a> | <%
   }
   if(nItems==Integer.parseInt(strLimit2)) {
 %> <a
-                href="reportedblist.jsp?startDate=<%=request.getParameter("startDate")%>&endDate=<%=request.getParameter("endDate")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>">
+                href="reportedblist.jsp?startDate=<%=Encode.forUriComponent(request.getParameter("startDate") != null ? request.getParameter("startDate") : "")%>&endDate=<%=Encode.forUriComponent(request.getParameter("endDate") != null ? request.getParameter("endDate") : "")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>">
             Next Page</a> <%}%>
 
 </body>

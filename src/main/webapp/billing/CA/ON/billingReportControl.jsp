@@ -46,6 +46,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);
@@ -166,11 +167,11 @@
             <td align="right"><B>Date</B> &nbsp; <font size="1"
                                                        face="Arial, Helvetica, sans-serif"> <a href="#"
                                                                                                onClick="openBrWindow('billingCalendarPopup.jsp?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">From:</a></font>
-                <input type="text" name="xml_vdate" size="10" value="<%=xml_vdate%>">
+                <input type="text" name="xml_vdate" size="10" value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
                 <font size="1" face="Arial, Helvetica, sans-serif"> <a href="#"
                                                                        onClick="openBrWindow('billingCalendarPopup.jsp?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">
                     To:</a></font> <input type="text" name="xml_appointment_date" size="10"
-                                          value="<%=xml_appointment_date%>"></td>
+                                          value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>"></td>
             <td></td>
         </tr>
     </form>

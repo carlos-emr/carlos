@@ -135,7 +135,7 @@
 <% if (request.getParameter("submit") != null && "Save & Add Another Bill".equals(request.getParameter("submit"))) { %>
 <script LANGUAGE="JavaScript">
     try { if (self.opener && self.opener.refresh) { self.opener.refresh(); } else { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); } } catch(e) { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); }
-    self.location.href = "<%= Encode.forJavaScript(request.getParameter("url_back")) %>";
+    self.location.href = "<%= Encode.forJavaScript(request.getParameter("url_back") != null ? request.getParameter("url_back") : "") %>";
 </script>
 <% }
 

@@ -42,6 +42,7 @@ if(!authed) {
 <%@page import="io.github.carlos_emr.MyDateFormat" %>
 <%@page import="java.math.BigDecimal" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 
 <%
 	String cTotal = "0", hTotal = "0", oTotal = "0", mNum = "", fNum = "";
@@ -103,9 +104,9 @@ if(!authed) {
 		<dt>Clinic</dt>
 		<dd><%=clinic%></dd>
 		<dt>Visits Between</dt>
-		<dd><%=dateBegin%>
+		<dd><%=Encode.forHtml(dateBegin)%>
 			and
-			<%=dateEnd%></dd>
+			<%=Encode.forHtml(dateEnd)%></dd>
 		<dt>Run on</dt>
 		<dd><%=MyDateFormat.getMysqlStandardDate(curYear, curMonth,
 					curDay)%></dd>
