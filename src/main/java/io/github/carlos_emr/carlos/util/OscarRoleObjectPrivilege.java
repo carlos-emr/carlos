@@ -47,6 +47,13 @@ public class OscarRoleObjectPrivilege {
     private static PageContext pageContext;
     private static String rights = "r";
 
+    /**
+     * Ordered privilege hierarchy: read &lt; update &lt; write.
+     * Delete ("d") is intentionally absent — it is an independent privilege that
+     * does not imply any of r/u/w and is matched by exact equality instead.
+     */
+    private static final String PRIVILEGE_HIERARCHY = "ruw";
+
     public static Vector<Object> getPrivilegeProp(String objName) {
         Properties prop = new Properties();
         Vector<String> roleInObj = new Vector<String>();
@@ -163,14 +170,27 @@ public class OscarRoleObjectPrivilege {
 
     private static boolean[] checkRights(String privilege, String rights1) {
         boolean[] ret = {false, false}; // (gotRights, break/continue)
-        /*
-         * if ("*".equals(privilege)) { ret[0] = true; } else if (privilege.equals(rights1.toLowerCase()) || (privilege.length() > 1 && privilege.startsWith("o") && privilege.substring(1).equals( rights1.toLowerCase()))) { ret[0] = true; if
-         * (privilege.startsWith("o")) ret[1] = true; // break } else if (privilege.equals("o")) { // for "o" ret[0] = false; ret[1] = true; // break }
-         */
-        if ("x".equals(privilege)) {
+        String rightsLower = rights1.toLowerCase();
+        if ("o".equals(rightsLower)) {
+            // NORIGHTS check: only an explicit "o" privilege matches, so that "r", "u", "w"
+            // privileges do not incorrectly trigger account locking.
+            ret[0] = "o".equals(privilege);
+        } else if ("x".equals(privilege)) {
+            // Full access matches any non-NORIGHTS check.
             ret[0] = true;
-        } else if (privilege.compareTo(rights1.toLowerCase()) >= 0) {
-            ret[0] = true;
+        } else {
+            // Hierarchy r < u < w (see PRIVILEGE_HIERARCHY).
+            // indexOf returns -1 for anything not in the hierarchy (e.g. "d" or "o"),
+            // which causes the condition to be false and falls through to exact match.
+            int privLevel = PRIVILEGE_HIERARCHY.indexOf(privilege);
+            int requiredLevel = PRIVILEGE_HIERARCHY.indexOf(rightsLower);
+            if (privLevel >= 0 && requiredLevel >= 0) {
+                // Both are in the r/u/w hierarchy: higher level implies lower ones.
+                ret[0] = privLevel >= requiredLevel;
+            } else {
+                // Not in the r/u/w hierarchy (e.g. "d" delete): exact match only.
+                ret[0] = privilege.equals(rightsLower);
+            }
         }
         return ret;
     }
