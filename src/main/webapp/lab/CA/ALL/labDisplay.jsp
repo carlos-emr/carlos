@@ -571,7 +571,7 @@ input[id^='acklabel_']{
             var text = providerNo + "_" + segmentId + "commentText";
             var textEl = document.getElementById(text);
             if (textEl != null) {
-                comment = textEl.innerHTML;
+                comment = textEl.textContent;
                 if (comment == null) {
                     comment = "";
                 }
@@ -1033,7 +1033,7 @@ input[id^='acklabel_']{
                                        onClick="popupStart(360, 680, '<%= request.getContextPath() %>/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'encounter')">
                                 <% } %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="Req# <%=Encode.forHtmlAttribute(reqTableID)%>" title="Link to Requisition"
-                                       onclick="linkreq('<%=Encode.forJavaScript(segmentID)%>','<%=reqID%>');">
+                                       onclick="linkreq('<%=Encode.forJavaScript(segmentID)%>','<%=Encode.forJavaScript(reqID)%>');">
 
 
                                 <% if (bShortcutForm) { %>

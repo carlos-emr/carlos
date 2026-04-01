@@ -208,7 +208,7 @@
 
         var textEl = document.getElementById(text);
         if (textEl != null) {
-            commentVal = textEl.innerHTML;
+            commentVal = textEl.textContent;
             if (commentVal == null) {
                 commentVal = "";
             }
@@ -236,7 +236,7 @@
     }
 
     linkreq = function (rptId, reqId) {
-        var link = "<%= request.getContextPath() %>/lab/LinkReq.jsp?table=hl7TextMessage&rptid=" + rptId + "&reqid=" + reqId + "<%=demographicID != null ? "&demographicNo=" + demographicID : ""%>";
+        var link = "<%= request.getContextPath() %>/lab/LinkReq.jsp?table=hl7TextMessage&rptid=" + rptId + "&reqid=" + reqId + "<%=demographicID != null ? "&demographicNo=" + Encode.forJavaScript(demographicID) : ""%>";
         window.open(link, "linkwin", "width=500, height=200");
     }
 
@@ -804,7 +804,7 @@
                                                     <td><b>Service Date:</b> <%=Encode.forHtml(String.valueOf(tickler.getServiceDate()))%>
                                                     </td>
                                                     <td><b>Assigned
-                                                        To:</b> <%=tickler.getAssignee() != null ? tickler.getAssignee().getLastName() + ", " + tickler.getAssignee().getFirstName() : "N/A"%>
+                                                        To:</b> <%=tickler.getAssignee() != null ? Encode.forHtml(tickler.getAssignee().getLastName() + ", " + tickler.getAssignee().getFirstName()) : "N/A"%>
                                                     </td>
                                                     <td width="90px">
                                                         <b>Status:</b> <%=ticklerStatus.equals("C") ? "Completed" : "Active" %>
@@ -1038,7 +1038,7 @@
 
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier='+encodeURIComponent('<%= handler.getOBXIdentifier(j, k)%>'))"><%=Encode.forHtml(obxName)%>
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=Encode.forJavaScript(demographicID)%>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><%=Encode.forHtml(obxName)%>
                     </a></td>
                     <td align="right"><%= Encode.forHtml(handler.getOBXResult(j, k)) %>
                     </td>
@@ -1066,7 +1066,7 @@
                     if (!obxName.equals("")) { %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier='+encodeURIComponent('<%= handler.getOBXIdentifier(j, k)%>'))"><%=Encode.forHtml(obxName)%>
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=Encode.forJavaScript(demographicID)%>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><%=Encode.forHtml(obxName)%>
                     </a></td>
                     <td align="right"><%= Encode.forHtml(handler.getOBXResult(j, k)) %>
                     </td>
@@ -1116,11 +1116,11 @@
                     if (isUnstructuredDoc) {
                         if (handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k - 1)) && (obxCount > 1)) {%>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier='+encodeURIComponent('<%= handler.getOBXIdentifier(j, k)%>'))"></a><%
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=Encode.forJavaScript(demographicID)%>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"></a><%
 	                                   				}
 	                                   			else{%>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= handler.getOBXIdentifier(j, k) %>')"><%=Encode.forHtml(obxName)%>
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=Encode.forJavaScript(demographicID)%>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><%=Encode.forHtml(obxName)%>
                     </a><%}%>
                             <%if(isVIHARtf){
 												    //create bytes from the rtf string
@@ -1131,7 +1131,7 @@
 											    	RTFEditorKit rtfParser = new RTFEditorKit();
 											    	javax.swing.text.Document doc = rtfParser.createDefaultDocument();
 											    	rtfParser.read(rtfStream, doc, 0);
-											    	String rtfText = doc.getText(0, doc.getLength()).replaceAll("\n", "<br>");
+											    	String rtfText = Encode.forHtml(doc.getText(0, doc.getLength())).replaceAll("\n", "<br>");
 											    	String disclaimer = "<br>IMPORTANT DISCLAIMER: You are viewing a PREVIEW of the original report. The rich text formatting contained in the original report may convey critical information that must be considered for clinical decision making. Please refer to the ORIGINAL report, by clicking 'Print', prior to making any decision on diagnosis or treatment.";%>
                     <td align="left"><%= rtfText + disclaimer %>
                     </td>
@@ -1156,11 +1156,11 @@
                         if (handler.getMsgType().equals("PATHL7") && !isAllowedDuplicate && (obxCount > 1) && handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k - 1)) && (handler.getOBXValueType(j, k).equals("TX") || handler.getOBXValueType(j, k).equals("FT"))) {
                     %>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= handler.getOBXIdentifier(j, k) %>')"></a><%
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=Encode.forJavaScript(demographicID)%>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"></a><%
 	                                   				}
 	                               				else{%>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier='+encodeURIComponent('<%= handler.getOBXIdentifier(j, k)%>'))"><%=Encode.forHtml(obxName)%>
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=Encode.forJavaScript(demographicID)%>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><%=Encode.forHtml(obxName)%>
                     </a></td>
                     <%}%>
                     <%
