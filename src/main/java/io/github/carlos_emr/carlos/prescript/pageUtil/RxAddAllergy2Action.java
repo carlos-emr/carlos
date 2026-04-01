@@ -135,6 +135,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
         allergy.setDemographicNo(patient.getDemographicNo());
         allergy.setArchived(false);
+        allergy.setProviderNo(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
 
         // Add the new allergy (whether new or modified)
         patient.addAllergy(RxUtil.Today(), allergy);

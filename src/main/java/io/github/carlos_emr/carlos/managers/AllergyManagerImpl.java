@@ -80,6 +80,34 @@ public class AllergyManagerImpl implements AllergyManager {
     }
 
     @Override
+    public Allergy saveAllergy(LoggedInInfo loggedInInfo, Allergy allergy) {
+        if (allergy.getProviderNo() == null) {
+            allergy.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+        }
+        allergyDao.persist(allergy);
+
+        // --- log action ---
+        LogAction.addLogSynchronous(loggedInInfo, "AllergyManager.saveAllergy",
+                "demographicNo=" + allergy.getDemographicNo());
+
+        return allergy;
+    }
+
+    @Override
+    public Allergy updateAllergy(LoggedInInfo loggedInInfo, Allergy allergy) {
+        if (allergy.getProviderNo() == null) {
+            allergy.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+        }
+        Allergy result = allergyDao.merge(allergy);
+
+        // --- log action ---
+        LogAction.addLogSynchronous(loggedInInfo, "AllergyManager.updateAllergy",
+                "id=" + allergy.getId() + " demographicNo=" + allergy.getDemographicNo());
+
+        return result;
+    }
+
+    @Override
     public List<Allergy> getUpdatedAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateInclusive,
                                              int itemsToReturn) {
         List<Allergy> results = allergyDao.findByUpdateDate(updatedAfterThisDateInclusive, itemsToReturn);

@@ -45,6 +45,26 @@ public interface AllergyManager {
 
     public List<Allergy> getActiveAllergies(LoggedInInfo loggedInInfo, Integer demographicNo);
 
+    /**
+     * Persists a new allergy record and writes an audit log entry.
+     * Sets {@code providerNo} from {@code loggedInInfo} when not already populated.
+     *
+     * @param loggedInInfo the authenticated provider performing the save
+     * @param allergy      the {@link Allergy} to persist
+     * @return the saved {@link Allergy} with its generated identifier
+     */
+    public Allergy saveAllergy(LoggedInInfo loggedInInfo, Allergy allergy);
+
+    /**
+     * Merges changes to an existing allergy record and writes an audit log entry.
+     * Sets {@code providerNo} from {@code loggedInInfo} when not already populated.
+     *
+     * @param loggedInInfo the authenticated provider performing the update
+     * @param allergy      the {@link Allergy} with updated values
+     * @return the managed {@link Allergy} returned by the merge
+     */
+    public Allergy updateAllergy(LoggedInInfo loggedInInfo, Allergy allergy);
+
     public List<Allergy> getUpdatedAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateInclusive,
                                              int itemsToReturn);
 
