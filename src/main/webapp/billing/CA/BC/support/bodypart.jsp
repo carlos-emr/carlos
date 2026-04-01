@@ -31,7 +31,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.dao.WcbBpCodeDao" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");

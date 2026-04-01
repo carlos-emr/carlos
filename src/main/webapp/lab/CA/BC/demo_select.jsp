@@ -51,6 +51,8 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="java.net.URLEncoder" %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
 <%
 
     String postTo = request.getParameter("postTo");
@@ -68,7 +70,7 @@
         keyword = ConversionUtils.fromIntString(keyword);
     }
 
-    String url = "demo_select.jsp?keyword=" + keyword + "&postTo=" + postTo + (column.equals("") ? "" : "&column=" + column);
+    String url = "demo_select.jsp?keyword=" + URLEncoder.encode(String.valueOf(keyword), StandardCharsets.UTF_8) + "&postTo=" + URLEncoder.encode(postTo, StandardCharsets.UTF_8) + (column.equals("") ? "" : "&column=" + URLEncoder.encode(column, StandardCharsets.UTF_8));
 
     DemographicDao dao = SpringUtils.getBean(DemographicDao.class);
 

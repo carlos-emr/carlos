@@ -106,8 +106,8 @@
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%
 
-    String curProvider_no = Encode.forHtmlAttribute(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "");
-    String appointment_no = Encode.forHtmlAttribute(request.getParameter("appointment_no") != null ? request.getParameter("appointment_no") : "");
+    String curProvider_no = request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "";
+    String appointment_no = request.getParameter("appointment_no") != null ? request.getParameter("appointment_no") : "";
     String curUser_no = (String) session.getAttribute("user");
     String userfirstname = (String) session.getAttribute("userfirstname");
     String userlastname = (String) session.getAttribute("userlastname");
@@ -1313,15 +1313,15 @@
                 <div class="card">
                     <div class="card-body">
                         <input type="hidden" name="lastcreatedatetime"
-                               value="<%=Encode.forHtmlContent(bFirstDisp?lastDateTime:(request.getParameter("lastcreatedatetime") != null ? request.getParameter("lastcreatedatetime") : ""))%>"
+                               value="<%=Encode.forHtmlAttribute(bFirstDisp?lastDateTime:(request.getParameter("lastcreatedatetime") != null ? request.getParameter("lastcreatedatetime") : ""))%>"
                         > <%=Encode.forHtmlContent(dateString2)%>
                         <input type="hidden" name="createdatetime" value="<%=strDateTime%>">
-                        <input type="hidden" name="provider_no" value="<%=curProvider_no%>">
+                        <input type="hidden" name="provider_no" value="<%=Encode.forHtmlAttribute(curProvider_no)%>">
                         <input type="hidden" name="dboperation" value="">
                         <input type="hidden" name="creator"
                                value="<%=Encode.forHtmlAttribute(userlastname+", "+userfirstname)%>">
                         <input type="hidden" name="remarks" value="<%=Encode.forHtmlAttribute(remarks)%>">
-                        <input type="hidden" name="appointment_no" value="<%=appointment_no%>">
+                        <input type="hidden" name="appointment_no" value="<%=Encode.forHtmlAttribute(appointment_no)%>">
                     </div>
                 </div>
                     </td>

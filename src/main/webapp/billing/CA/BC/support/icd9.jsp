@@ -32,7 +32,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
 %>

@@ -28,7 +28,7 @@
 
 --%>
 <%@page import="java.math.*, java.util.*,  io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.commn.model.*,io.github.carlos_emr.carlos.util.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@page import="org.springframework.web.context.WebApplicationContext,org.springframework.web.context.support.WebApplicationContextUtils, io.github.carlos_emr.carlos.entities.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>

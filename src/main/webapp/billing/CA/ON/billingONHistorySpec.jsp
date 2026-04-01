@@ -86,13 +86,13 @@
             </td>
             <td style="text-align:right">Service Code <input type="text"
                                                              name="serviceCode"
-                                                             value="<%=Encode.forHtml(serviceCode) %>" maxlength="5"
+                                                             value="<%=Encode.forHtmlAttribute(serviceCode) %>" maxlength="5"
                                                              onBlur="upCaseCtrl(this)"/> <input type="hidden" name="day"
                                                                                                 value="<%=Encode.forHtmlAttribute(strDay) %>"/>
                 <input type="hidden" name="demo_name"
-                       value="<%=Encode.forHtml(request.getParameter("demo_name") != null ? request.getParameter("demo_name") : "") %>"/> <input
+                       value="<%=Encode.forHtmlAttribute(request.getParameter("demo_name") != null ? request.getParameter("demo_name") : "") %>"/> <input
                         type="hidden" name="demographic_no"
-                        value="<%=Encode.forHtml(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "") %>"/> <input
+                        value="<%=Encode.forHtmlAttribute(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "") %>"/> <input
                         type="submit" name="submit" value="Search"/></td>
         </tr>
     </table>

@@ -32,7 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.WcbNoiCodeDao" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <html>
     <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

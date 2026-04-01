@@ -32,7 +32,7 @@
     String user_no = (String) session.getAttribute("user");
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
