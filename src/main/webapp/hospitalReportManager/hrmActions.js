@@ -241,7 +241,13 @@ function setupHrmDemoAutoCompletion(docId) {
 
         jQuery("#autocompletedemo" + docId + "hrm").autocomplete({
             source: function (req, res) {
-                jQuery.ajax({ url: searchDemoUrl, type: 'POST', data: { jqueryJSON: 'true', activeOnly: activeOnly ? 'true' : 'false', term: req.term }, success: function (data) { res(data); }, error: function () { res([]); } });
+                jQuery.ajax({
+                    url: searchDemoUrl,
+                    type: 'POST',
+                    data: { jqueryJSON: 'true', activeOnly: activeOnly ? 'true' : 'false', term: req.term },
+                    success: function (data) { res(data); },
+                    error: function () { res([]); }
+                });
             },
             minLength: 2,
             focus: function (event, ui) {

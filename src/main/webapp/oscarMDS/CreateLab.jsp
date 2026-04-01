@@ -93,7 +93,13 @@
 
             $("#lastname").autocomplete( {
                 source: function (req, res) {
-                    $.ajax({ url: searchDemoUrl, type: 'POST', data: { jqueryJSON: 'true', activeOnly: 'true', term: req.term }, success: function (data) { res(data); }, error: function () { res([]); } });
+                    $.ajax({
+                        url: searchDemoUrl,
+                        type: 'POST',
+                        data: { jqueryJSON: 'true', activeOnly: 'true', term: req.term },
+                        success: function (data) { res(data); },
+                        error: function () { res([]); }
+                    });
                 },
                 minLength: 2,
 

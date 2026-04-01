@@ -2621,7 +2621,7 @@
             var searchType = detectSearchType(query);
             var url = ctx + '/demographic/SearchDemographic.do';
             var csrfToken = (document.querySelector('input[name="CSRF-TOKEN"]') || {value: ''}).value;
-            var body = 'jqueryJSON=true&term=' + encodeURIComponent(query) + '&searchType=' + encodeURIComponent(searchType) + (csrfToken ? '&CSRF-TOKEN=' + encodeURIComponent(csrfToken) : '');
+            var body = 'jqueryJSON=true&term=' + encodeURIComponent(query) + '&searchType=' + encodeURIComponent(searchType);
 
             if (abortController) {
                 try { abortController.abort(); } catch (e) { /* ignore */ }
@@ -2630,7 +2630,11 @@
 
             var fetchOpts = {
                 method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'CSRF-TOKEN': csrfToken
+                },
                 body: body,
                 credentials: 'same-origin'
             };

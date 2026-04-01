@@ -1003,12 +1003,16 @@
             var activeOnly = activeOnlyEl ? activeOnlyEl.checked : true;
             var url = '${pageContext.servletContext.contextPath}/demographic/SearchDemographic.do';
             var csrfToken = getCsrfToken();
-            var body = 'jqueryJSON=true&activeOnly=' + encodeURIComponent(String(activeOnly)) + '&term=' + encodeURIComponent(term) + (csrfToken ? '&CSRF-TOKEN=' + encodeURIComponent(csrfToken) : '');
+            var body = 'jqueryJSON=true&activeOnly=' + encodeURIComponent(String(activeOnly)) + '&term=' + encodeURIComponent(term);
             if (abortCtrl) { abortCtrl.abort(); }
             abortCtrl = new AbortController();
             fetch(url, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'CSRF-TOKEN': csrfToken
+                },
                 body: body,
                 credentials: 'same-origin',
                 signal: abortCtrl.signal
