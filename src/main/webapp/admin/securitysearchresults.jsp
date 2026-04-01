@@ -136,7 +136,7 @@
     <table style="width:100%">
         <tr>
             <td style="text-align:left"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.keywords"/></i>:
-                <%=Encode.forHtmlContent(request.getParameter("keyword"))%>
+                <%=Encode.forHtmlContent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>
             </td>
         </tr>
     </table>

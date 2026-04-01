@@ -226,7 +226,7 @@
             <%--        <li>--%>
 
             <input type="text" class="wideInput form-control" NAME="keyword"
-                   VALUE="<%=Encode.forHtmlAttribute(request.getParameter("keyword"))%>" SIZE="17" MAXLENGTH="100"/>
+                   VALUE="<%=Encode.forHtmlAttribute(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>" SIZE="17" MAXLENGTH="100"/>
             <%--        </li>--%>
             <%--        <li>--%>
             <INPUT TYPE="hidden" NAME="orderby" VALUE="last_name, first_name">
@@ -236,36 +236,36 @@
             <input type="hidden" name="displaymode" value="Search ">
             <INPUT TYPE="hidden" NAME="ptstatus" VALUE="active">
 
-            <input type="hidden" name="fromAppt" value="<%=Encode.forHtmlAttribute(request.getParameter("fromAppt"))%>">
+            <input type="hidden" name="fromAppt" value="<%=Encode.forHtmlAttribute(request.getParameter("fromAppt") != null ? request.getParameter("fromAppt") : "")%>">
             <input type="hidden" name="originalPage"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter("originalPage"))%>">
+                   value="<%=Encode.forHtmlAttribute(request.getParameter("originalPage") != null ? request.getParameter("originalPage") : "")%>">
             <input type="hidden" name="bFirstDisp"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter("bFirstDisp"))%>">
+                   value="<%=Encode.forHtmlAttribute(request.getParameter("bFirstDisp") != null ? request.getParameter("bFirstDisp") : "")%>">
             <input type="hidden" name="provider_no"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter("provider_no"))%>">
+                   value="<%=Encode.forHtmlAttribute(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "")%>">
             <input type="hidden" name="start_time"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter("start_time"))%>">
-            <input type="hidden" name="end_time" value="<%=Encode.forHtmlAttribute(request.getParameter("end_time"))%>">
-            <input type="hidden" name="year" value="<%=Encode.forHtmlAttribute(request.getParameter("year"))%>">
-            <input type="hidden" name="month" value="<%=Encode.forHtmlAttribute(request.getParameter("month"))%>">
-            <input type="hidden" name="day" value="<%=Encode.forHtmlAttribute(request.getParameter("day"))%>">
+                   value="<%=Encode.forHtmlAttribute(request.getParameter("start_time") != null ? request.getParameter("start_time") : "")%>">
+            <input type="hidden" name="end_time" value="<%=Encode.forHtmlAttribute(request.getParameter("end_time") != null ? request.getParameter("end_time") : "")%>">
+            <input type="hidden" name="year" value="<%=Encode.forHtmlAttribute(request.getParameter("year") != null ? request.getParameter("year") : "")%>">
+            <input type="hidden" name="month" value="<%=Encode.forHtmlAttribute(request.getParameter("month") != null ? request.getParameter("month") : "")%>">
+            <input type="hidden" name="day" value="<%=Encode.forHtmlAttribute(request.getParameter("day") != null ? request.getParameter("day") : "")%>">
             <input type="hidden" name="appointment_date"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter("appointment_date"))%>">
-            <input type="hidden" name="notes" value="<%=Encode.forHtmlAttribute(request.getParameter("notes"))%>">
+                   value="<%=Encode.forHtmlAttribute(request.getParameter("appointment_date") != null ? request.getParameter("appointment_date") : "")%>">
+            <input type="hidden" name="notes" value="<%=Encode.forHtmlAttribute(request.getParameter("notes") != null ? request.getParameter("notes") : "")%>">
             <input type="hidden" name="reasonCode"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter("reasonCode"))%>">
-            <input type="hidden" name="reason" value="<%=Encode.forHtmlAttribute(request.getParameter("reason"))%>">
-            <input type="hidden" name="location" value="<%=Encode.forHtmlAttribute(request.getParameter("location"))%>">
+                   value="<%=Encode.forHtmlAttribute(request.getParameter("reasonCode") != null ? request.getParameter("reasonCode") : "")%>">
+            <input type="hidden" name="reason" value="<%=Encode.forHtmlAttribute(request.getParameter("reason") != null ? request.getParameter("reason") : "")%>">
+            <input type="hidden" name="location" value="<%=Encode.forHtmlAttribute(request.getParameter("location") != null ? request.getParameter("location") : "")%>">
             <input type="hidden" name="resources"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter("resources"))%>">
-            <input type="hidden" name="type" value="<%=Encode.forHtmlAttribute(request.getParameter("type"))%>">
-            <input type="hidden" name="style" value="<%=Encode.forHtmlAttribute(request.getParameter("style"))%>">
-            <input type="hidden" name="billing" value="<%=Encode.forHtmlAttribute(request.getParameter("billing"))%>">
-            <input type="hidden" name="status" value="<%=Encode.forHtmlAttribute(request.getParameter("status"))%>">
+                   value="<%=Encode.forHtmlAttribute(request.getParameter("resources") != null ? request.getParameter("resources") : "")%>">
+            <input type="hidden" name="type" value="<%=Encode.forHtmlAttribute(request.getParameter("type") != null ? request.getParameter("type") : "")%>">
+            <input type="hidden" name="style" value="<%=Encode.forHtmlAttribute(request.getParameter("style") != null ? request.getParameter("style") : "")%>">
+            <input type="hidden" name="billing" value="<%=Encode.forHtmlAttribute(request.getParameter("billing") != null ? request.getParameter("billing") : "")%>">
+            <input type="hidden" name="status" value="<%=Encode.forHtmlAttribute(request.getParameter("status") != null ? request.getParameter("status") : "")%>">
             <input type="hidden" name="createdatetime"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter("createdatetime"))%>">
-            <input type="hidden" name="creator" value="<%=Encode.forHtmlAttribute(request.getParameter("creator"))%>">
-            <input type="hidden" name="remarks" value="<%=Encode.forHtmlAttribute(request.getParameter("remarks"))%>">
+                   value="<%=Encode.forHtmlAttribute(request.getParameter("createdatetime") != null ? request.getParameter("createdatetime") : "")%>">
+            <input type="hidden" name="creator" value="<%=Encode.forHtmlAttribute(request.getParameter("creator") != null ? request.getParameter("creator") : "")%>">
+            <input type="hidden" name="remarks" value="<%=Encode.forHtmlAttribute(request.getParameter("remarks") != null ? request.getParameter("remarks") : "")%>">
 
             <%
                 String temp = null;
@@ -275,7 +275,7 @@
                         continue;
             %>
             <input type="hidden" name="<%=Encode.forHtmlAttribute(temp)%>"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter(temp))%>">
+                   value="<%=Encode.forHtmlAttribute(request.getParameter(temp) != null ? request.getParameter(temp) : "")%>">
             <% }
             %>
             <div class="input-group">
@@ -306,7 +306,7 @@
             <%if (request.getParameter("keyword") != null && request.getParameter("keyword").length() == 0) { %>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.msgMostRecentPatients"/>
             <% } else { %>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.msgKeywords"/> <%=Encode.forHtml(request.getParameter("keyword"))%> <%}%>
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.msgKeywords"/> <%=Encode.forHtml(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%> <%}%>
         </div>
         <script language="JavaScript">
 
@@ -509,7 +509,7 @@
                         if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("submit") || temp.equals("chart_no"))
                             continue; %>
                 <input type="hidden" name="<%=Encode.forHtmlAttribute(temp)%>"
-                       value="<%=Encode.forHtmlAttribute(request.getParameter(temp))%>">
+                       value="<%=Encode.forHtmlAttribute(request.getParameter(temp) != null ? request.getParameter(temp) : "")%>">
                 <% }
 
                 %>
@@ -557,7 +557,7 @@
         %>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.noResultsWereFound"/>
         <div class="createNew">
-            <a href="<%= request.getContextPath() %>/demographic/demographicaddarecordhtm.jsp?fromAppt=1&originalPage=<%=request.getParameter("originalPage")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode"))%>&keyword=<%=Encode.forUriComponent(request.getParameter("keyword"))%>&notes=<%=Encode.forUriComponent(request.getParameter("notes"))%>&appointment_date=<%=request.getParameter("appointment_date")%>&year=<%=request.getParameter("year")%>&month=<%=request.getParameter("month")%>&day=<%=request.getParameter("day")%>&start_time=<%=request.getParameter("start_time")%>&end_time=<%=request.getParameter("end_time")%>&duration=<%=request.getParameter("duration")%>&bFirstDisp=false&provider_no=<%=request.getParameter("provider_no")%>&notes=<%=Encode.forUriComponent(request.getParameter("notes"))%>&reasonCode=<%=Encode.forUriComponent(request.getParameter("reasonCode"))%>&reason=<%=Encode.forUriComponent(request.getParameter("reason"))%>&location=<%=Encode.forUriComponent(request.getParameter("location"))%>&resources=<%=request.getParameter("resources")%>&type=<%=request.getParameter("type")%>&style=<%=request.getParameter("style")%>&billing=<%=request.getParameter("billing")%>&status=<%=Encode.forUriComponent(request.getParameter("status"))%>&createdatetime=<%=request.getParameter("createdatetime")%>&creator=<%=Encode.forUriComponent(request.getParameter("creator"))%>&remarks=<%=request.getParameter("remarks")%>">
+            <a href="<%= request.getContextPath() %>/demographic/demographicaddarecordhtm.jsp?fromAppt=1&originalPage=<%=request.getParameter("originalPage")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&notes=<%=Encode.forUriComponent(request.getParameter("notes") != null ? request.getParameter("notes") : "")%>&appointment_date=<%=request.getParameter("appointment_date")%>&year=<%=request.getParameter("year")%>&month=<%=request.getParameter("month")%>&day=<%=request.getParameter("day")%>&start_time=<%=request.getParameter("start_time")%>&end_time=<%=request.getParameter("end_time")%>&duration=<%=request.getParameter("duration")%>&bFirstDisp=false&provider_no=<%=request.getParameter("provider_no")%>&notes=<%=Encode.forUriComponent(request.getParameter("notes") != null ? request.getParameter("notes") : "")%>&reasonCode=<%=Encode.forUriComponent(request.getParameter("reasonCode") != null ? request.getParameter("reasonCode") : "")%>&reason=<%=Encode.forUriComponent(request.getParameter("reason") != null ? request.getParameter("reason") : "")%>&location=<%=Encode.forUriComponent(request.getParameter("location") != null ? request.getParameter("location") : "")%>&resources=<%=request.getParameter("resources")%>&type=<%=request.getParameter("type")%>&style=<%=request.getParameter("style")%>&billing=<%=request.getParameter("billing")%>&status=<%=Encode.forUriComponent(request.getParameter("status") != null ? request.getParameter("status") : "")%>&createdatetime=<%=request.getParameter("createdatetime")%>&creator=<%=Encode.forUriComponent(request.getParameter("creator") != null ? request.getParameter("creator") : "")%>&remarks=<%=request.getParameter("remarks")%>">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.btnCreateNew"/></a>
         </div>
         <%
@@ -565,7 +565,7 @@
         %>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.noResultsWereFound"/>
         <div class="createNew">
-            <a href="<%= request.getContextPath() %>/demographic/demographicaddarecordhtm.jsp?fromAppt=1&originalPage=<%=request.getParameter("originalPage")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode"))%>&keyword=<%=Encode.forUriComponent(request.getParameter("keyword"))%>&notes=<%=Encode.forUriComponent(request.getParameter("notes"))%>&appointment_date=<%=request.getParameter("appointment_date")%>&year=<%=request.getParameter("year")%>&month=<%=request.getParameter("month")%>&day=<%=request.getParameter("day")%>&start_time=<%=request.getParameter("start_time")%>&end_time=<%=request.getParameter("end_time")%>&duration=<%=request.getParameter("duration")%>&bFirstDisp=false&provider_no=<%=request.getParameter("provider_no")%>&notes=<%=Encode.forUriComponent(request.getParameter("notes"))%>&reasonCode=<%=Encode.forUriComponent(request.getParameter("reasonCode"))%>&reason=<%=Encode.forUriComponent(request.getParameter("reason"))%>&location=<%=Encode.forUriComponent(request.getParameter("location"))%>&resources=<%=request.getParameter("resources")%>&type=<%=request.getParameter("type")%>&style=<%=request.getParameter("style")%>&billing=<%=request.getParameter("billing")%>&status=<%=Encode.forUriComponent(request.getParameter("status"))%>&createdatetime=<%=request.getParameter("createdatetime")%>&creator=<%=Encode.forUriComponent(request.getParameter("creator"))%>&remarks=<%=request.getParameter("remarks")%>">
+            <a href="<%= request.getContextPath() %>/demographic/demographicaddarecordhtm.jsp?fromAppt=1&originalPage=<%=request.getParameter("originalPage")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&notes=<%=Encode.forUriComponent(request.getParameter("notes") != null ? request.getParameter("notes") : "")%>&appointment_date=<%=request.getParameter("appointment_date")%>&year=<%=request.getParameter("year")%>&month=<%=request.getParameter("month")%>&day=<%=request.getParameter("day")%>&start_time=<%=request.getParameter("start_time")%>&end_time=<%=request.getParameter("end_time")%>&duration=<%=request.getParameter("duration")%>&bFirstDisp=false&provider_no=<%=request.getParameter("provider_no")%>&notes=<%=Encode.forUriComponent(request.getParameter("notes") != null ? request.getParameter("notes") : "")%>&reasonCode=<%=Encode.forUriComponent(request.getParameter("reasonCode") != null ? request.getParameter("reasonCode") : "")%>&reason=<%=Encode.forUriComponent(request.getParameter("reason") != null ? request.getParameter("reason") : "")%>&location=<%=Encode.forUriComponent(request.getParameter("location") != null ? request.getParameter("location") : "")%>&resources=<%=request.getParameter("resources")%>&type=<%=request.getParameter("type")%>&style=<%=request.getParameter("style")%>&billing=<%=request.getParameter("billing")%>&status=<%=Encode.forUriComponent(request.getParameter("status") != null ? request.getParameter("status") : "")%>&createdatetime=<%=request.getParameter("createdatetime")%>&creator=<%=Encode.forUriComponent(request.getParameter("creator") != null ? request.getParameter("creator") : "")%>&remarks=<%=request.getParameter("remarks")%>">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.btnCreateNew"/></a>
         </div>
         <%
@@ -615,7 +615,7 @@
                         if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("submit") || temp.equals("chart_no"))
                             continue; %>
                 <input type='hidden' name="<%=Encode.forHtmlAttribute(temp)%>"
-                       value="<%=Encode.forHtmlAttribute(request.getParameter(temp))%>">
+                       value="<%=Encode.forHtmlAttribute(request.getParameter(temp) != null ? request.getParameter(temp) : "")%>">
                 <% }
                 %>
 

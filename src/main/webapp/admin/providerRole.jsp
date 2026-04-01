@@ -162,7 +162,7 @@
 
 // update the role
     if (request.getParameter("buttonUpdate") != null && request.getParameter("buttonUpdate").length() > 0) {
-    String number = Encode.forHtmlAttribute(request.getParameter("providerId"));
+    String number = Encode.forHtmlAttribute(request.getParameter("providerId") != null ? request.getParameter("providerId") : "");
         String roleId = request.getParameter("roleId");
         String roleOld = request.getParameter("roleOld");
         String roleNew = request.getParameter("roleNew");
@@ -237,7 +237,7 @@
 // delete the role
     String delete = oscarRec.getString("global.btnDelete");
     if (request.getParameter("submit") != null && request.getParameter("submit").equals(delete)) {
-    String number = Encode.forHtmlAttribute(request.getParameter("providerId"));
+    String number = Encode.forHtmlAttribute(request.getParameter("providerId") != null ? request.getParameter("providerId") : "");
         String roleId = request.getParameter("roleId");
         String roleOld = request.getParameter("roleOld");
         String roleNew = request.getParameter("roleNew");

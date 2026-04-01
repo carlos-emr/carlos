@@ -35,6 +35,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 
 
 <script type="text/javascript">
@@ -87,9 +88,9 @@
 
 
 <form id="preference_form" name="preference_form" action="preference_action.jsp" method="post">
-    <input type="hidden" name="provider_no" id="provider_no" value="<%=provider_no%>"/>
+    <input type="hidden" name="provider_no" id="provider_no" value="<%=Encode.forHtmlAttribute(provider_no)%>"/>
     <input type="hidden" name="new_tickler_warning_window" id="new_tickler_warning_window"
-           value="<%=request.getParameter("new_tickler_warning_window")%>"/>
+           value="<%=Encode.forHtmlAttribute(request.getParameter("new_tickler_warning_window") != null ? request.getParameter("new_tickler_warning_window") : "")%>"/>
 
     <table style="margin-left:auto;margin-right:auto;background-color:#f0f0f0;border-collapse:collapse">
 

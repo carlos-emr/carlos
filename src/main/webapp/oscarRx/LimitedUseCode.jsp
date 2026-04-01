@@ -41,6 +41,7 @@
 <%@page import="io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.lab.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseCode" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseLookup" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     String din = request.getParameter("din");
@@ -58,7 +59,7 @@
         <%for (LimitedUseCode limitedUseCode : luList) {%>
         <tr>
             <td valign="top">
-                <a onclick="javascript:addLuCode('instructions_<%=randomId%>','<%=limitedUseCode.getUseId()%>')"
+                <a onclick="javascript:addLuCode('instructions_<%=Encode.forJavaScriptAttribute(randomId)%>','<%=Encode.forJavaScriptAttribute(limitedUseCode.getUseId())%>')"
                    href="javascript: return void();"><%=limitedUseCode.getUseId()%>
                 </a>&nbsp;
             </td>

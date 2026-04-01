@@ -27,6 +27,7 @@
 %>
 
 <%@page import="java.sql.*, java.util.*,java.net.*, io.github.carlos_emr.MyDateFormat" errorPage="/errorpage.jsp" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@page import="io.github.carlos_emr.carlos.billing.CA.model.BillingInr" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingInrDao" %>
@@ -158,7 +159,7 @@
     <%
         }
     %>
-    <p><%=request.getParameter("inraction")%> Bill number <%=billinginr_no%>
+    <p><%=Encode.forHtml(request.getParameter("inraction") != null ? request.getParameter("inraction") : "")%> Bill number <%=Encode.forHtml(billinginr_no)%>
     </p>
     <hr width="90%"></hr>
     <form>

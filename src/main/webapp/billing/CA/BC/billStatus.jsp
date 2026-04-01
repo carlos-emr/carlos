@@ -484,7 +484,7 @@
     <form name="ReProcessBillingForm" method="post" action="reprocessBill.do">
 
         <input type="hidden" id="hiddenFilterType" name="hiddenFilterType"
-               value="<%=Encode.forHtmlAttribute(request.getParameter("billTypes"))%>">
+               value="<%=Encode.forHtmlAttribute(request.getParameter("billTypes") != null ? request.getParameter("billTypes") : "")%>">
 
 
         <table class="table table-striped table-sm sortable" id="resultsTable">

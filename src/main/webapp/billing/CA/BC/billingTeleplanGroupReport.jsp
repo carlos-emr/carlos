@@ -55,6 +55,7 @@
 <%@page import="io.github.carlos_emr.carlos.billing.CA.model.BillActivity" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
@@ -182,7 +183,7 @@
         <th align='LEFT'><input type='button' name='print' value='Print'
                                 onClick='window.print()'></th>
         <th align='CENTER'><font face="Arial, Helvetica, sans-serif"
-                                 color="#FFFFFF"> Teleplan Group Report - <%=thisyear%>
+                                 color="#FFFFFF"> Teleplan Group Report - <%=Encode.forHtml(thisyear)%>
         </font></th>
         <th align='RIGHT'><input type='button' name='close' value='Close'
                                  onClick='window.close()'></th>

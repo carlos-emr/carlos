@@ -59,6 +59,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);
@@ -186,13 +187,13 @@
             </td>
             <td width="41%">
                 <div align="center"><input type="text" name="xml_vdate"
-                                           value="<%=xml_vdate%>"> <font size="1"
+                                           value="<%=Encode.forHtmlAttribute(xml_vdate)%>"> <font size="1"
                                                                          face="Arial, Helvetica, sans-serif"><a href="#"
                                                                                                                 onClick="openBrWindow('billingCalendarPopup.jsp?type=&returnItem=xml_vdate&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300')">Begin:</a></font>
                 </div>
             </td>
             <td width="40%"><input type="text" name="xml_appointment_date"
-                                   value="<%=xml_appointment_date%>"> <font size="1"
+                                   value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>"> <font size="1"
                                                                             face="Arial, Helvetica, sans-serif"><a
                     href="#"
                     onClick="openBrWindow('billingCalendarPopup.jsp?type=&returnItem=xml_appointment_date&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300')">End:</a></font>

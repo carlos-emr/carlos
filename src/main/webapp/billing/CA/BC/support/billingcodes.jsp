@@ -28,6 +28,7 @@
 
 --%>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
 <%
@@ -43,6 +44,8 @@
     </head>
     <%
         String form = request.getParameter("form"), field = request.getParameter("field");
+        if (form != null && !form.matches("[a-zA-Z_][a-zA-Z0-9_]*")) { form = ""; }
+        if (field != null && !field.matches("[a-zA-Z_][a-zA-Z0-9_]*")) { field = ""; }
     %>
     <script language="JavaScript">
     function posttoText(index){

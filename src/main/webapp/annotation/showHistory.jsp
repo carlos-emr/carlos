@@ -68,7 +68,7 @@
     <title>Annotation History</title>
 </head>
 <body>
-<h3 style="text-align: center;"><%=display%> Annotation Revision History</h3>
+<h3 style="text-align: center;"><%=Encode.forHtml(display)%> Annotation Revision History</h3>
 
 <% for (CaseManagementNote cmn : lcmn) {
     String showNote = cmn.getNote();

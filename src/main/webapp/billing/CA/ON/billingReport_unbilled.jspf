@@ -2,6 +2,7 @@
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@page import="org.owasp.encoder.Encode" %>
 
 <table width="100%" border="2" valign="top">
 	<% 
@@ -55,7 +56,7 @@ if(bs==null) {
 			face="Arial, Helvetica, sans-serif"><%=reason%></font></b></TD>
 		<TD width="10%"><b> <font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
-			onClick='popupPage(700,1000, "billingOB.jsp?billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"))%>&hotclick=&appointment_no=<%=apptNo%>&demographic_name=<%=URLEncoder.encode(demoName)%>&demographic_no=<%=demoNo%>&user_no=<%=userno%>&apptProvider_no=<%=providerview%>&appointment_date=<%=apptDate%>&start_time=<%=apptTime%>&bNewForm=1")'
+			onClick='popupPage(700,1000, "billingOB.jsp?billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"))%>&hotclick=&appointment_no=<%=Encode.forJavaScriptAttribute(apptNo)%>&demographic_name=<%=URLEncoder.encode(demoName)%>&demographic_no=<%=Encode.forJavaScriptAttribute(demoNo)%>&user_no=<%=Encode.forJavaScriptAttribute(userno)%>&apptProvider_no=<%=Encode.forJavaScriptAttribute(providerview)%>&appointment_date=<%=Encode.forJavaScriptAttribute(apptDate)%>&start_time=<%=Encode.forJavaScriptAttribute(apptTime)%>&bNewForm=1")'
 			title="<%=reason%>">Bill |$|</a></font></b></TD>
 	</tr>
 	<%

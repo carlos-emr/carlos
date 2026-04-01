@@ -209,8 +209,8 @@
                     form.method = 'post';
                     form.action = "<rewrite:reWrite jspPage="scheduletemplateapplying.jsp"/>";
                     var fields = {
-                        'provider_no': '<%=Encode.forJavaScript(request.getParameter("provider_no"))%>',
-                        'provider_name': '<%=Encode.forJavaScript(request.getParameter("provider_name"))%>',
+                        'provider_no': '<%=Encode.forJavaScript(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "")%>',
+                        'provider_name': '<%=Encode.forJavaScript(request.getParameter("provider_name") != null ? request.getParameter("provider_name") : "")%>',
                         'sdate': s.options[s.selectedIndex].value,
                         'delete': '1',
                         'deldate': 'all'

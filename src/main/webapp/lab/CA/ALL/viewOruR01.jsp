@@ -45,6 +45,7 @@
 %>
 
 <%@page import="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.ViewOruR01UIBean" %>
+<%@page import="org.owasp.encoder.Encode" %>
 
 <%@include file="/layouts/html_top.jspf" %>
 
@@ -56,7 +57,7 @@
 
 <h2 class="oscarBlueHeader">
     View eData
-    <span style="font-size:9px">(ORU_R01 : Unsolicited Observation Message : segmentId <%=segmentId%>)</span>
+    <span style="font-size:9px">(ORU_R01 : Unsolicited Observation Message : segmentId <%=Encode.forHtml(segmentId)%>)</span>
 </h2>
 
 <table style="border-collapse:collapse;font-size:12px">
@@ -111,10 +112,10 @@
             <span style="font-weight:bold">File name:</span> <%=viewOruR01UIBean.getBinaryFilenameForDisplay()%>
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
             <input type="button" value="open file"
-                   onclick="document.location='<%=viewOruR01UIBean.getContentRenderingUrl(request, false)%>'"/>
+                   onclick="document.location='<%=Encode.forJavaScriptAttribute(viewOruR01UIBean.getContentRenderingUrl(request, false))%>'"/>
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
             <input type="button" value="download file"
-                   onclick="document.location='<%=viewOruR01UIBean.getContentRenderingUrl(request, true)%>'"/>
+                   onclick="document.location='<%=Encode.forJavaScriptAttribute(viewOruR01UIBean.getContentRenderingUrl(request, true))%>'"/>
             <hr/>
             <%=viewOruR01UIBean.getPreviewFileHtml(request)%>
             <%

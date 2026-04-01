@@ -105,7 +105,7 @@
         if (request.getParameter("limit2") != null)
             strLimit = request.getParameter("limit2");
 
-        String keyword = Encode.forHtmlContent(request.getParameter("keyword"));
+        String keyword = Encode.forHtmlContent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "");
         String orderBy = request.getParameter("orderby");
         String searchMode = request.getParameter("search_mode");
         if (searchMode == null)

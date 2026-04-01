@@ -25,6 +25,7 @@
 
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.carlos.login.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
@@ -443,23 +444,23 @@
                                 color="#000000">Demographic Name </font><font
                                 face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                 type="text" name="demo_name"
-                                value="<%=request.getParameter("demographic_name")%>" size="20">
+                                value="<%=Encode.forHtmlAttribute(request.getParameter("demographic_name") != null ? request.getParameter("demographic_name") : "")%>" size="20">
                             <input type="hidden" name="functionid"
-                                   value="<%=request.getParameter("functionid")%>" size="20">
+                                   value="<%=Encode.forHtmlAttribute(request.getParameter("functionid") != null ? request.getParameter("functionid") : "")%>" size="20">
                         </font></td>
                         <td width="26%"><font
                                 face="Verdana, Arial, Helvetica, sans-serif" size="1"
                                 color="#000000">Health Number </font><font
                                 face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                 type="text" name="demo_hin"
-                                value="<%=request.getParameter("hin")%>" size="20"> </font><font
+                                value="<%=Encode.forHtmlAttribute(request.getParameter("hin") != null ? request.getParameter("hin") : "")%>" size="20"> </font><font
                                 face="Verdana, Arial, Helvetica, sans-serif" size="1"> </font></td>
                         <td width="31%"><font
                                 face="Verdana, Arial, Helvetica, sans-serif" size="1"
                                 color="#000000">Demographic DOB</font><font
                                 face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                 type="text" name="demo_dob"
-                                value="<%=request.getParameter("dob")%>" size="20"> </font></td>
+                                value="<%=Encode.forHtmlAttribute(request.getParameter("dob") != null ? request.getParameter("dob") : "")%>" size="20"> </font></td>
                         <td width="24%"><font
                                 face="Verdana, Arial, Helvetica, sans-serif" size="1">Appointment
                             Date <input type="text" name="apptDate" value="<%=nowDate%>">
@@ -553,14 +554,14 @@
                                 value="<%=proLast1%>, <%=proFirst1%>" size="20"> </font><font
                                 face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                 type="hidden" name="doccreator"
-                                value="<%=request.getParameter("creator")%>" size="20"> <input
+                                value="<%=Encode.forHtmlAttribute(request.getParameter("creator") != null ? request.getParameter("creator") : "")%>" size="20"> <input
                                 type="hidden" name="demo_sex"
-                                value="<%=request.getParameter("demo_sex")%>" size="20"> <input
+                                value="<%=Encode.forHtmlAttribute(request.getParameter("demo_sex") != null ? request.getParameter("demo_sex") : "")%>" size="20"> <input
                                 type="hidden" name="rdohip"
-                                value="<%=request.getParameter("rdohip")%>" size="20"> <input
-                                type="hidden" name="rd" value="<%=request.getParameter("rd")%>"
+                                value="<%=Encode.forHtmlAttribute(request.getParameter("rdohip") != null ? request.getParameter("rdohip") : "")%>" size="20"> <input
+                                type="hidden" name="rd" value="<%=Encode.forHtmlAttribute(request.getParameter("rd") != null ? request.getParameter("rd") : "")%>"
                                 size="20"> <input type="hidden" name="demo_hctype"
-                                                  value="<%=request.getParameter("demo_hctype")%>" size="20">
+                                                  value="<%=Encode.forHtmlAttribute(request.getParameter("demo_hctype") != null ? request.getParameter("demo_hctype") : "")%>" size="20">
                             <input type="hidden" name="clinic_ref_code" value="<%=clinicview%>"
                                    size="20"> <input type="hidden" name="clinicNo"
                                                      value="<%=clinicNo%>" size="20"> <input type="hidden"

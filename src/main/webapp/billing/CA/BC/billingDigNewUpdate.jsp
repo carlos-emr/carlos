@@ -49,7 +49,7 @@ b<%--
 
 %>
 <%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
-
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
@@ -67,6 +67,8 @@ b<%--
               boolean multipage = false;
               String formName = request.getParameter("formName");
               String formElement = request.getParameter("formElement");
+              if (formName != null && !formName.matches("[a-zA-Z_][a-zA-Z0-9_]*")) { formName = ""; }
+              if (formElement != null && !formElement.matches("[a-zA-Z_][a-zA-Z0-9_]*")) { formElement = ""; }
               if ( formName != null && !formName.equals("") && formElement != null && !formElement.equals("") ){
                  multipage = true;
               }
@@ -136,7 +138,7 @@ b<%--
 %>
 <script LANGUAGE="JavaScript">
     <!--
-    CodeAttach('<%=param[0]%>', '<%=param[1]%>', '<%=param[2]%>');
+    CodeAttach('<%=Encode.forJavaScript(param[0])%>', '<%=Encode.forJavaScript(param[1])%>', '<%=Encode.forJavaScript(param[2])%>');
     -->
 
 </script>

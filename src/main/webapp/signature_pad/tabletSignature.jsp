@@ -21,6 +21,7 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -57,11 +58,11 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
 <script type="text/javascript">
     var _in_window = <%= "true".equals(request.getParameter("inWindow"))%>;
 
-    var requestIdKey = "<%= requestIdKey %>";
+    var requestIdKey = "<%= Encode.forJavaScript(requestIdKey) %>";
 
-    var previewImageUrl = "<%= imageUrl %>";
+    var previewImageUrl = "<%= Encode.forJavaScript(imageUrl) %>";
 
-    var storedImageUrl = "<%= storedImageUrl %>";
+    var storedImageUrl = "<%= Encode.forJavaScript(storedImageUrl) %>";
 
     var contextPath = "<%=request.getContextPath() %>";
 
@@ -83,10 +84,10 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
       id="signatureForm" method="POST">
     <input type="hidden" id="signatureImage" name="signatureImage" value=""/>
     <input type="hidden" name="source" value="IPAD"/>
-    <input type="hidden" name="<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY %>" value="<%= requestIdKey %>"/>
-    <input type="hidden" name="demographicNo" value="<%= request.getParameter("demographicNo") %>"/>
+    <input type="hidden" name="<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY %>" value="<%= Encode.forHtmlAttribute(requestIdKey) %>"/>
+    <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "") %>"/>
 	<input type="hidden" name="<%= ModuleType.class.getSimpleName()%>"
-			value="<%= request.getParameter(ModuleType.class.getSimpleName()) %>" />
+			value="<%= Encode.forHtmlAttribute(request.getParameter(ModuleType.class.getSimpleName()) != null ? request.getParameter(ModuleType.class.getSimpleName()) : "") %>" />
     <input type="hidden" name="saveToDB" value="<%=saveToDB%>"/>
 </form>
 

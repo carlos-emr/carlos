@@ -68,6 +68,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DesAnnualReviewPlanDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     DesAnnualReviewPlanDao desAnnualReviewPlanDao = SpringUtils.getBean(DesAnnualReviewPlanDao.class);
 %>
@@ -100,7 +101,7 @@
 </head>
 <body bgproperties="fixed" topmargin="0" leftmargin="1" rightmargin="1">
 <form name="planner" method="post"
-      action="annualreviewplanner.jsp?demographic_no=<%=demographic_no%>&formId=<%=form_no%>">
+      action="annualreviewplanner.jsp?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&formId=<%=Encode.forUriComponent(form_no)%>">
     <%
         //save risk&checklist data if required
         if (request.getParameter("submit") != null &&
@@ -203,7 +204,7 @@
                                                                                            onclick="javascript:return onExit();"/>
                 <input type="button"
                        name="submit" value="Print"
-                       onclick="popupPage(700,800,'annualreviewplannerprint.jsp?demographic_no=<%=demographic_no%>&formId=<%=form_no%>');return false;"/>
+                       onclick="popupPage(700,800,'annualreviewplannerprint.jsp?demographic_no=<%=Encode.forJavaScriptAttribute(demographic_no)%>&formId=<%=Encode.forJavaScriptAttribute(form_no)%>');return false;"/>
             </td>
             <td align="right"><a href=#
                                  onClick="popupPage(600,930,'riskedit.jsp');return false;"> Edit
@@ -235,7 +236,7 @@
                                                                                            onclick="javascript:return onExit();"/>
                 <input type="button"
                        name="submit" value="Print"
-                       onclick="popupPage(700,800,'annualreviewplannerprint.jsp?demographic_no=<%=demographic_no%>&formId=<%=form_no%>');return false;"/>
+                       onclick="popupPage(700,800,'annualreviewplannerprint.jsp?demographic_no=<%=Encode.forJavaScriptAttribute(demographic_no)%>&formId=<%=Encode.forJavaScriptAttribute(form_no)%>');return false;"/>
             </td>
             <td align="right"><a href=#
                                  onClick="popupPage(600,930,'riskedit.jsp');return false;"> Edit

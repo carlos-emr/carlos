@@ -232,7 +232,7 @@
         %>
         <p>
         <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providerupdate.msgUpdateSuccess"/>
-            <a href="providerupdateprovider.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("provider_no"))%>"><%= Encode.forHtml(request.getParameter("provider_no")) %>
+            <a href="providerupdateprovider.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "")%>"><%= Encode.forHtml(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "") %>
             </a>
         </h2>
         <%

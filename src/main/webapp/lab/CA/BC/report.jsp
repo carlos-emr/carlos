@@ -58,6 +58,7 @@
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Message" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     String pid = request.getParameter("pid"),
@@ -132,8 +133,8 @@
             <td align="right" class="Text"
                 nowrap><%=(signed ? (provider.getLastName() != null ? "<b>Signed Off By: </b>" + provider.getFormattedName() : "<b>Signed Off By Provider No.:</b> " + provider.getProviderNo()) + " on " + hl7_link.getSignedOn() : "")%>
                 <input type="checkbox" name="cmd_sign" onclick="Sign(this);"
-                       value="<%=pid%>" <%=(signed ? "checked disabled" : "")%> /><input
-                        type="hidden" name="pid" value="<%=pid%>"/>Sign
+                       value="<%=Encode.forHtmlAttribute(pid)%>" <%=(signed ? "checked disabled" : "")%> /><input
+                        type="hidden" name="pid" value="<%=Encode.forHtmlAttribute(pid)%>"/>Sign
             </td>
         </tr>
     </table>

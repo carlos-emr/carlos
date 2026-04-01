@@ -33,6 +33,7 @@
     String user_no = (String) session.getAttribute("user");
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Billingreferral" %>
@@ -61,6 +62,12 @@
     String formElement = request.getParameter("formElement");
     if (formName == null || formElement == null) {
         formName = "";
+        formElement = "";
+    }
+    if (!formName.matches("[a-zA-Z_][a-zA-Z0-9_]*") && !formName.isEmpty()) {
+        formName = "";
+    }
+    if (!formElement.matches("[a-zA-Z_][a-zA-Z0-9_]*") && !formElement.isEmpty()) {
         formElement = "";
     }
 
@@ -153,9 +160,9 @@
 </table>
 <form name="servicecode" id="servicecode" method="post"
       action="billingReferCodeUpdate.jsp"><input type="hidden"
-                                                 name="formName" value="<%=formName%>"/> <input type="hidden"
+                                                 name="formName" value="<%=Encode.forHtmlAttribute(formName)%>"/> <input type="hidden"
                                                                                                 name="formElement"
-                                                                                                value="<%=formElement%>"/>
+                                                                                                value="<%=Encode.forHtmlAttribute(formElement)%>"/>
     <table width="600" border="1">
         <tr bgcolor="#CCCCFF">
             <td width="12%"><b><font face="Arial, Helvetica, sans-serif"
@@ -209,16 +216,16 @@
                 <%}%><%=Dcode%>
             </font></td>
             <td width="22%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><%=DcodeDesc%>
+                                  size="2"><%=Encode.forHtml(DcodeDesc)%>
             </font></td>
             <td width="22%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><%=DcodeSpecialty%>
+                                  size="2"><%=Encode.forHtml(DcodeSpecialty)%>
             </font></td>
             <td width="22%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><%=DcodeCity%>
+                                  size="2"><%=Encode.forHtml(DcodeCity)%>
             </font></td>
             <td width="22%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><%=DcodePhone%>
+                                  size="2"><%=Encode.forHtml(DcodePhone)%>
             </font></td>
         </tr>
         <%
@@ -228,7 +235,7 @@
         <% if (intCount == 0) { %>
         <tr bgcolor="<%=color%>">
             <td colspan="5"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><%=desc%>No match found. <%=fdesc%>
+                                  size="2"><%=Encode.forHtml(desc)%>No match found. <%=Encode.forHtml(fdesc)%>
                 <%// =i%>
             </font></td>
 
@@ -238,7 +245,7 @@
         <% if (intCount == 1) { %>
         <script LANGUAGE="JavaScript">
             <!--
-            CodeAttach('<%=Dcode%>');
+            CodeAttach('<%=Encode.forJavaScript(Dcode)%>');
             -->
 
         </script>

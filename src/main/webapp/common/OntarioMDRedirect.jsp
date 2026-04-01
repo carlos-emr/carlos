@@ -29,6 +29,7 @@
 
 --%>
 
+<%@page import="org.owasp.encoder.Encode" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils,io.github.carlos_emr.carlos.utility.OntarioMD,java.util.Hashtable" %>
 <%@page import="org.springframework.web.context.WebApplicationContext,io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
@@ -91,9 +92,9 @@ Invalid Requestor Value. - Please contact your support vendor for configuration
     <p>PT login Token:</p>
     <input type="text" size="70" id="ptLoginToken" name="ptLoginToken" value="<%=loginCreds.get("ptLoginToken")%>"/>
     <p>Keyword:</p>
-    <input type="text" size="100" id="keyword" name="keyword" value="<%=keyword%>"/>
+    <input type="text" size="100" id="keyword" name="keyword" value="<%=Encode.forHtmlAttribute(keyword)%>"/>
     <p>Params:</p>
-    <input type="text" size="200" id="params" name="params" value="<%=params%>"/>
+    <input type="text" size="200" id="params" name="params" value="<%=Encode.forHtmlAttribute(params)%>"/>
     <p>Requestor:</p>
     <input type="text" size="50" id="requestor" name="requestor" value="<%=requestor%>"/>
     <p>Username:</p>

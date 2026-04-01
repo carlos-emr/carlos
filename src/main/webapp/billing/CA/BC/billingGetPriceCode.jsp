@@ -32,6 +32,7 @@
     String user_no = (String) session.getAttribute("user");
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
@@ -44,6 +45,9 @@
     String formName = request.getParameter("formName");
     String formElementCode = request.getParameter("formElementCode");
     String formElementPrice = request.getParameter("formElementPrice");
+    if (formName != null && !formName.matches("[a-zA-Z_][a-zA-Z0-9_]*")) { formName = ""; }
+    if (formElementCode != null && !formElementCode.matches("[a-zA-Z_][a-zA-Z0-9_]*")) { formElementCode = ""; }
+    if (formElementPrice != null && !formElementPrice.matches("[a-zA-Z_][a-zA-Z0-9_]*")) { formElementPrice = ""; }
 %>
 <html>
 <head>

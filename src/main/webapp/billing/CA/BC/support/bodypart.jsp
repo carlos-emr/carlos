@@ -31,6 +31,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.dao.WcbBpCodeDao" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -45,6 +46,8 @@
     </head>
     <%
         String form = request.getParameter("form"), field = request.getParameter("field");
+        if (form != null && !form.matches("[a-zA-Z_][a-zA-Z0-9_]*")) { form = ""; }
+        if (field != null && !field.matches("[a-zA-Z_][a-zA-Z0-9_]*")) { field = ""; }
         String searchStr = request.getParameter("searchStr");
         if (searchStr == null) {
             searchStr = "%";
