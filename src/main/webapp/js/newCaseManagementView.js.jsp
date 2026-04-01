@@ -2286,6 +2286,7 @@ function updateCPPNote() {
     var assignObservationDateError;
     var assignIssueError;
     var savingNoteError;
+    var noteLockLostError;
     var encTimeError;
     var encMinError;
     var encTimeMandatoryMsg;
@@ -2293,7 +2294,7 @@ function updateCPPNote() {
     function ajaxSaveNote(div, noteId, noteTxt) {
 
         if (lostNoteLock) {
-            alert("Your note lock has been lost. Please copy your note text, close this window, and reopen the chart.");
+            alert(noteLockLostError);
             return false;
         }
 
@@ -2386,7 +2387,7 @@ function updateCPPNote() {
                 onFailure: function (request) {
                     if (request.status == 409) {
                         lostNoteLock = true;
-                        alert("Your note lock has been lost. Please copy your note text, close this window, and reopen the chart.");
+                        alert(noteLockLostError);
                     } else if (request.status == 403) {
                         alert(sessionExpiredError);
                     } else {
@@ -3021,7 +3022,7 @@ function autoSave() {
                     $("autosaveTime").update(fmtDate);
                 },
                 onFailure: function (req) {
-                    if (req.status == 403) {
+                    if (req.status == 409) {
                         lostNoteLock = true;
                         var msg = "<i>Autosave cancelled due to note being edited in another window</i>";
                         $("autosaveTime").update(msg);

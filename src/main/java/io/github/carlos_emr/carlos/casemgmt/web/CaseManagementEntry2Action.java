@@ -636,12 +636,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         if (casemgmtNoteLock == null) {
-            logger.warn("updateNoteLock: lock not found for demographic {} noteId {} - lock may have been released", demoNo, noteId);
+            logger.warn("updateNoteLock: lock not found - lock may have been released");
             return null;
         }
 
         casemgmtNoteLock.setIpAddress(request.getRemoteAddr());
-        casemgmtNoteLock.setSessionId(request.getRequestedSessionId());
+        String currentSessionId = request.getRequestedSessionId();
+        if (currentSessionId == null) {
+            currentSessionId = session.getId();
+        }
+        casemgmtNoteLock.setSessionId(currentSessionId);
         logger.debug("UPDATING LOCK DEMO " + demoNo + " SESSION " + casemgmtNoteLock.getSessionId() + " LOCK IP " + casemgmtNoteLock.getIpAddress());
         casemgmtNoteLockDao.merge(casemgmtNoteLock);
 
@@ -678,6 +682,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String issueCode = request.getParameter("issue_id");
         String issueAlphaCode = request.getParameter("issue_code");
         String archived = request.getParameter("archived");
+
+        if (!hasNoteLock(demographicNo)) {
+            logger.debug("issueNoteSaveJson rejected: no valid lock for demographic {}", demographicNo);
+            return null;
+        }
 
         Date noteDate = new Date();
 
@@ -845,7 +854,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String demo = getDemographicNo(request);
 
         if (!hasNoteLock(demo)) {
-            logger.debug("issueNoteSave rejected: no valid lock for demographic " + demo);
+            logger.debug("issueNoteSave rejected: no valid lock for demographic {}", demo);
             return "windowCloseError";
         }
 
@@ -1656,7 +1665,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String demo = getDemographicNo(request);
 
         if (!hasNoteLock(demo)) {
-            logger.debug("ajaxsave rejected: no valid lock for demographic " + demo);
+            logger.debug("ajaxsave rejected: no valid lock for demographic {}", demo);
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             return null;
         }
@@ -1855,10 +1864,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (casemgmtNoteLock == null) {
                 return false;
             }
-            return casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId())
-                && request.getRequestedSessionId().equals(casemgmtNoteLockSession.getSessionId());
+            return Objects.equals(casemgmtNoteLock.getSessionId(), casemgmtNoteLockSession.getSessionId())
+                && Objects.equals(request.getRequestedSessionId(), casemgmtNoteLockSession.getSessionId());
         } catch (Exception e) {
-            logger.error("Lock check failed for demographic " + demo, e);
+            logger.warn("Lock check failed unexpectedly", e);
             return false;
         }
     }
@@ -2723,7 +2732,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String noteId = request.getParameter("note_id");
 
         if (!hasNoteLock(demographicNo)) {
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
             return null;
         }
 
