@@ -62,6 +62,8 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
+<%@ page import="java.net.URLEncoder" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProperties" %>
@@ -267,7 +269,7 @@
                             demoid = json.demoId;
                             if (demoid != null && demoid.length > 0)
                                 window.popup(700, 980, contextPath + '/messenger/SendDemoMessage.do?demographic_no=' + demoid + "&recall", 'msgRecall');
-                            window.popup(450, 600, contextPath + '/tickler/ForwardDemographicTickler.do?docType=HL7&docId=' + labid + '&demographic_no=' + demoid + '<%=ticklerAssignee%>&priority=<%=recallTicklerPriority%>&recall', 'ticklerRecall');
+                            window.popup(450, 600, contextPath + '/tickler/ForwardDemographicTickler.do?docType=HL7&docId=' + labid + '&demographic_no=' + demoid + '<%=Encode.forJavaScript(ticklerAssignee)%>&priority=<%=Encode.forJavaScript(recallTicklerPriority)%>&recall', 'ticklerRecall');
                         } else if (action == 'ticklerLab') {
                             demoid = json.demoId;
                             if (demoid != null && demoid.length > 0)
@@ -393,7 +395,7 @@
     <form name="labLabelForm" id="labLabelForm<%=segmentID%>" method='POST'
           onsubmit="createLabLabel('labLabelForm<%=segmentID%>');" action="javascript:void(0);">
         <input type="hidden" id="labNum" name="lab_no" value="<%=lab_no%>">
-        <input type="hidden" id="label" name="label" value="<%=label%>">
+        <input type="hidden" id="label" name="label" value="<%=Encode.forHtmlAttribute(label)%>">
     </form>
     <form name="acknowledgeForm" id="acknowledgeForm_<%=segmentID%>" onsubmit="javascript:void(0);" method="post"
           action="javascript:void(0);">
@@ -463,7 +465,7 @@
                                         labelval = "(not set)";
 
                                     } %>
-                                <span id="labelspan_<%=segmentID%>" class="Field2"><i>Label: <%=labelval%> </i></span>
+                                <span id="labelspan_<%=segmentID%>" class="Field2"><i>Label: <%=Encode.forHtml(labelval)%> </i></span>
                                 <span class="Field2"><i>Next Appointment: <oscar:nextAppt
                                         demographicNo="<%=demographicID%>"/></i></span>
                             </td>
@@ -550,7 +552,7 @@
                                                                         %></a>
                                                                         <a href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= segmentID %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
                                                                             <% } %>
-                                                                            <%=handler.getPatientName()%>
+                                                                            <%=Encode.forHtml(handler.getPatientName())%>
                                                                         </a>
                                                                     </div>
                                                                 </td>
@@ -564,7 +566,7 @@
                                                                 </td>
                                                                 <td nowrap>
                                                                     <div class="FieldData" nowrap="nowrap">
-                                                                        <%=handler.getDOB()%>
+                                                                        <%=Encode.forHtml(handler.getDOB())%>
                                                                     </div>
                                                                 </td>
                                                                 <td colspan="2"></td>
@@ -577,7 +579,7 @@
                                                                 </td>
                                                                 <td nowrap>
                                                                     <div class="FieldData">
-                                                                        <%=handler.getAge()%>
+                                                                        <%=Encode.forHtml(handler.getAge())%>
                                                                     </div>
                                                                 </td>
                                                                 <td nowrap>
@@ -587,7 +589,7 @@
                                                                 </td>
                                                                 <td align="left" nowrap>
                                                                     <div class="FieldData">
-                                                                        <%=handler.getSex()%>
+                                                                        <%=Encode.forHtml(handler.getSex())%>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -601,7 +603,7 @@
                                                                 </td>
                                                                 <td nowrap>
                                                                     <div class="FieldData" nowrap="nowrap">
-                                                                        <%=handler.getHealthNum()%>
+                                                                        <%=Encode.forHtml(handler.getHealthNum())%>
                                                                     </div>
                                                                 </td>
                                                                 <td colspan="2"></td>
@@ -619,7 +621,7 @@
                                                                 </td>
                                                                 <td nowrap>
                                                                     <div align="left" class="FieldData" nowrap="nowrap">
-                                                                        <%=handler.getHomePhone()%>
+                                                                        <%=Encode.forHtml(handler.getHomePhone())%>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -631,7 +633,7 @@
                                                                 </td>
                                                                 <td nowrap>
                                                                     <div align="left" class="FieldData" nowrap="nowrap">
-                                                                        <%=handler.getWorkPhone()%>
+                                                                        <%=Encode.forHtml(handler.getWorkPhone())%>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -653,7 +655,7 @@
                                                                 </td>
                                                                 <td nowrap>
                                                                     <div align="left" class="FieldData" nowrap="nowrap">
-                                                                        <%=handler.getPatientLocation()%>
+                                                                        <%=Encode.forHtml(handler.getPatientLocation())%>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -675,7 +677,7 @@
                                         </td>
                                         <td>
                                             <div class="FieldData" nowrap="nowrap">
-                                                <%= handler.getServiceDate() %>
+                                                <%= Encode.forHtml(handler.getServiceDate()) %>
                                             </div>
                                         </td>
                                     </tr>
@@ -688,7 +690,7 @@
                                                 </td>
                                                 <td>
                                                     <div class="FieldData" nowrap="nowrap">
-                                                        <%= ((ExcellerisOntarioHandler) handler).getReportStatusChangeDate() %>
+                                                        <%= Encode.forHtml(((ExcellerisOntarioHandler) handler).getReportStatusChangeDate()) %>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -701,7 +703,7 @@
                                         </td>
                                         <td>
                                             <div class="FieldData" nowrap="nowrap">
-                                                <%= (handler.getOrderStatus().equals("F") ? "Final" : handler.getOrderStatus().equals("C") ? "Corrected" : (handler.getMsgType().equals("PATHL7") && handler.getOrderStatus().equals("P")) ? "Preliminary" : handler.getOrderStatus().equals("X") ? "DELETED" : handler.getOrderStatus()) %>
+                                                <%= (handler.getOrderStatus().equals("F") ? "Final" : handler.getOrderStatus().equals("C") ? "Corrected" : (handler.getMsgType().equals("PATHL7") && handler.getOrderStatus().equals("P")) ? "Preliminary" : handler.getOrderStatus().equals("X") ? "DELETED" : Encode.forHtml(handler.getOrderStatus())) %>
                                             </div>
                                         </td>
                                     </tr>
@@ -716,7 +718,7 @@
                                         </td>
                                         <td nowrap>
                                             <div class="FieldData" nowrap="nowrap">
-                                                <%= handler.getClientRef()%>
+                                                <%= Encode.forHtml(handler.getClientRef())%>
                                             </div>
                                         </td>
                                     </tr>
@@ -728,7 +730,7 @@
                                         </td>
                                         <td>
                                             <div class="FieldData" nowrap="nowrap">
-                                                <%= handler.getAccessionNum()%>
+                                                <%= Encode.forHtml(handler.getAccessionNum())%>
                                             </div>
                                         </td>
                                     </tr>
@@ -742,14 +744,14 @@
                                         <td bgcolor="white">
                                             <div class="FieldData">
                                                 <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formRequestingClient"/>: </strong>
-                                                <%= handler.getDocName()%>
+                                                <%= Encode.forHtml(handler.getDocName())%>
                                             </div>
                                         </td>
 
                                         <td bgcolor="white" align="right">
                                             <div class="FieldData">
                                                 <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formCCClient"/>: </strong>
-                                                <%= handler.getCCDocs()%>
+                                                <%= Encode.forHtml(handler.getCCDocs())%>
 
                                             </div>
                                         </td>
@@ -797,9 +799,9 @@
                                              class="<%=ticklerClass%>">
                                             <table width="100%">
                                                 <tr>
-                                                    <td><b>Priority:</b> <%=flag%> <%=tickler.getPriority()%>
+                                                    <td><b>Priority:</b> <%=flag%> <%=Encode.forHtml(tickler.getPriority().toString())%>
                                                     </td>
-                                                    <td><b>Service Date:</b> <%=tickler.getServiceDate()%>
+                                                    <td><b>Service Date:</b> <%=Encode.forHtml(String.valueOf(tickler.getServiceDate()))%>
                                                     </td>
                                                     <td><b>Assigned
                                                         To:</b> <%=tickler.getAssignee() != null ? tickler.getAssignee().getLastName() + ", " + tickler.getAssignee().getFirstName() : "N/A"%>
@@ -809,7 +811,7 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td colspan="4"><%=tickler.getMessage()%>
+                                                    <td colspan="4"><%=Encode.forHtml(tickler.getMessage())%>
                                                     </td>
                                                 </tr>
                                             </table>
@@ -854,7 +856,7 @@
                                                 <!--center-->
                                                 <% for (int i = 0; i < ackList.size(); i++) {
                                                     report = (ReportStatus) ackList.get(i); %>
-                                                <%= report.getProviderName() %> :
+                                                <%= Encode.forHtml(report.getProviderName()) %> :
 
                                                 <% String ackStatus = report.getStatus();
                                                     if (ackStatus.equals("A")) {
@@ -868,7 +870,7 @@
                                                 <font color="red"><%= ackStatus %>
                                                 </font>
 
-                                                <%= report.getTimestamp() %>,
+                                                <%= Encode.forHtml(String.valueOf(report.getTimestamp())) %>,
                                                 <% String commentTitle = null;
                                                     if (report.getComment() == null || report.getComment().equals("")) {
                                                         commentTitle = "no comment";
@@ -877,7 +879,7 @@
                                                     }
                                                 %>
                                                 <span id="<%="V" + j + "commentLabel" + segmentID + report.getProviderNo()%>"><%=commentTitle%></span><span
-                                                    id="<%="V" + j + "commentText" + segmentID + report.getProviderNo()%>"> <%=report.getComment() == null ? "" : report.getComment()%></span>
+                                                    id="<%="V" + j + "commentText" + segmentID + report.getProviderNo()%>"> <%=report.getComment() == null ? "" : Encode.forHtml(report.getComment())%></span>
 
                                                 <br>
                                                 <% }
@@ -935,7 +937,7 @@
             <tr>
                 <td bgcolor="#FFCC00" width="300" valign="bottom">
                     <div class="Title2">
-                        <%=headers.get(i)%>
+                        <%=Encode.forHtml(headers.get(i))%>
                     </div>
                 </td>
                 <%--<td align="right" bgcolor="#FFCC00" width="100">&nbsp;</td>--%>
@@ -983,8 +985,8 @@
                                         obrFlag = true;
                                     %>
                                     <tr style="<%=(linenum % 2 == 1 ? "background-color:"+highlight : "")%>" >
-                                        <td style="text-align:left; vertical-align:top"><span style="font-size:16px;font-weight: bold;"><%=handler.getOBRName(j)%></span></td>
-                                        <td colspan="1"><%=orderRequestStatus%></td>
+                                        <td style="text-align:left; vertical-align:top"><span style="font-size:16px;font-weight: bold;"><%=Encode.forHtml(handler.getOBRName(j))%></span></td>
+                                        <td colspan="1"><%=Encode.forHtml(orderRequestStatus)%></td>
                                     </tr>
                                     <%
                                     }
@@ -1036,27 +1038,27 @@
 
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier='+encodeURIComponent('<%= handler.getOBXIdentifier(j, k)%>'))"><%=obxName %>
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier='+encodeURIComponent('<%= handler.getOBXIdentifier(j, k)%>'))"><%=Encode.forHtml(obxName)%>
                     </a></td>
-                    <td align="right"><%= handler.getOBXResult(j, k) %>
+                    <td align="right"><%= Encode.forHtml(handler.getOBXResult(j, k)) %>
                     </td>
 
                     <td align="center">
-                        <%= handler.getOBXAbnormalFlag(j, k)%>
+                        <%= Encode.forHtml(handler.getOBXAbnormalFlag(j, k))%>
                     </td>
-                    <td align="left"><%=handler.getOBXReferenceRange(j, k)%>
+                    <td align="left"><%=Encode.forHtml(handler.getOBXReferenceRange(j, k))%>
                     </td>
-                    <td align="left"><%=handler.getOBXUnits(j, k) %>
+                    <td align="left"><%=Encode.forHtml(handler.getOBXUnits(j, k)) %>
                     </td>
-                    <td align="center"><%= handler.getTimeStamp(j, k) %>
+                    <td align="center"><%= Encode.forHtml(handler.getTimeStamp(j, k)) %>
                     </td>
-                    <td align="center"><%= handler.getOBXResultStatus(j, k) %>
+                    <td align="center"><%= Encode.forHtml(handler.getOBXResultStatus(j, k)) %>
                     </td>
                 </tr>
                 <% } else if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && obxName.equals("")) { %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXResult(j, k)%></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXResult(j, k))%></pre>
                     </td>
                 </tr>
                 <% }
@@ -1064,28 +1066,28 @@
                     if (!obxName.equals("")) { %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier='+encodeURIComponent('<%= handler.getOBXIdentifier(j, k)%>'))"><%=obxName %>
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier='+encodeURIComponent('<%= handler.getOBXIdentifier(j, k)%>'))"><%=Encode.forHtml(obxName)%>
                     </a></td>
-                    <td align="right"><%= handler.getOBXResult(j, k) %>
+                    <td align="right"><%= Encode.forHtml(handler.getOBXResult(j, k)) %>
                     </td>
 
                     <td align="center">
-                        <%= handler.getOBXAbnormalFlag(j, k)%>
+                        <%= Encode.forHtml(handler.getOBXAbnormalFlag(j, k))%>
                     </td>
-                    <td align="left"><%=handler.getOBXReferenceRange(j, k)%>
+                    <td align="left"><%=Encode.forHtml(handler.getOBXReferenceRange(j, k))%>
                     </td>
-                    <td align="left"><%=handler.getOBXUnits(j, k) %>
+                    <td align="left"><%=Encode.forHtml(handler.getOBXUnits(j, k)) %>
                     </td>
-                    <td align="center"><%= handler.getTimeStamp(j, k) %>
+                    <td align="center"><%= Encode.forHtml(handler.getTimeStamp(j, k)) %>
                     </td>
-                    <td align="center"><%= handler.getOBXResultStatus(j, k) %>
+                    <td align="center"><%= Encode.forHtml(handler.getOBXResultStatus(j, k)) %>
                     </td>
                 </tr>
 
                 <%} else { %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXResult(j, k)%></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXResult(j, k))%></pre>
                     </td>
                 </tr>
                 <%
@@ -1094,14 +1096,14 @@
                 %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><%=handler.getNteForOBX(j, k)%></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getNteForOBX(j, k))%></pre>
                     </td>
                 </tr>
                 <% }
                     for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXComment(j, k, l)%></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXComment(j, k, l))%></pre>
                     </td>
                 </tr>
                 <%
@@ -1114,11 +1116,11 @@
                     if (isUnstructuredDoc) {
                         if (handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k - 1)) && (obxCount > 1)) {%>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier='+encodeURIComponent('<%= handler.getOBXIdentifier(j, k)%>'))"></a><%
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier='+encodeURIComponent('<%= handler.getOBXIdentifier(j, k)%>'))"></a><%
 	                                   				}
 	                                   			else{%>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= handler.getOBXIdentifier(j, k) %>')"><%=obxName %>
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= handler.getOBXIdentifier(j, k) %>')"><%=Encode.forHtml(obxName)%>
                     </a><%}%>
                             <%if(isVIHARtf){
 												    //create bytes from the rtf string
@@ -1135,7 +1137,7 @@
                     </td>
                     <%} %><%
                         else{%>
-                    <td align="left"><%= handler.getOBXResult(j, k) %>
+                    <td align="left"><%= Encode.forHtml(handler.getOBXResult(j, k)) %>
                     </td>
                     <%} %>
                     <%
@@ -1143,7 +1145,7 @@
                     %>
                     <td align="center"></td>
                     <%} else {%>
-                    <td align="center"><%= handler.getTimeStamp(j, k) %>
+                    <td align="center"><%= Encode.forHtml(handler.getTimeStamp(j, k)) %>
                     </td>
                     <%
                         }
@@ -1154,17 +1156,17 @@
                         if (handler.getMsgType().equals("PATHL7") && !isAllowedDuplicate && (obxCount > 1) && handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k - 1)) && (handler.getOBXValueType(j, k).equals("TX") || handler.getOBXValueType(j, k).equals("FT"))) {
                     %>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= handler.getOBXIdentifier(j, k) %>')"></a><%
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= handler.getOBXIdentifier(j, k) %>')"></a><%
 	                                   				}
 	                               				else{%>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier='+encodeURIComponent('<%= handler.getOBXIdentifier(j, k)%>'))"><%=obxName %>
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<%=demographicID%>&labType=HL7&identifier='+encodeURIComponent('<%= handler.getOBXIdentifier(j, k)%>'))"><%=Encode.forHtml(obxName)%>
                     </a></td>
                     <%}%>
                     <%
                         //for pathl7, if it is an SG/CDC result greater than 100 characters, left justify it
                         if ((handler.getOBXResult(j, k) != null && handler.getOBXResult(j, k).length() > 100) && isSGorCDC) {%>
-                    <td align="left"><%= handler.getOBXResult(j, k) %>
+                    <td align="left"><%= Encode.forHtml(handler.getOBXResult(j, k)) %>
                     </td>
                     <%
                     } else {%>
@@ -1184,22 +1186,22 @@
                     %>
 	                                            <td align="right">
                                                    <% if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
-                                                    <em><%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue( j, k) %></em>
+                                                    <em><%= Encode.forHtml(((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue( j, k)) %></em>
                                                     <% } else { %>
-                                                    <%= handler.getOBXResult( j, k) %>
+                                                    <%= Encode.forHtml(handler.getOBXResult( j, k)) %>
                                                     <% } %>
                                                 </td><%}%>
                     <% } %>
                     <td align="center">
-                        <%= handler.getOBXAbnormalFlag(j, k)%>
+                        <%= Encode.forHtml(handler.getOBXAbnormalFlag(j, k))%>
                     </td>
-                    <td align="left"><%=handler.getOBXReferenceRange(j, k)%>
+                    <td align="left"><%=Encode.forHtml(handler.getOBXReferenceRange(j, k))%>
                     </td>
-                    <td align="left"><%=handler.getOBXUnits(j, k) %>
+                    <td align="left"><%=Encode.forHtml(handler.getOBXUnits(j, k)) %>
                     </td>
-                    <td align="center"><%= handler.getTimeStamp(j, k) %>
+                    <td align="center"><%= Encode.forHtml(handler.getTimeStamp(j, k)) %>
                     </td>
-                    <td align="center"><%= handler.getOBXResultStatus(j, k) %>
+                    <td align="center"><%= Encode.forHtml(handler.getOBXResultStatus(j, k)) %>
                     </td>
                     <%
                         }//end of PATHL7 else %>
@@ -1208,7 +1210,7 @@
                 <%for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXComment(j, k, l)%></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXComment(j, k, l))%></pre>
                     </td>
                 </tr>
                 <%
@@ -1218,7 +1220,7 @@
                 <%for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXComment(j, k, l)%></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXComment(j, k, l))%></pre>
                     </td>
                 </tr>
                 <%
@@ -1239,7 +1241,7 @@
                         if (!obrFlag && handler.getOBXName(j, 0).equals("")) {
                 %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>">
-                    <td valign="top" align="left"><%=handler.getOBRName(j)%>
+                    <td valign="top" align="left"><%=Encode.forHtml(handler.getOBRName(j))%>
                     </td>
                     <td colspan="6">&nbsp;</td>
                 </tr>
@@ -1249,14 +1251,14 @@
                 %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBRComment(j, k)%></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBRComment(j, k))%></pre>
                     </td>
                 </tr>
                 <% if (!handler.getMsgType().equals("HHSEMR")) {
                     if (handler.getOBXName(j, k).equals("")) {
                         String result = handler.getOBXResult(j, k);%>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>">
-                    <td colspan="7" valign="top" align="left"><%=result%>
+                    <td colspan="7" valign="top" align="left"><%=Encode.forHtml(result)%>
                     </td>
                 </tr>
                 <%
