@@ -84,7 +84,7 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MultiReadHttpServletRequest.class);
 
-    private ByteArrayOutputStream cachedBytes;
+    private ExposedByteArrayOutputStream cachedBytes;
 
     /** Maximum request body size (500 MB) to prevent memory exhaustion. Matches struts.multipart.maxSize. */
     static final long MAX_BODY_SIZE = 500L * 1024 * 1024;
@@ -250,9 +250,10 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             upload.setFileSizeMax(MAX_BODY_SIZE);
             upload.setSizeMax(MAX_BODY_SIZE);
 
-            // Note: toByteArray() copies the buffer. For a request near MAX_BODY_SIZE (500 MB),
-            // peak memory will temporarily be ~2x the body size.
-            byte[] body = cachedBytes.toByteArray();
+            // Use the internal buffer directly (no copy). The buffer is effectively
+            // immutable after cacheInputStream() completes — no further writes occur.
+            final byte[] buf = cachedBytes.getBuffer();
+            final int count = cachedBytes.getCount();
 
             UploadContext ctx = new UploadContext() {
                 @Override
@@ -267,12 +268,12 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
 
                 @Override
                 public InputStream getInputStream() {
-                    return new ByteArrayInputStream(body);
+                    return new ByteArrayInputStream(buf, 0, count);
                 }
 
                 @Override
                 public long contentLength() {
-                    return body.length;
+                    return count;
                 }
             };
 
@@ -342,7 +343,7 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         }
 
         try {
-            multipartParams = parseMultipartFormFields(cachedBytes.toByteArray(), contentType);
+            multipartParams = parseMultipartFormFields(cachedBytes.getBuffer(), cachedBytes.getCount(), contentType);
         } catch (Exception e) {
             LOGGER.warn("Failed to parse multipart form fields", e);
             multipartParams = Collections.emptyMap();
@@ -351,7 +352,7 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
     }
 
     private void cacheInputStream() throws IOException {
-        cachedBytes = new ByteArrayOutputStream();
+        cachedBytes = new ExposedByteArrayOutputStream();
         try {
             ServletInputStream input = super.getInputStream();
             long copied = IOUtils.copyLarge(input, cachedBytes, 0, MAX_BODY_SIZE);
@@ -380,11 +381,12 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
      * validate tokens, so the CSRF token embedded in the multipart body must be
      * extractable.</p>
      *
-     * @param body        the raw request body bytes
+     * @param body        the raw request body bytes (may be larger than {@code bodyLength})
+     * @param bodyLength  the number of valid bytes in {@code body}
      * @param contentType the Content-Type header value (must start with "multipart/")
      * @return a map of field name to list of values (text fields only)
      */
-    static Map<String, List<String>> parseMultipartFormFields(byte[] body, String contentType) {
+    static Map<String, List<String>> parseMultipartFormFields(byte[] body, int bodyLength, String contentType) {
         String boundary = extractBoundary(contentType);
         if (boundary == null) {
             return Collections.emptyMap();
@@ -393,14 +395,14 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         Map<String, List<String>> params = new LinkedHashMap<>();
         byte[] boundaryMarker = ("--" + boundary).getBytes(StandardCharsets.ISO_8859_1);
 
-        int pos = indexOf(body, boundaryMarker, 0);
+        int pos = indexOf(body, bodyLength, boundaryMarker, 0);
         if (pos < 0) {
             return Collections.emptyMap();
         }
 
         while (pos >= 0) {
             pos += boundaryMarker.length;
-            if (pos + 2 > body.length) {
+            if (pos + 2 > bodyLength) {
                 break;
             }
 
@@ -410,12 +412,12 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             }
 
             // Skip CRLF after boundary marker
-            if (pos + 1 < body.length && body[pos] == '\r' && body[pos + 1] == '\n') {
+            if (pos + 1 < bodyLength && body[pos] == '\r' && body[pos + 1] == '\n') {
                 pos += 2;
             }
 
             // Find the blank line separating headers from body
-            int headerEnd = indexOf(body, HEADER_BODY_SEPARATOR, pos);
+            int headerEnd = indexOf(body, bodyLength, HEADER_BODY_SEPARATOR, pos);
             if (headerEnd < 0) {
                 break;
             }
@@ -424,7 +426,7 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             int bodyStart = headerEnd + HEADER_BODY_SEPARATOR.length;
 
             // Find the next boundary
-            int nextBoundary = indexOf(body, boundaryMarker, bodyStart);
+            int nextBoundary = indexOf(body, bodyLength, boundaryMarker, bodyStart);
             if (nextBoundary < 0) {
                 break;
             }
@@ -490,10 +492,14 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
     /**
      * Finds the first occurrence of {@code target} in {@code source} starting from {@code fromIndex}.
      *
+     * @param source       the byte array to search in
+     * @param sourceLength the number of valid bytes in {@code source}
+     * @param target       the byte sequence to search for
+     * @param fromIndex    the index to start searching from
      * @return the index of the first match, or {@code -1} if not found
      */
-    private static int indexOf(byte[] source, byte[] target, int fromIndex) {
-        int searchLimit = source.length - target.length;
+    private static int indexOf(byte[] source, int sourceLength, byte[] target, int fromIndex) {
+        int searchLimit = sourceLength - target.length;
         for (int i = fromIndex; i <= searchLimit; i++) {
             boolean match = true;
             for (int j = 0; j < target.length; j++) {
@@ -509,13 +515,35 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         return -1;
     }
 
+    /**
+     * A {@link ByteArrayOutputStream} subclass that exposes its internal buffer and byte
+     * count without copying. This allows zero-copy reads after the stream has been fully
+     * written.
+     *
+     * <p>The buffer is shared — callers must not modify it. This is safe here because
+     * {@code cacheInputStream()} writes to the stream exactly once; after it completes,
+     * no further writes occur and the buffer is effectively immutable.</p>
+     */
+    static class ExposedByteArrayOutputStream extends ByteArrayOutputStream {
+        /** Returns the internal byte buffer (may be larger than {@link #getCount()}). */
+        byte[] getBuffer() {
+            return buf;
+        }
+
+        /** Returns the number of valid bytes in {@link #getBuffer()}. */
+        int getCount() {
+            return count;
+        }
+    }
+
     /* An inputstream which reads the cached request body */
     private static class CachedServletInputStream extends ServletInputStream {
         private final ByteArrayInputStream input;
 
-        public CachedServletInputStream(ByteArrayOutputStream cachedBytes) {
-            /* create a new input stream from the cached request body */
-            input = new ByteArrayInputStream(cachedBytes.toByteArray());
+        public CachedServletInputStream(ExposedByteArrayOutputStream cachedBytes) {
+            // Use the internal buffer directly (no copy). The offset+length form of
+            // ByteArrayInputStream avoids allocating a trimmed copy of the buffer.
+            input = new ByteArrayInputStream(cachedBytes.getBuffer(), 0, cachedBytes.getCount());
         }
 
         @Override
