@@ -30,6 +30,7 @@
 --%>
 
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" errorPage="/errorpage.jsp" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao" %>
@@ -106,7 +107,7 @@
     if (request.getParameter("template") != null && !(request.getParameter("template").equals("."))) {
 
         for (EncounterTemplate template : encounterTemplateDao.findByName(request.getParameter("template"))) {
-            out.println(template.getEncounterTemplateValue());
+            out.println(Encode.forHtml(template.getEncounterTemplateValue()));
         }
 
 

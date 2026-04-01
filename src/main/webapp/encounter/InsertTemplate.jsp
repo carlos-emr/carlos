@@ -28,7 +28,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
@@ -71,7 +70,7 @@
         <tr>
             <td>Processing...</td>
             <script>
-                var text = "<c:out value="${templateValue}"/>";
+                var text = "<%=request.getAttribute("templateValue") != null ? request.getAttribute("templateValue") : ""%>";
                 text = text.replace(/\\u000A/g, "\u000A");
                 text = text.replace(/\\u003E/g, ">");
                 text = text.replace(/\\u003C/g, "<");

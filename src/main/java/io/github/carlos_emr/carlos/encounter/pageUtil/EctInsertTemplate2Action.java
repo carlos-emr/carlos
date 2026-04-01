@@ -34,6 +34,8 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterTemplate;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -43,9 +45,17 @@ public final class EctInsertTemplate2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() throws Exception {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_newCasemgmt.templates", "r", null)) {
+            throw new SecurityException("missing required security object: _newCasemgmt.templates");
+        }
+
         String templateName = request.getParameter("templateName");
+        if (templateName == null || templateName.isBlank()) {
+            return SUCCESS;
+        }
 
         EncounterTemplateDao dao = SpringUtils.getBean(EncounterTemplateDao.class);
         EncounterTemplate t = dao.find(templateName);

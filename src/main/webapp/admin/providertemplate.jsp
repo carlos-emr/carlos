@@ -167,7 +167,7 @@
                         <br><br>
 
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providertemplate.formTemplateText"/>:<br>
-                        <textarea name="value" rows="20" class="form-control"><%=bEdit ? tValue : ""%></textarea>
+                        <textarea name="value" rows="20" class="form-control"><%=bEdit && tValue != null ? Encode.forHtmlContent(tValue) : ""%></textarea>
 
                         <br>
                         <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providertemplate.btnDelete"/>"
