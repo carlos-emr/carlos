@@ -26,6 +26,8 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- SonarCloud -->
         <sonar.organization>carlos-emr</sonar.organization>
+        <!-- Include webapp (JSP/JS/HTML) in SonarCloud analysis alongside Java sources -->
+        <sonar.sources>src/main/java,src/main/webapp</sonar.sources>
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
         <!--
             Suppress SonarCloud S2083 (path traversal) false positives in files that use
