@@ -43,6 +43,10 @@
 
     Provider provider = (Provider) session.getAttribute("provider");
     List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
+
+    // Validate nextPage to prevent open redirect and path traversal: only allow relative paths (start with / but not //)
+    String rawNextPage = request.getParameter("nextPage");
+    String safeNextPage = (rawNextPage != null && rawNextPage.startsWith("/") && !rawNextPage.startsWith("//") && !rawNextPage.contains("..")) ? rawNextPage : "";
 %>
 <ul>
     <%
@@ -50,7 +54,7 @@
             Facility facility = facilityDao.find(facilityId);
     %>
     <li>
-        <a href='?nextPage=<%=Encode.forUriComponent(request.getParameter("nextPage") != null ? request.getParameter("nextPage") : "")%>&<%=Login2Action.SELECTED_FACILITY_ID%>=<%=facility.getId()%>'><%=Encode.forHtml(facility.getName())%>
+        <a href='?nextPage=<%=Encode.forUriComponent(safeNextPage)%>&<%=Login2Action.SELECTED_FACILITY_ID%>=<%=facility.getId()%>'><%=Encode.forHtml(facility.getName())%>
         </a></li>
     <%
         }

@@ -71,6 +71,10 @@
     //String user_no = (String) session.getAttribute("user");
     String apptNo = request.getParameter("appointment_no");
 
+    // Validate url_back to prevent open redirect and path traversal: only allow relative paths (start with / but not //)
+    String rawUrlBack = request.getParameter("url_back");
+    String safeUrlBack = (rawUrlBack != null && rawUrlBack.startsWith("/") && !rawUrlBack.startsWith("//") && !rawUrlBack.contains("..")) ? rawUrlBack : "";
+
     if (request.getParameter("submit") != null && "Back to Edit".equals(request.getParameter("button"))) { %>
 <jsp:forward page="billingON.jsp"/>
 <% }
@@ -135,7 +139,7 @@
 <% if (request.getParameter("submit") != null && "Save & Add Another Bill".equals(request.getParameter("submit"))) { %>
 <script LANGUAGE="JavaScript">
     try { if (self.opener && self.opener.refresh) { self.opener.refresh(); } else { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); } } catch(e) { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); }
-    self.location.href = "<%= Encode.forJavaScript(request.getParameter("url_back") != null ? request.getParameter("url_back") : "") %>";
+    self.location.href = "<%= Encode.forJavaScript(safeUrlBack) %>";
 </script>
 <% }
 
@@ -163,7 +167,7 @@
         String wrkloadmanagement =  prop!= null ? prop.getValue() : null;
         if ( wrkloadmanagement != null && !wrkloadmanagement.equals("") && !wrkloadmanagement.equals(curBilf) ){
             ///NEED TO CHECK IF THIS IS THE CURRENT FORM IF SO LET IT CLOSE!!!
-            String urlBack = request.getParameter("url_back")+"&curBillForm="+wrkloadmanagement;
+            String urlBack = safeUrlBack+"&curBillForm="+Encode.forUriComponent(wrkloadmanagement);
 
     %>
     try { if (self.opener && self.opener.refresh) { self.opener.refresh(); } else { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); } } catch(e) { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); }

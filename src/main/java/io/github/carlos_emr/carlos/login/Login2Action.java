@@ -436,7 +436,7 @@ public final class Login2Action extends ActionSupport {
                 try {
                     URI url = new URI(nextPage);
 
-                    if (url.isAbsolute()) {
+                    if (url.isAbsolute() || url.getAuthority() != null) {
                         logger.warn("Rejected absolute redirect URL: " + nextPage);
                         return NONE;
                     } else {
