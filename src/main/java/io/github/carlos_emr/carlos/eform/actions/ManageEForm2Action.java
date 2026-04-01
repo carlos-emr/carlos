@@ -89,8 +89,9 @@ public class ManageEForm2Action extends ActionSupport implements UploadedFilesAw
         }
 
         if (zippedForm == null) {
-            addActionError("No file was uploaded.");
-            return INPUT;
+            MiscUtils.getLogger().error("importEForm() called with no uploaded file; returning fail.");
+            request.setAttribute("importErrors", Collections.singletonList("No file was uploaded."));
+            return "fail";
         }
 
         List<String> errors = Collections.emptyList();
