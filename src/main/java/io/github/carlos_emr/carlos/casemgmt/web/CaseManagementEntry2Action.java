@@ -1244,7 +1244,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName);
 
         if (!hasNoteLock(demo)) {
-            logger.debug("DO NOT HAVE LOCK FOR " + demo + " PROVIDER " + providerNo + " SESSION " + request.getRequestedSessionId() + " IP " + request.getRemoteAddr());
+            logger.debug("noteSave rejected: no valid lock for demographic {}", demo);
             return -1L;
         }
 
@@ -1864,8 +1864,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (casemgmtNoteLock == null) {
                 return false;
             }
+            String currentSessionId = request.getRequestedSessionId();
+            if (currentSessionId == null) {
+                currentSessionId = session.getId();
+            }
             return Objects.equals(casemgmtNoteLock.getSessionId(), casemgmtNoteLockSession.getSessionId())
-                && Objects.equals(request.getRequestedSessionId(), casemgmtNoteLockSession.getSessionId());
+                && Objects.equals(currentSessionId, casemgmtNoteLockSession.getSessionId());
         } catch (Exception e) {
             logger.warn("Lock check failed unexpectedly", e);
             return false;
