@@ -32,6 +32,7 @@
     String user_no = (String) session.getAttribute("user");
 %>
 <%@page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
@@ -76,6 +77,8 @@
         formName = "";
         formElement = "";
     }
+    if (!formName.matches("[a-zA-Z_][a-zA-Z0-9_]*") && !formName.isEmpty()) { formName = ""; }
+    if (!formElement.matches("[a-zA-Z_][a-zA-Z0-9_]*") && !formElement.isEmpty()) { formElement = ""; }
     String desc = "", desc1 = "", desc2 = "";
     if (codeName.compareTo("") == 0 || codeName == null) {
         codeName = " ";
@@ -131,9 +134,9 @@
 </table>
 <form name="servicecode" id="servicecode" method="post"
       action="billingCodeNewUpdate.jsp"><input type="hidden"
-                                               name="formName" value="<%=formName%>"/> <input type="hidden"
+                                               name="formName" value="<%=Encode.forHtmlAttribute(formName)%>"/> <input type="hidden"
                                                                                               name="formElement"
-                                                                                              value="<%=formElement%>"/>
+                                                                                              value="<%=Encode.forHtmlAttribute(formElement)%>"/>
     <div style="height: 600; overflow: auto">
         <table width="800" border="1">
             <tr bgcolor="#CCCCFF">

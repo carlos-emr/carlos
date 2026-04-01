@@ -42,6 +42,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     String prov = request.getParameter("billRegion");
@@ -175,16 +176,16 @@
 
 <form method="post" name="editBillingForm" action="billingON.jsp">
     <input type="hidden" name="billNo_old" id="billNo_old" value="<%=billNo%>"/>
-    <input type="hidden" name="billStatus_old" id="billStatus_old" value="<%=status%>"/>
-    <input type="hidden" name="apptProvider_no" id="apptProvider_no" value="<%=apptProvider_no%>"/>
+    <input type="hidden" name="billStatus_old" id="billStatus_old" value="<%=Encode.forHtmlAttribute(status)%>"/>
+    <input type="hidden" name="apptProvider_no" id="apptProvider_no" value="<%=Encode.forHtmlAttribute(apptProvider_no)%>"/>
     <input type="hidden" name="providerview" id="providerview" value="<%=providerview%>"/>
     <input type="hidden" name="service_date" id="service_date" value="<%=service_date%>"/>
-    <input type="hidden" name="appointment_date" id="appointment_date" value="<%=appointment_date%>"/>
+    <input type="hidden" name="appointment_date" id="appointment_date" value="<%=Encode.forHtmlAttribute(appointment_date)%>"/>
     <input type="hidden" name="billing_date" id="billing_date" value="<%=billing_date%>"/>
     <input type="hidden" name="demographic_name" id="demographic_name" value="<%=demoname%>"/>
-    <input type="hidden" name="appointment_no" id="appointment_no" value="<%=appointment_no %>"/>
+    <input type="hidden" name="appointment_no" id="appointment_no" value="<%=Encode.forHtmlAttribute(appointment_no)%>"/>
     <input type="hidden" name="clinic_no" id="clinic_no" value="<%=clinicNo%>"/>
-    <input type="hidden" name="demographic_no" id="demographic_no" value="<%=demographic_no%>"/>
+    <input type="hidden" name="demographic_no" id="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>"/>
     <input type="hidden" name="asstProvider_no" id="asstProvider_no" value="<%=asstProvider_no%>"/>
     <input type="hidden" name="assgProvider_no" id="assgProvider_no" value="<%=assgProvider_no%>"/>
     <input type="hidden" name="sex" id="sex"/>
@@ -210,7 +211,7 @@
     <input type="hidden" name="hin" id="hin" value="<%=demoHIN%>"/>
     <input type="hidden" name="ver" id="ver" value="<%=demoVer%>"/>
     <input type="hidden" name="hc_type" id="hc_type" value="<%=demoHCTYPE%>"/>
-    <input type="hidden" name="start_time" id="start_time" value="<%=start_time%>"/>
+    <input type="hidden" name="start_time" id="start_time" value="<%=Encode.forHtmlAttribute(start_time)%>"/>
     <input type="hidden" name="demographic_dob" id="demographic_dob" value="<%=demoDOB%>"/>
     <input type="hidden" name="url_back" id="url_back">
 
@@ -256,7 +257,7 @@
         }
     %>
     <input type="hidden" name="curBillForm" id="curBillForm" value="<%=curBillForm%>"/>
-    <input type="hidden" name="billForm" id="billForm" value="<%=billForm%>"/>
+    <input type="hidden" name="billForm" id="billForm" value="<%=Encode.forHtmlAttribute(billForm)%>"/>
     <center>
         <p>
             Do you want to edit the billing?

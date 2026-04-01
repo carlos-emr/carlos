@@ -98,7 +98,7 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
     @Column(name = "billing_date")
     private String billingDate = null;
     @Column(name = "billing_time")
-    private String billingTime = null; //time format
+    private String billingTime = "00:00:00"; //time format
     private BigDecimal total = null;
     private BigDecimal paid = null;
     private String status = null;

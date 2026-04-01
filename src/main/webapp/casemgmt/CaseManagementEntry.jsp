@@ -373,7 +373,7 @@
         } else {
         %>
         <input id="showResolved" type="button" value="Show Resolved Issues"
-               onclick="document.location='CaseManagementEntry.do?method=edit&note_edit=new&from=casemgmt&demographicNo=<%=Encode.forUriComponent(request.getParameter("demographicNo"))%>&providerNo=<%=Encode.forUriComponent(request.getParameter("providerNo"))%>&showResolved=true'"/>
+               onclick="document.location='CaseManagementEntry.do?method=edit&note_edit=new&from=casemgmt&demographicNo=<%=Encode.forUriComponent(request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "")%>&providerNo=<%=Encode.forUriComponent(request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "")%>&showResolved=true'"/>
         <%
             }
         %>

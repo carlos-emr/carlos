@@ -78,7 +78,8 @@
 <html>
 <head>
 
-    <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+    <%-- S5131: getServerName() returns the Host header — safe when deployed behind a reverse proxy that validates the Host header (required for production) --%>
+    <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>"> <%-- NOSONAR --%>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/billing/billing.css">
     <title>Billing Reconcilliation</title>
 

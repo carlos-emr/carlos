@@ -28,6 +28,7 @@
          errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingRAPrep" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <html>
 <head>
@@ -75,7 +76,7 @@
                     }
                 %>
             </select><input type=submit name='submit' value='Generate'> <input
-                    type="hidden" name="rano" value="<%=raNo%>"> <input
+                    type="hidden" name="rano" value="<%=Encode.forHtmlAttribute(raNo)%>"> <input
                     type='button' name='print' value='Print' onClick='window.print()'>
                 <input type='button' name='close' value='Close'
                        onClick='window.close()'></th>

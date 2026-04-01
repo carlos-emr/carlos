@@ -49,6 +49,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS00Dao" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS00" %>
+<%@page import="org.owasp.encoder.Encode" %>
 
 <%
     TeleplanS00Dao teleplanS00Dao = SpringUtils.getBean(TeleplanS00Dao.class);
@@ -115,7 +116,7 @@
     <tr bgcolor="#333333">
         <th align='CENTRE'>
             <form action="genTAS01.jsp"><input type="hidden" name="rano"
-                                               value="<%=raNo%>"><select name="proNo">
+                                               value="<%=Encode.forHtmlAttribute(raNo)%>"><select name="proNo">
                 <option value="all" <%=proNo.equals("all") ? "selected" : ""%>>All
                     Providers
                 </option>

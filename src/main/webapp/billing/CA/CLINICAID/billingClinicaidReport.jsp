@@ -183,6 +183,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -294,11 +295,11 @@
             </td>
             <td align="center" nowrap><font size="1"> From:</font> <input
                     type="text" name="xml_vdate" id="xml_vdate" size="10"
-                    value="<%=xml_vdate%>"> <font size="1"> <img
+                    value="<%=Encode.forHtmlAttribute(xml_vdate)%>"> <font size="1"> <img
                     src="<%= request.getContextPath() %>/images/cal.gif" id="xml_vdate_cal"> To:</font> <input
                     type="text" name="xml_appointment_date" id="xml_appointment_date"
                     onDblClick="calToday(this)" size="10"
-                    value="<%=xml_appointment_date%>"> <img
+                    value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>"> <img
                     src="<%= request.getContextPath() %>/images/cal.gif" id="xml_appointment_date_cal"></td>
             <td align="right"><input type="submit" name="Submit"
                                      value="Create Report"> </font></td>

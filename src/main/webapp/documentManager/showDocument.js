@@ -57,10 +57,22 @@ function setupDemoAutoCompletion(docId, contextPath) {
             return;
         }
         var activeOnly = activeOnlyEl ? activeOnlyEl.checked : true;
-        var url = contextPath + '/demographic/SearchDemographic.do?jqueryJSON=true&activeOnly=' + activeOnly + '&term=' + encodeURIComponent(term);
+        var url = contextPath + '/demographic/SearchDemographic.do';
+        var csrfToken = (document.querySelector('input[name="CSRF-TOKEN"]') || {value: ''}).value;
+        var body = 'jqueryJSON=true&activeOnly=' + encodeURIComponent(String(activeOnly)) + '&term=' + encodeURIComponent(term);
         if (abortCtrl) { abortCtrl.abort(); }
         abortCtrl = new AbortController();
-        fetch(url, { signal: abortCtrl.signal })
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+                'CSRF-TOKEN': csrfToken
+            },
+            body: body,
+            credentials: 'same-origin',
+            signal: abortCtrl.signal
+        })
             .then(function (r) { return r.json(); })
             .then(function (items) {
                 dropdownEl.innerHTML = '';

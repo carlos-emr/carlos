@@ -162,7 +162,7 @@
 
 // update the role
     if (request.getParameter("buttonUpdate") != null && request.getParameter("buttonUpdate").length() > 0) {
-    String number = Encode.forHtmlAttribute(request.getParameter("providerId"));
+    String number = request.getParameter("providerId") != null ? request.getParameter("providerId") : "";
         String roleId = request.getParameter("roleId");
         String roleOld = request.getParameter("roleOld");
         String roleNew = request.getParameter("roleNew");
@@ -173,7 +173,7 @@
             if (secUserRole != null) {
                 secUserRole.setRoleName(roleNew);
                 secUserRoleDao.updateRoleName(Integer.parseInt(roleId), roleNew);
-                msg = "Role " + encodedRoleNew + " is updated. (" + number + ")";
+                msg = "Role " + encodedRoleNew + " is updated. (" + Encode.forHtmlContent(number) + ")";
 
                 RecycleBin recycleBin = new RecycleBin();
                 recycleBin.setProviderNo(curUser_no);
@@ -198,7 +198,7 @@
                 }
 
             } else {
-                msg = "Role " + encodedRoleNew + " is <span style='text-color: red;'>NOT</span> updated!!! (" + number + ")";
+                msg = "Role " + encodedRoleNew + " is <span style='text-color: red;'>NOT</span> updated!!! (" + Encode.forHtmlContent(number) + ")";
             }
         }
 
@@ -207,7 +207,7 @@
 // add the role
     String add = oscarRec.getString("global.btnAdd");
     if (request.getParameter("submit") != null && request.getParameter("submit").equals(add)) {
-        String number = request.getParameter("providerId");
+        String number = request.getParameter("providerId") != null ? request.getParameter("providerId") : "";
         String roleNew = request.getParameter("roleNew");
         String encodedRoleNew = Encode.forHtmlContent(roleNew);
         if (!"-".equals(roleNew)) {
@@ -216,7 +216,7 @@
             secUserRole.setRoleName(roleNew);
             secUserRole.setActiveyn(1);
             secUserRoleDao.save(secUserRole);
-            msg = "Role " + encodedRoleNew + " is added. (" + number + ")";
+            msg = "Role " + encodedRoleNew + " is added. (" + Encode.forHtmlContent(number) + ")";
             LogAction.addLog(curUser_no, LogConst.ADD, LogConst.CON_ROLE, number + "|" + roleNew, ip);
 	    if( newCaseManagement && caisiProgram != null) {
                 ProgramProvider programProvider = programProviderDao.getProgramProvider(number, Long.valueOf(caisiProgram));
@@ -229,7 +229,7 @@
                 programProviderDao.saveProgramProvider(programProvider);
             }
         } else {
-            msg = "Role " + encodedRoleNew + " is <span style='text-color: red;'>NOT</span> added!!! (" + number + ")";
+            msg = "Role " + encodedRoleNew + " is <span style='text-color: red;'>NOT</span> added!!! (" + Encode.forHtmlContent(number) + ")";
         }
 
     }
@@ -237,7 +237,7 @@
 // delete the role
     String delete = oscarRec.getString("global.btnDelete");
     if (request.getParameter("submit") != null && request.getParameter("submit").equals(delete)) {
-    String number = Encode.forHtmlAttribute(request.getParameter("providerId"));
+    String number = request.getParameter("providerId") != null ? request.getParameter("providerId") : "";
         String roleId = request.getParameter("roleId");
         String roleOld = request.getParameter("roleOld");
         String roleNew = request.getParameter("roleNew");
@@ -252,7 +252,7 @@
             if(secUserRole.getId() == Integer.parseInt(roleId)) {
 
             secUserRoleDao.deleteById(secUserRole.getId());
-            msg = "Role " + encodedRoleOld + " is deleted. (" + number + ")";
+            msg = "Role " + encodedRoleOld + " is deleted. (" + Encode.forHtmlContent(number) + ")";
                 listIterator.remove();
 
             RecycleBin recycleBin = new RecycleBin();
@@ -301,7 +301,7 @@
         }
 
         } else {
-            msg = "Role " + encodedRoleOld + " is <span style='text-color: red;'>NOT</span> deleted!!! (" + number + ")";
+            msg = "Role " + encodedRoleOld + " is <span style='text-color: red;'>NOT</span> deleted!!! (" + Encode.forHtmlContent(number) + ")";
         }
 
     }

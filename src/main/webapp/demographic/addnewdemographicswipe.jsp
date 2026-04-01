@@ -29,6 +29,7 @@
 
 --%>
 
+<%@ page import="org.owasp.encoder.Encode" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -96,13 +97,13 @@
         }
 
     %>
-    <td>HIN: <%=hin%> FName: <%=firstname%> LName: <%=lastname%>
-        DOBYEAR: <%=dobyear%>-<%=dobmonth%>-<%=dobdate%> End Date: <%=endyear%>-<%=endmonth%>-<%=enddate%>
-        EFF Date: <%=effyear%>-<%=effmonth%>-<%=effdate%>
+    <td>HIN: <%=Encode.forHtml(hin)%> FName: <%=Encode.forHtml(firstname)%> LName: <%=Encode.forHtml(lastname)%>
+        DOBYEAR: <%=Encode.forHtml(dobyear)%>-<%=Encode.forHtml(dobmonth)%>-<%=Encode.forHtml(dobdate)%> End Date: <%=Encode.forHtml(endyear)%>-<%=Encode.forHtml(endmonth)%>-<%=Encode.forHtml(enddate)%>
+        EFF Date: <%=Encode.forHtml(effyear)%>-<%=Encode.forHtml(effmonth)%>-<%=Encode.forHtml(effdate)%>
     </td>
     <script LANGUAGE="JavaScript">
         <!--
-        Attach('<%=lastname%>', '<%=firstname%>', '<%=hin%>', '<%=dobyear%>', '<%=dobmonth%>', '<%=dobdate%>', '<%=vercode%>', '<%=sex%>', '<%=effyear%>', '<%=effmonth%>', '<%=effdate%>', '<%=endyear%>', '<%=endmonth%>', '<%=enddate%>');
+        Attach('<%=Encode.forJavaScript(lastname)%>', '<%=Encode.forJavaScript(firstname)%>', '<%=Encode.forJavaScript(hin)%>', '<%=Encode.forJavaScript(dobyear)%>', '<%=Encode.forJavaScript(dobmonth)%>', '<%=Encode.forJavaScript(dobdate)%>', '<%=Encode.forJavaScript(vercode)%>', '<%=Encode.forJavaScript(sex)%>', '<%=Encode.forJavaScript(effyear)%>', '<%=Encode.forJavaScript(effmonth)%>', '<%=Encode.forJavaScript(effdate)%>', '<%=Encode.forJavaScript(endyear)%>', '<%=Encode.forJavaScript(endmonth)%>', '<%=Encode.forJavaScript(enddate)%>');
 
         -->
 

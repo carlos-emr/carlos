@@ -27,6 +27,7 @@
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 
@@ -86,8 +87,9 @@
         function CodeAttach(File0) {
 
             <%
-            if(request.getParameter("nameF") != null) {
-                    out.println("self.opener." + request.getParameter("nameF") + " = File0;");
+            String nameF = request.getParameter("nameF");
+            if(nameF != null && nameF.matches("[a-zA-Z_][a-zA-Z0-9_.]*")) {
+                    out.println("self.opener." + nameF + " = File0;");
             } else {
             %>
             self.opener.document.serviceform.xml_other1.value = File0;
@@ -159,8 +161,8 @@
             </font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
                                   size="2"><input type="hidden" name="codedesc_<%=Dcode%>"
-                                                  value="<%=DcodeDesc%>"><input type="text" name="<%=Dcode%>"
-                                                                                value="<%=DcodeDesc%>" size="50"><input
+                                                  value="<%=Encode.forHtmlAttribute(DcodeDesc)%>"><input type="text" name="<%=Dcode%>"
+                                                                                value="<%=Encode.forHtmlAttribute(DcodeDesc)%>" size="50"><input
                     type="submit"
                     name="update" value="update <%=Dcode%>"></font></td>
         </tr>
@@ -180,7 +182,7 @@
         <% if (intCount == 1) { %>
         <script LANGUAGE="JavaScript">
             <!--
-            CodeAttach('<%=Dcode%>');
+            CodeAttach('<%=Encode.forJavaScript(Dcode)%>');
             -->
 
         </script>
@@ -190,7 +192,7 @@
         type="button" name="cancel" value="Cancel"
         onclick="javascript:window.close()"> <%
     if (request.getParameter("nameF") != null) {
-        out.println("<input type='hidden' name='nameF' value=\"" + request.getParameter("nameF") + "\"/>");
+        out.println("<input type='hidden' name='nameF' value=\"" + Encode.forHtmlAttribute(request.getParameter("nameF")) + "\"/>");
     }
 %>
 </form>

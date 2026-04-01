@@ -562,10 +562,18 @@ Ontario, Canada
 
             $(document).ready(function () {
 
-                var url = "<%= request.getContextPath() %>/demographic/SearchDemographic.do?jqueryJSON=true&activeOnly=true";
+                var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic.do";
 
                 $("#keyword").autocomplete({
-                    source: url,
+                    source: function (req, res) {
+                        $.ajax({
+                            url: searchDemoUrl,
+                            type: 'POST',
+                            data: { jqueryJSON: 'true', activeOnly: 'true', term: req.term },
+                            success: function (data) { res(data); },
+                            error: function () { res([]); }
+                        });
+                    },
                     minLength: 2,
 
                     focus: function (event, ui) {
@@ -1247,7 +1255,7 @@ Ontario, Canada
                                 <textarea id="reason" name="reason" class="form-control form-control-sm mt-1" tabindex="2" rows="2"
                                           style="resize:none;"
                                           placeholder="${e:forHtmlAttribute(formReasonMsg)}"
-                                          maxlength="80"><%=bFirstDisp ? "" : "".equals(request.getParameter("reason")) ? "" : Encode.forHtmlContent(request.getParameter("reason"))%></textarea>
+                                          maxlength="80"><%=bFirstDisp ? "" : (request.getParameter("reason") == null || "".equals(request.getParameter("reason"))) ? "" : Encode.forHtmlContent(request.getParameter("reason"))%></textarea>
                             </div>
                         </div>
                         <%
@@ -1309,7 +1317,7 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formCreator"/>:</label>
                             <div class="col-sm-8">
                                 <input type="text" name="user_id" class="form-control form-control-sm"
-                                       value='<%=bFirstDisp?(Encode.forHtmlAttribute(userlastname)+", "+Encode.forHtmlAttribute(userfirstname)):"".equals(request.getParameter("user_id"))?"Unknown":Encode.forHtmlAttribute(request.getParameter("user_id"))%>'
+                                       value='<%=bFirstDisp?(Encode.forHtmlAttribute(userlastname)+", "+Encode.forHtmlAttribute(userfirstname)):(request.getParameter("user_id") == null || "".equals(request.getParameter("user_id")))?"Unknown":Encode.forHtmlAttribute(request.getParameter("user_id"))%>'
                                        readonly="readonly">
                             </div>
                         </div>

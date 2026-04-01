@@ -25,6 +25,7 @@
 
 <%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
 <%
@@ -184,8 +185,8 @@ if (errorCode.compareTo("") != 0) {
                                                   color="#000000" size="1">Demographic Name </font></td>
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
-                                    type="hidden" name="demoid" value="<%=demoid%> " size="20">
-                                <input type="text" name="demo_name" value="<%=demo_name%> "
+                                    type="hidden" name="demoid" value="<%=Encode.forHtmlAttribute(demoid)%> " size="20">
+                                <input type="text" name="demo_name" value="<%=Encode.forHtmlAttribute(demo_name)%> "
                                        size="20" readonly> </font></td>
                             <td rowspan="9" width="21%" valign="middle">
                                 <p><br>
@@ -196,20 +197,20 @@ if (errorCode.compareTo("") != 0) {
                             <td width="29%"><font size="1"
                                                   face="Arial, Helvetica, sans-serif">Demographic HIN</font></td>
                             <td width="50%"><input type="text" name="demo_hin"
-                                                   value="<%=demo_hin%> " size="20" readonly></td>
+                                                   value="<%=Encode.forHtmlAttribute(demo_hin)%> " size="20" readonly></td>
                         </tr>
                         <tr>
                             <td width="29%"><font size="1"
                                                   face="Arial, Helvetica, sans-serif">Demographic DOB</font></td>
                             <td width="50%"><input type="text" name="demo_dob"
-                                                   value="<%=demo_dob%> " size="20" readonly></td>
+                                                   value="<%=Encode.forHtmlAttribute(demo_dob)%> " size="20" readonly></td>
                         </tr>
                         <tr>
                             <td width="29%"><font face="Arial, Helvetica, sans-serif"
                                                   color="#000000" size="1">Service Code </font></td>
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
-                                    type="text" name="service_code" size="10" value="<%=service_code%>"
+                                    type="text" name="service_code" size="10" value="<%=Encode.forHtmlAttribute(service_code)%>"
                                     readonly> <input type="text" name="service_amount"
                                                      size="10" value="<%=service_amount%>" readonly> <input
                                     type="hidden" name="service_unit" value="1"> </font></td>
@@ -218,7 +219,7 @@ if (errorCode.compareTo("") != 0) {
                             <td width="29%"><font size="1"
                                                   face="Arial, Helvetica, sans-serif">Diagnostic Code</font></td>
                             <td width="50%"><input type="text" name="diag_code" size="20"
-                                                   value="<%=diag_code%>" readonly></td>
+                                                   value="<%=Encode.forHtmlAttribute(diag_code)%>" readonly></td>
                         </tr>
                         <tr>
                             <td width="29%"><font face="Arial, Helvetica, sans-serif"
@@ -236,15 +237,15 @@ if (errorCode.compareTo("") != 0) {
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="hidden" name="doccreator"
-                                    value="<%=request.getParameter("doccreator")%>" size="20">
+                                    value="<%=Encode.forHtmlAttribute(request.getParameter("doccreator") != null ? request.getParameter("doccreator") : "")%>" size="20">
                                 <input type="hidden" name="orderby" value="updatedatetime desc"
                                        size="20"> <input type="hidden" name="provider_no"
-                                                         value="<%=provider_no%>"> <input type="hidden"
+                                                         value="<%=Encode.forHtmlAttribute(provider_no)%>"> <input type="hidden"
                                                                                           name="provider_ohip_no"
-                                                                                          value="<%=provider_ohip_no%>">
+                                                                                          value="<%=Encode.forHtmlAttribute(provider_ohip_no)%>">
                                 <input
-                                        type="hidden" name="provider_rma_no" value="<%=provider_rma_no%>">
-                                <input type="hidden" name="service_desc" value="<%=service_desc%>">
+                                        type="hidden" name="provider_rma_no" value="<%=Encode.forHtmlAttribute(provider_rma_no)%>">
+                                <input type="hidden" name="service_desc" value="<%=Encode.forHtmlAttribute(service_desc)%>">
                             </font></td>
                         </tr>
                     </table>

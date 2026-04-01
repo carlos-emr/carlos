@@ -27,6 +27,7 @@
     String curUser_no = (String) session.getAttribute("user");
 %>
 <%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
@@ -42,8 +43,9 @@
         function CodeAttach(File0, File1, File2) {
 
             <%
-            if(request.getParameter("nameF") != null) {
-                    out.println("self.opener." + request.getParameter("nameF") + " = File0;");
+            String nameF = request.getParameter("nameF");
+            if(nameF != null && nameF.matches("[a-zA-Z_][a-zA-Z0-9_.]*")) {
+                    out.println("self.opener." + nameF + " = File0;");
             } else {
             %>
             self.opener.document.serviceform.xml_other1.value = File0;
@@ -97,7 +99,7 @@
 %>
 <script LANGUAGE="JavaScript">
     <!--
-    CodeAttach('<%=param[0]%>', '<%=param[1]%>', '<%=param[2]%>');
+    CodeAttach('<%=Encode.forJavaScript(param[0])%>', '<%=Encode.forJavaScript(param[1])%>', '<%=Encode.forJavaScript(param[2])%>');
     -->
 
 </script>

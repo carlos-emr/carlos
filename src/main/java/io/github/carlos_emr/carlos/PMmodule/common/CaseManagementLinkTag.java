@@ -37,6 +37,8 @@ import jakarta.servlet.jsp.JspException;
 import jakarta.servlet.jsp.JspTagException;
 import jakarta.servlet.jsp.tagext.TagSupport;
 
+import org.owasp.encoder.Encode;
+
 public class CaseManagementLinkTag extends TagSupport {
 
     private Integer demographicNo;
@@ -77,12 +79,12 @@ public class CaseManagementLinkTag extends TagSupport {
             builder.append(req.getContextPath()).append("/");
 
             builder.append("encounter/IncomingEncounter.do").append("?");
-            builder.append("providerNo=").append(providerNo).append("&");
+            builder.append("providerNo=").append(Encode.forUriComponent(providerNo != null ? providerNo : "")).append("&");
             builder.append("appointmentNo=").append(0).append("&");
             builder.append("demographicNo=").append(demographicNo).append("&");
-            builder.append("curProviderNo=").append(providerNo).append("&");
+            builder.append("curProviderNo=").append(Encode.forUriComponent(providerNo != null ? providerNo : "")).append("&");
             builder.append("reason=").append("&");
-            builder.append("userName=").append(providerName).append("&");
+            builder.append("userName=").append(Encode.forUriComponent(providerName != null ? providerName : "")).append("&");
             builder.append("curDate=").append(placeDate).append("&");
             builder.append("appointmentDate=").append(placeDate).append("&");
             builder.append("startTime=").append(placeTime).append("&");

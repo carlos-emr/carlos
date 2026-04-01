@@ -106,8 +106,8 @@
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%
 
-    String curProvider_no = Encode.forHtmlAttribute(request.getParameter("provider_no"));
-    String appointment_no = Encode.forHtmlAttribute(request.getParameter("appointment_no"));
+    String curProvider_no = request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "";
+    String appointment_no = request.getParameter("appointment_no") != null ? request.getParameter("appointment_no") : "";
     String curUser_no = (String) session.getAttribute("user");
     String userfirstname = (String) session.getAttribute("userfirstname");
     String userlastname = (String) session.getAttribute("userlastname");
@@ -687,10 +687,18 @@
             });
             jQuery(document).ready(function () {
 
-                var url = "<%= request.getContextPath() %>/demographic/SearchDemographic.do?jqueryJSON=true&activeOnly=true";
+                var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic.do";
 
                 jQuery("#keyword").autocomplete({
-                    source: url,
+                    source: function (req, res) {
+                        jQuery.ajax({
+                            url: searchDemoUrl,
+                            type: 'POST',
+                            data: { jqueryJSON: 'true', activeOnly: 'true', term: req.term },
+                            success: function (data) { res(data); },
+                            error: function () { res([]); }
+                        });
+                    },
                     minLength: 2,
 
                     focus: function (event, ui) {
@@ -1021,7 +1029,7 @@
                     </td>
                     <td>
             	<input type="text" name="keyword" id="keyword" class="form-control"
-                               value="<%=Encode.forHtmlAttribute(bFirstDisp?nameSb.toString():request.getParameter("name"))%>"
+                               value="<%=Encode.forHtmlAttribute(bFirstDisp?nameSb.toString():(request.getParameter("name") != null ? request.getParameter("name") : ""))%>"
                                placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formName"/>">
                     </td>
                 </tr>
@@ -1097,7 +1105,7 @@
                         %>
 		<select name="location" class="form-select">
                             <%
-                                String location = Encode.forJava(bFirstDisp ? (appt.getLocation()) : request.getParameter("location"));
+                                String location = Encode.forJava(bFirstDisp ? (appt.getLocation()) : (request.getParameter("location") != null ? request.getParameter("location") : ""));
                                 if (programs != null && !programs.isEmpty()) {
                                     for (Program program : programs) {
                                         String description = StringUtils.isBlank(program.getLocation()) ? program.getName() : program.getLocation();
@@ -1111,7 +1119,7 @@
                         </select>
                         <% } else { %>
 		        <input type="text" class="form-control" name="location" tabindex="4"
-                       value="<%=Encode.forHtmlAttribute(bFirstDisp?appt.getLocation():request.getParameter("location"))%>" >
+                       value="<%=Encode.forHtmlAttribute(bFirstDisp?appt.getLocation():(request.getParameter("location") != null ? request.getParameter("location") : ""))%>" >
                         <% } %>
                         <% } %>
                     </td>
@@ -1172,7 +1180,7 @@
                         <label for="appt_mc_number"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formMC"/>:</label>
                     </td>
                     <td>
-                <input type="text" class="form-control" name="appt_mc_number" id="appt_mc_number" value="<%=bFirstDisp?mcNumber:Encode.forHtmlAttribute(request.getParameter("appt_mc_number"))%>" />
+                <input type="text" class="form-control" name="appt_mc_number" id="appt_mc_number" value="<%=bFirstDisp?mcNumber:Encode.forHtmlAttribute(request.getParameter("appt_mc_number") != null ? request.getParameter("appt_mc_number") : "")%>" />
                     </td>
                 </tr>
                 <% } %>
@@ -1282,7 +1290,7 @@
                     </td>
                     <td>
                 <input type="text" name="resources" tabindex="5" class="form-control"
-                               value="<%=Encode.forHtmlAttribute(bFirstDisp?appt.getResources():request.getParameter("resources"))%>">
+                               value="<%=Encode.forHtmlAttribute(bFirstDisp?appt.getResources():(request.getParameter("resources") != null ? request.getParameter("resources") : ""))%>">
                     </td>
                 </tr>
                 <tr>
@@ -1313,15 +1321,15 @@
                 <div class="card">
                     <div class="card-body">
                         <input type="hidden" name="lastcreatedatetime"
-                               value="<%=Encode.forHtmlContent(bFirstDisp?lastDateTime:request.getParameter("lastcreatedatetime"))%>"
+                               value="<%=Encode.forHtmlAttribute(bFirstDisp?lastDateTime:(request.getParameter("lastcreatedatetime") != null ? request.getParameter("lastcreatedatetime") : ""))%>"
                         > <%=Encode.forHtmlContent(dateString2)%>
                         <input type="hidden" name="createdatetime" value="<%=strDateTime%>">
-                        <input type="hidden" name="provider_no" value="<%=curProvider_no%>">
+                        <input type="hidden" name="provider_no" value="<%=Encode.forHtmlAttribute(curProvider_no)%>">
                         <input type="hidden" name="dboperation" value="">
                         <input type="hidden" name="creator"
                                value="<%=Encode.forHtmlAttribute(userlastname+", "+userfirstname)%>">
                         <input type="hidden" name="remarks" value="<%=Encode.forHtmlAttribute(remarks)%>">
-                        <input type="hidden" name="appointment_no" value="<%=appointment_no%>">
+                        <input type="hidden" name="appointment_no" value="<%=Encode.forHtmlAttribute(appointment_no)%>">
                     </div>
                 </div>
                     </td>

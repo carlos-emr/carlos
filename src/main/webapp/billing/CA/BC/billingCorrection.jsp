@@ -81,6 +81,7 @@
 
 %>
 <%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -205,7 +206,7 @@
                 Invoice No </font></b></td>
             <td width="20%"><font face="Arial, Helvetica, sans-serif"
                                   size="2"><input type="text" name="billing_no"
-                                                  value="<%=billNo%>" maxsize="10"></td>
+                                                  value="<%=Encode.forHtmlAttribute(billNo)%>" maxsize="10"></td>
             <td width="60%" align="left"><b><font
                     face="Arial, Helvetica, sans-serif" size="2" color="#000000"><b>Last
                 update: <%=UpdateDate%>
@@ -230,7 +231,7 @@
 <br>
 <form name="serviceform" method="post"
       action="billingCorrectionValid.jsp"><input type="hidden"
-                                                 name="xml_billing_no" value="<%=billNo%>"><input type="hidden"
+                                                 name="xml_billing_no" value="<%=Encode.forHtmlAttribute(billNo)%>"><input type="hidden"
                                                                                                   name="update_date"
                                                                                                   value="<%=UpdateDate%>">
     <table width="600" border="0">

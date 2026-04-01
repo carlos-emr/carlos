@@ -2679,8 +2679,8 @@ if (userAgent != null) {
                                                     if (te.equals(defaultSiteName))
                                                         defaultSiteId = siteIds.get(i);
                                                 %>
-                                                <option value="<%=te%>"
-                                                             style='<%="background-color: "+bg%>'><%=te%>
+                                                <option value="<%=Encode.forHtmlAttribute(te)%>"
+                                                             style="background-color:<%=Encode.forCssString(bg)%>"><%=Encode.forHtmlContent(te)%>
                                                 </option>
                                                 <% }%>
                                             </select>
@@ -2701,7 +2701,7 @@ if (userAgent != null) {
                                                     String te = (String) consultUtil.teamVec.elementAt(i);
                                                     String selectedTeam = (te.equals(thisForm.getSendTo())) ? "selected" : "";
                                             %>
-                                            <option value="<%=te%>" <%=selectedTeam%>><%=te%>
+                                            <option value="<%=Encode.forHtmlAttribute(te)%>" <%=selectedTeam%>><%=Encode.forHtmlContent(te)%>
                                             </option>
                                             <%
                                                 }
@@ -3174,7 +3174,7 @@ if (userAgent != null) {
                 if("${pageScope.lhndType eq 'providers'}" === "true"){
                     switchProvider("${pageScope.providerDefault}");
                 } else if("${pageScope.lhndType eq 'clinic'}" === "true"){
-                    switchProvider("<%=clinic.getClinicName()%>");
+                    switchProvider("<%=Encode.forJavaScript(clinic.getClinicName())%>");
                 } else {
                     switchProvider("-1");
                 }

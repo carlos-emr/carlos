@@ -554,7 +554,12 @@ function reportWindow(page, height, width) {
         windowprops = "height=660, width=960, location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
     }
     const popup = window.open(encodeURI(page), "labreport", windowprops);
-    popup.focus();
+    if (popup != null) {
+        if (popup.opener == null) {
+            popup.opener = self;
+        }
+        popup.focus();
+    }
 }
 
 function FileSelectedRows(files, searchProviderNo, status) {
@@ -1740,7 +1745,7 @@ function updateDocumentAndNext(eleId) {//save doc info
             updateDocStatusInQueue(num);
 
             if (typeof _in_window !== 'undefined' && _in_window) {
-                if (typeof self.opener.removeReport !== 'undefined') {
+                if (self.opener && typeof self.opener.removeReport !== 'undefined') {
                     self.opener.removeReport(num);
                 }
                 window.close();
@@ -1802,7 +1807,7 @@ function updateDocument(eleId) {
                 }
 
                 if (typeof _in_window !== 'undefined' && _in_window) {
-                    if (typeof self.opener.removeReport !== 'undefined') {
+                    if (self.opener && typeof self.opener.removeReport !== 'undefined') {
                         self.opener.removeReport(num);
                         success = true;
                     }
@@ -1902,7 +1907,7 @@ function updateStatus(formid) {//acknowledge
 					// Hide the parent <div> of the iframe only for new inbox previews loaded in an iframe
 					jQuery(window.frameElement).closest('.document-card.card').slideUp();
 				} else if (typeof _in_window !== 'undefined' && _in_window) {
-                    if (typeof self.opener.removeReport !== 'undefined') {
+                    if (self.opener && typeof self.opener.removeReport !== 'undefined') {
 						/**
 						 * When a user acknowledges any lab version, it automatically files away older versions
 						 * as well as the acknowledged version. This function removes those versions from the
@@ -1948,7 +1953,7 @@ function fileDoc(docId) {
                             updateDocStatusInQueue(docId);
 
                             if (typeof _in_window !== 'undefined' && _in_window) {
-                                if (typeof self.opener.removeReport !== 'undefined') {
+                                if (self.opener && typeof self.opener.removeReport !== 'undefined') {
                                     self.opener.removeReport(docId);
                                 }
 

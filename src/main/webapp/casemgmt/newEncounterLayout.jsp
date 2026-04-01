@@ -432,6 +432,7 @@
 
             assignEncTypeError = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.assignEncTypeError.msg"/>";
             savingNoteError = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.savingNoteError.msg"/>";
+            noteLockLostError = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteLockLostError.msg"/>";
             changeIssueMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.change.title"/>";
             closeWithoutSaveMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.closeWithoutSave.msg"/>";
             pickIssueMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.pickIssue.msg"/>";

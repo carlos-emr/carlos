@@ -49,6 +49,7 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
 
 
@@ -65,9 +66,9 @@
 <div class="preventionSection" id="preventionSection<%=ran%>">
     <div class="headPrevention" id="headPrevention<%=ran%>">
         <p><a id="ahead<%=ran%>"
-              title="fade=[on] header=[<%=testName%>] body=[]"
+              title="fade=[on] header=[<%=Encode.forHtmlAttribute(testName)%>] body=[]"
               href="javascript: function myFunction() {return false; }"> <span
-                title="<%=""%>" style="font-weight: bold;"> <%=StringUtils.maxLenString(testName, 10, 8, "...")%>
+                title="<%=""%>" style="font-weight: bold;"> <%=Encode.forHtml(StringUtils.maxLenString(testName, 10, 8, "..."))%>
 <%=""/*testName*/%> </span> </a> <!--&nbsp;
                <a href="">#</a--> <br/>
         </p>
