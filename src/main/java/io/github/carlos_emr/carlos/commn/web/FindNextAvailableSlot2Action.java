@@ -22,6 +22,7 @@
 
 package io.github.carlos_emr.carlos.commn.web;
 
+import java.time.LocalDate;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
@@ -53,7 +54,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * Struts 2 action that finds the next available appointment slot across a set of schedule providers.
  *
  * <p>Searches forward from the given start date (or tomorrow if omitted), checking each provider's
- * schedule template for days with open slots. Returns the <em>third</em> available provider/day/time
+ * schedule template for days with open slots. Returns the <em>first</em> available provider/day/time
  * combination found as JSON, suitable for driving the quick-search "Appt" badge navigation.</p>
  *
  * <h3>Request parameters</h3>
@@ -65,7 +66,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * <h3>Configuration (carlos.properties)</h3>
  * <ul>
- *   <li>{@code TARGET_SLOT_ORDINAL}  – which open slot to return (default: 3); must be &gt;= 1</li>
+ *   <li>{@code TARGET_SLOT_ORDINAL}  – which open slot to return (default: 1); must be &gt;= 1</li>
  *   <li>{@code MAX_LOOKAHEAD_DAYS}   – days to search before giving up (default: 90); must be &gt;= 1</li>
  * </ul>
  *
@@ -193,7 +194,14 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
             String dateStr  = String.format("%04d-%02d-%02d", searchYear, searchMonth, searchDay);
 
             try {
-                java.util.Date searchDate = ConversionUtils.fromDateString(dateStr);
+                // Use java.sql.Date (pure calendar date, no time/timezone) so the native SQL
+                // query binds a DATE parameter rather than a TIMESTAMP.  When java.util.Date is
+                // passed to a native query Hibernate sends it as TIMESTAMP; MySQL Connector/J then
+                // applies timezone conversion before comparing with the DATE column `sdate`, which
+                // can shift the value to the previous day and cause every schedule lookup to miss.
+                // The JPQL path used by the calendar view avoids this via @Temporal(TemporalType.DATE).
+                java.sql.Date searchDate = java.sql.Date.valueOf(
+                        LocalDate.of(searchYear, searchMonth, searchDay));
 
                 for (String providerNo : providerNos) {
                     providerNo = providerNo.trim();
@@ -203,6 +211,9 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
                             providerNo, searchDate);
 
                     if (timecodeResult == null || timecodeResult.isEmpty()) {
+                        MiscUtils.getLogger().debug(
+                                "FindNextAvailableSlot: no scheduledate/template for provider={} date={}",
+                                providerNo, dateStr);
                         continue; // No schedule template for this provider on this day
                     }
 
@@ -219,6 +230,14 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
                         if (!"_".equals(slotChar) && templateMap.containsKey(slotChar)) {
                             schedArr[i] = 1;
                         }
+                    }
+
+                    if (MiscUtils.getLogger().isDebugEnabled()) {
+                        int openCount = 0;
+                        for (int open : schedArr) if (open == 1) openCount++;
+                        MiscUtils.getLogger().debug(
+                                "FindNextAvailableSlot: provider={} date={} timecodeLen={} openSlots={}",
+                                providerNo, dateStr, timecodeLength, openCount);
                     }
 
                     // Mark slots occupied by existing (non-cancelled/no-show) appointments as 0
