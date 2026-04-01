@@ -270,6 +270,14 @@ public class RuleBaseCreator {
         rule.append("    when\n");
         rule.append("        m : ").append(simpleClassName).append("()\n");
 
+        // Guard against parse errors: skip rule evaluation when MeasurementDSHelper
+        // reports a problem (e.g., non-numeric data in a numeric measurement field).
+        // Without this guard, getDataAsDouble() returns -1 on parse failure, which
+        // can trigger false clinical indicators (e.g., -1 < 18.5 falsely flags "LOW").
+        if ("MeasurementDSHelper".equals(simpleClassName)) {
+            rule.append("        eval( !m.hasProblem() )\n");
+        }
+
         // Each DSCondition becomes a condition expression that calls a method on "m".
         // For example, DSCondition(type="doubleValue", comparison=">=", value="140")
         // produces: eval( m.doubleValue() >= 140 )

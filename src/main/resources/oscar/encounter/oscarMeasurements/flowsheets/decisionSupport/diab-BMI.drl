@@ -67,6 +67,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementD
 rule "BMI 1"
     when
         m : MeasurementDSHelper()
+        eval( !m.hasProblem() )
         eval( m.getDataAsDouble() >= 25.0 )
         eval( m.getDataAsDouble() < 30 )
     then
@@ -81,6 +82,7 @@ end
 rule "BMI 2"
     when
         m : MeasurementDSHelper()
+        eval( !m.hasProblem() )
         eval( m.getDataAsDouble() > 30 )
     then
         m.log("BMI RULES IS GETTING RUN");
@@ -94,6 +96,7 @@ end
 rule "BMI 3"
     when
         m : MeasurementDSHelper()
+        eval( !m.hasProblem() )
         eval( m.getDataAsDouble() < 18.5 )
     then
         m.log("BMI RULES IS GETTING RUN");

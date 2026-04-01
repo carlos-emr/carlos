@@ -77,6 +77,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementD
 rule "FGLC"
     when
         m : MeasurementDSHelper()
+        eval( !m.hasProblem() )
         eval( m.isDataEqualTo("No") )
     then
         m.log("FGLC RULES IS GETTING RUN");

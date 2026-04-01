@@ -76,6 +76,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementD
 rule "BP"
     when
         m : MeasurementDSHelper()
+        eval( !m.hasProblem() )
         eval( m.getNumberFromSplit("/",0) > 130 )
         eval( m.getNumberFromSplit("/",1) > 80 )
     then
@@ -89,6 +90,7 @@ end
 rule "BP 2"
     when
         m : MeasurementDSHelper()
+        eval( !m.hasProblem() )
         eval( m.getNumberFromSplit("/",0) <= 130 )
         eval( m.getNumberFromSplit("/",1) > 80 )
     then
@@ -103,6 +105,7 @@ end
 rule "BP 3"
     when
         m : MeasurementDSHelper()
+        eval( !m.hasProblem() )
         eval( m.getNumberFromSplit("/",0) > 130 )
         eval( m.getNumberFromSplit("/",1) <= 80 )
     then

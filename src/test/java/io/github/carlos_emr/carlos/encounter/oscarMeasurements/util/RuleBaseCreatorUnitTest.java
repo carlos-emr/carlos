@@ -182,6 +182,40 @@ class RuleBaseCreatorUnitTest {
         }
 
         /**
+         * Verifies that the hasProblem() guard is injected after the fact binding when
+         * the fact class is MeasurementDSHelper. This prevents false clinical indicators
+         * when measurement data fails to parse (getDataAsDouble() returns -1 and sets
+         * problem=true). Without this guard, -1 satisfies rules like {@code < 18.5},
+         * falsely flagging a patient as underweight.
+         */
+        @Test
+        @DisplayName("should include hasProblem() guard for MeasurementDSHelper fact class")
+        void shouldIncludeHasProblemGuard_forMeasurementDSHelperFactClass() {
+            DSCondition cond = new DSCondition("getDataAsDouble", "", ">=", "7.0");
+
+            String rule = creator.getRule("A1C_HIGH", FACT_CLASS, Collections.singletonList(cond), "m.setIndicationColor(\"HIGH\");");
+
+            assertThat(rule).contains("eval( !m.hasProblem() )");
+        }
+
+        /**
+         * Verifies that the hasProblem() guard is NOT injected when the fact class is
+         * MeasurementInfo. MeasurementInfo is used by Recommendation rules, which work
+         * with measurement metadata (overdue dates) rather than raw numeric values,
+         * and does not define hasProblem().
+         */
+        @Test
+        @DisplayName("should not include hasProblem() guard for non-MeasurementDSHelper fact class")
+        void shouldNotIncludeHasProblemGuard_forNonMeasurementDSHelperFactClass() {
+            String measurementInfoClass = "io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo";
+            DSCondition cond = new DSCondition("getLastDateRecordedInMonths", "A1C", ">", "12");
+
+            String rule = creator.getRule("A1C_OVERDUE", measurementInfoClass, Collections.singletonList(cond), "m.addRecommendation(\"A1C\", \"Overdue\");");
+
+            assertThat(rule).doesNotContain("hasProblem()");
+        }
+
+        /**
          * End-to-end compilation test: generates a DRL rule from typical conditions
          * and verifies that it compiles successfully with the Drools KIE compiler.
          *

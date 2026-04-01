@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementD
 rule "A1C_1"
     when
         m : MeasurementDSHelper()
+        eval( !m.hasProblem() )
         eval( m.setMeasurement("A1C") == true )
         eval( m.getDataAsDouble() > 7.9 )
     then
@@ -59,6 +60,7 @@ end
 rule "A1C_2"
     when
         m : MeasurementDSHelper()
+        eval( !m.hasProblem() )
         eval( m.setMeasurement("A1C") == true )
         eval( m.getDataAsDouble() <= 2.0 )
         eval( m.getDataAsDouble() > 0.079 )
