@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.ImageIoUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -100,7 +101,9 @@ public class ClientImage2Action extends ActionSupport {
 
             // Re-validate at point of use for static analysis visibility
             File validatedImage = PathValidationUtils.validateUpload(clientImage);
-            byte[] imageData = Files.readAllBytes(validatedImage.toPath());
+            byte[] rawData = Files.readAllBytes(validatedImage.toPath());
+            // Strip EXIF/metadata by re-encoding through ImageIO before persisting
+            byte[] imageData = ImageIoUtils.stripExifMetadata(rawData, type);
 
             ClientImage clientImageObj = new ClientImage();
             clientImageObj.setDemographic_no(Integer.parseInt(id));

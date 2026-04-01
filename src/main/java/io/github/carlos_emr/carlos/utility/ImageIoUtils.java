@@ -37,9 +37,12 @@ import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Iterator;
 import java.util.List;
 import javax.imageio.IIOImage;
@@ -195,6 +198,129 @@ public class ImageIoUtils {
         }
 
         return bufferedImage;
+    }
+
+    /**
+     * Strips EXIF and other embedded metadata from image bytes by re-encoding
+     * through ImageIO (decode to pixel data, then re-encode clean).
+     *
+     * <p>Supports JPEG (re-encoded at {@link #GENERAL_GOOD_COMPRESSION} quality
+     * — this is lossy but at high quality), PNG (lossless re-encode), and GIF.
+     * If ImageIO cannot decode the input, the original bytes are returned unchanged
+     * with a warning logged.</p>
+     *
+     * @param imageBytes raw image bytes that may contain EXIF/metadata
+     * @param imageType  the format hint: extension ("jpg", "png", "gif") or
+     *                   MIME type ("image/jpeg", "image/png", "image/gif")
+     * @return image bytes with metadata stripped, or the original bytes if
+     *         stripping is not possible
+     */
+    public static byte[] stripExifMetadata(byte[] imageBytes, String imageType) {
+        try {
+            BufferedImage bufferedImage = ImageIO.read(new ByteArrayInputStream(imageBytes));
+            if (bufferedImage == null) {
+                logger.warn("Could not strip EXIF metadata: ImageIO could not decode image (type={})", imageType);
+                return imageBytes;
+            }
+            String format = normalizeImageFormatName(imageType);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            if ("jpeg".equals(format)) {
+                writeJpg(baos, GENERAL_GOOD_COMPRESSION, bufferedImage);
+            } else {
+                if (!ImageIO.write(bufferedImage, format, baos)) {
+                    logger.warn("Could not strip EXIF metadata: no ImageIO writer for format '{}'", format);
+                    return imageBytes;
+                }
+            }
+            logger.debug("Stripped EXIF metadata from image bytes (type={})", imageType);
+            return baos.toByteArray();
+        } catch (IOException e) {
+            logger.error("Error stripping EXIF metadata from image bytes", e);
+            return imageBytes;
+        }
+    }
+
+    /**
+     * Strips EXIF and other embedded metadata from an image file by re-encoding it
+     * through ImageIO and writing the result to {@code destinationFile}.
+     *
+     * <p>Supports JPEG (re-encoded at {@link #GENERAL_GOOD_COMPRESSION} quality
+     * — this is lossy but at high quality), PNG (lossless re-encode), and GIF.
+     * If ImageIO cannot decode the source file (e.g. unsupported format), the
+     * source is copied to the destination unchanged and a warning is logged.</p>
+     *
+     * <p>If the destination file already exists it will be overwritten.</p>
+     *
+     * @param sourceFile      the source image file to read
+     * @param imageType       the format hint: extension ("jpg", "png", "gif") or
+     *                        MIME type ("image/jpeg", "image/png", "image/gif")
+     * @param destinationFile the destination file to write the clean image to;
+     *                        overwritten if it already exists
+     * @throws IOException if an I/O error occurs reading the source or writing
+     *                     the destination
+     */
+    public static void stripExifToFile(File sourceFile, String imageType, File destinationFile) throws IOException {
+        BufferedImage bufferedImage;
+        try (InputStream fis = Files.newInputStream(sourceFile.toPath())) {
+            bufferedImage = ImageIO.read(fis);
+        }
+        if (bufferedImage == null) {
+            logger.warn("Could not strip EXIF metadata: ImageIO could not decode image (type={}, file={})",
+                    imageType, sourceFile.getName());
+            Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            return;
+        }
+        String format = normalizeImageFormatName(imageType);
+        if ("jpeg".equals(format)) {
+            try (OutputStream fos = Files.newOutputStream(destinationFile.toPath())) {
+                writeJpg(fos, GENERAL_GOOD_COMPRESSION, bufferedImage);
+            }
+        } else {
+            if (!ImageIO.write(bufferedImage, format, destinationFile)) {
+                logger.warn("Could not strip EXIF metadata: no ImageIO writer for format '{}', falling back to raw copy", format);
+                Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                return;
+            }
+        }
+        logger.debug("Stripped EXIF metadata from uploaded image: {}", destinationFile.getName());
+    }
+
+    /**
+     * Normalises an image type hint to an ImageIO-compatible format name.
+     *
+     * <p>Accepts file extensions ("jpg", "jpeg", "png", "gif") and MIME types
+     * ("image/jpeg", "image/png", "image/gif"). For strings that look like filenames
+     * the extension is extracted before mapping (e.g. "photo.jpg" → "jpeg").
+     * Unknown or {@code null} values default to {@code "png"}
+     * (e.g. "unknown.bmp" → "png").</p>
+     *
+     * @param imageType a file extension, MIME type, or filename string (case-insensitive)
+     * @return lowercase ImageIO format name: {@code "jpeg"}, {@code "png"}, or {@code "gif"}
+     */
+    static String normalizeImageFormatName(String imageType) {
+        if (imageType == null) {
+            return "png";
+        }
+        String type = imageType.toLowerCase().trim();
+        switch (type) {
+            case "jpg":
+            case "jpeg":
+            case "image/jpeg":
+            case "image/jpg":
+                return "jpeg";
+            case "png":
+            case "image/png":
+                return "png";
+            case "gif":
+            case "image/gif":
+                return "gif";
+            default:
+                int dot = type.lastIndexOf('.');
+                if (dot >= 0 && dot < type.length() - 1) {
+                    return normalizeImageFormatName(type.substring(dot + 1));
+                }
+                return "png";
+        }
     }
 
     static {

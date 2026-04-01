@@ -36,6 +36,7 @@ import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.ImageIoUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -46,9 +47,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.file.Files;
 import java.util.List;
 
 public class ImageUpload2Action extends ActionSupport implements UploadedFilesAware {
@@ -94,16 +92,9 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             // Validate upload: source file location + destination path traversal protection
             File destinationFile = PathValidationUtils.validateUpload(image, imageFileName, imageFolder);
 
-            // Upload the file
-            try (InputStream fis = Files.newInputStream(image.toPath());
-                 OutputStream fos = Files.newOutputStream(destinationFile.toPath())) {
-                byte[] buffer = new byte[4096];
-                int bytesRead;
-                while ((bytesRead = fis.read(buffer)) != -1) {
-                    fos.write(buffer, 0, bytesRead);
-                }
-                fos.flush();
-            }
+            // Strip EXIF metadata and write to destination (re-encodes through ImageIO)
+            String imageType = imageFileContentType != null ? imageFileContentType : imageFileName;
+            ImageIoUtils.stripExifToFile(image, imageType, destinationFile);
 
             // Pass sanitization info to JSP for display in success message
             if (fileNameWasSanitized) {
