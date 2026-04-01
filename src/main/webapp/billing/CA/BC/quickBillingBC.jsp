@@ -206,8 +206,9 @@
             $("#ptName").autocomplete({
                 source: function (request, response) {
                     $.ajax({
-                        url: "<c:out value="${ oscar_context_path }" />/demographic/SearchDemographic.do?query=" + encodeURIComponent(request.term),
+                        url: "<c:out value="${ oscar_context_path }" />/demographic/SearchDemographic.do",
                         method: "POST",
+                        data: { query: request.term },
                         dataType: "json",
                         success: function (data) {
                             response($.map(data.results, function (item) {

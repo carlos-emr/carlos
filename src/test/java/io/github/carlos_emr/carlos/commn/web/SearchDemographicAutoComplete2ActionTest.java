@@ -455,4 +455,44 @@ class SearchDemographicAutoComplete2ActionTest extends CarlosWebTestBase {
             verify(mockDemographicDao).searchDemographicByName(eq("Smith"), anyInt(), anyInt(), anyString(), anyBoolean());
         }
     }
+
+    // ── POST Method Support ──────────────────────────────────
+
+    @Nested
+    @DisplayName("POST Method Support")
+    class PostMethodSupport {
+
+        @Test
+        @DisplayName("Should process search term from POST body")
+        void shouldProcessSearchTerm_fromPostBody() throws Exception {
+            mockRequest.setMethod("POST");
+            addRequestParameter("term", "Smith");
+            addRequestParameter("jqueryJSON", "true");
+            Demographic demo = createDemographic(1, "Smith", "John");
+            when(mockDemographicDao.searchDemographicByName(eq("Smith"), anyInt(), anyInt(), anyString(), anyBoolean()))
+                    .thenReturn(List.of(demo));
+
+            List<Map<String, Object>> results = executeAndParseJsonArray();
+
+            assertThat(results).hasSize(1);
+            verify(mockDemographicDao).searchDemographicByName(eq("Smith"), anyInt(), anyInt(), anyString(), anyBoolean());
+        }
+
+        @Test
+        @DisplayName("Should process HIN search from POST body")
+        void shouldProcessHinSearch_fromPostBody() throws Exception {
+            mockRequest.setMethod("POST");
+            addRequestParameter("term", "1234567890");
+            addRequestParameter("searchType", "hin");
+            addRequestParameter("jqueryJSON", "true");
+            Demographic demo = createDemographic(1, "Smith", "John");
+            when(mockDemographicDao.searchDemographicByHIN(eq("1234567890"), anyInt(), anyInt(), anyString(), anyBoolean()))
+                    .thenReturn(List.of(demo));
+
+            List<Map<String, Object>> results = executeAndParseJsonArray();
+
+            assertThat(results).hasSize(1);
+            verify(mockDemographicDao).searchDemographicByHIN(eq("1234567890"), anyInt(), anyInt(), anyString(), anyBoolean());
+        }
+    }
 }

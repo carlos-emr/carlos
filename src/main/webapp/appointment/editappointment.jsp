@@ -687,10 +687,18 @@
             });
             jQuery(document).ready(function () {
 
-                var url = "<%= request.getContextPath() %>/demographic/SearchDemographic.do?jqueryJSON=true&activeOnly=true";
+                var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic.do";
 
                 jQuery("#keyword").autocomplete({
-                    source: url,
+                    source: function (req, res) {
+                        jQuery.ajax({
+                            url: searchDemoUrl,
+                            type: 'POST',
+                            data: { jqueryJSON: 'true', activeOnly: 'true', term: req.term },
+                            success: function (data) { res(data); },
+                            error: function () { res([]); }
+                        });
+                    },
                     minLength: 2,
 
                     focus: function (event, ui) {
