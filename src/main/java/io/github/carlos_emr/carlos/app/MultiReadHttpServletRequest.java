@@ -361,6 +361,7 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
                 throw new IOException("Request body exceeds maximum allowed size of "
                         + (MAX_BODY_SIZE / (1024 * 1024)) + " MB");
             }
+            cachedBytes.freeze();
         } catch (IOException e) {
             cachedBytes = null;
             throw e;
@@ -520,11 +521,22 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
      * count without copying. This allows zero-copy reads after the stream has been fully
      * written.
      *
-     * <p>The buffer is shared — callers must not modify it. This is safe here because
-     * {@code cacheInputStream()} writes to the stream exactly once; after it completes,
-     * no further writes occur and the buffer is effectively immutable.</p>
+     * <p>The buffer is shared — callers must not modify it. After {@link #freeze()} is
+     * called, all mutating methods ({@code write}, {@code reset}) throw
+     * {@link IllegalStateException}, enforcing the immutability contract at runtime.</p>
+     *
+     * <p>{@code cacheInputStream()} calls {@code freeze()} once writing is complete.
+     * After that point, the buffer and count are stable and safe for concurrent readers.</p>
      */
     static class ExposedByteArrayOutputStream extends ByteArrayOutputStream {
+
+        private boolean frozen;
+
+        /** Freezes this stream, preventing any further writes or resets. */
+        void freeze() {
+            this.frozen = true;
+        }
+
         /** Returns the internal byte buffer (may be larger than {@link #getCount()}). */
         byte[] getBuffer() {
             return buf;
@@ -533,6 +545,30 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         /** Returns the number of valid bytes in {@link #getBuffer()}. */
         int getCount() {
             return count;
+        }
+
+        @Override
+        public synchronized void write(int b) {
+            if (frozen) {
+                throw new IllegalStateException("Buffer is frozen after cacheInputStream()");
+            }
+            super.write(b);
+        }
+
+        @Override
+        public synchronized void write(byte[] b, int off, int len) {
+            if (frozen) {
+                throw new IllegalStateException("Buffer is frozen after cacheInputStream()");
+            }
+            super.write(b, off, len);
+        }
+
+        @Override
+        public void reset() {
+            if (frozen) {
+                throw new IllegalStateException("Buffer is frozen after cacheInputStream()");
+            }
+            super.reset();
         }
     }
 
