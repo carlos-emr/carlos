@@ -128,7 +128,7 @@
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="functionid"
-                                    value="<%=Encode.forHtmlAttribute(request.getParameter("functionid") != null ? request.getParameter("functionid") : "")%> " size="20">
+                                    value="<%=Encode.forHtmlAttribute(request.getParameter("functionid") != null ? request.getParameter("functionid") : "")%>" size="20">
                             </font></td>
                             <td rowspan="8" width="21%" valign="middle">
                                 <p><br>

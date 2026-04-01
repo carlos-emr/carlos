@@ -207,7 +207,7 @@
 // add the role
     String add = oscarRec.getString("global.btnAdd");
     if (request.getParameter("submit") != null && request.getParameter("submit").equals(add)) {
-        String number = request.getParameter("providerId");
+        String number = request.getParameter("providerId") != null ? request.getParameter("providerId") : "";
         String roleNew = request.getParameter("roleNew");
         String encodedRoleNew = Encode.forHtmlContent(roleNew);
         if (!"-".equals(roleNew)) {
@@ -216,7 +216,7 @@
             secUserRole.setRoleName(roleNew);
             secUserRole.setActiveyn(1);
             secUserRoleDao.save(secUserRole);
-            msg = "Role " + encodedRoleNew + " is added. (" + number + ")";
+            msg = "Role " + encodedRoleNew + " is added. (" + Encode.forHtmlContent(number) + ")";
             LogAction.addLog(curUser_no, LogConst.ADD, LogConst.CON_ROLE, number + "|" + roleNew, ip);
 	    if( newCaseManagement && caisiProgram != null) {
                 ProgramProvider programProvider = programProviderDao.getProgramProvider(number, Long.valueOf(caisiProgram));
@@ -229,7 +229,7 @@
                 programProviderDao.saveProgramProvider(programProvider);
             }
         } else {
-            msg = "Role " + encodedRoleNew + " is <span style='text-color: red;'>NOT</span> added!!! (" + number + ")";
+            msg = "Role " + encodedRoleNew + " is <span style='text-color: red;'>NOT</span> added!!! (" + Encode.forHtmlContent(number) + ")";
         }
 
     }
@@ -301,7 +301,7 @@
         }
 
         } else {
-            msg = "Role " + encodedRoleOld + " is <span style='text-color: red;'>NOT</span> deleted!!! (" + number + ")";
+            msg = "Role " + encodedRoleOld + " is <span style='text-color: red;'>NOT</span> deleted!!! (" + Encode.forHtmlContent(number) + ")";
         }
 
     }

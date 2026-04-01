@@ -471,7 +471,7 @@
                                 face="Verdana, Arial, Helvetica, sans-serif" size="1"
                                 color="#000000">Billing Provider <select name="providers">
                             <option value=""
-                                    <%=request.getParameter("mrp").equals("") ? "selected" : ""%>>Select
+                                    <%="".equals(request.getParameter("mrp")) ? "selected" : ""%>>Select
                                 Provider
                             </option>
                             <%
@@ -485,7 +485,7 @@
                                     String proName = (String) billingProvider.get(i + 2);
                             %>
                             <option value="<%=proOHIP%>|<%=specialty_code%>"
-                                    <%=(request.getParameter("mrp").equals(specialty_code) || billingProvider.size() == 3) ? "selected" : ""%>><%=proName%>
+                                    <%=(specialty_code.equals(request.getParameter("mrp")) || billingProvider.size() == 3) ? "selected" : ""%>><%=proName%>
                             </option>
                             <% } %>
 
@@ -494,7 +494,7 @@
                                               face="Verdana, Arial, Helvetica, sans-serif">Appointment
                             Provider <select name="apptProvider">
                                 <option value=""
-                                        <%=request.getParameter("creator").equals("") ? "selected" : ""%>>Select
+                                        <%="".equals(request.getParameter("creator")) ? "selected" : ""%>>Select
                                     Provider
                                 </option>
                                 <%
@@ -507,7 +507,7 @@
 
                                 %>
                                 <option value="<%=proOHIP%>"
-                                        <%=request.getParameter("creator").equals(proOHIP) ? "selected" : ""%>><%=proLast%>
+                                        <%=proOHIP.equals(request.getParameter("creator")) ? "selected" : ""%>><%=proLast%>
                                     ,
                                     <%=proFirst%>
                                 </option>

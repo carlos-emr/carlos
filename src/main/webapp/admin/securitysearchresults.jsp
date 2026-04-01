@@ -153,15 +153,15 @@
             List<Security> securityList = securityDao.findAllOrderBy("userName");
 
             //if action is good, then give me the result
-            String searchMode = request.getParameter("search_mode");
-            String keyword = request.getParameter("keyword").trim() + "%";
+            String searchMode = request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "";
+            String keyword = (request.getParameter("keyword") != null ? request.getParameter("keyword").trim() : "") + "%";
 
             // if search mode is provider_no
-            if (searchMode.equals("search_providerno"))
+            if ("search_providerno".equals(searchMode))
                 securityList = securityDao.findByLikeProviderNo(keyword);
 
             // if search mode is user_name
-            if (searchMode.equals("search_username"))
+            if ("search_username".equals(searchMode))
                 securityList = securityDao.findByLikeUserName(keyword);
 
             for (Security securityRecord : securityList) {

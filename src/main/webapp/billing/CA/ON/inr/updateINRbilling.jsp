@@ -149,9 +149,9 @@
                                                   color="#000000" size="1">Demographic Name </font></td>
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
-                                    type="hidden" name="demono" value="<%=Encode.forHtmlAttribute(demono)%> " size="20">
+                                    type="hidden" name="demono" value="<%=Encode.forHtmlAttribute(demono)%>" size="20">
                                 <input type="hidden" name="billinginr_no" value="<%=Encode.forHtmlAttribute(billinginr_no)%>">
-                                <input type="text" name="demo_name" value="<%=Encode.forHtmlAttribute(demo_name)%> "
+                                <input type="text" name="demo_name" value="<%=Encode.forHtmlAttribute(demo_name)%>"
                                        size="20" readonly> </font></td>
                             <td rowspan="9" width="21%" valign="middle">
                                 <p><br>
