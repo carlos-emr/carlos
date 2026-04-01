@@ -6041,15 +6041,8 @@ CREATE TABLE IF NOT EXISTS ProviderPreference
 	appointmentScreenLinkNameDisplayLength int not null,
 	defaultDoNotDeleteBilling  tinyint(1) not null,
 	defaultDxCode varchar(4),
-	eRxEnabled tinyint(1) NOT NULL DEFAULT '0',
-    eRx_SSO_URL varchar(128),
-    eRxUsername varchar(32),
-    eRxPassword varchar(64),
-    eRxFacility varchar(32),
-    eRxTrainingMode tinyint(1) not null,
-    encryptedMyOscarPassword varbinary(255),
-    defaultBillingLocation varchar(4) DEFAULT 'no',
-    defaultSliCode varchar(4) default 'no'
+  defaultBillingLocation varchar(4) DEFAULT 'no',
+  defaultSliCode varchar(4) default 'no'
 );
 
 --
