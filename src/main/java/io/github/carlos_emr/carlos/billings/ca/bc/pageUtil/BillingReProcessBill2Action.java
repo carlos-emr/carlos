@@ -169,6 +169,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
             String correspondenceCode = frm.getCorrespondenceCode(); //f
             String claimComment = frm.getShortComment(); //f
             String icbcClaimNo = frm.getIcbcClaim();
+            String mvaClaimCode = frm.getMvaClaim();
 
             String billingStatus = frm.getStatus(); //f
 
@@ -339,6 +340,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
             billingmaster.setFacilityNo(facilityNum);
             billingmaster.setFacilitySubNo(facilitySubNum);
             billingmaster.setIcbcClaimNo(icbcClaimNo);
+            billingmaster.setMvaClaimCode(mvaClaimCode);
 
             billingmaster.setOinInsurerCode(oinInsurerCode);
             billingmaster.setOinRegistrationNo(oinRegistrationNo);
