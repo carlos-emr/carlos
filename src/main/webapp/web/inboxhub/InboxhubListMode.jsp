@@ -119,7 +119,12 @@
             windowprops = "height=660, width=960, location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
         }
         var popup = window.open(encodeURI(page), "labreport", windowprops);
-        popup.focus();
+        if (popup != null) {
+            if (popup.opener == null) {
+                popup.opener = self;
+            }
+            popup.focus();
+        }
     }
 
     // Function to remove only <a> tags while keeping their inner text
