@@ -168,10 +168,9 @@ class OscarAlert {
 
     getInnerHTML(message) {
         const safeMessage = escapeHtml(message);
-        const safeId = escapeHtml(this.alertDiv.id);
         return `
             <strong>${this.getLabel()}</strong> ${safeMessage}
-            <br> <small>${this.getDismissalMessage()}<span id="countdown-${safeId}">${this.countdown}</span> seconds.</small>
+            <br> <small>${this.getDismissalMessage()}<span id="countdown-${this.alertDiv.id}">${this.countdown}</span> seconds.</small>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" ></button>
         `;
     }
