@@ -62,14 +62,9 @@ public final class EctInsertTemplate2Action extends ActionSupport {
 
         if (t != null) {
             String encounterTmpValue = t.getEncounterTemplateValue();
-
-            encounterTmpValue = encounterTmpValue.replaceAll("\\\\", "\\\\u005C"); // replace \ with unicode equiv.
-            encounterTmpValue = encounterTmpValue.replaceAll("\"", "\\\\u0022"); // replace " with unicode equiv.
-            encounterTmpValue = encounterTmpValue.replaceAll("'", "\\\\u0027"); // replace ' with unicode equiv.
-            encounterTmpValue = encounterTmpValue.replaceAll(">", "\\\\u003E");
-            encounterTmpValue = encounterTmpValue.replaceAll("<", "\\\\u003C");
-            encounterTmpValue = encounterTmpValue.replaceAll("\n", "\\\\u000A");
-            encounterTmpValue = encounterTmpValue.replaceAll("\r", "\\\\u000D");
+            if (encounterTmpValue == null) {
+                encounterTmpValue = "";
+            }
             request.setAttribute("templateValue", encounterTmpValue);
         }
 

@@ -28,5 +28,5 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
-<%=request.getAttribute("templateValue")%>
+<%@ page contentType="text/plain; charset=UTF-8" %>
+<%= request.getAttribute("templateValue") != null ? request.getAttribute("templateValue") : "" %>

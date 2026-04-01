@@ -30,8 +30,8 @@
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
-
 <%@ page import="java.lang.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -54,31 +54,19 @@
 
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/styles.css">
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
-    <% 
-    java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
-    if (actionErrors != null && !actionErrors.isEmpty()) {
-%>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
-            <% } %>
-        </ul>
-    </div>
-<% } %>
     <table>
         <tr>
             <td>Processing...</td>
+            <%
+                String tmplValue = (String) request.getAttribute("templateValue");
+            %>
             <script>
-                var text = "<%=request.getAttribute("templateValue") != null ? request.getAttribute("templateValue") : ""%>";
-                text = text.replace(/\\u000A/g, "\u000A");
-                text = text.replace(/\\u003E/g, ">");
-                text = text.replace(/\\u003C/g, "<");
-                text = text.replace(/\\u005C/g, "\");
-                text = text.replace(/\\u0022/g, ""
-                ");
-                text = text.replace(/\\u0027/g, "'");
+            <% if (tmplValue != null && !tmplValue.isEmpty()) { %>
+                var text = "<%= Encode.forJavaScript(tmplValue) %>";
                 write2Parent(text);
+            <% } else { %>
+                window.close();
+            <% } %>
             </script>
         </tr>
     </table>
