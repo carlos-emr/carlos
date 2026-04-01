@@ -50,6 +50,7 @@
 <%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil,io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay,io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayLocal" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
@@ -250,7 +251,20 @@
 
         function showEncounter(encList) {
             var url2 = '<%=request.getContextPath()%>' + '/CaseManagementEntry.do?method=displayNotes&demographicNo=<%=demographicID%>' + encList + '&printCPP=false&printRx=false';
-            document.getElementById('docdisp').innerHTML = '<object data="' + url2 + '"  width="' + (getWidth() - 40) + '" height="' + (getHeight() - 300) + '" type="text/html"></object>';
+            var iframe = document.createElement('iframe');
+            iframe.src = url2;
+            iframe.width = (getWidth() - 40);
+            iframe.height = (getHeight() - 300);
+            iframe.addEventListener('load', function() {
+                if (document.activeElement && document.activeElement.tagName === 'IFRAME') {
+                    var encListEl = document.getElementById('encounterlist');
+                    if (encListEl) {
+                        encListEl.focus();
+                    }
+                }
+            });
+            var docdisp = document.getElementById('docdisp');
+            docdisp.replaceChildren(iframe);
             document.getElementById('docinfo').innerHTML = '';
             document.getElementById('docextrainfo').innerHTML = '';
             document.getElementById('printnotesbutton').style.visibility = 'visible';
@@ -457,7 +471,7 @@
     <table>
         <%if (errorMessage.length() > 0) {%>
         <tr>
-            <td><b><font color="red"><%=errorMessage%>
+            <td><b><font color="red"><%=Encode.forHtml(errorMessage)%>
             </font></b></td>
         </tr>
         <%}%>
