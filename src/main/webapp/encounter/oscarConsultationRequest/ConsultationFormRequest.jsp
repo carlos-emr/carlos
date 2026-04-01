@@ -2390,7 +2390,7 @@ if (userAgent != null) {
                                         <div class="row g-2" style="font-size:0.85rem;">
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAddress"/></small><br>
-                                                <%=thisForm.getPatientAddress().replace("null", "")%>
+                                                <%=Encode.forHtml(thisForm.getPatientAddress().replace("null", ""))%>
                                             </div>
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPhone"/></small>: <%=Encode.forHtml(thisForm.getPatientPhone())%><br>
@@ -2679,8 +2679,8 @@ if (userAgent != null) {
                                                     if (te.equals(defaultSiteName))
                                                         defaultSiteId = siteIds.get(i);
                                                 %>
-                                                <option value="<%=te%>"
-                                                             style='<%="background-color: "+bg%>'><%=te%>
+                                                <option value="<%=Encode.forHtmlAttribute(te)%>"
+                                                             style="background-color:<%=Encode.forCssString(bg)%>"><%=Encode.forHtmlContent(te)%>
                                                 </option>
                                                 <% }%>
                                             </select>
@@ -2701,7 +2701,7 @@ if (userAgent != null) {
                                                     String te = (String) consultUtil.teamVec.elementAt(i);
                                                     String selectedTeam = (te.equals(thisForm.getSendTo())) ? "selected" : "";
                                             %>
-                                            <option value="<%=te%>" <%=selectedTeam%>><%=te%>
+                                            <option value="<%=Encode.forHtmlAttribute(te)%>" <%=selectedTeam%>><%=Encode.forHtmlContent(te)%>
                                             </option>
                                             <%
                                                 }
@@ -3174,7 +3174,7 @@ if (userAgent != null) {
                 if("${pageScope.lhndType eq 'providers'}" === "true"){
                     switchProvider("${pageScope.providerDefault}");
                 } else if("${pageScope.lhndType eq 'clinic'}" === "true"){
-                    switchProvider("<%=clinic.getClinicName()%>");
+                    switchProvider("<%=Encode.forJavaScript(clinic.getClinicName())%>");
                 } else {
                     switchProvider("-1");
                 }
