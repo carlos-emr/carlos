@@ -1001,10 +1001,18 @@
                 return;
             }
             var activeOnly = activeOnlyEl ? activeOnlyEl.checked : true;
-            var url = '${pageContext.servletContext.contextPath}/demographic/SearchDemographic.do?jqueryJSON=true&activeOnly=' + activeOnly + '&term=' + encodeURIComponent(term);
+            var url = '${pageContext.servletContext.contextPath}/demographic/SearchDemographic.do';
+            var csrfToken = getCsrfToken();
+            var body = 'jqueryJSON=true&activeOnly=' + encodeURIComponent(String(activeOnly)) + '&term=' + encodeURIComponent(term) + (csrfToken ? '&CSRF-TOKEN=' + encodeURIComponent(csrfToken) : '');
             if (abortCtrl) { abortCtrl.abort(); }
             abortCtrl = new AbortController();
-            fetch(url, { signal: abortCtrl.signal })
+            fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+                body: body,
+                credentials: 'same-origin',
+                signal: abortCtrl.signal
+            })
                 .then(function (r) { return r.json(); })
                 .then(function (items) {
                     dropdownEl.innerHTML = '';

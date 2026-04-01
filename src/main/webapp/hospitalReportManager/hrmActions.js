@@ -236,13 +236,13 @@ function updateCategory(reportId) {
 function setupHrmDemoAutoCompletion(docId) {
     if (jQuery("#autocompletedemo" + docId + "hrm")) {
 
-        let url = window.contextpath + "/demographic/SearchDemographic.do?jqueryJSON=true";
-        if (jQuery("#activeOnly" + docId + "hrm").is(":checked")) {
-            url = window.contextpath + "/demographic/SearchDemographic.do?jqueryJSON=true&activeOnly=true";
-        }
+        let searchDemoUrl = window.contextpath + "/demographic/SearchDemographic.do";
+        let activeOnly = jQuery("#activeOnly" + docId + "hrm").is(":checked");
 
         jQuery("#autocompletedemo" + docId + "hrm").autocomplete({
-            source: url,
+            source: function (req, res) {
+                jQuery.ajax({ url: searchDemoUrl, type: 'POST', data: { jqueryJSON: 'true', activeOnly: activeOnly ? 'true' : 'false', term: req.term }, success: function (data) { res(data); }, error: function () { res([]); } });
+            },
             minLength: 2,
             focus: function (event, ui) {
                 jQuery("#autocompletedemo" + docId + "hrm").val(ui.item.label);
