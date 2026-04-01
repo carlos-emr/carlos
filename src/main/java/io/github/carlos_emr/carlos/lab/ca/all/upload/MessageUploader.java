@@ -378,11 +378,14 @@ public final class MessageUploader {
                                 practitionerNum.insert(0, "0");
                             }
                         }
-                        sql = "select provider_no from provider where " + sqlSearchOn + " = '" + practitionerNum.toString() + "'" + sqlOrderByLength + sqlLimit;
+                        sql = "select provider_no from provider where " + sqlSearchOn + " = ?" + sqlOrderByLength + sqlLimit;
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.setString(1, practitionerNum.toString());
                     } else {
-                        sql = "select provider_no from provider where " + sqlSearchOn + " LIKE '" + ((String) docNums.get(i)) + "'" + sqlOrderByLength + sqlLimit;
+                        sql = "select provider_no from provider where " + sqlSearchOn + " LIKE ?" + sqlOrderByLength + sqlLimit;
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.setString(1, (String) docNums.get(i));
                     }
-                    pstmt = conn.prepareStatement(sql);
                     ResultSet rs = pstmt.executeQuery();
                     while (rs.next()) {
                         providerNums.add(Misc.getString(rs, "provider_no"));
@@ -462,17 +465,33 @@ public final class MessageUploader {
 
 
 				// HIN is ALWAYS required for lab matching. Please do not revert this code. Previous iterations have caused fatal patient miss-matches.
+				List<String> sqlParams = new ArrayList<>();
 				if (hinMod != null && !hinMod.trim().isEmpty()) {
 					if (CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
-						sql = "select demographic_no, provider_no from demographic where hin='" + hinMod + "' and " + " year_of_birth like '" + dobYear + "' and " + " month_of_birth like '" + dobMonth + "' and " + " date_of_birth like '" + dobDay + "' and " + " sex like '" + sex + "%' ";
+						sql = "select demographic_no, provider_no from demographic where hin=? and year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and sex like ?";
+						sqlParams.add(hinMod);
+						sqlParams.add(dobYear);
+						sqlParams.add(dobMonth);
+						sqlParams.add(dobDay);
+						sqlParams.add(sex + "%");
 					} else {
-						sql = "select demographic_no, provider_no from demographic where hin='" + hinMod + "' and " + " last_name like '" + lastName + "%' and " + " first_name like '" + firstName + "%' and " + " year_of_birth like '" + dobYear + "' and " + " month_of_birth like '" + dobMonth + "' and " + " date_of_birth like '" + dobDay + "' and " + " sex like '" + sex + "%' ";
+						sql = "select demographic_no, provider_no from demographic where hin=? and last_name like ? and first_name like ? and year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and sex like ?";
+						sqlParams.add(hinMod);
+						sqlParams.add(lastName + "%");
+						sqlParams.add(firstName + "%");
+						sqlParams.add(dobYear);
+						sqlParams.add(dobMonth);
+						sqlParams.add(dobDay);
+						sqlParams.add(sex + "%");
 					}
 				}
 
 				if ( sql != null ) {
-					logger.debug(sql);
+					logger.debug("Matching patient demographics for lab routing");
 					PreparedStatement pstmt = conn.prepareStatement(sql);
+					for (int pi = 0; pi < sqlParams.size(); pi++) {
+						pstmt.setString(pi + 1, sqlParams.get(pi));
+					}
 					ResultSet rs = pstmt.executeQuery();
 					int count = 0;
 
