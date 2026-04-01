@@ -66,9 +66,9 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementD
 rule "LDL 1"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.getDataAsDouble() >= 2.0 )
         eval( m.getDataAsDouble() < 3.5 )
+        eval( !m.hasProblem() )
     then
         m.log("LDL 1 RULES IS GETTING RUN");
         m.setIndicationColor("HIGH");
@@ -81,8 +81,8 @@ end
 rule "LDL 2"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.getDataAsDouble() >= 3.5 )
+        eval( !m.hasProblem() )
     then
         m.log("LDL 2 RULES IS GETTING RUN");
         m.setIndicationColor("HIGH 1");

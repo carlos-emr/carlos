@@ -72,8 +72,8 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementD
 rule "EFGR"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.getDataAsDouble() <= 60 )
+        eval( !m.hasProblem() )
     then
         m.log("EFGR/eGFR RULE IS GETTING RUN");
         m.setIndicationColor("LOW");

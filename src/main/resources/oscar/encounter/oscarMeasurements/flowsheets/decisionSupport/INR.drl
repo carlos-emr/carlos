@@ -80,8 +80,8 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementD
 rule "INR 1"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.getDataAsDouble() < 2 )
+        eval( !m.hasProblem() )
     then
         m.log("INR RULES IS GETTING RUN");
         m.setIndicationColor("LOW");
@@ -94,9 +94,9 @@ end
 rule "INR 2"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.getDataAsDouble() >= 4 )
         eval( m.getDataAsDouble() < 5 )
+        eval( !m.hasProblem() )
     then
         m.log("INR RULES IS GETTING RUN");
         m.setIndicationColor("HIGH");
@@ -110,8 +110,8 @@ end
 rule "INR 3"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.getDataAsDouble() >= 5 )
+        eval( !m.hasProblem() )
     then
         m.log("INR RULES IS GETTING RUN");
         m.setIndicationColor("HIGH 1");

@@ -68,9 +68,9 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementD
 rule "LDL"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.setMeasurement("LDL") == true )
         eval( m.getDataAsDouble() < 2.0 )
+        eval( !m.hasProblem() )
     then
         m.log("LDL RULES IS GETTING RUN");
         m.setInRange(true);
@@ -80,8 +80,8 @@ end
 rule "LDL_1"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.setMeasurement("LDL") == false )
+        eval( !m.hasProblem() )
     then
         m.log("LDL_1 RULES IS GETTING RUN");
         m.setInRange(false);
@@ -100,8 +100,8 @@ end
 rule "BP_3"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.setMeasurement("BP") == false )
+        eval( !m.hasProblem() )
     then
         m.log("NO BP records");
         m.setInRange(false);
@@ -111,10 +111,10 @@ end
 rule "BP"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.setMeasurement("BP") == true )
         eval( m.getNumberFromSplit("/",0) < 131 )
         eval( m.isInRange() == true )
+        eval( !m.hasProblem() )
     then
         m.log("BP RULES IS GETTING RUN");
         m.setInRange(true);
@@ -124,9 +124,9 @@ end
 rule "BP_2"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.setMeasurement("BP") == true )
         eval( m.getNumberFromSplit("/",0) >= 131 )
+        eval( !m.hasProblem() )
     then
         m.log("BP2 RULES IS GETTING RUN");
         m.setInRange(false);
@@ -144,8 +144,8 @@ end
 rule "A1C_3"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.setMeasurement("A1C") == false )
+        eval( !m.hasProblem() )
     then
         m.log("No A1C Records");
         m.setInRange(false);
@@ -156,11 +156,11 @@ end
 rule "A1C_1"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.setMeasurement("A1C") == true )
         eval( m.getDataAsDouble() < 7.0 )
         eval( m.getDataAsDouble() >= 2.0 )
         eval( m.isInRange() == true )
+        eval( !m.hasProblem() )
     then
         m.log("A1C RULES IS GETTING RUN");
         m.setInRange(true);
@@ -170,9 +170,9 @@ end
 rule "A1C_1_2"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.setMeasurement("A1C") == true )
         eval( m.getDataAsDouble() >= 7.0 )
+        eval( !m.hasProblem() )
     then
         m.log("A1C_1_2 RULES IS GETTING RUN");
         m.setInRange(false);
@@ -182,10 +182,10 @@ end
 rule "A1C_2"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.setMeasurement("A1C") == true )
         eval( m.getDataAsDouble() < 0.07 )
         eval( m.isInRange() == true )
+        eval( !m.hasProblem() )
     then
         m.log("A1C RULES IS GETTING RUN");
         m.setInRange(true);
@@ -195,10 +195,10 @@ end
 rule "A1C_2_2"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.setMeasurement("A1C") == true )
         eval( m.getDataAsDouble() >= 0.07 )
         eval( m.getDataAsDouble() <= 2.0 )
+        eval( !m.hasProblem() )
     then
         m.log("A1C RULES IS GETTING RUN");
         m.setInRange(false);

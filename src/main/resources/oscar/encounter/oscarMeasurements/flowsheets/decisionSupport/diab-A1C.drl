@@ -67,8 +67,8 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementD
 rule "A1C"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.getDataAsDouble() >= 7 )
+        eval( !m.hasProblem() )
     then
         m.log("A1C RULES IS GETTING RUN");
         m.setIndicationColor("HIGH");
@@ -83,9 +83,9 @@ end
 rule "A1C2"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.getDataAsDouble() <= 2 )
         eval( m.getDataAsDouble() >= 0.07 )
+        eval( !m.hasProblem() )
     then
         m.log("A1C RULES IS GETTING RUN");
         m.setIndicationColor("HIGH");

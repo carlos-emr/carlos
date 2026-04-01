@@ -47,9 +47,9 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementD
 rule "BP"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.setMeasurement("BP") == true )
         eval( m.getNumberFromSplit("/",0) < 131 )
+        eval( !m.hasProblem() )
     then
         m.log("BP RULES IS GETTING RUN");
         m.setInRange(true);

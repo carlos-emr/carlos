@@ -32,9 +32,11 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.kie.api.KieBase;
+import org.kie.api.runtime.KieSession;
 
 import io.github.carlos_emr.carlos.drools.DroolsHelper;
 import io.github.carlos_emr.carlos.drools.RuleBaseFactory;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -182,11 +184,12 @@ class RuleBaseCreatorUnitTest {
         }
 
         /**
-         * Verifies that the hasProblem() guard is injected after the fact binding when
-         * the fact class is MeasurementDSHelper. This prevents false clinical indicators
-         * when measurement data fails to parse (getDataAsDouble() returns -1 and sets
-         * problem=true). Without this guard, -1 satisfies rules like {@code < 18.5},
-         * falsely flagging a patient as underweight.
+         * Verifies that the hasProblem() guard is injected AFTER the value comparison
+         * conditions when the fact class is MeasurementDSHelper. The guard must come
+         * after conditions like {@code getDataAsDouble()} so that those methods have
+         * already executed and had a chance to set the problem flag on parse failure.
+         * If the guard were placed before the conditions, it would always see
+         * {@code problem=false} and be ineffective.
          */
         @Test
         @DisplayName("should include hasProblem() guard for MeasurementDSHelper fact class")
@@ -195,7 +198,29 @@ class RuleBaseCreatorUnitTest {
 
             String rule = creator.getRule("A1C_HIGH", FACT_CLASS, Collections.singletonList(cond), "m.setIndicationColor(\"HIGH\");");
 
-            assertThat(rule).contains("eval( !m.hasProblem() )");
+            // Verify guard is present
+            assertThat(rule).contains("!m.hasProblem()");
+
+            // Verify the guard is positioned AFTER the value condition but before "then".
+            // The guard must come after getDataAsDouble() so the parse has already
+            // executed and set the problem flag if the data was non-numeric.
+            int bindingIndex = rule.indexOf("m : MeasurementDSHelper");
+            int conditionIndex = rule.indexOf("m.getDataAsDouble()");
+            int guardIndex = rule.indexOf("!m.hasProblem()");
+            int thenIndex = rule.indexOf("then");
+
+            assertThat(bindingIndex)
+                    .as("fact binding should appear in the rule")
+                    .isNotNegative();
+            assertThat(conditionIndex)
+                    .as("value condition should appear after the fact binding")
+                    .isGreaterThan(bindingIndex);
+            assertThat(guardIndex)
+                    .as("hasProblem() guard should appear after the value condition")
+                    .isGreaterThan(conditionIndex);
+            assertThat(thenIndex)
+                    .as("'then' should appear after the hasProblem() guard")
+                    .isGreaterThan(guardIndex);
         }
 
         /**
@@ -359,6 +384,114 @@ class RuleBaseCreatorUnitTest {
 
             assertThatThrownBy(() -> creator.getRuleBase("pkg", Collections.singletonList(brokenRule)))
                     .isInstanceOf(Exception.class);
+        }
+    }
+
+    /**
+     * End-to-end tests that compile generated DRL rules and fire them against
+     * actual {@link MeasurementDSHelper} instances to verify runtime behavior.
+     *
+     * <p>These tests go beyond string-level assertions by exercising the full
+     * Drools lifecycle: DRL generation → compilation → fact insertion → rule firing.
+     * This catches issues that string assertions cannot, such as evaluation order
+     * of conditions within a rule.</p>
+     */
+    @Nested
+    @DisplayName("hasProblem guard end-to-end")
+    class HasProblemGuardEndToEnd {
+
+        /**
+         * Verifies that the hasProblem() guard prevents false clinical indicators
+         * when measurement data contains non-numeric values.
+         *
+         * <p>Clinical scenario: A BMI measurement is recorded with a text value
+         * (e.g., "unable to measure"). Without the guard, {@code getDataAsDouble()}
+         * returns -1 on parse failure, and -1 satisfies {@code < 18.5}, falsely
+         * flagging the patient as underweight.</p>
+         *
+         * <p>This test uses multiple rules (similar to the production BMI DRL) to
+         * exercise the cross-rule protection: once any rule calls
+         * {@code getDataAsDouble()} and triggers a parse error, the {@code problem}
+         * flag is set, and subsequent rules' hasProblem() guards block execution.</p>
+         */
+        @Test
+        @DisplayName("should not set indication color when measurement data is non-numeric")
+        void shouldNotSetIndicationColor_whenMeasurementDataIsNonNumeric() throws Exception {
+            // Build rules similar to the production BMI DRL:
+            // Rule 1: getDataAsDouble() >= 25.0 → "HIGH" (-1 won't match >= 25)
+            // Rule 2: getDataAsDouble() < 18.5  → "LOW"  (-1 < 18.5 is true, but hasProblem() guard blocks it)
+            String rule1 = creator.getRule("BMI_HIGH", FACT_CLASS,
+                    Collections.singletonList(new DSCondition("getDataAsDouble", "", ">=", "25.0")),
+                    "m.setIndicationColor(\"HIGH\");");
+            String rule2 = creator.getRule("BMI_LOW", FACT_CLASS,
+                    Collections.singletonList(new DSCondition("getDataAsDouble", "", "<", "18.5")),
+                    "m.setIndicationColor(\"LOW\");");
+
+            KieBase kieBase = creator.getRuleBase("testBmiGuard", Arrays.asList(rule1, rule2));
+
+            // Create a MeasurementDSHelper with non-numeric data (simulates bad input)
+            EctMeasurementsDataBean bean = new EctMeasurementsDataBean();
+            bean.setDataField("not_a_number");
+            bean.setDemo("1");
+            bean.setType("BMI");
+            MeasurementDSHelper helper = new MeasurementDSHelper();
+            helper.mdb = bean;
+
+            // Fire rules against the helper with invalid data
+            KieSession session = kieBase.newKieSession();
+            try {
+                session.insert(helper);
+                session.fireAllRules();
+            } finally {
+                session.dispose();
+            }
+
+            // The hasProblem() guard should prevent any indication color from being set.
+            // Without the guard, "LOW" would be set because -1 < 18.5 is true.
+            assertThat(bean.getIndicationColour())
+                    .as("non-numeric measurement data should not trigger any clinical indicator")
+                    .isNull();
+            assertThat(helper.hasProblem())
+                    .as("parse failure should set the problem flag")
+                    .isTrue();
+        }
+
+        /**
+         * Verifies that the hasProblem() guard does NOT interfere with valid numeric
+         * measurements. A valid BMI value should still trigger the correct indicator.
+         */
+        @Test
+        @DisplayName("should set indication color when measurement data is valid")
+        void shouldSetIndicationColor_whenMeasurementDataIsValid() throws Exception {
+            // Single rule: getDataAsDouble() >= 25.0 → "HIGH"
+            String rule = creator.getRule("BMI_HIGH", FACT_CLASS,
+                    Collections.singletonList(new DSCondition("getDataAsDouble", "", ">=", "25.0")),
+                    "m.setIndicationColor(\"HIGH\");");
+
+            KieBase kieBase = creator.getRuleBase("testBmiValid", Collections.singletonList(rule));
+
+            // Create a MeasurementDSHelper with a valid overweight BMI
+            EctMeasurementsDataBean bean = new EctMeasurementsDataBean();
+            bean.setDataField("27.5");
+            bean.setDemo("1");
+            bean.setType("BMI");
+            MeasurementDSHelper helper = new MeasurementDSHelper();
+            helper.mdb = bean;
+
+            KieSession session = kieBase.newKieSession();
+            try {
+                session.insert(helper);
+                session.fireAllRules();
+            } finally {
+                session.dispose();
+            }
+
+            assertThat(bean.getIndicationColour())
+                    .as("valid BMI >= 25.0 should trigger HIGH indicator")
+                    .isEqualTo("HIGH");
+            assertThat(helper.hasProblem())
+                    .as("valid numeric data should not set the problem flag")
+                    .isFalse();
         }
     }
 }

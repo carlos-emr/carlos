@@ -47,10 +47,10 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementD
 rule "CD4"
     when
         m : MeasurementDSHelper()
-        eval( !m.hasProblem() )
         eval( m.setMeasurement("CD4") == true )
         eval( m.getDataAsDouble() >= 200 )
         eval( m.getDataAsDouble() <= 350 )
+        eval( !m.hasProblem() )
     then
         m.log("CD4 RULES IS GETTING RUN");
         m.setInRange(true);

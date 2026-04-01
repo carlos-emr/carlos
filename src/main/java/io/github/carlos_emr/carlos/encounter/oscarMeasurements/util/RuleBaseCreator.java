@@ -270,21 +270,24 @@ public class RuleBaseCreator {
         rule.append("    when\n");
         rule.append("        m : ").append(simpleClassName).append("()\n");
 
-        // Guard against parse errors: skip rule evaluation when MeasurementDSHelper
-        // reports a problem (e.g., non-numeric data in a numeric measurement field).
-        // Without this guard, getDataAsDouble() returns -1 on parse failure, which
-        // can trigger false clinical indicators (e.g., -1 < 18.5 falsely flags "LOW").
-        if ("MeasurementDSHelper".equals(simpleClassName)) {
-            rule.append("        eval( !m.hasProblem() )\n");
-        }
-
         // Each DSCondition becomes a condition expression that calls a method on "m".
         // For example, DSCondition(type="doubleValue", comparison=">=", value="140")
-        // produces: eval( m.doubleValue() >= 140 )
+        // produces:   m.doubleValue() >= 140
         // The DSCondition.getType() method handles method call formatting, including
         // appending "()" for no-arg methods or "(\"param\")" for parameterized methods.
         for (DSCondition cond : conditions) {
             rule.append("        eval( m.").append(cond.getType()).append(" ").append(cond.getComparision()).append(" ").append(cond.getValue()).append(" )\n");
+        }
+
+        // Guard against parse errors: placed AFTER conditions so that parsing methods
+        // like getDataAsDouble() and getNumberFromSplit() have already been called and
+        // had a chance to set the problem flag. Without this ordering, the guard would
+        // check hasProblem() before parsing occurs, making it ineffective.
+        // On parse failure, getDataAsDouble() returns -1 which can satisfy conditions
+        // like "< 18.5", but the post-condition guard catches this by checking the
+        // problem flag that was set during the parse attempt.
+        if (MeasurementDSHelper.class.getSimpleName().equals(simpleClassName)) {
+            rule.append("        eval( !m.hasProblem() )\n");
         }
 
         // "then" clause: the consequence Java code that executes when all conditions match.
