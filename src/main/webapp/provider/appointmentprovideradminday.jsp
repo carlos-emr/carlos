@@ -2523,21 +2523,24 @@
 
     /**
      * Builds the addappointment.jsp URL pre-filled with slot coordinates.
-     * Uses bFirstDisp=false so patient alert and status banners load server-side.
+     * Uses bFirstDisp=true and year/month/day parameters to match the standard
+     * schedule slot link format used throughout the schedule view.
      * Patient name is resolved server-side in addappointment.jsp via demographic_no
      * (no name PHI transmitted through the URL).
-     * Requires appointment_date in YYYY-MM-DD format.
      */
-    function buildApptUrl(ctx, demographicNo, providerNo, startTime, endTime, duration, appointmentDate) {
+    function buildApptUrl(ctx, demographicNo, providerNo, startTime, endTime, duration, year, month, day) {
+        var mm = String(month).padStart(2, '0');
+        var dd = String(day).padStart(2, '0');
         return ctx + '/appointment/addappointment.jsp'
             + '?demographic_no='   + encodeURIComponent(demographicNo)
             + '&provider_no='      + encodeURIComponent(providerNo)
-            + '&bFirstDisp=false'
-            + '&appointment_date=' + encodeURIComponent(appointmentDate)
+            + '&bFirstDisp=true'
+            + '&year='             + encodeURIComponent(String(year))
+            + '&month='            + encodeURIComponent(mm)
+            + '&day='              + encodeURIComponent(dd)
             + '&start_time='       + encodeURIComponent(startTime)
             + '&end_time='         + encodeURIComponent(endTime)
-            + '&duration='         + encodeURIComponent(String(duration))
-            + '&status=t';
+            + '&duration='         + encodeURIComponent(String(duration));
     }
 
     (function() {
@@ -2861,14 +2864,9 @@
                     var endMM      = endMins % 60;
                     var endTime    = (endHH < 10 ? '0' : '') + endHH + ':' + (endMM < 10 ? '0' : '') + endMM;
 
-                    // Format appointment_date as YYYY-MM-DD (required by addappointment.jsp when bFirstDisp=false)
-                    var mm = String(slot.month).padStart(2, '0');
-                    var dd = String(slot.day).padStart(2, '0');
-                    var appointmentDate = slot.year + '-' + mm + '-' + dd;
-
                     // Store pending appointment in sessionStorage so the page-load handler can open the popup.
                     // Only scheduling coordinates are stored (no PHI); patient name is resolved server-side
-                    // by addappointment.jsp via demographic_no. appointmentDate is derived on load from year/month/day.
+                    // by addappointment.jsp via demographic_no.
                     try {
                         sessionStorage.setItem('carlosPendingAppt', JSON.stringify({
                             demographicNo: item.demographicNo,
@@ -2883,7 +2881,7 @@
                     } catch (storageErr) {
                         // sessionStorage unavailable — open popup directly (no schedule navigation)
                         popupPage(360, 780, buildApptUrl(ctx, item.demographicNo,
-                            slot.providerNo, slot.startTime, endTime, slot.duration, appointmentDate));
+                            slot.providerNo, slot.startTime, endTime, slot.duration, slot.year, slot.month, slot.day));
                         hideDropdown();
                         return;
                     }
@@ -3009,17 +3007,15 @@
         if (!pending || !pending.startTime) return;
 
         var ctx2 = document.getElementById('contextPath').value;
-        // Derive appointmentDate from stored year/month/day (not stored directly to avoid PHI concerns)
-        var mm2 = String(pending.month || '').padStart(2, '0');
-        var dd2 = String(pending.day || '').padStart(2, '0');
-        var derivedApptDate = pending.year ? (pending.year + '-' + mm2 + '-' + dd2) : '';
         var popupUrl = buildApptUrl(ctx2,
             pending.demographicNo,
             pending.providerNo,
             pending.startTime,
             pending.endTime || '',
             pending.duration,
-            derivedApptDate);
+            pending.year,
+            pending.month,
+            pending.day);
 
         // Wait for the page to finish rendering before opening the popup
         window.addEventListener('load', function() {
