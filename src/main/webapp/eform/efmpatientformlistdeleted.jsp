@@ -104,7 +104,7 @@
 			}
 
 			function updateAjax() {
-				let parentAjaxId = "<%=parentAjaxId%>";
+				let parentAjaxId = "<%=Encode.forJavaScript(parentAjaxId)%>";
 				if( parentAjaxId !== "null" ) {
 					window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
 					window.opener.updateNeeded = true;
@@ -193,12 +193,12 @@
 		<div class="menu-columns">
 			<div class="left-column">
 
-				<a href="${pageContext.request.contextPath}/demographic/demographiccontrol.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>&displaymode=edit&dboperation=search_detail"><fmt:message key="demographic.demographiceditdemographic.btnMasterFile" /></a>
+				<a href="${pageContext.request.contextPath}/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forHtmlAttribute(demographic_no)%>&appointment=<%=Encode.forHtmlAttribute(appointment)%>&displaymode=edit&dboperation=search_detail"><fmt:message key="demographic.demographiceditdemographic.btnMasterFile" /></a>
 
 				
-				<a href="efmformslistadd.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>" class="current"> 
+				<a href="efmformslistadd.jsp?demographic_no=<%=Encode.forHtmlAttribute(demographic_no)%>&appointment=<%=Encode.forHtmlAttribute(appointment)%>&parentAjaxId=<%=Encode.forHtmlAttribute(parentAjaxId)%>" class="current"> 
                     <fmt:message key="eform.showmyform.btnAddEForm"/></a>
-				<a href="efmpatientformlist.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>">
+				<a href="efmpatientformlist.jsp?demographic_no=<%=Encode.forHtmlAttribute(demographic_no)%>&appointment=<%=Encode.forHtmlAttribute(appointment)%>&parentAjaxId=<%=Encode.forHtmlAttribute(parentAjaxId)%>">
                     <fmt:message key="eform.calldeletedformdata.btnGoToForm"/></a>
 <%--			<a href="efmpatientformlistdeleted.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>">
                     <fmt:message key="eform.showmyform.btnDeleted"/></a>--%>
@@ -241,7 +241,7 @@
 						<td><%=Encode.forHtmlContent((String)curform.get("formSubject"))%></td>
 						<td ><%=curform.get("formDate")%></td>
 						<td ><a
-								href="javascript:void(0);" onClick="if(confirm('Are you sure you want to restore this eform?')){unRemoveEForm('<%=curform.get("fdid")%>','<%=demographic_no%>','<%=parentAjaxId%>');}">
+								href="javascript:void(0);" onClick="if(confirm('Are you sure you want to restore this eform?')){unRemoveEForm('<%=curform.get("fdid")%>','<%=Encode.forJavaScript(demographic_no)%>','<%=Encode.forJavaScript(parentAjaxId)%>');}">
                                     <fmt:message key="global.btnRestore" /></a></td>
 					</tr>
 					<%

@@ -34,6 +34,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%
     String id = request.getParameter("id");
     StringUtils.trimToEmpty(id);
@@ -41,12 +42,12 @@
     request.setAttribute("providers", providerDao.getActiveProviders());
 %>
 
-<div id="contact_<%=id%>">
-    <input type="hidden" name="contact_<%=id%>.id" id="contact_<%=id%>.id" value=""/>
+<div id="contact_<%=Encode.forHtmlAttribute(id)%>">
+    <input type="hidden" name="contact_<%=Encode.forHtmlAttribute(id)%>.id" id="contact_<%=Encode.forHtmlAttribute(id)%>.id" value=""/>
 
-    <a href="#" onclick="deleteContact(<%=id%>);">[Delete]</a>
+    <a href="#" onclick="deleteContact(<%=Encode.forJavaScript(id)%>);">[Delete]</a>
 
-    <select name="contact_<%=id%>.role" id="contact_<%=id%>.role">
+    <select name="contact_<%=Encode.forHtmlAttribute(id)%>.role" id="contact_<%=Encode.forHtmlAttribute(id)%>.role">
         <option value="Mother">Mother</option>
         <option value="Father">Father</option>
         <option value="Parent">Parent</option>
@@ -76,14 +77,14 @@
 
     &nbsp;
 
-    <select name="contact_<%=id%>.consentToContact" id="procontact_<%=id%>.consentToContact" title="Consent to Contact">
+    <select name="contact_<%=Encode.forHtmlAttribute(id)%>.consentToContact" id="procontact_<%=Encode.forHtmlAttribute(id)%>.consentToContact" title="Consent to Contact">
         <option value="1">Consent</option>
         <option value="0">No Consent</option>
     </select>
 
     &nbsp;
 
-    <select name="contact_<%=id%>.active" id="procontact_<%=id%>.active" title="Active">
+    <select name="contact_<%=Encode.forHtmlAttribute(id)%>.active" id="procontact_<%=Encode.forHtmlAttribute(id)%>.active" title="Active">
         <option value="1">Active</option>
         <option value="0">Inactive</option>
     </select>
@@ -91,18 +92,18 @@
     &nbsp;
     <!--  they can be an internal (Demographic) or external (Contact) contact -->
 
-    <select name="contact_<%=id%>.type" id="contact_<%=id%>.type">
+    <select name="contact_<%=Encode.forHtmlAttribute(id)%>.type" id="contact_<%=Encode.forHtmlAttribute(id)%>.type">
         <option value="<%=DemographicContact.TYPE_DEMOGRAPHIC%>">Internal</option>
         <option value="<%=DemographicContact.TYPE_CONTACT%>">External</option>
     </select>
 
-    <input type="hidden" name="contact_<%=id%>.contactId" value="0"/>
-    <input type="text" name="contact_<%=id%>.contactName" id="contact_<%=id%>.contactName" size="20"
+    <input type="hidden" name="contact_<%=Encode.forHtmlAttribute(id)%>.contactId" value="0"/>
+    <input type="text" name="contact_<%=Encode.forHtmlAttribute(id)%>.contactName" id="contact_<%=Encode.forHtmlAttribute(id)%>.contactName" size="20"
            readonly="readonly"/>
-    <a href="#" onclick="doPersonalSearch('<%=id%>');return false;">${param.search}</a>
+    <a href="#" onclick="doPersonalSearch('<%=Encode.forJavaScript(id)%>');return false;">${param.search}</a>
 
     &nbsp;
-    SDM:<input type="checkbox" name="contact_<%=id%>.sdm"/>
-    EC:<input type="checkbox" name="contact_<%=id%>.ec"/>
-    <textarea name="contact_<%=id%>.note" rows="3" cols="25" title="Contact Note"></textarea>
+    SDM:<input type="checkbox" name="contact_<%=Encode.forHtmlAttribute(id)%>.sdm"/>
+    EC:<input type="checkbox" name="contact_<%=Encode.forHtmlAttribute(id)%>.ec"/>
+    <textarea name="contact_<%=Encode.forHtmlAttribute(id)%>.note" rows="3" cols="25" title="Contact Note"></textarea>
 </div>

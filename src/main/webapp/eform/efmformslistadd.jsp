@@ -126,7 +126,7 @@ Ontario, Canada
 			}
 
 			function updateAjax() {
-				var parentAjaxId = "<%=parentAjaxId%>";
+				var parentAjaxId = "<%=Encode.forJavaScript(parentAjaxId)%>";
 				if (parentAjaxId != "null") {
 					window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
 					window.opener.updateNeeded = true;
@@ -198,18 +198,18 @@ Ontario, Canada
 
             <div class="left-column">
 
-                <a href="${pageContext.request.contextPath}/demographic/demographiccontrol.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>&displaymode=edit&dboperation=search_detail">
+                <a href="${pageContext.request.contextPath}/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forHtmlAttribute(demographic_no)%>&appointment=<%=Encode.forHtmlAttribute(appointment)%>&displaymode=edit&dboperation=search_detail">
                     <fmt:message key="demographic.demographiceditdemographic.btnMasterFile"/></a>
-                <a href="efmformslistadd.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>"
+                <a href="efmformslistadd.jsp?demographic_no=<%=Encode.forHtmlAttribute(demographic_no)%>&appointment=<%=Encode.forHtmlAttribute(appointment)%>&parentAjaxId=<%=Encode.forHtmlAttribute(parentAjaxId)%>"
                    class="current"> <fmt:message key="eform.showmyform.btnAddEForm"/></a>
                 <jsp:include page="efmviewgroups.jsp">
                     <jsp:param name="url" value="${pageContext.request.contextPath}/eform/efmformslistadd.jsp"/>
                     <jsp:param name="groupView" value="<%=groupView%>"/>
                 </jsp:include>
 
-                <a href="efmpatientformlist.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>">
+                <a href="efmpatientformlist.jsp?demographic_no=<%=Encode.forHtmlAttribute(demographic_no)%>&appointment=<%=Encode.forHtmlAttribute(appointment)%>&parentAjaxId=<%=Encode.forHtmlAttribute(parentAjaxId)%)">
                     <fmt:message key="eform.calldeletedformdata.btnGoToForm"/></a>
-                <a href="efmpatientformlistdeleted.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>">
+                <a href="efmpatientformlistdeleted.jsp?demographic_no=<%=Encode.forHtmlAttribute(demographic_no)%>&appointment=<%=Encode.forHtmlAttribute(appointment)%>&parentAjaxId=<%=Encode.forHtmlAttribute(parentAjaxId)%>">
                     <fmt:message key="eform.showmyform.btnDeleted"/></a>
 
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="w"
@@ -244,7 +244,7 @@ Ontario, Canada
                     <tr>
                         <td>
                             <a HREF="#"
-                               ONCLICK="popupPage('efmformadd_data.jsp?fid=<%=curForm.get("fid")%>&demographic_no=<%=demographic_no%>&appointment=<%=appointment%>','<%=curForm.get("fid") + "_" + demographic_no %>'); return true;"
+                               ONCLICK="popupPage('efmformadd_data.jsp?fid=<%=curForm.get("fid")%>&demographic_no=<%=Encode.forJavaScript(demographic_no)%>&appointment=<%=Encode.forJavaScript(appointment)%>','<%=curForm.get("fid") + "_" + Encode.forJavaScript(demographic_no) %>'); return true;"
                                TITLE='Add This eForm' OnMouseOver="window.status='Add This eForm' ; return true">
                                 <%= Encode.forHtmlContent((String) curForm.get("formName")) %>
                             </a></td>

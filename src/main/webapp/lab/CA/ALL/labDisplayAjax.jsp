@@ -384,22 +384,22 @@
         }
     };
 </script>
-<div id="labdoc_<%=segmentID%>">
+<div id="labdoc_<%=Encode.forHtmlAttribute(segmentID)%>">
     <!-- form forwarding of the lab -->
-    <form name="reassignForm_<%=segmentID%>" method="post">
-        <input type="hidden" name="flaggedLabs" value="<%= segmentID %>"/>
+    <form name="reassignForm_<%=Encode.forHtmlAttribute(segmentID)%>" method="post">
+        <input type="hidden" name="flaggedLabs" value="<%= Encode.forHtmlAttribute(segmentID) %>"/>
         <input type="hidden" name="selectedProviders" value=""/>
         <input type="hidden" name="labType" value="HL7"/>
-        <input type="hidden" name="labType<%= segmentID %>HL7" value="imNotNull"/>
-        <input type="hidden" name="providerNo" id="providerNo" value="<%= providerNo %>"/>
+        <input type="hidden" name="labType<%= Encode.forHtmlAttribute(segmentID) %>HL7" value="imNotNull"/>
+        <input type="hidden" name="providerNo" id="providerNo" value="<%= Encode.forHtmlAttribute(providerNo) %>"/>
         <input type="hidden" name="ajax" value="yes"/>
     </form>
-    <form name="labLabelForm" id="labLabelForm<%=segmentID%>" method='POST'
-          onsubmit="createLabLabel('labLabelForm<%=segmentID%>');" action="javascript:void(0);">
+    <form name="labLabelForm" id="labLabelForm<%=Encode.forHtmlAttribute(segmentID)%>" method='POST'
+          onsubmit="createLabLabel('labLabelForm<%=Encode.forJavaScript(segmentID)%>');" action="javascript:void(0);">
         <input type="hidden" id="labNum" name="lab_no" value="<%=lab_no%>">
         <input type="hidden" id="label" name="label" value="<%=Encode.forHtmlAttribute(label)%>">
     </form>
-    <form name="acknowledgeForm" id="acknowledgeForm_<%=segmentID%>" onsubmit="javascript:void(0);" method="post"
+    <form name="acknowledgeForm" id="acknowledgeForm_<%=Encode.forHtmlAttribute(segmentID)%>" onsubmit="javascript:void(0);" method="post"
           action="javascript:void(0);">
 
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
@@ -408,58 +408,58 @@
                     <table width="100%" border="0" cellspacing="0" cellpadding="3">
                         <tr>
                             <td align="left" class="MainTableTopRowRightColumn" width="100%">
-                                <input type="hidden" name="segmentID" value="<%= segmentID %>"/>
+                                <input type="hidden" name="segmentID" value="<%= Encode.forHtmlAttribute(segmentID) %>"/>
                                 <input type="hidden" name="multiID" value="<%= multiLabId %>"/>
-                                <input type="hidden" name="providerNo" value="<%= providerNo %>"/>
-                                <input type="hidden" name="status" value="<%=labStatus%>"/ id="status_<%=segmentID%>">
-                                <input type="hidden" name="comment" value=""/ id="comment_<%=segmentID%>">
+                                <input type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo) %>"/>
+                                <input type="hidden" name="status" value="<%=labStatus%>"/ id="status_<%=Encode.forHtmlAttribute(segmentID)%>">
+                                <input type="hidden" name="comment" value=""/ id="comment_<%=Encode.forHtmlAttribute(segmentID)%>">
                                 <input type="hidden" name="labType" value="HL7"/>
                                 <input type="hidden" name="ajaxcall" value="yes"/>
-                                <input type="hidden" id="demoName<%=segmentID%>"
+                                <input type="hidden" id="demoName<%=Encode.forHtmlAttribute(segmentID)%>"
                                        value="<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>"/>
                                 <% if (!ackFlag) { %>
                                 <input type="button"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
                                        onclick="<%=ackLabFunc%>">
                                 <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
-                                       onclick="return getComment('<%=segmentID%>','addComment');">
+                                       onclick="return getComment('<%=Encode.forJavaScript(segmentID)%>','addComment');">
                                 <% } %>
                                 <input type="button" class="smallButton"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
-                                       onClick="popupStart(300, 400, '<%= request.getContextPath() %>/oscarMDS/SelectProviderAltView.jsp?doc_no=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>', 'providerselect')">
+                                       onClick="popupStart(300, 400, '<%= request.getContextPath() %>/oscarMDS/SelectProviderAltView.jsp?doc_no=<%=Encode.forJavaScript(segmentID)%>&providerNo=<%=Encode.forJavaScript(providerNo)%>&searchProviderNo=<%=searchProviderNo%>', 'providerselect')">
                                 <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
-                                       onClick="printPDF('<%=segmentID%>')">
+                                       onClick="printPDF('<%=Encode.forJavaScript(segmentID)%>')">
 
-                                <input type="button" value="Msg" onclick="handleLab('','<%=segmentID%>','msgLab');"/>
+                                <input type="button" value="Msg" onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','msgLab');"/>
                                 <input type="button" value="Tickler"
-                                       onclick="handleLab('','<%=segmentID%>','ticklerLab');"/>
+                                       onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','ticklerLab');"/>
 
                                 <% if (searchProviderNo != null) { // null if we were called from e-chart%>
                                 <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-                                       onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= segmentID %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
+                                       onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
                                 <% } %>
                                 <input type="button" value="Req# <%=reqTableID%>" title="Link to Requisition"
-                                       onclick="linkreq('<%=segmentID%>','<%=reqID%>');"/>
+                                       onclick="linkreq('<%=Encode.forJavaScript(segmentID)%>','<%=reqID%>');"/>
 
                                 <% if (recall) {%>
                                 <input type="button" value="Recall"
-                                       onclick="handleLab('','<%=segmentID%>','msgLabRecall');">
+                                       onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','msgLabRecall');">
                                 <%}%>
 
                                 <% if (!label.equals(null) && !label.equals("")) { %>
                                 <button type="button" id="createLabel" value="Label"
-                                        onClick="createLabLabel('labLabelForm<%=segmentID%>','acknowledgeForm_<%=segmentID%>','labelspan_<%=segmentID%>','label_<%=segmentID%>')">
+                                        onClick="createLabLabel('labLabelForm<%=Encode.forJavaScript(segmentID)%>','acknowledgeForm_<%=Encode.forJavaScript(segmentID)%>','labelspan_<%=Encode.forJavaScript(segmentID)%>','label_<%=Encode.forJavaScript(segmentID)%>')">
                                     Label
                                 </button>
                                 <%} else { %>
                                 <button type="button" id="createLabel" style="background-color:#6699FF" value="Label"
-                                        onClick="createLabLabel('labLabelForm<%=segmentID%>','acknowledgeForm_<%=segmentID%>','labelspan_<%=segmentID%>','label_<%=segmentID%>')">
+                                        onClick="createLabLabel('labLabelForm<%=Encode.forJavaScript(segmentID)%>','acknowledgeForm_<%=Encode.forJavaScript(segmentID)%>','labelspan_<%=Encode.forJavaScript(segmentID)%>','label_<%=Encode.forJavaScript(segmentID)%>')">
                                     Label
                                 </button>
                                 <%} %>
 
 
-                                <input type="text" id="label_<%=segmentID%>" name="label" value=""/>
+                                <input type="text" id="label_<%=Encode.forHtmlAttribute(segmentID)%>" name="label" value=""/>
                                 <% String labelval = "";
                                     if (label != "" && label != null) {
                                         labelval = label;
@@ -467,7 +467,7 @@
                                         labelval = "(not set)";
 
                                     } %>
-                                <span id="labelspan_<%=segmentID%>" class="Field2"><i>Label: <%=Encode.forHtml(labelval)%> </i></span>
+                                <span id="labelspan_<%=Encode.forHtmlAttribute(segmentID)%>" class="Field2"><i>Label: <%=Encode.forHtml(labelval)%> </i></span>
                                 <span class="Field2"><i>Next Appointment: <oscar:nextAppt
                                         demographicNo="<%=demographicID%>"/></i></span>
                             </td>
@@ -491,11 +491,11 @@
                                 } else {
                                     if (searchProviderNo != null) { // null if we were called from e-chart
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= providerNo %>&searchProviderNo=<%= searchProviderNo %>', 'labVersion');">v<%= i + 1 %>
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forJavaScript(providerNo) %>&searchProviderNo=<%= searchProviderNo %>', 'labVersion');">v<%= i + 1 %>
                                 </a>&#160;<%
                                 } else {
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= providerNo %>', 'labVersion');">v<%= i + 1 %>
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forJavaScript(providerNo) %>', 'labVersion');">v<%= i + 1 %>
                                 </a>&#160;<%
                                             }
                                         }
@@ -503,10 +503,10 @@
                                     if (multiID.length > 1) {
                                         if (searchProviderNo != null) { // null if we were called from e-chart
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=segmentID%>&multiID=<%=multiLabId%>&providerNo=<%= providerNo %>&searchProviderNo=<%= searchProviderNo %>&all=true', 'labVersion');">All</a>&#160;<%
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=Encode.forJavaScript(segmentID)%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forJavaScript(providerNo) %>&searchProviderNo=<%= searchProviderNo %>&all=true', 'labVersion');">All</a>&#160;<%
                                 } else {
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=segmentID%>&multiID=<%=multiLabId%>&providerNo=<%= providerNo %>&all=true', 'labVersion');">All</a>&#160;<%
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=Encode.forJavaScript(segmentID)%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forJavaScript(providerNo) %>&all=true', 'labVersion');">All</a>&#160;<%
                                         }
                                     }
                                 %>
@@ -539,7 +539,7 @@
                                                     <td valign="top" align="left">
                                                         <table width="100%" border="0" cellpadding="2" cellspacing="0"
                                                                valign="top"  <% if (demographicID.equals("") || demographicID.equals("0")) { %>
-                                                               bgcolor="orange" <% } %> id="DemoTable<%=segmentID%>">
+                                                               bgcolor="orange" <% } %> id="DemoTable<%=Encode.forHtmlAttribute(segmentID)%>">
                                                             <tr>
                                                                 <td nowrap>
                                                                     <div class="FieldData">
@@ -552,7 +552,7 @@
                                                                         %>
                                                                         <a href="javascript:window.close()"><% } else { // we were called from lab module
                                                                         %></a>
-                                                                        <a href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= segmentID %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
+                                                                        <a href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
                                                                             <% } %>
                                                                             <%=Encode.forHtml(handler.getPatientName())%>
                                                                         </a>
@@ -880,8 +880,8 @@
                                                         commentTitle = "comment: ";
                                                     }
                                                 %>
-                                                <span id="<%="V" + j + "commentLabel" + segmentID + report.getProviderNo()%>"><%=commentTitle%></span><span
-                                                    id="<%="V" + j + "commentText" + segmentID + report.getProviderNo()%>"> <%=report.getComment() == null ? "" : Encode.forHtml(report.getComment())%></span>
+                                                <span id="<%="V" + j + "commentLabel" + Encode.forHtmlAttribute(segmentID) + report.getProviderNo()%>"><%=commentTitle%></span><span
+                                                    id="<%="V" + j + "commentText" + Encode.forHtmlAttribute(segmentID) + report.getProviderNo()%>"> <%=report.getComment() == null ? "" : Encode.forHtml(report.getComment())%></span>
 
                                                 <br>
                                                 <% }
@@ -1287,16 +1287,16 @@
                         <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
                                onclick="<%=ackLabFunc%>">
                         <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
-                               onclick="getComment('<%=segmentID%>','addComment')">
+                               onclick="getComment('<%=Encode.forJavaScript(segmentID)%>','addComment')">
                         <% } %>
                         <input type="button" class="smallButton" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
-                               onClick="popupStart(300, 400, '${pageContext.request.contextPath}/oscarMDS/SelectProviderAltView.jsp?doc_no=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>', 'providerselect')">
+                               onClick="popupStart(300, 400, '${pageContext.request.contextPath}/oscarMDS/SelectProviderAltView.jsp?doc_no=<%=Encode.forJavaScript(segmentID)%>&providerNo=<%=Encode.forJavaScript(providerNo)%>&searchProviderNo=<%=searchProviderNo%>', 'providerselect')">
 
                         <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
-                               onClick="printPDF('<%=segmentID%>')">
+                               onClick="printPDF('<%=Encode.forJavaScript(segmentID)%>')">
                         <% if (searchProviderNo != null) { // we were called from e-chart %>
                         <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-                               onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= segmentID %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
+                               onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
 
                         <% } %>
                     </td>
@@ -1310,7 +1310,7 @@
             <tr>
                 <td colspan="1"><a style="color:white;" href="javascript:void(0);"
                                    onclick="showHideItem('rawhl7_<%=segmentID%>');">show/hide</a>
-                    <pre id="rawhl7_<%=segmentID%>" style="display:none;"><%=hl7%></pre>
+                    <pre id="rawhl7_<%=Encode.forHtmlAttribute(segmentID)%>" style="display:none;"><%=hl7%></pre>
                 </td>
             </tr>
             <tr>

@@ -66,6 +66,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <jsp:useBean id="LastPatientsBean" class="java.util.ArrayList" scope="session"/>
 
@@ -262,7 +263,7 @@
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/demographicProviderAutocomplete.css"/>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/autocomplete.css"/>
     <script type="text/javascript">
-        var curPage =<%=pdfPageNumber%>;
+        var curPage =<%=Encode.forJavaScript(pdfPageNumber)%>;
         var totalPage =<%=numOfPage%>;
         var ctx = '<%= request.getContextPath() %>';
 
@@ -589,7 +590,7 @@
         }
 
         function checkDocument() {
-            var n = "<%=pdfName%>";
+            var n = "<%=Encode.forJavaScript(pdfName)%>";
             if (n.length == 0) {
                 alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.nothingToSave"/>");
                 return false;
@@ -811,12 +812,12 @@
             <td align="left" valign="top">
                 <form method="post" name="PdfInfoForm" action="incomingDocs.jsp">
                     <input type="hidden" name="pdfNo" value="<%=pdfNo%>">
-                    <input type="hidden" name="pdfDir" value="<%=pdfDir%>">
-                    <input type="hidden" name="pdfName" value="<%=pdfName%>">
+                    <input type="hidden" name="pdfDir" value="<%=Encode.forHtmlAttribute(pdfDir)%>">
+                    <input type="hidden" name="pdfName" value="<%=Encode.forHtmlAttribute(pdfName)%>">
                     <input type="hidden" name="pdfAction" value="">
                     <input type="hidden" name="pdfPageNumber" value="1">
                     <input type="hidden" name="pdfExtractPageNumber" value="">
-                    <input type="hidden" name="imageType" value="<%=imageType%>">
+                    <input type="hidden" name="imageType" value="<%=Encode.forHtmlAttribute(imageType)%>">
                     <input type="hidden" name="defaultQueue" value="<%=queueIdStr%>">
                     <input type="hidden" name="entryMode" value="<%=entryMode%>">
                     <table width="350">
@@ -979,8 +980,8 @@
                     </legend>
                     <form id="forms_" method="post" action="ManageDocument.do">
                         <input type="hidden" name="method" value="addIncomingDocument"/>
-                        <input type="hidden" name="pdfDir" value="<%=pdfDir%>">
-                        <input type="hidden" name="pdfName" value="<%=pdfName%>">
+                        <input type="hidden" name="pdfDir" value="<%=Encode.forHtmlAttribute(pdfDir)%>">
+                        <input type="hidden" name="pdfName" value="<%=Encode.forHtmlAttribute(pdfName)%>">
                         <input type="hidden" name="queueId" value="<%=queueIdStr%>">
                         <input type="hidden" name="pdfNo" value="<%=pdfNo%>">
                         <input type="hidden" name="queue" value="1">

@@ -216,16 +216,16 @@
                 <table width="100%">
                     <tr>
                         <td align="left" valign="center" width="30%"><input
-                                type="hidden" name="providerNo" value="<%= providerNo %>">
+                                type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo) %>">
                             <input type="hidden" name="searchProviderNo"
-                                   value="<%= searchProviderNo %>"> <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + request.getParameter("lname") + "\">") %>
+                                   value="<%= Encode.forHtmlAttribute(searchProviderNo) %>"> <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + request.getParameter("lname") + "\">") %>
                             <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + request.getParameter("fname") + "\">") %>
                             <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + request.getParameter("hnum") + "\">") %>
-                            <input type="hidden" name="status" value="<%= ackStatus %>">
+                            <input type="hidden" name="status" value="<%= Encode.forHtmlAttribute(ackStatus) %>">
                             <input type="hidden" name="selectedProviders"> <% if (demographicNo == null) { %>
                             <input type="button" class="smallButton"
                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnSearch"/>"
-                                   onClick="window.location='Search.jsp?providerNo=<%= providerNo %>'">
+                                   onClick="window.location='Search.jsp?providerNo=<%= Encode.forJavaScript(providerNo) %>'">
                             <% } %> <input type="button" class="smallButton"
                                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnClose"/>"
                                            onClick="window.close()">
@@ -233,7 +233,7 @@
                             <% if (demographicNo == null && request.getParameter("fname") != null) { %>
                             <input type="button" class="smallButton"
                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnDefaultView"/>"
-                                   onClick="window.location='lab/DemographicLab.jsp?providerNo=<%= providerNo %>'">
+                                   onClick="window.location='lab/DemographicLab.jsp?providerNo=<%= Encode.forJavaScript(providerNo) %>'">
                             <% } %> <% if (demographicNo == null && labs.size() > 0) { %>
                             <!-- <input type="button" class="smallButton" value="Reassign" onClick="popupStart(300, 400, 'SelectProvider.jsp', 'providerselect')"> -->
                             <input type="button" class="smallButton"
@@ -361,13 +361,13 @@
                             <% if (demographicNo == null) { %> <input type="button"
                                                                       class="smallButton"
                                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnSearch"/>"
-                                                                      onClick="window.location='Search.jsp?providerNo=<%= providerNo %>'">
+                                                                      onClick="window.location='Search.jsp?providerNo=<%= Encode.forJavaScript(providerNo) %>'">
                             <% } %> <input type="button" class="smallButton"
                                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnClose"/>"
                                            onClick="window.close()"> <% if (request.getParameter("fname") != null) { %>
                             <input type="button" class="smallButton"
                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnDefaultView"/>"
-                                   onClick="window.location='lab/DemographicLab.jsp?providerNo=<%= providerNo %>'">
+                                   onClick="window.location='lab/DemographicLab.jsp?providerNo=<%= Encode.forJavaScript(providerNo) %>'">
                             <% } %> <% if (demographicNo == null && labs.size() > 0) { %>
                             <!-- <input type="button" class="smallButton" value="Reassign" onClick="popupStart(300, 400, 'SelectProvider.jsp', 'providerselect')"> -->
                             <input type="button" class="smallButton"

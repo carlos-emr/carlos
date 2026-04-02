@@ -474,16 +474,16 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
     <body class="BodyStyle" id="printFlowsheetBody">
 
     <form action="TemplateFlowSheetPrint.jsp" id="flowsheetPrintForm" method="post" class="d-flex flex-wrap align-items-center gap-2">
-        <input type="hidden" name="demographic_no" value="<%=demographic_no%>"/>
-        <input type="hidden" name="template" value="<%=temp%>"/>
+        <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>"/>
+        <input type="hidden" name="template" value="<%=Encode.forHtmlAttribute(temp)%>"/>
         <input type="hidden" name="printView" value="true"/>
 
         <div id="wrapper-header">
 
             <div class="module-block DoNotPrint">
                 <%if (!printView) {%>
-                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>"
-                   title="go back to <%=temp%>">&lt;&lt; <%=flowSheet%>
+                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=Encode.forHtmlAttribute(demographic_no)%>&template=<%=Encode.forHtmlAttribute(temp)%>"
+                   title="go back to <%=Encode.forHtmlAttribute(temp)%>">&lt;&lt; <%=flowSheet%>
                 </a> <br/>
                 <a href="JavaScript:void(0);" class="back" title="go back to <%=flowSheet%>"></a>
 
@@ -537,11 +537,11 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                     view:
                     <div class="btn-group">
-                        <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>"
+                        <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=Encode.forHtmlAttribute(demographic_no)%>&template=<%=Encode.forHtmlAttribute(temp)%>"
                            id="all-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">All</a>
-                        <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>&show=lastOnly"
+                        <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=Encode.forHtmlAttribute(demographic_no)%>&template=<%=Encode.forHtmlAttribute(temp)%>&show=lastOnly"
                            id="lastOnly-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">Last Only</a>
-                        <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>&show=outOfRange"
+                        <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=Encode.forHtmlAttribute(demographic_no)%>&template=<%=Encode.forHtmlAttribute(temp)%>&show=outOfRange"
                            id="outOfRange-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">Out of
                             Range</a>
                     </div>
