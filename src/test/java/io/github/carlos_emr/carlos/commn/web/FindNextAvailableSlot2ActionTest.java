@@ -305,11 +305,11 @@ class FindNextAvailableSlot2ActionTest extends CarlosWebTestBase {
             Map<String, Object> result = executeAndParseJson();
 
             assertThat(result.get("found")).isEqualTo(false);
-            assertThat(result.get("lookaheadDays")).isEqualTo(90);
+            assertThat(result.get("lookaheadDays")).isEqualTo(180);
         }
 
         @Test
-        @DisplayName("Should return found=false with lookaheadDays when all slots closed for 90 days")
+        @DisplayName("Should return found=false with lookaheadDays when all slots closed for 180 days")
         void shouldReturnNotFound_whenAllSlotsClosed() throws Exception {
             addRequestParameter("providerNos", TEST_PROVIDER);
             // Only underscore (closed) slots
@@ -318,7 +318,7 @@ class FindNextAvailableSlot2ActionTest extends CarlosWebTestBase {
             Map<String, Object> result = executeAndParseJson();
 
             assertThat(result.get("found")).isEqualTo(false);
-            assertThat(result.get("lookaheadDays")).isEqualTo(90);
+            assertThat(result.get("lookaheadDays")).isEqualTo(180);
         }
 
         @Test
