@@ -90,7 +90,13 @@ public final class ImageRenderingServlet extends HttpServlet {
                 logger.warn("An error we can't handle that's expected infrequently. " + e.getMessage());
             } else {
                 logger.error("Unexpected error. qs=" + request.getQueryString(), e);
-                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                if (!response.isCommitted()) {
+                    try {
+                        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    } catch (IOException ioe) {
+                        logger.error("Failed to send error response", ioe);
+                    }
+                }
             }
         }
     }

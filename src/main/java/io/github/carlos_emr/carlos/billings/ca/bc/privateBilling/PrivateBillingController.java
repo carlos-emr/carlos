@@ -23,6 +23,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+
 /**
  * HTTP servlet controller for managing private billing operations in British Columbia.
  * <p>
@@ -51,6 +54,7 @@ import io.github.carlos_emr.carlos.clinic.ClinicData;
  * @since 2026-01-23
  */
 public class PrivateBillingController extends HttpServlet {
+    private static final Logger logger = MiscUtils.getLogger();
     private static String LIST_PRIVATE_BILLS = "billing/CA/BC/privateBilling/viewStatement.jsp";
     private static String PRINT_PREVIEW_BILLS = "billing/CA/BC/privateBilling/printPreview.jsp";
     private PrivateBillingDAO dao;
@@ -106,9 +110,11 @@ public class PrivateBillingController extends HttpServlet {
             RequestDispatcher view = request.getRequestDispatcher(forward);
             view.forward(request, response);
         } catch (ServletException e) {
-            e.printStackTrace();
+            logger.error("Error listing private bills", e);
+            throw e;
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("Error listing private bills", e);
+            throw e;
         }
     }
 
@@ -219,9 +225,11 @@ public class PrivateBillingController extends HttpServlet {
             RequestDispatcher view = request.getRequestDispatcher(forward);
             view.forward(request, response);
         } catch (ServletException e) {
-            e.printStackTrace();
+            logger.error("Error generating print preview for private bills", e);
+            throw e;
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("Error generating print preview for private bills", e);
+            throw e;
         }
     }
 
@@ -243,25 +251,26 @@ public class PrivateBillingController extends HttpServlet {
      * @param response HttpServletResponse the servlet response for forwarding to the appropriate view
      * @throws ServletException if request forwarding fails
      * @throws IOException if an I/O error occurs during request processing
-     * @throws NullPointerException if the action parameter is null (caught and handled internally)
      */
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException, NullPointerException {
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String forward = "";
         String action = request.getParameter("action");
         try {
-            if (action.equalsIgnoreCase("listPrivateBills")) {
-                listPrivateBills(request, response, forward);
-            } else if (action.equalsIgnoreCase("printPreviewBills")) {
+            if ("printPreviewBills".equalsIgnoreCase(action)) {
                 printPreviewBills(request, response, forward);
             } else {
-                // missing 'billIds' parameters, go back to default action 'LIST_PRIVATE_BILLS'
+                // Default action (listPrivateBills) handles null, "listPrivateBills", and any unknown action value
                 listPrivateBills(request, response, forward);
             }
-        } catch (NullPointerException e) {
-            // action is not provided, by default forward to LIST_PRIVATE_BILLS
-            listPrivateBills(request, response, forward);
-        } catch (ServletException e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            logger.error("Error processing private billing request for {}", request.getRequestURI(), e);
+            if (!response.isCommitted()) {
+                try {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
+                } catch (IOException ioe) {
+                    logger.error("Failed to send error response", ioe);
+                }
+            }
         }
     }
 

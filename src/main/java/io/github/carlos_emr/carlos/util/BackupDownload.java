@@ -44,30 +44,43 @@ import io.github.carlos_emr.carlos.commn.model.SecObjPrivilege;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import org.apache.logging.log4j.Logger;
 public class BackupDownload extends GenericDownload {
+    private static final Logger logger = MiscUtils.getLogger();
 
     @SuppressWarnings("unchecked")
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
-        HttpSession session = req.getSession(true);
+        try {
+            HttpSession session = req.getSession(true);
 
-        // check the rights - sanitize filename to prevent XSS and path traversal
-        String rawFilename = req.getParameter("filename");
-        String filename = (rawFilename == null) ? "null" : MiscUtils.sanitizeFileName(rawFilename);
-        String dir = (String) session.getAttribute("backupfilepath") == null ? "/home/mysql/" : (String) session.getAttribute("backupfilepath");
+            // check the rights - sanitize filename to prevent XSS and path traversal
+            String rawFilename = req.getParameter("filename");
+            String filename = (rawFilename == null) ? "null" : MiscUtils.sanitizeFileName(rawFilename);
+            String dir = (String) session.getAttribute("backupfilepath") == null ? "/home/mysql/" : (String) session.getAttribute("backupfilepath");
 
-        boolean adminPrivs = false;
+            boolean adminPrivs = false;
 
-        String roleName = (String) req.getSession().getAttribute("userrole") + "," + (String) req.getSession().getAttribute("user");
-        Object[] v = getPrivilegeProp("_admin.backup,_admin");
-        if (checkPrivilege(roleName, (Properties) v[0], (List<String>) v[1])) {
-            adminPrivs = true;
+            String roleName = (String) req.getSession().getAttribute("userrole") + "," + (String) req.getSession().getAttribute("user");
+            Object[] v = getPrivilegeProp("_admin.backup,_admin");
+            if (checkPrivilege(roleName, (Properties) v[0], (List<String>) v[1])) {
+                adminPrivs = true;
+            }
+
+            boolean bDownload = false;
+            if (filename != null && adminPrivs) {
+                bDownload = true;
+            }
+            download(bDownload, res, dir, filename, null);
+        } catch (Exception e) {
+            logger.error("Error processing backup download request for {}", req.getRequestURI(), e);
+            if (!res.isCommitted()) {
+                try {
+                    res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
+                } catch (IOException ioe) {
+                    logger.error("Failed to send error response", ioe);
+                }
+            }
         }
-
-        boolean bDownload = false;
-        if (filename != null && adminPrivs) {
-            bDownload = true;
-        }
-        download(bDownload, res, dir, filename, null);
     }
 
     //TODO: Refactor this out of the sec tag.

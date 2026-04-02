@@ -36,24 +36,40 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
-public class OscarDownload extends GenericDownload {
-    public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
-        HttpSession session = req.getSession(true);
-        String filename = req.getParameter("filename") != null ? req.getParameter("filename") : "null";
-        String homepath = req.getParameter("homepath") != null ? req.getParameter("homepath") : "null";
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-        String backupfilepath = ((String) session.getAttribute(homepath)) != null ? ((String) session.getAttribute(homepath)) : "null";
-        if (filename != null && backupfilepath != null && ((String) session.getAttribute("user")) != null) {
-            ServletOutputStream stream = res.getOutputStream();
-            transferFile(res, stream, backupfilepath, filename);
-            stream.close();
-        } else {
-            res.setContentType("text/html");
-            PrintWriter out = res.getWriter();
-            out.println("<html>");
-            out.println("<head><body>You have no right to download the file(s).");
-            out.println("</body>");
-            out.println("</html>");
+public class OscarDownload extends GenericDownload {
+    private static final Logger logger = MiscUtils.getLogger();
+
+    public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
+        try {
+            HttpSession session = req.getSession(true);
+            String filename = req.getParameter("filename") != null ? req.getParameter("filename") : "null";
+            String homepath = req.getParameter("homepath") != null ? req.getParameter("homepath") : "null";
+
+            String backupfilepath = ((String) session.getAttribute(homepath)) != null ? ((String) session.getAttribute(homepath)) : "null";
+            if (filename != null && backupfilepath != null && ((String) session.getAttribute("user")) != null) {
+                ServletOutputStream stream = res.getOutputStream();
+                transferFile(res, stream, backupfilepath, filename);
+                stream.close();
+            } else {
+                res.setContentType("text/html");
+                PrintWriter out = res.getWriter();
+                out.println("<html>");
+                out.println("<head><body>You have no right to download the file(s).");
+                out.println("</body>");
+                out.println("</html>");
+            }
+        } catch (Exception e) {
+            logger.error("Error processing download request for {}", req.getRequestURI(), e);
+            if (!res.isCommitted()) {
+                try {
+                    res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
+                } catch (IOException ioe) {
+                    logger.error("Failed to send error response", ioe);
+                }
+            }
         }
     }
 }

@@ -39,7 +39,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FilenameUtils;
+import org.apache.logging.log4j.Logger;
 
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.CarlosProperties;
 
@@ -54,6 +56,7 @@ import io.github.carlos_emr.CarlosProperties;
  */
 public class LoginResourceAction extends HttpServlet {
 
+    private static final Logger logger = MiscUtils.getLogger();
     private String images;
 
     public void init() throws ServletException {
@@ -64,58 +67,72 @@ public class LoginResourceAction extends HttpServlet {
 
     protected void doGet(HttpServletRequest request,
                          HttpServletResponse response) throws ServletException, IOException {
+        try {
+            String logoImage = request.getPathInfo();
+            File image = null;
+            String contentType = null;
 
-        String logoImage = request.getPathInfo();
-        File image = null;
-        String contentType = null;
-
-        if (logoImage != null) {
-            // Decode the path and extract just the filename without any directory components
-            String decodedPath = URLDecoder.decode(logoImage, "UTF-8");
-            
-            // Remove leading slash if present
-            if (decodedPath.startsWith("/")) {
-                decodedPath = decodedPath.substring(1);
+            if (logoImage != null) {
+                // Decode the path and extract just the filename without any directory components
+                String decodedPath = URLDecoder.decode(logoImage, "UTF-8");
+                
+                // Remove leading slash if present
+                if (decodedPath.startsWith("/")) {
+                    decodedPath = decodedPath.substring(1);
+                }
+                
+                // Use FilenameUtils.getName to extract just the filename, removing any path components
+                String sanitizedFilename = FilenameUtils.getName(decodedPath);
+                
+                // Reject empty or invalid filenames
+                if (sanitizedFilename == null || sanitizedFilename.isEmpty() || 
+                    sanitizedFilename.contains("..") || sanitizedFilename.contains("/") || 
+                    sanitizedFilename.contains("\\")) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid resource path");
+                    return;
+                }
+                
+                // Construct and validate the file path using PathValidationUtils
+                try {
+                    File imagesDir = new File(images);
+                    image = PathValidationUtils.validatePath(sanitizedFilename, imagesDir);
+                } catch (SecurityException e) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid resource path");
+                    return;
+                }
             }
-            
-            // Use FilenameUtils.getName to extract just the filename, removing any path components
-            String sanitizedFilename = FilenameUtils.getName(decodedPath);
-            
-            // Reject empty or invalid filenames
-            if (sanitizedFilename == null || sanitizedFilename.isEmpty() || 
-                sanitizedFilename.contains("..") || sanitizedFilename.contains("/") || 
-                sanitizedFilename.contains("\\")) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid resource path");
-                return;
+
+            // Get content type by filename.        
+            if (image != null && image.exists()) {
+                contentType = getServletContext().getMimeType(image.getName());
             }
-            
-            // Construct and validate the file path using PathValidationUtils
-            try {
-                File imagesDir = new File(images);
-                image = PathValidationUtils.validatePath(sanitizedFilename, imagesDir);
-            } catch (SecurityException e) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid resource path");
-                return;
+
+            if (contentType != null && contentType.startsWith("image")) {
+                response.reset();
+                response.setContentType(contentType);
+                response.setHeader("Content-Length", String.valueOf(image.length()));
+
+                // Write image content to response.
+                Files.copy(image.toPath(), response.getOutputStream());
             }
-        }
-
-        // Get content type by filename.        
-        if (image != null && image.exists()) {
-            contentType = getServletContext().getMimeType(image.getName());
-        }
-
-        if (contentType != null && contentType.startsWith("image")) {
-            response.reset();
-            response.setContentType(contentType);
-            response.setHeader("Content-Length", String.valueOf(image.length()));
-
-            // Write image content to response.
-            Files.copy(image.toPath(), response.getOutputStream());
+        } catch (Exception e) {
+            logger.error("Error processing login resource request for {}", request.getRequestURI(), e);
+            if (!response.isCommitted()) {
+                try {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
+                } catch (IOException ioe) {
+                    logger.error("Failed to send error response", ioe);
+                }
+            }
         }
     }
 
+    /**
+     * This servlet serves static login resources for GET requests only.
+     * POST requests are not supported and are silently ignored.
+     */
     protected final void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        return;
+        // This servlet only serves static resources via GET; POST requests are not supported.
     }
 
 }

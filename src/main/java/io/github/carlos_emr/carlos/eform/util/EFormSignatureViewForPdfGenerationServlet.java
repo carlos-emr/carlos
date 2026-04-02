@@ -36,25 +36,23 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        // ensure it's a local machine request... no one else should be calling this servlet.
-        String remoteAddress = request.getRemoteAddr();
-        logger.debug("EformPdfServlet request from : " + remoteAddress);
-
-        if (!"127.0.0.1".equals(remoteAddress)) {
-            logger.warn("Unauthorised request made to EFormSignatureViewForPdfGenerationServlet from address : " + remoteAddress);
-            response.sendError(HttpServletResponse.SC_FORBIDDEN);
-        }
-
-
-        // https://127.0.0.1:8443/oscar/eform/efmshowform_data.jsp?fdid=2&parentAjaxId=eforms
         try {
-            // get image
-			DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
-			DigitalSignature digitalSignature = digitalSignatureManager
-					.getDigitalSignature(Integer.parseInt(request.getParameter("digitalSignatureId")));
-            if (digitalSignature != null) {
-                //renderImage(response, digitalSignature.getSignatureImage(), "jpeg");
+            // ensure it's a local machine request... no one else should be calling this servlet.
+            String remoteAddress = request.getRemoteAddr();
+            logger.debug("EformPdfServlet request from : " + remoteAddress);
 
+            if (!"127.0.0.1".equals(remoteAddress)) {
+                logger.warn("Unauthorised request made to EFormSignatureViewForPdfGenerationServlet from address : " + remoteAddress);
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
+
+            // https://127.0.0.1:8443/oscar/eform/efmshowform_data.jsp?fdid=2&parentAjaxId=eforms
+            // get image
+            DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
+            DigitalSignature digitalSignature = digitalSignatureManager
+                    .getDigitalSignature(Integer.parseInt(request.getParameter("digitalSignatureId")));
+            if (digitalSignature != null) {
                 byte[] image = digitalSignature.getSignatureImage();
                 String imageType = "jpeg";
                 response.setContentType("image/" + imageType);
@@ -63,11 +61,16 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
                 BufferedOutputStream bos = new BufferedOutputStream(response.getOutputStream());
                 bos.write(image);
                 bos.flush();
-
-                return;
             }
         } catch (Exception e) {
-            logger.error("Unexpected error.", e);
+            logger.error("Error processing signature request for {}", request.getRequestURI(), e);
+            if (!response.isCommitted()) {
+                try {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
+                } catch (IOException ioe) {
+                    logger.error("Failed to send error response", ioe);
+                }
+            }
         }
     }
 }

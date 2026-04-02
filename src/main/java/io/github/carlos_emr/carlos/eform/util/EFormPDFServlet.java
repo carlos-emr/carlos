@@ -36,7 +36,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintWriter;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -115,7 +115,18 @@ public class EFormPDFServlet extends HttpServlet {
      */
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
-        doPost(req, res);
+        try {
+            doPost(req, res);
+        } catch (Exception e) {
+            log.error("Error processing GET request for {}", req.getRequestURI(), e);
+            if (!res.isCommitted()) {
+                try {
+                    res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
+                } catch (java.io.IOException ioe) {
+                    log.error("Failed to send error response", ioe);
+                }
+            }
+        }
     }
 
     /**
@@ -187,12 +198,13 @@ public class EFormPDFServlet extends HttpServlet {
             }
 
         } catch (Exception e) {
-            log.error("Error generating eForm PDF", e);
+            log.error("Error generating eForm PDF for {}", req.getRequestURI(), e);
             if (!res.isCommitted()) {
-                res.setContentType("text/html");
-                PrintWriter writer = res.getWriter();
-                writer.println("<p>An error occurred while generating the PDF. Please try again or contact support.</p>");
-                writer.close();
+                try {
+                    res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred generating the PDF.");
+                } catch (java.io.IOException ioe) {
+                    log.error("Failed to send error response", ioe);
+                }
             }
         } finally {
             if (baosPDF != null) baosPDF.close();

@@ -29,7 +29,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.io.PrintWriter;
+
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -119,7 +119,18 @@ public class FrmPDFServlet extends HttpServlet {
     /** Delegates all GET requests to {@link #doPost(HttpServletRequest, HttpServletResponse)}. */
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
-        doPost(req, res);
+        try {
+            doPost(req, res);
+        } catch (Exception e) {
+            log.error("Error processing GET request for {}", req.getRequestURI(), e);
+            if (!res.isCommitted()) {
+                try {
+                    res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
+                } catch (java.io.IOException ioe) {
+                    log.error("Failed to send error response", ioe);
+                }
+            }
+        }
     }
 
     /**
@@ -206,12 +217,23 @@ public class FrmPDFServlet extends HttpServlet {
             LogAction.addLogSynchronous(loggedInInfo, "FrmPDFServlet", "formID=" + req.getParameter("formId") + ",form_class=" + req.getParameter("form_class"));
 
         } catch (DocumentException dex) {
-            res.setContentType("text/html");
-            PrintWriter writer = res.getWriter();
-            writer.println("Exception from: " + this.getClass().getName() + " " + dex.getClass().getName() + "<br>");
-            writer.println("<pre>");
-            writer.println(dex.getMessage());
-            writer.println("</pre>");
+            log.error("PDF document error in FrmPDFServlet for {}", req.getRequestURI(), dex);
+            if (!res.isCommitted()) {
+                try {
+                    res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred generating the PDF.");
+                } catch (java.io.IOException ioe) {
+                    log.error("Failed to send error response", ioe);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Unexpected error in FrmPDFServlet for {}", req.getRequestURI(), e);
+            if (!res.isCommitted()) {
+                try {
+                    res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
+                } catch (java.io.IOException ioe) {
+                    log.error("Failed to send error response", ioe);
+                }
+            }
         } finally {
             if (baosPDF != null) {
                 baosPDF.reset();

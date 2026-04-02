@@ -33,17 +33,29 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        // ensure it's a local machine request... no one else should be calling this servlet.
-        String remoteAddress = request.getRemoteAddr();
-        logger.debug("EformPdfServlet request from : " + remoteAddress);
+        try {
+            // ensure it's a local machine request... no one else should be calling this servlet.
+            String remoteAddress = request.getRemoteAddr();
+            logger.debug("EformPdfServlet request from : " + remoteAddress);
 
-        if (!"127.0.0.1".equals(remoteAddress)) {
-            logger.warn("Unauthorised request made to EFormImageViewForPdfGenerationServlet from address : " + remoteAddress);
-            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            if (!"127.0.0.1".equals(remoteAddress)) {
+                logger.warn("Unauthorised request made to EFormImageViewForPdfGenerationServlet from address : " + remoteAddress);
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
+
+            request.setAttribute("prepareForFax", true);
+            RequestDispatcher requestDispatcher = request.getRequestDispatcher("/eform/displayImage.do");
+            requestDispatcher.forward(request, response);
+        } catch (Exception e) {
+            logger.error("Error processing request for {}", request.getRequestURI(), e);
+            if (!response.isCommitted()) {
+                try {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred processing your request.");
+                } catch (IOException ioe) {
+                    logger.error("Failed to send error response", ioe);
+                }
+            }
         }
-
-        request.setAttribute("prepareForFax", true);
-        RequestDispatcher requestDispatcher = request.getRequestDispatcher("/eform/displayImage.do");
-        requestDispatcher.forward(request, response);
     }
 }
