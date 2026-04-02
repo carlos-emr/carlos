@@ -212,8 +212,7 @@ public class ConsultationLookup2Action extends ActionSupport {
                 String serviceName = nullSafe(service.getServiceDesc());
 
                 if (grouped.containsKey(specId)) {
-                    grouped.get(specId).getServiceIds().add(serviceId);
-                    grouped.get(specId).getServiceNames().add(serviceName);
+                    grouped.get(specId).addService(serviceId, serviceName);
                 } else {
                     List<Integer> serviceIds = new ArrayList<>();
                     serviceIds.add(serviceId);
