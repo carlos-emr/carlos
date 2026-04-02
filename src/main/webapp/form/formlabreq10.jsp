@@ -59,6 +59,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordHelp" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmLabReq10Record" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <html>
     <head>
@@ -407,13 +408,13 @@
         <input type="hidden" name="ID"
                value="<%= props.getProperty("ID", "0") %>"/>
         <input type="hidden" name="provider_no"
-               value=<%=request.getParameter("provNo")%>/>
+               value="<%= Encode.forHtmlAttribute(request.getParameter("provNo")) %>"/>
         <input type="hidden" name="formCreated"
                value="<%= props.getProperty("formCreated", "") %>"/>
         <input type="hidden" name="form_class" value="<%=formClass%>"/>
         <input type="hidden" name="form_link" value="<%=formLink%>"/>
         <input type="hidden" name="provNo"
-               value="<%= request.getParameter("provNo") %>"/>
+               value="<%= Encode.forHtmlAttribute(request.getParameter("provNo")) %>"/>
         <input type="hidden" name="submit" value="exit"/>
         <input type="hidden" name="formId" value="<%=formId%>"/>
         <table class="Head" class="hidePrint">

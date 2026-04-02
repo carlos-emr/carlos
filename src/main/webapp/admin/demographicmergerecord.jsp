@@ -103,6 +103,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     List<Demographic> demoList = null;  //demographicDao.getDemographicByProvider( "55");
@@ -227,7 +228,7 @@
 
 <% if (request.getParameter("keyword") != null) {%>
 
-<i>Results based on keyword(s)</i> : <%=request.getParameter("keyword")%>
+<i>Results based on keyword(s)</i> : <%= Encode.forHtml(request.getParameter("keyword")) %>
 
 <CENTER>
     <form method="post" name="mergeform" action="MergeRecords.do" onSubmit="return confirmMerge()">

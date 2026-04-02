@@ -98,6 +98,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <jsp:useBean id="displayServiceUtil" scope="request"
@@ -2109,7 +2110,7 @@ if (userAgent != null) {
         <% } %>
         <input type="hidden" name="demographicNo" id="demographicNo" value="<%=Encode.forHtmlAttribute(demo)%>">
         <input type="hidden" name="requestId" id="requestId" value="<%=requestId%>">
-        <input type="hidden" name="ext_appNo" value="<%=request.getParameter("appNo") %>">
+        <input type="hidden" name="ext_appNo" value="<%= Encode.forHtmlAttribute(request.getParameter("appNo")) %>">
         <input type="hidden" name="source"
                value="<%=(requestId!=null)?thisForm.getSource():request.getParameter("source") %>">
         <input type="hidden" name="submission" value="">

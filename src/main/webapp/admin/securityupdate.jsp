@@ -136,7 +136,7 @@
         <%
         } else {
         %>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdate.msgUpdateFailure"/><%= request.getParameter("provider_no") %>.</h1>
+        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdate.msgUpdateFailure"/><%= Encode.forHtml(request.getParameter("provider_no")) %>.</h1>
         <%
             }
         %>

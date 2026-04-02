@@ -59,6 +59,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.TargetCondition" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.TargetColour" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -179,7 +180,7 @@ display:inline-block;
                 <input type="hidden" name="demographic" value="<%=demographic%>"/>
                 <%} %>
                 <%if (request.getParameter("scope") != null) { %>
-                <input type="hidden" name="scope" value="<%=request.getParameter("scope")%>"/>
+                <input type="hidden" name="scope" value="<%= Encode.forHtmlAttribute(request.getParameter("scope")) %>"/>
                 <%} %>
                 <fieldset width="300px">
                     <input type="hidden" name="updater" value="yes"/>

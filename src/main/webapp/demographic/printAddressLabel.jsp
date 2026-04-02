@@ -49,6 +49,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String curUser_no = (String) session.getAttribute("user");
     UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
@@ -81,7 +82,7 @@
     <%}%>
     <br>
     <object id="pdf" type="application/pdf"
-            data="printDemoAddressLabelAction.do?demographic_no=<%=request.getParameter("demographic_no")%>"
+            data="printDemoAddressLabelAction.do?demographic_no=<%= Encode.forUriComponent(request.getParameter("demographic_no")) %>"
             height="80%" width="100%"></object>
     </body>
 </html>

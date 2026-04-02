@@ -53,6 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.carlos.form.graphic.FrmGraphicAR" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     String formClass = "BCAR2007";
@@ -930,8 +931,8 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         <input type="hidden" name="form_link" value="<%=formLink%>"/>
         <input type="hidden" name="formId" value="<%=formId%>"/>
         <input type="hidden" name="ID" value="<%= props.getProperty("ID", "0") %>"/>
-        <input type="hidden" name="provider_no" value=<%=request.getParameter("provNo")%>/>
-        <input type="hidden" name="provNo" value="<%= request.getParameter("provNo") %>"/>
+        <input type="hidden" name="provider_no" value="<%= Encode.forHtmlAttribute(request.getParameter("provNo")) %>"/>
+        <input type="hidden" name="provNo" value="<%= Encode.forHtmlAttribute(request.getParameter("provNo")) %>"/>
         <input type="hidden" name="submit" value="exit"/>
         <input type="hidden" name="DOB" id="DOB" value="<%= props.getProperty("pg1_dateOfBirth", "") %>"/>
         <input type="hidden" name="height" id="height" value="<%= props.getProperty("c_ppHt", "") %>"/>

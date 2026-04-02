@@ -55,6 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRourke2020Record" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -104,7 +105,7 @@
 
 <input type="hidden" name="demographic_no" value="<%= props.getProperty("demographic_no", "0") %>"/>
 <input type="hidden" name="ID" value="<%= props.getProperty("ID", "0") %>"/>
-<input type="hidden" name="provider_no" value=<%=request.getParameter("provNo")%>/>
+<input type="hidden" name="provider_no" value="<%= Encode.forHtmlAttribute(request.getParameter("provNo")) %>"/>
 <input type="hidden" name="formCreated" value="<%= props.getProperty("formCreated", "") %>"/>
 <input type="hidden" name="form_class" value="<%=formClass%>"/>
 <input type="hidden" name="form_link" value="<%=formLink%>"/>

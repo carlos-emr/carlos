@@ -49,6 +49,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.Prevention" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -1047,7 +1048,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
             $("[id$=-btn]").removeClass("btn-primary active");
             <%if (request.getParameter("show") !=null ){%>
-            $('#<%=request.getParameter("show")%>-btn').addClass("btn-primary active");
+            $('#<%=Encode.forJavaScript(request.getParameter("show"))%>-btn').addClass("btn-primary active");
             <%}else{%>
             $('#all-btn').addClass("btn-primary active");
             <%}%>

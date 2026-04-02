@@ -49,6 +49,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("userrole") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -84,7 +85,7 @@
     <%}%>
     <br>
     <object id="pdf" type="application/pdf"
-            data="printDemoLabelAction.do?demographic_no=<%=request.getParameter("demographic_no")%>&appointment_no=<%=request.getParameter("appointment_no")%>"
+            data="printDemoLabelAction.do?demographic_no=<%= Encode.forUriComponent(request.getParameter("demographic_no")) %>&appointment_no=<%= Encode.forUriComponent(request.getParameter("appointment_no")) %>"
             height="80%" width="100%"></object>
     </body>
 </html>

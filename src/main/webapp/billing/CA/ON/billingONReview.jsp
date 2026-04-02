@@ -289,6 +289,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <head>
     <title>CARLOS Billing</title>
 
@@ -605,7 +606,7 @@
 
                             <table style="width:100%">
                                 <tr>
-                                    <!--<input type="text" name="checkFlag" id="checkFlag" value="<%=request.getParameter("checkFlag") %>" />  -->
+                                    <!--<input type="text" name="checkFlag" id="checkFlag" value="<%= Encode.forHtmlAttribute(request.getParameter("checkFlag")) %>" />  -->
                                     <td style="white-space:nowrap; width:30%; text-align:center"><b>Service Date</b><br>
                                         <%= Encode.forHtml(request.getParameter("service_date").replaceAll("\\n", "<br>")) %>
                                     </td>

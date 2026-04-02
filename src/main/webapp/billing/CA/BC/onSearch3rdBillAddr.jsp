@@ -108,6 +108,7 @@
 
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -269,12 +270,12 @@
         <script language="JavaScript">
             <!--
             function last() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(request.getParameter("keyword"))%>&search_mode=<%=Encode.forJavaScript(request.getParameter("search_mode"))%>&orderby=<%=Encode.forJavaScript(request.getParameter("orderby"))%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(request.getParameter("keyword"))%>&search_mode=<%=Encode.forJavaScript(request.getParameter("search_mode"))%>&orderby=<%=Encode.forJavaScript(request.getParameter("orderby"))%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 

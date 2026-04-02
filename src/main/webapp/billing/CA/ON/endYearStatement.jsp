@@ -27,6 +27,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
 <%@ page import="java.util.List" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <html>
 <head>
@@ -123,8 +124,8 @@
                 </div>
             </div>
 
-            <input type="hidden" name="firstNameParam" id="fname" value="<%=request.getParameter("firstNameParam")%>"/>
-            <input type="hidden" name="lastNameParam" id="lname" value="<%=request.getParameter("lastNameParam")%>"/>
+            <input type="hidden" name="firstNameParam" id="fname" value="<%= Encode.forHtmlAttribute(request.getParameter("firstNameParam")) %>"/>
+            <input type="hidden" name="lastNameParam" id="lname" value="<%= Encode.forHtmlAttribute(request.getParameter("lastNameParam")) %>"/>
 
 
             <div class="col-md-2">

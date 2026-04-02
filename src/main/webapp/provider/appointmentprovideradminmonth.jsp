@@ -309,6 +309,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
     <body bgcolor="#EEEEFF" onLoad="refreshAllTabAlerts();">
 
@@ -526,9 +527,9 @@
                                                                                                NAME="view"
                                                                                                VALUE="<%=view%>">
                     <INPUT TYPE="hidden" NAME="curProvider"
-                           VALUE="<%=request.getParameter("curProvider")%>"> <INPUT
+                           VALUE="<%= Encode.forHtmlAttribute(request.getParameter("curProvider")) %>"> <INPUT
                         TYPE="hidden" NAME="curProviderName"
-                        VALUE="<%=request.getParameter("curProviderName")%>"> <INPUT
+                        VALUE="<%= Encode.forHtmlAttribute(request.getParameter("curProviderName")) %>"> <INPUT
                         TYPE="hidden" NAME="displaymode" VALUE="day"> <INPUT
                         TYPE="hidden" NAME="dboperation" VALUE="searchappointmentday">
                     <input type="hidden" name="Go" value=""> <INPUT TYPE="SUBMIT"

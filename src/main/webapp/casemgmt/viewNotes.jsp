@@ -49,6 +49,7 @@
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
@@ -108,7 +109,7 @@
         for (int i = 0; i < notes.size(); i++) {
             CaseManagementNote note = notes.get(i);
 %>
-    <input type="hidden" id="<%= request.getParameter("cmd") + note.getId() %>" value="<%= i %>" />
+    <input type="hidden" id="<%= Encode.forHtmlAttribute(request.getParameter("cmd")) + note.getId() %>" value="<%= i %>" />
 
     <% if (i % 2 == 0) { %>
         <li class="cpp" style="background-color: #F3F3F3;">

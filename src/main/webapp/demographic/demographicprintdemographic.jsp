@@ -71,7 +71,7 @@
     <div ID="blockDiv1"
          STYLE="position:absolute; visibility:visible; z-index:2; left:<%=left%>px; top:<%=top+i*(height+gap/2)%>px; width:400px; height:100px;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                <%--    <tr><td><%=request.getParameter("label1")%></td></tr>--%>
+                <%--    <tr><td><%= Encode.forHtml(request.getParameter("label1")) %></td></tr>--%>
             <tr>
                 <td><font face="Courier New, Courier, mono" size="2"><b><%= Encode.forHtml(request.getParameter("last_name")) %>
                     ,&nbsp;<%= Encode.forHtml(request.getParameter("first_name")) %>
@@ -96,7 +96,7 @@
     <div ID="blockDiv1"
          STYLE="position:absolute; visibility:visible; z-index:2; left:<%=left%>px; top:<%=top+b1*(height+gap)+i*(height+gap/2)%>px; width:400px; height:100px;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                <%--<tr><td><%=request.getParameter("label2")%></td></tr>--%>
+                <%--<tr><td><%= Encode.forHtml(request.getParameter("label2")) %></td></tr>--%>
             <tr>
                 <td><font face="Courier New, Courier, mono" size="2"><b><%= Encode.forHtml(request.getParameter("last_name")) %>
                     ,&nbsp;<%= Encode.forHtml(request.getParameter("first_name")) %>&nbsp;<%= Encode.forHtml(request.getParameter("chart_no")) %>
@@ -119,7 +119,7 @@
     <div ID="blockDiv1"
          STYLE="position:absolute; visibility:visible; z-index:2; left:<%=left%>px; top:<%=top+(b1+b2)*(height+gap)+i*(height+gap/2)%>px; width:400px; height:100px;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                <%--  <tr><td><%=request.getParameter("label3")%></td></tr>--%>
+                <%--  <tr><td><%= Encode.forHtml(request.getParameter("label3")) %></td></tr>--%>
             <tr>
                 <td><font face="Courier New, Courier, mono" size="2"><%= Encode.forHtml(request.getParameter("last_name")) %>
                     ,&nbsp;<%= Encode.forHtml(request.getParameter("first_name")) %><br><%= Encode.forHtml(request.getParameter("address")) %>
@@ -137,7 +137,7 @@
     <div ID="blockDiv1"
          STYLE="position:absolute; visibility:visible; z-index:2; left:<%=left%>px; top:<%=top+(b1+b2+b3)*(height+gap)+i*(height+gap/2)%>px; width:400px; height:100px;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                <%--  <tr><td><%=request.getParameter("label4")%></td></tr>--%>
+                <%--  <tr><td><%= Encode.forHtml(request.getParameter("label4")) %></td></tr>--%>
             <tr>
                 <td><font face="Courier New, Courier, mono"
                           size="2"><%= Encode.forHtml(request.getParameter("first_name")) %>&nbsp;<%= Encode.forHtml(request.getParameter("last_name")) %>
@@ -154,7 +154,7 @@
     <div ID="blockDiv1"
          STYLE="position:absolute; visibility:visible; z-index:2; left:<%=left%>px; top:<%=top+(b1+b2+b3+b4)*(height+gap)+i*(height+gap/2)%>px; width:400px; height:100px;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                <%--  <tr><td><%=request.getParameter("label5")%></td></tr>--%>
+                <%--  <tr><td><%= Encode.forHtml(request.getParameter("label5")) %></td></tr>--%>
             <tr>
                 <td><font face="Courier New, Courier, mono"
                           size="2"><%= Encode.forHtml(request.getParameter("chart_no")) %>&nbsp;&nbsp;<%= Encode.forHtml(request.getParameter("last_name")) %>

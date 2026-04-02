@@ -46,6 +46,7 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementViewFormBean" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     Logger logger = MiscUtils.getLogger();
 
@@ -211,8 +212,8 @@
                     %>
                     <caisirole:SecurityAccess accessName="prescription Read"
                                             accessType="access"
-                                            providerNo='<%=request.getParameter("providerNo")%>'
-                                            demoNo='<%=request.getParameter("demographicNo")%>'
+                                            providerNo='<%= Encode.forHtmlAttribute(request.getParameter("providerNo")) %>'
+                                            demoNo='<%= Encode.forHtmlAttribute(request.getParameter("demographicNo")) %>'
                                             programId="<%=pId%>">
                         <%
                             if (CaseManagementViewFormBean.tabs[x].equals(selectedTab)) {

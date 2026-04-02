@@ -32,6 +32,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN"
 "http://www.w3.org/TR/html4/strict.dtd">
 <html>
@@ -41,9 +42,9 @@
         <% boolean linkIncluded = StringUtils.isNotEmpty(request.getParameter("link")); %>
         <script type="text/javascript">
             function init() {
-                document.getElementById("image").src = decodeURIComponent("<%= request.getParameter("url") %>");
+                document.getElementById("image").src = decodeURIComponent("<%= Encode.forJavaScript(request.getParameter("url")) %>");
                 <% if (linkIncluded) { %>
-                document.getElementById("link").href = decodeURIComponent("<%= request.getParameter("link") %>");
+                document.getElementById("link").href = decodeURIComponent("<%= Encode.forJavaScript(request.getParameter("link")) %>");
                 <% } %>
             }
         </script>

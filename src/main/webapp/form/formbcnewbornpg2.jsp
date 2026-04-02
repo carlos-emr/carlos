@@ -19,6 +19,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String formClass = "BCNewBorn";
     String formLink = "formbcnewbornpg2.jsp";
@@ -446,7 +447,7 @@
         <input type="hidden" name="form_link" value="<%=formLink%>"/>
         <input type="hidden" name="formId" value="<%=formId%>"/>
         <input type="hidden" name="provider_no" value=<%="" + provNo%>/>
-        <!--input type="hidden" name="provNo" value="<%= request.getParameter("provNo") %>" /-->
+        <!--input type="hidden" name="provNo" value="<%= Encode.forHtmlAttribute(request.getParameter("provNo")) %>" /-->
         <input type="hidden" name="submit" value="exit"/>
 
         <table class="Head" class="hidePrint">

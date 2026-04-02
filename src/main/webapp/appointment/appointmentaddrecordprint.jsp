@@ -61,6 +61,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
 
@@ -134,7 +135,7 @@
 
         <script LANGUAGE="JavaScript">
             self.opener.refresh();
-            popupPage(350, 750, '<%= request.getContextPath() %>/report/reportdaysheet.jsp?dsmode=new&provider_no=<%=request.getParameter("provider_no")%>&sdate=<%=request.getParameter("appointment_date")%>');
+            popupPage(350, 750, '<%= request.getContextPath() %>/report/reportdaysheet.jsp?dsmode=new&provider_no=<%= Encode.forUriComponent(request.getParameter("provider_no")) %>&sdate=<%=request.getParameter("appointment_date")%>');
             self.close();
         </script>
         <%

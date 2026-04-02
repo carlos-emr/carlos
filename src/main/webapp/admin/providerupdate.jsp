@@ -73,6 +73,7 @@
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
     ProviderSiteDao providerSiteDao = SpringUtils.getBean(ProviderSiteDao.class);
@@ -238,7 +239,7 @@
         <%
         } else {
         %>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providerupdate.msgUpdateFailure"/><%= request.getParameter("provider_no") %>.</h1>
+        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providerupdate.msgUpdateFailure"/><%= Encode.forHtml(request.getParameter("provider_no")) %>.</h1>
         <%
             }
         } else {

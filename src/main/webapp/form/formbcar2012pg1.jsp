@@ -52,6 +52,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 
@@ -1049,8 +1050,8 @@
         <input type="hidden" name="form_class" value="<%=formClass%>"/>
         <input type="hidden" name="form_link" value="<%=formLink%>"/>
         <input type="hidden" name="formId" value="<%=formId%>"/>
-        <input type="hidden" name="provider_no" value=<%=request.getParameter("provNo")%>/>
-        <input type="hidden" name="provNo" value="<%= request.getParameter("provNo") %>"/>
+        <input type="hidden" name="provider_no" value="<%= Encode.forHtmlAttribute(request.getParameter("provNo")) %>"/>
+        <input type="hidden" name="provNo" value="<%= Encode.forHtmlAttribute(request.getParameter("provNo")) %>"/>
         <input type="hidden" name="submit" value="exit"/>
 
         <table class="Head" class="hidePrint">
