@@ -56,7 +56,7 @@
 </c:if>
             <c:if test="${page ge 1}">
             <c:forEach var="labResult" items="${labDocs}" varStatus="loopStatus">
-                <tr id="labdoc_${labResult.segmentID}" class="${!labResult.isMatchedToPatient() ? 'table-warning' : (labResult.resultStatus == 'A' ? 'table-danger' : '')}">
+                <tr id="labdoc_${labResult.segmentID}" data-lab-type="${labResult.labType}" class="${!labResult.isMatchedToPatient() ? 'table-warning' : (labResult.resultStatus == 'A' ? 'table-danger' : '')}">
                     <td>
                         <c:set var="disabled" value="${!labResult.matchedToPatient && labResult.labType != 'DOC' ? 'disabled' : ''}"/>
                         <input type="checkbox" name="flaggedLabs" value="${labResult.segmentID}:${labResult.labType}" ${disabled}>
@@ -218,7 +218,14 @@
     function removeReport(reportId) {
         const rowEl = jQuery("#labdoc_" + reportId);
         if (rowEl.length > 0) {
+            const labType = rowEl.data('labType');
             jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);
+            const countStatId = labType === 'DOC' ? 'totalDocsCountStat' :
+                                labType === 'HRM' ? 'totalHRMsCountStat' : 'totalLabssCountStat';
+            const current = parseInt(jQuery('#' + countStatId).text()) || 0;
+            if (current > 0) {
+                jQuery('#' + countStatId).text(current - 1);
+            }
         }
     }
 </script>
