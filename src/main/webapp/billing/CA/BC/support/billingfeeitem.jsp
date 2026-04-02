@@ -34,6 +34,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -78,14 +79,14 @@
     <script language="JavaScript">
     function posttoText(index){
     self.close();
-    opener.document.<%=form%>.<%=field%>.value = index;
+    opener.document.<%=Encode.forJavaScript(form)%>.<%=Encode.forJavaScript(field)%>.value = index;
     opener.document.focus();
     }
     <%if (request.getParameter("corrections") != null) {%>
     function updateFeeCodeValues(code,description,fee){
     self.close();
-    opener.document.<%=form%>.<%=field%>.value = code;
-    opener.document.<%=form%>.<%=feeField%>.value = fee;
+    opener.document.<%=Encode.forJavaScript(form)%>.<%=Encode.forJavaScript(field)%>.value = code;
+    opener.document.<%=Encode.forJavaScript(form)%>.<%=Encode.forJavaScript(feeField)%>.value = fee;
 
     var valueEle = opener.document.getElementById('billValue');
     if (valueEle){
@@ -123,12 +124,12 @@
     <tr <%=((color) ? "bgcolor=\"#F6F6F6\"" : "")%> align="left" valign="top">
     <td class="SmallerText">
     <%if (request.getParameter("corrections") == null) {%>
-    <a href=# onClick="posttoText('<%=code.getServiceCode()%>');"><%=code.getServiceCode()%></a>
+    <a href=# onClick="posttoText('<%=Encode.forJavaScript(code.getServiceCode())%>');"><%=Encode.forHtml(code.getServiceCode())%></a>
     <%} else {%>
-    <a href=# onClick="updateFeeCodeValues('<%=code.getServiceCode()%>',' ','<%=code.getValue()%>');"><%=code.getServiceCode()%></a>
+    <a href=# onClick="updateFeeCodeValues('<%=Encode.forJavaScript(code.getServiceCode())%>',' ','<%=Encode.forJavaScript(code.getValue())%>');"><%=Encode.forHtml(code.getServiceCode())%></a>
     <%}%>
     </td>
-    <td class="SmallerText"><%=code.getDescription()%> (<%=code.getValue()%>) </td>
+    <td class="SmallerText"><%=Encode.forHtml(code.getDescription())%> (<%=Encode.forHtml(code.getValue())%>) </td>
     </tr>
     <%
             color = !(color);

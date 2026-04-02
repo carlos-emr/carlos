@@ -32,6 +32,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
@@ -57,7 +58,7 @@
     <script language="JavaScript">
     function posttoText(index){
     self.close();
-    opener.document.<%=form%>.<%=field%>.value = index;
+    opener.document.<%=Encode.forJavaScript(form)%>.<%=Encode.forJavaScript(field)%>.value = index;
     opener.document.focus();
     }
     </script>
@@ -86,9 +87,9 @@
     <tr <%=((color) ? "bgcolor=\"#F6F6F6\"" : "")%> align="left"
     valign="top">
     <td class="SmallerText"><a href=#
-    onClick="posttoText('<%=dcode.getDiagnosticCode()%>');"><%=dcode.getDiagnosticCode()%></a>
+    onClick="posttoText('<%=Encode.forJavaScript(dcode.getDiagnosticCode())%>');"><%=Encode.forHtml(dcode.getDiagnosticCode())%></a>
     </td>
-    <td class="SmallerText"><%=dcode.getDescription()%></td>
+    <td class="SmallerText"><%=Encode.forHtml(dcode.getDescription())%></td>
     </tr>
     <%
             color = !(color);

@@ -32,6 +32,7 @@
     String user_no = (String) session.getAttribute("user");
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
@@ -57,7 +58,7 @@
         function CodeAttach(cost) {
             self.close();
             self.opener.document
-        .<%=formName%>.<%=formElementPrice%>.
+        .<%=Encode.forJavaScript(formName)%>.<%=Encode.forJavaScript(formElementPrice)%>.
             value = cost;
         }
     </script>
@@ -80,7 +81,7 @@
             String cost = bss.get(0).getValue(); %>
     <script LANGUAGE="JavaScript">
         <!--
-        CodeAttach('<%=cost%>');
+        CodeAttach('<%=Encode.forJavaScript(cost)%>');
         -->
     </script>
     <%} else {%>

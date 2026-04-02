@@ -32,6 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.WcbNoiCodeDao" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <html>
     <head>
@@ -54,7 +55,7 @@
     <script language="JavaScript">
     function posttoText(index){
     self.close();
-    opener.document.<%=form%>.<%=field%>.value = index;
+    opener.document.<%=Encode.forJavaScript(form)%>.<%=Encode.forJavaScript(field)%>.value = index;
     opener.document.focus();
     }
     </script>
@@ -86,12 +87,12 @@
     <tr <%=((color) ? "bgcolor=\"#F6F6F6\"" : "")%> align="left"
     valign="top">
     <td class="SmallerText"><a href=#
-    onClick="posttoText('<%=c.getCode()%>');"><%=c.getCode()%></a>
+    onClick="posttoText('<%=Encode.forJavaScript(c.getCode())%>');"><%=Encode.forHtml(c.getCode())%></a>
     </td>
-    <td class="SmallerText"><%=c.getLevel1()%></td>
-    <td class="SmallerText"><%=c.getLevel2()%></td>
-    <td class="SmallerText"><%=c.getLevel3()%></td>
-    <td class="SmallerText"><%=c.getUsagenote()%></td>
+    <td class="SmallerText"><%=Encode.forHtml(c.getLevel1())%></td>
+    <td class="SmallerText"><%=Encode.forHtml(c.getLevel2())%></td>
+    <td class="SmallerText"><%=Encode.forHtml(c.getLevel3())%></td>
+    <td class="SmallerText"><%=Encode.forHtml(c.getUsagenote())%></td>
     </tr>
     <%
             color = !(color);

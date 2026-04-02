@@ -31,6 +31,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -50,7 +51,7 @@
     <script language="JavaScript">
     function posttoText(index){
     self.close();
-    opener.document.<%=form%>.<%=field%>.value = index;
+    opener.document.<%=Encode.forJavaScript(form)%>.<%=Encode.forJavaScript(field)%>.value = index;
     opener.focus();
     }
     </script>
@@ -79,9 +80,9 @@
     <tr <%=((color) ? "bgcolor=\"#F6F6F6\"" : "")%> align="left"
     valign="top">
     <td class="SmallerText"><a href=#
-    onClick="posttoText('<%=bs.getServiceCode()%>');"><%=bs.getServiceCode()%></a>
+    onClick="posttoText('<%=Encode.forJavaScript(bs.getServiceCode())%>');"><%=Encode.forHtml(bs.getServiceCode())%></a>
     </td>
-    <td class="SmallerText"><%=bs.getDescription()%></td>
+    <td class="SmallerText"><%=Encode.forHtml(bs.getDescription())%></td>
     </tr>
     <%
             color = !(color);

@@ -154,7 +154,7 @@
                             plast = prop.getProperty("last_name", "");
                             pfirst = prop.getProperty("first_name", "");
                     %>
-                    <option value="<%=pohipno%>" <%=proNo.equals(pohipno) ? "selected" : ""%>><%=plast%>,<%=pfirst%>
+                    <option value="<%=Encode.forHtmlAttribute(pohipno)%>" <%=proNo.equals(pohipno) ? "selected" : ""%>><%=Encode.forHtml(plast)%>,<%=Encode.forHtml(pfirst)%>
                     </option>
                     <%
                         }

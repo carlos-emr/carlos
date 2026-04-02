@@ -49,6 +49,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRourkeRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <html>
@@ -184,7 +185,7 @@
         }
 
         function graphChart() {
-            fPercent(65, 7.9, "<%=props.getProperty("pName", "")%>");
+            fPercent(65, 7.9, "<%=Encode.forJavaScript(props.getProperty("pName", ""))%>");
 
             graphHC(<%=age(props.getProperty("birthDate"),props.getProperty("birthDate"))%>, "<%=props.getProperty("headCirc", "")%>");
             graphHC(<%=age(props.getProperty("birthDate"),props.getProperty("date1w"))%>, "<%=props.getProperty("hc1w", "")%>");
