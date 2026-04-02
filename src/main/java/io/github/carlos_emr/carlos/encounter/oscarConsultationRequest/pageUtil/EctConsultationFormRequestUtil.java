@@ -44,7 +44,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
-import org.owasp.encoder.Encode;
 
 import java.util.*;
 
@@ -139,10 +138,10 @@ public class EctConsultationFormRequestUtil {
             patientName = demographic.getFormattedName();
 
             StringBuilder patientAddressSb = new StringBuilder();
-            patientAddressSb.append(Encode.forHtml(StringUtils.noNull(demographic.getAddress()))).append("<br>")
-                    .append(Encode.forHtml(StringUtils.noNull(demographic.getCity()))).append(",")
-                    .append(Encode.forHtml(StringUtils.noNull(demographic.getProvince()))).append("<br>")
-                    .append(Encode.forHtml(StringUtils.noNull(demographic.getPostal())));
+            patientAddressSb.append(StringUtils.noNull(demographic.getAddress())).append("\n")
+                    .append(StringUtils.noNull(demographic.getCity())).append(",")
+                    .append(StringUtils.noNull(demographic.getProvince())).append("\n")
+                    .append(StringUtils.noNull(demographic.getPostal()));
             patientAddress = patientAddressSb.toString();
             patientPhone = StringUtils.noNull(demographic.getPhone());
             patientWPhone = StringUtils.noNull(demographic.getPhone2());

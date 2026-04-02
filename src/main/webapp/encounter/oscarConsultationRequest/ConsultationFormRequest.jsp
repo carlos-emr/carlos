@@ -414,8 +414,8 @@
             <script type="text/javascript">
                 //<!--
                 var service = {};
-                service.id = `${ consultationService.serviceId }`;
-                service.description = `${ consultationService.serviceDesc }`;
+                service.id = '${e:forJavaScript(empty consultationService.serviceId ? "" : consultationService.serviceId)}';
+                service.description = '${e:forJavaScript(empty consultationService.serviceDesc ? "" : consultationService.serviceDesc)}';
                 if (service) {
                     consultationServices.push(service);
                 }
@@ -434,19 +434,19 @@
             <script type="text/javascript">
                 //<!--
                 var contact = {};
-                contact.contactId = `${ demographicContact.details.id }`;
-                contact.specNbr = `${ demographicContact.details.cpso }`;
-                contact.phoneNum = `${ demographicContact.details.workPhone }`;
-                contact.specName = `${ demographicContact.details.formattedName }`;
-                contact.service = `${ demographicContact.role }`;
-                contact.specFax = `${ demographicContact.details.fax }`;
-                contact.specAddress = `${ demographicContact.details.address }`;
-                contact.specAddress2 = `${ demographicContact.details.address2 }`;
-                contact.city = `${ demographicContact.details.city }`;
-                contact.province = `${ demographicContact.details.province }`;
-                contact.postal = `${ demographicContact.details.postal }`;
-                contact.note = `${ demographicContact.details.note }`;
-                healthCareTeam[`${ demographicContact.id }`] = contact;
+                contact.contactId = '${e:forJavaScript(empty demographicContact.details.id ? "" : demographicContact.details.id)}';
+                contact.specNbr = '${e:forJavaScript(empty demographicContact.details.cpso ? "" : demographicContact.details.cpso)}';
+                contact.phoneNum = '${e:forJavaScript(empty demographicContact.details.workPhone ? "" : demographicContact.details.workPhone)}';
+                contact.specName = '${e:forJavaScript(empty demographicContact.details.formattedName ? "" : demographicContact.details.formattedName)}';
+                contact.service = '${e:forJavaScript(empty demographicContact.role ? "" : demographicContact.role)}';
+                contact.specFax = '${e:forJavaScript(empty demographicContact.details.fax ? "" : demographicContact.details.fax)}';
+                contact.specAddress = '${e:forJavaScript(empty demographicContact.details.address ? "" : demographicContact.details.address)}';
+                contact.specAddress2 = '${e:forJavaScript(empty demographicContact.details.address2 ? "" : demographicContact.details.address2)}';
+                contact.city = '${e:forJavaScript(empty demographicContact.details.city ? "" : demographicContact.details.city)}';
+                contact.province = '${e:forJavaScript(empty demographicContact.details.province ? "" : demographicContact.details.province)}';
+                contact.postal = '${e:forJavaScript(empty demographicContact.details.postal ? "" : demographicContact.details.postal)}';
+                contact.note = '${e:forJavaScript(empty demographicContact.details.note ? "" : demographicContact.details.note)}';
+                healthCareTeam['${e:forJavaScript(empty demographicContact.id ? "" : demographicContact.id)}'] = contact;
                 //-->
             </script>
         </c:forEach>
@@ -1470,7 +1470,7 @@
 
         function updateEFormLink(eformID) {
             if (eformID > 0) {
-                let eFormURL = '<%=request.getContextPath()%>/eform/efmformadd_data.jsp?fid=' + eformID + '&demographic_no=<%=demo%>&appointment=null';
+                let eFormURL = '<%=request.getContextPath()%>/eform/efmformadd_data.jsp?fid=' + eformID + '&demographic_no=<%=Encode.forJavaScript(demo)%>&appointment=null';
                 document.getElementById("eFormButton").style.display = "inline";
                 document.getElementById("eFormButton").onclick = function () {
                     popup(eFormURL);
@@ -2107,9 +2107,9 @@ if (userAgent != null) {
         <% } %>
         <input type="hidden" name="demographicNo" id="demographicNo" value="<%=Encode.forHtmlAttribute(demo)%>">
         <input type="hidden" name="requestId" id="requestId" value="<%=Encode.forHtmlAttribute(requestId != null ? requestId : "")%>">
-        <input type="hidden" name="ext_appNo" value="<%=Encode.forHtmlAttribute(request.getParameter("appNo") != null ? request.getParameter("appNo") : "")%>">
+        <input type="hidden" name="ext_appNo" value="<%=Encode.forHtmlAttribute(appNo)%>">
         <input type="hidden" name="source"
-               value="<%=Encode.forHtmlAttribute((requestId != null) ? thisForm.getSource() : (request.getParameter("source") != null ? request.getParameter("source") : ""))%>">
+               value="<%=Encode.forHtmlAttribute((requestId != null) ? (thisForm.getSource() != null ? thisForm.getSource() : "") : (request.getParameter("source") != null ? request.getParameter("source") : ""))%>">
         <input type="hidden" name="submission" value="">
         <input type="hidden" id="saved" value="false">
         <input type="hidden" id="contextPath" value="${pageContext.request.contextPath}">
@@ -2384,13 +2384,14 @@ if (userAgent != null) {
                                     <div class="card-header p-2 fw-semibold" style="font-size:0.85rem;">
                                         <i class="fa-solid fa-user me-1"></i>
                                         <a href="javascript:void(0);"
-                                           onClick="popupAttach(600,900,'<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=demo%>&displaymode=edit&dboperation=search_detail')"><%=Encode.forHtml(thisForm.getPatientName())%></a>
+                                           onClick="popupAttach(600,900,'<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demo))%>&displaymode=edit&dboperation=search_detail')"><%=Encode.forHtml(thisForm.getPatientName())%></a>
                                     </div>
                                     <div class="card-body p-2">
                                         <div class="row g-2" style="font-size:0.85rem;">
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAddress"/></small><br>
-                                                <%=Encode.forHtml(thisForm.getPatientAddress().replace("null", ""))%>
+                                                <%-- Encode.forHtml() preserves \n, so .replace() safely inserts <br> after encoding --%>
+                                                <%=Encode.forHtml(thisForm.getPatientAddress().replace("null", "")).replace("\n", "<br>")%>
                                             </div>
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPhone"/></small>: <%=Encode.forHtml(thisForm.getPatientPhone())%><br>
@@ -2736,7 +2737,7 @@ if (userAgent != null) {
                                         <td class="consult-form-label">EForm
                                         </td>
                                         <td class="consult-form-value">
-                                            <a href="<%=request.getContextPath()%>/eform/efmshowform_data.jsp?fdid=<%=thisForm.getFdid() %>">Click
+                                            <a href="<%=request.getContextPath()%>/eform/efmshowform_data.jsp?fdid=<%=Encode.forUriComponent(String.valueOf(thisForm.getFdid()))%>">Click
                                                 to view</a>
                                         </td>
                                     </tr>
@@ -2784,7 +2785,7 @@ if (userAgent != null) {
                                                     if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_letterhead_enabled", "true")) {
                                                         for (Program p : programList) {
                                                 %>
-                                                <option value="prog_<%=p.getId() %>" <%=(thisForm.getLetterheadName() != null && thisForm.getLetterheadName().equalsIgnoreCase("prog_" + p.getId()) ? "selected" : "") %>>
+                                                <option value="<%=Encode.forHtmlAttribute("prog_" + p.getId())%>" <%=(thisForm.getLetterheadName() != null && thisForm.getLetterheadName().equalsIgnoreCase("prog_" + p.getId()) ? "selected" : "") %>>
                                                     <%=Encode.forHtmlContent(p.getName()) %>
                                                 </option>
                                                 <% }
@@ -3040,7 +3041,7 @@ if (userAgent != null) {
                                 </div>
                                 <div id="signatureFrame" style="display: none;">
                                     <iframe style="width:500px; height:132px;"
-                                        src="<%= request.getContextPath() %>/signature_pad/tabletSignature.jsp?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
+                                        src="<%= request.getContextPath() %>/signature_pad/tabletSignature.jsp?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=Encode.forHtmlAttribute(Encode.forUriComponent(signatureRequestId))%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
                                 </div>
                                 <div style="margin-top:5px;">
                                     <a href="javascript:void(0)" onclick="document.getElementById('signatureShow').style.display='none';document.getElementById('signatureFrame').style.display='block';document.getElementById('newSignature').value='true';">
@@ -3053,7 +3054,7 @@ if (userAgent != null) {
                                 </div>
 
                                 <iframe style="width:500px; height:132px;" id="signatureFrame"
-							src="<%= request.getContextPath() %>/signature_pad/tabletSignature.jsp?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
+							src="<%= request.getContextPath() %>/signature_pad/tabletSignature.jsp?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=Encode.forHtmlAttribute(Encode.forUriComponent(signatureRequestId))%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
                                 <% } %>
                         </div>
                         <% }%>
