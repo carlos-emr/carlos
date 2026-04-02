@@ -264,9 +264,9 @@
             <div class="col-lg-12">
                 <i>Results for Demographic</i>
                 :
-                <%=request.getParameter("lastName")%>      ,
-                <%=request.getParameter("firstName")%>      (
-                <%=request.getParameter("demographicNo")%>      )
+                <%= Encode.forHtml(request.getParameter("lastName")) %>      ,
+                <%= Encode.forHtml(request.getParameter("firstName")) %>      (
+                <%= Encode.forHtml(request.getParameter("demographicNo")) %>      )
             </div>
         </div>
         <%}%>
@@ -274,8 +274,8 @@
 
         <form name="serviceform" method="get" action="billStatus.jsp" class="d-flex flex-wrap align-items-center gap-2">
             <input type="hidden" name="filterPatient" value="<%=readonly%>"/>
-            <input type="hidden" name="lastName" value="<%=request.getParameter("lastName")%>"/>
-            <input type="hidden" name="firstName" value="<%=request.getParameter("firstName")%>"/>
+            <input type="hidden" name="lastName" value="<%= Encode.forHtml(request.getParameter("lastName")) %>"/>
+            <input type="hidden" name="firstName" value="<%= Encode.forHtml(request.getParameter("firstName")) %>"/>
             <div class="row">
                 <div class="col-lg-12">
                     <div class="mb-3">

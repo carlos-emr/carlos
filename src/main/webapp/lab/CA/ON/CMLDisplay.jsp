@@ -99,6 +99,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CML.CMLLabTest" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
@@ -152,7 +153,7 @@
     <input type="hidden" name="labType" value="CML"/> <input type="hidden"
                                                              name="labType<%= segmentID %>CML"
                                                              value="imNotNull"/> <input type="hidden" name="providerNo"
-                                                                                        value="<%= request.getParameter("providerNo") %>"/>
+                                                                                        value="<%= Encode.forHtmlAttribute(request.getParameter("providerNo")) %>"/>
 </form>
 <form name="acknowledgeForm" method="post"
       action="<%=request.getContextPath()%>/oscarMDS/UpdateStatus.do">
@@ -167,7 +168,7 @@
                             <input type="hidden" name="segmentID"
                                    value="<%= segmentID %>"/> <input
                                 type="hidden" name="providerNo"
-                                value="<%= request.getParameter("providerNo") %>"/> <input
+                                value="<%= Encode.forHtmlAttribute(request.getParameter("providerNo")) %>"/> <input
                                 type="hidden" name="status" value="A"/> <input type="hidden"
                                                                                name="comment" value=""/> <input
                                 type="hidden" name="labType"
@@ -215,11 +216,11 @@
                             } else {
                                 if (request.getParameter("searchProviderNo") != null) { // null if we were called from e-chart
                             %><a
-                                    href="CMLDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=lab.multiLabId%>&providerNo=<%=request.getParameter("providerNo")%>&searchProviderNo=<%=request.getParameter("searchProviderNo")%>">v<%= i + 1 %>
+                                    href="CMLDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=lab.multiLabId%>&providerNo=<%= Encode.forUriComponent(request.getParameter("providerNo")) %>&searchProviderNo=<%= Encode.forUriComponent(request.getParameter("searchProviderNo")) %>">v<%= i + 1 %>
                             </a>&#160;<%
                             } else {
                             %><a
-                                    href="CMLDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=lab.multiLabId%>&providerNo=<%=request.getParameter("providerNo")%>">v<%= i + 1 %>
+                                    href="CMLDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=lab.multiLabId%>&providerNo=<%= Encode.forUriComponent(request.getParameter("providerNo")) %>">v<%= i + 1 %>
                             </a>&#160;<%
                                         }
                                     }

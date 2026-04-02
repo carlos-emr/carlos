@@ -31,6 +31,7 @@
 
 
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*"
+<%@ page import="org.owasp.encoder.Encode" %>
          errorPage="/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -72,16 +73,16 @@
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
                 <%--    <tr><td><%=request.getParameter("label1")%></td></tr>--%>
             <tr>
-                <td><font face="Courier New, Courier, mono" size="2"><b><%=request.getParameter("last_name")%>
-                    ,&nbsp;<%=request.getParameter("first_name")%>
+                <td><font face="Courier New, Courier, mono" size="2"><b><%= Encode.forHtml(request.getParameter("last_name")) %>
+                    ,&nbsp;<%= Encode.forHtml(request.getParameter("first_name")) %>
                 </b><br>
-                    &nbsp;&nbsp;&nbsp;&nbsp;<%=request.getParameter("hin")%><br>
-                    &nbsp;&nbsp;&nbsp;&nbsp;<%=request.getParameter("dob")%>&nbsp;<%=request.getParameter("sex")%><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<%= Encode.forHtml(request.getParameter("hin")) %><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<%= Encode.forHtml(request.getParameter("dob")) %>&nbsp;<%= Encode.forHtml(request.getParameter("sex")) %><br>
                     <br>
-                    <b><%=request.getParameter("last_name")%>,&nbsp;<%=request.getParameter("first_name")%>
+                    <b><%= Encode.forHtml(request.getParameter("last_name")) %>,&nbsp;<%= Encode.forHtml(request.getParameter("first_name")) %>
                     </b><br>
-                    &nbsp;&nbsp;&nbsp;&nbsp;<%=request.getParameter("hin")%><br>
-                    &nbsp;&nbsp;&nbsp;&nbsp;<%=request.getParameter("dob")%>&nbsp;<%=request.getParameter("sex")%><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<%= Encode.forHtml(request.getParameter("hin")) %><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<%= Encode.forHtml(request.getParameter("dob")) %>&nbsp;<%= Encode.forHtml(request.getParameter("sex")) %><br>
                 </font></td>
             </tr>
         </table>
@@ -97,14 +98,14 @@
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
                 <%--<tr><td><%=request.getParameter("label2")%></td></tr>--%>
             <tr>
-                <td><font face="Courier New, Courier, mono" size="2"><b><%=request.getParameter("last_name")%>
-                    ,&nbsp;<%=request.getParameter("first_name")%>&nbsp;<%=request.getParameter("chart_no")%>
-                </b><br><%=request.getParameter("address")%><br><%=request.getParameter("city")%>
-                    ,&nbsp;<%=request.getParameter("province")%>,&nbsp;<%=request.getParameter("postal")%><br>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgHome"/>:&nbsp;<%=request.getParameter("phone")%>
-                    <br><%=request.getParameter("dob")%>&nbsp;<%=request.getParameter("sex")%>
-                    <br><%=request.getParameter("hin")%><br>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgBus"/>:<%=request.getParameter("phone2")%>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgDr"/>&nbsp;<%=request.getParameter("providername")%>
+                <td><font face="Courier New, Courier, mono" size="2"><b><%= Encode.forHtml(request.getParameter("last_name")) %>
+                    ,&nbsp;<%= Encode.forHtml(request.getParameter("first_name")) %>&nbsp;<%= Encode.forHtml(request.getParameter("chart_no")) %>
+                </b><br><%= Encode.forHtml(request.getParameter("address")) %><br><%= Encode.forHtml(request.getParameter("city")) %>
+                    ,&nbsp;<%= Encode.forHtml(request.getParameter("province")) %>,&nbsp;<%= Encode.forHtml(request.getParameter("postal")) %><br>
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgHome"/>:&nbsp;<%= Encode.forHtml(request.getParameter("phone")) %>
+                    <br><%= Encode.forHtml(request.getParameter("dob")) %>&nbsp;<%= Encode.forHtml(request.getParameter("sex")) %>
+                    <br><%= Encode.forHtml(request.getParameter("hin")) %><br>
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgBus"/>:<%= Encode.forHtml(request.getParameter("phone2")) %>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgDr"/>&nbsp;<%= Encode.forHtml(request.getParameter("providername")) %>
                     <br>
                 </font></td>
             </tr>
@@ -120,10 +121,10 @@
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
                 <%--  <tr><td><%=request.getParameter("label3")%></td></tr>--%>
             <tr>
-                <td><font face="Courier New, Courier, mono" size="2"><%=request.getParameter("last_name")%>
-                    ,&nbsp;<%=request.getParameter("first_name")%><br><%=request.getParameter("address")%>
-                    <br><%=request.getParameter("city")%>,&nbsp;<%=request.getParameter("province")%>
-                    ,&nbsp;<%=request.getParameter("postal")%><br>
+                <td><font face="Courier New, Courier, mono" size="2"><%= Encode.forHtml(request.getParameter("last_name")) %>
+                    ,&nbsp;<%= Encode.forHtml(request.getParameter("first_name")) %><br><%= Encode.forHtml(request.getParameter("address")) %>
+                    <br><%= Encode.forHtml(request.getParameter("city")) %>,&nbsp;<%= Encode.forHtml(request.getParameter("province")) %>
+                    ,&nbsp;<%= Encode.forHtml(request.getParameter("postal")) %><br>
                 </font></td>
             </tr>
         </table>
@@ -139,9 +140,9 @@
                 <%--  <tr><td><%=request.getParameter("label4")%></td></tr>--%>
             <tr>
                 <td><font face="Courier New, Courier, mono"
-                          size="2"><%=request.getParameter("first_name")%>&nbsp;<%=request.getParameter("last_name")%>
-                    <br><%=request.getParameter("address")%><br><%=request.getParameter("city")%>
-                    ,&nbsp;<%=request.getParameter("province")%>,&nbsp;<%=request.getParameter("postal")%><br>
+                          size="2"><%= Encode.forHtml(request.getParameter("first_name")) %>&nbsp;<%= Encode.forHtml(request.getParameter("last_name")) %>
+                    <br><%= Encode.forHtml(request.getParameter("address")) %><br><%= Encode.forHtml(request.getParameter("city")) %>
+                    ,&nbsp;<%= Encode.forHtml(request.getParameter("province")) %>,&nbsp;<%= Encode.forHtml(request.getParameter("postal")) %><br>
                 </font></td>
             </tr>
         </table>
@@ -156,13 +157,13 @@
                 <%--  <tr><td><%=request.getParameter("label5")%></td></tr>--%>
             <tr>
                 <td><font face="Courier New, Courier, mono"
-                          size="2"><%=request.getParameter("chart_no")%>&nbsp;&nbsp;<%=request.getParameter("last_name")%>
-                    ,&nbsp;<%=request.getParameter("first_name")%><br><%=request.getParameter("address")%>
-                    <br><%=request.getParameter("city")%>,&nbsp;<%=request.getParameter("province")%>
-                    ,&nbsp;<%=request.getParameter("postal")%><br>
-                    <%=request.getParameter("dob")%>&nbsp;&nbsp; <%=request.getParameter("age")%>&nbsp;
-                    <%=request.getParameter("sex")%> &nbsp;<%=request.getParameter("hin")%><br>
-                    <%=request.getParameter("phone")%>&nbsp;&nbsp; <%=request.getParameter("phone2")%><br>
+                          size="2"><%= Encode.forHtml(request.getParameter("chart_no")) %>&nbsp;&nbsp;<%= Encode.forHtml(request.getParameter("last_name")) %>
+                    ,&nbsp;<%= Encode.forHtml(request.getParameter("first_name")) %><br><%= Encode.forHtml(request.getParameter("address")) %>
+                    <br><%= Encode.forHtml(request.getParameter("city")) %>,&nbsp;<%= Encode.forHtml(request.getParameter("province")) %>
+                    ,&nbsp;<%= Encode.forHtml(request.getParameter("postal")) %><br>
+                    <%= Encode.forHtml(request.getParameter("dob")) %>&nbsp;&nbsp; <%= Encode.forHtml(request.getParameter("age")) %>&nbsp;
+                    <%= Encode.forHtml(request.getParameter("sex")) %> &nbsp;<%= Encode.forHtml(request.getParameter("hin")) %><br>
+                    <%= Encode.forHtml(request.getParameter("phone")) %>&nbsp;&nbsp; <%= Encode.forHtml(request.getParameter("phone2")) %><br>
                 </font></td>
             </tr>
         </table>

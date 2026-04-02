@@ -2503,9 +2503,9 @@
             jQuery('.ds-btn').click(function () {
                 //var provider_no = '<%=loggedInInfo1.getLoggedInProviderNo()%>';
                 var provider_no = jQuery(this).attr('data-provider_no');
-                var y = '<%=request.getParameter("year")%>';
-                var m = '<%=request.getParameter("month")%>';
-                var d = '<%=request.getParameter("day")%>';
+                var y = '<%= Encode.forJavaScript(request.getParameter("year")) %>';
+                var m = '<%= Encode.forJavaScript(request.getParameter("month")) %>';
+                var d = '<%= Encode.forJavaScript(request.getParameter("day")) %>';
                 var sTime = 8;
                 var eTime = 20;
                 var dateStr = y + '-' + m + '-' + d;

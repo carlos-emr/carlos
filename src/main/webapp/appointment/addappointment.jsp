@@ -1137,9 +1137,9 @@ Ontario, Canada
               action="<%=request.getContextPath()%>/appointment/appointmentcontrol.jsp"
               onsubmit="return(onAdd())">
             <input type="hidden" name="displaymode" value="">
-            <input type="hidden" name="year" value="<%=request.getParameter("year") %>">
-            <input type="hidden" name="month" value="<%=request.getParameter("month") %>">
-            <input type="hidden" name="day" value="<%=request.getParameter("day") %>">
+            <input type="hidden" name="year" value="<%= Encode.forHtmlAttribute(request.getParameter("year")) %>">
+            <input type="hidden" name="month" value="<%= Encode.forHtmlAttribute(request.getParameter("month")) %>">
+            <input type="hidden" name="day" value="<%= Encode.forHtmlAttribute(request.getParameter("day")) %>">
             <input type="hidden" name="fromAppt" value="1">
 
 

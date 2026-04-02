@@ -51,6 +51,7 @@
 <%@ page errorPage="/errorpage.jsp" import="java.util.*,java.math.*,java.net.*,java.sql.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.*" %>
 
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
@@ -533,17 +534,17 @@
                                 <tr>
                                     <td nowrap width="30%" align="center" valign="top"><b>Service
                                         Date</b><br>
-                                        <%=request.getParameter("billDate").replaceAll("\\n", "<br>")%>
+                                        <%= Encode.forHtml(request.getParameter("billDate").replaceAll("\\n", "<br>")) %>
                                     </td>
                                     <td align="center" width="33%"><b>Diagnostic Code</b><br>
-                                        <%=request.getParameter("dxCode")%>
+                                        <%= Encode.forHtml(request.getParameter("dxCode")) %>
                                         <hr>
                                         <b>Cal.% mode</b><br>
-                                        <%=request.getParameter("rulePerc")%>
+                                        <%= Encode.forHtml(request.getParameter("rulePerc")) %>
                                     </td>
                                     <td valign="top"><b>Refer.
-                                        Doctor</b><br><%=request.getParameter("referralDocName")%><br>
-                                        <b>Refer. Doctor #</b><br><%=request.getParameter("referralCode")%>
+                                        Doctor</b><br><%= Encode.forHtml(request.getParameter("referralDocName")) %><br>
+                                        <b>Refer. Doctor #</b><br><%= Encode.forHtml(request.getParameter("referralCode")) %>
                                     </td>
                                 </tr>
                             </table>
@@ -565,16 +566,16 @@
                                 <tr>
 
                                     <td width="30%"><b>Visit Type</b></td>
-                                    <td width="20%"><%=request.getParameter("xml_visittype").substring(request.getParameter("xml_visittype").indexOf("|") + 1)%>
+                                    <td width="20%"><%= Encode.forHtml(request.getParameter("xml_visittype").substring(request.getParameter("xml_visittype").indexOf("|") + 1)) %>
                                     </td>
 
                                     <td width="30%"><b>Billing Type</b></td>
-                                    <td width="20%"><%=request.getParameter("xml_billtype").substring(request.getParameter("xml_billtype").indexOf("|") + 1)%>
+                                    <td width="20%"><%= Encode.forHtml(request.getParameter("xml_billtype").substring(request.getParameter("xml_billtype").indexOf("|") + 1)) %>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td><b>Visit Location</b></td>
-                                    <td colspan="3"><%=request.getParameter("xml_location").substring(request.getParameter("xml_location").indexOf("|") + 1)%>
+                                    <td colspan="3"><%= Encode.forHtml(request.getParameter("xml_location").substring(request.getParameter("xml_location").indexOf("|") + 1)) %>
                                     </td>
                                 </tr>
                                 <tr>
@@ -592,7 +593,7 @@
                                 </tr>
                                 <tr>
                                     <td><b>Admission Date</b></td>
-                                    <td><%=request.getParameter("xml_vdate")%>
+                                    <td><%= Encode.forHtml(request.getParameter("xml_vdate")) %>
                                     </td>
                                     <td colspan="2"></td>
 

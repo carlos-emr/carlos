@@ -41,6 +41,7 @@
 <%@ page errorPage="/errorpage.jsp"
          import="java.util.*,java.math.*,java.net.*,java.sql.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.appt.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.administration.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*, java.util.Properties" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
@@ -569,10 +570,10 @@
 <body onload="showtotal(),calculatePayment()">
 
 <form method="post" name="titlesearch" action="billingONSave.jsp" onsubmit="return onSave();">
-    <input type="hidden" name="url_back" value="<%=request.getParameter("url_back")%>">
-    <input type="hidden" name="billNo_old" id="billNo_old" value="<%=request.getParameter("billNo_old")%>"/>
-    <input type="hidden" name="billStatus_old" id="billStatus_old" value="<%=request.getParameter("billStatus_old")%>"/>
-    <input type="hidden" name="billForm" id="billForm" value="<%=request.getParameter("billForm")%>"/>
+    <input type="hidden" name="url_back" value="<%= Encode.forHtmlAttribute(request.getParameter("url_back")) %>">
+    <input type="hidden" name="billNo_old" id="billNo_old" value="<%= Encode.forHtmlAttribute(request.getParameter("billNo_old")) %>"/>
+    <input type="hidden" name="billStatus_old" id="billStatus_old" value="<%= Encode.forHtmlAttribute(request.getParameter("billStatus_old")) %>"/>
+    <input type="hidden" name="billForm" id="billForm" value="<%= Encode.forHtmlAttribute(request.getParameter("billForm")) %>"/>
     <input type="hidden" name="payeename" id="payeename" value=""/>
     <table style="width:100%" class="myIvory">
         <tr>
@@ -606,16 +607,16 @@
                                 <tr>
                                     <!--<input type="text" name="checkFlag" id="checkFlag" value="<%=request.getParameter("checkFlag") %>" />  -->
                                     <td style="white-space:nowrap; width:30%; text-align:center"><b>Service Date</b><br>
-                                        <%=request.getParameter("service_date").replaceAll("\\n", "<br>")%>
+                                        <%= Encode.forHtml(request.getParameter("service_date").replaceAll("\\n", "<br>")) %>
                                     </td>
                                     <td style="text-align:center; width:33%"><b>Diagnostic Code</b><br>
                                         <%=dxCode%><br>
                                         <%=dxDesc%>
                                     </td>
                                     <td style="vertical-align:top"><b>Refer. Doctor</b><br>
-                                        <%=request.getParameter("referralDocName")%><br>
+                                        <%= Encode.forHtml(request.getParameter("referralDocName")) %><br>
                                         <b>Refer. Doctor #</b><br>
-                                        <%=request.getParameter("referralCode")%>
+                                        <%= Encode.forHtml(request.getParameter("referralCode")) %>
                                     </td>
                                 </tr>
                             </table>
@@ -636,19 +637,19 @@
                                 <tr>
 
                                     <td style="width:30%"><b>Visit Type</b></td>
-                                    <td style="width:20%"><%=request.getParameter("xml_visittype").substring(
-                                            request.getParameter("xml_visittype").indexOf("|") + 1)%>
+                                    <td style="width:20%"><%= Encode.forHtml(request.getParameter("xml_visittype").substring(
+                                            request.getParameter("xml_visittype").indexOf("|") + 1)) %>
                                     </td>
 
                                     <td style="width:30%"><b>Billing Type</b></td>
-                                    <td style="width:20%"><%=request.getParameter("xml_billtype").substring(
-                                            request.getParameter("xml_billtype").indexOf("|") + 1)%>
+                                    <td style="width:20%"><%= Encode.forHtml(request.getParameter("xml_billtype").substring(
+                                            request.getParameter("xml_billtype").indexOf("|") + 1)) %>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td><b>Visit Location</b></td>
-                                    <td><%=request.getParameter("xml_location").substring(
-                                            request.getParameter("xml_location").indexOf("|") + 1)%> &nbsp;
+                                    <td><%= Encode.forHtml(request.getParameter("xml_location").substring(
+                                            request.getParameter("xml_location").indexOf("|") + 1)) %> &nbsp;
                                         <% if (request.getParameter("m_review") != null) {
                                             out.println("<b>Manual: Y</b>");
                                         } %>
@@ -656,13 +657,13 @@
 
                                     <% if (bMultisites) { %>
                                     <td style="width:30%"><b>Billing Clinic</b></td>
-                                    <td style="width:20%; white-space:nowrap;"><%=request.getParameter("site")%>
+                                    <td style="width:20%; white-space:nowrap;"><%= Encode.forHtml(request.getParameter("site")) %>
                                     </td>
                                     <% } %>
                                 </tr>
                                 <tr>
                                     <td><b>SLI Code</b></td>
-                                    <td><%=request.getParameter("xml_slicode").substring(request.getParameter("xml_slicode").indexOf("|") + 1)%>
+                                    <td><%= Encode.forHtml(request.getParameter("xml_slicode").substring(request.getParameter("xml_slicode").indexOf("|") + 1)) %>
                                         &nbsp;
                                     </td>
                                     <% if (bMultisites) { %>
@@ -672,7 +673,7 @@
                                 </tr>
                                 <tr>
                                     <td><b>Admission Date</b></td>
-                                    <td><%=request.getParameter("xml_vdate")%>
+                                    <td><%= Encode.forHtml(request.getParameter("xml_vdate")) %>
                                     </td>
                                     <td colspan="2"></td>
                                     <% if (bMultisites) { %>
@@ -1195,7 +1196,7 @@
                     </td>
                     <td style="text-align:right">
                         <input type="hidden" name="provider_no"
-                               value="<%=request.getParameter("xml_provider").substring(0,request.getParameter("xml_provider").indexOf("|"))%>"/>
+                               value="<%= Encode.forHtmlAttribute(request.getParameter("xml_provider").substring(0,request.getParameter("xml_provider").indexOf("|"))) %>"/>
                         GST Billed:<input type="text" id="gst" name="gst" value="<%=gstTotal%>"><br>
                         <input type="hidden" id="gstBilledTotal" name="gstBilledTotal" value="<%=gstbilledtotal%>">
                         Total:<input type="text" id="stotal" disabled name="stotal" value="0.00"><br>

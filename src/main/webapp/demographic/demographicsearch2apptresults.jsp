@@ -316,7 +316,7 @@
             function addName(demographic_no, lastname, firstname, chartno, messageID, doctorNo) {
                 fullname = lastname + "," + firstname;
 
-                document.addform.action = "<%=request.getParameter("originalpage")%>?" + "demographic_no=" + demographic_no + "&name=" + fullname + "&chart_no=" + chartno + "&bFirstDisp=false" + "&messageID=" + messageID + "&doctor_no=" + doctorNo;
+                document.addform.action = "<%= Encode.forJavaScript(request.getParameter("originalpage")) %>?" + "demographic_no=" + demographic_no + "&name=" + fullname + "&chart_no=" + chartno + "&bFirstDisp=false" + "&messageID=" + messageID + "&doctor_no=" + doctorNo;
 
                 document.addform.submit();
                 return true;
@@ -326,19 +326,19 @@
 
             function addNameCaisi(demographic_no, lastname, firstname, chartno, messageID) {
                 fullname = lastname + "," + firstname;
-                if (opener.document.<%=request.getParameter("formName")%> != null) {
-                    if (opener.document.<%=request.getParameter("formName")%>.
-                    elements['<%=request.getParameter("elementName")%>'] != null
+                if (opener.document.<%= Encode.forJavaScript(request.getParameter("formName")) %> != null) {
+                    if (opener.document.<%= Encode.forJavaScript(request.getParameter("formName")) %>.
+                    elements['<%= Encode.forJavaScript(request.getParameter("elementName")) %>'] != null
                 )
                     opener.document
-                .<%=request.getParameter("formName")%>.
-                    elements['<%=request.getParameter("elementName")%>'].value = fullname;
-                    if (opener.document.<%=request.getParameter("formName")%>.
-                    elements['<%=request.getParameter("elementId")%>'] != null
+                .<%= Encode.forJavaScript(request.getParameter("formName")) %>.
+                    elements['<%= Encode.forJavaScript(request.getParameter("elementName")) %>'].value = fullname;
+                    if (opener.document.<%= Encode.forJavaScript(request.getParameter("formName")) %>.
+                    elements['<%= Encode.forJavaScript(request.getParameter("elementId")) %>'] != null
                 )
                     opener.document
-                .<%=request.getParameter("formName")%>.
-                    elements['<%=request.getParameter("elementId")%>'].value = demographic_no;
+                .<%= Encode.forJavaScript(request.getParameter("formName")) %>.
+                    elements['<%= Encode.forJavaScript(request.getParameter("elementId")) %>'].value = demographic_no;
                 }
                 self.close();
             }
@@ -477,12 +477,12 @@
                 <tr style="background-color: <%=bgColor%>"
                     onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
                     onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                    onClick="document.forms[0].demographic_no.value=<%=demo.getDemographicNo()%>;<% if(caisi) { out.print("addNameCaisi");} else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo() == null ? "" : demo.getChartNo(), StandardCharsets.UTF_8)%>','<%=request.getParameter("messageId")%>','<%=demo.getProviderNo()%>')">
+                    onClick="document.forms[0].demographic_no.value=<%=demo.getDemographicNo()%>;<% if(caisi) { out.print("addNameCaisi");} else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo() == null ? "" : demo.getChartNo(), StandardCharsets.UTF_8)%>','<%= Encode.forJavaScript(request.getParameter("messageId")) %>','<%=demo.getProviderNo()%>')">
 
                     <td class="demoId">
                         <input type="submit" class="mbttn btn btn-secondary btn-sm" name="demographic_no"
                                value="<%=demo.getDemographicNo()%>"
-                               onClick="<% if(caisi) {out.print("addNameCaisi");} else {out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo() == null ? "" : demo.getChartNo(), StandardCharsets.UTF_8)%>','<%=request.getParameter("messageId")%>','<%=demo.getProviderNo()%>')">
+                               onClick="<% if(caisi) {out.print("addNameCaisi");} else {out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo() == null ? "" : demo.getChartNo(), StandardCharsets.UTF_8)%>','<%= Encode.forJavaScript(request.getParameter("messageId")) %>','<%=demo.getProviderNo()%>')">
                     </td>
                     <td class="lastName"><%=Encode.forHtml(Misc.toUpperLowerCase(demo.getLastName()))%>
                     </td>
@@ -579,12 +579,12 @@
         <script language="JavaScript">
 
             function last() {
-                document.nextform.action = "<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?keyword=<%= Encode.forUriComponent(request.getParameter("keyword")) %>&search_mode=<%= Encode.forUriComponent(request.getParameter("search_mode")) %>&displaymode=<%= Encode.forUriComponent(request.getParameter("displaymode")) %>&dboperation=<%= Encode.forUriComponent(request.getParameter("dboperation")) %>&orderby=<%= Encode.forUriComponent(request.getParameter("orderby")) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
                 //document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?keyword=<%= Encode.forUriComponent(request.getParameter("keyword")) %>&search_mode=<%= Encode.forUriComponent(request.getParameter("search_mode")) %>&displaymode=<%= Encode.forUriComponent(request.getParameter("displaymode")) %>&dboperation=<%= Encode.forUriComponent(request.getParameter("dboperation")) %>&orderby=<%= Encode.forUriComponent(request.getParameter("orderby")) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
                 //document.nextform.submit();
             }
 

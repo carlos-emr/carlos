@@ -221,7 +221,7 @@
                 <table class="TopStatusBar">
                     <tr>
                         <td><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.msgResults"/>: <%=demolastname%>
-                            ,<%=demofirstname%>(<%=request.getParameter("demographic_no")%>)
+                            ,<%=demofirstname%>(<%= Encode.forHtml(request.getParameter("demographic_no")) %>)
                         </td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
@@ -236,7 +236,7 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn" valign="top"><a
-                    href="<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=request.getParameter("demographic_no")%>&apptProvider=<%=session.getAttribute("user") %>&displaymode=edit&dboperation=search_detail"
+                    href="<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(request.getParameter("demographic_no")) %>&apptProvider=<%=session.getAttribute("user") %>&displaymode=edit&dboperation=search_detail"
                     onMouseOver="self.status=document.referrer;return true">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></a>
                 <br/>
@@ -398,14 +398,14 @@
                     nPrevPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
                     if (nPrevPage >= 0) {
                 %>
-                <a href="demographiccontrol.jsp?demographic_no=<%=request.getParameter("demographic_no")%>&last_name=<%=URLEncoder.encode(demolastname,"UTF-8")%>&first_name=<%=URLEncoder.encode(demofirstname,"UTF-8")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nPrevPage%>&limit2=<%=strLimit2%>">
+                <a href="demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(request.getParameter("demographic_no")) %>&last_name=<%=URLEncoder.encode(demolastname,"UTF-8")%>&first_name=<%=URLEncoder.encode(demofirstname,"UTF-8")%>&displaymode=<%= Encode.forUriComponent(request.getParameter("displaymode")) %>&dboperation=<%= Encode.forUriComponent(request.getParameter("dboperation")) %>&orderby=<%= Encode.forUriComponent(request.getParameter("orderby")) %>&limit1=<%=nPrevPage%>&limit2=<%=strLimit2%>">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.btnPrevPage"/></a>
                 <%
                     }
 
                     if (nItems >= Integer.parseInt(strLimit2)) {
                 %>
-                <a href="demographiccontrol.jsp?demographic_no=<%=request.getParameter("demographic_no")%>&last_name=<%=URLEncoder.encode(demolastname,"UTF-8")%>&first_name=<%=URLEncoder.encode(demofirstname,"UTF-8")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>">
+                <a href="demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(request.getParameter("demographic_no")) %>&last_name=<%=URLEncoder.encode(demolastname,"UTF-8")%>&first_name=<%=URLEncoder.encode(demofirstname,"UTF-8")%>&displaymode=<%= Encode.forUriComponent(request.getParameter("displaymode")) %>&dboperation=<%= Encode.forUriComponent(request.getParameter("dboperation")) %>&orderby=<%= Encode.forUriComponent(request.getParameter("orderby")) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.btnNextPage"/></a>
                 <%
                     }

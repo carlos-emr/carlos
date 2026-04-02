@@ -35,6 +35,7 @@
 %>
 
 <%@ page import="java.util.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao, io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 
@@ -169,7 +170,7 @@
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="demographic_no" readonly
-                                    value="<%=request.getParameter("demographic_no").trim()%> " size="20">
+                                    value="<%= Encode.forHtmlAttribute(request.getParameter("demographic_no").trim()) %> " size="20">
                             </font></td>
                             <td rowspan="8" width="21%" valign="middle">
                                 <p><br>
@@ -184,7 +185,7 @@
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="demo_name" readonly
-                                    value="<%=request.getParameter("demographic_name")%>" size="20">
+                                    value="<%= Encode.forHtmlAttribute(request.getParameter("demographic_name")) %>" size="20">
                             </font></td>
                         </tr>
                         <tr>
@@ -195,7 +196,7 @@
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="demo_dob" readonly
-                                    value="<%=request.getParameter("dob")%>" size="20"> </font></td>
+                                    value="<%= Encode.forHtmlAttribute(request.getParameter("dob")) %>" size="20"> </font></td>
                         </tr>
                         <tr>
                             <td width="29%"><font
@@ -205,7 +206,7 @@
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="demo_hin" readonly
-                                    value="<%=request.getParameter("hin")%>" size="20"> </font></td>
+                                    value="<%= Encode.forHtmlAttribute(request.getParameter("hin")) %>" size="20"> </font></td>
                         </tr>
                         <tr>
                             <td width="29%"><font
@@ -276,7 +277,7 @@
                                     type="text" name="dispcreator" readonly
                                     value="<%=creator.getFormattedName()%>" size="20"> <input
                                     type="hidden" name="creator"
-                                    value="<%=request.getParameter("creator")%>" size="20">
+                                    value="<%= Encode.forHtmlAttribute(request.getParameter("creator")) %>" size="20">
                             </font></td>
                         </tr>
                         <tr>
