@@ -32,8 +32,8 @@
             <c:if test="${message.active eq 'true'}">
                 <tr>
                     <td><font color="red" size="+1"><c:out
-                            value="${message.facilityName}" escapeXml="false"/>&nbsp;Message
-                        - <c:out value="${message.message}" escapeXml="false"/></font></td>
+                            value="${message.facilityName}"/>&nbsp;Message
+                        - <c:out value="${message.message}"/></font></td>
                 </tr>
             </c:if>
         </c:forEach>

@@ -32,7 +32,7 @@
             <c:if test="${message.active eq 'true'}">
                 <tr>
                     <td><font color="red" size="+1"><c:out
-                            value="${message.message}" escapeXml="false"/></font></td>
+                            value="${message.message}"/></font></td>
                 </tr>
             </c:if>
         </c:forEach>
