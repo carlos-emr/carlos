@@ -192,12 +192,24 @@ public final class DBPreparedHandler {
         return new Object[]{rs, preparedStmt};
     }
 
+    /**
+     * @deprecated This method executes raw SQL with no parameterization and is vulnerable to SQL injection.
+     * Use one of the parameterized overloads (e.g. {@link #queryResults(String, String)},
+     * {@link #queryResults(String, String[])}, or {@link #queryResults(String, DBPreparedHandlerParam[])}) instead.
+     */
+    @Deprecated
     synchronized public Object[] queryResultsCaisi(String preparedSQL) throws SQLException {
         stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement();
         rs = stmt.executeQuery(preparedSQL);
         return new Object[]{rs, stmt};
     }
 
+    /**
+     * @deprecated This method executes raw SQL with no parameterization and is vulnerable to SQL injection.
+     * Use one of the parameterized overloads (e.g. {@link #queryResults(String, String)},
+     * {@link #queryResults(String, String[])}, or {@link #queryResults(String, DBPreparedHandlerParam[])}) instead.
+     */
+    @Deprecated
     synchronized public ResultSet queryResults(String preparedSQL) throws SQLException {
         stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement();
         rs = stmt.executeQuery(preparedSQL);
