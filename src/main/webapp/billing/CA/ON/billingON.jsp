@@ -1030,7 +1030,7 @@
         function onHistory() {
             var dd = document.forms[0].day.value;
             //alert(dd);
-            popupPage("800", "1000", "billingONHistorySpec.jsp?demographic_no=<%=demo_no%>&demo_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&orderby=appointment_date&day=" + dd);
+            popupPage("800", "1000", "billingONHistorySpec.jsp?demographic_no=<%=Encode.forJavaScript(demo_no)%>&demo_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&orderby=appointment_date&day=" + dd);
         }
 
         function prepareBack() {
@@ -1038,10 +1038,10 @@
             if (document.forms[0].services_checked.value == "null") document.forms[0].services_checked.value = 0;
             document.forms[0].url_back.value = location.href;
 
-            showBillFormDiv("group1_", "<%=ctlBillForm%>");
-            showBillFormDiv("group2_", "<%=ctlBillForm%>");
-            showBillFormDiv("group3_", "<%=ctlBillForm%>");
-            showBillFormDiv("dxCodeSearchDiv_", "<%=ctlBillForm%>");
+            showBillFormDiv("group1_", "<%=Encode.forJavaScript(ctlBillForm)%>");
+            showBillFormDiv("group2_", "<%=Encode.forJavaScript(ctlBillForm)%>");
+            showBillFormDiv("group3_", "<%=Encode.forJavaScript(ctlBillForm)%>");
+            showBillFormDiv("dxCodeSearchDiv_", "<%=Encode.forJavaScript(ctlBillForm)%>");
 
         }
 
@@ -1426,7 +1426,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
         if (checkFlag == null) checkFlag = "0";
     %>
     <input type="hidden" name="checkFlag" id="checkFlag"
-           value="<%=checkFlag %>"/>
+           value="<%=Encode.forHtmlAttribute(checkFlag)%>"/>
     <input type="hidden" name="addToPatientDx"/>
     <input type="hidden" name="codeMatchToPatientDx"/>
 
@@ -1463,7 +1463,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 					<table  style="width: 100%;">
                     <tr>
                         <td style="white-space:nowrap; width: 10%; text-align: center"><b>&nbsp;<oscar:nameage
-                                demographicNo="<%=demo_no%>"/> <%=roster_status%>
+                                demographicNo="<%=Encode.forHtmlAttribute(demo_no)%>"/> <%=roster_status%>
                         </b>
                             <%if (appt_no.compareTo("0") == 0) {%>
                             <span class="input-group">
@@ -1893,7 +1893,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 											id="billFormName" readonly
                                                                  value="<%=currentFormName.length() < 40 ? currentFormName : currentFormName.substring(0, 40)%>"/>
                                         <input type="hidden" name="billForm" id="billForm"
-                                               value="<%=ctlBillForm%>"/></td>
+                                               value="<%=Encode.forHtmlAttribute(ctlBillForm)%>"/></td>
                                 </tr>
                                 <%
                                     if (!IsPropertiesOn.isMultisitesEnable()) {
@@ -2193,8 +2193,8 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
         </tr>
 
         <input type="hidden" name="clinic_no" value="<%=clinicNo%>"/>
-        <input type="hidden" name="demographic_no" value="<%=demo_no%>"/>
-        <input type="hidden" name="appointment_no" value="<%=appt_no%>"/>
+        <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demo_no)%>"/>
+        <input type="hidden" name="appointment_no" value="<%=Encode.forHtmlAttribute(appt_no)%>"/>
 
         <input type="hidden" name="ohip_version" value="V03G"/>
         <input type="hidden" name="hin" value="<%=demoHIN%>"/>
@@ -2212,14 +2212,14 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
         <input type="hidden" name="asstProvider_no"
                value="<%= Encode.forHtmlAttribute(request.getParameter("asstProvider_no")) %>"/>
 
-        <input type="hidden" name="demographic_name" value="<%=demoname%>"/>
-        <input type="hidden" name="providerview" value="<%=providerview%>"/>
+        <input type="hidden" name="demographic_name" value="<%=Encode.forHtmlAttribute(demoname)%>"/>
+        <input type="hidden" name="providerview" value="<%=Encode.forHtmlAttribute(providerview)%>"/>
         <input type="hidden" name="appointment_date"
                value="<%= Encode.forHtmlAttribute(request.getParameter("appointment_date")) %>"/>
         <input type="hidden" name="assgProvider_no"
                value="<%=assgProvider_no%>"/>
-        <input type="hidden" name="billForm" value="<%=ctlBillForm%>"/>
-        <input type="hidden" name="curBillForm" value="<%=ctlBillForm%>"/>
+        <input type="hidden" name="billForm" value="<%=Encode.forHtmlAttribute(ctlBillForm)%>"/>
+        <input type="hidden" name="curBillForm" value="<%=Encode.forHtmlAttribute(ctlBillForm)%>"/>
         <input type="hidden" name="services_checked">
         <input type="hidden" name="url_back">
         <input type="hidden" name="billNo_old" id="billNo_old"

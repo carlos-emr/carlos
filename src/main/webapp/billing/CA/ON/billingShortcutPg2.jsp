@@ -514,7 +514,7 @@
             <td>
                 <table border="0" cellspacing="0" cellpadding="0" width="100%">
                     <tr bgcolor="#33CCCC">
-                        <td nowrap bgcolor="#FFCC99" width="10%" align="center"><%= demoname %>
+                        <td nowrap bgcolor="#FFCC99" width="10%" align="center"><%= Encode.forHtml(demoname) %>
                             <%= demoSex.equals("1") ? "Male" : "Female" %> <%= " DOB: " + demoDOBYY + "/" + demoDOBMM + "/" + demoDOBDD + " HIN: " + demoHIN %>
                         </td>
                         <td bgcolor="#99CCCC" align="center"><%= wrongMsg %>
@@ -587,7 +587,7 @@
                                     %>
                                         Not Applicable &nbsp;
                                         <%} else {%>
-                                        <%=testSliCode%> &nbsp;
+                                        <%=Encode.forHtml(testSliCode)%> &nbsp;
                                         <%}%>
                                     </td>
                                 </tr>
@@ -640,10 +640,10 @@
         <%
             }
         %>
-        <input type="hidden" name="hc_type" value="<%=demoHCTYPE%>">
-        <input type="hidden" name="referralCode" value="<%=r_doctor_ohip%>">
-        <input type="hidden" name="sex" value="<%=demoSex%>">
-        <input type="hidden" name="proOHIPNO" value="<%=proOHIPNO%>">
+        <input type="hidden" name="hc_type" value="<%=Encode.forHtmlAttribute(demoHCTYPE)%>">
+        <input type="hidden" name="referralCode" value="<%=Encode.forHtmlAttribute(r_doctor_ohip)%>">
+        <input type="hidden" name="sex" value="<%=Encode.forHtmlAttribute(demoSex)%>">
+        <input type="hidden" name="proOHIPNO" value="<%=Encode.forHtmlAttribute(proOHIPNO)%>">
     </form>
 
 </table>
