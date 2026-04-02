@@ -30,7 +30,7 @@
 --%>
 
 <%
-
+<!DOCTYPE html>
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*" errorPage="/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
@@ -38,7 +38,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 
@@ -135,95 +135,69 @@
             //-->
         </script>
     </head>
-    <body bgcolor="ivory" bgproperties="fixed" onLoad="setfocus()"
-          topmargin="0" leftmargin="0" rightmargin="0">
+    <body onLoad="setfocus()">
     <form method="post" name="schedule" action="schedulecreatedate.jsp">
-
-        <table border="0" width="100%">
+    <h4><bean:message key="schedule.scheduletemplatesetting.msgMainLabel" /></h4>
+    
+    <div class="alert">
+    <fmt:message key="schedule.scheduletemplatesetting.msgStepOne"/>
+    <br>
+    <fmt:message key="schedule.scheduletemplatesetting.msgStepTwo"/>
+    </div>
+    <div class="well">
+    		<table style="width:95%"><fmt:message key="schedule.scheduletemplatesetting.msgMainLabel"/>
             <tr>
-                <td width="150" bgcolor="#009966"><!--left column-->
-                    <table border="0" cellspacing="0" cellpadding="0" width="100%">
-                        <tr bgcolor="#486ebd">
-                            <th align="CENTER" bgcolor="#009966">
-                                <p>&nbsp;</p>
-                                <p><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.msgMainLabel"/></font></p>
-                            </th>
-                        </tr>
-                    </table>
-                    <table width="98%" border="0" cellspacing="0" cellpadding="0"
-                           height="500">
-                        <tr>
-                            <td>
-                                <p>&nbsp;</p>
-                                <p><font size="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.msgStepOne"/></font></p>
-                                <p><font size="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.msgStepTwo"/></font></p>
-                                <p>&nbsp;</p>
-                                <p>&nbsp;</p>
-                                <p>&nbsp;</p>
-                                <p>&nbsp;</p>
-                            </td>
-                        </tr>
-                    </table>
+ 				<td><fmt:message key="schedule.scheduletemplatesetting.formSelectProvider" />:&nbsp;&nbsp;<select name="provider_no"
+					onChange="selectprovider(this)">
+					<option value=""><fmt:message key="schedule.scheduletemplatesetting.msgNoProvider" /></option>
+					<%
+							ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
-                </td>
-                <td>
+							List<Provider> providers = null;
 
-                    <center>
-                        <table width="95%" border="0" cellspacing="0" cellpadding="0">
-                            <tr>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.formSelectProvider"/>:
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>&nbsp;</td>
-                            </tr>
-                            <tr>
-                                <td bgcolor="#CCFFCC">&nbsp; <select name="provider_no"
-                                                                     onChange="selectprovider(this)">
-                                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.msgNoProvider"/></option>
+							if (grantOnlyCurProviderScheduleData)
+							{
+								//only the allow the user to manipulate their own schedule
+								providers = new ArrayList<Provider>();
 
-                                    <%
-                                        ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+								Provider curProvider = providerDao.getProvider(curProvider_no);
 
-                                        List<Provider> providers = null;
+								if (curProvider != null)
+								{
+									providers.add(curProvider);
+								}
+							}
+							else
+							{
+								providers = providerDao.getActiveProviders();
+							}
+							//TODO: filter by site/team if necessary
 
-                                        if (grantOnlyCurProviderScheduleData) {
-                                            //only the allow the user to manipulate their own schedule
-                                            providers = new ArrayList<Provider>();
+							for(Provider p:providers) {
+						%>
+							<option value="<%=p.getProviderNo()%>"><%=Encode.forHtmlContent(p.getFormattedName())%></option>
 
-                                            Provider curProvider = providerDao.getProvider(curProvider_no);
+						<% } %>
 
-                                            if (curProvider != null) {
-                                                providers.add(curProvider);
-                                            }
-                                        } else {
-                                            providers = providerDao.getActiveProviders();
-                                        }
-                                        //TODO: filter by site/team if necessary
-
-                                        for (Provider p : providers) {
-                                    %>
-                                    <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtml(p.getFormattedName())%>
-                                    </option>
-
-                                    <% } %>
-
-                                </select></td>
-                            </tr>
-                            <tr>
-                                <td>&nbsp;</td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <p><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.formOrDo"/>:</p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>&nbsp;</td>
-                            </tr>
+				</select></td>
+			</tr>
+			<tr>
+				<td>&nbsp;</td>
+			</tr>
+			<tr>
+				<td>&nbsp;</td>
+			</tr>
+			<tr>
+				<td>
+				<p><fmt:message key="schedule.scheduletemplatesetting.formOrDo" />:</p>
+				</td>
+			</tr>
+			<tr>
+				<td>&nbsp;</td>
+			</tr>
                             <%if (!(isSiteAccessPrivacy || isTeamAccessPrivacy || grantOnlyCurProviderScheduleData)) {%>
                             <tr>
-                                <td nowrap bgcolor="#CCFFCC">&nbsp; <a HREF="#"
+                                <td nowrap style="background-color:#CCFFCC">&nbsp; <a HREF="#"
                                                                        ONCLICK="popupPage(440,530,'scheduleholidaysetting.jsp?year=<%=year%>&month=<%=month%>&day=<%=day%>')"
                                                                        TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.msgHolidaySettingTip"/>;return true'><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.btnHolidaySetting"/></a></td>
                             </tr>
@@ -232,14 +206,14 @@
                             </tr>
                             <tr>
 
-                                <td nowrap bgcolor="#CCFFFF">&nbsp; <a HREF="#"
+                                <td nowrap style="background-color:#CCFFCC">&nbsp; <a HREF="#"
                                                                        ONCLICK="popupPage(600,700,'scheduletemplatecodesetting.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.btnTemplateCodeSetting"/></a></td>
 
 
                             </tr>
                             <%} %>
                             <tr>
-                                <td nowrap bgcolor="#CCFFFF">&nbsp; <a HREF="#" onClick="go()"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.btnTemplateSetting"/></a>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.msgForProvider"/>&nbsp; <select
+                                <td nowrap style="background-color:#CCFFCC">&nbsp; <a HREF="#" onClick="go()"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.btnTemplateSetting"/></a>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.msgForProvider"/>&nbsp; <select
                                         name="providerid">
                                     <option value="Public"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.msgPublic"/></option>
                                     <%
@@ -266,12 +240,12 @@
                                 <td>&nbsp;</td>
                             </tr>
                         </table>
-                        <p>
+                        
                     </center>
                 </td>
             </tr>
         </table>
-
+</div>
     </form>
     </body>
 </html>
