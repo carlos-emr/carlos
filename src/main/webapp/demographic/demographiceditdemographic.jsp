@@ -1016,7 +1016,7 @@
                         </tr>
                         <tr id="appt_hx">
                             <td><a
-                                    href='<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=demographic.getDemographicNo()%>&last_name=<%=URLEncoder.encode(demographic.getLastName(), StandardCharsets.UTF_8)%>&first_name=<%=URLEncoder.encode(demographic.getFirstName(), StandardCharsets.UTF_8)%>&orderby=appttime&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnApptHist"/></a>
+                                    href='<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=demographic.getDemographicNo()%>&orderby=appttime&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnApptHist"/></a>
                             </td>
                         </tr>
 
