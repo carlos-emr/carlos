@@ -34,6 +34,7 @@ import javax.sql.DataSource;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
@@ -42,7 +43,7 @@ import org.springframework.jdbc.core.RowMapper;
  *
  * @author Eugene Petruhin
  */
-public abstract class OscarSuperDao {
+public abstract class OscarSuperDao implements InitializingBean {
 
     protected static final Logger logger = MiscUtils.getLogger();
 
@@ -50,6 +51,14 @@ public abstract class OscarSuperDao {
 
     public void setDataSource(DataSource dataSource) {
         this.jdbcTemplate = new JdbcTemplate(dataSource);
+    }
+
+    @Override
+    public void afterPropertiesSet() {
+        if (this.jdbcTemplate == null) {
+            throw new IllegalArgumentException(
+                    "'dataSource' is required for " + getClass().getName());
+        }
     }
 
     protected JdbcTemplate getJdbcTemplate() {
