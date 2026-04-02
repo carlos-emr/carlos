@@ -7,6 +7,8 @@
     "dockerComposeOptions": ["--project-name", "carlos-emr"],
     "postCreateCommand": "cd /workspace && sh .devcontainer/development/setup/seed_data.sh && mvn -B dependency:go-offline dependency:sources dependency:resolve -Dclassifier=javadoc",
 
+    "postStartCommand": "bash /workspace/.devcontainer/security/setup-network-policy.sh || true",
+
     "customizations": {
         "vscode": {
             "extensions": [

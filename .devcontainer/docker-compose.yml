@@ -17,6 +17,35 @@ services:
       LANG: en_US.UTF-8
       LANGUAGE: en_US:en
       TZ: America/Toronto
+    # ─── AI Security: Network Policy ──────────────────────────────────────────
+    # NET_ADMIN is required so that setup-network-policy.sh can apply iptables
+    # rules inside the container at startup.  Those rules block outbound
+    # MySQL/MariaDB connections to any host other than the devcontainer's own
+    # `db` service, preventing Claude Code from inadvertently (or maliciously)
+    # connecting to an external or production database.
+    #
+    # NET_ADMIN is scoped to the container's own network namespace and cannot
+    # affect the host's routing or firewall tables.
+    #
+    # See .devcontainer/security/README.md for full details.
+    cap_add:
+      - NET_ADMIN
+
+    # ─── AI Security: AppArmor MAC Profile (opt-in) ───────────────────────────
+    # Uncomment the block below to apply the custom AppArmor kernel profile.
+    # Requires AppArmor to be available on the host (Linux only) and the
+    # profile to be pre-loaded:
+    #
+    #   sudo bash .devcontainer/security/load-apparmor-host.sh
+    #
+    # The profile adds a kernel-level backstop for:
+    #   - Write access to .git/ and .github/workflows/ (defence-in-depth)
+    #   - Write access to seed SQL files
+    #   - Dangerous capabilities (sys_admin, sys_module, sys_rawio, etc.)
+    #
+    # security_opt:
+    #   - apparmor:carlos-dev-container
+
     networks:
       - carlos-network
     depends_on:
