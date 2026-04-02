@@ -33,28 +33,28 @@ extensions:
       # allowedDir. The return value is bounded by allowedDir (Argument[1]); the
       # user-provided filename (Argument[0]) is intentionally NOT modelled as a
       # flow source so that taint from it is cut off at the sanitizer boundary.
-      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", False, "validatePath", "(java.lang.String,java.io.File)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validatePath", "(java.lang.String,java.io.File)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
 
       # validateExistingPath(File file, File allowedDir) -> File
       # Validates that file is within allowedDir and returns it. The return value
       # is guaranteed to be within allowedDir (Argument[1]); modelling only that
       # argument prevents taint from a possibly-tainted file path (Argument[0])
       # propagating past the sanitizer boundary.
-      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", False, "validateExistingPath", "(java.io.File,java.io.File)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validateExistingPath", "(java.io.File,java.io.File)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
 
       # validateUpload(File sourceFile) -> File
       # Validates that the uploaded file (a framework-assigned temp path, not
       # user-controlled) resides in an allowed temp directory and returns the
       # canonicalized File. Argument[0] flows to ReturnValue because the source
       # path is system-assigned by Struts2/Tomcat and is not user-controlled.
-      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", False, "validateUpload", "(java.io.File)", "", "Argument[0]", "ReturnValue", "taint", "manual"]
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validateUpload", "(java.io.File)", "", "Argument[0]", "ReturnValue", "taint", "manual"]
 
       # validateUpload(File sourceFile, String userFilename, File destDir) -> File
       # End-to-end upload validation: validates source, sanitizes the user-provided
       # filename, and constructs a safe destination within destDir. The return value
       # is bounded by destDir (Argument[2]); the user-provided filename (Argument[1])
       # is intentionally NOT modelled as a flow source.
-      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", False, "validateUpload", "(java.io.File,java.lang.String,java.io.File)", "", "Argument[2]", "ReturnValue", "taint", "manual"]
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validateUpload", "(java.io.File,java.lang.String,java.io.File)", "", "Argument[2]", "ReturnValue", "taint", "manual"]
 
   # neutralModel entries suppress any auto-generated models for methods that return
   # a non-reference type (boolean) where no taint flow to ReturnValue is relevant.
