@@ -79,11 +79,99 @@ services:
       interval: 10s
       start_period: 60s
 
+  # Medplum FHIR R4 Server — clinical data store (Phase 0 of MySQL→FHIR migration)
+  medplum-postgres:
+    container_name: carlos-medplum-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: medplum
+      POSTGRES_USER: medplum
+      POSTGRES_PASSWORD: medplum
+      TZ: America/Toronto
+    ports:
+      - "5432:5432"
+    volumes:
+      - medplum-postgres-data:/var/lib/postgresql/data
+    networks:
+      - carlos-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medplum -d medplum"]
+      timeout: 10s
+      retries: 5
+      interval: 10s
+      start_period: 30s
+
+  medplum-redis:
+    container_name: carlos-medplum-redis
+    image: redis:7-alpine
+    environment:
+      TZ: America/Toronto
+    ports:
+      - "6379:6379"
+    networks:
+      - carlos-network
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 5s
+      retries: 5
+      interval: 10s
+      start_period: 10s
+
+  medplum-server:
+    container_name: carlos-medplum-server
+    image: medplum/medplum-server:latest
+    ports:
+      - "8103:8103"
+    environment:
+      NODE_ENV: development
+      MEDPLUM_PORT: 8103
+      MEDPLUM_BASE_URL: "http://medplum-server:8103/"
+      MEDPLUM_DATABASE_HOST: medplum-postgres
+      MEDPLUM_DATABASE_PORT: 5432
+      MEDPLUM_DATABASE_DBNAME: medplum
+      MEDPLUM_DATABASE_USERNAME: medplum
+      MEDPLUM_DATABASE_PASSWORD: medplum
+      MEDPLUM_REDIS_HOST: medplum-redis
+      MEDPLUM_REDIS_PORT: 6379
+      MEDPLUM_MAX_JSON_SIZE: "16mb"
+      TZ: America/Toronto
+    networks:
+      - carlos-network
+    depends_on:
+      medplum-postgres:
+        condition: service_healthy
+      medplum-redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8103/healthcheck').then(r=>{if(!r.ok)throw 1})"]
+      timeout: 10s
+      retries: 10
+      interval: 15s
+      start_period: 60s
+
 volumes:
   mariadb-files:
     driver: local
 
   m2-volume:
+    driver: local
+
+  medplum-postgres-data:
     driver: local
 
 networks:
