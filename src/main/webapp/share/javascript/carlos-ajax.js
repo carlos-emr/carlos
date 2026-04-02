@@ -461,13 +461,21 @@ var CarlosAjax = (function () {
                 element.innerHTML = cleanHtml;
             }
 
-            // Run extracted scripts by creating dynamic script elements
+            // Run extracted scripts by creating dynamic script elements.
+            // Each script is wrapped in its own try/catch so that a single failing
+            // script (e.g. a legacy reference to an unloaded library like YAHOO)
+            // does not abort the execution of all subsequent scripts in the response.
             scripts.forEach(function (scriptContent) {
                 if (scriptContent.trim()) {
-                    var script = document.createElement('script');
-                    script.textContent = scriptContent;
-                    document.head.appendChild(script);
-                    document.head.removeChild(script);
+                    try {
+                        var script = document.createElement('script');
+                        script.textContent = scriptContent;
+                        document.head.appendChild(script);
+                        document.head.removeChild(script);
+                    } catch (e) {
+                        console.error('CarlosAjax evalScripts error (script length: '
+                            + scriptContent.length + '):', e);
+                    }
                 }
             });
         } else {

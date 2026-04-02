@@ -443,6 +443,11 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
         // create Prescription
         RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
+        if (rx == null) {
+            logger.warn("listPreviousInstructions: no stash item found for randomId={}", randomId);
+            bean.setListMedHistory(new ArrayList<>());
+            return null;
+        }
         List<HashMap<String, String>> retList = new ArrayList();
         retList = RxUtil.getPreviousInstructions(rx);
 

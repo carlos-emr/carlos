@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
@@ -467,6 +468,10 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         return getSingleResultOrNull(query);
     }
 
+    // Allowed column names for findByParameter – intentionally package-private to allow unit testing.
+    static final Set<String> FIND_BY_PARAMETER_ALLOWED_COLUMNS =
+            Set.of("BN", "regional_identifier", "customName");
+
     /**
      * Selects special and special_instruction fields from drugs table ordered by
      * grugid.
@@ -479,9 +484,15 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findByParameter(String parameter, String value) {
-        String sql = "select special,special_instruction from drugs where " + parameter + " = '" + value
-                + "' order by drugid desc";
+        if (!FIND_BY_PARAMETER_ALLOWED_COLUMNS.contains(parameter)) {
+            throw new IllegalArgumentException("Invalid column name: " + parameter);
+        }
+        // Value is bound as a named parameter to prevent SQL injection and to handle
+        // drug names that contain apostrophes (which broke the old string-concatenation query).
+        String sql = "select special,special_instruction from drugs where "
+                + parameter + " = :value order by drugid desc";
         Query query = entityManager.createNativeQuery(sql);
+        query.setParameter("value", value);
         return query.getResultList();
     }
 

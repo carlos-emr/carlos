@@ -65,8 +65,9 @@
     try {
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
         String randomId = request.getParameter("randomId");
-        if (randomId != null) {
+        if (bean != null && randomId != null) {
             RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
+            if (rx != null) {
             String drugName = rx.getBrandName();
             if (drugName == null || drugName.equalsIgnoreCase("null") || drugName.trim().length() == 0)
                 drugName = rx.getCustomName();
@@ -129,7 +130,8 @@
     <%
                     i++;
                 }
-            }
+            } // end if (rx != null)
+        } // end if (bean != null && randomId != null)
 
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
