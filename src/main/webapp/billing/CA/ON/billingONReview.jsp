@@ -157,7 +157,6 @@
     String clinicNo = oscarVariables.getProperty("clinic_no", "");
     String visitType = oscarVariables.getProperty("visit_type", "");
     String appt_no = request.getParameter("appointment_no");
-    String demoname = request.getParameter("demographic_name");
     String demo_no = request.getParameter("demographic_no");
     String apptProvider_no = request.getParameter("apptProvider_no");
     String ctlBillForm = request.getParameter("billForm");
@@ -201,6 +200,7 @@
     // get patient's detail
     String r_doctor = "", r_doctor_ohip = "";
     String demoFirst = "", demoLast = "", demoHIN = "", demoVer = "", demoDOB = "", demoDOBYY = "", demoDOBMM = "", demoDOBDD = "", demoHCTYPE = "";
+    String demoname = "";
     String strPatientAddr = "";
 
     DemographicDao demoDao = SpringUtils.getBean(DemographicDao.class);
@@ -215,6 +215,7 @@
         assgProvider_no = demo.getProviderNo();
         demoFirst = demo.getFirstName();
         demoLast = demo.getLastName();
+        demoname = demoLast + "," + demoFirst;
         demoHIN = demo.getHin();
         demoVer = demo.getVer();
         demoSex = demo.getSex();

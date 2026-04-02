@@ -80,7 +80,6 @@
     String clinicNo = oscarVariables.getProperty("clinic_no", "");
     String visitType = oscarVariables.getProperty("visit_type", "");
     String appt_no = request.getParameter("appointment_no");
-    String demoname = request.getParameter("demographic_name");
     String demo_no = request.getParameter("demographic_no");
     String apptProvider_no = request.getParameter("apptProvider_no");
     String ctlBillForm = request.getParameter("billForm");
@@ -120,6 +119,7 @@
     String warningMsg = "", errorMsg = "";
     String r_doctor = "", r_doctor_ohip = "";
     String demoFirst = "", demoLast = "", demoHIN = "", demoDOB = "", demoDOBYY = "", demoDOBMM = "", demoDOBDD = "", demoHCTYPE = "";
+    String demoname = "";
 
     DemographicDao demoDao = SpringUtils.getBean(DemographicDao.class);
     Demographic demo = demoDao.getDemographic(demo_no);
@@ -129,6 +129,7 @@
 
         demoFirst = demo.getFirstName();
         demoLast = demo.getLastName();
+        demoname = demoLast + "," + demoFirst;
         demoSex = demo.getSex();
         if (demo.getHin() != null && demo.getVer() != null) {
             demoHIN = demo.getHin() + demo.getVer();
@@ -340,7 +341,7 @@
                 param[3] = request.getParameter("appointment_no");
 
                 param[4] = request.getParameter("ohip_version");
-                param[5] = request.getParameter("demographic_name");
+                param[5] = demoname;
                 param[6] = request.getParameter("hin");
                 param[7] = UtilDateUtilities.DateToString(new java.util.Date(), "yyyy-MM-dd");
                 param[8] = UtilDateUtilities.DateToString(new java.util.Date(), "HH:mm:ss");
@@ -457,9 +458,7 @@
                 msg += "<script language=\"JavaScript\"> self.close();</script>";
             } else {
                 msg += "<script language=\"JavaScript\">window.location = 'billingShortcutPg1.jsp?billRegion=&billForm="
-                        + URLEncoder.encode(oscarVariables.getProperty("hospital_view", oscarVariables.getProperty("default_view"))) + "&hotclick=&appointment_no=0&demographic_name="
-                        + URLEncoder.encode(demoLast, StandardCharsets.UTF_8) + "%2C"
-                        + URLEncoder.encode(demoFirst, StandardCharsets.UTF_8) + "&demographic_no="
+                        + URLEncoder.encode(oscarVariables.getProperty("hospital_view", oscarVariables.getProperty("default_view"))) + "&hotclick=&appointment_no=0&demographic_no="
                         + demo_no + "&providerview=1&user_no="
                         + user_no + "&apptProvider_no=none&appointment_date="
                         + curYear + "-" + curMonth + "-" + curDay + "&start_time=0:00:00&bNewForm=1&status=t'</script>";

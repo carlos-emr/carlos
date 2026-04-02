@@ -109,7 +109,6 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
                     String billingDoUrl = request.getContextPath()
                             + "/billing.do?billRegion=ON&billForm=" + Encode.forUriComponent(billform)
                             + "&hotclick=&appointment_no=" + Encode.forUriComponent(appointmentNo)
-                            + "&demographic_name=" + Encode.forUriComponent(d.getFormattedName())
                             + "&status=" + Encode.forUriComponent(appt.getStatus())
                             + "&demographic_no=" + Encode.forUriComponent(bean.demographicNo)
                             + "&providerview=" + Encode.forUriComponent(p.getProviderNo())
@@ -167,9 +166,7 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
 
             // Build encoded BC billing URL — String.format used to avoid false-positive from SQL hook validator
             String bcBillUrl = request.getContextPath()
-                    + "/billing/CA/BC/billStatus.jsp?filterPatient=true&demographicNo=" + Encode.forUriComponent(bean.demographicNo)
-                    + "&lastName=" + Encode.forUriComponent(bean.patientLastName)
-                    + "&firstName=" + Encode.forUriComponent(bean.patientFirstName);
+                    + "/billing/CA/BC/billStatus.jsp?filterPatient=true&demographicNo=" + Encode.forUriComponent(bean.demographicNo);
 
             String url = String.format("popupPage(600, 900,'%s','%s')", winName, bcBillUrl);
             Dao.setLeftURL(url);

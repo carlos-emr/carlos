@@ -54,6 +54,8 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 
 
@@ -95,9 +97,11 @@
     boolean showICBC = request.getParameter("showICBC") == null ? defaultShow : !defaultShow;  //request.getParameter("showPRIV");
 
     String readonly = request.getParameter("filterPatient");
-    String firstName = request.getParameter("firstName");
-    String lastName = request.getParameter("lastName");
     String demographicNo = request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "";
+    DemographicDao demographicDaoBS = SpringUtils.getBean(DemographicDao.class);
+    Demographic demographicBS = (!demographicNo.isEmpty() && demographicNo.matches("[0-9]+")) ? demographicDaoBS.getDemographic(demographicNo) : null;
+    String firstName = demographicBS != null ? demographicBS.getFirstName() : "";
+    String lastName = demographicBS != null ? demographicBS.getLastName() : "";
 
     boolean adminAccess = false;
 %>
@@ -264,8 +268,8 @@
             <div class="col-lg-12">
                 <i>Results for Demographic</i>
                 :
-                <%=request.getParameter("lastName")%>      ,
-                <%=request.getParameter("firstName")%>      (
+                <%=Encode.forHtml(lastName)%>      ,
+                <%=Encode.forHtml(firstName)%>      (
                 <%=request.getParameter("demographicNo")%>      )
             </div>
         </div>
@@ -274,8 +278,8 @@
 
         <form name="serviceform" method="get" action="billStatus.jsp" class="d-flex flex-wrap align-items-center gap-2">
             <input type="hidden" name="filterPatient" value="<%=readonly%>"/>
-            <input type="hidden" name="lastName" value="<%=request.getParameter("lastName")%>"/>
-            <input type="hidden" name="firstName" value="<%=request.getParameter("firstName")%>"/>
+            <input type="hidden" name="lastName" value="<%=Encode.forHtmlAttribute(lastName)%>"/>
+            <input type="hidden" name="firstName" value="<%=Encode.forHtmlAttribute(firstName)%>"/>
             <div class="row">
                 <div class="col-lg-12">
                     <div class="mb-3">

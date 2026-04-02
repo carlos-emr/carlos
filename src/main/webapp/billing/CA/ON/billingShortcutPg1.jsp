@@ -89,7 +89,6 @@
     String clinicNo = oscarVariables.getProperty("clinic_no", "");
     String visitType = bHospitalBilling ? "02" : oscarVariables.getProperty("visit_type", "");
     String appt_no = request.getParameter("appointment_no");
-    String demoname = request.getParameter("demographic_name");
     String demo_no = request.getParameter("demographic_no");
     String apptProvider_no = request.getParameter("apptProvider_no");
     String ctlBillForm = request.getParameter("billForm");
@@ -127,6 +126,7 @@
     String warningMsg = "", errorMsg = "";
     String r_doctor = "", r_doctor_ohip = "";
     String demoFirst = "", demoLast = "", demoHIN = "", demoDOB = "", demoDOBYY = "", demoDOBMM = "", demoDOBDD = "", demoHCTYPE = "";
+    String demoname = "";
 
     DemographicDao demoDao = SpringUtils.getBean(DemographicDao.class);
     Demographic demo = demoDao.getDemographic(demo_no);
@@ -136,6 +136,7 @@
 
         demoFirst = demo.getFirstName();
         demoLast = demo.getLastName();
+        demoname = demoLast + "," + demoFirst;
         demoSex = demo.getSex();
         if (demo.getHin() != null && demo.getVer() != null) demoHIN = demo.getHin() + demo.getVer();
         if (demoSex.compareTo("M") == 0) demoSex = "1";
@@ -703,7 +704,7 @@
         %>
         <tr bgcolor=<%=ctlCount % 2 == 0 ? "#FFFFFF" : "#EEEEFF"%>>
             <td colspan="2"><b><font size="-2" color="#7A388D"><a
-                    href="billingShortcutPg1.jsp?billForm=<%=ctlcode%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%=request.getParameter("appointment_no")%>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%=request.getParameter("demographic_no")%>&user_no=<%=user_no%>&apptProvider_no=<%=request.getParameter("apptProvider_no")%>&providerview=<%=request.getParameter("apptProvider_no")%>&appointment_date=<%=request.getParameter("appointment_date")%>&status=<%=request.getParameter("status")%>&start_time=<%=request.getParameter("start_time")%>&bNewForm=1"
+                    href="billingShortcutPg1.jsp?billForm=<%=ctlcode%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%=request.getParameter("appointment_no")%>&demographic_no=<%=request.getParameter("demographic_no")%>&user_no=<%=user_no%>&apptProvider_no=<%=request.getParameter("apptProvider_no")%>&providerview=<%=request.getParameter("apptProvider_no")%>&appointment_date=<%=request.getParameter("appointment_date")%>&status=<%=request.getParameter("status")%>&start_time=<%=request.getParameter("start_time")%>&bNewForm=1"
                     onClick="showHideLayers('Layer1','','hide');"><%=ctlcodename%>
             </a></font></b></td>
         </tr>

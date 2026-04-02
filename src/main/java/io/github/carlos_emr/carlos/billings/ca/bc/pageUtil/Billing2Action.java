@@ -31,9 +31,12 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines;
 import io.github.carlos_emr.carlos.util.plugin.CarlosProperties;
 
@@ -116,7 +119,6 @@ public final class Billing2Action extends ActionSupport {
 
     private void fillBean(HttpServletRequest request, BillingSessionBean bean) {
         bean.setApptProviderNo(request.getParameter("apptProvider_no"));
-        bean.setPatientName(request.getParameter("demographic_name"));
         bean.setProviderView(request.getParameter("providerview"));
         bean.setBillRegion(request.getParameter("billRegion"));
         bean.setBillForm(request.getParameter("billForm"));
@@ -126,6 +128,15 @@ public final class Billing2Action extends ActionSupport {
         bean.setApptDate(request.getParameter("appointment_date"));
         bean.setApptStart(request.getParameter("start_time"));
         bean.setApptStatus(request.getParameter("status"));
+
+        String demographicNo = request.getParameter("demographic_no");
+        if (demographicNo != null && !demographicNo.isEmpty() && demographicNo.matches("[0-9]+")) {
+            DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
+            Demographic demographic = demographicDao.getDemographic(demographicNo);
+            if (demographic != null) {
+                bean.setPatientName(demographic.getLastName() + "," + demographic.getFirstName());
+            }
+        }
     }
 
     private BillingCreateBilling2Form form;

@@ -49,7 +49,6 @@
     String billForm = request.getParameter("billForm");
     String hotclick = request.getParameter("hotclick");
     String appointment_no = request.getParameter("appointment_no");
-    String name = request.getParameter("demographic_name");
     String status = request.getParameter("status");
     String demographic_no = request.getParameter("demographic_no");
     String providerview = request.getParameter("providerview");
@@ -160,7 +159,7 @@
         rs2 = dao.getActiveBillingItemByCh1Id(ConversionUtils.fromIntString(billNo));
     }
 
-    String action_str = request.getContextPath() + "/billing.do?billRegion=" + URLEncoder.encode(prov, StandardCharsets.UTF_8) + "&billForm=" + URLEncoder.encode(billForm, StandardCharsets.UTF_8) + "&hotclick=" + URLEncoder.encode(hotclick, StandardCharsets.UTF_8) + "&appointment_no=" + appointment_no + "&demographic_name=" + URLEncoder.encode(name, StandardCharsets.UTF_8) + "&status=" + status + "&demographic_no=" + demographic_no + "&providerview=" + providerview + "&user_no=" + curUser_no + "&apptProvider_no=" + apptProvider_no + "&appointment_date=" + appointment_date + "&start_time=" + start_time + "&bNewForm=1";
+    String action_str = request.getContextPath() + "/billing.do?billRegion=" + URLEncoder.encode(prov, StandardCharsets.UTF_8) + "&billForm=" + URLEncoder.encode(billForm, StandardCharsets.UTF_8) + "&hotclick=" + URLEncoder.encode(hotclick, StandardCharsets.UTF_8) + "&appointment_no=" + appointment_no + "&status=" + status + "&demographic_no=" + demographic_no + "&providerview=" + providerview + "&user_no=" + curUser_no + "&apptProvider_no=" + apptProvider_no + "&appointment_date=" + appointment_date + "&start_time=" + start_time + "&bNewForm=1";
 
     if (status.substring(0, 1).compareTo("B") == 0) {
 %>

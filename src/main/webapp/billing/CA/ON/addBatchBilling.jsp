@@ -30,6 +30,8 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
@@ -52,6 +54,10 @@
 
     ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
     Provider creator = providerDao.getProvider(request.getParameter("creator"));
+    String batchDemoNo = request.getParameter("demographic_no");
+    DemographicDao batchDemoDao = SpringUtils.getBean(DemographicDao.class);
+    Demographic batchDemo = (batchDemoNo != null && batchDemoNo.trim().matches("[0-9]+")) ? batchDemoDao.getDemographic(batchDemoNo.trim()) : null;
+    String batchDemoName = batchDemo != null ? batchDemo.getLastName() + "," + batchDemo.getFirstName() : "";
 
 %>
 
@@ -184,7 +190,7 @@
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="demo_name" readonly
-                                    value="<%=request.getParameter("demographic_name")%>" size="20">
+                                    value="<%=org.owasp.encoder.Encode.forHtmlAttribute(batchDemoName)%>" size="20">
                             </font></td>
                         </tr>
                         <tr>
