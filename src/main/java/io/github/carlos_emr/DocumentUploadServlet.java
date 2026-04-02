@@ -45,6 +45,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Servlet for handling document file uploads with path validation and security.
@@ -101,7 +102,7 @@ public class DocumentUploadServlet extends HttpServlet {
             // Validate and sanitize the filename to prevent path traversal
             String sanitizedFilename = FilenameUtils.getName(providedFilename);
             if (sanitizedFilename == null || sanitizedFilename.isEmpty()) {
-                MiscUtils.getLogger().error("Invalid filename provided: " + providedFilename);
+                MiscUtils.getLogger().error("Invalid filename provided: {}", LogSanitizer.sanitize(providedFilename));
                 return;
             }
 
@@ -127,7 +128,7 @@ public class DocumentUploadServlet extends HttpServlet {
 
                 // Verify the file exists before copying
                 if (!providedFile.exists()) {
-                    MiscUtils.getLogger().error("File not found: " + sanitizedFilename);
+                    MiscUtils.getLogger().error("File not found: {}", LogSanitizer.sanitize(sanitizedFilename));
                     return;
                 }
 

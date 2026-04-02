@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class ImportLogDownload2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
@@ -90,7 +91,7 @@ public class ImportLogDownload2Action extends ActionSupport {
             String sanitizedFilename = FilenameUtils.getName(importLogParam);
             
             if (sanitizedFilename == null || sanitizedFilename.isEmpty()) {
-                logger.warn("Invalid import log filename: " + importLogParam);
+                logger.warn("Invalid import log filename: {}", LogSanitizer.sanitize(importLogParam));
                 return "error";
             }
             
@@ -107,7 +108,7 @@ public class ImportLogDownload2Action extends ActionSupport {
 
             // Check if file is readable
             if (!importLogFile.canRead()) {
-                logger.warn("Import log file not readable: " + sanitizedFilename);
+                logger.warn("Import log file not readable: {}", LogSanitizer.sanitize(sanitizedFilename));
                 return "error";
             }
             

@@ -40,6 +40,7 @@ import java.util.List;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Struts2 action for previewing and rendering medical documents as PDFs in the OpenO EMR system.
@@ -310,14 +311,14 @@ public class DocumentPreview2Action extends ActionSupport {
             }
             
             if (!isValidPath) {
-                logger.error("Access denied: Path traversal attempt detected for path: " + pdfPathString);
+                logger.error("Access denied: Path traversal attempt detected for path: {}", LogSanitizer.sanitize(pdfPathString));
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }
             
             // Additional check: ensure the file exists and is a regular file
             if (!Files.exists(canonicalPdfPath) || !Files.isRegularFile(canonicalPdfPath)) {
-                logger.error("PDF file not found or is not a regular file: " + pdfPathString);
+                logger.error("PDF file not found or is not a regular file: {}", LogSanitizer.sanitize(pdfPathString));
                 response.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }

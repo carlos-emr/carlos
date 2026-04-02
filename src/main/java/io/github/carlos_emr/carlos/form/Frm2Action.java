@@ -50,6 +50,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public final class Frm2Action extends ActionSupport {
 
@@ -96,7 +97,7 @@ public final class Frm2Action extends ActionSupport {
             rec = recorder.factory(formClassName);
             Properties props = new Properties();
 
-            log.info("SUBMIT " + submitType);
+            log.info("SUBMIT {}", LogSanitizer.sanitize(submitType));
 
             //if we are graphing, we need to grab info from db and add it to request object
             if ("graph".equals(submitType)) {
@@ -237,10 +238,10 @@ public final class Frm2Action extends ActionSupport {
                 newID = rec.saveFormRecord(props);
 
                 if (newID > 0) {
-                    log.info(formClassName + " new form ID " + newID + " successfully saved.");
+                    log.info("{} new form ID {} successfully saved.", LogSanitizer.sanitize(formClassName), LogSanitizer.sanitize(newID));
                     saveSuccess = Boolean.TRUE;
                 } else {
-                    log.info(formClassName + " form ID " + formId + " failed to save.");
+                    log.info("{} form ID {} failed to save.", LogSanitizer.sanitize(formClassName), LogSanitizer.sanitize(formId));
                 }
 
                 String ip = request.getRemoteAddr();
@@ -273,7 +274,7 @@ public final class Frm2Action extends ActionSupport {
             MiscUtils.getLogger().error("Exception for form " + formClassName + " Save failed.", ex);
         }
 
-        log.info("Forwarding form " + formClassName + " to " + actionForward);
+        log.info("Forwarding form {} to {}", LogSanitizer.sanitize(formClassName), LogSanitizer.sanitize(actionForward));
 
         request.setAttribute("saveSuccess", saveSuccess);
 

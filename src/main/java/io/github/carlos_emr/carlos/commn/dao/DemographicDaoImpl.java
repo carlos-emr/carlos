@@ -85,6 +85,7 @@ import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  *
@@ -2666,7 +2667,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             NativeQuery sqlQuery = session.createNativeQuery(demographicQuery);
             for (String key : params.keySet()) {
                 sqlQuery.setParameter(key, params.get(key));
-                MiscUtils.getLogger().warn(key + "=" + params.get(key));
+                MiscUtils.getLogger().warn("{}={}", LogSanitizer.sanitize(key), LogSanitizer.sanitize(params.get(key)));
             }
             Integer result = ((Number) sqlQuery.uniqueResult()).intValue();
             return result;

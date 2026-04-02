@@ -63,6 +63,7 @@ import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import java.util.List;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class DocumentUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -120,7 +121,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
                     if (!success) {
                         map.put("error", "Failed to write file. Please contact administrator");
-                        MiscUtils.getLogger().error("Failed to write file to " + destFolder);
+                        MiscUtils.getLogger().error("Failed to write file to {}", LogSanitizer.sanitize(destFolder));
                     } else {
                         map.put("name", docFile.getName());
                         map.put("size", docFile.length());

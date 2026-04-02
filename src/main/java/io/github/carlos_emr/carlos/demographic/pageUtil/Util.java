@@ -72,6 +72,7 @@ import io.github.carlos_emr.carlos.providers.data.ProviderData;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * @author Ronnie
@@ -266,7 +267,7 @@ public class Util {
             
             // If the filename is empty or null after sanitization, reject the request
             if (safeFileName == null || safeFileName.trim().isEmpty()) {
-                logger.error("Invalid filename provided: " + fileName);
+                logger.error("Invalid filename provided: {}", LogSanitizer.sanitize(fileName));
                 return;
             }
             
@@ -284,7 +285,7 @@ public class Util {
 
             // Verify the file exists and is readable
             if (!requestedFile.exists() || !requestedFile.isFile() || !requestedFile.canRead()) {
-                logger.error("Error during file download: file does not exist or is not accessible - {}", fileName);
+                logger.error("Error during file download: file does not exist or is not accessible - {}", LogSanitizer.sanitize(fileName));
                 rsp.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }

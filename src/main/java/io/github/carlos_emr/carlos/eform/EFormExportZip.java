@@ -50,6 +50,7 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Utility class for exporting eForms as ZIP archives.
@@ -63,7 +64,7 @@ public class EFormExportZip {
 
         for (EForm eForm : eForms) {
             if (eForm.getFormName() == null || eForm.getFormName().equals("")) {
-                _log.error("Eform must have a name to export.  FID: " + eForm.getFid());
+                _log.error("Eform must have a name to export. FID: {}", LogSanitizer.sanitize(eForm.getFid()));
                 throw new Exception("EForm must have a name to export");
             }
             Properties properties = new Properties(); //put all form properties into here

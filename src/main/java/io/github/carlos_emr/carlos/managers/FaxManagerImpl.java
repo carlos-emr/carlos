@@ -61,6 +61,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 @Service
 public class FaxManagerImpl implements FaxManager {
@@ -196,7 +197,7 @@ public class FaxManagerImpl implements FaxManager {
             throw new RuntimeException("missing required sec object (_form)");
         }
 
-        logger.info("Rendering form number " + formTransportContainer.getFormName() + " for fax preview.");
+        logger.info("Rendering form number {} for fax preview.", LogSanitizer.sanitize(formTransportContainer.getFormName()));
 
         return faxDocumentManager.getFormFaxDocument(loggedInInfo, formTransportContainer);
     }
@@ -730,7 +731,7 @@ public class FaxManagerImpl implements FaxManager {
             success = success && !reSentFaxJob.getStatus().equals(STATUS.ERROR);
 
         } else {
-            logger.error("Cannot resend fax: no fax job found for id {}", jobId);
+            logger.error("Cannot resend fax: no fax job found for id {}", LogSanitizer.sanitize(jobId));
         }
 
         return success;
@@ -788,7 +789,7 @@ public class FaxManagerImpl implements FaxManager {
 
         // Check for path traversal patterns
         if (filePath.contains("..") || filePath.contains("~")) {
-            logger.error("Path traversal attempt detected: {}", filePath);
+            logger.error("Path traversal attempt detected: {}", LogSanitizer.sanitize(filePath));
             throw new SecurityException("Invalid file path detected: path traversal patterns not allowed");
         }
 
@@ -843,7 +844,7 @@ public class FaxManagerImpl implements FaxManager {
 
         // Ensure the file exists and is a regular file
         if (!Files.exists(resolvedPath) || !Files.isRegularFile(resolvedPath)) {
-            logger.error("File not found or is not a regular file: {}", filePath);
+            logger.error("File not found or is not a regular file: {}", LogSanitizer.sanitize(filePath));
             throw new IOException("File not found or is not a regular file");
         }
 

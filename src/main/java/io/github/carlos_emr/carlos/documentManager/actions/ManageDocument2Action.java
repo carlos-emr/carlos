@@ -82,6 +82,7 @@ import java.util.*;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Struts2 action for document viewing, updating, routing, and incoming document processing
@@ -190,7 +191,7 @@ public class ManageDocument2Action extends ActionSupport {
             }
         }
 
-        log.error("No valid method found and insufficient parameters for documentUpdate. Method: " + method);
+        log.error("No valid method found and insufficient parameters for documentUpdate. Method: {}", LogSanitizer.sanitize(method));
         addActionError("Invalid request. The requested operation could not be performed.");
         return "error";
     }
@@ -767,7 +768,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         Document d = documentDao.getDocument(doc_no);
         if (d == null) {
-            log.error("Document not found for ID: " + doc_no);
+            log.error("Document not found for ID: {}", LogSanitizer.sanitize(doc_no));
             try {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND, "Document not found");
             } catch (IOException e) {
@@ -1130,14 +1131,14 @@ public class ManageDocument2Action extends ActionSupport {
 
         boolean success = f1.renameTo(new File(destFilePath));
         if (!success) {
-            log.error("Not able to move " + f1.getName() + " to " + destFilePath);
+            log.error("Not able to move {} to {}", LogSanitizer.sanitize(f1.getName()), LogSanitizer.sanitize(destFilePath));
             // File was not successfully moved - attempt to delete temp file to prevent orphaned files
             boolean deleted = f1.delete();
             if (!deleted) {
-                log.warn("Failed to delete temporary file: " + f1.getAbsolutePath());
+                log.warn("Failed to delete temporary file: {}", LogSanitizer.sanitize(f1.getAbsolutePath()));
             }
             String documentId = request.getParameter("documentId");
-            log.error("Failed to save document file for document ID: " + documentId);
+            log.error("Failed to save document file for document ID: {}", LogSanitizer.sanitize(documentId));
             addActionError("Failed to save document file. Please try again or contact your system administrator.");
             return "error";
         } else {
@@ -1444,7 +1445,7 @@ public class ManageDocument2Action extends ActionSupport {
                 outs.flush();
 
             } else {
-                log.info("Unable to retrieve content for " + queueId + "/" + pdfDir + "/" + pdfName);
+                log.info("Unable to retrieve content for {}/{}/{}", LogSanitizer.sanitize(queueId), LogSanitizer.sanitize(pdfDir), LogSanitizer.sanitize(pdfName));
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -1516,14 +1517,14 @@ public class ManageDocument2Action extends ActionSupport {
 
             // Validate page number is within bounds
             if (pageNum == null) {
-                log.error("Page number is null for PDF " + pdfDir + File.separator + sanitizedPdfName);
+                log.error("Page number is null for PDF {}{}{}", LogSanitizer.sanitize(pdfDir), File.separator, LogSanitizer.sanitize(sanitizedPdfName));
                 return null;
             }
 
             int pageIndex = pageNum - 1;
             int totalPages = document.getNumberOfPages();
             if (pageIndex < 0 || pageIndex >= totalPages) {
-                log.error("Invalid page number " + pageNum + " for PDF " + pdfDir + File.separator + sanitizedPdfName + " with " + totalPages + " pages");
+                log.error("Invalid page number {} for PDF {}{}{} with {} pages", LogSanitizer.sanitize(pageNum), LogSanitizer.sanitize(pdfDir), File.separator, LogSanitizer.sanitize(sanitizedPdfName), totalPages);
                 return null;
             }
 
