@@ -64,7 +64,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     private static Logger log = MiscUtils.getLogger();
 
     public boolean providerExists(String providerNo) {
-        return currentSession().get(Provider.class, providerNo) != null;
+        return currentSession().find(Provider.class, providerNo) != null;
     }
 
     @Override
@@ -73,7 +73,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
             return null;
         }
 
-        Provider provider = currentSession().get(Provider.class, providerNo);
+        Provider provider = currentSession().find(Provider.class, providerNo);
 
         if (log.isDebugEnabled()) {
             log.debug("getProvider: providerNo=" + providerNo + ",found=" + (provider != null));

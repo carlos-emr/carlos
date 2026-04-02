@@ -106,7 +106,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
 
     @Override
     public void updateRoleName(Integer id, String roleName) {
-        Secuserrole sur = currentSession().get(Secuserrole.class, id);
+        Secuserrole sur = currentSession().find(Secuserrole.class, id);
         if (sur != null) {
             sur.setRoleName(roleName);
             sur.setLastUpdateDate(new Date());
@@ -192,8 +192,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
         logger.debug("getting Secuserrole instance with id: " + id);
         Session session = currentSession();
         try {
-            Secuserrole instance = (Secuserrole) session.get(
-                    Secuserrole.class, id);
+            Secuserrole instance = session.find(Secuserrole.class, id);
             return instance;
         } catch (RuntimeException re) {
             logger.error("get failed", re);

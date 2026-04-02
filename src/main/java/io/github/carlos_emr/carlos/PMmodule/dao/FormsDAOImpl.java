@@ -103,7 +103,7 @@ public class FormsDAOImpl extends AbstractHibernateDao implements FormsDAO {
             Integer id = (Integer) values[0];
             String providerNo = (String) values[1];
             Date dateEdited = (Date) values[2];
-            Provider provider = currentSession().get(Provider.class, providerNo);
+            Provider provider = currentSession().find(Provider.class, providerNo);
             fi.setFormId(id.longValue());
             fi.setProviderNo(Long.parseLong(providerNo));
             fi.setFormDate(dateEdited);

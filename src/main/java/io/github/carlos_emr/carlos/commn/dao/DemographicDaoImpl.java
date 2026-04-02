@@ -129,7 +129,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             return null;
         }
 
-        return currentSession().get(Demographic.class, dNo);
+        return currentSession().find(Demographic.class, dNo);
     }
 
     @Override
@@ -1636,7 +1636,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     @Override
     public boolean clientExists(Integer demographicNo) {
 
-        boolean exists = currentSession().get(Demographic.class, demographicNo) != null;
+        boolean exists = currentSession().find(Demographic.class, demographicNo) != null;
         log.debug("exists: " + exists);
 
         return exists;
@@ -1672,7 +1672,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             throw new IllegalArgumentException();
         }
 
-        Demographic result = currentSession().get(Demographic.class, demographicNo);
+        Demographic result = currentSession().find(Demographic.class, demographicNo);
 
         if (log.isDebugEnabled()) {
             log.debug("getClientByDemographicNo: id=" + demographicNo + ", found=" + (result != null));

@@ -63,7 +63,7 @@ public class ProgramFunctionalUserDAOImpl extends AbstractHibernateDao implement
             throw new IllegalArgumentException();
         }
 
-        FunctionalUserType result = currentSession().get(FunctionalUserType.class, id);
+        FunctionalUserType result = currentSession().find(FunctionalUserType.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getFunctionalUserType: id=" + id + ",found=" + (result != null));
@@ -123,7 +123,7 @@ public class ProgramFunctionalUserDAOImpl extends AbstractHibernateDao implement
             throw new IllegalArgumentException();
         }
 
-        ProgramFunctionalUser result = currentSession().get(ProgramFunctionalUser.class, id);
+        ProgramFunctionalUser result = currentSession().find(ProgramFunctionalUser.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getFunctionalUser: id=" + id + ",found=" + (result != null));

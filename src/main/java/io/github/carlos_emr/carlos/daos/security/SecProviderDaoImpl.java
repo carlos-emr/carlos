@@ -96,7 +96,7 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
     public SecProvider findById(java.lang.String id) {
         logger.debug("getting Provider instance with id: " + id);
         try {
-            SecProvider instance = currentSession().get(SecProvider.class, id);
+            SecProvider instance = currentSession().find(SecProvider.class, id);
             return instance;
         } catch (RuntimeException re) {
             logger.error("get failed", re);

@@ -53,7 +53,7 @@ public class IssueDAOImpl extends AbstractHibernateDao implements IssueDAO {
 
     @Override
     public Issue getIssue(Long id) {
-        return currentSession().get(Issue.class, id);
+        return currentSession().find(Issue.class, id);
     }
 
     @Override

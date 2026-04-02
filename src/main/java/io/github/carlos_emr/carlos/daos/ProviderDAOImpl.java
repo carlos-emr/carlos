@@ -50,7 +50,7 @@ public class ProviderDAOImpl extends AbstractHibernateDao implements ProviderDAO
     }
 
     public Provider getProvider(String provider_no) {
-        return currentSession().get(Provider.class, provider_no);
+        return currentSession().find(Provider.class, provider_no);
     }
 
     @SuppressWarnings("unchecked")
