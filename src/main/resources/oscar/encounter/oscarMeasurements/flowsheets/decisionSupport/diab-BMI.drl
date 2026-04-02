@@ -69,6 +69,7 @@ rule "BMI 1"
         m : MeasurementDSHelper()
         eval( m.getDataAsDouble() >= 25.0 )
         eval( m.getDataAsDouble() < 30 )
+        eval( !m.hasProblem() )
     then
         m.log("BMI RULES IS GETTING RUN");
         m.setIndicationColor("HIGH");
@@ -82,6 +83,7 @@ rule "BMI 2"
     when
         m : MeasurementDSHelper()
         eval( m.getDataAsDouble() > 30 )
+        eval( !m.hasProblem() )
     then
         m.log("BMI RULES IS GETTING RUN");
         m.setIndicationColor("HIGH 1");
@@ -95,6 +97,7 @@ rule "BMI 3"
     when
         m : MeasurementDSHelper()
         eval( m.getDataAsDouble() < 18.5 )
+        eval( !m.hasProblem() )
     then
         m.log("BMI RULES IS GETTING RUN");
         m.setIndicationColor("LOW");

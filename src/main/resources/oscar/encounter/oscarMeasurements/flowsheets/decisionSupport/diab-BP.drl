@@ -78,6 +78,7 @@ rule "BP"
         m : MeasurementDSHelper()
         eval( m.getNumberFromSplit("/",0) > 130 )
         eval( m.getNumberFromSplit("/",1) > 80 )
+        eval( !m.hasProblem() )
     then
         m.log("BP RULES IS GETTING RUN");
         m.setIndicationColor("HIGH 1");
@@ -91,6 +92,7 @@ rule "BP 2"
         m : MeasurementDSHelper()
         eval( m.getNumberFromSplit("/",0) <= 130 )
         eval( m.getNumberFromSplit("/",1) > 80 )
+        eval( !m.hasProblem() )
     then
         m.log("BP RULES IS GETTING RUN");
         m.setIndicationColor("HIGH");
@@ -105,6 +107,7 @@ rule "BP 3"
         m : MeasurementDSHelper()
         eval( m.getNumberFromSplit("/",0) > 130 )
         eval( m.getNumberFromSplit("/",1) <= 80 )
+        eval( !m.hasProblem() )
     then
         m.log("BP RULES IS GETTING RUN");
         m.setIndicationColor("HIGH");

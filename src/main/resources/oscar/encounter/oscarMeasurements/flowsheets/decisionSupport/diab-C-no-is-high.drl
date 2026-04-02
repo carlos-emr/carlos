@@ -78,6 +78,7 @@ rule "FGLC"
     when
         m : MeasurementDSHelper()
         eval( m.isDataEqualTo("No") )
+        eval( !m.hasProblem() )
     then
         m.log("FGLC RULES IS GETTING RUN");
         m.setIndicationColor("HIGH");

@@ -53,6 +53,7 @@ rule "BP"
         m : MeasurementDSHelper()
         eval( m.setMeasurement("BP") == true )
         eval( m.getNumberFromSplit("/",0) > 139 )
+        eval( !m.hasProblem() )
     then
         m.log("BP RULES IS GETTING RUN");
         m.setInRange(true);

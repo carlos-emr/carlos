@@ -51,6 +51,7 @@ rule "LDL"
         m : MeasurementDSHelper()
         eval( m.setMeasurement("LDL") == true )
         eval( m.getDataAsDouble() < 2.0 )
+        eval( !m.hasProblem() )
     then
         m.log("LDL RULES IS GETTING RUN");
         m.setInRange(true);

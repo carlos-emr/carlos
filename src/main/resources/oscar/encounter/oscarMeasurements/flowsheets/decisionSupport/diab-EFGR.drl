@@ -73,6 +73,7 @@ rule "EFGR"
     when
         m : MeasurementDSHelper()
         eval( m.getDataAsDouble() <= 60 )
+        eval( !m.hasProblem() )
     then
         m.log("EFGR/eGFR RULE IS GETTING RUN");
         m.setIndicationColor("LOW");
