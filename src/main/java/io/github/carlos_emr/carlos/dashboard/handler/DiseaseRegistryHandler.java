@@ -74,7 +74,7 @@ public class DiseaseRegistryHandler {
 
         dao.persist(dx);
 
-        logger.info("Added code ({}) to disease registry for patient ({})", LogSanitizer.sanitize(icd9code), LogSanitizer.sanitize(demographicNo));
+        logger.info("Added code ({}) to disease registry for patient ({}) with provider no ({})", LogSanitizer.sanitize(icd9code), LogSanitizer.sanitize(demographicNo), LogSanitizer.sanitize(providerNo));
         return dx.getId();
     }
 
