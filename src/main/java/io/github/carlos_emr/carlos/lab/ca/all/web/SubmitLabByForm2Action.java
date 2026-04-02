@@ -176,6 +176,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
 
         //generate the HL7 from the Lab object.
         String hl7 = generateHL7(lab);
+        // Avoid logging HL7 content (contains PHI) - log length only at debug level
         logger.debug("HL7 generated (length={})", hl7 != null ? hl7.length() : 0);
 
         //save file
@@ -192,7 +193,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
         String outcome = null;
 
         if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-            logger.info("filePath{}", LogSanitizer.sanitize(filePath));
+            logger.info("filePath: {}", LogSanitizer.sanitize(filePath));
             logger.info("Type: {}", LogSanitizer.sanitize(labName));
             MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
             if (msgHandler != null) {

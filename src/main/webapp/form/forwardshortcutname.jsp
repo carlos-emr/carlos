@@ -41,6 +41,7 @@
 
 <%@ page import="java.net.URLDecoder, io.github.carlos_emr.carlos.form.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LogSanitizer" %>
 
 <%
 
@@ -58,7 +59,7 @@
                 request.getParameter("demographic_no") +
                 ((appointmentNo != null) ? "&appointmentNo=" + appointmentNo : "") +
                 ((request.getParameter("formId") != null) ? "&formId=" + request.getParameter("formId") : "&formId=" + formPath[1]);
-        MiscUtils.getLogger().info("Forwarding to page: {}", io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(nextPage));
+        MiscUtils.getLogger().info("Forwarding to page: {}", LogSanitizer.sanitize(nextPage));
         request.getRequestDispatcher(nextPage).include(request, response);
         return;
     }

@@ -49,7 +49,7 @@ import org.owasp.encoder.Encode;
 public final class LogSanitizer {
 
     /** Maximum number of characters allowed in a sanitized log value. */
-    static final int MAX_LOG_LENGTH = 200;
+    private static final int MAX_LOG_LENGTH = 200;
 
     private LogSanitizer() {
         // utility class — no instances
