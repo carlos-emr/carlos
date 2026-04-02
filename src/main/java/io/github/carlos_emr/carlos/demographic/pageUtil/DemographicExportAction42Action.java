@@ -2744,23 +2744,43 @@ public class DemographicExportAction42Action extends ActionSupport {
                 break;
         }
 
-        String exportedIds = String.join(",", list);
-        if (exportedIds.length() > 500) {
-            int lastComma = exportedIds.lastIndexOf(',', 500);
-            exportedIds = (lastComma > 0 ? exportedIds.substring(0, lastComma) : exportedIds.substring(0, 500)) + "...";
+        String exportedIds = null;
+        String exportOutcome = ffwd;
+        String exportException = null;
+        try {
+            exportedIds = String.join(",", list);
+            if (exportedIds.length() > 500) {
+                int lastComma = exportedIds.lastIndexOf(',', 500);
+                exportedIds = (lastComma > 0 ? exportedIds.substring(0, lastComma) : exportedIds.substring(0, 500)) + "...";
+            }
+        } catch (RuntimeException e) {
+            // Ensure failures in the export tail are still audited without exposing PHI
+            exportOutcome = "error";
+            exportException = e.getClass().getSimpleName();
+            throw e;
+        } finally {
+            if (exportedIds == null) {
+                exportedIds = "<unavailable>";
+            }
+            OscarLog exportAuditLog = new OscarLog();
+            if (loggedInInfo.getLoggedInSecurity() != null) {
+                exportAuditLog.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
+            }
+            if (loggedInInfo.getLoggedInProvider() != null) {
+                exportAuditLog.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+            }
+            exportAuditLog.setAction(LogConst.EXPORT);
+            exportAuditLog.setContent(LogConst.CON_DEMOGRAPHIC);
+            exportAuditLog.setIp(loggedInInfo.getIp());
+            StringBuilder dataBuilder = new StringBuilder();
+            dataBuilder.append("Exported ").append(list.size()).append(" records; outcome=").append(exportOutcome);
+            if (exportException != null) {
+                dataBuilder.append("; error=").append(exportException);
+            }
+            dataBuilder.append("; ids=").append(exportedIds);
+            exportAuditLog.setData(dataBuilder.toString());
+            LogAction.addLogSynchronous(exportAuditLog);
         }
-        OscarLog exportAuditLog = new OscarLog();
-        if (loggedInInfo.getLoggedInSecurity() != null) {
-            exportAuditLog.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
-        }
-        if (loggedInInfo.getLoggedInProvider() != null) {
-            exportAuditLog.setProviderNo(loggedInInfo.getLoggedInProviderNo());
-        }
-        exportAuditLog.setAction(LogConst.EXPORT);
-        exportAuditLog.setContent(LogConst.CON_DEMOGRAPHIC);
-        exportAuditLog.setIp(loggedInInfo.getIp());
-        exportAuditLog.setData("Exported " + list.size() + " records; outcome=" + ffwd + "; ids=" + exportedIds);
-        LogAction.addLogSynchronous(exportAuditLog);
         return ffwd;
     }
 
