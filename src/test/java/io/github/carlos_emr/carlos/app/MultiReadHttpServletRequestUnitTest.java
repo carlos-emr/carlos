@@ -34,6 +34,7 @@ import jakarta.servlet.http.Part;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
@@ -64,7 +65,9 @@ class MultiReadHttpServletRequestUnitTest {
      *
      * <p>Verifies that all write methods are allowed before freeze and rejected after,
      * all read methods require frozen state, and copy-producing methods
-     * ({@code toByteArray}, {@code toString}) are unconditionally disabled.</p>
+     * ({@code toByteArray}, parameterized {@code toString} variants) are unconditionally
+     * disabled, while the no-arg {@code toString()} returns a safe diagnostic descriptor
+     * without exposing buffer contents.</p>
      */
     @Nested
     @DisplayName("ExposedByteArrayOutputStream")
@@ -323,9 +326,9 @@ class MultiReadHttpServletRequestUnitTest {
     // ------------------------------------------------------------------
 
     /**
-     * Tests the {@code parseMultipartFormFields} parser, focusing on the
-     * {@code bodyLength} parameter that limits parsing to valid bytes within
-     * an over-allocated buffer (the zero-copy contract).
+     * Tests the {@code parseMultipartFormFields} parser for general correctness
+     * and specifically the {@code bodyLength} parameter that limits parsing to
+     * valid bytes within an over-allocated buffer (the zero-copy contract).
      */
     @Nested
     @DisplayName("parseMultipartFormFields")
@@ -600,6 +603,62 @@ class MultiReadHttpServletRequestUnitTest {
             };
 
             MultiReadHttpServletRequest wrapper = new MultiReadHttpServletRequest(mock);
+            assertThatThrownBy(() -> wrapper.getInputStream().readAllBytes())
+                    .isInstanceOf(IOException.class);
+        }
+
+        @Test
+        @DisplayName("should wrap UncheckedIOException as IOException during caching")
+        void shouldWrapUncheckedIOException_asIOExceptionDuringCaching() {
+            MockHttpServletRequest mock = new MockHttpServletRequest() {
+                @Override
+                public ServletInputStream getInputStream() {
+                    return new ServletInputStream() {
+                        @Override
+                        public int read() {
+                            throw new UncheckedIOException(
+                                    new IOException("Simulated wrapped failure"));
+                        }
+                        @Override public boolean isFinished() { return false; }
+                        @Override public boolean isReady() { return true; }
+                        @Override public void setReadListener(ReadListener listener) { }
+                    };
+                }
+            };
+
+            MultiReadHttpServletRequest wrapper = new MultiReadHttpServletRequest(mock);
+            assertThatThrownBy(() -> wrapper.getInputStream().readAllBytes())
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Failed to cache request body")
+                    .hasCauseInstanceOf(UncheckedIOException.class);
+        }
+
+        @Test
+        @DisplayName("should leave cachedBytes null after caching failure so retry also fails")
+        void shouldLeaveCachedBytesNull_afterCachingFailureSoRetryAlsoFails() {
+            MockHttpServletRequest mock = new MockHttpServletRequest() {
+                @Override
+                public ServletInputStream getInputStream() {
+                    return new ServletInputStream() {
+                        @Override
+                        public int read() throws IOException {
+                            throw new IOException("Persistent stream failure");
+                        }
+                        @Override public boolean isFinished() { return false; }
+                        @Override public boolean isReady() { return true; }
+                        @Override public void setReadListener(ReadListener listener) { }
+                    };
+                }
+            };
+
+            MultiReadHttpServletRequest wrapper = new MultiReadHttpServletRequest(mock);
+
+            // First call fails
+            assertThatThrownBy(() -> wrapper.getInputStream().readAllBytes())
+                    .isInstanceOf(IOException.class);
+
+            // Second call also fails — cachedBytes was never assigned, so the wrapper
+            // attempts to re-cache from the (still-failing) underlying stream.
             assertThatThrownBy(() -> wrapper.getInputStream().readAllBytes())
                     .isInstanceOf(IOException.class);
         }

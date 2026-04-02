@@ -546,9 +546,10 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
      * <p>{@code cacheInputStream()} calls {@code freeze()} once writing is complete.
      * After that point, the buffer and count are stable for subsequent reads within
      * the same request-processing thread. This class is intended for single-thread-per-request
-     * use as guaranteed by the servlet container's dispatch model. The {@code volatile} and
-     * {@code synchronized} modifiers are retained as a defensive measure and for consistency
-     * with {@link ByteArrayOutputStream}'s own synchronization contract; they do not indicate
+     * use as guaranteed by the servlet container's dispatch model. The {@code synchronized}
+     * modifiers are retained as a defensive measure; this class adds synchronization to
+     * methods like {@code writeBytes()} and {@code writeTo()} that the parent does not
+     * synchronize, ensuring uniform locking across all entry points. They do not indicate
      * a design for concurrent use.</p>
      */
     static final class ExposedByteArrayOutputStream extends ByteArrayOutputStream {
@@ -684,7 +685,8 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
 
         public CachedServletInputStream(ExposedByteArrayOutputStream cachedBytes) {
             // Use the internal buffer directly (no copy). The offset+length form of
-            // ByteArrayInputStream avoids allocating a trimmed copy of the buffer.
+            // ByteArrayInputStream limits readable bytes to exactly count, preventing
+            // reads of uninitialized data beyond the valid region of the over-allocated buffer.
             input = new ByteArrayInputStream(cachedBytes.getBuffer(), 0, cachedBytes.getCount());
         }
 
