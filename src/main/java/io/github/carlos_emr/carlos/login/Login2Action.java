@@ -431,13 +431,13 @@ public final class Login2Action extends ActionSupport {
             }
             nextPage = request.getParameter("nextPage");
 
-            logger.debug("nextPage: " + nextPage);
+            logger.debug("nextPage: " + Encode.forJava(nextPage));
             if (nextPage != null) {
                 try {
                     URI url = new URI(nextPage);
 
                     if (url.isAbsolute() || url.getAuthority() != null) {
-                        logger.warn("Rejected absolute redirect URL: " + nextPage);
+                        logger.warn("Rejected absolute redirect URL: " + Encode.forJava(nextPage));
                         return NONE;
                     } else {
                         // set current facility
@@ -450,7 +450,7 @@ public final class Login2Action extends ActionSupport {
                         return NONE;
                     }
                 } catch (URISyntaxException e) {
-                    MiscUtils.getLogger().error("Invalid nextPage parameter: " + nextPage, e);
+                    MiscUtils.getLogger().error("Invalid nextPage parameter: " + Encode.forJava(nextPage), e);
                     return NONE;
                 }
             }
