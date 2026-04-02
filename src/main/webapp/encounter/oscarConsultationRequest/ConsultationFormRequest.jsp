@@ -2681,7 +2681,7 @@ if (userAgent != null) {
                                                         defaultSiteId = siteIds.get(i);
                                                 %>
                                                 <option value="<%=Encode.forHtmlAttribute(te)%>"
-                                                             style="background-color: <%=Encode.forHtmlAttribute(bg)%>"><%=Encode.forHtml(te)%>
+                                                             style="background-color: <%=Encode.forCssString(bg)%>"><%=Encode.forHtml(te)%>
                                                 </option>
                                                 <% }%>
                                             </select>
@@ -3252,7 +3252,7 @@ if (userAgent != null) {
                                 // addFormIfNotFound only handles form (formNo) attachments;
                                 // skip pre-check for labs, docs, eForms, HRM not found in dialog
                                 if (delegate.startsWith("#formNo")) {
-                                    element = addFormIfNotFound(data, '<%=Encode.forJavaScript(demo)%>', delegate);
+                                    element = addFormIfNotFound(data, '<%=Encode.forJavaScript(Encode.forUriComponent(demo))%>', delegate);
                                 } else {
                                     return;
                                 }
