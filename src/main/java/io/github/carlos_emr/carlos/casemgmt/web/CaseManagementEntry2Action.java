@@ -476,7 +476,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String ipAddress = request.getRemoteAddr();
         CasemgmtNoteLock casemgmtNoteLock;
         Long note_id = note.getId() != null && note.getId() >= 0 ? note.getId() : 0L;
-        casemgmtNoteLock = isNoteEdited(note_id, demographicNo, providerNo, ipAddress, request.getRequestedSessionId());
+        casemgmtNoteLock = isNoteEdited(note_id, demographicNo, providerNo, ipAddress, request.getSession().getId());
 
         if (casemgmtNoteLock.isLocked()) {
             note = makeNewNote(providerNo, demono, request);
@@ -602,7 +602,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String demoNo = getDemographicNo(request);
         String noteId = request.getParameter("noteId");
         String ipAddress = request.getRemoteAddr();
-        String sessionId = request.getRequestedSessionId();
+        String sessionId = request.getSession().getId();
 
         logger.debug("WEB isNoteEdited CALLED");
         CasemgmtNoteLock casemgmtNoteLock = isNoteEdited(Long.parseLong(noteId), Integer.parseInt(demoNo), providerNo, ipAddress, sessionId);
@@ -642,10 +642,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         casemgmtNoteLock.setIpAddress(request.getRemoteAddr());
-        String currentSessionId = request.getRequestedSessionId();
-        if (currentSessionId == null) {
-            currentSessionId = session.getId();
-        }
+        String currentSessionId = request.getSession().getId();
         casemgmtNoteLock.setSessionId(currentSessionId);
         logger.debug("UPDATING LOCK DEMO " + demoNo + " SESSION " + casemgmtNoteLock.getSessionId() + " LOCK IP " + casemgmtNoteLock.getIpAddress());
         casemgmtNoteLockDao.merge(casemgmtNoteLock);
@@ -1865,10 +1862,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (casemgmtNoteLock == null) {
                 return false;
             }
-            String currentSessionId = request.getRequestedSessionId();
-            if (currentSessionId == null) {
-                currentSessionId = session.getId();
-            }
+            String currentSessionId = request.getSession().getId();
             return Objects.equals(casemgmtNoteLock.getSessionId(), casemgmtNoteLockSession.getSessionId())
                 && Objects.equals(currentSessionId, casemgmtNoteLockSession.getSessionId());
         } catch (Exception e) {
@@ -1894,7 +1888,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demoNo);
             //If browser is exiting check to see if we should release lock.  It may be held by same user in another window so we check
-            if (request.getRequestedSessionId().equals(casemgmtNoteLockSession.getSessionId()) && casemgmtNoteLockSession.getNoteId() == Long.parseLong(noteId)) {
+            if (request.getSession().getId().equals(casemgmtNoteLockSession.getSessionId()) && casemgmtNoteLockSession.getNoteId() == Long.parseLong(noteId)) {
                 releaseNoteLock(providerNo, Integer.parseInt(demoNo), Long.parseLong(noteId));
                 session.removeAttribute("casemgmtNoteLock" + demoNo);
             }
