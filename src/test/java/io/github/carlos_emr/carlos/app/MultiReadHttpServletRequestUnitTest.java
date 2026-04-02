@@ -28,10 +28,14 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
+import jakarta.servlet.ReadListener;
+import jakarta.servlet.ServletInputStream;
+import jakarta.servlet.http.Part;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -49,7 +53,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 @Tag("unit")
 @DisplayName("MultiReadHttpServletRequest")
-class MultiReadHttpServletRequestTest {
+class MultiReadHttpServletRequestUnitTest {
 
     // ------------------------------------------------------------------
     // ExposedByteArrayOutputStream
@@ -81,6 +85,34 @@ class MultiReadHttpServletRequestTest {
             assertThat(buf[1]).isEqualTo((byte) 'B');
             assertThat(buf[2]).isEqualTo((byte) 'C');
             assertThat(buf[3]).isEqualTo((byte) 'D');
+        }
+
+        @Test
+        @DisplayName("should allow write(byte[]) before freeze and reject after")
+        void shouldAllowWriteByteArray_beforeFreezeAndRejectAfter() throws IOException {
+            ExposedByteArrayOutputStream stream = new ExposedByteArrayOutputStream();
+            byte[] data = new byte[]{65, 66, 67}; // 'A', 'B', 'C'
+            stream.write(data);
+
+            stream.freeze();
+            assertThat(stream.getCount()).isEqualTo(3);
+            assertThat(stream.getBuffer()[0]).isEqualTo((byte) 'A');
+
+            assertThatThrownBy(() -> stream.write(new byte[]{68}))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("frozen");
+        }
+
+        @Test
+        @DisplayName("should return same buffer reference on repeated getBuffer() calls")
+        void shouldReturnSameBufferReference_onRepeatedGetBufferCalls() {
+            ExposedByteArrayOutputStream stream = new ExposedByteArrayOutputStream();
+            stream.write(65);
+            stream.freeze();
+
+            byte[] first = stream.getBuffer();
+            byte[] second = stream.getBuffer();
+            assertThat(first).isSameAs(second);
         }
 
         @Test
@@ -547,6 +579,57 @@ class MultiReadHttpServletRequestTest {
             // getInputStream() should still return the full body
             byte[] result = wrapper.getInputStream().readAllBytes();
             assertThat(result).isEqualTo(bodyBytes);
+        }
+
+        @Test
+        @DisplayName("should propagate IOException when underlying stream fails during caching")
+        void shouldPropagateIOException_whenUnderlyingStreamFailsDuringCaching() {
+            MockHttpServletRequest mock = new MockHttpServletRequest() {
+                @Override
+                public ServletInputStream getInputStream() {
+                    return new ServletInputStream() {
+                        @Override
+                        public int read() throws IOException {
+                            throw new IOException("Simulated network failure");
+                        }
+                        @Override public boolean isFinished() { return false; }
+                        @Override public boolean isReady() { return true; }
+                        @Override public void setReadListener(ReadListener listener) { }
+                    };
+                }
+            };
+
+            MultiReadHttpServletRequest wrapper = new MultiReadHttpServletRequest(mock);
+            assertThatThrownBy(() -> wrapper.getInputStream().readAllBytes())
+                    .isInstanceOf(IOException.class);
+        }
+
+        @Test
+        @DisplayName("should return correct parts from getParts() on multipart request")
+        void shouldReturnCorrectParts_fromGetPartsOnMultipartRequest() throws Exception {
+            String boundary = "----TestBoundary";
+            String body = "--" + boundary + "\r\n"
+                    + "Content-Disposition: form-data; name=\"token\"\r\n"
+                    + "\r\n"
+                    + "csrf-value\r\n"
+                    + "--" + boundary + "\r\n"
+                    + "Content-Disposition: form-data; name=\"file\"; filename=\"test.txt\"\r\n"
+                    + "Content-Type: text/plain\r\n"
+                    + "\r\n"
+                    + "file-content\r\n"
+                    + "--" + boundary + "--\r\n";
+
+            MockHttpServletRequest mock = new MockHttpServletRequest();
+            mock.setMethod("POST");
+            mock.setContentType("multipart/form-data; boundary=" + boundary);
+            mock.setContent(body.getBytes(StandardCharsets.ISO_8859_1));
+
+            MultiReadHttpServletRequest wrapper = new MultiReadHttpServletRequest(mock);
+            Collection<Part> parts = wrapper.getParts();
+
+            assertThat(parts).hasSize(2);
+            assertThat(parts).extracting(Part::getName)
+                    .containsExactlyInAnyOrder("token", "file");
         }
     }
 }

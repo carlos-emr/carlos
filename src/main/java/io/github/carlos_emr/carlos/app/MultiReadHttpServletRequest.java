@@ -252,7 +252,7 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             upload.setFileSizeMax(MAX_BODY_SIZE);
             upload.setSizeMax(MAX_BODY_SIZE);
 
-            // Use the internal buffer directly (no copy). The buffer is immutable
+            // Use the internal buffer directly (no copy). The buffer contents are stable
             // after cacheInputStream() completes — freeze() blocks all further writes.
             final byte[] buf = cachedBytes.getBuffer();
             final int count = cachedBytes.getCount();
@@ -289,8 +289,9 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             int bodySize;
             try {
                 bodySize = cachedBytes.getCount();
-            } catch (RuntimeException suppressed) {
+            } catch (RuntimeException ex) {
                 bodySize = -1;
+                e.addSuppressed(ex);
             }
             LOGGER.error("Failed to parse multipart parts from cached bytes (URI: {}, bodySize: {} bytes)",
                     getRequestURI(), bodySize, e);
@@ -358,7 +359,8 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
                     getRequestURI(), e);
             multipartParams = Collections.emptyMap();
         } catch (RuntimeException e) {
-            LOGGER.error("Failed to parse multipart form fields (URI: {})",
+            LOGGER.error("Failed to parse multipart form fields (URI: {}). "
+                    + "CSRF token extraction will fail for this request.",
                     getRequestURI(), e);
             multipartParams = Collections.emptyMap();
         }
@@ -376,9 +378,12 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             }
             buffer.freeze();
             cachedBytes = buffer; // Only assign after successful freeze
-        } catch (RuntimeException e) {
+        } catch (UncheckedIOException e) {
             throw new IOException("Failed to cache request body", e);
         }
+        // IOException propagates naturally — cachedBytes remains null so callers
+        // will see uncached state. RuntimeException is not caught: it indicates a
+        // programming bug and must propagate to make the failure visible.
     }
 
     // ------------------------------------------------------------------
@@ -540,16 +545,18 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
      *
      * <p>{@code cacheInputStream()} calls {@code freeze()} once writing is complete.
      * After that point, the buffer and count are stable for subsequent reads within
-     * the same request-processing thread. This class is not designed for concurrent
-     * access across threads; thread safety is provided by the servlet container's
-     * single-thread-per-request dispatch model.</p>
+     * the same request-processing thread. This class is intended for single-thread-per-request
+     * use as guaranteed by the servlet container's dispatch model. The {@code volatile} and
+     * {@code synchronized} modifiers are retained as a defensive measure and for consistency
+     * with {@link ByteArrayOutputStream}'s own synchronization contract; they do not indicate
+     * a design for concurrent use.</p>
      */
-    static class ExposedByteArrayOutputStream extends ByteArrayOutputStream {
+    static final class ExposedByteArrayOutputStream extends ByteArrayOutputStream {
 
         private volatile boolean frozen;
 
         /** Freezes this stream, preventing any further writes or resets. */
-        void freeze() {
+        synchronized void freeze() {
             this.frozen = true;
         }
 
@@ -594,7 +601,7 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         }
 
         @Override
-        public void write(byte[] b) throws IOException {
+        public synchronized void write(byte[] b) throws IOException {
             if (frozen) {
                 throw new IllegalStateException("Buffer is frozen after cacheInputStream()");
             }
@@ -602,7 +609,7 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         }
 
         @Override
-        public void writeBytes(byte[] b) {
+        public synchronized void writeBytes(byte[] b) {
             if (frozen) {
                 throw new IllegalStateException("Buffer is frozen after cacheInputStream()");
             }
@@ -663,7 +670,7 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         }
 
         @Override
-        public void reset() {
+        public synchronized void reset() {
             if (frozen) {
                 throw new IllegalStateException("Buffer is frozen after cacheInputStream()");
             }
