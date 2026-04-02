@@ -35,6 +35,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ include file="/taglibs.jsp" %>
 
@@ -100,18 +101,18 @@
                 } catch (error) {
                     opener.document
                 .<%=form%>.
-                    elements['<%=elementId%>'].value = data1;
+                    elements['<%= Encode.forJavaScript(elementId) %>'].value = data1;
                     opener.document
                 .<%=form%>.
-                    elements['<%=elementName%>'].value = data2;
+                    elements['<%= Encode.forJavaScript(elementName) %>'].value = data2;
                     self.close();
                 }
 
             }
 
             function serializePopupData(data1, data2) {
-                var id1 = '<%=elementId%>';
-                var id2 = '<%=elementName%>';
+                var id1 = '<%= Encode.forJavaScript(elementId) %>';
+                var id2 = '<%= Encode.forJavaScript(elementName) %>';
                 var data = '{"' + id1 + '":"' + data1 + '","' + id2 + '":"' + data2 + '"}';
                 opener.popUpData(data);
                 self.close();

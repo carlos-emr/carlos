@@ -119,7 +119,7 @@
                 <div>
 
                     <input id="xml_vdate" type="text" name="xml_vdate"
-                           value="<%=xml_vdate%>" placeholder="Service Begin Date">
+                           value="<%= Encode.forHtmlAttribute(xml_vdate) %>" placeholder="Service Begin Date">
                 </div>
             </div>
             <div class="mb-3" id="providerDiv">
@@ -127,7 +127,7 @@
 
                 <div>
 
-                    <input type="text" id="numDays" name="numDays" value="<%=numDays%>"
+                    <input type="text" id="numDays" name="numDays" value="<%= Encode.forHtmlAttribute(numDays) %>"
                            class="form-control form-control-sm d-inline-block w-auto">
                 </div>
             </div>

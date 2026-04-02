@@ -94,7 +94,7 @@
             var files = document.getElementsByClassName("fileNames");
             var progress = document.getElementsByClassName("progress");
             var status = document.getElementsByClassName("status");
-            var connection = '<%=connection %>';
+            var connection = '<%= Encode.forJavaScript(connection) %>';
             if (connection != "failed") {
                 for (var i = 0; i < files.length; i++) {
                     // Step 1 set all the available statuses

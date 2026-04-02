@@ -48,6 +48,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.ExtractBean" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <%
@@ -110,7 +111,7 @@
 %>
 
 <jsp:forward page='billingSim.jsp'>
-    <jsp:param name="xml_appointment_date" value='<%=dateEnd%>'/>
-    <jsp:param name="xml_v_date" value='<%=dateBegin%>'/>
-    <jsp:param name="provider" value='<%=provider%>'/>
+    <jsp:param name="xml_appointment_date" value='<%= Encode.forJavaScript(dateEnd) %>'/>
+    <jsp:param name="xml_v_date" value='<%= Encode.forJavaScript(dateBegin) %>'/>
+    <jsp:param name="provider" value='<%= Encode.forJavaScript(provider) %>'/>
 </jsp:forward>

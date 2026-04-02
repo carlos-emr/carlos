@@ -54,6 +54,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("userrole") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -465,7 +466,7 @@
             <td align="left" valign="top" width="50%">
                 <oscar:nameage demographicNo="<%=demographicID%>"/><br>
 
-                <input type="hidden" name="viewstatus" value="<%=viewstatus%>">
+                <input type="hidden" name="viewstatus" value="<%= Encode.forHtmlAttribute(viewstatus) %>">
                 <input type="hidden" name="sortorder" value="<%=sortorder%>">
 
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgViewStatus"/> <select id="selviewstatus"
@@ -492,7 +493,7 @@
                 <fieldset>
                     <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgView"/>:</legend>
                     <input type="hidden" name="view" value="<%=view%>">
-                    <input type="hidden" name="demographic_no" value="<%=demographicID%>">
+                    <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicID) %>">
                     <input type="hidden" name="undelDocumentNo" value="">
                     <input type="hidden" name="delDocumentNo" value="">
                     <input type="hidden" name="refileDocumentNo" value="">

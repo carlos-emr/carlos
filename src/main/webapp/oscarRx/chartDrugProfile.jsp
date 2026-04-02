@@ -94,6 +94,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>
@@ -140,16 +141,16 @@
             </table>
 
 
-            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements.do?method=ChartMeds&demographic_no=<%=demographicNo%><%=drugForGraph%>"/>
+            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements.do?method=ChartMeds&demographic_no=<%= Encode.forHtmlAttribute(demographicNo) %><%=drugForGraph%>"/>
 
 
             <fieldset>
                 <legend>Med List</legend>
                 <form action="oscarRx/chartDrugProfile.jsp">
-                    <input type="hidden" name="labType" value="<%=labType%>"/>
-                    <input type="hidden" name="demographic_no" value="<%=demographicNo%>"/>
-                    <input type="hidden" name="testName" value="<%=testName%>"/>
-                    <input type="hidden" name="identifier" value="<%=identifier%>"/>
+                    <input type="hidden" name="labType" value="<%= Encode.forHtmlAttribute(labType) %>"/>
+                    <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
+                    <input type="hidden" name="testName" value="<%= Encode.forHtmlAttribute(testName) %>"/>
+                    <input type="hidden" name="identifier" value="<%= Encode.forHtmlAttribute(identifier) %>"/>
                     <input type="submit" value="Add Meds to Graph"/>
                     <ul>
                         <%

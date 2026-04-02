@@ -290,6 +290,7 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <head>
     <title>CARLOS Billing</title>
 
@@ -1373,7 +1374,7 @@
                                                    style="font-size:small;">show/hide</a></h3>
         <div class="wrapper" id="dxFullListing">
             <jsp:include page="/oscarResearch/oscarDxResearch/currentCodeList.jsp">
-                <jsp:param name="demographicNo" value="<%=demo_no%>"/>
+                <jsp:param name="demographicNo" value="<%= Encode.forHtmlAttribute(demo_no) %>"/>
             </jsp:include>
         </div>
     </div>
@@ -1383,13 +1384,13 @@
         <h3>&nbsp;Dx Quick Pick Add Lists &nbsp;<a href="#" onclick="toggle('dxForm'); return false;"
                                                    style="font-size:small;">show/hide</a></h3>
         <form id="dxForm">
-            <input type="hidden" name="demographicNo" value="<%=demo_no%>"/>
+            <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demo_no) %>"/>
             <input type="hidden" name="providerNo" value="<%=session.getAttribute("user")%>"/>
             <input type="hidden" name="forward" value=""/>
             <input type="hidden" name="forwardTo" value="codeList"/>
             <div class="wrapper" id="dxListing">
                 <jsp:include page="/oscarResearch/oscarDxResearch/quickCodeList.jsp">
-                    <jsp:param name="demographicNo" value="<%=demo_no%>"/>
+                    <jsp:param name="demographicNo" value="<%= Encode.forHtmlAttribute(demo_no) %>"/>
                 </jsp:include>
             </div>
             <input type="button" value="Add To Disease Registry" class="btn btn-secondary" onclick="addToDiseaseRegistry()"/>

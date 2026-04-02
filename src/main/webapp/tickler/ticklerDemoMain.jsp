@@ -87,6 +87,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
@@ -769,19 +770,19 @@
                 </td>
                 <td width="30%">
                     <div align="center"><input type="text" name="xml_vdate"
-                                               value="<%=xml_vdate%>"> <font size="1"
+                                               value="<%= Encode.forHtmlAttribute(xml_vdate) %>"> <font size="1"
                                                                              face="Arial, Helvetica, sans-serif"> <a
                             href="#"
                             onClick="openBrWindow('<%= request.getContextPath() %>/billing/billingCalendarPopup.jsp?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerDemoMain.btnBegin"/>:</a></font></div>
                 </td>
                 <td width="30%"><input type="text" name="xml_appointment_date"
-                                       value="<%=xml_appointment_date%>"> <font size="1"
+                                       value="<%= Encode.forHtmlAttribute(xml_appointment_date) %>"> <font size="1"
                                                                                 face="Arial, Helvetica, sans-serif"><a
                         href="#"
                         onClick="openBrWindow('<%= request.getContextPath() %>/billing/billingCalendarPopup.jsp?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerDemoMain.btnEnd"/>:</a></font></td>
                 <td width="20%">
                     <div align="right"><input type="hidden" name="demoview"
-                                              value="<%=demoview%>"> <input type="hidden" name="Submit"
+                                              value="<%= Encode.forHtmlAttribute(demoview) %>"> <input type="hidden" name="Submit"
                                                                             value=""> <input type="hidden"
                                                                                              name="parentAjaxId"
                                                                                              value="<%=parentAjaxId%>">
@@ -799,7 +800,7 @@
         <table bgcolor=#666699 border=0 cellspacing=0 width=100%>
 
             <tr>
-                <td><input type="hidden" name="demoview" value="<%=demoview%>">
+                <td><input type="hidden" name="demoview" value="<%= Encode.forHtmlAttribute(demoview) %>">
                     <input type="hidden" name="parentAjaxId" value="<%=parentAjaxId%>">
                     <input type="hidden" name="updateParent" value="true">
                     <table border="0" cellpadding="0" cellspacing="0" width="100%">

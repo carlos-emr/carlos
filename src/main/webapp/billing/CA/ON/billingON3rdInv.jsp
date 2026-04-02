@@ -45,6 +45,7 @@
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.Billing3rdPartPrep" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -243,7 +244,7 @@
 <body>
 <form action="<%=request.getContextPath()%>/BillingInvoice.do" method="post">
     <input type="hidden" name="method" value=""/>
-    <input type="hidden" name="invoiceNo" id="invoiceNo" value="<%=invoiceNoStr%>"/>
+    <input type="hidden" name="invoiceNo" id="invoiceNo" value="<%= Encode.forHtmlAttribute(invoiceNoStr) %>"/>
     <div class="doNotPrint">
         <div class="titleBar">
             <input type="button" name="printInvoice" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billing3rdInv.printPDF"/>"

@@ -106,6 +106,7 @@
 <%@ page import="io.github.carlos_emr.carlos.mds.data.MDSSegmentData" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -147,11 +148,11 @@
 <!-- form forwarding of the lab -->
 <form name="reassignForm" method="post" action="<%= request.getContextPath() %>/lab/CA/ON/Forward.do"><input
         type="hidden" name="flaggedLabs"
-        value="<%= segmentID %>"/> <input
+        value="<%= Encode.forHtmlAttribute(segmentID) %>"/> <input
         type="hidden" name="selectedProviders" value=""/>
     <input type="hidden" name="favorites" value=""/>
     <input type="hidden" name="labType" value="CML"/> <input type="hidden"
-                                                             name="labType<%= segmentID %>CML"
+                                                             name="labType<%= Encode.forHtmlAttribute(segmentID) %>CML"
                                                              value="imNotNull"/> <input type="hidden" name="providerNo"
                                                                                         value="<%= Encode.forHtmlAttribute(request.getParameter("providerNo")) %>"/>
 </form>
@@ -166,7 +167,7 @@
                     <tr>
                         <td align="left" class="MainTableTopRowRightColumn" width="100%">
                             <input type="hidden" name="segmentID"
-                                   value="<%= segmentID %>"/> <input
+                                   value="<%= Encode.forHtmlAttribute(segmentID) %>"/> <input
                                 type="hidden" name="providerNo"
                                 value="<%= Encode.forHtmlAttribute(request.getParameter("providerNo")) %>"/> <input
                                 type="hidden" name="status" value="A"/> <input type="hidden"
@@ -193,7 +194,7 @@
                                    onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=CML&segmentID=<%= segmentID %>&name=<%=java.net.URLEncoder.encode(lab.pLastName+", "+lab.pFirstName )%>', 'searchPatientWindow')">
                             <% } %>
                             <input type="button" value="Req# <%=reqTableID%>" title="Link to Requisition"
-                                   onclick="linkreq('<%=segmentID%>','<%=reqID%>');"/>
+                                   onclick="linkreq('<%= Encode.forJavaScript(segmentID) %>','<%=reqID%>');"/>
                             <span class="Field2"><i>Next Appointment: <oscar:nextAppt
                                     demographicNo="<%=lab.getDemographicNo()%>"/></i></span></td>
                     </tr>
@@ -266,7 +267,7 @@
                                                                     </a>
                                                                     <% } else { // we were called from lab module %>
                                                                     <a
-                                                                            href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=CML&segmentID=<%= segmentID %>&name=<%=java.net.URLEncoder.encode(lab.pLastName+", "+lab.pFirstName )%>', 'searchPatientWindow')">
+                                                                            href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=CML&segmentID=<%= Encode.forHtmlAttribute(segmentID) %>&name=<%=java.net.URLEncoder.encode(lab.pLastName+", "+lab.pFirstName )%>', 'searchPatientWindow')">
                                                                         <%=lab.pLastName%>, <%=lab.pFirstName%>
                                                                     </a> <% } %></div>
                                                             </td>

@@ -32,6 +32,7 @@
 <%@page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%
@@ -173,14 +174,14 @@
                     </th>
 
                     <th>
-                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups.jsp?orderby=form_name&group_view=<%=groupView%>"
+                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups.jsp?orderby=form_name&group_view=<%= Encode.forHtmlAttribute(groupView) %>"
                            class="contentLink">
                             <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFormName"/>
                         </a>
                     </th>
 
                     <th>
-                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups.jsp?group_view=<%=groupView%>"
+                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups.jsp?group_view=<%= Encode.forHtmlAttribute(groupView) %>"
                            class="contentLink">
                             <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnDate"/>
                         </a>
@@ -269,7 +270,7 @@
                     </select>
 
 
-                    <input type="hidden" name="groupName" value="<%= groupView%>">
+                    <input type="hidden" name="groupName" value="<%= Encode.forHtmlAttribute(groupView) %>">
 
                 </div>
 

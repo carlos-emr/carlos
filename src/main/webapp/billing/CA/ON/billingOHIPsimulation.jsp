@@ -60,6 +60,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <jsp:useBean id="SxmlMisc" class="io.github.carlos_emr.SxmlMisc" scope="session"/>
 
 <head>
@@ -377,7 +378,7 @@
                     From:<br>
                     <div class="input-group">
                         <input type="text" name="xml_vdate" id="xml_vdate" class="form-control"
-                               value="<%=xml_vdate%>" style="width:90px" autocomplete="off"/>
+                               value="<%= Encode.forHtmlAttribute(xml_vdate) %>" style="width:90px" autocomplete="off"/>
                         <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                     </div>
                 </div>
@@ -387,7 +388,7 @@
                     To:<br>
                     <div class="input-group">
                         <input type="text" name="xml_appointment_date" id="xml_appointment_date"
-                               class="form-control" value="<%=xml_appointment_date%>" style="width:90px"
+                               class="form-control" value="<%= Encode.forHtmlAttribute(xml_appointment_date) %>" style="width:90px"
                                autocomplete="off"/>
                         <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                     </div>

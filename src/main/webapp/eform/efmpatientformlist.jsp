@@ -36,6 +36,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
@@ -201,7 +202,7 @@
                     <fmt:message key="eform.calldeletedformdata.btnGoToForm"/></a>
                 <jsp:include page="efmviewgroups.jsp">
                     <jsp:param name="url" value="${pageContext.request.contextPath}/eform/efmpatientformlist.jsp"/>
-                    <jsp:param name="groupView" value="<%=groupView%>"/>
+                    <jsp:param name="groupView" value="<%= Encode.forHtmlAttribute(groupView) %>"/>
                     <jsp:param name="patientGroups" value="1"/>
                     <jsp:param name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>"/>
                 </jsp:include>
@@ -264,7 +265,7 @@
                             <td>
                                 <form method="post" action="${pageContext.request.contextPath}/eform/removeEForm.do" style="display:inline;">
                                     <input type="hidden" name="fdid" value="<%=curform.get("fdid")%>"/>
-                                    <input type="hidden" name="group_view" value="<%=groupView%>"/>
+                                    <input type="hidden" name="group_view" value="<%= Encode.forHtmlAttribute(groupView) %>"/>
                                     <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>"/>
                                     <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>"/>
                                     <a style="color:red;" href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){this.closest('form').submit();}">

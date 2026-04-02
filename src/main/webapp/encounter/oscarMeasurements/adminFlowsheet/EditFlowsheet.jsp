@@ -47,6 +47,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -387,7 +388,7 @@
                     String flowsheetPath = "encounter/oscarMeasurements/TemplateFlowSheet.jsp";
             %>
 
-            <a href="<%= request.getContextPath() %>/<%=flowsheetPath%>?demographic_no=<%=demographic%>&template=<%=flowsheet%><%=tracker%>"
+            <a href="<%= request.getContextPath() %>/<%=flowsheetPath%>?demographic_no=<%= Encode.forHtmlAttribute(demographic) %>&template=<%=flowsheet%><%=tracker%>"
                class="btn btn-sm" title="go back to <%=flowsheet%> flowsheet"><i class="fa-solid fa-backward"></i></a>
 
             <%}%>
@@ -664,12 +665,12 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                         <input type="hidden" name="flowsheet" value="<%=temp%>"/>
                         <input type="hidden" name="method" value="save"/>
                         <%if (demographic != null) {%>
-                        <input type="hidden" name="demographic" value="<%=demographic%>"/>
+                        <input type="hidden" name="demographic" value="<%= Encode.forHtmlAttribute(demographic) %>"/>
                         <%
                             }
                             if (scope != null) {
                         %>
-                        <input type="hidden" name="scope" value="<%=scope%>"/>
+                        <input type="hidden" name="scope" value="<%= Encode.forHtmlAttribute(scope) %>"/>
                         <%}%>
 
 

@@ -82,6 +82,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>
@@ -204,7 +205,7 @@
                             </tr-->
             </table>
 
-            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements.do?method=actualLab&demographic_no=<%=demographicNo%>&labType=<%=labType%>&identifier=<%=identifier%>&testName=<%=testName%><%=drugForGraph%>"/>
+            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements.do?method=actualLab&demographic_no=<%=demographicNo%>&labType=<%= Encode.forHtmlAttribute(labType) %>&identifier=<%=identifier%>&testName=<%=testName%><%=drugForGraph%>"/>
 
 
             <table width="100%" border="0" cellspacing="0" cellpadding="3"
@@ -220,10 +221,10 @@
                 </tr>
             </table>
             <form action="<%= request.getContextPath() %>/lab/CA/ON/labValuesGraph.jsp">
-                <input type="hidden" name="labType" value="<%=labType%>"/>
-                <input type="hidden" name="demographic_no" value="<%=demographicNo%>"/>
-                <input type="hidden" name="testName" value="<%=testName%>"/>
-                <input type="hidden" name="identifier" value="<%=identifier%>"/>
+                <input type="hidden" name="labType" value="<%= Encode.forHtmlAttribute(labType) %>"/>
+                <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
+                <input type="hidden" name="testName" value="<%= Encode.forHtmlAttribute(testName) %>"/>
+                <input type="hidden" name="identifier" value="<%= Encode.forHtmlAttribute(identifier) %>"/>
                 <ul>
                     <%
                         RxPrescriptionData prescriptData = new RxPrescriptionData();

@@ -55,6 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -99,8 +100,8 @@
     <h2>Flowsheet Item Editor</h2>
     <br/>
     <form name="theForm" id="theForm">
-        <input type="hidden" name="flowsheetId" value="<%=flowsheetId %>"/>
-        <input type="hidden" name="measurementType" value="<%=measurementType %>"/>
+        <input type="hidden" name="flowsheetId" value="<%= Encode.forHtmlAttribute(flowsheetId) %>"/>
+        <input type="hidden" name="measurementType" value="<%= Encode.forHtmlAttribute(measurementType) %>"/>
 
         <table style="width:20%">
             <tr>

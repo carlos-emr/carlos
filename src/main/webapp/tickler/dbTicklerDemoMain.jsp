@@ -35,6 +35,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -65,9 +66,9 @@
     if (temp == null) {
 %>
 <jsp:forward page='ticklerMain.jsp'>
-    <jsp:param name="demoview" value='<%=demoview%>'/>
-    <jsp:param name="parentAjaxId" value="<%=parentAjaxId%>"/>
-    <jsp:param name="updateParent" value="<%=updateParent%>"/>
+    <jsp:param name="demoview" value='<%= Encode.forJavaScript(demoview) %>'/>
+    <jsp:param name="parentAjaxId" value="<%= Encode.forHtmlAttribute(parentAjaxId) %>"/>
+    <jsp:param name="updateParent" value="<%= Encode.forHtmlAttribute(updateParent) %>"/>
 </jsp:forward>
 <%
     } else {
@@ -91,7 +92,7 @@
     }
 %>
 <jsp:forward page='ticklerMain.jsp'>
-    <jsp:param name="demoview" value='<%=demoview%>'/>
-    <jsp:param name="parentAjaxId" value="<%=parentAjaxId%>"/>
-    <jsp:param name="updateParent" value="<%=updateParent%>"/>
+    <jsp:param name="demoview" value='<%= Encode.forJavaScript(demoview) %>'/>
+    <jsp:param name="parentAjaxId" value="<%= Encode.forHtmlAttribute(parentAjaxId) %>"/>
+    <jsp:param name="updateParent" value="<%= Encode.forHtmlAttribute(updateParent) %>"/>
 </jsp:forward>

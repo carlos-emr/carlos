@@ -19,6 +19,8 @@
 <%@ page import="org.apache.commons.lang3.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptTableFieldNameCaption" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
     String tableName = request.getParameter("tableName") != null ? request.getParameter("tableName") : "";
@@ -79,7 +81,7 @@
             }
 
             function goCaption() {
-                //self.location.href = "reportFormCaption.jsp?id=<%=reportId%>&tableName=<%=tableName%>";
+                //self.location.href = "reportFormCaption.jsp?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>";
             }
 
             function goPage(id) {
@@ -98,9 +100,9 @@
             <td><%=reportName%> Caption</td>
             <td width="10%" align="right" nowrap>
                 <% if ("demographic".equals(tableName)) {%> <a
-                    href="reportFormDemoConfig.jsp?id=<%=reportId%>&tableName=<%=tableName%>&formTableName=<%=formTableName%>&configTableName=<%=configTableName%>">Back
+                    href="reportFormDemoConfig.jsp?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>&formTableName=<%= Encode.forUriComponent(formTableName) %>&configTableName=<%= Encode.forUriComponent(configTableName) %>">Back
                 to the Configuration</a> <% } else {%> <a
-                    href="reportFormConfig.jsp?id=<%=reportId%>&tableName=<%=tableName%>">Back
+                    href="reportFormConfig.jsp?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%= Encode.forUriComponent(tableName) %>">Back
                 to the Configuration</a> <% }%>
             </td>
         </tr>
@@ -138,11 +140,11 @@
                             <td align="center"><input type="submit" name="submit"
                                                       value="<%=action%>"/></td>
                             <input type="hidden" name="name" value="<%=fieldName%>">
-                            <input type="hidden" name="id" value="<%=reportId%>">
-                            <input type="hidden" name="tableName" value="<%=tableName%>">
-                            <input type="hidden" name="formTableName" value="<%=formTableName%>">
+                            <input type="hidden" name="id" value="<%= Encode.forHtmlAttribute(reportId) %>">
+                            <input type="hidden" name="tableName" value="<%= Encode.forHtmlAttribute(tableName) %>">
+                            <input type="hidden" name="formTableName" value="<%= Encode.forHtmlAttribute(formTableName) %>">
                             <input type="hidden" name="configTableName"
-                                   value="<%=configTableName%>">
+                                   value="<%= Encode.forHtmlAttribute(configTableName) %>">
                         </tr>
                     </form>
                     <% } %>

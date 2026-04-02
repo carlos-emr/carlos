@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ include file="/taglibs.jsp" %>
 
@@ -111,10 +112,10 @@
             function selectResult(data1, data2) {
                 opener.document
             .<%=form%>.
-                elements['<%=elementId%>'].value = data1;
+                elements['<%= Encode.forJavaScript(elementId) %>'].value = data1;
                 opener.document
             .<%=form%>.
-                elements['<%=elementName%>'].value = data2;
+                elements['<%= Encode.forJavaScript(elementName) %>'].value = data2;
                 self.close();
             }
 

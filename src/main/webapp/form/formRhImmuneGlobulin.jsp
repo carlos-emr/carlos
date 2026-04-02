@@ -136,6 +136,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -264,7 +265,7 @@
             <input type="hidden" name="form_link" value="<%=formLink%>"/>
             <input type="hidden" name="formId" value="<%=formId%>"/>
             <input type="hidden" name="submit" value="exit"/>
-            <input type="hidden" name="demographic_no" value="<%=demographicNo%>"/>
+            <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
 
             <%if (h != null) { %>
             <input type="hidden" name="workflowId" value="<%=h.get("ID")%>"/>
@@ -590,7 +591,7 @@
                 method="post" target="_blank">
 
         <input type="hidden" name="id" id="deleteId"/>
-        <input type="hidden" name="demographic_no" value="<%=demographicNo%>"/>
+        <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
 
         <input type="hidden" name="delete" value="delete"/>
         </form>

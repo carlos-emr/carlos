@@ -56,6 +56,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <html>
 <head>
     <link rel="stylesheet" type="text/css" href="styles.css">
@@ -105,16 +106,16 @@
     <%if (instructionExist && specialInstructionExist) {%>
     <tr>
         <td align="left" style=""><a id="mhInst_<%=i%>" href="javascript:void(0);"
-                                     onclick="parent.addInstruction(this.innerHTML,'<%=randomId%>');parent.addSpecialInstruction(document.getElementById('mhSpecInst_<%=i%>').innerHTML,'<%=randomId%>');parent.mb.hide();"><%=ins%>
+                                     onclick="parent.addInstruction(this.innerHTML,'<%= Encode.forJavaScript(randomId) %>');parent.addSpecialInstruction(document.getElementById('mhSpecInst_<%=i%>').innerHTML,'<%= Encode.forJavaScript(randomId) %>');parent.mb.hide();"><%=ins%>
         </a></td>
         <td align="left" style=""><a id="mhSpecInst_<%=i%>" href="javascript:void(0);"
-                                     onclick="parent.addSpecialInstruction(this.innerHTML,'<%=randomId%>');parent.mb.hide();"><%=specIns%>
+                                     onclick="parent.addSpecialInstruction(this.innerHTML,'<%= Encode.forJavaScript(randomId) %>');parent.mb.hide();"><%=specIns%>
         </a></td>
     </tr>
     <%} else if (instructionExist && !specialInstructionExist) {%>
     <tr>
         <td align="left" style=""><a id="mhInst_<%=i%>" href="javascript:void(0);"
-                                     onclick="parent.addInstruction(this.innerHTML,'<%=randomId%>');parent.mb.hide();"><%=ins%>
+                                     onclick="parent.addInstruction(this.innerHTML,'<%= Encode.forJavaScript(randomId) %>');parent.mb.hide();"><%=ins%>
         </a></td>
         <td>&nbsp;</td>
     </tr>
@@ -122,7 +123,7 @@
     <tr>
         <td>&nbsp;</td>
         <td align="left" style=""><a id="mhSpecInst_<%=i%>" href="javascript:void(0);"
-                                     onclick="parent.addSpecialInstruction(this.innerHTML,'<%=randomId%>');parent.mb.hide();"><%=specIns%>
+                                     onclick="parent.addSpecialInstruction(this.innerHTML,'<%= Encode.forJavaScript(randomId) %>');parent.mb.hide();"><%=specIns%>
         </a></td>
     </tr>
     <%}%>

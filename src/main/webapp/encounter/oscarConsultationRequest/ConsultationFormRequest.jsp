@@ -99,6 +99,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <jsp:useBean id="displayServiceUtil" scope="request"
@@ -2109,7 +2110,7 @@ if (userAgent != null) {
         <input type="hidden" name="providerNo" value="<%=providerNo%>">
         <% } %>
         <input type="hidden" name="demographicNo" id="demographicNo" value="<%=Encode.forHtmlAttribute(demo)%>">
-        <input type="hidden" name="requestId" id="requestId" value="<%=requestId%>">
+        <input type="hidden" name="requestId" id="requestId" value="<%= Encode.forHtmlAttribute(requestId) %>">
         <input type="hidden" name="ext_appNo" value="<%= Encode.forHtmlAttribute(request.getParameter("appNo")) %>">
         <input type="hidden" name="source"
                value="<%=(requestId!=null)?thisForm.getSource():request.getParameter("source") %>">
@@ -3251,7 +3252,7 @@ if (userAgent != null) {
                                 // addFormIfNotFound only handles form (formNo) attachments;
                                 // skip pre-check for labs, docs, eForms, HRM not found in dialog
                                 if (delegate.startsWith("#formNo")) {
-                                    element = addFormIfNotFound(data, '<%=demo%>', delegate);
+                                    element = addFormIfNotFound(data, '<%= Encode.forJavaScript(demo) %>', delegate);
                                 } else {
                                     return;
                                 }

@@ -35,6 +35,7 @@
 <%@ page
         import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementMap" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
 
@@ -134,7 +135,7 @@
                                         searchstring = "";
                                 %> Search
                                 table for name: <input type="text" size="30" name="searchstring"
-                                                       value="<%= searchstring %>"/> <input type="submit" value="Search"
+                                                       value="<%= Encode.forHtmlAttribute(searchstring) %>"/> <input type="submit" value="Search"
                                                                                             onclick="return reloadPage()"/>
                             </td>
                         <tr>

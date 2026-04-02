@@ -57,6 +57,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -198,11 +199,11 @@
            cellpadding="0">
         <tr bgcolor="#CCCCFF" align="center">
             <TH width="40%"><b><a
-                    href="reportpatientchartlist.jsp?provider_no=<%=provider_no%>&orderby=last_name"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportpatientchartlist.msgLastName"/></a></b></TH>
+                    href="reportpatientchartlist.jsp?provider_no=<%= Encode.forHtmlAttribute(provider_no) %>&orderby=last_name"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportpatientchartlist.msgLastName"/></a></b></TH>
             <TH width="40%"><b><a
-                    href="reportpatientchartlist.jsp?provider_no=<%=provider_no%>&orderby=first_name"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportpatientchartlist.msgFirstName"/></a> </b></TH>
+                    href="reportpatientchartlist.jsp?provider_no=<%= Encode.forHtmlAttribute(provider_no) %>&orderby=first_name"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportpatientchartlist.msgFirstName"/></a> </b></TH>
             <TH width="20%"><b><a
-                    href="reportpatientchartlist.jsp?provider_no=<%=provider_no%>&orderby=chart_no"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportpatientchartlist.msgChart"/></a> </b></TH>
+                    href="reportpatientchartlist.jsp?provider_no=<%= Encode.forHtmlAttribute(provider_no) %>&orderby=chart_no"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportpatientchartlist.msgChart"/></a> </b></TH>
         </tr>
         <%
             }

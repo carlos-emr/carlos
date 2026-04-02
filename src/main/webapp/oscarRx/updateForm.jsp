@@ -38,6 +38,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -194,7 +195,7 @@
             <option value="Wipe">Wipe</option>
 
         </select>
-        <input type="hidden" name="id" value="<%=id%>"/>
+        <input type="hidden" name="id" value="<%= Encode.forHtmlAttribute(id) %>"/>
         <input type="hidden" name="action" value="update"/>
         <input type="submit" class="btn btn-primary" value="submit">
     </form>

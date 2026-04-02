@@ -43,6 +43,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%--
     The taglib directive below imports the JSTL library. If you uncomment it,
@@ -437,8 +438,8 @@
             <a href="javascript: function myFunction() {return false; }" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport')">Manage Provider List</a>-->
         <form name="serviceform" class="d-flex flex-wrap align-items-center gap-2" method="get" action="billingONStatus.jsp"
               onsubmit="ShowSpin(true);">
-            <input type="hidden" id="sortName" name="sortName" value="<%=sortName%>">
-            <input type="hidden" id="sortOrder" name="sortOrder" value="<%=sortOrder%>">
+            <input type="hidden" id="sortName" name="sortName" value="<%= Encode.forHtmlAttribute(sortName) %>">
+            <input type="hidden" id="sortOrder" name="sortOrder" value="<%= Encode.forHtmlAttribute(sortOrder) %>">
             <div class="row card card-body bg-body-tertiary d-print-none">
                 <%
                     String tmpStrBillType = Arrays.toString(strBillType);
@@ -566,7 +567,7 @@
                     <div class="col-md-6">
                         <label for="xml_vdate">Start:</label>
                         <div class="input-group">
-                            <input type="text" class="form-control" name="xml_vdate" id="xml_vdate" style="width:90px" value="<%=startDate%>"
+                            <input type="text" class="form-control" name="xml_vdate" id="xml_vdate" style="width:90px" value="<%= Encode.forHtmlAttribute(startDate) %>"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" required>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -582,7 +583,7 @@
                             </small></label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="xml_appointment_date" style="width:90px" id="xml_appointment_date"
-                                   value="<%=endDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                                   value="<%= Encode.forHtmlAttribute(endDate) %>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off" required>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -592,18 +593,18 @@
                 <div class="row">
                     <div class="col-md-12">
                         <label>Dx:
-                            <input type="text" name="dx" class="form-control form-control-sm d-inline-block w-auto" placeholder="123" value="<%=dx%>"></label>
+                            <input type="text" name="dx" class="form-control form-control-sm d-inline-block w-auto" placeholder="123" value="<%= Encode.forHtmlAttribute(dx) %>"></label>
                         <label>Serv. Code:
                             <input type="text" name="serviceCode" class="form-control form-control-sm d-inline-block w-auto" placeholder="A123A"
-                                   value="<%=serviceCode%>"></label>
+                                   value="<%= Encode.forHtmlAttribute(serviceCode) %>"></label>
                         <label>Demographic:
                             <input type="text" name="demographicNo" class="form-control form-control-sm d-inline-block w-auto" placeholder="1234"
-                                   value="<%=demoNo%>"></label>
+                                   value="<%= Encode.forHtmlAttribute(demoNo) %>"></label>
                         <label>RA Code:
                             <input type="text" name="raCode" class="form-control form-control-sm d-inline-block w-auto" placeholder=""
-                                   value="<%=raCode%>"></label>
+                                   value="<%= Encode.forHtmlAttribute(raCode) %>"></label>
                         <label>Claim No (% for any):
-                            <input type="text" name="claimNo" class="form-control form-control-sm d-inline-block w-auto" value="<%=claimNo%>"></label>
+                            <input type="text" name="claimNo" class="form-control form-control-sm d-inline-block w-auto" value="<%= Encode.forHtmlAttribute(claimNo) %>"></label>
                         <label>
                             Visit Type:
                             <select name="visitType" style="background-color:white;">
@@ -663,14 +664,14 @@
                         <label for="paymentStartDate">Payment Start:</label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="paymentStartDate" id="paymentStartDate" style="width:90px"
-                                   value="<%=paymentStartDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                                   value="<%= Encode.forHtmlAttribute(paymentStartDate) %>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                         <label for="paymentEndDate">Payment End:</label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="paymentEndDate" id="paymentEndDate" style="width:90px"
-                                   value="<%=paymentEndDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                                   value="<%= Encode.forHtmlAttribute(paymentEndDate) %>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>

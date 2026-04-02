@@ -76,6 +76,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <%
@@ -645,8 +646,8 @@ function addEvent(elm, evType, fn, useCapture)
 }
 function checkFav(){
     //oscarLog("****** in checkFav");
-    var usefav='<%=usefav%>';
-    var favid='<%=favid%>';
+    var usefav='<%= Encode.forJavaScript(usefav) %>';
+    var favid='<%= Encode.forJavaScript(favid) %>';
     if(usefav=="true" && favid!=null && favid!='null'){
         //oscarLog("****** favid "+favid);
         useFav2(favid);

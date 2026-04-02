@@ -41,6 +41,7 @@ Use returnForm and returnItem request params and this page will fill in that inp
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*" %>
 <%@ page import="io.github.carlos_emr.DateInMonthTable" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     //to prepare calendar display
     String type = request.getParameter("type");
@@ -104,12 +105,12 @@ Use returnForm and returnItem request params and this page will fill in that inp
 <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
     <tr>
         <td BGCOLOR="#FFD7C4" width="50%" align="center"><a
-                href="billingCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=-1&type=<%=type%>&returnForm=<%=returnForm%>&returnItem=<%=returnItem%>">
+                href="billingCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=-1&type=<%= Encode.forHtmlAttribute(type) %>&returnForm=<%=returnForm%>&returnItem=<%=returnItem%>">
             &nbsp;&nbsp;<img src="<%= request.getContextPath() %>/images/previous.gif" WIDTH="10"
                              HEIGHT="9" BORDER="0" ALT="View Last Month" vspace="2"> last
             month&nbsp;&nbsp; </a> <b><span CLASS=title><%=year%>-<%=month%></span></b>
             <a
-                    href="billingCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=1&type=<%=type%>&returnForm=<%=returnForm%>&returnItem=<%=returnItem%>">
+                    href="billingCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=1&type=<%= Encode.forHtmlAttribute(type) %>&returnForm=<%=returnForm%>&returnItem=<%=returnItem%>">
                 &nbsp;&nbsp;next month <img src="<%= request.getContextPath() %>/images/next.gif" WIDTH="10"
                                             HEIGHT="9" BORDER="0" ALT="View Next Month" vspace="2">&nbsp;&nbsp;</a></td>
     </TR>

@@ -39,6 +39,7 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ProviderData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -314,17 +315,17 @@
             <td>
                 <%
                     if (result.isMDS()) { %> <a
-                    href="javascript:reportWindow('<%= request.getContextPath() %>/oscarMDS/SegmentDisplay.jsp?demographicId=<%=demographicNo%>&segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%= result.getDiscipline()%>
+                    href="javascript:reportWindow('<%= request.getContextPath() %>/oscarMDS/SegmentDisplay.jsp?demographicId=<%=demographicNo%>&segmentID=<%=segmentID%>&providerNo=<%= Encode.forHtmlAttribute(providerNo) %>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%= result.getDiscipline()%>
             </a>
                 <% } else if (result.isCML()) { %> <a
-                    href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/CMLDisplay.jsp?demographicId=<%=demographicNo%>&segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=(String) result.getDiscipline()%>
+                    href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/CMLDisplay.jsp?demographicId=<%=demographicNo%>&segmentID=<%=segmentID%>&providerNo=<%= Encode.forHtmlAttribute(providerNo) %>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=(String) result.getDiscipline()%>
             </a>
                 <% } else if (result.isHL7TEXT()) {%>
-                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/labDisplay.jsp?demographicId=<%=demographicNo%>&segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')">
+                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/labDisplay.jsp?demographicId=<%=demographicNo%>&segmentID=<%=segmentID%>&providerNo=<%= Encode.forHtmlAttribute(providerNo) %>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')">
                     <%=StringUtils.trimToEmpty(result.getLabel())%>
                 </a>
                 <% } else {%>
-                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/labDisplay.jsp?demographicId=<%=demographicNo%>&segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')">
+                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/labDisplay.jsp?demographicId=<%=demographicNo%>&segmentID=<%=segmentID%>&providerNo=<%= Encode.forHtmlAttribute(providerNo) %>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')">
                     <%=StringUtils.trimToEmpty(result.getLabel())%>
                 </a>
                 <% }%>
@@ -380,7 +381,7 @@
                             <div class="Nav">
                                 <% if (pageNum > 1 || labs.size() > endIndex) {
                                     if (pageNum > 1) { %> <a class="visLink"
-                                                             href="lab/DemographicLab.jsp?providerNo=<%=providerNo%><%= (demographicNo == null ? "" : "&demographicNo="+demographicNo ) %>&searchProviderNo=<%=searchProviderNo%>&status=<%=ackStatus%><%= (request.getParameter("lname") == null ? "" : "&lname="+request.getParameter("lname")) %><%= (request.getParameter("fname") == null ? "" : "&fname="+request.getParameter("fname")) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+request.getParameter("hnum")) %>&pageNum=<%=pageNum-1%>&startIndex=<%=startIndex-20%>"><
+                                                             href="lab/DemographicLab.jsp?providerNo=<%= Encode.forHtmlAttribute(providerNo) %><%= (demographicNo == null ? "" : "&demographicNo="+demographicNo ) %>&searchProviderNo=<%=searchProviderNo%>&status=<%=ackStatus%><%= (request.getParameter("lname") == null ? "" : "&lname="+request.getParameter("lname")) %><%= (request.getParameter("fname") == null ? "" : "&fname="+request.getParameter("fname")) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+request.getParameter("hnum")) %>&pageNum=<%=pageNum-1%>&startIndex=<%=startIndex-20%>"><
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgPrevious"/></a> <% } else { %>
                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                 <% } %> <%
@@ -388,7 +389,7 @@
                                 for (int i = 0; i < labs.size(); i = i + 20) {
                             %>
                                 <a style="text-decoration: none;" class="visLink"
-                                   href="lab/DemographicLab.jsp?providerNo=<%=providerNo%><%= (demographicNo == null ? "" : "&demographicNo="+demographicNo ) %>&searchProviderNo=<%=searchProviderNo%>&status=<%=ackStatus%><%= (request.getParameter("lname") == null ? "" : "&lname="+request.getParameter("lname")) %><%= (request.getParameter("fname") == null ? "" : "&fname="+request.getParameter("fname")) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+request.getParameter("hnum")) %>&pageNum=<%=count%>&startIndex=<%=i%>">[<%=count%>
+                                   href="lab/DemographicLab.jsp?providerNo=<%= Encode.forHtmlAttribute(providerNo) %><%= (demographicNo == null ? "" : "&demographicNo="+demographicNo ) %>&searchProviderNo=<%=searchProviderNo%>&status=<%=ackStatus%><%= (request.getParameter("lname") == null ? "" : "&lname="+request.getParameter("lname")) %><%= (request.getParameter("fname") == null ? "" : "&fname="+request.getParameter("fname")) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+request.getParameter("hnum")) %>&pageNum=<%=count%>&startIndex=<%=i%>">[<%=count%>
                                     ]</a>
                                 <%
                                         count++;
@@ -396,7 +397,7 @@
                                 %> <% if (labs.size() > endIndex) { %>
                                 <a
                                         class="visLink"
-                                        href="lab/DemographicLab.jsp?providerNo=<%=providerNo%><%= (demographicNo == null ? "" : "&demographicNo="+demographicNo ) %>&searchProviderNo=<%=searchProviderNo%>&status=<%=ackStatus%><%= (request.getParameter("lname") == null ? "" : "&lname="+request.getParameter("lname")) %><%= (request.getParameter("fname") == null ? "" : "&fname="+request.getParameter("fname")) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+request.getParameter("hnum")) %>&pageNum=<%=pageNum+1%>&startIndex=<%=startIndex+20%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgNext"/> ></a> <% } else { %>
+                                        href="lab/DemographicLab.jsp?providerNo=<%= Encode.forHtmlAttribute(providerNo) %><%= (demographicNo == null ? "" : "&demographicNo="+demographicNo ) %>&searchProviderNo=<%=searchProviderNo%>&status=<%=ackStatus%><%= (request.getParameter("lname") == null ? "" : "&lname="+request.getParameter("lname")) %><%= (request.getParameter("fname") == null ? "" : "&fname="+request.getParameter("fname")) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+request.getParameter("hnum")) %>&pageNum=<%=pageNum+1%>&startIndex=<%=startIndex+20%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgNext"/> ></a> <% } else { %>
                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                 <% }
                                 } %>

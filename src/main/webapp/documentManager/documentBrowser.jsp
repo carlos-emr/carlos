@@ -50,6 +50,7 @@
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -421,11 +422,11 @@ Remote documents not supported
                 <%=categoryKey%>
                 <br>
 
-                <input type="hidden" name="viewstatus" value="<%=viewstatus%>">
+                <input type="hidden" name="viewstatus" value="<%= Encode.forHtmlAttribute(viewstatus) %>">
                 <input type="hidden" name="sortorder" value="<%=sortorder%>">
                 <input type="hidden" name="function" value="<%=module%>">
                 <input type="hidden" name="functionid" value="<%=moduleid%>">
-                <input type="hidden" name="categorykey" value="<%=categoryKey%>">
+                <input type="hidden" name="categorykey" value="<%= Encode.forHtmlAttribute(categoryKey) %>">
 
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentBrowser.msgViewStatus"/> <select id="selviewstatus" name="selviewstatus"
                                                                                 onchange="ReLoadDoc()">
@@ -450,7 +451,7 @@ Remote documents not supported
                 <fieldset>
                     <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentBrowser.msgView"/>:</legend>
                     <input type="hidden" name="view" value="<%=view%>">
-                    <input type="hidden" name="demographic_no" value="<%=demographicID%>">
+                    <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicID) %>">
                     <input type="hidden" name="undelDocumentNo" value="">
                     <input type="hidden" name="delDocumentNo" value="">
                     <input type="hidden" name="refileDocumentNo" value="">

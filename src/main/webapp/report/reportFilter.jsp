@@ -17,6 +17,7 @@
          import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportFilter" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
 // get form name
@@ -119,7 +120,7 @@
             </td>
             <td width="10%" align="right" nowrap><a
                     href="reportFormRecord.jsp">Back to Report List</a> | <a
-                    href="reportFormConfig.jsp?id=<%=reportId%>">Configuration</a></td>
+                    href="reportFormConfig.jsp?id=<%= Encode.forHtmlAttribute(reportId) %>">Configuration</a></td>
         </tr>
     </table>
     <table width="100%" border="0" cellspacing="2" cellpadding="2">
@@ -148,7 +149,7 @@
             <% } %>
             <tr bgcolor="silver">
                 <td colspan="2" align="center"><input type="hidden" name="id"
-                                                      value="<%=reportId%>"> <input type="submit" name="submit"
+                                                      value="<%= Encode.forHtmlAttribute(reportId) %>"> <input type="submit" name="submit"
                                                                                     value="Report in HTML"> | <input
                         type="submit" name="submit"
                         value="Report in CSV"></td>

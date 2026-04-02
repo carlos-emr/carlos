@@ -65,6 +65,7 @@
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -102,7 +103,7 @@
                             <td bgcolor="#CCFFCC"><%=year%>-<%=month%>-<%=day%>
                             </td>
                             <input type="hidden" name="date"
-                                   value="<%=year%>-<%=month%>-<%=day%>">
+                                   value="<%= Encode.forHtmlAttribute(year) %>-<%=month%>-<%=day%>">
                         </tr>
                         <tr>
                             <td>

@@ -60,6 +60,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -741,7 +742,7 @@
 
         <form action="<%=request.getContextPath() %>/billing/CA/ON/BillingONCorrection.do" method="post">
             <input type="hidden" name="method" value="updateInvoice"/>
-            <input type="hidden" name="xml_billing_no" value="<%=billNo%>"/>
+            <input type="hidden" name="xml_billing_no" value="<%= Encode.forHtmlAttribute(billNo) %>"/>
             <input type="hidden" name="update_date" value="<%=nullToEmpty(createTimestamp)%>"/>
             <input type="hidden" name="payDate" value="<%=UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss")%>"/>
             <input type="hidden" name="demoNo" value="<%=DemoNo%>"/>
@@ -1253,7 +1254,7 @@
 
                     <%if (billNo != null) {%>
 
-                    <a id="reprintLink" onclick="return sanityCheck('<%=nullToEmpty(billNo)%>', <%=billNoErr%>)" href="billingON3rdInv.jsp?billingNo=<%=billNo%>" class="btn btn-secondary"><i
+                    <a id="reprintLink" onclick="return sanityCheck('<%=nullToEmpty(billNo)%>', <%=billNoErr%>)" href="billingON3rdInv.jsp?billingNo=<%= Encode.forHtmlAttribute(billNo) %>" class="btn btn-secondary"><i
                             class="fa-solid fa-print"></i> Reprint</a>
                     <a id="rebillLink"
                        onclick="document.querySelector(&quot;select[name='status']&quot;).value = 'O'; document.getElementsByName(&quot;submit&quot;)[1].click();"

@@ -35,6 +35,7 @@
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*,java.net.*" %>
 <%@ page import="io.github.carlos_emr.DateInMonthTable" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     //to prepare calendar display
     String type = request.getParameter("type");
@@ -91,11 +92,11 @@
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr>
             <td BGCOLOR="#FFD7C4" width="50%" align="center"><a
-                    href="oscarCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=-1&type=<%=type%>&openerForm=<%=openerForm%>&openerElement=<%=openerElement %>">
+                    href="oscarCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=-1&type=<%= Encode.forHtmlAttribute(type) %>&openerForm=<%=openerForm%>&openerElement=<%=openerElement %>">
                 &nbsp;&nbsp;<img src="<%= request.getContextPath() %>/images/previous.gif" WIDTH="10" HEIGHT="9"
                                  BORDER="0" ALT="View Last Month" vspace="2"> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCalendarPopup.btnLast"/>&nbsp;&nbsp; </a> <b><span
                     CLASS=title><%=year%>-<%=month%></span></b> <a
-                    href="oscarCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=1&type=<%=type%>&openerForm=<%=openerForm%>&openerElement=<%=openerElement %>">
+                    href="oscarCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=1&type=<%= Encode.forHtmlAttribute(type) %>&openerForm=<%=openerForm%>&openerElement=<%=openerElement %>">
                 &nbsp;&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCalendarPopup.btnNext"/>
                 <img src="<%= request.getContextPath() %>/images/next.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                      ALT="View Next Month" vspace="2">&nbsp;&nbsp;</a></td>
@@ -133,7 +134,7 @@
         <% } else if (type.equals("caisi")) {
         %>
         <td align="center" bgcolor='#FBECF3'><a href="#"
-                                                onClick="typeCaisiDate('<%=openerForm %>','<%=openerElement %>',<%=year%>,<%=month%>,<%= dateGrid[i][j] %>)">
+                                                onClick="typeCaisiDate('<%= Encode.forJavaScript(openerForm) %>','<%= Encode.forJavaScript(openerElement) %>',<%=year%>,<%=month%>,<%= dateGrid[i][j] %>)">
             <%= dateGrid[i][j] %>
         </a></td>
         <%

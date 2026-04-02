@@ -52,6 +52,7 @@
         import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.data.*,io.github.carlos_emr.carlos.prevention.pageUtil.*,java.net.*,io.github.carlos_emr.carlos.eform.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.ManageLetters" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -237,9 +238,9 @@
                     if (followUpType != null && followUpValue != null) { %>
                     Mark in patients Records: <input type="checkbox" name="addFollowUp"
                                                      value="ON" checked/> <input type="hidden" name="followupType"
-                                                                                 value="<%=followUpType%>"/> <input
+                                                                                 value="<%= Encode.forHtmlAttribute(followUpType) %>"/> <input
                             type="hidden"
-                            name="followupValue" value="<%=followUpValue%>"/> <%}%>
+                            name="followupValue" value="<%= Encode.forHtmlAttribute(followUpValue) %>"/> <%}%>
                 </div>
 
                 <input type="submit" value="Generate Letters"/>

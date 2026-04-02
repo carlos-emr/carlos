@@ -72,6 +72,7 @@
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 
@@ -539,7 +540,7 @@
     <table width="100%" border="0">
         <tr bgcolor="#CCCCFF">
             <td height="21" colspan="2" class="bCellData">Patient Information<input type="hidden" name="billingmasterNo"
-                                                                                    value="<%=billingmasterNo%>"/>
+                                                                                    value="<%= Encode.forHtmlAttribute(billingmasterNo) %>"/>
 
                 <%if (BillType.equals("A") || BillType.equals("P")) {%>
                 <a href="#"
@@ -1087,7 +1088,7 @@
 
             <td colspan="3">
                 <jsp:include flush="false" page="billTransactions.jsp">
-                    <jsp:param name="billMasterNo" value="<%=billingmasterNo%>"/>
+                    <jsp:param name="billMasterNo" value="<%= Encode.forHtmlAttribute(billingmasterNo) %>"/>
                 </jsp:include>
             </td>
 

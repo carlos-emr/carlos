@@ -96,6 +96,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -1017,7 +1018,7 @@
                             }
                         %>
                         <input type="hidden" name="orderby" value="last_name, first_name">
-                        <input type="hidden" name="search_mode" id="search_mode" value="<%=searchMode%>">
+                        <input type="hidden" name="search_mode" id="search_mode" value="<%= Encode.forHtmlAttribute(searchMode) %>">
                         <input type="hidden" name="originalpage"
                                value="<%=request.getContextPath() %>/appointment/editappointment.jsp">
                         <input type="hidden" name="limit1" value="0">
@@ -1210,9 +1211,9 @@
                         </select> <%
                     } else {
                         if (importedStatus == null || importedStatus.trim().equals("")) { %>
-              	<input type="text" class="form-control" name="status" value="<%=statusCode%>" > <%
+              	<input type="text" class="form-control" name="status" value="<%= Encode.forHtmlAttribute(statusCode) %>" > <%
                     } else { %>
-                <input type="text" class="form-control" name="status" value="<%=statusCode%>" >
+                <input type="text" class="form-control" name="status" value="<%= Encode.forHtmlAttribute(statusCode) %>" >
                 <input type="text"  class="form-control" TITLE="Imported Status" value="<%=importedStatus%>" readonly> <%
                             }
                         }
@@ -1310,7 +1311,7 @@
                                 }
                             }
                         %>
-                <input type="text" readonly class="form-control" value="<%=lastCreatorNo%>" >
+                <input type="text" readonly class="form-control" value="<%= Encode.forHtmlAttribute(lastCreatorNo) %>" >
                     </td>
                 </tr>
                 <tr>

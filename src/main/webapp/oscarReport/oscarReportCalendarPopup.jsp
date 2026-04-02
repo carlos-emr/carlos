@@ -82,11 +82,11 @@
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr>
             <td BGCOLOR="#FFD7C4" width="50%" align="center"><a
-                    href="oscarReportCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=-1&type=<%=type%>&form=<%=form%>">
+                    href="oscarReportCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=-1&type=<%= Encode.forHtmlAttribute(type) %>&form=<%=form%>">
                 &nbsp;&nbsp;<img src="<%= request.getContextPath() %>/images/previous.gif" WIDTH="10" HEIGHT="9"
                                  BORDER="0" ALT="View Last Month" vspace="2"> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCalendarPopup.btnLast"/>&nbsp;&nbsp; </a> <b><span
                     CLASS=title><%=year%>-<%=month%></span></b> <a
-                    href="oscarReportCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=1&type=<%=type%>&form=<%=form%>">
+                    href="oscarReportCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=1&type=<%= Encode.forHtmlAttribute(type) %>&form=<%=form%>">
                 &nbsp;&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCalendarPopup.btnNext"/>
                 <img src="<%= request.getContextPath() %>/images/next.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                      ALT="View Next Month" vspace="2">&nbsp;&nbsp;</a></td>

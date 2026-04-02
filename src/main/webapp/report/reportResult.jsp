@@ -30,6 +30,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportCreator" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
 <%@ page import="io.github.carlos_emr.carlos.report.pageUtil.RptFormQuery" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String VALUE = "value_";
     String DATE_FORMAT = "dateFormat_";
@@ -110,7 +111,7 @@
         <tr BGCOLOR="#CCCCFF">
             <td></td>
             <td width="10%" align="right" nowrap><a
-                    href="reportFilter.jsp?id=<%=reportId%>">Back to Report Filter</a></td>
+                    href="reportFilter.jsp?id=<%= Encode.forHtmlAttribute(reportId) %>">Back to Report Filter</a></td>
         </tr>
     </table>
 

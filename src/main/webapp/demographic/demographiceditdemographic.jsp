@@ -242,6 +242,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <!DOCTYPE html>
 <html>
 
@@ -626,7 +628,7 @@
 
             <security:oscarSec roleName="<%= roleName$ %>" objectName="_eChart" rights="r" reverse="<%= false %>" >
             var numMenus = 1;
-            var encURL = "<c:out value="${ctx}"/>/encounter/IncomingEncounter.do?providerNo=<%=curProvider_no%>&appointmentNo=&demographicNo=<%=demographic_no%>&curProviderNo=&reason=<%=URLEncoder.encode(noteReason, StandardCharsets.UTF_8)%>&encType=<%=URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8)%>&userName=<%=URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8) %>&curDate=<%=dateString%>&appointmentDate=&startTime=&status=";
+            var encURL = "<c:out value="${ctx}"/>/encounter/IncomingEncounter.do?providerNo=<%= Encode.forJavaScript(curProvider_no) %>&appointmentNo=&demographicNo=<%=demographic_no%>&curProviderNo=&reason=<%=URLEncoder.encode(noteReason, StandardCharsets.UTF_8)%>&encType=<%=URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8)%>&userName=<%=URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8) %>&curDate=<%=dateString%>&appointmentDate=&startTime=&status=";
 
             function showMenu(menuNumber, eventObj) {
                 var menuId = 'menu' + menuNumber;
@@ -735,7 +737,7 @@
 
             </security:oscarSec>
 
-            var demographicNo = '<%=demographic_no%>';
+            var demographicNo = '<%= Encode.forJavaScript(demographic_no) %>';
 
 
             function checkRosterStatus2() {
@@ -1100,7 +1102,7 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupOscarRx(700,1027,'<%= request.getContextPath() %>/oscarRx/choosePatient.do?providerNo=<%=curProvider_no%>&demographicNo=<%=demographic_no%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.prescriptions"/></a>
+                                    onClick="popupOscarRx(700,1027,'<%= request.getContextPath() %>/oscarRx/choosePatient.do?providerNo=<%= Encode.forJavaScript(curProvider_no) %>&demographicNo=<%= Encode.forJavaScript(demographic_no) %>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.prescriptions"/></a>
                             </td>
                         </tr>
 
@@ -1118,7 +1120,7 @@
                                 <td><a
                                         href="javascript: function myFunction() {return false; }"
                                         onClick="popupPage(700,960,'<c:out
-                                                value="${ctx}"/>/oscarPrevention/index.jsp?demographic_no=<%=demographic_no%>');return false;">
+                                                value="${ctx}"/>/oscarPrevention/index.jsp?demographic_no=<%= Encode.forJavaScript(demographic_no) %>');return false;">
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.LeftNavBar.Prevent"/></a></td>
                             </tr>
                         </security:oscarSec>
@@ -1178,7 +1180,7 @@
                         </special:SpecialPlugin>
                         <tr>
                             <td><a
-                                    href="<%= request.getContextPath() %>/eform/efmpatientformlist.jsp?demographic_no=<%=demographic_no%>&apptProvider=<%=apptProvider%>&appointment=<%=appointment%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
+                                    href="<%= request.getContextPath() %>/eform/efmpatientformlist.jsp?demographic_no=<%= Encode.forJavaScript(demographic_no) %>&apptProvider=<%=apptProvider%>&appointment=<%=appointment%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
                         </tr>
 
                     </table>
@@ -1512,7 +1514,7 @@
                                                                     %>
                                                                     <jsp:include page="<%=fieldJSP%>">
                                                                         <jsp:param name="demo"
-                                                                                   value="<%=demographic_no%>"/>
+                                                                                   value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                     </jsp:include>
                                                                     <%}%>
 
@@ -2006,7 +2008,7 @@
                                                                     <jsp:include page="./displayFirstNationsModule.jsp"
                                                                                  flush="false">
                                                                         <jsp:param name="demo"
-                                                                                   value="<%= demographic_no %>"/>
+                                                                                   value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                         <jsp:param name="fncommunity"
                                                                                    value="${fncommunity}"/>
                                                                     </jsp:include>
@@ -2399,7 +2401,7 @@
                                                                     value="true">
                                                                 <jsp:include page="displayHealthCareTeam.jsp">
                                                                     <jsp:param name="demographicNo"
-                                                                               value="<%= demographic_no %>"/>
+                                                                               value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                 </jsp:include>
                                                             </oscar:oscarPropertiesCheck>
                                                                 <%-- TOGGLE OFF PATIENT CLINIC STATUS --%>
@@ -3723,7 +3725,7 @@
                                                             <td colspan="8">
                                                                 <jsp:include page="manageFirstNationsModule.jsp">
                                                                     <jsp:param name="demo"
-                                                                               value="<%= demographic_no %>"/>
+                                                                               value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                 </jsp:include>
                                                             </td>
                                                         </tr>
@@ -4562,7 +4564,7 @@
                                                     <tr>
                                                         <td colspan="4">
                                                             <jsp:include page="<%=fieldJSP%>">
-                                                                <jsp:param name="demo" value="<%=demographic_no%>"/>
+                                                                <jsp:param name="demo" value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                             </jsp:include>
                                                         </td>
                                                     </tr>
@@ -4668,7 +4670,7 @@
                                                             <td colspan="4">
                                                                 <jsp:include page="manageHealthCareTeam.jsp">
                                                                     <jsp:param name="demographicNo"
-                                                                               value="<%= demographic_no %>"/>
+                                                                               value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                 </jsp:include>
                                                             </td>
                                                         </tr>

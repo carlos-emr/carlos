@@ -50,6 +50,7 @@ Ontario, Canada
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
@@ -204,7 +205,7 @@ Ontario, Canada
                    class="current"> <fmt:message key="eform.showmyform.btnAddEForm"/></a>
                 <jsp:include page="efmviewgroups.jsp">
                     <jsp:param name="url" value="${pageContext.request.contextPath}/eform/efmformslistadd.jsp"/>
-                    <jsp:param name="groupView" value="<%=groupView%>"/>
+                    <jsp:param name="groupView" value="<%= Encode.forHtmlAttribute(groupView) %>"/>
                 </jsp:include>
 
                 <a href="efmpatientformlist.jsp?demographic_no=<%=Encode.forHtmlAttribute(demographic_no)%>&appointment=<%=Encode.forHtmlAttribute(appointment)%>&parentAjaxId=<%=Encode.forHtmlAttribute(parentAjaxId)%)">

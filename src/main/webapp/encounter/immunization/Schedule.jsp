@@ -53,6 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
 
@@ -223,7 +224,7 @@
         </td>
         <td class="MainTableRightColumn">
             <form action="${pageContext.request.contextPath}/encounter/immunization/saveSchedule.do" method="post">
-                <input type="hidden" name="demographic_no" value="<%=demoNo%>">
+                <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demoNo) %>">
                 <table name="encounterTableRightCol" width="100%">
                     <tr>
                         <td>
@@ -287,7 +288,7 @@
                                 <form id="scheduleForm_<%=i%>" method="post" action="deleteSchedule.do" style="display:none">
                                     <input type="hidden" name="method" value="delete"/>
                                     <input type="hidden" name="tblSet" value="<%=i%>"/>
-                                    <input type="hidden" name="demoNo" value="<%=demoNo%>"/>
+                                    <input type="hidden" name="demoNo" value="<%= Encode.forHtmlAttribute(demoNo) %>"/>
                                 </form>
                                 <%} else {%>
                                 <a href="javascript:void(0)"
@@ -295,7 +296,7 @@
                                 <form id="restoreForm_<%=i%>" method="post" action="deleteSchedule.do" style="display:none">
                                     <input type="hidden" name="method" value="restore"/>
                                     <input type="hidden" name="tblSet" value="<%=i%>"/>
-                                    <input type="hidden" name="demoNo" value="<%=demoNo%>"/>
+                                    <input type="hidden" name="demoNo" value="<%= Encode.forHtmlAttribute(demoNo) %>"/>
                                 </form>
                                 <%}%>
 

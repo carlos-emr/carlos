@@ -580,6 +580,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
@@ -2200,7 +2201,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
         <input type="hidden" name="hin" value="<%=demoHIN%>"/>
         <input type="hidden" name="ver" value="<%=demoVer%>"/>
         <input type="hidden" name="hc_type" value="<%=demoHCTYPE%>"/>
-        <input type="hidden" name="sex" value="<%=demoSex%>"/>
+        <input type="hidden" name="sex" value="<%= Encode.forHtmlAttribute(demoSex) %>"/>
 
         <input type="hidden" name="start_time"
                value="<%= Encode.forHtmlAttribute(request.getParameter("start_time")) %>"/>
@@ -2217,7 +2218,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
         <input type="hidden" name="appointment_date"
                value="<%= Encode.forHtmlAttribute(request.getParameter("appointment_date")) %>"/>
         <input type="hidden" name="assgProvider_no"
-               value="<%=assgProvider_no%>"/>
+               value="<%= Encode.forHtmlAttribute(assgProvider_no) %>"/>
         <input type="hidden" name="billForm" value="<%=Encode.forHtmlAttribute(ctlBillForm)%>"/>
         <input type="hidden" name="curBillForm" value="<%=Encode.forHtmlAttribute(ctlBillForm)%>"/>
         <input type="hidden" name="services_checked">

@@ -131,6 +131,7 @@ Ontario, Canada
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
@@ -1411,7 +1412,7 @@ Ontario, Canada
                                 %>
                                 <input type="hidden" name="createdatetime" value="<%=strDateTime%>">
                                 <span class="form-control-plaintext form-control-sm"><%=create.format(pattern)%></span>
-                                <input type="hidden" name="provider_no" value="<%=curProvider_no%>">
+                                <input type="hidden" name="provider_no" value="<%= Encode.forHtmlAttribute(curProvider_no) %>">
                                 <input type="hidden" name="dboperation" value="search_titlename">
                                 <input type="hidden" name="creator"
                                        value='<%=Encode.forHtmlAttribute(userlastname)+", "+Encode.forHtmlAttribute(userfirstname)%>'>
@@ -1452,7 +1453,7 @@ Ontario, Canada
                         searchMode = CarlosProperties.getInstance().getProperty("default_search_mode", "search_name");
                     }
                 %>
-                <input type="hidden" name="search_mode" id="search_mode" value="<%=searchMode%>">
+                <input type="hidden" name="search_mode" id="search_mode" value="<%= Encode.forHtmlAttribute(searchMode) %>">
                 <input type="hidden" name="originalpage"
                        value="<%=request.getContextPath() %>/appointment/addappointment.jsp">
                 <input type="hidden" name="limit1" value="0">

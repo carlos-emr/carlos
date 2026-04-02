@@ -140,6 +140,7 @@
 <%@ page import="org.apache.commons.lang3.builder.ReflectionToStringBuilder" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.w3c.dom.Document" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -1108,10 +1109,10 @@ input[id^='acklabel_']{
                                     %>v<%= i + 1 %>&#160;<%
                                 } else {
                                     if (searchProviderNo != null) { // null if we were called from e-chart
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= providerNo %>&searchProviderNo=<%= searchProviderNo %>">v<%= i + 1 %>
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forHtmlAttribute(providerNo) %>&searchProviderNo=<%= searchProviderNo %>">v<%= i + 1 %>
                                 </a>&#160;<%
                                 } else {
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= providerNo %>">v<%= i + 1 %>
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forHtmlAttribute(providerNo) %>">v<%= i + 1 %>
                                 </a>&#160;<%
                                             }
                                         }

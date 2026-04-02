@@ -35,6 +35,7 @@
         import="io.github.carlos_emr.carlos.rx.pageUtil.*,io.github.carlos_emr.carlos.rx.data.*,java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -119,7 +120,7 @@
                                 <tr>
                                     <td>
                                         <%String type = request.getParameter("type"); %>
-                                        <input type="hidden" name="pharmacyAction" id="pharmacyAction" value="<%=type%>"/>
+                                        <input type="hidden" name="pharmacyAction" id="pharmacyAction" value="<%= Encode.forHtmlAttribute(type) %>"/>
                                         <input type="hidden" name="ID" id="ID" value="<%=ID%>"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="ManagePharmacy.txtfld.label.pharmacyName"/> :
                                     </td>
                                     <td><input type="text" name="name" id="name" /></td>

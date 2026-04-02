@@ -32,6 +32,7 @@
 <%@ page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -359,7 +360,7 @@
 
                 <form method="post" name="contactForm" id="contactForm" action="<%= request.getContextPath() %>/demographic/Contact.do">
                     <input type="hidden" name="method" value="saveManage"/>
-                    <input type="hidden" name="demographic_no" value="<%=demographic_no%>"/>
+                    <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
 
                     <b>Personal Contacts:</b>
                     <br/>

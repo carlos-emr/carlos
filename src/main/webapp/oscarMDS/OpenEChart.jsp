@@ -31,6 +31,7 @@
 <%@ page import="java.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ page import="java.net.URLEncoder" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     // Check if demographicNo is present and valid
     String demographicNo = request.getParameter("demographicNo");
@@ -79,7 +80,7 @@
 <body>
 
 <a
-        href="javascript:popupPage(700, 980, '${pageContext.request.contextPath}/encounter/IncomingEncounter.do?demographicNo=<%=demographicNo%>&reason=Lab+Results-Notes&curDate=<%=curYear%>-<%=curMonth%>-<%=curDay%>&encType=<%=URLEncoder.encode("Lab Results","UTF-8")%>&status=');window.close();">Please
+        href="javascript:popupPage(700, 980, '${pageContext.request.contextPath}/encounter/IncomingEncounter.do?demographicNo=<%= Encode.forHtmlAttribute(demographicNo) %>&reason=Lab+Results-Notes&curDate=<%=curYear%>-<%=curMonth%>-<%=curDay%>&encType=<%=URLEncoder.encode("Lab Results","UTF-8")%>&status=');window.close();">Please
     click here to go to the patient's E-Chart.</a>
 
 </body>

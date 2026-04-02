@@ -55,6 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRourke2017Record" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/rourke-tag.tld" prefix="rourke" %>
 
@@ -176,14 +177,14 @@
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p4_ht18m', 'HT', '<%=demographic.getDemographicNo()%>',
-                       '<%=demographic.getFormattedDob()%>', '<%=appointmentNo%>')">
+                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScript(appointmentNo) %>')">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHt"/>
             </a>
         </td>
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p4_wt18m', 'WT', '<%=demographic.getDemographicNo()%>',
-                       '<%=demographic.getFormattedDob()%>', '<%=appointmentNo%>')">
+                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScript(appointmentNo) %>')">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formWt"/>
             </a>
         </td>
@@ -193,14 +194,14 @@
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p4_ht24m', 'HT', '<%=demographic.getDemographicNo()%>',
-                       '<%=demographic.getFormattedDob()%>', '<%=appointmentNo%>')">
+                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScript(appointmentNo) %>')">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHt"/>
             </a>
         </td>
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p4_wt24m', 'WT', '<%=demographic.getDemographicNo()%>',
-                       '<%=demographic.getFormattedDob()%>', '<%=appointmentNo%>')">
+                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScript(appointmentNo) %>')">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formWt"/>
             </a>
         </td>
@@ -213,14 +214,14 @@
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p4_ht48m', 'HT', '<%=demographic.getDemographicNo()%>',
-                       '<%=demographic.getFormattedDob()%>', '<%=appointmentNo%>')">
+                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScript(appointmentNo) %>')">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHt"/>
             </a>
         </td>
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p4_wt48m', 'WT', '<%=demographic.getDemographicNo()%>',
-                       '<%=demographic.getFormattedDob()%>', '<%=appointmentNo%>')">
+                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScript(appointmentNo) %>')">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formWt"/>
             </a>
         </td>

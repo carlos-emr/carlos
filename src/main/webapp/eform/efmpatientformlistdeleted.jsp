@@ -42,6 +42,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar"%>
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
@@ -200,7 +201,7 @@
                     <fmt:message key="eform.showmyform.btnAddEForm"/></a>
 				<a href="efmpatientformlist.jsp?demographic_no=<%=Encode.forHtmlAttribute(demographic_no)%>&appointment=<%=Encode.forHtmlAttribute(appointment)%>&parentAjaxId=<%=Encode.forHtmlAttribute(parentAjaxId)%>">
                     <fmt:message key="eform.calldeletedformdata.btnGoToForm"/></a>
-<%--			<a href="efmpatientformlistdeleted.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>">
+<%--			<a href="efmpatientformlistdeleted.jsp?demographic_no=<%= Encode.forHtmlAttribute(demographic_no) %>&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>">
                     <fmt:message key="eform.showmyform.btnDeleted"/></a>--%>
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="r" reverse="<%=false%>" >
 					<a href="#" onclick="javascript: return popup(600, 1200, '${pageContext.request.contextPath}/administration/?show=Forms', 'manageeforms');" style="color: #835921;">

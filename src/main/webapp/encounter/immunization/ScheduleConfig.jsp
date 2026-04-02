@@ -52,6 +52,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.immunization.data.EctImmConfigData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
@@ -127,7 +128,7 @@
             Vector cfgId = new EctImmConfigData().getImmunizationConfigId();
         %>
             <form action="${pageContext.request.contextPath}/encounter/immunization/saveConfig.do" method="post">
-                <input type="hidden" name="demographic_no" value="<%=demoNo%>">
+                <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demoNo) %>">
                 <input type="hidden" name="xmlDoc" value="<%--= UtilMisc.encode64(UtilXML.toXML(cfgDoc)) --%>"/>
 
                 <%

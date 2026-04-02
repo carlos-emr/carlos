@@ -56,6 +56,7 @@
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     ProgramDao programDao = SpringUtils.getBean(ProgramDao.class);
@@ -532,7 +533,7 @@
             Properties item = vec.get(i);
             String providerNo = item.getProperty("provider_no", "");
     %>
-      <form name="myform" class="myform myform-<%= providerNo %>" action="providerRole.jsp" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
+      <form name="myform" class="myform myform-<%= Encode.forHtmlAttribute(providerNo) %>" action="providerRole.jsp" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
         <tr>
 
               <td><%= Encode.forHtmlContent(providerNo) %></td>
@@ -608,7 +609,7 @@
                                 String providerNo = prop.getProperty("provider_no");
                                 if (!temp1.contains(providerNo)) {
                         %>
-                        <option value="<%=providerNo%>"><%=Encode.forHtmlContent(prop.getProperty("last_name") + "," + prop.getProperty("first_name")) %>
+                        <option value="<%= Encode.forHtmlAttribute(providerNo) %>"><%=Encode.forHtmlContent(prop.getProperty("last_name") + "," + prop.getProperty("first_name")) %>
                         </option>
                         <%
                                     temp1.add(providerNo);

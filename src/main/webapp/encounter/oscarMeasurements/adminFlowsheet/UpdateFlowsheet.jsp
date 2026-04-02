@@ -60,6 +60,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.TargetColour" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -173,11 +174,11 @@ display:inline-block;
         <div class="col-md-8">
 <form action="FlowSheetCustomAction.do" method="post" onsubmit="return validateRuleValue();">
                 <input type="hidden" name="method" value="update"/>
-                <input type="hidden" name="flowsheet" value="<%=flowsheet%>"/>
-                <input type="hidden" name="measurement" value="<%=measurement%>"/>
+                <input type="hidden" name="flowsheet" value="<%= Encode.forHtmlAttribute(flowsheet) %>"/>
+                <input type="hidden" name="measurement" value="<%= Encode.forHtmlAttribute(measurement) %>"/>
 
                 <%if (request.getParameter("demographic") != null) { %>
-                <input type="hidden" name="demographic" value="<%=demographic%>"/>
+                <input type="hidden" name="demographic" value="<%= Encode.forHtmlAttribute(demographic) %>"/>
                 <%} %>
                 <%if (request.getParameter("scope") != null) { %>
                 <input type="hidden" name="scope" value="<%= Encode.forHtmlAttribute(request.getParameter("scope")) %>"/>
@@ -488,9 +489,9 @@ display:inline-block;
 
                     <div style="width:100%;text-align:right">
                         <%if (request.getParameter("demographic") == null) { %>
-                        <a href="EditFlowsheet.jsp?flowsheet=<%=flowsheet%><%=htQueryString%><%=scope != null ? "&scope=" + scope : ""%>" class="btn btn-secondary">Cancel</a>
+                        <a href="EditFlowsheet.jsp?flowsheet=<%= Encode.forHtmlAttribute(flowsheet) %><%=htQueryString%><%=scope != null ? "&scope=" + scope : ""%>" class="btn btn-secondary">Cancel</a>
                         <%} else { %>
-                        <a href="EditFlowsheet.jsp?flowsheet=<%=flowsheet%>&demographic=<%=demographic%><%=htQueryString%><%=scope != null ? "&scope=" + scope : ""%>"
+                        <a href="EditFlowsheet.jsp?flowsheet=<%= Encode.forHtmlAttribute(flowsheet) %>&demographic=<%=demographic%><%=htQueryString%><%=scope != null ? "&scope=" + scope : ""%>"
                            class="btn btn-secondary">Cancel</a>
                         <%} %>
                         <input type="submit" class="btn btn-primary" value="Update"/>

@@ -91,6 +91,7 @@
 
 <%@ page import="java.lang.*" errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String demographic_no = request.getParameter("demographic_no");
     boolean firstSearch = request.getParameter("firstSearch") == null ? false : (request.getParameter("firstSearch")).equalsIgnoreCase("true") ? true : false;
@@ -181,7 +182,7 @@
                                 }
                             %>
                             <input type="hidden" name="outofdomain" value="">
-                            <input type="hidden" name="search_mode" value="<%=searchMode%>">
+                            <input type="hidden" name="search_mode" value="<%= Encode.forHtmlAttribute(searchMode) %>">
                             <INPUT TYPE="hidden" NAME="orderby" VALUE="last_name, first_name">
                             <INPUT TYPE="hidden" NAME="dboperation" VALUE="search_titlename">
                             <INPUT TYPE="hidden" NAME="limit1" VALUE="0"> <INPUT

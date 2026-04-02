@@ -111,6 +111,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <!DOCTYPE HTML>
 <html>
 <head>
@@ -273,7 +274,7 @@
 
 
         <form name="serviceform" method="get" action="billStatus.jsp" class="d-flex flex-wrap align-items-center gap-2">
-            <input type="hidden" name="filterPatient" value="<%=readonly%>"/>
+            <input type="hidden" name="filterPatient" value="<%= Encode.forHtmlAttribute(readonly) %>"/>
             <input type="hidden" name="lastName" value="<%= Encode.forHtml(request.getParameter("lastName")) %>"/>
             <input type="hidden" name="firstName" value="<%= Encode.forHtml(request.getParameter("firstName")) %>"/>
             <div class="row">
@@ -331,7 +332,7 @@
                         <label for="xml_vdate">Service Start Date:</label>
                         <div class="input-group">
                             <input type="text" name="xml_vdate" class="form-control" id="xml_vdate"
-                                   value="<%=xml_vdate%>" placeholder="yyyy-mm-dd"
+                                   value="<%= Encode.forHtmlAttribute(xml_vdate) %>" placeholder="yyyy-mm-dd"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -346,7 +347,7 @@
     </label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="xml_appointment_date" placeholder="yyyy-mm-dd"
-                                   id="xml_appointment_date" value="<%=xml_appointment_date%>"
+                                   id="xml_appointment_date" value="<%= Encode.forHtmlAttribute(xml_appointment_date) %>"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -359,7 +360,7 @@
                             String readonlyStr = "true".equals(readonly) ? "readonly" : "";
                         %>
                         <input type="text" class="form-control" id="demographicNo" name="demographicNo" size="6"
-                               value="<%=xml_demoNo%>" <%=readonlyStr%> />
+                               value="<%= Encode.forHtmlAttribute(xml_demoNo) %>" <%=readonlyStr%> />
                     </div>
                 </div>
 

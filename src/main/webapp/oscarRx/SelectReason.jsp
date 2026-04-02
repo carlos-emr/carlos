@@ -40,6 +40,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     CodingSystemManager codingSystemManager = SpringUtils.getBean(CodingSystemManager.class);
 %>
@@ -219,8 +220,8 @@
 
                     <fieldset>
                         <input type="hidden" name="method" value="addDrugReason"/>
-                        <input type="hidden" name="demographicNo" value="<%=demoStr%>"/>
-                        <input type="hidden" name="drugId" value="<%=drugIdStr%>"/>
+                        <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demoStr) %>"/>
+                        <input type="hidden" name="drugId" value="<%= Encode.forHtmlAttribute(drugIdStr) %>"/>
 
                         <legend>Assign Indication</legend>
 

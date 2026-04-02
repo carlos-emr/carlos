@@ -30,6 +30,7 @@
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
         errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.DateInMonthTable" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
@@ -83,22 +84,22 @@
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#FFD7C4">
             <td width="5%" nowrap><a
-                    href="billingCalendarPopup.jsp?year=<%=year-1%>&month=<%=month%>&delta=0&type=<%=type%>">
+                    href="billingCalendarPopup.jsp?year=<%=year-1%>&month=<%=month%>&delta=0&type=<%= Encode.forHtmlAttribute(type) %>">
                 <img src="<%= locationPrefix %>images/previous.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                      ALT="Last Year" vspace="2"> <img src="<%= locationPrefix %>images/previous.gif"
                                                       WIDTH="10" HEIGHT="9" BORDER="0" ALT="Last Year" vspace="2"></a>
             </td>
             <td align="center"><a
-                    href="billingCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=-1&type=<%=type%>">
+                    href="billingCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=-1&type=<%= Encode.forHtmlAttribute(type) %>">
                 <img src="<%= locationPrefix %>images/previous.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                      ALT="View Last Month" vspace="2"> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCalendarPopup.btnLast"/></a> <b><span
                     CLASS=title><%=year%>-<%=month%></span></b> <a
-                    href="billingCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=1&type=<%=type%>">
+                    href="billingCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=1&type=<%= Encode.forHtmlAttribute(type) %>">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCalendarPopup.btnNext"/> <img
                     src="<%= locationPrefix %>images/next.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                     ALT="View Next Month" vspace="2">&nbsp;&nbsp;</a></td>
             <td width="5%" align="right" nowrap><a
-                    href="billingCalendarPopup.jsp?year=<%=year+1%>&month=<%=month%>&delta=0&type=<%=type%>">
+                    href="billingCalendarPopup.jsp?year=<%=year+1%>&month=<%=month%>&delta=0&type=<%= Encode.forHtmlAttribute(type) %>">
                 <img src="<%= locationPrefix %>images/next.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                      ALT="Next Year" vspace="2"> <img src="<%= locationPrefix %>images/next.gif"
                                                       WIDTH="10" HEIGHT="9" BORDER="0" ALT="Next Year" vspace="2"></a>
@@ -113,7 +114,7 @@
                     String[] arrayMonth = new String[]{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
                     for (int i = 0; i < 12; i++) {
                 %> <a
-                    href="billingCalendarPopup.jsp?year=<%=year%>&month=<%=i+1%>&delta=0&type=<%=type%>">
+                    href="billingCalendarPopup.jsp?year=<%=year%>&month=<%=i+1%>&delta=0&type=<%= Encode.forHtmlAttribute(type) %>">
                 <font SIZE="2" <%=(i+1)==month?"color='red'":"color='blue'"%>><%=arrayMonth[i]%>
             </a>
                 <%}%>

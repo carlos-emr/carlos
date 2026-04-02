@@ -71,6 +71,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicRelationship" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -124,7 +125,7 @@
             <td class="MainTableLeftColumn" valign="top">&nbsp;
                 <%if (IsPropertiesOn.isCaisiEnable()) { %>
 
-                <a href="<%=request.getContextPath()%>/PMmodule/ClientManager.do?id=<%=creatorDemo%>">Back to PMM </a>
+                <a href="<%=request.getContextPath()%>/PMmodule/ClientManager.do?id=<%= Encode.forHtmlAttribute(creatorDemo) %>">Back to PMM </a>
 
                 <%} %>
 
@@ -146,7 +147,7 @@
 	searchMode = Encode.forHtmlAttribute(searchMode);
                         %>
                         <input
-                                type="hidden" name="search_mode" value="<%=searchMode%>"/> <input
+                                type="hidden" name="search_mode" value="<%= Encode.forHtmlAttribute(searchMode) %>"/> <input
                                 type="hidden" name="originalpage"
                                 value="<%= request.getContextPath() %>/demographic/AddAlternateContact.jsp"/> <input
                                 type="hidden" name="limit1" value="0"/> <input type="hidden"
@@ -175,7 +176,7 @@
                                                                                       name="creator"
                                                                                       value="oscardoc, doctor"/> <input
                                 type="hidden"
-                                name="remarks" value="<%=creatorDemo%>"/></div>
+                                name="remarks" value="<%= Encode.forHtmlAttribute(creatorDemo) %>"/></div>
                 </form>
 
                 <%
@@ -185,8 +186,8 @@
                     origDemo = Encode.forHtmlAttribute(origDemo);
                     if (demoNo != null) {
                 %> <form action="${pageContext.request.contextPath}/demographic/AddRelation.do" method="post">
-                <input type="hidden" name="origDemo" value="<%=origDemo%>"/>
-                <input type="hidden" name="linkingDemo" value="<%=demoNo%>"/>
+                <input type="hidden" name="origDemo" value="<%= Encode.forHtmlAttribute(origDemo) %>"/>
+                <input type="hidden" name="linkingDemo" value="<%= Encode.forHtmlAttribute(demoNo) %>"/>
 
 
                 <div class="prevention">
@@ -247,7 +248,7 @@
 				<td>
 					<form method="post" action="<%=request.getContextPath()%>/demographic/DeleteRelation.do" style="display:inline;">
 						<input type="hidden" name="id" value="<%=h.get("id")%>"/>
-						<input type="hidden" name="origDemo" value="<%=creatorDemo%>"/>
+						<input type="hidden" name="origDemo" value="<%= Encode.forHtmlAttribute(creatorDemo) %>"/>
 						<a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this relationship?')){this.closest('form').submit();}">del</a>
 					</form>
 				</td>
@@ -260,7 +261,7 @@
                 <oscar:oscarPropertiesCheck property="TORONTO_RFQ" value="yes">
                     <br/>
                     <form action="<%=request.getContextPath() %>/demographic/AddRelation.do">
-                        <input type="hidden" name="origDemo" value="<%=creatorDemo%>"/>
+                        <input type="hidden" name="origDemo" value="<%= Encode.forHtmlAttribute(creatorDemo) %>"/>
                         <input type="submit" name="pmmClient" value="Finished"/>
                     </form>
                 </oscar:oscarPropertiesCheck></td>

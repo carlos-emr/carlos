@@ -64,6 +64,7 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProperties" %>
@@ -1183,7 +1184,7 @@
 
                     %>
                     <td align="right"><a
-                            href="<%=request.getContextPath() %>/lab/DownloadEmbeddedDocumentFromLab.do?labNo=<%=segmentID%>&segment=<%=j%>&group=<%=k%><%=legacy%>">PDF
+                            href="<%=request.getContextPath() %>/lab/DownloadEmbeddedDocumentFromLab.do?labNo=<%= Encode.forHtmlAttribute(segmentID) %>&segment=<%=j%>&group=<%=k%><%=legacy%>">PDF
                         Report</a></td>
                     <%
                     } else {

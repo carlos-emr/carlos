@@ -310,6 +310,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
     <body bgcolor="#EEEEFF" onLoad="refreshAllTabAlerts();">
 
@@ -491,12 +492,12 @@
     <table id="monthScheduleNavigation">
         <tr BGCOLOR="whitesmoke">
             <td width="33%">
-                <a href="providercontrol.jsp?year=<%=year%>&month=<%=(month-1)%>&day=<%=(day)%>&displaymode=month&dboperation=searchappointmentmonth&providerview=<%=providerview%>">
+                <a href="providercontrol.jsp?year=<%=year%>&month=<%=(month-1)%>&day=<%=(day)%>&displaymode=month&dboperation=searchappointmentmonth&providerview=<%= Encode.forHtmlAttribute(providerview) %>">
                     <span class="fa-solid fa-backward-step"
                           title="<%=arrayMonthOfYear[((month+10)%12)]%>"></span>&nbsp;&nbsp;
                 </a>
                 <b><span CLASS=title><%=strYear%>-<%=strMonth%></span></b>
-                <a href="providercontrol.jsp?year=<%=year%>&month=<%=(month+1)%>&day=<%=day%>&displaymode=month&dboperation=searchappointmentmonth&providerview=<%=providerview%>">
+                <a href="providercontrol.jsp?year=<%=year%>&month=<%=(month+1)%>&day=<%=day%>&displaymode=month&dboperation=searchappointmentmonth&providerview=<%= Encode.forHtmlAttribute(providerview) %>">
                     <span class="fa-solid fa-forward-step" title="<%=arrayMonthOfYear[month%12]%>"></span></a>
                 |
                 <u><a href="providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1"
@@ -547,7 +548,7 @@
                         sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
                         var siteName = sel.options[sel.selectedIndex].value;
                         var newGroupNo = "<%=(mygroupno == null ? "all" : mygroupno)%>";
-                        var providerview = "<%=providerview%>";
+                        var providerview = "<%= Encode.forJavaScript(providerview) %>";
                         if (providerview.indexOf("_grp_") != -1) {
 
                             window.open("providercontrol.jsp?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+request.getParameter("curProvider")+"&curProviderName="+request.getParameter("curProviderName") )%>&displaymode=month&dboperation=searchappointmentmonth" + "&site=" + siteName + "&mygroup_no=" + newGroupNo, "_self");

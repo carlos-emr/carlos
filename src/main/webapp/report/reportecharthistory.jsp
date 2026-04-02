@@ -61,6 +61,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.EChartDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.EChart" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     EChartDao eChartDao = SpringUtils.getBean(EChartDao.class);
@@ -138,7 +139,7 @@
     %>
     <tr bgcolor="<%=bgcolor%>">
         <td align="center"><a
-                href="<%= request.getContextPath() %>/encounter/echarthistoryprint.jsp?echartid=<%=eChart.getId()%>&demographic_no=<%=demographic_no%>"><%=datetime%>
+                href="<%= request.getContextPath() %>/encounter/echarthistoryprint.jsp?echartid=<%=eChart.getId()%>&demographic_no=<%= Encode.forHtmlAttribute(demographic_no) %>"><%=datetime%>
         </a></td>
         <td><%=eChart.getSubject() != null ? eChart.getSubject() : ""%>
         </td>
@@ -159,12 +160,12 @@
         nLastPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
         if (nLastPage >= 0) {
     %> <a
-        href="reportecharthistory.jsp?demographic_no=<%=demographic_no%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>">Last
+        href="reportecharthistory.jsp?demographic_no=<%= Encode.forHtmlAttribute(demographic_no) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>">Last
     Page</a> | <%
     }
     if (nItems == Integer.parseInt(strLimit2)) {
 %> <a
-        href="reportecharthistory.jsp?demographic_no=<%=demographic_no%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>&splitectsize=<%=splitectsize%>">
+        href="reportecharthistory.jsp?demographic_no=<%= Encode.forHtmlAttribute(demographic_no) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>&splitectsize=<%=splitectsize%>">
     Next Page</a> <%
     }
 %>
