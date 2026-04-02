@@ -48,6 +48,7 @@ public class SpecialistWithServiceDto {
      *
      * @param serviceId   the service ID to add
      * @param serviceName the service name to add
+     * @since 2026-04-02
      */
     public void addService(Integer serviceId, String serviceName) {
         if (this.serviceIds == null) this.serviceIds = new ArrayList<>();

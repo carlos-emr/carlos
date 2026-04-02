@@ -1223,7 +1223,8 @@
             if (clearTimeBtn) clearTimeBtn.disabled = disabled;
             var appointmentDate = document.getElementById('appointmentDate');
             if (appointmentDate) appointmentDate.disabled = disabled;
-            if (disabled) {
+            var shouldClear = disabled && form.patientWillBook && form.patientWillBook.checked;
+            if (shouldClear) {
                 // Clear date and hidden time fields so they are not submitted when patient will book
                 if (appointmentDate) appointmentDate.value = '';
                 document.getElementById('appointmentHour').value = '';
