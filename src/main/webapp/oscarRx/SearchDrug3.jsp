@@ -376,70 +376,6 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
            }
 
 
-           var highlightMatch = function(full, snippet, matchindex) {
-                return "<a title='"+full+"'>"+full.substring(0, matchindex) +
-                "<span class=match>" +full.substr(matchindex, snippet.length) + "</span>" + full.substring(matchindex + snippet.length)+"</a>";
-           };
-
-           var highlightMatchInactiveMatchWord = function(full, snippet, matchindex) {
-               //oscarLog(full+"--"+snippet+"--"+matchindex);
-                return "<a title='"+full+"'>"+"<span class=matchInactive>"+full.substring(0, matchindex) +
-                "<span class=match>" +full.substr(matchindex, snippet.length) +"</span>" + full.substring(matchindex + snippet.length)+"</span>"+"</a>";
-           };
-           var highlightMatchInactive = function(full, snippet, matchindex) {
-               /* oscarLog(full+"--"+snippet+"--"+matchindex);
-                oscarLog(" aa "+full.substring(0, matchindex) );
-                oscarLog(" bb "+full.substr(matchindex, snippet.length) );
-                oscarLog(" cc "+ full.substring(matchindex + snippet.length));*/
-               /*return "<a title='"+full+"'>"+"<span class=matchInactive>"+full.substring(0, matchindex) +
-                full.substr(matchindex, snippet.length) +full.substring(matchindex + snippet.length)+"</span>"+"</a>";*/
-                return "<a title='"+full+"'>"+"<span class=matchInactive>"+full+"</span>"+"</a>";
-           };
-           var resultFormatter = function(oResultData, sQuery, sResultMatch) {
-               //oscarLog("oResultData, sQuery, sResultMatch="+oResultData+"--"+sQuery+"--"+sResultMatch);
-               //oscarLog("oResultData[0]="+oResultData[0]);
-               //oscarLog("oResultData.name="+oResultData.name);
-               //oscarLog("oResultData.name="+oResultData.id);
-               var query = sQuery.toUpperCase();
-               var drugName = oResultData[0];
-
-               var mIndex = drugName.toUpperCase().indexOf(query);
-               var display = '';
-
-               if(mIndex > -1){
-                   display = highlightMatch(drugName,query,mIndex);
-               }else{
-                   display = drugName;
-               }
-               return  display;
-           };
-            var resultFormatter2 = function(oResultData, sQuery, sResultMatch) {
-               /*oscarLog("oResultData, sQuery, sResultMatch="+oResultData+"--"+sQuery+"--"+sResultMatch);
-               oscarLog("oResultData[0]="+oResultData[0]);
-               oscarLog("oResultData.name="+oResultData.name);
-               oscarLog("oResultData.name="+oResultData.id);*/
-               var query = sQuery.toUpperCase();
-               var drugName = oResultData.name;
-               var isInactive=oResultData.isInactive;
-               //oscarLog("isInactive="+isInactive);
-
-               var mIndex = drugName.toUpperCase().indexOf(query);
-               var display = '';
-               if(mIndex>-1 && (isInactive=='true'||isInactive==true)){ //match and inactive
-                   display=highlightMatchInactiveMatchWord(drugName,query,mIndex);
-               }
-               else if(mIndex > -1 && (isInactive=='false'||isInactive==false || isInactive==undefined || isInactive==null)){ //match and active
-                   display = highlightMatch(drugName,query,mIndex);
-               }else if(mIndex<=-1 && (isInactive=='true'||isInactive==true)){//no match and inactive
-                   display=highlightMatchInactive(drugName,query,mIndex);
-               }
-               else{//active and no match
-                   display = drugName;
-               }
-               
-               
-               return  display;
-           };
         </script>
 
         <script type="text/javascript">
@@ -818,7 +754,7 @@ function renderRxStage() {
 
 
 
-    <body onload="checkFav();iterateStash();rxPageSizeSelect();checkReRxLongTerm();load()" class="yui-skin-sam">
+    <body onload="checkFav();iterateStash();rxPageSizeSelect();checkReRxLongTerm();load()">
 
     <div id="searchDrug3Wrapper">
     <%=WebUtils.popErrorAndInfoMessagesAsHtml(session)%>
