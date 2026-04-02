@@ -2549,8 +2549,14 @@ public class DemographicExportAction42Action extends ActionSupport {
                             //omdCdsDoc.save(files.get(files.size()-1), options);
 
                         } catch (IOException ex) {
-                            logger.error("Error", ex);
-                            throw new Exception("Cannot write .xml file(s) to export directory.\n Please check directory permissions.");
+                            logger.error("Error writing export file to directory", ex);
+                            // Remove the file entry that could not be written so the list stays consistent
+                            if (!files.isEmpty()) {
+                                files.remove(files.size() - 1);
+                                dirs.remove(dirs.size() - 1);
+                            }
+                            ffwd = "fail";
+                            break;
                         }
                     }
 
@@ -2569,7 +2575,8 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                     if (files.isEmpty()) {
                         logger.warn("no files to export");
-                        return "fail";
+                        ffwd = "fail";
+                        break;
                     }
 
                     //create ReadMe.txt & ExportEvent.log
@@ -2748,10 +2755,32 @@ public class DemographicExportAction42Action extends ActionSupport {
         String exportOutcome = ffwd;
         String exportException = null;
         try {
-            exportedIds = String.join(",", list);
-            if (exportedIds.length() > 500) {
-                int lastComma = exportedIds.lastIndexOf(',', 500);
-                exportedIds = (lastComma > 0 ? exportedIds.substring(0, lastComma) : exportedIds.substring(0, 500)) + "...";
+            StringBuilder exportedIdsBuilder = new StringBuilder();
+            boolean truncated = false;
+            for (String id : list) {
+                if (id == null) {
+                    continue;
+                }
+                if (exportedIdsBuilder.length() > 0) {
+                    if (exportedIdsBuilder.length() + 1 > 500) {
+                        truncated = true;
+                        break;
+                    }
+                    exportedIdsBuilder.append(',');
+                }
+                if (exportedIdsBuilder.length() + id.length() > 500) {
+                    truncated = true;
+                    break;
+                }
+                exportedIdsBuilder.append(id);
+            }
+            exportedIds = exportedIdsBuilder.toString();
+            if (truncated && !exportedIds.isEmpty()) {
+                int lastComma = exportedIds.lastIndexOf(',');
+                if (lastComma > 0) {
+                    exportedIds = exportedIds.substring(0, lastComma);
+                }
+                exportedIds = exportedIds + "...";
             }
         } catch (RuntimeException e) {
             // Ensure failures in the export tail are still audited without exposing PHI
