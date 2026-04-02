@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 public class RegisterCppCode2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -56,7 +56,7 @@ public class RegisterCppCode2Action extends ActionSupport {
         String[] codes = code.split(",");
         for (String c : codes) {
             if (!exists(c)) {
-                logger.info("adding " + c + " to cpp codes");
+                logger.info("adding {} to cpp codes", LogSanitizer.sanitize(c));
                 CppUtils.addCppCode(c);
             }
         }

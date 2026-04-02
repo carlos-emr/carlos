@@ -58,6 +58,7 @@ import java.util.*;
 import java.util.Optional;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 
 public class FlowSheetCustom2Action extends ActionSupport {
@@ -175,7 +176,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
         if (!result.isBlocked()) {
             return false;
         }
-        logger.warn("Cannot {} measurement {} - blocked at {} level", action, measurement, result.getBlockingLevel());
+        logger.warn("Cannot {} measurement {} - blocked at {} level", LogSanitizer.sanitize(action), LogSanitizer.sanitize(measurement), LogSanitizer.sanitize(result.getBlockingLevel()));
         request.setAttribute("errorMessage",
             "Cannot " + action + " measurement: blocked at " + result.getBlockingLevel() + " level");
         setResponseAttributes(ctx);
@@ -262,7 +263,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
 
                 if (cascadeResult.isBlocked()) {
                     logger.warn("Cannot add measurement {} - blocked at {} level",
-                        measurementType, cascadeResult.getBlockingLevel());
+                        LogSanitizer.sanitize(measurementType), LogSanitizer.sanitize(cascadeResult.getBlockingLevel()));
                     request.setAttribute("errorMessage",
                         "Cannot add measurement: blocked at " + cascadeResult.getBlockingLevel() + " level");
                     request.setAttribute("demographic", demographicNo);
@@ -547,7 +548,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
 
             if (canArchive.isBlocked()) {
                 logger.warn("Cannot archive customization {} - created at {} level",
-                    id, canArchive.getBlockingLevel());
+                    LogSanitizer.sanitize(id), LogSanitizer.sanitize(canArchive.getBlockingLevel()));
                 request.setAttribute("errorMessage",
                     "Cannot remove customization: created at " + canArchive.getBlockingLevel() + " level");
                 request.setAttribute("demographic", demographicNo);

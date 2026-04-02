@@ -47,6 +47,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 
 /**
@@ -212,7 +213,7 @@ public class EctDisplayAction extends ActionSupport {
             }
         }
         if (forward != null && !forward.equals("success")) {
-            MiscUtils.getLogger().error("Forward :" + forward + " navName :" + navName + " cmd " + cmd + " params " + params);
+            MiscUtils.getLogger().error("Forward: {} navName: {} cmd {} params {}", LogSanitizer.sanitize(forward), LogSanitizer.sanitize(navName), LogSanitizer.sanitize(cmd), LogSanitizer.sanitize(params));
         }
 
         // Use include() for XHR requests only. Struts' forward() closes the output stream

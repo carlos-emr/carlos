@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class BillingCorrectionPrep {
     private static final Logger _logger = MiscUtils.getLogger();
@@ -304,7 +305,7 @@ public class BillingCorrectionPrep {
             String sStatus = vecStatus.get(i);
             ret = addItem(ch1Obj, lItemObj, updateProviderNo, dx, serviceDate,
                     sName, sUnit, sFee, sStatus);
-            _logger.info(sName + " lItemObj(value = " + ret);
+            _logger.info("{} lItemObj(value = {}", LogSanitizer.sanitize(sName), LogSanitizer.sanitize(ret));
         }
 
         // recalculate amount

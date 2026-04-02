@@ -56,7 +56,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 public class BulkPatientDashboard2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -129,7 +129,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             messageHandler.notifyProvider(subject, message, mrp, null); //parseIntegers(patientIdsJson));
         }
 
-        logger.info(message);
+        logger.info("{}", LogSanitizer.sanitize(message));
 
         return null;
     }
@@ -181,7 +181,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             messageHandler.notifyProvider(subject, message, mrp, null); //patientIdList);
         }
 
-        logger.info(message);
+        logger.info("{}", LogSanitizer.sanitize(message));
 
         return null;
     }
@@ -241,7 +241,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             messageHandler.notifyProvider(subject, message, mrp);
         }
 
-        logger.info(message);
+        logger.info("{}", LogSanitizer.sanitize(message));
 
         return null;
     }
