@@ -140,14 +140,13 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             String pharmId = request.getParameter("pharmacyId");
             String demographicNo = request.getParameter("demographicNo");
 
-            ObjectMapper mapper = new ObjectMapper();
             RxPharmacyData pharmacy = new RxPharmacyData();
 
             pharmacy.unlinkPharmacy(pharmId, demographicNo);
 
+            ObjectNode jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("id", pharmId);
             response.setContentType("application/json");
-            String retVal = "{\"id\":\"" + pharmId + "\"}";
-            ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(retVal);
             response.getWriter().write(jsonObject.toString());
         } catch (Exception e) {
             MiscUtils.getLogger().error("CANNOT UNLINK PHARMACY", e);
