@@ -67,15 +67,11 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleHolidayDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%
-    if (!"POST".equalsIgnoreCase(request.getMethod())) {
-        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-        return;
-    }
     ScheduleHolidayDao scheduleHolidayDao = SpringUtils.getBean(ScheduleHolidayDao.class);
 %>
 
-<% //save or delete the holiday settings
-    if (request.getParameter("dboperation") != null && (request.getParameter("dboperation").compareTo(" Save ") == 0 || request.getParameter("dboperation").equals("Delete"))) {
+<% //save or delete the holiday settings — only process mutations on POST to respect CSRF protection
+    if ("POST".equalsIgnoreCase(request.getMethod()) && request.getParameter("dboperation") != null && (request.getParameter("dboperation").compareTo(" Save ") == 0 || request.getParameter("dboperation").equals("Delete"))) {
         //save the record first, change holidaybean next
         String temp = null;
         int rowsAffected = 0;

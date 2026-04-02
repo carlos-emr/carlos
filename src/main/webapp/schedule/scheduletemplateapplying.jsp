@@ -128,7 +128,7 @@
         String today = UtilDateUtilities.DateToString(new java.util.Date(), "yyyy-MM-dd");
         String lastYear = (Integer.parseInt(today.substring(0, today.indexOf('-'))) - 2) + today.substring(today.indexOf('-'));
 
-        if (request.getParameter("delete") != null && request.getParameter("delete").equals("1")) { //delete rschedule
+        if ("POST".equalsIgnoreCase(request.getMethod()) && request.getParameter("delete") != null && request.getParameter("delete").equals("1")) { //delete rschedule
 
             String[] param = new String[2];
             String edate = null;
@@ -221,6 +221,18 @@
                         input.name = key;
                         input.value = fields[key];
                         form.appendChild(input);
+                    }
+                    // CSRFGuard injects tokens via MutationObserver which fires asynchronously,
+                    // but form.submit() is called synchronously on the next line — race condition.
+                    // Copy the token from the static form on this page that CSRFGuard has already
+                    // injected into, so the POST includes the correct session CSRF token.
+                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                    if (csrfEl) {
+                        var csrfInput = document.createElement('input');
+                        csrfInput.type = 'hidden';
+                        csrfInput.name = 'CSRF-TOKEN';
+                        csrfInput.value = csrfEl.value;
+                        form.appendChild(csrfInput);
                     }
                     document.body.appendChild(form);
                     form.submit();
