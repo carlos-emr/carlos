@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.owasp.encoder.Encode;
 
 public class ReportReassign2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -214,13 +215,13 @@ public class ReportReassign2Action extends ActionSupport {
             }
             
             if (request.getParameter("lname") != null) {
-                newURL = newURL + "&lname=" + request.getParameter("lname");
+                newURL = newURL + "&lname=" + Encode.forUriComponent(request.getParameter("lname"));
             }
             if (request.getParameter("fname") != null) {
-                newURL = newURL + "&fname=" + request.getParameter("fname");
+                newURL = newURL + "&fname=" + Encode.forUriComponent(request.getParameter("fname"));
             }
             if (request.getParameter("hnum") != null) {
-                newURL = newURL + "&hnum=" + request.getParameter("hnum");
+                newURL = newURL + "&hnum=" + Encode.forUriComponent(request.getParameter("hnum"));
             }
         } catch (Exception e) {
             logger.error("exception in ReportReassign2Action", e);

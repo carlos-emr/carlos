@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.owasp.encoder.Encode;
 
 public class OpenEFormByName2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -74,7 +75,18 @@ public class OpenEFormByName2Action extends ActionSupport {
 
         if (fid == null) url += "/eform_name_not_found";
         else if (demographic_no == null) url += "/demographic_no_not_provided";
-        else url += "/eform/efmformadd_data.jsp?fid=" + fid + "&demographic_no=" + demographic_no;
+        else {
+            int demoNo;
+            try {
+                demoNo = Integer.parseInt(demographic_no);
+            } catch (NumberFormatException e) {
+                url += "/demographic_no_invalid";
+                response.sendRedirect(url);
+                return null;
+            }
+            url += "/eform/efmformadd_data.jsp?fid=" + Encode.forUriComponent(fid.toString())
+                    + "&demographic_no=" + Encode.forUriComponent(Integer.toString(demoNo));
+        }
 
         response.sendRedirect(url);
         return null;
