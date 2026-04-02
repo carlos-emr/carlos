@@ -55,18 +55,9 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     public ArrayList populateHL7ResultsData(String demographicNo, String consultationId, boolean attached) {
-        String sql = "SELECT hl7.label, hl7.lab_no, hl7.obr_date, hl7.discipline, hl7.accessionNum, hl7.final_result_count, patientLabRouting.id "
-            + "FROM hl7TextInfo hl7, patientLabRouting "
-            + "WHERE patientLabRouting.lab_no = hl7.lab_no "
-            + "AND patientLabRouting.lab_type = 'HL7' AND patientLabRouting.demographic_no="
-            + demographicNo
-            + " GROUP BY hl7.lab_no"
-            + " ORDER BY date(hl7.obr_date) DESC";
+        String sql = "SELECT hl7.label, hl7.lab_no, hl7.obr_date, hl7.discipline, hl7.accessionNum, hl7.final_result_count, patientLabRouting.id FROM hl7TextInfo hl7, patientLabRouting WHERE patientLabRouting.lab_no = hl7.lab_no AND patientLabRouting.lab_type = 'HL7' AND patientLabRouting.demographic_no=? GROUP BY hl7.lab_no ORDER BY date(hl7.obr_date) DESC";
 
-        String attachQuery = "SELECT consultdocs.document_no FROM consultdocs, patientLabRouting "
-            + "WHERE patientLabRouting.id = consultdocs.document_no AND " + "consultdocs.requestId = "
-            + consultationId
-            + " AND consultdocs.doctype = 'L' AND consultdocs.deleted IS NULL ORDER BY consultdocs.document_no";
+        String attachQuery = "SELECT consultdocs.document_no FROM consultdocs, patientLabRouting WHERE patientLabRouting.id = consultdocs.document_no AND consultdocs.requestId = ? AND consultdocs.doctype = 'L' AND consultdocs.deleted IS NULL ORDER BY consultdocs.document_no";
 
         ArrayList labResults = new ArrayList<LabResultData>();
         ArrayList attachedLabs = new ArrayList<LabResultData>();
@@ -74,6 +65,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
 
         try {
             Query q = entityManager.createNativeQuery(attachQuery);
+            q.setParameter(1, consultationId);
 
             List<Object[]> result = q.getResultList();
             for (Object[] r : result) {
@@ -86,6 +78,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
             LabResultData.CompareId c = lbData.getComparatorId();
 
             q = entityManager.createNativeQuery(sql);
+            q.setParameter(1, demographicNo);
             result = q.getResultList();
             for (Object[] r : result) {
                 lbData.segmentID = (String) r[1];
@@ -114,13 +107,14 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
     @SuppressWarnings("unchecked")
     public boolean isSentToProvider(String docNo, String providerNo) {
         if (docNo != null && providerNo != null) {
-            int dn = Integer.parseInt(docNo.trim());
-            providerNo = providerNo.trim();
-            String sql = "select * from providerLabRouting plr where plr.lab_type='DOC' and plr.lab_no=" + dn
-                + " and plr.provider_no='" + providerNo + "'";
             try {
+                int dn = Integer.parseInt(docNo.trim());
+                providerNo = providerNo.trim();
+                String sql = "select * from providerLabRouting plr where plr.lab_type='DOC' and plr.lab_no=? and plr.provider_no=?";
 
                 Query q = entityManager.createNativeQuery(sql);
+                q.setParameter(1, dn);
+                q.setParameter(2, providerNo);
                 List<Object[]> rs = q.getResultList();
 
                 logger.debug(sql);
