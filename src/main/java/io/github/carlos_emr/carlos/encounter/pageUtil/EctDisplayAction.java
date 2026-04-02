@@ -213,7 +213,7 @@ public class EctDisplayAction extends ActionSupport {
             }
         }
         if (forward != null && !forward.equals("success")) {
-            MiscUtils.getLogger().error("Forward: {} navName: {} cmd {} params {}", LogSanitizer.sanitize(forward), LogSanitizer.sanitize(navName), LogSanitizer.sanitize(cmd), LogSanitizer.sanitize(params));
+            MiscUtils.getLogger().error("Forward: {} navName: {} cmd: {} params: {}", LogSanitizer.sanitize(forward), LogSanitizer.sanitize(navName), LogSanitizer.sanitize(cmd), LogSanitizer.sanitize(params));
         }
 
         // Use include() for XHR requests only. Struts' forward() closes the output stream

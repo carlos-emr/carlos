@@ -197,7 +197,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
             logger.info("Type: {}", LogSanitizer.sanitize(labName));
             MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
             if (msgHandler != null) {
-                logger.info("MESSAGE HANDLER " + msgHandler.getClass().getName());
+                logger.info("MESSAGE HANDLER {}", msgHandler.getClass().getName());
             }
             if ((msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, ipAddr)) != null)
                 outcome = "success";
