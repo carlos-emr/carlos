@@ -1,0 +1,22 @@
+# Semgrep ignore file for CARLOS EMR
+# Keeps scannable lines under 500K for Semgrep Cloud free tier
+# See: https://semgrep.dev/docs/ignoring-files-folders-code
+
+# Vendored third-party libraries
+src/main/webapp/library/
+src/main/webapp/share/
+src/main/webapp/js/jquery.dataTables.js
+src/main/webapp/js/jquery.tablesorter*.js
+
+# Generated code (XMLBeans schema interfaces)
+src/main/java/io/github/carlos_emr/carlos/ar2005/
+
+# Test sources (Semgrep Cloud excludes by default, explicit for CLI)
+src/test/
+src/test-modern/
+
+# Non-code assets
+database/
+docs/
+.devcontainer/
+.remember/
