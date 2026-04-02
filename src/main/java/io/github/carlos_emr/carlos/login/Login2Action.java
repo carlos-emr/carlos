@@ -436,8 +436,11 @@ public final class Login2Action extends ActionSupport {
                 try {
                     URI url = new URI(nextPage);
 
-                    if (url.isAbsolute() || url.getAuthority() != null) {
-                        logger.warn("Rejected absolute redirect URL: " + Encode.forJava(nextPage));
+                    // Reject absolute URIs (http://...), protocol-relative URIs (//evil.com),
+                    // and backslash-based bypasses (/\evil.com normalizes to //evil.com in browsers)
+                    if (url.isAbsolute() || url.getAuthority() != null || nextPage.contains("\\")) {
+                        logger.warn("Rejected redirect URL: " + Encode.forJava(nextPage));
+                        response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
                         return NONE;
                     } else {
                         // set current facility
@@ -450,7 +453,8 @@ public final class Login2Action extends ActionSupport {
                         return NONE;
                     }
                 } catch (URISyntaxException e) {
-                    MiscUtils.getLogger().error("Invalid nextPage parameter: " + Encode.forJava(nextPage), e);
+                    logger.warn("Invalid nextPage parameter (URI syntax): " + Encode.forJava(nextPage), e);
+                    response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
                     return NONE;
                 }
             }

@@ -44,9 +44,14 @@
     Provider provider = (Provider) session.getAttribute("provider");
     List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
 
-    // Validate nextPage to prevent open redirect and path traversal: only allow relative paths (start with / but not //)
+    // Validate nextPage to prevent open redirect (CWE-601): allowlist of valid Struts2 result identifiers
+    java.util.Set<String> allowedNextPages = java.util.Set.of("provider", "caisiPMM", "programLocation", "failure");
     String rawNextPage = request.getParameter("nextPage");
-    String safeNextPage = (rawNextPage != null && rawNextPage.startsWith("/") && !rawNextPage.startsWith("//") && !rawNextPage.contains("..")) ? rawNextPage : "";
+    String safeNextPage = (rawNextPage != null && allowedNextPages.contains(rawNextPage)) ? rawNextPage : "";
+    if (rawNextPage != null && safeNextPage.isEmpty()) {
+        org.apache.logging.log4j.LogManager.getLogger("select_facility")
+            .warn("Rejected nextPage parameter: " + Encode.forJava(rawNextPage));
+    }
 %>
 <ul>
     <%

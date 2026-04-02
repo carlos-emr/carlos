@@ -71,9 +71,13 @@
     //String user_no = (String) session.getAttribute("user");
     String apptNo = request.getParameter("appointment_no");
 
-    // Validate url_back to prevent open redirect and path traversal: only allow relative paths (start with / but not //)
+    // Validate url_back to prevent open redirect (CWE-601): only allow same-origin absolute paths
     String rawUrlBack = request.getParameter("url_back");
-    String safeUrlBack = (rawUrlBack != null && rawUrlBack.startsWith("/") && !rawUrlBack.startsWith("//") && !rawUrlBack.contains("..")) ? rawUrlBack : "";
+    String safeUrlBack = (rawUrlBack != null && rawUrlBack.startsWith("/") && !rawUrlBack.startsWith("//") && !rawUrlBack.contains("..") && !rawUrlBack.contains("\\") && !rawUrlBack.contains("\r") && !rawUrlBack.contains("\n")) ? rawUrlBack : "";
+    if (rawUrlBack != null && safeUrlBack.isEmpty()) {
+        org.apache.logging.log4j.LogManager.getLogger("billingONSave")
+            .warn("Rejected url_back parameter: " + Encode.forJava(rawUrlBack));
+    }
 
     if (request.getParameter("submit") != null && "Back to Edit".equals(request.getParameter("button"))) { %>
 <jsp:forward page="billingON.jsp"/>
@@ -139,7 +143,11 @@
 <% if (request.getParameter("submit") != null && "Save & Add Another Bill".equals(request.getParameter("submit"))) { %>
 <script LANGUAGE="JavaScript">
     try { if (self.opener && self.opener.refresh) { self.opener.refresh(); } else { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); } } catch(e) { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); }
+    <% if (!safeUrlBack.isEmpty()) { %>
     self.location.href = "<%= Encode.forJavaScript(safeUrlBack) %>";
+    <% } else { %>
+    self.close();
+    <% } %>
 </script>
 <% }
 
@@ -167,11 +175,16 @@
         String wrkloadmanagement =  prop!= null ? prop.getValue() : null;
         if ( wrkloadmanagement != null && !wrkloadmanagement.equals("") && !wrkloadmanagement.equals(curBilf) ){
             ///NEED TO CHECK IF THIS IS THE CURRENT FORM IF SO LET IT CLOSE!!!
-            String urlBack = safeUrlBack+"&curBillForm="+Encode.forUriComponent(wrkloadmanagement);
-
     %>
     try { if (self.opener && self.opener.refresh) { self.opener.refresh(); } else { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); } } catch(e) { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); }
+    <% if (!safeUrlBack.isEmpty()) {
+            String separator = safeUrlBack.contains("?") ? "&" : "?";
+            String urlBack = safeUrlBack + separator + "curBillForm=" + Encode.forUriComponent(wrkloadmanagement);
+    %>
     self.location.href = "<%= Encode.forJavaScript(urlBack) %>";
+    <% } else { %>
+    self.close();
+    <% } %>
 
     <%}else{%>
     self.close();
