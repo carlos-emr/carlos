@@ -37,8 +37,8 @@
   */
 --%>
 
-<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page
@@ -69,7 +69,7 @@
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <script src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>CALENDAR</title>
+    <title><fmt:message key="share.CalendarPopUp.title"/></title>
     <% if (session.getAttribute("mobileOptimized") != null) { %>
     <meta name="viewport"
           content="initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, width=device-width">
@@ -138,16 +138,16 @@
         </td>
         <td style="text-align:right"><h2>
             <a href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=-12">
-                <i class="fa-solid fa-angles-left" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgLastYear"/>"></i>
+                <i class="fa-solid fa-angles-left" title="<fmt:message key="share.CalendarPopUp.msgLastYear"/>"></i>
             </a>
             <a href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=-1">
-                <i class="fa-solid fa-angle-left" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgViewLastMonth"/>"></i>
+                <i class="fa-solid fa-angle-left" title="<fmt:message key="share.CalendarPopUp.msgViewLastMonth"/>"></i>
             </a>
             <a href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=1">
-                <i class="fa-solid fa-angle-right" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgNextMonth"/>"></i>
+                <i class="fa-solid fa-angle-right" title="<fmt:message key="share.CalendarPopUp.msgNextMonth"/>"></i>
             </a>
             <a href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=12">
-                <i class="fa-solid fa-angles-right" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgNextYear"/>"></i>
+                <i class="fa-solid fa-angles-right" title="<fmt:message key="share.CalendarPopUp.msgNextYear"/>"></i>
             </a>&nbsp;</h2>
         </td>
     </tr>
@@ -169,13 +169,13 @@
 
 <table style="width:100%" class="table">
     <tr style="text-align:center">
-        <th style="width:14%"><span style="color:red"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgSun"/></span></th>
-        <th style="width:14%"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgMon"/></th>
-        <th style="width:14%"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgTue"/></th>
-        <th style="width:14%"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgWed"/></th>
-        <th style="width:14%"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgThu"/></th>
-        <th style="width:14%"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgFri"/></th>
-        <th style="width:14%"><span style="color:green"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgSat"/></span></th>
+        <th style="width:14%"><span style="color:red"><fmt:message key="share.CalendarPopUp.msgSun"/></span></th>
+        <th style="width:14%"><fmt:message key="share.CalendarPopUp.msgMon"/></th>
+        <th style="width:14%"><fmt:message key="share.CalendarPopUp.msgTue"/></th>
+        <th style="width:14%"><fmt:message key="share.CalendarPopUp.msgWed"/></th>
+        <th style="width:14%"><fmt:message key="share.CalendarPopUp.msgThu"/></th>
+        <th style="width:14%"><fmt:message key="share.CalendarPopUp.msgFri"/></th>
+        <th style="width:14%"><span style="color:green"><fmt:message key="share.CalendarPopUp.msgSat"/></span></th>
     </tr>
 
     <%
