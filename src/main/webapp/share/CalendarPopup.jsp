@@ -36,6 +36,8 @@
 	output: opener.param.substring("&formdatebox=".length()) = year1 + "-" + month1 + "-" + day1
   */
 --%>
+
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
@@ -205,7 +207,7 @@
 <table style="width:100%">
     <tr>
         <td style="text-align:right"><input type="button" class="btn btn-link"
-                                 name="Cancel" value="Cancel" onclick="window.close()"></td>
+                                 name="Cancel" value="<fmt:message key="global.btnCancel"/>" onclick="window.close()"></td>
     </tr>
 </table>
 
