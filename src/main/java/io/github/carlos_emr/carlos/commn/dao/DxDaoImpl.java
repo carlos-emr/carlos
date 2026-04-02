@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.DxAssociation;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 @Repository
 public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
@@ -83,7 +84,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
     public List<Object[]> findCodingSystemDescription(String codingSystem, String code) {
         // Validate codingSystem to prevent SQL injection - only allow alphanumeric and underscore
         if (codingSystem == null || !codingSystem.matches("^[a-zA-Z0-9_]+$")) {
-            MiscUtils.getLogger().warn("Invalid coding system name: " + codingSystem);
+            MiscUtils.getLogger().warn("Invalid coding system name: {}", LogSanitizer.sanitize(codingSystem));
             return new ArrayList<Object[]>();
         }
 
@@ -107,7 +108,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
         try {
             // Validate codingSystem to prevent SQL injection - only allow alphanumeric and underscore
             if (codingSystem == null || !codingSystem.matches("^[a-zA-Z0-9_]+$")) {
-                MiscUtils.getLogger().warn("Invalid coding system name: " + codingSystem);
+                MiscUtils.getLogger().warn("Invalid coding system name: {}", LogSanitizer.sanitize(codingSystem));
                 return new ArrayList<Object[]>();
             }
             
@@ -160,7 +161,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
         
         // Validate codingSystem to prevent SQL injection - only allow alphanumeric and underscore
         if (codingSystem == null || !codingSystem.matches("^[a-zA-Z0-9_]+$")) {
-            MiscUtils.getLogger().warn("Invalid coding system name: " + codingSystem);
+            MiscUtils.getLogger().warn("Invalid coding system name: {}", LogSanitizer.sanitize(codingSystem));
             return desc;
         }
         

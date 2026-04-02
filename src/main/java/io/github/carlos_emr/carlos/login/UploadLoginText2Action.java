@@ -53,6 +53,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.List;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class UploadLoginText2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -89,7 +90,7 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
             try {
                 Integer.parseInt(validDurationNumber);
             } catch (Exception e) {
-                _logger.error("Not an Int:" + validDurationNumber, e);
+                _logger.error("Not an Int: {}", LogSanitizer.sanitize(validDurationNumber), e);
             }
 
             if (validDurationPeriod != null && ("year".equals(validDurationPeriod) || "month".equals(validDurationPeriod) || "weeks".equals(validDurationPeriod) || "days".equals(validDurationPeriod))) {
@@ -97,7 +98,7 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
                 prop.setName("aua_valid_duration");
                 prop.setValue(validDurationNumber + " " + validDurationPeriod);
             } else {
-                _logger.error("Not a valid Period :" + validDurationPeriod);
+                _logger.error("Not a valid Period: {}", LogSanitizer.sanitize(validDurationPeriod));
             }
         }
 

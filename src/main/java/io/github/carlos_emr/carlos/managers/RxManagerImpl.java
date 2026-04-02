@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.demographic.data.RxInformation;
 
 import java.util.*;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 
 /**
@@ -319,7 +320,7 @@ public class RxManagerImpl implements RxManager {
 
         if (d == null) { //make sure we have a drug to operate on.
 
-            logger.info("No drug with drugId: " + drugId + " found, failed to discontinue.");
+            logger.info("No drug with drugId: {} found, failed to discontinue.", LogSanitizer.sanitize(drugId));
 
             return false;
 

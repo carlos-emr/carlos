@@ -68,6 +68,7 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Struts2 action that manages document attachments for consultation requests.
@@ -225,7 +226,7 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
         // Validate and sanitize the file path to prevent path traversal attacks
         Path validatedPath = validateDocumentPath(fileName);
         if (validatedPath == null) {
-            logger.error("Invalid file path requested: " + fileName);
+            logger.error("Invalid file path requested: {}", LogSanitizer.sanitize(fileName));
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return;
         }
@@ -406,7 +407,7 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
 
         // Reject any file name containing path traversal sequences
         if (fileName.contains("..") || fileName.contains(File.separator) || fileName.contains("/") || fileName.contains("\\")) {
-            logger.error("Path traversal attempt detected in file name: " + fileName);
+            logger.error("Path traversal attempt detected in file name: {}", LogSanitizer.sanitize(fileName));
             return null;
         }
 
@@ -431,12 +432,12 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
             
             // Verify the file exists and is a regular file
             if (!Files.exists(filePath)) {
-                logger.warn("Document file does not exist: " + fileName);
+                logger.warn("Document file does not exist: {}", LogSanitizer.sanitize(fileName));
                 return null;
             }
             
             if (!Files.isRegularFile(filePath)) {
-                logger.error("Path is not a regular file: " + fileName);
+                logger.error("Path is not a regular file: {}", LogSanitizer.sanitize(fileName));
                 return null;
             }
             

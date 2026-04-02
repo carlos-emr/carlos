@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 
 import java.io.InputStream;
 import java.util.List;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public final class HandlerClassFactory {
 
@@ -65,7 +66,7 @@ public final class HandlerClassFactory {
         String msgType;
         String msgHandler = "";
 
-        logger.info("HandlerClassFactory.getHandler: Getting handler for type: " + type);
+        logger.info("HandlerClassFactory.getHandler: Getting handler for type: {}", LogSanitizer.sanitize(type));
         
         if (type == null || type.equals("")) {
             logger.debug("Type not specified using Default Handler");

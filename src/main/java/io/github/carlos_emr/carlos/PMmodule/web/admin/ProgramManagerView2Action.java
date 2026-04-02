@@ -69,6 +69,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class ProgramManagerView2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -416,7 +417,7 @@ public class ProgramManagerView2Action extends ActionSupport {
                 String admissionId = name.substring(8);
                 Admission admission = admissionManager.getAdmission(Long.valueOf(admissionId));
                 if (admission == null) {
-                    logger.warn("admission #" + admissionId + " not found.");
+                    logger.warn("admission #{} not found.", LogSanitizer.sanitize(admissionId));
                     continue;
                 }
 

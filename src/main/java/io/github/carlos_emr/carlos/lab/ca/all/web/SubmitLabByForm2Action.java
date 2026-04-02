@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class SubmitLabByForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -175,7 +176,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
 
         //generate the HL7 from the Lab object.
         String hl7 = generateHL7(lab);
-        logger.info(hl7);
+        logger.debug("HL7 generated (length={})", hl7 != null ? hl7.length() : 0);
 
         //save file
         String filename = "Lab" + providerNo + ((int) (Math.random() * 1000)) + ".hl7";
@@ -191,8 +192,8 @@ public class SubmitLabByForm2Action extends ActionSupport {
         String outcome = null;
 
         if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-            logger.info("filePath" + filePath);
-            logger.info("Type :" + labName);
+            logger.info("filePath{}", LogSanitizer.sanitize(filePath));
+            logger.info("Type: {}", LogSanitizer.sanitize(labName));
             MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
             if (msgHandler != null) {
                 logger.info("MESSAGE HANDLER " + msgHandler.getClass().getName());
@@ -222,7 +223,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
 		// Generate appropriate HL7 format based on lab type
 		String labType = lab.getLabName();
 		labType = labType == null ? "" : labType.trim().toUpperCase();
-		logger.info("Generating HL7 for lab type: [" + labType + "]");
+		logger.info("Generating HL7 for lab type: [{}]", LogSanitizer.sanitize(labType));
 
 		switch (labType) {
 			case "MDS":
@@ -232,7 +233,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
 			case "CML":
 				return CMLLabHL7Generator.generate(lab);
 			default:
-				logger.error("Unsupported lab type: [" + labType + "]; defaulting to CML.");
+				logger.error("Unsupported lab type: [{}]; defaulting to CML.", LogSanitizer.sanitize(labType));
 				return CMLLabHL7Generator.generate(lab);
 		}
 	}

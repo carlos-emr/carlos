@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.messenger.util.MsgDemoMap;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Struts2 action for displaying and managing messages associated with a specific patient demographic.
@@ -147,10 +148,7 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
             
             // Validate required parameters before proceeding
             if (providerNo == null || userName == null || demographicNo == null) {
-                MiscUtils.getLogger().error("Missing required parameters: " + 
-                                          "providerNo=" + providerNo + 
-                                          ", userName=" + userName + 
-                                          ", demographic_no=" + demographicNo);
+                MiscUtils.getLogger().error("Missing required parameters: providerNo={}, userName={}, demographic_no={}", LogSanitizer.sanitize(providerNo), LogSanitizer.sanitize(userName), LogSanitizer.sanitize(demographicNo));
                 return "error"; 
             }
             

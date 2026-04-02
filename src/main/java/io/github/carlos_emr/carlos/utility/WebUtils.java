@@ -40,6 +40,7 @@ import jakarta.servlet.http.HttpSession;
 import org.apache.commons.text.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 
 public final class WebUtils {
@@ -56,7 +57,7 @@ public final class WebUtils {
 
         while (e.hasMoreElements()) {
             String key = (String) e.nextElement();
-            logger.error(key + '=' + request.getParameter(key));
+            logger.error("{}={}", LogSanitizer.sanitize(key), LogSanitizer.sanitize(request.getParameter(key)));
         }
 
         logger.error("--- Dump Request Parameters End ---");

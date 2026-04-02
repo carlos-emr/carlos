@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Struts2 action for managing Ontario Ministry of Health (MOH) billing file archival operations.
@@ -136,12 +137,12 @@ public class MoveMOHFiles2Action extends ActionSupport {
                 File file = getFile(folderPath, fileName);
                 boolean isValidFileLocation = validateFileLocation(file);
                 if (!isValidFileLocation) {
-                    logger.warn("Invalid file location " + fileName);
+                    logger.warn("Invalid file location {}", LogSanitizer.sanitize(fileName));
                     continue;
                 }
 
                 if (file == null) {
-                    logger.warn("Unable to get file " + folderPath + File.pathSeparator + fileName);
+                    logger.warn("Unable to get file {}{}{}", LogSanitizer.sanitize(folderPath), File.pathSeparator, LogSanitizer.sanitize(fileName));
 
                     errors.append("Unable to find file " + fileName + ".<br/>");
                     continue;
