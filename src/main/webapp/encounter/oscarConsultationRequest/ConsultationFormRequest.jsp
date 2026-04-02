@@ -1632,8 +1632,8 @@
             var faxNumber = document.EctConsultationFormRequest2Form.fax.value;
             faxNumber = faxNumber.trim();
             var apptDate = document.EctConsultationFormRequest2Form.appointmentDate.value;
-            var hasApptTime = document.EctConsultationFormRequest2Form.appointmentHour.options.selectedIndex != 0 &&
-                document.EctConsultationFormRequest2Form.appointmentMinute.options.selectedIndex != 0;
+            var hasApptTime = document.EctConsultationFormRequest2Form.appointmentHour.value !== '' &&
+                document.EctConsultationFormRequest2Form.appointmentMinute.value !== '';
 
             if (apptDate.length > 0 && !hasApptTime) {
                 alert('Please enter appointment time. You cannot choose appointment date only.');
