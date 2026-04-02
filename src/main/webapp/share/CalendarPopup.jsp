@@ -108,7 +108,7 @@
 </head>
 <body onload="setfocus()">
 <%
-    ResourceBundle oscarRec = ResourceBundle.getBundle("oscarResources");
+    ResourceBundle oscarRec = ResourceBundle.getBundle("oscarResources", request.getLocale());
     String jan = oscarRec.getString("share.CalendarPopUp.msgJan");
     String feb = oscarRec.getString("share.CalendarPopUp.msgFeb");
     String mar = oscarRec.getString("share.CalendarPopUp.msgMar");
