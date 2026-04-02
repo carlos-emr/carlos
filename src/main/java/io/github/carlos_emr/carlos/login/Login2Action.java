@@ -378,6 +378,13 @@ public final class Login2Action extends ActionSupport {
                 pin = "";
             }
             nextPage = (String) request.getSession().getAttribute("nextPage");
+            // Validate nextPage retrieved from session to prevent open redirect (CWE-601 defense in depth)
+            if (!isValidNextPage(nextPage)) {
+                if (nextPage != null) {
+                    logger.warn("Rejected invalid nextPage from session: " + Encode.forJava(nextPage));
+                }
+                nextPage = null;
+            }
 
             String newPassword = this.getNewPassword();
             String confirmPassword = this.getConfirmPassword();
@@ -875,30 +882,66 @@ public final class Login2Action extends ActionSupport {
      * stored in the session so they can be re-authenticated after successfully changing
      * their password. The password is encoded before storage for security.
      *
+     * <p>The {@code nextPage} parameter is validated against open redirect (CWE-601) before
+     * being stored. Any value that is absolute, protocol-relative, or contains backslash
+     * bypasses is rejected and stored as {@code null} (defense in depth).
+     *
      * <p>Session attributes set:
      * <ul>
      *   <li>userName - String the authenticated username (validated alphanumeric)</li>
      *   <li>password - String the SHA-encoded password hash</li>
      *   <li>pin - String the 4-digit provider PIN</li>
-     *   <li>nextPage - String the target page to redirect to after password change</li>
+     *   <li>nextPage - String the validated relative URL, or null if invalid/absent</li>
      * </ul>
      *
      * @param request HttpServletRequest to access the session
      * @param userName String the username (must match [a-zA-Z0-9]{1,10} pattern)
      * @param password String the plain-text password (will be encoded before storage)
      * @param pin String the 4-digit PIN (must match [0-9]{4} pattern)
-     * @param nextPage String the relative URL to redirect to after password reset
+     * @param nextPage String the relative URL to redirect to after password reset (validated before storage)
      * @throws Exception if password encoding fails
      * @see #encodePassword for password encoding algorithm
      * @see #removeAttributesFromSession for cleanup after password reset
+     * @see #isValidNextPage for redirect URL validation logic
      */
     private void setUserInfoToSession(HttpServletRequest request, String userName, String password, String pin,
                                       String nextPage) throws Exception {
         request.getSession().setAttribute("userName", userName);
         request.getSession().setAttribute("password", encodePassword(password));
         request.getSession().setAttribute("pin", pin);
+        // Validate nextPage before session storage to prevent open redirect via session (CWE-601 defense in depth)
+        if (!isValidNextPage(nextPage)) {
+            if (nextPage != null) {
+                logger.warn("Rejected invalid nextPage before session storage: " + Encode.forJava(nextPage));
+            }
+            nextPage = null;
+        }
         request.getSession().setAttribute("nextPage", nextPage);
 
+    }
+
+    /**
+     * Validates a {@code nextPage} URL to prevent open redirect attacks (CWE-601).
+     *
+     * <p>A safe nextPage value must be a non-empty relative URI with no scheme (not absolute),
+     * no host authority (rejects protocol-relative URLs like {@code //evil.com}),
+     * and no backslash characters (rejects {@code /\evil.com} browser normalization bypasses).
+     *
+     * @param nextPage String the URL candidate to validate
+     * @return boolean {@code true} if the URL is a safe relative URL, {@code false} otherwise
+     */
+    private boolean isValidNextPage(String nextPage) {
+        if (nextPage == null || nextPage.isEmpty()) {
+            return false;
+        }
+        try {
+            URI url = new URI(nextPage);
+            // Reject absolute URIs (http://...), protocol-relative URIs (//evil.com),
+            // and backslash-based bypasses (/\evil.com normalizes to //evil.com in browsers)
+            return !url.isAbsolute() && url.getAuthority() == null && !nextPage.contains("\\");
+        } catch (URISyntaxException e) {
+            return false;
+        }
     }
 
     /**
