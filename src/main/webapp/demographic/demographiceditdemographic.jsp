@@ -875,8 +875,9 @@
                 const hcType = jQuery("#hcTypeBox").val();
 
                 jQuery.ajax({
-                    type: "GET",
-                    url: '<%=request.getContextPath() %>/ws/rs/patientDetailStatusService/validateHC?hin=' + hin + '&ver=' + ver,
+                    type: "POST",
+                    url: '<%=request.getContextPath() %>/ws/rs/patientDetailStatusService/validateHC',
+                    data: JSON.stringify({hin: hin, ver: ver}),
                     dataType: 'json',
                     contentType: 'application/json',
                     success: function (data) {
