@@ -123,6 +123,7 @@
      * @param appointmentNo - The appointment the form is created on
      */
     function displayDemographicMeasurements(elementId, measurementType, demographicNo, demographicDobString, appointmentNo) {
+        existingMeasurementUsed = false;
         let demographicDob = new Date(demographicDobString);
 
         local_jQuery.ajax({
@@ -231,8 +232,12 @@
                         // If the user clicks save, complete an ajax call that will save a new measurement record to the database
                         local_jQuery.ajax({
                             type: 'POST',
-                            url: '<%=request.getContextPath()%>/encounter/MeasurementData.do?action=saveMeasurement&demographicNo=' + demographicNo + '&appointmentNo=' + appointmentNo + '&type=' + measurementType +
-                                '&value=' + document.getElementById("currentMeasurementValue").value + '&instruction=' + document.getElementById('measurementInstruction').textContent + "&dateObserved=" + document.getElementById('currentMeasurementObservationDate').value,
+                            url: '<%=request.getContextPath()%>/encounter/MeasurementData.do?action=saveMeasurement&demographicNo=' + demographicNo + '&appointmentNo=' + appointmentNo + '&type=' + measurementType,
+                            data: {
+                                value: document.getElementById("currentMeasurementValue").value,
+                                instruction: document.getElementById('measurementInstruction').textContent,
+                                dateObserved: document.getElementById('currentMeasurementObservationDate').value
+                            },
                             dataType: 'json',
                             async: false,
                             success: function (data) {
