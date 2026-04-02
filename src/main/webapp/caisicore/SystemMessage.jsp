@@ -25,14 +25,14 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <c:if test="${not empty messages}">
     <table width="100%">
         <c:forEach var="message" items="${messages}">
             <c:if test="${message.active eq 'true'}">
                 <tr>
-                    <td><font color="red" size="+1"><c:out
-                            value="${message.message}" escapeXml="false"/></font></td>
+                    <td><font color="red" size="+1">${e:forHtml(message.message)}</font></td>
                 </tr>
             </c:if>
         </c:forEach>
