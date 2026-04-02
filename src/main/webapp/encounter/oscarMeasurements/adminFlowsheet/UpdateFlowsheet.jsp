@@ -60,7 +60,6 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.TargetColour" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>

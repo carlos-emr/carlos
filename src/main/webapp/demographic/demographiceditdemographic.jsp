@@ -242,8 +242,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <!DOCTYPE html>
 <html>
 

@@ -289,8 +289,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <head>
     <title>CARLOS Billing</title>
 

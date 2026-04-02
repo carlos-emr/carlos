@@ -42,8 +42,6 @@
 <%@ page import="io.github.carlos_emr.carlos.util.LabelValueBean" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%--
     The taglib directive below imports the JSTL library. If you uncomment it,

@@ -35,7 +35,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String id = request.getParameter("id");
     ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);

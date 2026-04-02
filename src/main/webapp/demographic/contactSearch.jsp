@@ -35,7 +35,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ include file="/taglibs.jsp" %>
 

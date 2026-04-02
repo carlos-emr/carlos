@@ -33,7 +33,6 @@
 <%@page import="io.github.carlos_emr.carlos.web.eform.EfmPatientFormList" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String demographic_no = request.getParameter("demographic_no");
