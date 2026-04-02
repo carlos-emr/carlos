@@ -471,7 +471,7 @@
     <table>
         <%if (errorMessage.length() > 0) {%>
         <tr>
-            <td><b><font color="red"><%=Encode.forHtml(errorMessage)%>
+            <td><b><font color="red">An error occurred while processing your request in CARLOS EMR. Please try again or contact your system administrator if the problem persists.
             </font></b></td>
         </tr>
         <%}%>
