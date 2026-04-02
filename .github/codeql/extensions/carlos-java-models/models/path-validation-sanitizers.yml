@@ -1,37 +1,67 @@
 # PathValidationUtils - Path Traversal Sanitizer Models
 #
-# Registers PathValidationUtils methods as neutral summaries so CodeQL
-# does not propagate taint through them. These methods validate/sanitize
-# file paths and throw SecurityException on invalid input, making their
-# return values safe from path traversal (CWE-022).
+# Registers PathValidationUtils methods as explicit summaryModel entries so that
+# CodeQL uses these models instead of analyzing the method bodies. Each entry
+# specifies ONLY the safe argument (the application-controlled allowed directory)
+# as the source for the return value, which means taint from user-controlled
+# arguments (e.g. a user-provided filename) does NOT propagate to the return value.
+#
+# These methods validate/sanitize file paths and throw SecurityException on invalid
+# input, making their return values safe from path traversal (CWE-022).
+#
+# summaryModel format (10 columns):
+#   [package, type, isInterface, name, signature, ext, input, output, kind, provenance]
+#
+# Fully-qualified Java type names are required in signatures:
+#   java.lang.String  (not String)
+#   java.io.File      (not File)
 #
 # See: src/main/java/io/github/carlos_emr/carlos/utility/PathValidationUtils.java
 
 extensions:
 
-  # Mark all public PathValidationUtils methods as neutral summaries.
-  # This tells CodeQL that taint does NOT flow from arguments to return values,
-  # preventing false positives on java/path-injection (CWE-022) and related queries.
+  # summaryModel entries replace body analysis for these methods.
+  # By only modelling flows from safe (application-controlled) arguments to the
+  # return value — and deliberately omitting user-controlled arguments — CodeQL
+  # will not propagate taint through these sanitizer methods.
+  - addsTo:
+      pack: codeql/java-all
+      extensible: summaryModel
+    data:
+      # validatePath(String userFilename, File allowedDir) -> File
+      # Sanitizes the user-provided filename and constructs a safe path within
+      # allowedDir. The return value is bounded by allowedDir (Argument[1]); the
+      # user-provided filename (Argument[0]) is intentionally NOT modelled as a
+      # flow source so that taint from it is cut off at the sanitizer boundary.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", False, "validatePath", "(java.lang.String,java.io.File)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
+
+      # validateExistingPath(File file, File allowedDir) -> File
+      # Validates that file is within allowedDir and returns it. The return value
+      # is guaranteed to be within allowedDir (Argument[1]); modelling only that
+      # argument prevents taint from a possibly-tainted file path (Argument[0])
+      # propagating past the sanitizer boundary.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", False, "validateExistingPath", "(java.io.File,java.io.File)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
+
+      # validateUpload(File sourceFile) -> File
+      # Validates that the uploaded file (a framework-assigned temp path, not
+      # user-controlled) resides in an allowed temp directory and returns the
+      # canonicalized File. Argument[0] flows to ReturnValue because the source
+      # path is system-assigned by Struts2/Tomcat and is not user-controlled.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", False, "validateUpload", "(java.io.File)", "", "Argument[0]", "ReturnValue", "taint", "manual"]
+
+      # validateUpload(File sourceFile, String userFilename, File destDir) -> File
+      # End-to-end upload validation: validates source, sanitizes the user-provided
+      # filename, and constructs a safe destination within destDir. The return value
+      # is bounded by destDir (Argument[2]); the user-provided filename (Argument[1])
+      # is intentionally NOT modelled as a flow source.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", False, "validateUpload", "(java.io.File,java.lang.String,java.io.File)", "", "Argument[2]", "ReturnValue", "taint", "manual"]
+
+  # neutralModel entries suppress any auto-generated models for methods that return
+  # a non-reference type (boolean) where no taint flow to ReturnValue is relevant.
   - addsTo:
       pack: codeql/java-all
       extensible: neutralModel
     data:
-      # validatePath(String, File) -> File
-      # Sanitizes user-provided filename and validates path within allowed directory
-      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validatePath", "(String,File)", "summary", "manual"]
-
-      # validateExistingPath(File, File) -> File
-      # Validates existing file path is within allowed directory
-      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateExistingPath", "(File,File)", "summary", "manual"]
-
-      # validateUpload(File) -> File
-      # Validates uploaded source file is from allowed temp location
-      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateUpload", "(File)", "summary", "manual"]
-
-      # validateUpload(File, String, File) -> File
-      # End-to-end upload validation: source + filename sanitization + destination
-      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateUpload", "(File,String,File)", "summary", "manual"]
-
-      # isInAllowedTempDirectory(File) -> boolean
-      # Guard condition: checks if file is in allowed temp directory
-      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "isInAllowedTempDirectory", "(File)", "summary", "manual"]
+      # isInAllowedTempDirectory(File file) -> boolean
+      # Guard predicate only; returns boolean with no relevant taint-flow to callers.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "isInAllowedTempDirectory", "(java.io.File)", "summary", "manual"]
