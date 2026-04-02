@@ -135,7 +135,7 @@
 
                         for (Provider p : providers) {
                     %>
-                    <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtmlContent(p.getFormattedName())%></option>
+                    <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtml(p.getFormattedName())%></option>
                     <% } %>
                 </select>
             </div>

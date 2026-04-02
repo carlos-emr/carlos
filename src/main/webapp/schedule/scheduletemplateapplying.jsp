@@ -37,6 +37,7 @@
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleDate" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.RSchedule" %>
@@ -51,10 +52,9 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<html>
+<html lang="en">
 
     <%
         if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -178,12 +178,12 @@
 
     <head>
 
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.title"/></title>
-        <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title><fmt:message key="schedule.scheduletemplateapplying.title"/></title>
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-        <!-- Bootstrap -->
-        <script language="JavaScript">
-            <!--
+        <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
+        <script>
 
             async function displayTemplate(s) {
                 var url = "scheduleDisplayTemplate.jsp?name=" + s[s.selectedIndex].value + "&providerid=<%=request.getParameter("provider_no")%>";
@@ -200,11 +200,11 @@
                 var ref = "<rewrite:reWrite jspPage="scheduletemplateapplying.jsp"/>";
                 ref += "?provider_no=<%=URLEncoder.encode(request.getParameter("provider_no"), StandardCharsets.UTF_8)%>&provider_name=<%=URLEncoder.encode(request.getParameter("provider_name"), StandardCharsets.UTF_8)%>";
                 ref += "&sdate=" + s.options[s.selectedIndex].value;
-                self.location.href = ref;
+                window.location.href = ref;
             }
 
             function onBtnDelete(s) {
-                if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgDeleteConfirmation"/>")) {
+                if (confirm("<fmt:message key="schedule.scheduletemplateapplying.msgDeleteConfirmation"/>")) {
                     var form = document.createElement('form');
                     form.method = 'post';
                     form.action = "<rewrite:reWrite jspPage="scheduletemplateapplying.jsp"/>";
@@ -249,27 +249,27 @@
 
             function onChangeDates() {
                 if (!checkDate(document.schedule.syear.value, document.schedule.smonth.value, document.schedule.sday.value)) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgIncorrectOutput"/>");
+                    alert("<fmt:message key="schedule.scheduletemplateapplying.msgIncorrectOutput"/>");
                 }
             }
 
             function onChangeDatee() {
                 if (!checkDate(document.schedule.eyear.value, document.schedule.emonth.value, document.schedule.eday.value)) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgIncorrectOutput"/>");
+                    alert("<fmt:message key="schedule.scheduletemplateapplying.msgIncorrectOutput"/>");
                 }
             }
 
             function onAlternate() {
                 if (document.schedule.alternate.checked) {
-                    a = self.location.href.lastIndexOf("&bFirstDisp=") > 0 ? "" : "&bFirstDisp=0";
-                    if (self.location.href.lastIndexOf("&alternate=") > 0) c = self.location.href;
-                    else c = self.location.href;
-                    self.location.href = c + a + "&alternate=checked";
+                    a = window.location.href.lastIndexOf("&bFirstDisp=") > 0 ? "" : "&bFirstDisp=0";
+                    if (window.location.href.lastIndexOf("&alternate=") > 0) c = window.location.href;
+                    else c = window.location.href;
+                    window.location.href = c + a + "&alternate=checked";
                 } else {
-                    a = self.location.href.lastIndexOf("&bFirstDisp=") > 0 ? "" : "&bFirstDisp=0";
-                    if (self.location.href.lastIndexOf("&alternate=") > 0) c = self.location.href.substring(0, self.location.href.lastIndexOf("&alternate="));
-                    else c = self.location.href;
-                    self.location.href = c + a;
+                    a = window.location.href.lastIndexOf("&bFirstDisp=") > 0 ? "" : "&bFirstDisp=0";
+                    if (window.location.href.lastIndexOf("&alternate=") > 0) c = window.location.href.substring(0, window.location.href.lastIndexOf("&alternate="));
+                    else c = window.location.href;
+                    window.location.href = c + a;
                 }
             }
 
@@ -343,7 +343,7 @@
                 document.schedule.avail_hour.value = str1;
 
                 if (document.schedule.syear.value == "" || document.schedule.smonth.value == "" || document.schedule.sday.value == "") {
-//	  alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgInputDate"/>"); return false;
+//	  alert("<fmt:message key="schedule.scheduletemplateapplying.msgInputDate"/>"); return false;
                 } else {
                     return true;
                 }
@@ -413,32 +413,37 @@
                 document.schedule.day_of_weekB.value = strB;
                 document.schedule.avail_hourB.value = str1;
                 if (document.schedule.syear.value == "" || document.schedule.smonth.value == "" || document.schedule.sday.value == "") {
-//	  alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgInputDate"/>"); return false;
+//	  alert("<fmt:message key="schedule.scheduletemplateapplying.msgInputDate"/>"); return false;
                 } else {
                     return true;
                 }
             }
 
             function addDataString1() {
-                var str = "";
                 if (document.schedule.syear.value == "" || document.schedule.smonth.value == "" || document.schedule.sday.value == "" || document.schedule.eyear.value == "" || document.schedule.emonth.value == "" || document.schedule.eday.value == "") {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgInputDate"/>");
+                    alert("<fmt:message key="schedule.scheduletemplateapplying.msgInputDate"/>");
                     return false;
                 } else if (!checkDate(document.schedule.syear.value, document.schedule.smonth.value, document.schedule.sday.value) || !checkDate(document.schedule.eyear.value, document.schedule.emonth.value, document.schedule.eday.value)) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgInputCorrectDate"/>");
+                    alert("<fmt:message key="schedule.scheduletemplateapplying.msgInputCorrectDate"/>");
                     return false;
                 }
 
-                var sDate = new Date(document.schedule.syear.value, document.schedule.smonth.value, document.schedule.sday.value);
-                var eDate = new Date(document.schedule.eyear.value, document.schedule.emonth.value, document.schedule.eday.value);
+                var sDate = new Date(document.schedule.syear.value, document.schedule.smonth.value - 1, document.schedule.sday.value);
+                var eDate = new Date(document.schedule.eyear.value, document.schedule.emonth.value - 1, document.schedule.eday.value);
 
                 if (sDate > eDate) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgDateOrder"/>");
+                    alert("<fmt:message key="schedule.scheduletemplateapplying.msgDateOrder"/>");
                     return false;
                 }
+
+                if (document.schedule.day_of_week.value == "") {
+                    alert("<fmt:message key="schedule.scheduletemplateapplying.msgSelectDay"/>");
+                    return false;
+                }
+
+                return true;
             }
 
-            //-->
         </script>
     </head>
     <%
@@ -464,24 +469,24 @@
             }
         }
     %>
-    <body onLoad="setfocus()">
+    <body>
+    <div class="container-fluid py-3">
     <form method="post" name="schedule" action="schedulecreatedate.jsp"
           onSubmit="<%=bAlternate||bOrigAlt?"addDataStringB();":""%>addDataString();return(addDataString1())">
 
-        <table style="width:100%">
-            <tr>
-                <td style="vertical-align:top; width:98%">
-                    <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgMainLabel"/></h4>
-                    <div class="alert">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgStepOne"/>
-                        <br>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgStepTwo"/>
-                        <br>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgStepThree"/>
-                        <br>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgStepFour"/>
-                    </div>
-                    <div class="card card-body bg-body-tertiary">
+        <h4><fmt:message key="schedule.scheduletemplateapplying.msgMainLabel"/></h4>
+        <div class="alert alert-info">
+            <fmt:message key="schedule.scheduletemplateapplying.msgStepOne"/>
+            <br>
+            <fmt:message key="schedule.scheduletemplateapplying.msgStepTwo"/>
+            <br>
+            <fmt:message key="schedule.scheduletemplateapplying.msgStepThree"/>
+            <br>
+            <fmt:message key="schedule.scheduletemplateapplying.msgStepFour"/>
+        </div>
+        <div class="card card-body bg-body-tertiary">
+            <div class="row">
+            <div class="col-md-10">
 
 
                         <%
@@ -540,11 +545,11 @@
                         %>
                         <table style="width:99%">
                             <tr>
-                                <td style="background-color:#CCFFCC"><b><%=request.getParameter("provider_name")%>
+                                <td class="bg-success-subtle"><b><%=Encode.forHtml(request.getParameter("provider_name") != null ? request.getParameter("provider_name") : "")%>
                                 </b>
                                     <input type="hidden" name="provider_name"
-                                           value="<%=request.getParameter("provider_name")%>"></td>
-                                <td style="background-color:#CCFFCC; text-align:right; white-space:nowrap"><select
+                                           value="<%=Encode.forHtmlAttribute(request.getParameter("provider_name") != null ? request.getParameter("provider_name") : "")%>"></td>
+                                <td class="bg-success-subtle text-end"><select
                                         name="select" onChange="selectrschedule(this)">
                                     <%
 
@@ -560,7 +565,7 @@
                                         }
                                     %>
                                 </select> <input type="button" name="command" class="btn btn-secondary"
-                                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.btnDelete"/>"
+                                                 value="<fmt:message key="schedule.scheduletemplateapplying.btnDelete"/>"
                                                  onClick="onBtnDelete(document.forms['schedule'].elements['select'])">
                                 </td>
                             </tr>
@@ -569,7 +574,7 @@
                                     <%
                                         if(request.getParameter("overlap") != null) {
                                     %>
-                                    <fmt:message key="schedule.scheduletemplateapplying.btnDelete"/>
+                                    <fmt:message key="schedule.scheduletemplateapplying.msgScheduleConflict"/>
                                     <%
                                         } else {
                                             out.print("&nbsp;");
@@ -578,7 +583,7 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td style="background-color:#CCFFCC" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgDate"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgFrom"/>:
+                                <td class="bg-success-subtle" colspan="2"><fmt:message key="schedule.scheduletemplateapplying.msgDate"/> <fmt:message key="schedule.scheduletemplateapplying.msgFrom"/>:
                                     <input
                                             type="text" name="syear" maxlength="4" value="<%=syear%>"
                                             style="width: 40px;"> -
@@ -586,8 +591,8 @@
                                            maxlength="2" value="<%=smonth%>" style="width: 30px;"> -
                                     <input
                                             type="text" name="sday" maxlength="2" value="<%=sday%>"
-                                            onChange="onChangeDates()" style="width: 30px;"> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgDateFormat"/> &nbsp;
-                                    &nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgTo"/>:
+                                            onChange="onChangeDates()" style="width: 30px;"> <fmt:message key="schedule.scheduletemplateapplying.msgDateFormat"/> &nbsp;
+                                    &nbsp; <fmt:message key="schedule.scheduletemplateapplying.msgTo"/>:
                                     <input type="text" name="eyear" maxlength="4"
                                            value="<%=eyear%>" style="width: 40px;">
                                     <input type="hidden"
@@ -607,10 +612,10 @@
                                 <td colspan="2">&nbsp;</td>
                             </tr>
                             <tr>
-                                <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgAvaiableEvery"/> (<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgDayOfWeek"/>):
+                                <td colspan="2"><fmt:message key="schedule.scheduletemplateapplying.msgAvaiableEvery"/> (<fmt:message key="schedule.scheduletemplateapplying.msgDayOfWeek"/>):
                                     <input
                                             type="checkbox" name="alternate" value="checked"
-                                            onClick="onAlternate()" <%=bOrigAlt||bAlternate?"checked":""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgAlternateWeekSetting"/></td>
+                                            onClick="onAlternate()" <%=bOrigAlt||bAlternate?"checked":""%>><fmt:message key="schedule.scheduletemplateapplying.msgAlternateWeekSetting"/></td>
                             </tr>
                             <tr>
                                 <td style="text-align:center; white-space:nowrap" colspan="2">
@@ -618,7 +623,6 @@
                                         <tr>
                                             <td style="width:70%">
                                                 <script>
-                                                    <!--
                                                     function tranbutton_click(myfield) {
                                                         var dow = document.schedule;
                                                         if (dow.mytemplate.selectedIndex > -1) {
@@ -654,16 +658,15 @@
                                                         tranbutton_click(document.schedule.satfrom1);
                                                     }
 
-                                                    //-->
                                                 </script>
                                                 <table class="table table-bordered">
-                                                    <tr style="background-color:#CCFFCC">
+                                                    <tr class="table-success">
                                                         <td>
                                                             <p><input type="checkbox"
                                                                       name="checksun" value="1"
                                                                       onClick="addDataString()"
                                                                     <%=param2[0]%>>
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgSunday"/>
+                                                                    <fmt:message key="schedule.scheduletemplateapplying.msgSunday"/>
                                                         </td>
                                                         <td><input type="text"
                                                                    name="sunfrom1" size="20" value="<%=param3[0][0]%>"
@@ -676,7 +679,7 @@
                                                     <tr>
                                                         <td><input type="checkbox"
                                                                    name="checkmon" value="2" onClick="addDataString()"
-                                                                <%=param2[1]%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgMonday"/></td>
+                                                                <%=param2[1]%>> <fmt:message key="schedule.scheduletemplateapplying.msgMonday"/></td>
                                                         <td><input type="text"
                                                                    name="monfrom1" size="20" value="<%=param3[1][0]%>"
                                                                    readonly>
@@ -685,10 +688,10 @@
                                                             <%=bMoreAddr ? getSelectAddr("monaddr1", addr, param4[1][0]) : ""  %>
                                                         </td>
                                                     </tr>
-                                                    <tr style="background-color:#CCFFCC">
+                                                    <tr class="table-success">
                                                         <td><input type="checkbox"
                                                                    name="checktue" value="3" onClick="addDataString()"
-                                                                <%=param2[2]%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgTuesday"/>
+                                                                <%=param2[2]%>> <fmt:message key="schedule.scheduletemplateapplying.msgTuesday"/>
                                                         </td>
                                                         <td><input type="text"
                                                                    name="tuefrom1" size="20" value="<%=param3[2][0]%>"
@@ -701,7 +704,7 @@
                                                     <tr>
                                                         <td><input type="checkbox"
                                                                    name="checkwed" value="4" onClick="addDataString()"
-                                                                <%=param2[3]%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgWednesday"/>
+                                                                <%=param2[3]%>> <fmt:message key="schedule.scheduletemplateapplying.msgWednesday"/>
                                                         </td>
                                                         <td><input type="text"
                                                                    name="wedfrom1" size="20" value="<%=param3[3][0]%>"
@@ -711,10 +714,10 @@
                                                             <%=bMoreAddr ? getSelectAddr("wedaddr1", addr, param4[3][0]) : ""  %>
                                                         </td>
                                                     </tr>
-                                                    <tr style="background-color:#CCFFCC">
+                                                    <tr class="table-success">
                                                         <td><input type="checkbox"
                                                                    name="checkthu" value="5" onClick="addDataString()"
-                                                                <%=param2[4]%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgThursday"/>
+                                                                <%=param2[4]%>> <fmt:message key="schedule.scheduletemplateapplying.msgThursday"/>
                                                         </td>
                                                         <td><input type="text"
                                                                    name="thufrom1" size="20" value="<%=param3[4][0]%>"
@@ -727,7 +730,7 @@
                                                     <tr>
                                                         <td><input type="checkbox"
                                                                    name="checkfri" value="6" onClick="addDataString()"
-                                                                <%=param2[5]%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgFriday"/></td>
+                                                                <%=param2[5]%>> <fmt:message key="schedule.scheduletemplateapplying.msgFriday"/></td>
                                                         <td><input type="text"
                                                                    name="frifrom1" size="20" value="<%=param3[5][0]%>"
                                                                    readonly>
@@ -736,10 +739,10 @@
                                                             <%=bMoreAddr ? getSelectAddr("friaddr1", addr, param4[5][0]) : ""  %>
                                                         </td>
                                                     </tr>
-                                                    <tr style="background-color:#CCFFCC">
+                                                    <tr class="table-success">
                                                         <td><input type="checkbox"
                                                                    name="checksat" value="7" onClick="addDataString()"
-                                                                <%=param2[6]%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgSaturday"/>
+                                                                <%=param2[6]%>> <fmt:message key="schedule.scheduletemplateapplying.msgSaturday"/>
                                                         </td>
                                                         <td><input type="text"
                                                                    name="satfrom1" size="20" value="<%=param3[6][0]%>"
@@ -793,8 +796,7 @@
                                                             }
                                                             //}
                                                     %>
-                                                    <script language=javascript>
-                                                        <!--
+                                                    <script>
                                                         function tranbuttonb1_click() {
                                                             tranbutton_click(document.schedule.sunfrom2);
                                                         }
@@ -823,15 +825,14 @@
                                                             tranbutton_click(document.schedule.satfrom2);
                                                         }
 
-                                                        //-->
                                                     </script>
-                                                    <tr style="background-color:#00C5CD">
+                                                    <tr class="table-info">
                                                         <td>
                                                             <p><input type="checkbox"
                                                                       name="checksun2" value="1"
                                                                       onClick="addDataString()"
                                                                     <%=param2[0]%>>
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgSunday"/>
+                                                                    <fmt:message key="schedule.scheduletemplateapplying.msgSunday"/>
                                                         </td>
                                                         <td><input type="text"
                                                                    name="sunfrom2" size="20" value="<%=param3[0][0]%>">
@@ -841,10 +842,10 @@
                                                             <%=bMoreAddr ? getSelectAddr("sunaddr2", addr, param4[0][0]) : ""  %>
                                                         </td>
                                                     </tr>
-                                                    <tr style="background-color:#E0FFFF">
+                                                    <tr>
                                                         <td><input type="checkbox"
                                                                    name="checkmon2" value="2" onClick="addDataString()"
-                                                                <%=param2[1]%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgMonday"/></td>
+                                                                <%=param2[1]%>> <fmt:message key="schedule.scheduletemplateapplying.msgMonday"/></td>
                                                         <td><input type="text"
                                                                    name="monfrom2" size="20" value="<%=param3[1][0]%>">
                                                             <input
@@ -853,10 +854,10 @@
                                                             <%=bMoreAddr ? getSelectAddr("monaddr2", addr, param4[1][0]) : ""  %>
                                                         </td>
                                                     </tr>
-                                                    <tr style="background-color:#00C5CD">
+                                                    <tr class="table-info">
                                                         <td><input type="checkbox"
                                                                    name="checktue2" value="3" onClick="addDataString()"
-                                                                <%=param2[2]%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgTuesday"/>
+                                                                <%=param2[2]%>> <fmt:message key="schedule.scheduletemplateapplying.msgTuesday"/>
                                                         </td>
                                                         <td><input type="text"
                                                                    name="tuefrom2" size="20" value="<%=param3[2][0]%>">
@@ -866,10 +867,10 @@
                                                             <%=bMoreAddr ? getSelectAddr("tueaddr2", addr, param4[2][0]) : ""  %>
                                                         </td>
                                                     </tr>
-                                                    <tr style="background-color:#E0FFFF">
+                                                    <tr>
                                                         <td><input type="checkbox"
                                                                    name="checkwed2" value="4" onClick="addDataString()"
-                                                                <%=param2[3]%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgWednesday"/>
+                                                                <%=param2[3]%>> <fmt:message key="schedule.scheduletemplateapplying.msgWednesday"/>
                                                         </td>
                                                         <td><input type="text"
                                                                    name="wedfrom2" size="20" value="<%=param3[3][0]%>">
@@ -879,10 +880,10 @@
                                                             <%=bMoreAddr ? getSelectAddr("wedaddr2", addr, param4[3][0]) : ""  %>
                                                         </td>
                                                     </tr>
-                                                    <tr style="background-color:#00C5CD">
+                                                    <tr class="table-info">
                                                         <td><input type="checkbox"
                                                                    name="checkthu2" value="5" onClick="addDataString()"
-                                                                <%=param2[4]%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgThursday"/>
+                                                                <%=param2[4]%>> <fmt:message key="schedule.scheduletemplateapplying.msgThursday"/>
                                                         </td>
                                                         <td><input type="text"
                                                                    name="thufrom2" size="20" value="<%=param3[4][0]%>">
@@ -892,10 +893,10 @@
                                                             <%=bMoreAddr ? getSelectAddr("thuaddr2", addr, param4[4][0]) : ""  %>
                                                         </td>
                                                     </tr>
-                                                    <tr style="background-color:#E0FFFF">
+                                                    <tr>
                                                         <td><input type="checkbox"
                                                                    name="checkfri2" value="6" onClick="addDataString()"
-                                                                <%=param2[5]%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgFriday"/></td>
+                                                                <%=param2[5]%>> <fmt:message key="schedule.scheduletemplateapplying.msgFriday"/></td>
                                                         <td><input type="text"
                                                                    name="frifrom2" size="20" value="<%=param3[5][0]%>">
                                                             <input
@@ -904,10 +905,10 @@
                                                             <%=bMoreAddr ? getSelectAddr("friaddr2", addr, param4[5][0]) : ""  %>
                                                         </td>
                                                     </tr>
-                                                    <tr style="background-color:#00C5CD">
+                                                    <tr class="table-info">
                                                         <td><input type="checkbox"
                                                                    name="checksat2" value="7" onClick="addDataString()"
-                                                                <%=param2[6]%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgSaturday"/>
+                                                                <%=param2[6]%>> <fmt:message key="schedule.scheduletemplateapplying.msgSaturday"/>
                                                         </td>
                                                         <td><input type="text"
                                                                    name="satfrom2" size="20" value="<%=param3[6][0]%>">
@@ -931,7 +932,7 @@
                                                     for (ScheduleTemplate st : scheduleTemplateDao.findByProviderNo("Public")) {
 
                                                 %>
-                                                <option value="<%=Encode.forHtmlAttribute(st.getId().getName())%>"><%=Encode.forHtmlContent(st.getId().getName()) + " |" + Encode.forHtmlContent(st.getSummary())%>
+                                                <option value="<%=Encode.forHtmlAttribute(st.getId().getName())%>"><%=Encode.forHtml(st.getId().getName()) + " |" + Encode.forHtml(st.getSummary())%>
                                                 </option>
                                                 <%
                                                     }
@@ -939,7 +940,7 @@
                                                     for (ScheduleTemplate st : scheduleTemplateDao.findByProviderNo(request.getParameter("provider_no"))) {
 
                                                 %>
-                                                <option value="<%=Encode.forHtmlAttribute(st.getId().getName())%>"><%=Encode.forHtmlContent(st.getId().getName()) + " |" + Encode.forHtmlContent(st.getSummary())%>
+                                                <option value="<%=Encode.forHtmlAttribute(st.getId().getName())%>"><%=Encode.forHtml(st.getId().getName()) + " |" + Encode.forHtml(st.getSummary())%>
                                                 </option>
                                                 <% } %>
                                             </select></td>
@@ -963,28 +964,23 @@
                             </tr>
                             <tr>
                                 <td colspan="2">
-                                    <div style="text-align:right"><input type="hidden" name="provider_no"
-                                                                         value="<%=request.getParameter("provider_no")%>">
-                                        <input
-                                                type="hidden" name="available"
-                                                value="<%=bAlternate||bOrigAlt?"A":"1"%>"> <input
-                                                type="hidden" name="Submit" value=" Next "> <input
-                                                type="submit" class="btn btn-primary"
-                                                value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.btnNext"/>'>
+                                    <div class="text-end">
+                                        <input type="hidden" name="provider_no" value="<%=Encode.forHtmlAttribute(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "")%>">
+                                        <input type="hidden" name="available" value="<%=bAlternate||bOrigAlt?"A":"1"%>">
+                                        <input type="submit" class="btn btn-primary" value='<fmt:message key="schedule.scheduletemplateapplying.btnNext"/>'>
                                     </div>
                                 </td>
                             </tr>
                         </table>
                     </div>
-                </td>
-                <td>
-                    <div style="background-color: #486ebd; width:40px;" id="template"></div>
-                </td>
-            </tr>
-        </table>
-
-
+            </div><!-- col-md-10 -->
+            <div class="col-md-2">
+                <div id="template"></div>
+            </div><!-- col-md-2 -->
+            </div><!-- row -->
+        </div><!-- card -->
     </form>
+    </div><!-- container-fluid -->
     <%
         } //end if
     %>
@@ -1013,7 +1009,7 @@
             }
 
             if ((isExcludedSiteSelected) || (!excludedSites.contains(site[i]))) {
-                ret += "<option value='" + Encode.forHtmlAttribute(site[i]) + "'" + t + (bMultisites ? " style='background-color:" + bgColors[i] + "'" : "") + ">" + Encode.forHtmlContent(site[i]) + "</option>";
+                ret += "<option value='" + Encode.forHtmlAttribute(site[i]) + "'" + t + (bMultisites ? " style='background-color:" + bgColors[i] + "'" : "") + ">" + Encode.forHtml(site[i]) + "</option>";
             }
         }
         ret += "</select>";
