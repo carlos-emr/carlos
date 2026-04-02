@@ -2391,7 +2391,7 @@ if (userAgent != null) {
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAddress"/></small><br>
                                                 <%-- Encode.forHtml() preserves \n, so .replace() safely inserts <br> after encoding --%>
-                                                <%=Encode.forHtml(thisForm.getPatientAddress().replace("null", "")).replace("\n", "<br>")%>
+                                                <%=Encode.forHtml(thisForm.getPatientAddress()).replace("\n", "<br>")%>
                                             </div>
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPhone"/></small>: <%=Encode.forHtml(thisForm.getPatientPhone())%><br>
@@ -2510,8 +2510,8 @@ if (userAgent != null) {
 
                                             <select name="specialist" id="specialist" class="form-select form-select-sm">
                                                 <c:forEach items="${ healthCareTeam }" var="contact" varStatus="loop">
-                                                    <option value="${ contact.id }" ${ specialist eq contact.id ? 'selected' : ''} >
-                                                            ${ contact.details.formattedName } ( ${ contact.role } )
+                                                    <option value="${e:forHtmlAttribute(contact.id)}" ${ specialist eq contact.id ? 'selected' : ''} >
+                                                            ${e:forHtml(contact.details.formattedName)} ( ${e:forHtml(contact.role)} )
                                                     </option>
                                                 </c:forEach>
                                             </select>
@@ -3173,7 +3173,7 @@ if (userAgent != null) {
             if("${empty pageScope.consultUtil.letterheadName}" === "true") {
                 // New consultation - set default letterhead
                 if("${pageScope.lhndType eq 'providers'}" === "true"){
-                    switchProvider("${pageScope.providerDefault}");
+                    switchProvider("${e:forJavaScript(pageScope.providerDefault)}");
                 } else if("${pageScope.lhndType eq 'clinic'}" === "true"){
                     switchProvider("<%=Encode.forJavaScript(clinic.getClinicName())%>");
                 } else {
@@ -3181,7 +3181,7 @@ if (userAgent != null) {
                 }
             } else {
                 // Existing consultation - load saved letterhead
-                switchProvider("${pageScope.consultUtil.letterheadName}");
+                switchProvider("${e:forJavaScript(pageScope.consultUtil.letterheadName)}");
             }
         })
     </script>
