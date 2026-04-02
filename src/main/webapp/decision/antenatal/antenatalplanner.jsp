@@ -99,7 +99,7 @@
 
         // formONAR table removed (deprecated 2026-03-25); risk data from ONAR form no longer available
         String finalEDB = null, wt = null, ht = null;
-    }
+
         //get the risk data from table desaprisk for other risk factors
         Desaprisk darp = desapriskDao.search(Integer.parseInt(form_no), Integer.parseInt(demographic_no));
 
