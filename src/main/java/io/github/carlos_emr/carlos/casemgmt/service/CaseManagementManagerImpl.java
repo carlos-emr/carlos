@@ -1751,7 +1751,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
     @Override
     public Long saveNoteSimpleReturnID(CaseManagementNote note) {
-        return (Long) this.caseManagementNoteDAO.saveAndReturn(note);
+        CaseManagementNote managed = (CaseManagementNote) this.caseManagementNoteDAO.saveAndReturn(note);
+        return managed.getId();
     }
 
     @Override
