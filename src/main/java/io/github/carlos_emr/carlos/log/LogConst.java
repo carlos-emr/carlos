@@ -87,5 +87,6 @@ public class LogConst {
     public static final String CON_DOCUMENTDESCRIPTIONTEMPLATEPREFERENCE = "documentDescriptionTemplatePreference";
     public static final String CON_FAX = "fax";
     public static final String CON_PHARMACY = "pharmacy";
+    public static final String CON_PROVIDER_INBOX = "provider_inbox";
 
 }

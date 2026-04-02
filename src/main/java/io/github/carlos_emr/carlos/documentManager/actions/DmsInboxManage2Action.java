@@ -49,6 +49,8 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.HRMResultsData;
@@ -215,6 +217,13 @@ public class DmsInboxManage2Action extends ActionSupport {
             searchProviderNo = providerNo;
         } // default to current providers
 
+        // Audit log cross-provider inbox access
+        if (searchProviderNo != null && !searchProviderNo.equals(providerNo) && !"-1".equals(searchProviderNo)) {
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            LogAction.addLog(loggedInInfo, LogConst.READ, LogConst.CON_PROVIDER_INBOX, searchProviderNo, null,
+                    "Admin viewed inbox index for provider: " + searchProviderNo);
+        }
+
         boolean providerSearch = !"-1".equals(searchProviderNo);
 
         MiscUtils.getLogger().debug("SEARCH " + searchProviderNo);
@@ -341,6 +350,12 @@ public class DmsInboxManage2Action extends ActionSupport {
         }
         if (searchProviderNo == null) {
             searchProviderNo = providerNo;
+        }
+
+        // Audit log cross-provider inbox access
+        if (searchProviderNo != null && !searchProviderNo.equals(providerNo) && !"-1".equals(searchProviderNo)) {
+            LogAction.addLog(loggedInInfo, LogConst.READ, LogConst.CON_PROVIDER_INBOX, searchProviderNo, null,
+                    "Admin viewed inbox content for provider: " + searchProviderNo);
         }
         String roleName = "";
         List<SecUserRole> roles = secUserRoleDao.getUserRoles(searchProviderNo);
@@ -731,6 +746,12 @@ public class DmsInboxManage2Action extends ActionSupport {
             searchProviderNo = providerNo;
         }
 
+        // Audit log cross-provider inbox access
+        if (!searchProviderNo.equals(providerNo) && !"-1".equals(searchProviderNo)) {
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            LogAction.addLog(loggedInInfo, LogConst.READ, LogConst.CON_PROVIDER_INBOX, searchProviderNo, null,
+                    "Admin viewed document queues for provider: " + searchProviderNo);
+        }
         StringBuilder roleName = new StringBuilder();
         List<SecUserRole> roles = secUserRoleDao.getUserRoles(searchProviderNo);
         for (SecUserRole r : roles) {
