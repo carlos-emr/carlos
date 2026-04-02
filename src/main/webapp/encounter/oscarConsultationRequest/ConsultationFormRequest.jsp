@@ -1221,8 +1221,11 @@
             if (timeDisplay) timeDisplay.disabled = disabled;
             var clearTimeBtn = document.getElementById('clearTimeBtn');
             if (clearTimeBtn) clearTimeBtn.disabled = disabled;
+            var appointmentDate = document.getElementById('appointmentDate');
+            if (appointmentDate) appointmentDate.disabled = disabled;
             if (disabled) {
-                // Clear hidden time fields so they are not submitted when patient will book
+                // Clear date and hidden time fields so they are not submitted when patient will book
+                if (appointmentDate) appointmentDate.value = '';
                 document.getElementById('appointmentHour').value = '';
                 document.getElementById('appointmentMinute').value = '';
                 document.getElementById('appointmentPm').value = 'AM';
@@ -3291,6 +3294,13 @@ if (userAgent != null) {
                         jQuery('#attachDocumentsForm').find(".document_check:checked:not(input[disabled='disabled']), .lab_check:checked:not(input[disabled='disabled']), .form_check:checked:not(input[disabled='disabled']), .eForm_check:checked:not(input[disabled='disabled']), .hrm_check:checked:not(input[disabled='disabled'])"
                         ).each(function (index, data) {
                             var element = jQuery(this);
+                            var rowId = "entry_" + element.attr("name") + element.val();
+
+                            // skip if this entry was already added (e.g. dialog opened/closed multiple times)
+                            if (jQuery('#EctConsultationFormRequest2Form').find("#" + rowId).length > 0) {
+                                return;
+                            }
+
                             var input = jQuery("<input />", {
                                 type: 'hidden',
                                 name: element.attr('name'),
@@ -3298,23 +3308,17 @@ if (userAgent != null) {
                                 id: "delegate_" + element.attr('id'),
                                 class: 'delegateAttachment'
                             });
-                            var row = jQuery("<tr>", {id: "entry_" + element.attr("name") + element.val()});
+                            var row = jQuery("<tr>", {id: rowId});
                             var column = jQuery("<td>");
                             var target = "#attachedDocumentsTable";
 
-                            if ("lab_check".indexOf(element.attr("class")) !== -1) {
+                            if (element.hasClass("lab_check")) {
                                 target = "#attachedLabsTable";
-                            }
-
-                            if ("form_check".indexOf(element.attr("class")) !== -1) {
-                                target = "#attachedFormsTable";
-                            }
-
-                            if ("eForm_check".indexOf(element.attr("class")) != -1) {
+                            } else if (element.hasClass("eForm_check")) {
                                 target = "#attachedEFormsTable";
-                            }
-
-                            if ("hrm_check".indexOf(element.attr("class")) != -1) {
+                            } else if (element.hasClass("form_check")) {
+                                target = "#attachedFormsTable";
+                            } else if (element.hasClass("hrm_check")) {
                                 target = "#attachedHRMDocumentsTable";
                             }
                             column.text(element.attr("title"));

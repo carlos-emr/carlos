@@ -191,6 +191,11 @@
         }
     </style>
 
+
+</head>
+<body>
+<form id="attachDocumentsForm">
+    <%-- Script placed in body so functions are available when loaded via jQuery .load() into a parent page --%>
     <script type="text/javascript">
         function toggleLabVersionList(collapseBtn) {
             jQuery(collapseBtn).toggleClass('caret-down');
@@ -291,10 +296,6 @@
             showButton.parentNode.classList.remove('flex');
         }
     </script>
-
-</head>
-<body>
-<form id="attachDocumentsForm">
     <div class="attachmentContainer">
         <div class="attachmentList">
             <table id="attachDocumentsPanel">
