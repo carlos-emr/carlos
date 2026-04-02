@@ -45,6 +45,7 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.Logger;
+import org.jdom2.input.SAXBuilder;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
@@ -60,6 +61,28 @@ public final class XmlUtils {
     private static Logger logger = MiscUtils.getLogger();
 
     public XmlUtils() {
+    }
+
+    /**
+     * Creates a {@link SAXBuilder} with XXE (XML External Entity) protections enabled.
+     *
+     * <p>Disables DOCTYPE declarations and external entity resolution to prevent XXE attacks.
+     * Use this factory method instead of {@code new SAXBuilder()} throughout the codebase.
+     *
+     * @return SAXBuilder configured with XXE protections
+     */
+    public static SAXBuilder createSecureSAXBuilder() {
+        SAXBuilder parser = new SAXBuilder();
+        try {
+            parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            parser.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            parser.setExpandEntities(false);
+        } catch (Exception ex) {
+            logger.warn("Could not configure SAXBuilder security features: " + ex.getMessage());
+        }
+        return parser;
     }
 
     public static void setLsSeriliserToFormatted(LSSerializer lsSerializer) {
