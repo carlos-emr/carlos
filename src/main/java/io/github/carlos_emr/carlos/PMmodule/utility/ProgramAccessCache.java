@@ -44,7 +44,13 @@ public class ProgramAccessCache {
 
 
     public static Map getAccessMap(long programId) {
-        return accessMaps.get(programId + ":AccessMap");
+        String key = programId + ":AccessMap";
+        if (!accessMaps.containsKey(key)) {
+            // Lazy-initialize the cache entry for programs not populated at startup
+            // (e.g. inactive programs that still have existing encounters)
+            setAccessMap(programId);
+        }
+        return accessMaps.get(key);
     }
 
     public static void setAccessMap(long programId) {
