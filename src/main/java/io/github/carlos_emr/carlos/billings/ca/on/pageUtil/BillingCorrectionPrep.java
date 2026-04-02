@@ -310,7 +310,7 @@ public class BillingCorrectionPrep {
 
         // recalculate amount
         String newAmount = sumFee(vecFee);
-        _logger.info(" lItemObj(newAmount = " + newAmount);
+        _logger.info("lItemObj(newAmount = {})", LogSanitizer.sanitize(newAmount));
         updateAmount(newAmount, ch1Obj.getId(), updateProviderNo, dx);
 
         // update total field in billing_on_ext if pay_program is 3rd party

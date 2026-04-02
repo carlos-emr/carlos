@@ -174,7 +174,7 @@ public class ManageDocument2Action extends ActionSupport {
             try {
                 return handler.handle(this);
             } catch (Exception e) {
-                log.error("Error in " + method + "():", e);
+                log.error("Error in {}():", LogSanitizer.sanitize(method), e);
                 addActionError("An error occurred while processing the document. Please try again or contact your system administrator.");
                 return "error";
             }
@@ -236,7 +236,7 @@ public class ManageDocument2Action extends ActionSupport {
                     if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
                         providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(documentId), LabResultData.DOCUMENT);
                     } else {
-                        log.warn("Invalid provider number format: " + (proNo != null ? proNo.replaceAll("[\r\n]", "") : "null"));
+                        log.warn("Invalid provider number format: {}", LogSanitizer.sanitize(proNo));
                     }
                 }
 
@@ -434,11 +434,11 @@ public class ManageDocument2Action extends ActionSupport {
                     if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
                         providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(documentId), LabResultData.DOCUMENT);
                     } else {
-                        log.warn("Invalid provider number format: " + (proNo != null ? proNo.replaceAll("[\r\n]", "") : "null"));
+                        log.warn("Invalid provider number format: {}", LogSanitizer.sanitize(proNo));
                     }
                 }
             } catch (NumberFormatException e) {
-                log.error("Invalid document ID format: " + documentId, e);
+                log.error("Invalid document ID format: {}", LogSanitizer.sanitize(documentId), e);
                 addActionError("Invalid document ID format. Please check the document ID and try again.");
                 return "error";
             } catch (Exception e) {
@@ -476,7 +476,7 @@ public class ManageDocument2Action extends ActionSupport {
                     }
                 }
             } catch (NumberFormatException e) {
-                log.error("Invalid number format for documentId: " + documentId + " or demog: " + demog, e);
+                log.error("Invalid number format for documentId: {} or demog: {}", LogSanitizer.sanitize(documentId), LogSanitizer.sanitize(demog), e);
             } catch (Exception e) {
                 log.error("Failed to update CTL document for documentId: {}", documentId, e);
             }
@@ -561,7 +561,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         Long note_id = cmm.saveNoteSimpleReturnID(cmn);
         // Debugging purposes on the live server
-        MiscUtils.getLogger().info("Document Note ID: " + note_id.toString());
+        MiscUtils.getLogger().info("Document Note ID: {}", LogSanitizer.sanitize(note_id));
 
         // Add a noteLink to casemgmt_note_link
         CaseManagementNoteLink cmnl = new CaseManagementNoteLink();
@@ -640,7 +640,7 @@ public class ManageDocument2Action extends ActionSupport {
             try {
                 Files.delete(documentCacheDir);
             } catch (IOException e) {
-                MiscUtils.getLogger().error("Failed to delete cache file: " + documentCacheDir.getFileName(), e);
+                MiscUtils.getLogger().error("Failed to delete cache file: {}", LogSanitizer.sanitize(documentCacheDir.getFileName()), e);
             }
         }
     }
@@ -673,14 +673,14 @@ public class ManageDocument2Action extends ActionSupport {
             try (PDDocument pdf = Loader.loadPDF(pdfPath.toFile(), IOUtils.createTempFileOnlyStreamCache())) {
                 // Validate page number is within bounds
                 if (pageNum == null) {
-                    log.error("Page number is null for document " + d.getDocfilename());
+                    log.error("Page number is null for document {}", LogSanitizer.sanitize(d.getDocfilename()));
                     return null;
                 }
 
                 int pageIndex = pageNum - 1;
                 int totalPages = pdf.getNumberOfPages();
                 if (pageIndex < 0 || pageIndex >= totalPages) {
-                    log.error("Invalid page number " + pageNum + " for document " + d.getDocfilename() + " with " + totalPages + " pages");
+                    log.error("Invalid page number {} for document {} with {} pages", LogSanitizer.sanitize(pageNum), LogSanitizer.sanitize(d.getDocfilename()), totalPages);
                     return null;
                 }
 
@@ -695,7 +695,7 @@ public class ManageDocument2Action extends ActionSupport {
 
             return baos.toByteArray();
         } catch (Exception e) {
-            log.error("Error decoding pdf file " + d.getDocfilename(), e);
+            log.error("Error decoding pdf file {}", LogSanitizer.sanitize(d.getDocfilename()), e);
             return null;
         }
     }
@@ -725,11 +725,11 @@ public class ManageDocument2Action extends ActionSupport {
     public void getPage(int pageNum) {
 
         String doc_no = request.getParameter("doc_no");
-        log.debug("Document No :" + doc_no);
+        log.debug("Document No: {}", LogSanitizer.sanitize(doc_no));
         LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
         Document d = documentDao.getDocument(doc_no);
 
-        log.debug("Document Name :" + d.getDocfilename());
+        log.debug("Document Name: {}", LogSanitizer.sanitize(d.getDocfilename()));
 
         File outfile = hasCacheVersion(d, pageNum);
 
@@ -763,7 +763,7 @@ public class ManageDocument2Action extends ActionSupport {
             pageNum = "1";
         }
         Integer pn = Integer.parseInt(pageNum);
-        log.debug("Document No :" + doc_no);
+        log.debug("Document No: {}", LogSanitizer.sanitize(doc_no));
         LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
 
         Document d = documentDao.getDocument(doc_no);
@@ -777,7 +777,7 @@ public class ManageDocument2Action extends ActionSupport {
             return;
         }
 
-        log.debug("Document Name :" + d.getDocfilename());
+        log.debug("Document Name: {}", LogSanitizer.sanitize(d.getDocfilename()));
         //if the file is not a pdf, use display function
         if (!(d.getContenttype().equals("application/pdf") || d.getDocfilename().endsWith(".pdf"))) {
             try {
@@ -789,7 +789,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String name = d.getDocfilename() + "_" + pn + ".png";
-        log.debug("name " + name);
+        log.debug("name {}", LogSanitizer.sanitize(name));
 
         File outfile = hasCacheVersion2(d, pn);
         response.setContentType("image/png");
@@ -851,7 +851,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String doc_no = request.getParameter("doc_no");
-        log.debug("Document No :" + doc_no);
+        log.debug("Document No: {}", LogSanitizer.sanitize(doc_no));
         String demoNo = request.getParameter("demoNo");
 
         String docxml = null;
@@ -868,7 +868,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         Document d = documentDao.getDocument(doc_no);
 
-        log.debug("Document Name :" + d.getDocfilename());
+        log.debug("Document Name: {}", LogSanitizer.sanitize(d.getDocfilename()));
 
         docxml = d.getDocxml();
         contentType = d.getContenttype();
@@ -1161,7 +1161,7 @@ public class ManageDocument2Action extends ActionSupport {
                         if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
                             providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(doc_no), LabResultData.DOCUMENT);
                         } else {
-                            log.warn("Invalid provider number format: " + (proNo != null ? proNo.replaceAll("[\r\n]", "") : "null"));
+                            log.warn("Invalid provider number format: {}", LogSanitizer.sanitize(proNo));
                         }
                     }
                 } catch (Exception e) {
@@ -1265,7 +1265,7 @@ public class ManageDocument2Action extends ActionSupport {
             int pageIndex = pageNumber - 1;
             int totalPages = reader.getNumberOfPages();
             if (pageIndex < 0 || pageIndex >= totalPages) {
-                log.error("Invalid page number " + pageNumber + " for PDF " + sanitizedPdfName + " with " + totalPages + " pages");
+                log.error("Invalid page number {} for PDF {} with {} pages", LogSanitizer.sanitize(pageNumber), LogSanitizer.sanitize(sanitizedPdfName), totalPages);
                 response.setContentType("text/html;charset=UTF-8");
                 response.getWriter().print(props.getString("dms.incomingDocs.errorInOpening") + Encode.forHtml(sanitizedPdfName));
                 response.getWriter().print("<br>Invalid page number");
@@ -1542,7 +1542,7 @@ public class ManageDocument2Action extends ActionSupport {
 
             return cacheFile;
         } catch (Exception e) {
-            log.error("Error decoding pdf file " + pdfDir + File.separator + sanitizedPdfName, e);
+            log.error("Error decoding pdf file {}{}{}", LogSanitizer.sanitize(pdfDir), File.separator, LogSanitizer.sanitize(sanitizedPdfName), e);
             return null;
         }
     }
@@ -1577,7 +1577,7 @@ public class ManageDocument2Action extends ActionSupport {
         ) {
             org.apache.commons.io.IOUtils.copy(fileInputStream, outs);
         } catch (Exception e) {
-            log.error("Error retrieving document: " + output.getPath(), e);
+            log.error("Error retrieving document: {}", LogSanitizer.sanitize(output.getPath()), e);
         }
         return response;
     }
