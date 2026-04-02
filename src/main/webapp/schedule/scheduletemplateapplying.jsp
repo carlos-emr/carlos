@@ -113,6 +113,28 @@
         String[] addr;
 
         if (bMultisites) {
+            // Upfront authorization: when site-access privacy is enabled, verify the current user
+            // shares at least one site with the requested provider before loading any provider-scoped data.
+            if (isSiteAccessPrivacy) {
+                String reqProviderNo = request.getParameter("provider_no");
+                if (reqProviderNo != null && !reqProviderNo.equals(CurProviderNo)) {
+                    SiteDao authCheck = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
+                    List<Site> targetSites = authCheck.getActiveSitesByProviderNo(reqProviderNo);
+                    List<Site> curUserSites = authCheck.getActiveSitesByProviderNo(CurProviderNo);
+                    boolean canAccess = false;
+                    for (Site site : targetSites) {
+                        if (curUserSites.contains(site)) {
+                            canAccess = true;
+                            break;
+                        }
+                    }
+                    if (!canAccess) {
+                        response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                        return;
+                    }
+                }
+            }
+
             //multisite starts =====================
             SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
             List<Site> sites = siteDao.getActiveSitesByProviderNo(request.getParameter("provider_no"));
@@ -229,7 +251,22 @@
         <title><fmt:message key="schedule.scheduletemplateapplying.title"/></title>
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
+        <fmt:message key="schedule.scheduletemplateapplying.msgDeleteConfirmation" var="jsDeleteConfirmation"/>
+        <fmt:message key="schedule.scheduletemplateapplying.msgIncorrectOutput" var="jsIncorrectOutput"/>
+        <fmt:message key="schedule.scheduletemplateapplying.msgInputDate" var="jsInputDate"/>
+        <fmt:message key="schedule.scheduletemplateapplying.msgInputCorrectDate" var="jsInputCorrectDate"/>
+        <fmt:message key="schedule.scheduletemplateapplying.msgDateOrder" var="jsDateOrder"/>
+        <fmt:message key="schedule.scheduletemplateapplying.msgSelectDay" var="jsSelectDay"/>
         <script>
+            // i18n messages — encoded server-side to be safe for JS string literals
+            var i18n = {
+                msgDeleteConfirmation: "<%=Encode.forJavaScript((String)pageContext.getAttribute("jsDeleteConfirmation"))%>",
+                msgIncorrectOutput:    "<%=Encode.forJavaScript((String)pageContext.getAttribute("jsIncorrectOutput"))%>",
+                msgInputDate:          "<%=Encode.forJavaScript((String)pageContext.getAttribute("jsInputDate"))%>",
+                msgInputCorrectDate:   "<%=Encode.forJavaScript((String)pageContext.getAttribute("jsInputCorrectDate"))%>",
+                msgDateOrder:          "<%=Encode.forJavaScript((String)pageContext.getAttribute("jsDateOrder"))%>",
+                msgSelectDay:          "<%=Encode.forJavaScript((String)pageContext.getAttribute("jsSelectDay"))%>"
+            };
 
             async function displayTemplate(s) {
                 var templateName = encodeURIComponent(s.options[s.selectedIndex].value);
@@ -251,7 +288,7 @@
             }
 
             function onBtnDelete(s) {
-                if (confirm("<fmt:message key="schedule.scheduletemplateapplying.msgDeleteConfirmation"/>")) {
+                if (confirm(i18n.msgDeleteConfirmation)) {
                     var form = document.createElement('form');
                     form.method = 'post';
                     form.action = "<rewrite:reWrite jspPage="scheduletemplateapplying.jsp"/>";
@@ -296,13 +333,13 @@
 
             function onChangeDates() {
                 if (!checkDate(document.schedule.syear.value, document.schedule.smonth.value, document.schedule.sday.value)) {
-                    alert("<fmt:message key="schedule.scheduletemplateapplying.msgIncorrectOutput"/>");
+                    alert(i18n.msgIncorrectOutput);
                 }
             }
 
             function onChangeDatee() {
                 if (!checkDate(document.schedule.eyear.value, document.schedule.emonth.value, document.schedule.eday.value)) {
-                    alert("<fmt:message key="schedule.scheduletemplateapplying.msgIncorrectOutput"/>");
+                    alert(i18n.msgIncorrectOutput);
                 }
             }
 
@@ -468,10 +505,10 @@
 
             function addDataString1() {
                 if (document.schedule.syear.value == "" || document.schedule.smonth.value == "" || document.schedule.sday.value == "" || document.schedule.eyear.value == "" || document.schedule.emonth.value == "" || document.schedule.eday.value == "") {
-                    alert("<fmt:message key="schedule.scheduletemplateapplying.msgInputDate"/>");
+                    alert(i18n.msgInputDate);
                     return false;
                 } else if (!checkDate(document.schedule.syear.value, document.schedule.smonth.value, document.schedule.sday.value) || !checkDate(document.schedule.eyear.value, document.schedule.emonth.value, document.schedule.eday.value)) {
-                    alert("<fmt:message key="schedule.scheduletemplateapplying.msgInputCorrectDate"/>");
+                    alert(i18n.msgInputCorrectDate);
                     return false;
                 }
 
@@ -479,12 +516,12 @@
                 var eDate = new Date(document.schedule.eyear.value, document.schedule.emonth.value - 1, document.schedule.eday.value);
 
                 if (sDate > eDate) {
-                    alert("<fmt:message key="schedule.scheduletemplateapplying.msgDateOrder"/>");
+                    alert(i18n.msgDateOrder);
                     return false;
                 }
 
                 if (document.schedule.day_of_week.value == "") {
-                    alert("<fmt:message key="schedule.scheduletemplateapplying.msgSelectDay"/>");
+                    alert(i18n.msgSelectDay);
                     return false;
                 }
 
@@ -1062,8 +1099,13 @@
         ret += "</select>";
         if (bMultisites)
             ret += "<script>document.schedule." + s + ".style.backgroundColor='" + Encode.forJavaScript(Encode.forCssString(bgColors[ind])) + "';</script>";
-        if (isExcludedSiteSelected)
-            ret += "<script>document.schedule.check" + s.substring(0, 3) + ".disabled='true';</script>";
+        if (isExcludedSiteSelected) {
+            // For week-B addr inputs (e.g. "sunaddr2"), the checkbox name is "checksun2"; for week-A it's "checksun".
+            // Uncheck before disabling so serializers don't pick up the checked+disabled state.
+            String checkboxName = "check" + s.substring(0, 3) + (s.endsWith("2") ? "2" : "");
+            ret += "<script>document.schedule." + checkboxName + ".checked=false;"
+                    + "document.schedule." + checkboxName + ".disabled=true;</script>";
+        }
         return ret;
     }
     %>
