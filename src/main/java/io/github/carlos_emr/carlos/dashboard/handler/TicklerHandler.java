@@ -44,10 +44,6 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-
-
 public class TicklerHandler {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -70,9 +66,6 @@ public class TicklerHandler {
      * String taskAssignedTo
      * String ticklerCategoryId
      */
-    
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-
     public void createMasterTickler(Map<String, String[]> ticklerParameters) {
 
         Tickler tickler = new Tickler();
@@ -181,7 +174,8 @@ public class TicklerHandler {
     }
 
     /**
-     * Adds a copy of the master tickler to each demographic id in the given JSON Array String.
+     * Adds a copy of the master tickler to each demographic id in the given comma-separated
+     * integer string (optionally wrapped in JSON array brackets).
      */
     public boolean addTickler(String jsonString) {
 
@@ -189,23 +183,30 @@ public class TicklerHandler {
             return Boolean.FALSE;
         }
 
-        if (!jsonString.startsWith("[")) {
-            jsonString = "[" + jsonString;
+        // Strip optional JSON array brackets before parsing individual integer values
+        String trimmed = jsonString.trim();
+        if (trimmed.startsWith("[")) {
+            trimmed = trimmed.substring(1);
+        }
+        if (trimmed.endsWith("]")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1);
         }
 
-        if (!jsonString.endsWith("]")) {
-            jsonString = jsonString + "]";
+        if (trimmed.isEmpty()) {
+            return Boolean.FALSE;
         }
-
-        ArrayNode jsonArray;
 
         try {
-            jsonArray = (ArrayNode) objectMapper.readTree(jsonString);
-            Integer arraySize = jsonArray.size();
-            Integer[] demographicArray = new Integer[arraySize];
+            String[] parts = trimmed.split(",");
+            Integer[] demographicArray = new Integer[parts.length];
 
-            for (int i = 0; i < arraySize; i++) {
-                demographicArray[i] = jsonArray.get(i).asInt();
+            for (int i = 0; i < parts.length; i++) {
+                String part = parts[i].trim();
+                if (part.isEmpty()) {
+                    MiscUtils.getLogger().error("Empty token in demographic JSON array at index " + i + ": " + jsonString);
+                    return Boolean.FALSE;
+                }
+                demographicArray[i] = Integer.parseInt(part);
             }
 
             setDemographicArray(demographicArray);
