@@ -28,6 +28,23 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: Entry point for schedule template management. Allows providers and scheduling
+             staff to select a provider and navigate to schedule template creation,
+             application, or holiday configuration.
+
+    Features:
+    - Provider selection dropdown (filtered by _admin.schedule.curprovider_only privilege)
+    - Links to holiday settings, template code settings (admin-only)
+    - Link to schedule template editor for a selected provider
+    - Site/team access awareness (hides admin links when privacy flags are enabled)
+
+    Parameters (session):
+    - user      (String) — logged-in provider number
+    - userrole  (String) — role name for security checks
+
+    @since 2001-02-01
+--%>
 <!DOCTYPE html>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*" errorPage="/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
