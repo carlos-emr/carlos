@@ -53,6 +53,8 @@ import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.HRMResultsData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.mds.data.CategoryData;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 
@@ -215,6 +217,18 @@ public class DmsInboxManage2Action extends ActionSupport {
             searchProviderNo = providerNo;
         } // default to current providers
 
+        if (searchProviderNo != null && !searchProviderNo.equals(providerNo) && !"-1".equals(searchProviderNo)) {
+            try {
+                LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+                if (loggedInInfo != null) {
+                    LogAction.addLog(loggedInInfo, LogConst.READ, LogConst.CON_PROVIDER_INBOX, searchProviderNo, null,
+                            "Provider " + providerNo + " accessed inbox index for provider: " + searchProviderNo);
+                }
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Failed to audit cross-provider inbox access", e);
+            }
+        }
+
         boolean providerSearch = !"-1".equals(searchProviderNo);
 
         MiscUtils.getLogger().debug("SEARCH " + searchProviderNo);
@@ -341,6 +355,17 @@ public class DmsInboxManage2Action extends ActionSupport {
         }
         if (searchProviderNo == null) {
             searchProviderNo = providerNo;
+        }
+
+        if (searchProviderNo != null && !searchProviderNo.equals(providerNo) && !"-1".equals(searchProviderNo)) {
+            try {
+                if (loggedInInfo != null) {
+                    LogAction.addLog(loggedInInfo, LogConst.READ, LogConst.CON_PROVIDER_INBOX, searchProviderNo, null,
+                            "Provider " + providerNo + " accessed inbox content for provider: " + searchProviderNo);
+                }
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Failed to audit cross-provider inbox access", e);
+            }
         }
         String roleName = "";
         List<SecUserRole> roles = secUserRoleDao.getUserRoles(searchProviderNo);
@@ -731,6 +756,17 @@ public class DmsInboxManage2Action extends ActionSupport {
             searchProviderNo = providerNo;
         }
 
+        if (searchProviderNo != null && !searchProviderNo.equals(providerNo) && !"-1".equals(searchProviderNo)) {
+            try {
+                LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+                if (loggedInInfo != null) {
+                    LogAction.addLog(loggedInInfo, LogConst.READ, LogConst.CON_PROVIDER_INBOX, searchProviderNo, null,
+                            "Provider " + providerNo + " accessed document queues for provider: " + searchProviderNo);
+                }
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Failed to audit cross-provider inbox access", e);
+            }
+        }
         StringBuilder roleName = new StringBuilder();
         List<SecUserRole> roles = secUserRoleDao.getUserRoles(searchProviderNo);
         for (SecUserRole r : roles) {
