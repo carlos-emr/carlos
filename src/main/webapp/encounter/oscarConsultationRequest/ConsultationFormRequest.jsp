@@ -1221,8 +1221,6 @@
             if (timeDisplay) timeDisplay.disabled = disabled;
             var clearTimeBtn = document.getElementById('clearTimeBtn');
             if (clearTimeBtn) clearTimeBtn.disabled = disabled;
-            var clearDateBtn = document.getElementById('clearDateBtn');
-            if (clearDateBtn) clearDateBtn.disabled = disabled;
             if (disabled) {
                 // Clear hidden time fields so they are not submitted when patient will book
                 document.getElementById('appointmentHour').value = '';
@@ -2640,9 +2638,6 @@ if (userAgent != null) {
                                             <div class="input-group input-group-sm" style="max-width:220px;">
                                                 <input type="date" class="form-control form-control-sm" id="appointmentDate" name="appointmentDate"
                                                        value="<%=Encode.forHtmlAttribute(thisForm.getAppointmentDate() != null ? thisForm.getAppointmentDate().replace("/", "-") : "")%>"/>
-                                                <button type="button" class="btn btn-outline-secondary" id="clearDateBtn"
-                                                        title="<fmt:setBundle basename='oscarResources'/><fmt:message key='encounter.oscarConsultationRequest.ConsultationFormRequest.btnClearDate'/>"
-                                                        onclick="document.getElementById('appointmentDate').value='';">&times;</button>
                                             </div>
                                         </td>
                                     </tr>
