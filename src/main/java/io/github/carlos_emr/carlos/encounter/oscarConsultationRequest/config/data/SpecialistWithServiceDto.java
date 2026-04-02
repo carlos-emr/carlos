@@ -41,4 +41,18 @@ public class SpecialistWithServiceDto {
     public String getAnnotation() { return annotation; }
     public List<Integer> getServiceIds() { return serviceIds == null ? null : Collections.unmodifiableList(serviceIds); }
     public List<String> getServiceNames() { return serviceNames == null ? null : Collections.unmodifiableList(serviceNames); }
+
+    /**
+     * Appends a service association to this specialist's service lists.
+     * Used when grouping specialists across multiple services.
+     *
+     * @param serviceId   the service ID to add
+     * @param serviceName the service name to add
+     */
+    public void addService(Integer serviceId, String serviceName) {
+        if (this.serviceIds == null) this.serviceIds = new ArrayList<>();
+        if (this.serviceNames == null) this.serviceNames = new ArrayList<>();
+        this.serviceIds.add(serviceId);
+        this.serviceNames.add(serviceName);
+    }
 }
