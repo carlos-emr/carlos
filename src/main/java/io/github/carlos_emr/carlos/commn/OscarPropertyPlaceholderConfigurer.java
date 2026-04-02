@@ -60,6 +60,10 @@ public class OscarPropertyPlaceholderConfigurer extends PropertySourcesPlacehold
             throw new BeanInitializationException("Could not load properties", ex);
         }
 
+        // setPropertySources() replaces the default Environment sources, so JVM -D system
+        // properties and OS environment variables are intentionally excluded from ${...}
+        // placeholder resolution. All Spring XML placeholders resolve from CarlosProperties
+        // or carlos.properties only.
         setPropertySources(propertySources);
         super.postProcessBeanFactory(beanFactory);
     }
