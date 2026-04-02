@@ -29,12 +29,17 @@
 let oscarAlert;
 
 /**
- * Escapes a string for safe insertion into HTML to prevent XSS.
- * Uses a temporary DOM text node so the browser's own escaping is applied.
+ * Escapes a string for safe insertion into HTML body text to prevent XSS.
+ * Uses a temporary DOM text node so the browser's own escaping is applied,
+ * encoding <, >, and & but NOT quotes (" or ').
+ *
+ * WARNING: The output is NOT safe for HTML attribute contexts.
+ *
  * @param {string} text - the raw string to escape
- * @returns {string} HTML-encoded string safe for use in innerHTML
+ * @returns {string} HTML-encoded string safe for use as HTML body text content
  */
 function escapeHtml(text) {
+    if (text == null) return '';
     const node = document.createTextNode(String(text));
     const div = document.createElement('div');
     div.appendChild(node);
@@ -106,13 +111,13 @@ class OscarAlert {
     }
 
     counter() {
-        const element = document.getElementById(`countdown-${this.alertDiv.id}`);
         if (this.countdown <= 0) {
-            this.dismissAlert();  // This already clears the interval
+            this.dismissAlert();
             return;
         }
+        this.countdown--;
+        const element = document.getElementById(`countdown-${this.alertDiv.id}`);
         if (element) {
-            this.countdown--;
             element.textContent = this.countdown.toString();
         }
     }
