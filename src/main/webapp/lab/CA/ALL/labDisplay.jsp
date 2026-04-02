@@ -93,8 +93,8 @@
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 <%@ page import="com.fasterxml.jackson.databind.node.ArrayNode" %>
 <%@ page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
-<%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
@@ -140,7 +140,6 @@
 <%@ page import="org.apache.commons.lang3.builder.ReflectionToStringBuilder" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.w3c.dom.Document" %>
-
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
