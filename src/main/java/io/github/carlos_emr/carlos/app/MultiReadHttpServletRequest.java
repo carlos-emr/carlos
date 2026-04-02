@@ -49,7 +49,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -250,8 +252,8 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             upload.setFileSizeMax(MAX_BODY_SIZE);
             upload.setSizeMax(MAX_BODY_SIZE);
 
-            // Use the internal buffer directly (no copy). The buffer is effectively
-            // immutable after cacheInputStream() completes — no further writes occur.
+            // Use the internal buffer directly (no copy). The buffer is immutable
+            // after cacheInputStream() completes — freeze() blocks all further writes.
             final byte[] buf = cachedBytes.getBuffer();
             final int count = cachedBytes.getCount();
 
@@ -284,8 +286,14 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             }
             cachedParts = Collections.unmodifiableList(parts);
         } catch (FileUploadException e) {
+            int bodySize;
+            try {
+                bodySize = cachedBytes.getCount();
+            } catch (RuntimeException suppressed) {
+                bodySize = -1;
+            }
             LOGGER.error("Failed to parse multipart parts from cached bytes (URI: {}, bodySize: {} bytes)",
-                    getRequestURI(), cachedBytes.size(), e);
+                    getRequestURI(), bodySize, e);
             throw new ServletException("Failed to parse multipart request from cached bytes", e);
         }
 
@@ -344,27 +352,32 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
 
         try {
             multipartParams = parseMultipartFormFields(cachedBytes.getBuffer(), cachedBytes.getCount(), contentType);
-        } catch (Exception e) {
-            LOGGER.warn("Failed to parse multipart form fields", e);
+        } catch (IllegalStateException e) {
+            LOGGER.error("Buffer not in expected frozen state during multipart param extraction "
+                    + "(URI: {}). CSRF token extraction will fail for this request.",
+                    getRequestURI(), e);
+            multipartParams = Collections.emptyMap();
+        } catch (RuntimeException e) {
+            LOGGER.error("Failed to parse multipart form fields (URI: {})",
+                    getRequestURI(), e);
             multipartParams = Collections.emptyMap();
         }
         return multipartParams;
     }
 
     private void cacheInputStream() throws IOException {
-        cachedBytes = new ExposedByteArrayOutputStream();
+        ExposedByteArrayOutputStream buffer = new ExposedByteArrayOutputStream();
         try {
             ServletInputStream input = super.getInputStream();
-            long copied = IOUtils.copyLarge(input, cachedBytes, 0, MAX_BODY_SIZE);
+            long copied = IOUtils.copyLarge(input, buffer, 0, MAX_BODY_SIZE);
             if (copied >= MAX_BODY_SIZE && input.read() != -1) {
-                cachedBytes = null;
                 throw new IOException("Request body exceeds maximum allowed size of "
                         + (MAX_BODY_SIZE / (1024 * 1024)) + " MB");
             }
-            cachedBytes.freeze();
-        } catch (IOException e) {
-            cachedBytes = null;
-            throw e;
+            buffer.freeze();
+            cachedBytes = buffer; // Only assign after successful freeze
+        } catch (RuntimeException e) {
+            throw new IOException("Failed to cache request body", e);
         }
     }
 
@@ -526,24 +539,41 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
      * {@link IllegalStateException}, enforcing the immutability contract at runtime.</p>
      *
      * <p>{@code cacheInputStream()} calls {@code freeze()} once writing is complete.
-     * After that point, the buffer and count are stable and safe for concurrent readers.</p>
+     * After that point, the buffer and count are stable for subsequent reads within
+     * the same request-processing thread. This class is not designed for concurrent
+     * access across threads; thread safety is provided by the servlet container's
+     * single-thread-per-request dispatch model.</p>
      */
     static class ExposedByteArrayOutputStream extends ByteArrayOutputStream {
 
-        private boolean frozen;
+        private volatile boolean frozen;
 
         /** Freezes this stream, preventing any further writes or resets. */
         void freeze() {
             this.frozen = true;
         }
 
-        /** Returns the internal byte buffer (may be larger than {@link #getCount()}). */
-        byte[] getBuffer() {
+        /**
+         * Returns the internal byte buffer (may be larger than {@link #getCount()}).
+         *
+         * @throws IllegalStateException if the stream has not been frozen yet
+         */
+        synchronized byte[] getBuffer() {
+            if (!frozen) {
+                throw new IllegalStateException("Buffer must be frozen before reading");
+            }
             return buf;
         }
 
-        /** Returns the number of valid bytes in {@link #getBuffer()}. */
-        int getCount() {
+        /**
+         * Returns the number of valid bytes in {@link #getBuffer()}.
+         *
+         * @throws IllegalStateException if the stream has not been frozen yet
+         */
+        synchronized int getCount() {
+            if (!frozen) {
+                throw new IllegalStateException("Buffer must be frozen before reading");
+            }
             return count;
         }
 
@@ -561,6 +591,75 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
                 throw new IllegalStateException("Buffer is frozen after cacheInputStream()");
             }
             super.write(b, off, len);
+        }
+
+        @Override
+        public void write(byte[] b) throws IOException {
+            if (frozen) {
+                throw new IllegalStateException("Buffer is frozen after cacheInputStream()");
+            }
+            super.write(b);
+        }
+
+        @Override
+        public void writeBytes(byte[] b) {
+            if (frozen) {
+                throw new IllegalStateException("Buffer is frozen after cacheInputStream()");
+            }
+            super.writeBytes(b);
+        }
+
+        /**
+         * Disabled to prevent accidental memory copies. Use {@link #getBuffer()} and
+         * {@link #getCount()} for zero-copy access.
+         *
+         * @throws UnsupportedOperationException always
+         */
+        @Override
+        public synchronized byte[] toByteArray() {
+            throw new UnsupportedOperationException(
+                    "Use getBuffer()/getCount() for zero-copy access. "
+                    + "toByteArray() is disabled to prevent accidental memory copies.");
+        }
+
+        @Override
+        public synchronized void writeTo(OutputStream out) throws IOException {
+            if (!frozen) {
+                throw new IllegalStateException("Buffer must be frozen before reading");
+            }
+            out.write(buf, 0, count);
+        }
+
+        @Override
+        public synchronized int size() {
+            if (!frozen) {
+                throw new IllegalStateException("Buffer must be frozen before reading");
+            }
+            return count;
+        }
+
+        @Override
+        public synchronized String toString() {
+            return "ExposedByteArrayOutputStream[frozen=" + frozen + ", count=" + (frozen ? count : "?") + "]";
+        }
+
+        @SuppressWarnings("deprecation")
+        @Override
+        public synchronized String toString(int hibyte) {
+            throw new UnsupportedOperationException(
+                    "toString(int) disabled to prevent accidental memory copies.");
+        }
+
+        @Override
+        public synchronized String toString(String charsetName) {
+            throw new UnsupportedOperationException(
+                    "toString(String) disabled to prevent accidental memory copies.");
+        }
+
+        @Override
+        public synchronized String toString(Charset charset) {
+            throw new UnsupportedOperationException(
+                    "toString(Charset) disabled to prevent accidental memory copies.");
         }
 
         @Override
