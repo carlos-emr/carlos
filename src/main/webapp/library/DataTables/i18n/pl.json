@@ -22,7 +22,7 @@
         "colvis": "Widoczność kolumny",
         "colvisRestore": "Przywróć widoczność",
         "copy": "Kopiuj",
-        "copyKeys": "Naciśnij Ctrl lub u2318 + C, aby skopiować dane tabeli do schowka systemowego. <br \/> <br \/> Aby anulować, kliknij tę wiadomość lub naciśnij Esc.",
+        "copyKeys": "Naciśnij Ctrl lub \u2318 + C, aby skopiować dane tabeli do schowka systemowego. <br \/> <br \/> Aby anulować, kliknij tę wiadomość lub naciśnij Esc.",
         "copySuccess": {
             "_": "Skopiowano %d wierszy do schowka",
             "1": "Skopiowano 1 wiersz do schowka"
