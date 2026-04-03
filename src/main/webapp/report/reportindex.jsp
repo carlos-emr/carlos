@@ -63,18 +63,17 @@
         return;
     }
 %>
-<%@ page import="java.util.*" %>
-<%@ page import="java.sql.*" %>
-<%@ page import="java.text.*" %>
-<%@ page import="java.net.*" %>
+<%@ page import="java.net.URLEncoder" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="java.sql.ResultSet" %>
+<%@ page import="java.util.Calendar" %>
+<%@ page import="java.util.GregorianCalendar" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -93,7 +92,6 @@
         mygroupno = providerPreference.getMyGroupNo();
     }
     mygroupno = StringUtils.trimToEmpty(mygroupno);
-    String billingRegion = (io.github.carlos_emr.CarlosProperties.getInstance()).getProperty("billregion");
 %>
 
 <jsp:useBean id="reportMainBean" class="io.github.carlos_emr.AppointmentMainBean"
@@ -295,7 +293,7 @@
                 </td>
                 <td width="1"></td>
                 <td width="300">
-                  <a href="<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=loggedInInfo1.getLoggedInProviderNo()%>" target="_blank"><fmt:message key="oscarReport.oscarReportAgeSex.title"/></a></td>
+                  <a href="<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=loggedInInfo1.getLoggedInProviderNo()%>" target="_blank"><fmt:message key="global.genBillReport"/></a></td>
                 <td></td>
                 <td></td>
                 <td></td>
