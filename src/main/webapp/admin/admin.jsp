@@ -262,16 +262,7 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.billing" rights="r"
                                    reverse="<%=false%>">
                     <%
-                        // Only show link to Clinicaid admin if Clinicaid Billing is enabled
-                        if (oscarVariables.getProperty("billregion", "").equals("CLINICAID")) {
-                    %>
-                    <li>
-                        <a href="<%= request.getContextPath() %>/billing.do?billRegion=CLINICAID&action=invoice_reports" target="_blank">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.invoiceRpts"/>
-                        </a>
-                    </li>
-                    <%
-                    } else if (oscarVariables.getProperty("billregion", "").equals("BC")) {
+                        if (oscarVariables.getProperty("billregion", "").equals("BC")) {
                     %>
                     <li><a href="#"
                            onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/manageBillingform.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
