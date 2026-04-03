@@ -1942,66 +1942,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return "windowCloseError";
         }
 
-        String supervisor = null;
-        String reviewer = null;
-        String resident = request.getParameter("resident");
-        String reviewerNo = null;
-        ResidentOscarMsgDao residenOscarMsgDao = SpringUtils.getBean(ResidentOscarMsgDao.class);
-        if (resident != null && !"null".equalsIgnoreCase(resident)) {
-            reviewer = request.getParameter("reviewer");
-            if ("null".equalsIgnoreCase(reviewer) || "".equalsIgnoreCase(reviewer)) {
-                reviewer = null;
-            }
-
-            supervisor = request.getParameter("supervisor");
-            if ("null".equalsIgnoreCase(supervisor) || "".equalsIgnoreCase(supervisor)) {
-                supervisor = null;
-            }
-
-            if (supervisor != null) {
-                Calendar epoch = GregorianCalendar.getInstance();
-                epoch.set(1970, 0, 1, 0, 0, 0);
-                ResidentOscarMsg residentOscarMsg = new ResidentOscarMsg();
-                residentOscarMsg.setComplete(Boolean.FALSE);
-                residentOscarMsg.setCreate_time(new Date(System.currentTimeMillis()));
-                residentOscarMsg.setComplete_time(epoch.getTime());
-                residentOscarMsg.setResident_no(loggedInInfo.getLoggedInProvider().getProviderNo());
-                residentOscarMsg.setSupervisor_no(supervisor);
-                residentOscarMsg.setDemographic_no(Integer.valueOf(demoNo));
-                residentOscarMsg.setNote_id(noteId);
-                if (this.getAppointmentNo() != null) {
-                    residentOscarMsg.setAppointment_no(Integer.valueOf(this.getAppointmentNo()));
-                }
-                residenOscarMsgDao.persist(residentOscarMsg);
-
-                reviewerNo = supervisor;
-            } else if (reviewer != null) {
-                reviewerNo = reviewer;
-            }
-        }
-
-        if (CarlosProperties.getInstance().getProperty("resident_review", "false").equalsIgnoreCase("true")) {
-            String verifyStr = request.getParameter("verify");
-            if (verifyStr != null && verifyStr.equalsIgnoreCase("on")) {
-
-                if (priorNote != null && !"null".equalsIgnoreCase(priorNote) && !"".equalsIgnoreCase(priorNote)) {
-
-                    for (CaseManagementNote n : caseManagementNoteDao.getNotesByUUID(this.getCaseNote().getUuid())) {
-
-                        ResidentOscarMsg residentOscarMsg = residenOscarMsgDao.findByNoteId(n.getId());
-
-                        if (residentOscarMsg != null) {
-
-                            residentOscarMsg.setComplete(Boolean.TRUE);
-                            residentOscarMsg.setComplete_time(new Date(System.currentTimeMillis()));
-
-                            residenOscarMsgDao.merge(residentOscarMsg);
-                        }
-                    }
-                }
-            }
-        }
-
         String toBill = request.getParameter("toBill");
 
         if (toBill != null && toBill.equalsIgnoreCase("true")) {
@@ -2017,17 +1957,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (apptProvider == null || apptProvider.isEmpty() || "none".equals(apptProvider)) {
                 apptProvider = providerNo;
             }
-            String providerview = null;
-            if (reviewerNo != null) {
-                Provider p = providerMgr.getProvider(reviewerNo);
-                if (p.getProviderType().equalsIgnoreCase("nurse")) {
-                    providerview = "000000";
-                } else {
-                    providerview = reviewerNo;
-                }
-            } else {
-                providerview = loggedInInfo.getLoggedInProviderNo();
-            }
+            String providerview = loggedInInfo.getLoggedInProviderNo();
             String defaultView = CarlosProperties.getInstance().getProperty("default_view", "");
 
             Set setIssues = this.getCaseNote().getIssues();
