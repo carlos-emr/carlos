@@ -257,6 +257,8 @@
         <fmt:message key="schedule.scheduletemplateapplying.msgInputCorrectDate" var="jsInputCorrectDate"/>
         <fmt:message key="schedule.scheduletemplateapplying.msgDateOrder" var="jsDateOrder"/>
         <fmt:message key="schedule.scheduletemplateapplying.msgSelectDay" var="jsSelectDay"/>
+        <fmt:message key="schedule.scheduletemplateapplying.btnDelete" var="btnDelete"/>
+        <fmt:message key="schedule.scheduletemplateapplying.btnNext" var="btnNext"/>
         <script>
             // i18n messages — encoded server-side to be safe for JS string literals
             var i18n = {
@@ -270,7 +272,7 @@
 
             async function displayTemplate(s) {
                 var templateName = encodeURIComponent(s.options[s.selectedIndex].value);
-                var url = "scheduleDisplayTemplate.jsp?name=" + templateName + "&providerid=<%=Encode.forJavaScript(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "")%>";
+                var url = "scheduleDisplayTemplate.jsp?name=" + templateName + "&providerid=<%=Encode.forJavaScript(Encode.forUriComponent(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : ""))%>";
                 var div = "template";
                 fetch(url)
                     .then(response => response.text())
@@ -520,7 +522,9 @@
                     return false;
                 }
 
-                if (document.schedule.day_of_week.value == "") {
+                var isAlternate = document.schedule.available.value === "A";
+                if ((!isAlternate && document.schedule.day_of_week.value == "") ||
+                        (isAlternate && document.schedule.day_of_week.value == "" && document.schedule.day_of_weekB.value == "")) {
                     alert(i18n.msgSelectDay);
                     return false;
                 }
@@ -649,7 +653,7 @@
                                         }
                                     %>
                                 </select> <input type="button" name="command" class="btn btn-secondary"
-                                                 value="<fmt:message key="schedule.scheduletemplateapplying.btnDelete"/>"
+                                                 value="<%=Encode.forHtmlAttribute((String)pageContext.getAttribute("btnDelete"))%>"
                                                  onClick="onBtnDelete(document.forms['schedule'].elements['select'])">
                                 </td>
                             </tr>
@@ -1051,7 +1055,7 @@
                                     <div class="text-end">
                                         <input type="hidden" name="provider_no" value="<%=Encode.forHtmlAttribute(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "")%>">
                                         <input type="hidden" name="available" value="<%=bAlternate||bOrigAlt?"A":"1"%>">
-                                        <input type="submit" class="btn btn-primary" value='<fmt:message key="schedule.scheduletemplateapplying.btnNext"/>'>
+                                        <input type="submit" class="btn btn-primary" value="<%=Encode.forHtmlAttribute((String)pageContext.getAttribute("btnNext"))%>">
                                     </div>
                                 </td>
                             </tr>
