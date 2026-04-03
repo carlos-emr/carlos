@@ -1370,7 +1370,7 @@
                 <a href="providerchangepassword.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-key"></i> <fmt:message key="provider.providerpreference.link.changePassword"/>
                 </a>
-                <a href="providerSignature.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="${pageContext.request.contextPath}/EnterSignature.do" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-pen-nib"></i> <fmt:message key="provider.providerpreference.linkEditTextSig"/>
                 </a>
                 <a href="providerPrinter.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">

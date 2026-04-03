@@ -33,20 +33,20 @@
             <result name="success">/encounter/oscarConsultationRequest/ConsultationFormPrint.jsp</result>
         </action>
         <action name="oscarReport/FluBilling" class="io.github.carlos_emr.carlos.report.pageUtil.RptFluBilling2Action">
-            <result name="success">/oscarReport/oscarReportFluBilling.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarReport/oscarReportFluBilling.jsp</result>
         </action>
         <action name="oscarReport/RptByExample" class="io.github.carlos_emr.carlos.report.pageUtil.RptByExample2Action">
-            <result name="success">/oscarReport/RptByExample.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarReport/RptByExample.jsp</result>
         </action>
         <action name="oscarReport/RptViewAllQueryByExamples" class="io.github.carlos_emr.carlos.report.pageUtil.RptViewAllQueryByExamples2Action">
-            <result name="success">/oscarReport/RptViewAllQueryByExamples.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarReport/RptViewAllQueryByExamples.jsp</result>
         </action>
         <action name="oscarReport/RptByExamplesFavorite" class="io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action">
             <result name="edit">/oscarReport/RptByExamplesFavorite.jsp</result>
-            <result name="success">/oscarReport/RptByExamplesAllFavorites.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarReport/RptByExamplesAllFavorites.jsp</result>
         </action>
         <action name="oscarReport/RptByExamplesAllFavorites" class="io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesAllFavorites2Action">
-            <result name="success">/oscarReport/RptByExamplesAllFavorites.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarReport/RptByExamplesAllFavorites.jsp</result>
         </action>
         <action name="report/DemographicReport" class="io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Action">
             <result name="success">/oscarReport/ReportDemographicReport.jsp</result>
@@ -56,7 +56,7 @@
             <result name="success">/oscarReport/ReportDemographicReport.jsp</result>
         </action>
         <action name="oscarReport/obec" class="io.github.carlos_emr.carlos.report.pageUtil.Obec2Action">
-            <result name="success">/oscarReport/obec.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarReport/obec.jsp</result>
         </action>
         <action name="oscarReport/oscarMeasurements/SetupSelectCDMReport" class="io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil.RptSetupSelectCDMReport2Action">
             <result name="continue">/oscarReport/oscarMeasurements/SelectCDMReport.jsp</result>

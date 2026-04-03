@@ -45,7 +45,7 @@
             <result name="codeList">/oscarResearch/oscarDxResearch/quickCodeList.jsp</result>
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearchCodeSearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchCodeSearch2Action">
-            <result name="success">/oscarResearch/oscarDxResearch/dxResearchCodeSearch.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchCodeSearch.jsp</result>
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearchUpdate" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchUpdate2Action">
             <result name="success">/oscarResearch/oscarDxResearch/setupDxResearch.do</result>
@@ -54,10 +54,10 @@
             <result name="success">/oscarResearch/oscarDxResearch/setupDxResearch.do</result>
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearchLoadQuickList" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchLoadQuickList2Action">
-            <result name="success">/oscarResearch/oscarDxResearch/dxResearchSelectQuickList.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchSelectQuickList.jsp</result>
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchLoadQuickListItems2Action">
-            <result name="success">/oscarResearch/oscarDxResearch/dxResearchEditQuickList.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchEditQuickList.jsp</result>
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearchUpdateQuickList" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchUpdateQuickList2Action">
             <result name="success">/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems.do</result>

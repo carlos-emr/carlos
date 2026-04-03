@@ -355,7 +355,7 @@ String curProvider_no = (String)session.getAttribute("user");
 						class="contentLink"><fmt:message key="admin.admin.pcnReport"/></a></li>
 					<li><a href="${ctx}/oscarReport/FluBilling.do?orderby="
 						class="contentLink"><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
-					<li><a href="${ctx}/oscarReport/obec.jsp" class="contentLink"><fmt:message key="admin.admin.overnightBatch"/></a></li>
+					<li><a href="${ctx}/oscarReport/obec.do" class="contentLink"><fmt:message key="admin.admin.overnightBatch"/></a></li>
 								
 					<caisi:isModuleLoad moduleName="caisi">		
 						<li><a href="javascript:void(0);"

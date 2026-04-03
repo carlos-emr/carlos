@@ -467,7 +467,7 @@
                     <li><a href="#"
                            onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/FluBilling.do?orderby=");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(600,1000,"${pageContext.request.contextPath}/oscarReport/obec.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnOvernightChecking"/></a></li>
+                           onclick='popupPage(600,1000,"${pageContext.request.contextPath}/oscarReport/obec.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnOvernightChecking"/></a></li>
 
 
                     <li><a href="#"
