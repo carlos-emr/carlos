@@ -494,13 +494,13 @@
                                     while (iter.hasNext()) {
                                     	Provider p=iter.next();
                                     	if (pros.contains(p.getProviderNo())) {
-                                    %><option value='<%= p.getProviderNo() %>'><%= Encode.forHtml(p.getLastName()) %>, <%= Encode.forHtml(p.getFirstName()) %></option><% }} %>";
+                                    %><option value='<%= p.getProviderNo() %>'><%= Encode.forJavaScript(p.getLastName()) %>, <%= Encode.forJavaScript(p.getFirstName()) %></option><% }} %>";
                             <% } %>
 
                             function changeSite(sel) {
                                 sel.form.providerview.innerHTML = sel.value == "none" ? "" : "<option value='none'>---select providers---</option>" + _providers[sel.value];
                                 sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
-                                if (sel.value == '<%=request.getParameter("site")%>') {
+                                if (sel.value == '<%=Encode.forJavaScript(request.getParameter("site"))%>') {
                                     if (document.serviceform.provider_ohipNo.value != '')
                                         sel.form.providerview.value = '<%= Encode.forJavaScript(request.getParameter("providerview")) %>';
                                 }
@@ -514,7 +514,7 @@
                                 <%
                                     for (int i = 0; i < sites.size(); i++) {
                                 %>
-                                <option value="<%= Encode.forHtml(sites.get(i).getName()) %>"
+                                <option value="<%= Encode.forHtmlAttribute(sites.get(i).getName()) %>"
                                         style="background-color:<%= sites.get(i).getBgColor() %>"
                                         <%=sites.get(i).getName().toString().equals(curSite) ? "selected" : "" %>><%= Encode.forHtml(sites.get(i).getName()) %>
                                 </option>

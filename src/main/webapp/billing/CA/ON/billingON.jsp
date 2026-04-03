@@ -580,7 +580,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
@@ -1611,7 +1610,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 	while (iter.hasNext()) {
 		Provider p=iter.next();
 		if ("1".equals(p.getStatus()) && StringUtils.isNotBlank(p.getOhipNo())) {
-	%><option value='<%= p.getProviderNo() %>|<%= p.getOhipNo() %>' ><%=Encode.forHtmlAttribute(p.getLastName())%>, <%=Encode.forHtmlAttribute(p.getFirstName())%></option><%}}%>";
+	%><option value='<%= p.getProviderNo() %>|<%= p.getOhipNo() %>' ><%=Encode.forJavaScript(p.getLastName())%>, <%=Encode.forJavaScript(p.getFirstName())%></option><%}}%>";
                                             <%}%>
 
                                             function changeSite(sel) {
@@ -1985,7 +1984,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                                     type="checkbox" id="xml_<%=serviceCode%>"
                                                     name="xml_<%=serviceCode%>" value="checked"
                                                     onclick="refreshServicesChecked(this);"
-                                                    <%= Encode.forHtml(request.getParameter("xml_" + serviceCode) != null ? request.getParameter("xml_" + serviceCode) : "") %>
+                                                    <%= "checked".equals(request.getParameter("xml_" + serviceCode)) ? "checked" : "" %>
                                                     <%=bSingleClick ? "onClick='onClickServiceCode(this)'" : ""%> />
                                             <span id="sc<%=(""+i).substring(0,1)+serviceCode%>"
                                                   onclick="getElementById('xml_<%=serviceCode%>').click();"
@@ -2068,7 +2067,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                                     type="checkbox" id="xml_<%=serviceCode%>"
                                                     name="xml_<%=serviceCode%>" value="checked"
                                                     onclick="refreshServicesChecked(this);"
-                                                    <%= Encode.forHtml(request.getParameter("xml_" + serviceCode) != null ? request.getParameter("xml_" + serviceCode) : "") %>
+                                                    <%= "checked".equals(request.getParameter("xml_" + serviceCode)) ? "checked" : "" %>
                                                     <%=bSingleClick ? "onClick='onClickServiceCode(this)'" : ""%> />
                                             <span id="sc<%=(""+i).substring(0,1)+serviceCode%>"
                                                   onclick="getElementById('xml_<%=serviceCode%>').click();"
@@ -2154,7 +2153,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                                     type="checkbox" id="xml_<%=serviceCode%>"
                                                     name="xml_<%=serviceCode%>" value="checked"
                                                     onclick="refreshServicesChecked(this);"
-                                                    <%= Encode.forHtml(request.getParameter("xml_" + serviceCode) != null ? request.getParameter("xml_" + serviceCode) : "") %>
+                                                    <%= "checked".equals(request.getParameter("xml_" + serviceCode)) ? "checked" : "" %>
                                                     <%=bSingleClick ? "onClick='onClickServiceCode(this)'" : ""%> />
                                             <span id="sc<%=(""+i).substring(0,1)+serviceCode%>"
                                                   onclick="getElementById('xml_<%=serviceCode%>').click();"

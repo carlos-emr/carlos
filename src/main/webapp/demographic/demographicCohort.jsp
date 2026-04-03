@@ -144,7 +144,7 @@
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiccohort.addtopatientset"/></h3>
     <ul>
         <c:forEach var="set" items="${arrDemoSets}">
-            <li><a href="<%= request.getContextPath() %>/demographic/demographicCohort.jsp?demographic_no=<%= Encode.forHtmlAttribute(demoNo) %>&setName=<c:out value="${set}"/>"><c:out
+            <li><a href="<%= request.getContextPath() %>/demographic/demographicCohort.jsp?demographic_no=<%= Encode.forUriComponent(demoNo) %>&setName=<c:out value="${set}"/>"><c:out
                     value="${set}"/></a></li>
         </c:forEach>
     </ul>

@@ -60,7 +60,6 @@
     <script type="text/javascript" charset="utf-8">
         $(function () {
             var tabContainers = $('div.tabs > div');
-            var tab = '<%= Encode.forJavaScript(tab) %>';
             //if (tab == 'download') tabContainers.hide().filter('#download').show();
             //else if (tab == 'upload') tabContainers.hide().filter('#upload').show();
             //else if (tab == 'sent') tabContainers.hide().filter('#sent').show();

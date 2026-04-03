@@ -488,9 +488,9 @@ display:inline-block;
 
                     <div style="width:100%;text-align:right">
                         <%if (request.getParameter("demographic") == null) { %>
-                        <a href="EditFlowsheet.jsp?flowsheet=<%= Encode.forHtmlAttribute(flowsheet) %><%=htQueryString%><%=scope != null ? "&scope=" + scope : ""%>" class="btn btn-secondary">Cancel</a>
+                        <a href="EditFlowsheet.jsp?flowsheet=<%= Encode.forUriComponent(flowsheet) %><%=htQueryString%><%=scope != null ? "&scope=" + scope : ""%>" class="btn btn-secondary">Cancel</a>
                         <%} else { %>
-                        <a href="EditFlowsheet.jsp?flowsheet=<%= Encode.forHtmlAttribute(flowsheet) %>&demographic=<%=demographic%><%=htQueryString%><%=scope != null ? "&scope=" + scope : ""%>"
+                        <a href="EditFlowsheet.jsp?flowsheet=<%= Encode.forUriComponent(flowsheet) %>&demographic=<%=demographic%><%=htQueryString%><%=scope != null ? "&scope=" + scope : ""%>"
                            class="btn btn-secondary">Cancel</a>
                         <%} %>
                         <input type="submit" class="btn btn-primary" value="Update"/>

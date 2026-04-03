@@ -66,7 +66,7 @@
         <p class="PropSheetLevel1CurrentItem<%=alle%>">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.sideLinks.msgAllergies"/>
             <a href="javascript:void(0);" name="cmdAllergies"
-               onclick="javascript:window.location.href='<%= request.getContextPath() %>/oscarRx/ShowAllergies2.jsp?demographicNo=<%=Encode.forJavaScript(request.getParameter("demographicNo"))%>';"
+               onclick="javascript:window.location.href='<%= request.getContextPath() %>/oscarRx/ShowAllergies2.jsp?demographicNo=<%=Encode.forJavaScriptAttribute(request.getParameter("demographicNo"))%>';"
                style="width: 200px">+</a>
         </p>
         <p class="PropSheetMenuItemLevel1">

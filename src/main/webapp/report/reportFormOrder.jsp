@@ -104,7 +104,7 @@
         <tr BGCOLOR="#CCCCFF">
             <td><%=reportName%> Order</td>
             <td width="10%" align="right" nowrap><a
-                    href="reportFormConfig.jsp?id=<%= Encode.forHtmlAttribute(reportId) %>&tableName=<%=tableName%>">Back
+                    href="reportFormConfig.jsp?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%=Encode.forUriComponent(tableName)%>">Back
                 to the Configuration</a></td>
         </tr>
     </table>

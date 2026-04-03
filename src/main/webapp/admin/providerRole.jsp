@@ -56,7 +56,6 @@
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     ProgramDao programDao = SpringUtils.getBean(ProgramDao.class);
@@ -423,7 +422,7 @@
         item = {
             providerNo: "<%=prop.get("provider_no")%>",
             role_id: "<%=prop.get("role_id")%>",
-            roleName: "<%=Encode.forHtmlAttribute((String)prop.get("role_name"))%>"
+            roleName: "<%=Encode.forJavaScript((String)prop.get("role_name"))%>"
         };
         items.push(item);
         <%

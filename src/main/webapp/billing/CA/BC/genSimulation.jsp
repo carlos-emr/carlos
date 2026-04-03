@@ -111,7 +111,7 @@
 %>
 
 <jsp:forward page='billingSim.jsp'>
-    <jsp:param name="xml_appointment_date" value='<%= Encode.forJavaScript(dateEnd) %>'/>
-    <jsp:param name="xml_v_date" value='<%= Encode.forJavaScript(dateBegin) %>'/>
-    <jsp:param name="provider" value='<%= Encode.forJavaScript(provider) %>'/>
+    <jsp:param name="xml_appointment_date" value='<%= dateEnd %>'/>
+    <jsp:param name="xml_v_date" value='<%= dateBegin %>'/>
+    <jsp:param name="provider" value='<%= provider %>'/>
 </jsp:forward>

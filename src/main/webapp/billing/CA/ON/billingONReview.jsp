@@ -607,7 +607,7 @@
                                 <tr>
                                     <!--<input type="text" name="checkFlag" id="checkFlag" value="<%= Encode.forHtmlAttribute(request.getParameter("checkFlag")) %>" />  -->
                                     <td style="white-space:nowrap; width:30%; text-align:center"><b>Service Date</b><br>
-                                        <%= Encode.forHtml(request.getParameter("service_date").replaceAll("\\n", "<br>")) %>
+                                        <%= String.join("<br>", java.util.Arrays.stream(request.getParameter("service_date").split("\\n")).map(Encode::forHtml).toArray(String[]::new)) %>
                                     </td>
                                     <td style="text-align:center; width:33%"><b>Diagnostic Code</b><br>
                                         <%=dxCode%><br>
@@ -1372,7 +1372,7 @@
                                                    style="font-size:small;">show/hide</a></h3>
         <div class="wrapper" id="dxFullListing">
             <jsp:include page="/oscarResearch/oscarDxResearch/currentCodeList.jsp">
-                <jsp:param name="demographicNo" value="<%= Encode.forHtmlAttribute(demo_no) %>"/>
+                <jsp:param name="demographicNo" value="<%= demo_no %>"/>
             </jsp:include>
         </div>
     </div>
@@ -1388,7 +1388,7 @@
             <input type="hidden" name="forwardTo" value="codeList"/>
             <div class="wrapper" id="dxListing">
                 <jsp:include page="/oscarResearch/oscarDxResearch/quickCodeList.jsp">
-                    <jsp:param name="demographicNo" value="<%= Encode.forHtmlAttribute(demo_no) %>"/>
+                    <jsp:param name="demographicNo" value="<%= demo_no %>"/>
                 </jsp:include>
             </div>
             <input type="button" value="Add To Disease Registry" class="btn btn-secondary" onclick="addToDiseaseRegistry()"/>

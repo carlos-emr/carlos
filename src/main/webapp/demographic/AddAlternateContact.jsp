@@ -58,7 +58,6 @@
         creatorDemo = (String) request.getAttribute("demo");
     }
 
-  creatorDemo = Encode.forHtmlContent(creatorDemo);
 %>
 
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*" %>
@@ -71,7 +70,6 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicRelationship" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -125,7 +123,7 @@
             <td class="MainTableLeftColumn" valign="top">&nbsp;
                 <%if (IsPropertiesOn.isCaisiEnable()) { %>
 
-                <a href="<%=request.getContextPath()%>/PMmodule/ClientManager.do?id=<%= Encode.forHtmlAttribute(creatorDemo) %>">Back to PMM </a>
+                <a href="<%=request.getContextPath()%>/PMmodule/ClientManager.do?id=<%= Encode.forUriComponent(creatorDemo) %>">Back to PMM </a>
 
                 <%} %>
 
@@ -144,7 +142,6 @@
                             if (searchMode == null || searchMode.isEmpty()) {
                                 searchMode = CarlosProperties.getInstance().getProperty("default_search_mode", "search_name");
                             }
-	searchMode = Encode.forHtmlAttribute(searchMode);
                         %>
                         <input
                                 type="hidden" name="search_mode" value="<%= Encode.forHtmlAttribute(searchMode) %>"/> <input
@@ -183,7 +180,6 @@
                     String demoNo = request.getParameter("demographic_no");
                     String name = request.getParameter("name");
                     String origDemo = request.getParameter("remarks");
-                    origDemo = Encode.forHtmlAttribute(origDemo);
                     if (demoNo != null) {
                 %> <form action="${pageContext.request.contextPath}/demographic/AddRelation.do" method="post">
                 <input type="hidden" name="origDemo" value="<%= Encode.forHtmlAttribute(origDemo) %>"/>

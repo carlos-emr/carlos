@@ -203,7 +203,7 @@
     <input type="hidden" name="checkFlag" id="checkFlag"/>
     <input type="hidden" name="rfcheck" id="rfcheck"/>
     <input type="hidden" name="referralDocName" id="referralDocName"/>
-    <input type="hidden" name="referralCode" id="referralCode " value="<%=Encode.forHtmlAttribute(referralCode)%>"/>
+    <input type="hidden" name="referralCode" id="referralCode" value="<%=Encode.forHtmlAttribute(referralCode)%>"/>
     <input type="hidden" name="referralSpet" id="referralSpet"/>
     <input type="hidden" name="site" id="site" value="<%=Encode.forHtmlAttribute(site)%>"/>
     <input type="hidden" name="xml_billtype" id="xml_billtype" value="<%=Encode.forHtmlAttribute(xml_billtype)%>"/>

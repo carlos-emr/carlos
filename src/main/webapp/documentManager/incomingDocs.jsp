@@ -863,7 +863,7 @@
                                         <tr>
                                             <td>
                                                 <select tabIndex="<%=tabIndex++%>" name="SelectPdfList"
-                                                        id="SelectPdfList" onchange="loadSelectedPdf('<%= Encode.forJavaScript(pdfDir) %>');">
+                                                        id="SelectPdfList" onchange="loadSelectedPdf('<%= Encode.forJavaScriptAttribute(pdfDir) %>');">
                                                     <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.selectPDF"/></option>
                                                     <%
                                                         for (int p = 0; p < pdfList.size(); p++) {
@@ -879,24 +879,24 @@
                                         <tr>
                                             <td><input type="button"
                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.first"/>"
-                                                       onclick="loadPdf('1','<%= Encode.forJavaScript(pdfDir) %>');">
+                                                       onclick="loadPdf('1','<%= Encode.forJavaScriptAttribute(pdfDir) %>');">
                                                 <input type="button"
                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.previous"/>"
-                                                       onclick="loadPdf('<%=Integer.parseInt(pdfNo) - 1%>','<%= Encode.forJavaScript(pdfDir) %>');">
+                                                       onclick="loadPdf('<%=Integer.parseInt(pdfNo) - 1%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>');">
                                                 <input type="button"
                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.next"/>"
-                                                       onclick="loadPdf('<%=Integer.parseInt(pdfNo) + 1%>','<%= Encode.forJavaScript(pdfDir) %>');">
+                                                       onclick="loadPdf('<%=Integer.parseInt(pdfNo) + 1%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>');">
                                                 <input type="button"
                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.last"/>"
-                                                       onclick="loadPdf('<%=pdfList.size()%>','<%= Encode.forJavaScript(pdfDir) %>');">
+                                                       onclick="loadPdf('<%=pdfList.size()%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>');">
                                             </td>
                                         </tr>
                                         <tr>
                                             <td><input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
-                                                       onClick="printPdf('<%= Encode.forJavaScript(queueIdStr) %>','<%= Encode.forJavaScript(pdfDir) %>','<%= Encode.forJavaScript(pdfName) %>');">
+                                                       onClick="printPdf('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
                                                 <input type="button"
                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.deletePDF"/>"
-                                                       onclick="deletePdf('<%=pdfNo%>','<%= Encode.forJavaScript(pdfDir) %>','<%= Encode.forJavaScript(pdfName) %>');">
+                                                       onclick="deletePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
                                             </td>
                                         </tr>
                                     </table>
@@ -908,7 +908,7 @@
                                             <td>
                                                 <select tabIndex="<%=tabIndex++%>" name="SelectPageList"
                                                         id="SelectPageList"
-                                                        onchange="loadSelectedPage('<%= Encode.forJavaScript(queueIdStr) %>','<%= Encode.forJavaScript(pdfDir) %>','<%= Encode.forJavaScript(pdfName) %>');">
+                                                        onchange="loadSelectedPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
                                                     <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.selectPage"/></option>
                                                     <%
                                                         for (int p = 1; p <= numOfPage; p++) {
@@ -922,46 +922,46 @@
                                         <tr>
                                             <td><input type="button" id="firstP"
                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.first"/>"
-                                                       onclick="firstPage('<%= Encode.forJavaScript(queueIdStr) %>','<%= Encode.forJavaScript(pdfDir) %>','<%= Encode.forJavaScript(pdfName) %>');">
+                                                       onclick="firstPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
                                                 <input type="button"
                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.previous"/>"
-                                                       onclick="prevPage('<%= Encode.forJavaScript(queueIdStr) %>','<%= Encode.forJavaScript(pdfDir) %>','<%= Encode.forJavaScript(pdfName) %>');">
+                                                       onclick="prevPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
                                                 <input type="button"
                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.next"/>"
-                                                       onclick="nextPage('<%= Encode.forJavaScript(queueIdStr) %>','<%= Encode.forJavaScript(pdfDir) %>','<%= Encode.forJavaScript(pdfName) %>');">
+                                                       onclick="nextPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
                                                 <input type="button"
                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.last"/>"
-                                                       onclick="lastPage('<%= Encode.forJavaScript(queueIdStr) %>','<%= Encode.forJavaScript(pdfDir) %>','<%= Encode.forJavaScript(pdfName) %>');">
+                                                       onclick="lastPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
 
                                             </td>
                                         </tr>
                                         <tr>
                                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.rotateThisPage"/>:<input
                                                     type="button" value="180"
-                                                    onclick="rotatePdf('<%=pdfNo%>','<%= Encode.forJavaScript(pdfDir) %>','<%= Encode.forJavaScript(pdfName) %>','180');">
+                                                    onclick="rotatePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','180');">
                                                 <input type="button" value="+90"
-                                                       onclick="rotatePdf('<%=pdfNo%>','<%= Encode.forJavaScript(pdfDir) %>','<%= Encode.forJavaScript(pdfName) %>','90');">
+                                                       onclick="rotatePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','90');">
                                                 <input type="button" value="-90"
-                                                       onclick="rotatePdf('<%=pdfNo%>','<%= Encode.forJavaScript(pdfDir) %>','<%= Encode.forJavaScript(pdfName) %>','M90');">
+                                                       onclick="rotatePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','M90');">
                                             </td>
                                         </tr>
                                         <tr>
                                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.rotateAllPages"/>:<input
                                                     type="button" value="180"
-                                                    onclick="rotateAllPagePdf('<%=pdfNo%>','<%= Encode.forJavaScript(pdfDir) %>','<%= Encode.forJavaScript(pdfName) %>','180');">
+                                                    onclick="rotateAllPagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','180');">
                                                 <input type="button" value="+90"
-                                                       onclick="rotateAllPagePdf('<%=pdfNo%>','<%= Encode.forJavaScript(pdfDir) %>','<%= Encode.forJavaScript(pdfName) %>','90');">
+                                                       onclick="rotateAllPagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','90');">
                                                 <input type="button" value="-90"
-                                                       onclick="rotateAllPagePdf('<%=pdfNo%>','<%= Encode.forJavaScript(pdfDir) %>','<%= Encode.forJavaScript(pdfName) %>','M90');">
+                                                       onclick="rotateAllPagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','M90');">
                                             </td>
                                         </tr>
                                         <tr>
                                             <td><input type="button"
                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.extractPage"/>"
-                                                       onclick="extractPagePdf('<%=pdfNo%>','<%= Encode.forJavaScript(pdfDir) %>','<%= Encode.forJavaScript(pdfName) %>');">
+                                                       onclick="extractPagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
                                                 <input type="button"
                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.deletePage"/>"
-                                                       onclick="deletePagePdf('<%=pdfNo%>','<%= Encode.forJavaScript(pdfDir) %>','<%= Encode.forJavaScript(pdfName) %>');">
+                                                       onclick="deletePagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
                                             </td>
                                         </tr>
                                     </table>

@@ -328,7 +328,7 @@
             <tr bgcolor="<%=bodd?"ivory":"white"%>" align="center">
                 <td><input type="submit" name="demographicNo"
                            value="<%=io.github.carlos_emr.Misc.getString(rs,"demographic_no")%>"
-                           onclick="updateOpener('<%= Encode.forJavaScript(request.getParameter("labNo")) %>','<%=io.github.carlos_emr.Misc.getString(rs,"demographic_no")%>');">
+                           onclick="updateOpener('<%= Encode.forJavaScriptAttribute(request.getParameter("labNo")) %>','<%=io.github.carlos_emr.Misc.getString(rs,"demographic_no")%>');">
                 </td>
                 <td><%=nbsp(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "last_name")))%>
                 </td>

@@ -302,7 +302,7 @@
                     %>
 
                     <li>
-                        <a href="<%=request.getContextPath()%>/oscarPrevention/AddPreventionData.jsp?snomedId=<%=mapping.getCvcSnomedId() %>&prevention=<%= Encode.forHtmlAttribute(prevention) %>&demographic_no=<%=demographicNo %>&prevResultDesc=<%=prevResultDesc%>"><%=i.getPicklistName()%>
+                        <a href="<%=request.getContextPath()%>/oscarPrevention/AddPreventionData.jsp?snomedId=<%=mapping.getCvcSnomedId() %>&prevention=<%= Encode.forUriComponent(prevention) %>&demographic_no=<%=demographicNo %>&prevResultDesc=<%=prevResultDesc%>"><%=i.getPicklistName()%>
                         </a></li>
                     <% }
                     } %>

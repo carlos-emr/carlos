@@ -111,7 +111,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <!DOCTYPE HTML>
 <html>
 <head>
@@ -275,8 +274,8 @@
 
         <form name="serviceform" method="get" action="billStatus.jsp" class="d-flex flex-wrap align-items-center gap-2">
             <input type="hidden" name="filterPatient" value="<%= Encode.forHtmlAttribute(readonly) %>"/>
-            <input type="hidden" name="lastName" value="<%= Encode.forHtml(request.getParameter("lastName")) %>"/>
-            <input type="hidden" name="firstName" value="<%= Encode.forHtml(request.getParameter("firstName")) %>"/>
+            <input type="hidden" name="lastName" value="<%= Encode.forHtmlAttribute(request.getParameter("lastName")) %>"/>
+            <input type="hidden" name="firstName" value="<%= Encode.forHtmlAttribute(request.getParameter("firstName")) %>"/>
             <div class="row">
                 <div class="col-lg-12">
                     <div class="mb-3">

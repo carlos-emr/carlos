@@ -73,6 +73,7 @@
     String elementName = request.getParameter("elementName") == null ? "" : request.getParameter("elementName");
     String elementId = request.getParameter("elementId") == null ? "" : request.getParameter("elementId");
     String keyword = request.getParameter("keyword");
+    String contactRole = request.getParameter("contactRole") == null ? "" : request.getParameter("contactRole");
 
     if (request.getParameter("submit") != null
             && (request.getParameter("submit").equals("Search")
@@ -289,7 +290,7 @@
 
         <tr>
             <td>
-                <a href="<%= request.getContextPath() %>/demographic/Contact.do?method=addProContact&keyword=<%= Encode.forHtmlAttribute(keyword) %>&contactRole=${ param.contactRole }&contactType=3"
+                <a href="<%= request.getContextPath() %>/demographic/Contact.do?method=addProContact&keyword=<%= Encode.forUriComponent(keyword) %>&contactRole=<%= Encode.forUriComponent(contactRole) %>&contactType=3"
                    style="font:inherit;display:block;margin:10px;">
                     Add/Edit Professional Contact
                 </a>

@@ -117,7 +117,7 @@
 
                 </table>
 
-                <a href="#" onclick="deleteTest(<%=Encode.forJavaScript(id)%>); return false;" class="btn btn-danger" style="width: 80px; margin-top: 10px;">Delete</a>
+                <a href="#" onclick="deleteTest(<%=Encode.forJavaScriptAttribute(id)%>); return false;" class="btn btn-danger" style="width: 80px; margin-top: 10px;">Delete</a>
 
 		       </fieldset>
 		       <script>

@@ -120,7 +120,7 @@
             </td>
             <td width="10%" align="right" nowrap><a
                     href="reportFormRecord.jsp">Back to Report List</a> | <a
-                    href="reportFormConfig.jsp?id=<%= Encode.forHtmlAttribute(reportId) %>">Configuration</a></td>
+                    href="reportFormConfig.jsp?id=<%= Encode.forUriComponent(reportId) %>">Configuration</a></td>
         </tr>
     </table>
     <table width="100%" border="0" cellspacing="2" cellpadding="2">

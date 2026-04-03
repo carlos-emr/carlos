@@ -262,7 +262,7 @@
                     temp = e.nextElement().toString();
                     if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("submit") || temp.equals("chart_no"))
                         continue;
-                    out.println("<input type='hidden' name='" + temp + "' value='" + request.getParameter(temp) + "'>");
+                    out.println("<input type='hidden' name='" + Encode.forHtmlAttribute(temp) + "' value='" + Encode.forHtmlAttribute(request.getParameter(temp)) + "'>");
                 }
 
                 //should close the pipe connected to the database here!!!
@@ -315,7 +315,7 @@
         for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
             temp = e.nextElement().toString();
             if (temp.equals("submit") || temp.equals("chart_no")) continue;
-            out.println("<input type='hidden' name='" + temp + "' value='" + request.getParameter(temp) + "'>");
+            out.println("<input type='hidden' name='" + Encode.forHtmlAttribute(temp) + "' value='" + Encode.forHtmlAttribute(request.getParameter(temp)) + "'>");
 
         }
     %>

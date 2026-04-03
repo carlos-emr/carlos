@@ -428,12 +428,12 @@
                 <oscar:oscarPropertiesCheck value="true" property="STUDENT_PARTICIPATION_CONSENT">
                     <input type="checkbox" value="" name="studentParticipationConsentCheck"
                            id="studentParticipationConsentCheck"
-                           onClick="return doStudentParticipationCheck('<%= Encode.forJavaScript(demoNo) %>');"/>
+                           onClick="return doStudentParticipationCheck('<%= Encode.forJavaScriptAttribute(demoNo) %>');"/>
                     <label for="studentParticipationConsentCheck"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemgmt.chartnotes.studentParticipationConsent"/></label>
                 </oscar:oscarPropertiesCheck>
                 <oscar:oscarPropertiesCheck value="false" property="STUDENT_PARTICIPATION_CONSENT">
                     <input type="checkbox" value="" name="informedConsentCheck" id="informedConsentCheck"
-                           onClick="return doInformedConsent('<%= Encode.forJavaScript(demoNo) %>');"/>
+                           onClick="return doInformedConsent('<%= Encode.forJavaScriptAttribute(demoNo) %>');"/>
                     <label for="informedConsentCheck"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemgmt.chartnotes.informedConsent"/></label>
                 </oscar:oscarPropertiesCheck>
             </div>

@@ -45,7 +45,7 @@
 <div id="contact_<%=Encode.forHtmlAttribute(id)%>">
     <input type="hidden" name="contact_<%=Encode.forHtmlAttribute(id)%>.id" id="contact_<%=Encode.forHtmlAttribute(id)%>.id" value=""/>
 
-    <a href="#" onclick="deleteContact(<%=Encode.forJavaScript(id)%>);">[Delete]</a>
+    <a href="#" onclick="deleteContact(<%=Encode.forJavaScriptAttribute(id)%>);">[Delete]</a>
 
     <select name="contact_<%=Encode.forHtmlAttribute(id)%>.role" id="contact_<%=Encode.forHtmlAttribute(id)%>.role">
         <option value="Mother">Mother</option>
@@ -100,7 +100,7 @@
     <input type="hidden" name="contact_<%=Encode.forHtmlAttribute(id)%>.contactId" value="0"/>
     <input type="text" name="contact_<%=Encode.forHtmlAttribute(id)%>.contactName" id="contact_<%=Encode.forHtmlAttribute(id)%>.contactName" size="20"
            readonly="readonly"/>
-    <a href="#" onclick="doPersonalSearch('<%=Encode.forJavaScript(id)%>');return false;">${param.search}</a>
+    <a href="#" onclick="doPersonalSearch('<%=Encode.forJavaScriptAttribute(id)%>');return false;">${param.search}</a>
 
     &nbsp;
     SDM:<input type="checkbox" name="contact_<%=Encode.forHtmlAttribute(id)%>.sdm"/>

@@ -44,7 +44,7 @@
 <div id="procontact_<%= Encode.forHtmlAttribute(id) %>">
     <input type="hidden" name="procontact_<%= Encode.forHtmlAttribute(id) %>.id" id="procontact_<%= Encode.forHtmlAttribute(id) %>.id" value=""/>
 
-    <a href="#" onclick="deleteProContact(<%= Encode.forJavaScript(id) %>);">[Delete]</a>
+    <a href="#" onclick="deleteProContact(<%= Encode.forJavaScriptAttribute(id) %>);">[Delete]</a>
 
     &nbsp;
 
@@ -88,5 +88,5 @@
     <input type="hidden" name="procontact_<%= Encode.forHtmlAttribute(id) %>.contactId" value="0"/>
     <input type="text" name="procontact_<%= Encode.forHtmlAttribute(id) %>.contactName" id="procontact_<%= Encode.forHtmlAttribute(id) %>.contactName" size="20"
            readonly="readonly"/>
-    <a href="#" onclick="doProfessionalSearch('<%= Encode.forJavaScript(id) %>');return false;">${param.search}</a>
+    <a href="#" onclick="doProfessionalSearch('<%= Encode.forJavaScriptAttribute(id) %>');return false;">${param.search}</a>
 </div>

@@ -60,7 +60,6 @@
 <%@page import="io.github.carlos_emr.carlos.log.LogAction, io.github.carlos_emr.carlos.log.LogConst" %>
 <%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@page import="org.owasp.encoder.Encode" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -253,7 +252,7 @@
             </p>
             <% if (rev > 0) { %>
             <div class="revision" style="float: right;">
-                rev<a href="#" onclick="showHistory('<%=uuid%>','<%= Encode.forJavaScript(display) %>');"><%=rev%>
+                rev<a href="#" onclick="showHistory('<%=uuid%>','<%= Encode.forJavaScriptAttribute(display) %>');"><%=rev%>
             </a>
             </div>
             <% } %>

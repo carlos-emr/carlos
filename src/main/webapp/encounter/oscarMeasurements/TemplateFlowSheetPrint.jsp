@@ -482,7 +482,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
             <div class="module-block DoNotPrint">
                 <%if (!printView) {%>
-                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=Encode.forHtmlAttribute(demographic_no)%>&template=<%=Encode.forHtmlAttribute(temp)%>"
+                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>"
                    title="go back to <%=Encode.forHtmlAttribute(temp)%>">&lt;&lt; <%=flowSheet%>
                 </a> <br/>
                 <a href="JavaScript:void(0);" class="back" title="go back to <%=flowSheet%>"></a>
@@ -537,11 +537,11 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                     view:
                     <div class="btn-group">
-                        <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=Encode.forHtmlAttribute(demographic_no)%>&template=<%=Encode.forHtmlAttribute(temp)%>"
+                        <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>"
                            id="all-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">All</a>
-                        <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=Encode.forHtmlAttribute(demographic_no)%>&template=<%=Encode.forHtmlAttribute(temp)%>&show=lastOnly"
+                        <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>&show=lastOnly"
                            id="lastOnly-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">Last Only</a>
-                        <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=Encode.forHtmlAttribute(demographic_no)%>&template=<%=Encode.forHtmlAttribute(temp)%>&show=outOfRange"
+                        <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>&show=outOfRange"
                            id="outOfRange-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">Out of
                             Range</a>
                     </div>
