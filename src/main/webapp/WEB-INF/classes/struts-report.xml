@@ -42,7 +42,7 @@
             <result name="success">/WEB-INF/jsp/oscarReport/RptViewAllQueryByExamples.jsp</result>
         </action>
         <action name="oscarReport/RptByExamplesFavorite" class="io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action">
-            <result name="edit">/oscarReport/RptByExamplesFavorite.jsp</result>
+            <result name="edit">/WEB-INF/jsp/oscarReport/RptByExamplesFavorite.jsp</result>
             <result name="success">/WEB-INF/jsp/oscarReport/RptByExamplesAllFavorites.jsp</result>
         </action>
         <action name="oscarReport/RptByExamplesAllFavorites" class="io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesAllFavorites2Action">

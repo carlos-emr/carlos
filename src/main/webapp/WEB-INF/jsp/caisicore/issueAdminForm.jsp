@@ -50,7 +50,7 @@
     <input type="hidden" name="update_date_web" id="update_date_web"/>
 
     <div style="color: red">
-    <%@ include file="messages.jsp" %>
+    <%@ include file="/caisicore/messages.jsp" %>
 
     <table>
         <tr>
