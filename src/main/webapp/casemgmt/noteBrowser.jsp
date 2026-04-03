@@ -250,7 +250,7 @@
         }
 
         function showEncounter(encList) {
-            var url2 = '<%=request.getContextPath()%>' + '/CaseManagementEntry.do?method=displayNotes&demographicNo=<%=demographicID%>' + encList + '&printCPP=false&printRx=false';
+            var url2 = '<%=request.getContextPath()%>' + '/CaseManagementEntry.do?method=displayNotes&demographicNo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>' + encList + '&printCPP=false&printRx=false';
             document.getElementById('docdisp').innerHTML = '<object data="' + url2 + '"  width="' + (getWidth() - 40) + '" height="' + (getHeight() - 300) + '" type="text/html"></object>';
             document.getElementById('docinfo').innerHTML = '';
             document.getElementById('docextrainfo').innerHTML = '';
@@ -399,7 +399,7 @@
                     }
                 }
 
-                popup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry.do?method=print&demographicNo=<%=demographicID%>' + encList + '&printCPP=false&printRx=false', 'PrintEncounter');
+                popup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry.do?method=print&demographicNo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>' + encList + '&printCPP=false&printRx=false', 'PrintEncounter');
             }
         }
 

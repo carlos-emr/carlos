@@ -76,6 +76,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
@@ -764,28 +765,28 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
             <td>
                 <form method="post" id="adddemographic" name="adddemographic" action="demographicaddarecord.jsp"
                       onsubmit="return aSubmit()" autocomplete="off">
-                    <input type="hidden" name="fromAppt" value="<%= Encode.forHtmlAttribute(request.getParameter("fromAppt")) %>">
-                    <input type="hidden" name="originalPage" value="<%= Encode.forHtmlAttribute(request.getParameter("originalPage")) %>">
-                    <input type="hidden" name="bFirstDisp" value="<%= Encode.forHtmlAttribute(request.getParameter("bFirstDisp")) %>">
-                    <input type="hidden" name="provider_no" value="<%= Encode.forHtmlAttribute(request.getParameter("provider_no")) %>">
-                    <input type="hidden" name="start_time" value="<%= Encode.forHtmlAttribute(request.getParameter("start_time")) %>">
-                    <input type="hidden" name="end_time" value="<%= Encode.forHtmlAttribute(request.getParameter("end_time")) %>">
-                    <input type="hidden" name="duration" value="<%= Encode.forHtmlAttribute(request.getParameter("duration")) %>">
-                    <input type="hidden" name="year" value="<%= Encode.forHtmlAttribute(request.getParameter("year")) %>">
-                    <input type="hidden" name="month" value="<%= Encode.forHtmlAttribute(request.getParameter("month")) %>">
-                    <input type="hidden" name="day" value="<%= Encode.forHtmlAttribute(request.getParameter("day")) %>">
-                    <input type="hidden" name="appointment_date" value="<%= Encode.forHtmlAttribute(request.getParameter("appointment_date")) %>">
-                    <input type="hidden" name="notes" value="<%= Encode.forHtmlAttribute(request.getParameter("notes")) %>">
-                    <input type="hidden" name="reason" value="<%= Encode.forHtmlAttribute(request.getParameter("reason")) %>">
-                    <input type="hidden" name="location" value="<%= Encode.forHtmlAttribute(request.getParameter("location")) %>">
-                    <input type="hidden" name="resources" value="<%= Encode.forHtmlAttribute(request.getParameter("resources")) %>">
-                    <input type="hidden" name="type" value="<%= Encode.forHtmlAttribute(request.getParameter("type")) %>">
-                    <input type="hidden" name="style" value="<%= Encode.forHtmlAttribute(request.getParameter("style")) %>">
-                    <input type="hidden" name="billing" value="<%= Encode.forHtmlAttribute(request.getParameter("billing")) %>">
-                    <input type="hidden" name="status" value="<%= Encode.forHtmlAttribute(request.getParameter("status")) %>">
-                    <input type="hidden" name="createdatetime" value="<%= Encode.forHtmlAttribute(request.getParameter("createdatetime")) %>">
-                    <input type="hidden" name="creator" value="<%= Encode.forHtmlAttribute(request.getParameter("creator")) %>">
-                    <input type="hidden" name="remarks" value="<%= Encode.forHtmlAttribute(request.getParameter("remarks")) %>">
+                    <input type="hidden" name="fromAppt" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("fromAppt"))) %>">
+                    <input type="hidden" name="originalPage" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("originalPage"))) %>">
+                    <input type="hidden" name="bFirstDisp" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("bFirstDisp"))) %>">
+                    <input type="hidden" name="provider_no" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provider_no"))) %>">
+                    <input type="hidden" name="start_time" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("start_time"))) %>">
+                    <input type="hidden" name="end_time" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("end_time"))) %>">
+                    <input type="hidden" name="duration" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("duration"))) %>">
+                    <input type="hidden" name="year" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("year"))) %>">
+                    <input type="hidden" name="month" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("month"))) %>">
+                    <input type="hidden" name="day" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("day"))) %>">
+                    <input type="hidden" name="appointment_date" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("appointment_date"))) %>">
+                    <input type="hidden" name="notes" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("notes"))) %>">
+                    <input type="hidden" name="reason" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("reason"))) %>">
+                    <input type="hidden" name="location" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("location"))) %>">
+                    <input type="hidden" name="resources" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("resources"))) %>">
+                    <input type="hidden" name="type" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("type"))) %>">
+                    <input type="hidden" name="style" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("style"))) %>">
+                    <input type="hidden" name="billing" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billing"))) %>">
+                    <input type="hidden" name="status" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("status"))) %>">
+                    <input type="hidden" name="createdatetime" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("createdatetime"))) %>">
+                    <input type="hidden" name="creator" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("creator"))) %>">
+                    <input type="hidden" name="remarks" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("remarks"))) %>">
 
 
                     <table id="addDemographicTbl" bgcolor="#EEEEFF">

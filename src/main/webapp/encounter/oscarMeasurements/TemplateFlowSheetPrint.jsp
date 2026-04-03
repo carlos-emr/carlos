@@ -50,6 +50,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prevention.Prevention" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -714,7 +715,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                         %>
                         <div class="preventionProcedure" <%=hider%>
-                             onclick="javascript:popup(465,635,'AddMeasurementData.jsp?measurement=<%= response.encodeURL( measure) %>&amp;id=<%=hdata.get("id")%>&amp;demographic_no=<%=demographic_no%>&amp;template=<%= URLEncoder.encode(temp,"UTF-8") %>','addMeasurementData')">
+                             onclick="javascript:popup(465,635,'AddMeasurementData.jsp?measurement=<%= response.encodeURL( measure) %>&amp;id=<%=hdata.get("id")%>&amp;demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&amp;template=<%= URLEncoder.encode(temp,"UTF-8") %>','addMeasurementData')">
 
                             <p <%=indColour%>
                                     title="Entered By: <%=mdb.getProviderFirstName()%> <%=mdb.getProviderLastName()%>">
@@ -1048,7 +1049,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
             $("[id$=-btn]").removeClass("btn-primary active");
             <%if (request.getParameter("show") !=null ){%>
-            $('#<%=Encode.forJavaScript(request.getParameter("show"))%>-btn').addClass("btn-primary active");
+            $('#<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("show")))%>-btn').addClass("btn-primary active");
             <%}else{%>
             $('#all-btn').addClass("btn-primary active");
             <%}%>

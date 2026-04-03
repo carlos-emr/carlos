@@ -252,10 +252,10 @@
                         <tr>
 
                             <td><a href="#"
-                                   ONCLICK="popupPage('efmshowform_data.jsp?fdid=<%=curform.get("fdid")%>&appointment=<%=appointment%>', '<%="FormP" + i%>'); return false;"
+                                   ONCLICK="popupPage('efmshowform_data.jsp?fdid=<%=curform.get("fdid")%>&appointment=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(appointment))%>', '<%="FormP" + i%>'); return false;"
                                    TITLE="<fmt:message key="eform.showmyform.msgViewFrm"/>"
                                    onmouseover="window.status='
-                                        <fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=Encode.forHtmlContent((String)curform.get("formName"))%>
+                                        <fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=Encode.forHtml((String)curform.get("formName"))%>
                             </a></td>
                             <td><%=Encode.forHtmlContent((String)curform.get("formSubject"))%>
                             </td>

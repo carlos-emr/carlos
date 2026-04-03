@@ -30,6 +30,7 @@
 --%>
 <%@ page import="java.util.*, java.sql.*,java.net.*, io.github.carlos_emr.carlos.db.DBPreparedHandler, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.Misc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -109,11 +110,11 @@
     <form method="post" name="titlesearch" action="PatientSearch.jsp"
           onSubmit="return checkTypeIn();">
         <input type="hidden"
-               name="from" value="<%= Encode.forHtmlAttribute(request.getParameter("from")) %>"/>
+               name="from" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("from"))) %>"/>
         <input type="hidden"
-               name="labNo" value="<%= Encode.forHtmlAttribute(request.getParameter("labNo")) %>"/> <input
+               name="labNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labNo"))) %>"/> <input
             type="hidden" name="labType"
-            value="<%= Encode.forHtmlAttribute(request.getParameter("labType")) %>"/> <%--@ include file="zdemographictitlesearch.htm"--%>
+            value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labType"))) %>"/> <%--@ include file="zdemographictitlesearch.htm"--%>
         <tr valign="top">
             <td rowspan="2" ALIGN="right" valign="middle"><font
                     face="Verdana" color="#0000FF"><b><i>Search</i></b></font></td>
@@ -126,7 +127,7 @@
                 <input type="radio" name="search_mode" value="search_dob"> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.formDOB"/> </font></td>
             <td valign="middle" rowspan="2" ALIGN="left"><input type="text"
                                                                 NAME="keyword" SIZE="17" MAXLENGTH="100"
-                                                                value="<%= Encode.forHtmlAttribute(request.getParameter("keyword")) %>"> <INPUT
+                                                                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("keyword"))) %>"> <INPUT
                     TYPE="hidden" NAME="orderby" VALUE="last_name"> <INPUT
                     TYPE="hidden" NAME="dboperation" VALUE="search_titlename"> <INPUT
                     TYPE="hidden" NAME="limit1" VALUE="0"> <INPUT TYPE="hidden"
@@ -152,7 +153,7 @@
 
 <table width="95%" border="0">
     <tr>
-        <td align="left"><font size="-1"> <i><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgResults"/></i> : <%= Encode.forHtml(request.getParameter("keyword")) %>
+        <td align="left"><font size="-1"> <i><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgResults"/></i> : <%= Encode.forHtml(StringUtils.noNull(request.getParameter("keyword"))) %>
         </font></td>
     </tr>
 </table>
@@ -164,7 +165,7 @@
 
     function addName(lastname, firstname, chartno) {
         fullname = lastname + "," + firstname;
-        document.addform.action = "<%= Encode.forJavaScript(request.getParameter("originalpage")) %>?name=" + fullname + "&chart_no=" + chartno + "&bFirstDisp=false";  //+"\"" ;
+        document.addform.action = "<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("originalpage"))) %>?name=" + fullname + "&chart_no=" + chartno + "&bFirstDisp=false";  //+"\"" ;
         document.addform.submit(); //
         //return;
     }
@@ -180,9 +181,9 @@
     <table width="100%" border="1" cellpadding="0" cellspacing="1"
            bgcolor="#ffffff">
         <form method="post" name="addform" action="PatientMatch.do"><input
-                type="hidden" name="labNo" value="<%= Encode.forHtmlAttribute(request.getParameter("labNo")) %>">
+                type="hidden" name="labNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labNo"))) %>">
             <input type="hidden" name="labType"
-                   value="<%= Encode.forHtmlAttribute(request.getParameter("labType")) %>"/>
+                   value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labType"))) %>"/>
             <tr bgcolor="#339999">
                 <TH align="center" width="10%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgPatientId"/></b></TH>
                 <TH align="center" width="20%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgLastName"/></b></TH>
@@ -328,7 +329,7 @@
             <tr bgcolor="<%=bodd?"ivory":"white"%>" align="center">
                 <td><input type="submit" name="demographicNo"
                            value="<%=io.github.carlos_emr.Misc.getString(rs,"demographic_no")%>"
-                           onclick="updateOpener('<%= Encode.forJavaScriptAttribute(request.getParameter("labNo")) %>','<%=io.github.carlos_emr.Misc.getString(rs,"demographic_no")%>');">
+                           onclick="updateOpener('<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("labNo"))) %>','<%=io.github.carlos_emr.Misc.getString(rs,"demographic_no")%>');">
                 </td>
                 <td><%=nbsp(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "last_name")))%>
                 </td>
@@ -367,12 +368,12 @@
     <script language="JavaScript">
         <!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/PatientSearch.jsp?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("keyword"))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("search_mode"))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("displaymode"))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("orderby"))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>&from=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("from"))) %>";
+            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/PatientSearch.jsp?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
             //document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/PatientSearch.jsp?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("keyword"))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("search_mode"))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("displaymode"))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("orderby"))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>&from=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("from"))) %>";
+            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/PatientSearch.jsp?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
             //document.nextform.submit();
         }
 
@@ -381,9 +382,9 @@
 
     <form method="post" name="nextform"
           action="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp"><input
-            type="hidden" name="labNo" value="<%= Encode.forHtmlAttribute(request.getParameter("labNo")) %>">
+            type="hidden" name="labNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labNo"))) %>">
         <input type="hidden" name="labType"
-               value="<%= Encode.forHtmlAttribute(request.getParameter("labType")) %>"/> <%
+               value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labType"))) %>"/> <%
             if (nLastPage >= 0) {
         %> <input type="submit" name="submit"
                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.patientSearch.btnLastPage"/>"

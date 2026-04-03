@@ -150,7 +150,7 @@
                             <input type="submit" name="submit"
                                     value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.ScheduleConfig.addTemplate"/>" />
                             <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>'
-                                   onclick="javascript:location.href='loadSchedule.do?demographic_no=<%=demoNo%>';"/>
+                                   onclick="javascript:location.href='loadSchedule.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demoNo))%>';"/>
                         </td>
                         <td align="right">
                             <input type="button"

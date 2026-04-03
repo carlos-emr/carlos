@@ -104,7 +104,7 @@
 
 <input type="hidden" name="demographic_no" value="<%= props.getProperty("demographic_no", "0") %>"/>
 <input type="hidden" name="ID" value="<%= props.getProperty("ID", "0") %>"/>
-<input type="hidden" name="provider_no" value="<%= Encode.forHtmlAttribute(request.getParameter("provNo")) %>"/>
+<input type="hidden" name="provider_no" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provNo"))) %>"/>
 <input type="hidden" name="formCreated" value="<%= props.getProperty("formCreated", "") %>"/>
 <input type="hidden" name="form_class" value="<%=formClass%>"/>
 <input type="hidden" name="form_link" value="<%=formLink%>"/>

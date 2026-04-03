@@ -166,14 +166,14 @@
         String roleId = request.getParameter("roleId");
         String roleOld = request.getParameter("roleOld");
         String roleNew = request.getParameter("roleNew");
-        String encodedRoleNew = Encode.forHtmlContent(roleNew);
+        String encodedRoleNew = Encode.forHtml(roleNew);
 
         if (!"-".equals(roleNew)) {
             Secuserrole secUserRole = secUserRoleDao.findById(Integer.parseInt(roleId));
             if (secUserRole != null) {
                 secUserRole.setRoleName(roleNew);
                 secUserRoleDao.updateRoleName(Integer.parseInt(roleId), roleNew);
-                msg = "Role " + encodedRoleNew + " is updated. (" + Encode.forHtmlContent(number) + ")";
+                msg = "Role " + encodedRoleNew + " is updated. (" + Encode.forHtml(number) + ")";
 
                 RecycleBin recycleBin = new RecycleBin();
                 recycleBin.setProviderNo(curUser_no);
@@ -198,7 +198,7 @@
                 }
 
             } else {
-                msg = "Role " + encodedRoleNew + " is <span style='text-color: red;'>NOT</span> updated!!! (" + Encode.forHtmlContent(number) + ")";
+                msg = "Role " + encodedRoleNew + " is <span style='text-color: red;'>NOT</span> updated!!! (" + Encode.forHtml(number) + ")";
             }
         }
 
@@ -209,14 +209,14 @@
     if (request.getParameter("submit") != null && request.getParameter("submit").equals(add)) {
         String number = request.getParameter("providerId") != null ? request.getParameter("providerId") : "";
         String roleNew = request.getParameter("roleNew");
-        String encodedRoleNew = Encode.forHtmlContent(roleNew);
+        String encodedRoleNew = Encode.forHtml(roleNew);
         if (!"-".equals(roleNew)) {
             Secuserrole secUserRole = new Secuserrole();
             secUserRole.setProviderNo(number);
             secUserRole.setRoleName(roleNew);
             secUserRole.setActiveyn(1);
             secUserRoleDao.save(secUserRole);
-            msg = "Role " + encodedRoleNew + " is added. (" + Encode.forHtmlContent(number) + ")";
+            msg = "Role " + encodedRoleNew + " is added. (" + Encode.forHtml(number) + ")";
             LogAction.addLog(curUser_no, LogConst.ADD, LogConst.CON_ROLE, number + "|" + roleNew, ip);
 	    if( newCaseManagement && caisiProgram != null) {
                 ProgramProvider programProvider = programProviderDao.getProgramProvider(number, Long.valueOf(caisiProgram));
@@ -229,7 +229,7 @@
                 programProviderDao.saveProgramProvider(programProvider);
             }
         } else {
-            msg = "Role " + encodedRoleNew + " is <span style='text-color: red;'>NOT</span> added!!! (" + Encode.forHtmlContent(number) + ")";
+            msg = "Role " + encodedRoleNew + " is <span style='text-color: red;'>NOT</span> added!!! (" + Encode.forHtml(number) + ")";
         }
 
     }
@@ -241,7 +241,7 @@
         String roleId = request.getParameter("roleId");
         String roleOld = request.getParameter("roleOld");
         String roleNew = request.getParameter("roleNew");
-        String encodedRoleOld = Encode.forHtmlContent(roleOld);
+        String encodedRoleOld = Encode.forHtml(roleOld);
 
 	List secUserRoles = secUserRoleDao.findByProviderNo(number);
 
@@ -252,7 +252,7 @@
             if(secUserRole.getId() == Integer.parseInt(roleId)) {
 
             secUserRoleDao.deleteById(secUserRole.getId());
-            msg = "Role " + encodedRoleOld + " is deleted. (" + Encode.forHtmlContent(number) + ")";
+            msg = "Role " + encodedRoleOld + " is deleted. (" + Encode.forHtml(number) + ")";
                 listIterator.remove();
 
             RecycleBin recycleBin = new RecycleBin();
@@ -301,7 +301,7 @@
         }
 
         } else {
-            msg = "Role " + encodedRoleOld + " is <span style='text-color: red;'>NOT</span> deleted!!! (" + Encode.forHtmlContent(number) + ")";
+            msg = "Role " + encodedRoleOld + " is <span style='text-color: red;'>NOT</span> deleted!!! (" + Encode.forHtml(number) + ")";
         }
 
     }
@@ -407,7 +407,7 @@
         function setfocus() {
             this.focus();
             document.forms[0].keyword.select();
-	    window.scrollTo( 0,  '${param.scrollPosition}');
+	    window.scrollTo( 0,  '<%= Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("scrollPosition"))) %>');
         }
 
         function submit(form) {
@@ -535,9 +535,9 @@
       <form name="myform" class="myform myform-<%= Encode.forHtmlAttribute(providerNo) %>" action="providerRole.jsp" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
         <tr>
 
-              <td><%= Encode.forHtmlContent(providerNo) %></td>
-              <td><%= Encode.forHtmlContent(item.getProperty("first_name", "")) %></td>
-              <td><%= Encode.forHtmlContent(item.getProperty("last_name", "")) %></td>
+              <td><%= Encode.forHtml(providerNo) %></td>
+              <td><%= Encode.forHtml(item.getProperty("first_name", "")) %></td>
+              <td><%= Encode.forHtml(item.getProperty("last_name", "")) %></td>
             <td>
               <select name="roleNew" onchange="enableAddRoleButton(this)" data-org="<%= item.getProperty("role_name", "") %>">
                     <option value="-">-</option>
@@ -546,7 +546,7 @@
                     %>
                       <option value="<%=Encode.forHtmlAttribute(String.valueOf(vecRoleName.get(j)))%>"
                               <%= vecRoleName.get(j).equals(item.getProperty("role_name", ""))?"selected":"" %>>
-                        <%= Encode.forHtmlContent(String.valueOf(vecRoleName.get(j))) %>
+                        <%= Encode.forHtml(String.valueOf(vecRoleName.get(j))) %>
                     </option>
                     <%
                         }
@@ -608,7 +608,7 @@
                                 String providerNo = prop.getProperty("provider_no");
                                 if (!temp1.contains(providerNo)) {
                         %>
-                        <option value="<%= Encode.forHtmlAttribute(providerNo) %>"><%=Encode.forHtmlContent(prop.getProperty("last_name") + "," + prop.getProperty("first_name")) %>
+                        <option value="<%= Encode.forHtmlAttribute(providerNo) %>"><%=Encode.forHtml(prop.getProperty("last_name") + "," + prop.getProperty("first_name")) %>
                         </option>
                         <%
                                     temp1.add(providerNo);

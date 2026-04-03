@@ -571,10 +571,10 @@
 <body onload="showtotal(),calculatePayment()">
 
 <form method="post" name="titlesearch" action="billingONSave.jsp" onsubmit="return onSave();">
-    <input type="hidden" name="url_back" value="<%= Encode.forHtmlAttribute(request.getParameter("url_back")) %>">
-    <input type="hidden" name="billNo_old" id="billNo_old" value="<%= Encode.forHtmlAttribute(request.getParameter("billNo_old")) %>"/>
-    <input type="hidden" name="billStatus_old" id="billStatus_old" value="<%= Encode.forHtmlAttribute(request.getParameter("billStatus_old")) %>"/>
-    <input type="hidden" name="billForm" id="billForm" value="<%= Encode.forHtmlAttribute(request.getParameter("billForm")) %>"/>
+    <input type="hidden" name="url_back" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("url_back"))) %>">
+    <input type="hidden" name="billNo_old" id="billNo_old" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billNo_old"))) %>"/>
+    <input type="hidden" name="billStatus_old" id="billStatus_old" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billStatus_old"))) %>"/>
+    <input type="hidden" name="billForm" id="billForm" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billForm"))) %>"/>
     <input type="hidden" name="payeename" id="payeename" value=""/>
     <table style="width:100%" class="myIvory">
         <tr>
@@ -591,7 +591,7 @@
             <td>
                 <table style="width:100%" class="myYellow">
                     <tr>
-                        <td style="white-space:nowrap; width:10%; text-align:center"><%=demoname%>
+                        <td style="white-space:nowrap; width:10%; text-align:center"><%=Encode.forHtml(demoname)%>
                             &nbsp;&nbsp; <%=demoSex.equals("1") ? "Male" : "Female"%> &nbsp;&nbsp;
                             <%=" DOB: " + demoDOBYY + "/" + demoDOBMM + "/" + demoDOBDD + " &nbsp;&nbsp; HIN: " + demoHIN + "" + demoVer%>
                         </td>
@@ -606,18 +606,18 @@
 
                             <table style="width:100%">
                                 <tr>
-                                    <!--<input type="text" name="checkFlag" id="checkFlag" value="<%= Encode.forHtmlAttribute(request.getParameter("checkFlag")) %>" />  -->
+                                    <!--<input type="text" name="checkFlag" id="checkFlag" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("checkFlag"))) %>" />  -->
                                     <td style="white-space:nowrap; width:30%; text-align:center"><b>Service Date</b><br>
                                         <%= request.getParameter("service_date") != null ? String.join("<br>", java.util.Arrays.stream(request.getParameter("service_date").split("\\n")).map(Encode::forHtml).toArray(String[]::new)) : "" %>
                                     </td>
                                     <td style="text-align:center; width:33%"><b>Diagnostic Code</b><br>
-                                        <%=dxCode%><br>
-                                        <%=dxDesc%>
+                                        <%=Encode.forHtml(dxCode)%><br>
+                                        <%=Encode.forHtml(dxDesc)%>
                                     </td>
                                     <td style="vertical-align:top"><b>Refer. Doctor</b><br>
-                                        <%= Encode.forHtml(request.getParameter("referralDocName")) %><br>
+                                        <%= Encode.forHtml(StringUtils.noNull(request.getParameter("referralDocName"))) %><br>
                                         <b>Refer. Doctor #</b><br>
-                                        <%= Encode.forHtml(request.getParameter("referralCode")) %>
+                                        <%= Encode.forHtml(StringUtils.noNull(request.getParameter("referralCode"))) %>
                                     </td>
                                 </tr>
                             </table>
@@ -655,7 +655,7 @@
 
                                     <% if (bMultisites) { %>
                                     <td style="width:30%"><b>Billing Clinic</b></td>
-                                    <td style="width:20%; white-space:nowrap;"><%= Encode.forHtml(request.getParameter("site")) %>
+                                    <td style="width:20%; white-space:nowrap;"><%= Encode.forHtml(StringUtils.noNull(request.getParameter("site"))) %>
                                     </td>
                                     <% } %>
                                 </tr>
@@ -671,7 +671,7 @@
                                 </tr>
                                 <tr>
                                     <td><b>Admission Date</b></td>
-                                    <td><%= Encode.forHtml(request.getParameter("xml_vdate")) %>
+                                    <td><%= Encode.forHtml(StringUtils.noNull(request.getParameter("xml_vdate"))) %>
                                     </td>
                                     <td colspan="2"></td>
                                     <% if (bMultisites) { %>
@@ -772,7 +772,7 @@
                     <tr class="alert alert-danger">
                         <td align=center>
                             &nbsp;<br>
-                            Diagnostic code "<%=dxCodeValue%>" is invalid. Please go back to correct it.
+                            Diagnostic code "<%=Encode.forHtml(dxCodeValue)%>" is invalid. Please go back to correct it.
                         </td>
                     </tr>
                         <%

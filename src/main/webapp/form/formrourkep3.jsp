@@ -58,6 +58,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <html>
     <head>
@@ -434,7 +435,7 @@
                value="<%= props.getProperty("ID", "0") %>"/>
 
         <input type="hidden" name="provider_no"
-               value="<%= Encode.forHtmlAttribute(request.getParameter("provNo")) %>"/>
+               value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provNo"))) %>"/>
 
         <input type="hidden" name="formCreated"
                value="<%= props.getProperty("formCreated", "") %>"/>

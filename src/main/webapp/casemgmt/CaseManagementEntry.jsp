@@ -36,6 +36,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean"%>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
@@ -432,8 +433,8 @@
                 <c:if test="${param.from=='casemgmt' || requestScope.from=='casemgmt'}">
                     <c:url value="${sessionScope.billing_url}" var="url"/>
                     <caisirole:SecurityAccess accessName="billing" accessType="access"
-                                              providerNo='<%= Encode.forHtmlAttribute(request.getParameter("providerNo")) %>'
-                                              demoNo='<%= Encode.forHtmlAttribute(request.getParameter("demographicNo")) %>' programId="<%=pId%>">
+                                              providerNo='<%= StringUtils.noNull(request.getParameter("providerNo")) %>'
+                                              demoNo='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>' programId="<%=pId%>">
                         <tr>
                             <td class="fieldTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.billing"/></td>
 

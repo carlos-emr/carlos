@@ -2109,9 +2109,9 @@ if (userAgent != null) {
         <% } %>
         <input type="hidden" name="demographicNo" id="demographicNo" value="<%=Encode.forHtmlAttribute(demo)%>">
         <input type="hidden" name="requestId" id="requestId" value="<%= Encode.forHtmlAttribute(requestId) %>">
-        <input type="hidden" name="ext_appNo" value="<%= Encode.forHtmlAttribute(request.getParameter("appNo")) %>">
+        <input type="hidden" name="ext_appNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("appNo"))) %>">
         <input type="hidden" name="source"
-               value="<%=(requestId!=null)?thisForm.getSource():request.getParameter("source") %>">
+               value="<%=Encode.forHtmlAttribute((requestId!=null)?thisForm.getSource():StringUtils.noNull(request.getParameter("source")))%>">
         <input type="hidden" name="submission" value="">
         <input type="hidden" id="saved" value="false">
         <input type="hidden" id="contextPath" value="${pageContext.request.contextPath}">

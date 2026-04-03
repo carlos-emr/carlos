@@ -259,7 +259,7 @@
         BigDecimal LineTotal = new BigDecimal(0).setScale(0, BigDecimal.ROUND_HALF_UP);
         BigDecimal LinePerc = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
     %>
-    <pre><font face="Arial, Helvetica, sans-serif" size="2"> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportAgeSex.msgDate"/>: <%=curYear%>-<%=curMonth%>-<%=curDay%> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportAgeSex.msgUnit"/>: <%=clinic%> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportAgeSex.msgPhysician"/>: <%=providerview%></font></pre>
+    <pre><font face="Arial, Helvetica, sans-serif" size="2"> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportAgeSex.msgDate"/>: <%=curYear%>-<%=curMonth%>-<%=curDay%> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportAgeSex.msgUnit"/>: <%=clinic%> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportAgeSex.msgPhysician"/>: <%=Encode.forHtml(providerview)%></font></pre>
     <table width="100%" border="0" cellspacing="0" cellpadding="0">
         <tr bgcolor="#CCCCFF">
             <td>

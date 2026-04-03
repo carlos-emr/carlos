@@ -297,7 +297,7 @@
             <%}%>
         </td>
         <td align="right" valign="top"><font size="+2"><b>Invoice
-            - <%=invoiceNoStr %>
+            - <%=Encode.forHtml(invoiceNoStr)%>
         </b></font><br/>
             Print Date:<%=DateUtils.sumDate("yyyy-MM-dd HH:mm", "0") %><br/>
             <% if (props.hasProperty("invoice_due_date")) { %>

@@ -48,7 +48,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.ExtractBean" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <%

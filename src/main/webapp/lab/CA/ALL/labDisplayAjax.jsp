@@ -552,7 +552,7 @@
                                                                         %>
                                                                         <a href="javascript:window.close()"><% } else { // we were called from lab module
                                                                         %></a>
-                                                                        <a href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
+                                                                        <a href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID)) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
                                                                             <% } %>
                                                                             <%=Encode.forHtml(handler.getPatientName())%>
                                                                         </a>
@@ -1309,7 +1309,7 @@
             </tr>
             <tr>
                 <td colspan="1"><a style="color:white;" href="javascript:void(0);"
-                                   onclick="showHideItem('rawhl7_<%=segmentID%>');">show/hide</a>
+                                   onclick="showHideItem('rawhl7_<%=Encode.forJavaScriptAttribute(segmentID)%>');">show/hide</a>
                     <pre id="rawhl7_<%=Encode.forHtmlAttribute(segmentID)%>" style="display:none;"><%=hl7%></pre>
                 </td>
             </tr>

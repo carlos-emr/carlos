@@ -222,7 +222,7 @@
                 type="hidden" name="listId"
                 value="<%=wl1.getListId()%>"/><input
                 type="hidden" name="demographicNo"
-                value="<%= Encode.forHtmlAttribute(request.getParameter("demographic_no")) %>"/>
+                value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>"/>
             <script
                     LANGUAGE="JavaScript">
                 var removeList = confirm("Click OK to remove patient from the waiting list: <%=wln.getName()%>");

@@ -537,14 +537,14 @@
                                         <%= request.getParameter("billDate") != null ? String.join("<br>", java.util.Arrays.stream(request.getParameter("billDate").split("\\n")).map(Encode::forHtml).toArray(String[]::new)) : "" %>
                                     </td>
                                     <td align="center" width="33%"><b>Diagnostic Code</b><br>
-                                        <%= Encode.forHtml(request.getParameter("dxCode")) %>
+                                        <%= Encode.forHtml(StringUtils.noNull(request.getParameter("dxCode"))) %>
                                         <hr>
                                         <b>Cal.% mode</b><br>
-                                        <%= Encode.forHtml(request.getParameter("rulePerc")) %>
+                                        <%= Encode.forHtml(StringUtils.noNull(request.getParameter("rulePerc"))) %>
                                     </td>
                                     <td valign="top"><b>Refer.
-                                        Doctor</b><br><%= Encode.forHtml(request.getParameter("referralDocName")) %><br>
-                                        <b>Refer. Doctor #</b><br><%= Encode.forHtml(request.getParameter("referralCode")) %>
+                                        Doctor</b><br><%= Encode.forHtml(StringUtils.noNull(request.getParameter("referralDocName"))) %><br>
+                                        <b>Refer. Doctor #</b><br><%= Encode.forHtml(StringUtils.noNull(request.getParameter("referralCode"))) %>
                                     </td>
                                 </tr>
                             </table>
@@ -593,7 +593,7 @@
                                 </tr>
                                 <tr>
                                     <td><b>Admission Date</b></td>
-                                    <td><%= Encode.forHtml(request.getParameter("xml_vdate")) %>
+                                    <td><%= Encode.forHtml(StringUtils.noNull(request.getParameter("xml_vdate"))) %>
                                     </td>
                                     <td colspan="2"></td>
 

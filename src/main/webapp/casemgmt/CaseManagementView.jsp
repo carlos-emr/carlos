@@ -47,6 +47,7 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
     Logger logger = MiscUtils.getLogger();
 
@@ -212,8 +213,8 @@
                     %>
                     <caisirole:SecurityAccess accessName="prescription Read"
                                             accessType="access"
-                                            providerNo='<%= Encode.forHtmlAttribute(request.getParameter("providerNo")) %>'
-                                            demoNo='<%= Encode.forHtmlAttribute(request.getParameter("demographicNo")) %>'
+                                            providerNo='<%= StringUtils.noNull(request.getParameter("providerNo")) %>'
+                                            demoNo='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>'
                                             programId="<%=pId%>">
                         <%
                             if (CaseManagementViewFormBean.tabs[x].equals(selectedTab)) {
@@ -403,7 +404,7 @@
                                 </option>
                             </c:forEach>
                         </select> &nbsp; &nbsp; &nbsp; Sort: <select name="note_sort"
-                                                                    onchange="document.caseManagementViewForm.method.value='view';document.caseManagementViewForm.note_view.value='${param.note_view}';document.caseManagementViewForm.submit()">
+                                                                    onchange="document.caseManagementViewForm.method.value='view';document.caseManagementViewForm.note_view.value='<%= Encode.forJavaScriptAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("note_view"))) %>';document.caseManagementViewForm.submit()">
                             <option value="observation_date_desc">Observation Date - Desc</option>
                             <option value="observation_date_asc">Observation Date - Asc</option>
                             <option value="providerName">Provider</option>

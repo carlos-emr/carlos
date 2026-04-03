@@ -507,10 +507,9 @@ Ontario, Canada
                 document.forms[0].resources.value = "<%=Encode.forJavaScriptBlock(apptObj.getResources())%>";
                 document.forms[0].type.value = "<%=Encode.forJavaScriptBlock(apptObj.getType())%>";
                 document.forms[0].location.value = "<%=Encode.forJavaScriptBlock(apptObj.getLocation())%>";
-                if ('<%=apptObj.getUrgency()%>' == 'critical') {
+                if ('<%=Encode.forJavaScriptBlock(apptObj.getUrgency())%>' == 'critical') {
                     document.forms[0].urgency.checked = "checked";
                 }
-                document.forms[0].reasonCode.value = "<%=apptObj.getReasonCode() %>";
 
                 <%if("true".equals(pros.getProperty("appointment.paste.status","false"))) {%>
                 var statusCode = "<%=Encode.forJavaScriptBlock(apptObj.getStatus())%>";
@@ -813,7 +812,7 @@ Ontario, Canada
                         data: {
                             method: "update",
                             page: "addappointment",
-                            pageId: "<%=curProvider_no%>|" + apptDate + "|" + startTime + "|" + endTime,
+                            pageId: "<%=Encode.forJavaScriptBlock(curProvider_no)%>|" + apptDate + "|" + startTime + "|" + endTime,
                             lock: true,
                             timeout: <%=timeoutSeconds%>,
                             cleanupExisting: true
@@ -885,7 +884,7 @@ Ontario, Canada
                     data: {
                         method: "cancel",
                         page: "addappointment",
-                        pageId: "<%=curProvider_no%>|" + apptDate + "|" + startTime + "|" + endTime
+                        pageId: "<%=Encode.forJavaScriptBlock(curProvider_no)%>|" + apptDate + "|" + startTime + "|" + endTime
                     },
                     dataType: 'json',
                     async: false,
@@ -1137,9 +1136,9 @@ Ontario, Canada
               action="<%=request.getContextPath()%>/appointment/appointmentcontrol.jsp"
               onsubmit="return(onAdd())">
             <input type="hidden" name="displaymode" value="">
-            <input type="hidden" name="year" value="<%= Encode.forHtmlAttribute(request.getParameter("year")) %>">
-            <input type="hidden" name="month" value="<%= Encode.forHtmlAttribute(request.getParameter("month")) %>">
-            <input type="hidden" name="day" value="<%= Encode.forHtmlAttribute(request.getParameter("day")) %>">
+            <input type="hidden" name="year" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("year"))) %>">
+            <input type="hidden" name="month" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("month"))) %>">
+            <input type="hidden" name="day" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("day"))) %>">
             <input type="hidden" name="fromAppt" value="1">
 
 
@@ -1255,7 +1254,7 @@ Ontario, Canada
                                 <textarea id="reason" name="reason" class="form-control form-control-sm mt-1" tabindex="2" rows="2"
                                           style="resize:none;"
                                           placeholder="${e:forHtmlAttribute(formReasonMsg)}"
-                                          maxlength="80"><%=bFirstDisp ? "" : (request.getParameter("reason") == null || "".equals(request.getParameter("reason"))) ? "" : Encode.forHtmlContent(request.getParameter("reason"))%></textarea>
+                                          maxlength="80"><%=bFirstDisp ? "" : (request.getParameter("reason") == null || "".equals(request.getParameter("reason"))) ? "" : Encode.forHtmlContent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("reason")))%></textarea>
                             </div>
                         </div>
                         <%
@@ -1317,7 +1316,7 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formCreator"/>:</label>
                             <div class="col-sm-8">
                                 <input type="text" name="user_id" class="form-control form-control-sm"
-                                       value='<%=bFirstDisp?(Encode.forHtmlAttribute(userlastname)+", "+Encode.forHtmlAttribute(userfirstname)):(request.getParameter("user_id") == null || "".equals(request.getParameter("user_id")))?"Unknown":Encode.forHtmlAttribute(request.getParameter("user_id"))%>'
+                                       value='<%=bFirstDisp?(Encode.forHtmlAttribute(userlastname)+", "+Encode.forHtmlAttribute(userfirstname)):(request.getParameter("user_id") == null || "".equals(request.getParameter("user_id")))?"Unknown":Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("user_id")))%>'
                                        readonly="readonly">
                             </div>
                         </div>

@@ -127,7 +127,7 @@
                 arrCurDemoSets.add(setName);
     %>
     <p style="font-size:small; font-variant:small-caps"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiccohort.saved"/> <%=demoData.getDemographic(loggedInInfo, demoNo).getFirstName() + " " + demoData.getDemographic(loggedInInfo, demoNo).getLastName()%>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiccohort.to"/> <%=setName%>
+        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiccohort.to"/> <%=Encode.forHtml(setName)%>
     </p>
     <%
             }

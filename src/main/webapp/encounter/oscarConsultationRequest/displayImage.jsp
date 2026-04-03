@@ -42,9 +42,9 @@
         <% boolean linkIncluded = StringUtils.isNotEmpty(request.getParameter("link")); %>
         <script type="text/javascript">
             function init() {
-                document.getElementById("image").src = decodeURIComponent("<%= Encode.forJavaScript(request.getParameter("url")) %>");
+                document.getElementById("image").src = decodeURIComponent("<%= Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("url"))) %>");
                 <% if (linkIncluded) { %>
-                document.getElementById("link").href = decodeURIComponent("<%= Encode.forJavaScript(request.getParameter("link")) %>");
+                document.getElementById("link").href = decodeURIComponent("<%= Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("link"))) %>");
                 <% } %>
             }
         </script>

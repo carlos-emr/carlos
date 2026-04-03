@@ -30,6 +30,7 @@
 --%>
 
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -136,7 +137,7 @@
         <%
         } else {
         %>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdate.msgUpdateFailure"/><%= Encode.forHtml(request.getParameter("provider_no")) %>.</h1>
+        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdate.msgUpdateFailure"/><%= Encode.forHtml(StringUtils.noNull(request.getParameter("provider_no"))) %>.</h1>
         <%
             }
         %>

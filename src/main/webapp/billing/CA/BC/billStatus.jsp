@@ -264,9 +264,9 @@
             <div class="col-lg-12">
                 <i>Results for Demographic</i>
                 :
-                <%= Encode.forHtml(request.getParameter("lastName")) %>      ,
-                <%= Encode.forHtml(request.getParameter("firstName")) %>      (
-                <%= Encode.forHtml(request.getParameter("demographicNo")) %>      )
+                <%= Encode.forHtml(StringUtils.noNull(request.getParameter("lastName"))) %>      ,
+                <%= Encode.forHtml(StringUtils.noNull(request.getParameter("firstName"))) %>      (
+                <%= Encode.forHtml(StringUtils.noNull(request.getParameter("demographicNo"))) %>      )
             </div>
         </div>
         <%}%>
@@ -274,8 +274,8 @@
 
         <form name="serviceform" method="get" action="billStatus.jsp" class="d-flex flex-wrap align-items-center gap-2">
             <input type="hidden" name="filterPatient" value="<%= Encode.forHtmlAttribute(readonly) %>"/>
-            <input type="hidden" name="lastName" value="<%= Encode.forHtmlAttribute(request.getParameter("lastName")) %>"/>
-            <input type="hidden" name="firstName" value="<%= Encode.forHtmlAttribute(request.getParameter("firstName")) %>"/>
+            <input type="hidden" name="lastName" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("lastName"))) %>"/>
+            <input type="hidden" name="firstName" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("firstName"))) %>"/>
             <div class="row">
                 <div class="col-lg-12">
                     <div class="mb-3">

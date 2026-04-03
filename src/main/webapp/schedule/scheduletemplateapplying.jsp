@@ -185,7 +185,7 @@
             <!--
 
             async function displayTemplate(s) {
-                var url = "scheduleDisplayTemplate.jsp?name=" + s[s.selectedIndex].value + "&providerid=<%= Encode.forUriComponent(request.getParameter("provider_no")) %>";
+                var url = "scheduleDisplayTemplate.jsp?name=" + s[s.selectedIndex].value + "&providerid=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("provider_no"))) %>";
                 var div = "template";
                 fetch(url)
                     .then(response => response.text())
@@ -539,10 +539,10 @@
                         %>
                         <table style="width:99%">
                             <tr>
-                                <td style="background-color:#CCFFCC"><b><%= Encode.forHtml(request.getParameter("provider_name")) %>
+                                <td style="background-color:#CCFFCC"><b><%= Encode.forHtml(StringUtils.noNull(request.getParameter("provider_name"))) %>
                                 </b>
                                     <input type="hidden" name="provider_name"
-                                           value="<%= Encode.forHtmlAttribute(request.getParameter("provider_name")) %>"></td>
+                                           value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provider_name"))) %>"></td>
                                 <td style="background-color:#CCFFCC; text-align:right; white-space:nowrap"><select
                                         name="select" onChange="selectrschedule(this)">
                                     <%
@@ -963,7 +963,7 @@
                             <tr>
                                 <td colspan="2">
                                     <div style="text-align:right"><input type="hidden" name="provider_no"
-                                                                         value="<%= Encode.forHtmlAttribute(request.getParameter("provider_no")) %>">
+                                                                         value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provider_no"))) %>">
                                         <input
                                                 type="hidden" name="available"
                                                 value="<%=bAlternate||bOrigAlt?"A":"1"%>"> <input

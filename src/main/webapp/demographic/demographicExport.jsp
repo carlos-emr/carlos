@@ -423,7 +423,7 @@
 
                 <% if (demographicNo != null) { %>
                 <input type="hidden" name="demographicNo" id="demographicNo" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.exportingdemographicno"/><%=demographicNo%>
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.exportingdemographicno"/><%=Encode.forHtml(demographicNo)%>
                 <%} else {%>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.patientset"/><br>
                 <select style="width: 189px" name="patientSet" id="patientSet">

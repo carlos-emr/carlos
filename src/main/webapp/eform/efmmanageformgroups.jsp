@@ -163,7 +163,7 @@
         <!--EFORMS IN GROUP-->
 
         <div class="card card-body bg-body-tertiary col-md-6">
-            <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.contents"/>: <%=groupView%>
+            <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.contents"/>: <%=Encode.forHtml(groupView)%>
             </h4>
 
             <table class="table table-sm table-striped">
@@ -249,7 +249,7 @@
              aria-hidden="true">
             <div class="modal-dialog"><div class="modal-content">
             <div class="modal-header">
-                <h3 id="myModalLabel"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.addToGroup"/> <%=groupView%>
+                <h3 id="myModalLabel"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.addToGroup"/> <%=Encode.forHtml(groupView)%>
                 </h3>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>

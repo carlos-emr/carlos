@@ -682,8 +682,8 @@
         }
 
         function onNext() {
-            var codeToAddStr = "<%=codeToAddPatientDx%>";
-            var codeToMatchStr = "<%=codeToMatchPatientDx%>";
+            var codeToAddStr = "<%=Encode.forJavaScript(codeToAddPatientDx)%>";
+            var codeToMatchStr = "<%=Encode.forJavaScript(codeToMatchPatientDx)%>";
 
             var codeToAdd = codeToAddStr.split(",");
             var codeToMatch = {};
@@ -997,8 +997,8 @@
                 document.forms[0].referralCode.value = "";
                 document.forms[0].referralDocName.value = "";
             } else {
-                document.forms[0].referralCode.value = "<%=r_doctor_ohip%>";
-                document.forms[0].referralDocName.value = "<%=r_doctor%>";
+                document.forms[0].referralCode.value = "<%=Encode.forJavaScript(r_doctor_ohip)%>";
+                document.forms[0].referralDocName.value = "<%=Encode.forJavaScript(r_doctor)%>";
             }
         }
 
@@ -1006,12 +1006,12 @@
             var n = document.forms[0].xml_billtype.selectedIndex;
             var val = document.forms[0].xml_billtype[n].value;
             if (val.substring(0, 3) == "PAT" || val.substring(0, 3) == "OCF" || val.substring(0, 3) == "ODS" || val.substring(0, 3) == "CPP" || val.substring(0, 3) == "STD") {
-                self.location.href = "billingON.jsp?curBillForm=<%="PRI"%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("appointment_no"))) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("demographic_no"))) %>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("apptProvider_no"))) %>&providerview=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("apptProvider_no"))) %>&appointment_date=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("appointment_date"))) %>&status=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("status"))) %>&start_time=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("start_time"))) %>&bNewForm=1";
+                self.location.href = "billingON.jsp?curBillForm=<%="PRI"%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")))) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))) %>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&providerview=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&appointment_date=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")))) %>&status=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")))) %>&start_time=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))) %>&bNewForm=1";
             } else if (val.substring(0, 3) == "BON") {
-                self.location.href = "billingON.jsp?curBillForm=<%=oscarVariables.getProperty("primary_care_incentive", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("appointment_no"))) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("demographic_no"))) %>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("apptProvider_no"))) %>&providerview=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("apptProvider_no"))) %>&appointment_date=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("appointment_date"))) %>&status=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("status"))) %>&start_time=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("start_time"))) %>&bNewForm=1";
+                self.location.href = "billingON.jsp?curBillForm=<%=oscarVariables.getProperty("primary_care_incentive", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")))) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))) %>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&providerview=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&appointment_date=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")))) %>&status=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")))) %>&start_time=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))) %>&bNewForm=1";
             } else {
                 <% if(ctlBillForm.equals("PRI") ) {%>
-                self.location.href = "billingON.jsp?curBillForm=<%=oscarVariables.getProperty("default_view", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("appointment_no"))) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("demographic_no"))) %>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("apptProvider_no"))) %>&providerview=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("apptProvider_no"))) %>&appointment_date=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("appointment_date"))) %>&status=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("status"))) %>&start_time=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("start_time"))) %>&bNewForm=1";
+                self.location.href = "billingON.jsp?curBillForm=<%=oscarVariables.getProperty("default_view", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")))) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))) %>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&providerview=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")))) %>&appointment_date=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")))) %>&status=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")))) %>&start_time=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))) %>&bNewForm=1";
                 <% } %>
             }
         }
@@ -1034,8 +1034,8 @@
         }
 
         function prepareBack() {
-            document.forms[0].services_checked.value = "<%= Encode.forJavaScript(request.getParameter("services_checked")) %>";
-            if (document.forms[0].services_checked.value == "null") document.forms[0].services_checked.value = 0;
+            document.forms[0].services_checked.value = "<%= Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("services_checked"))) %>";
+            if (document.forms[0].services_checked.value == "") document.forms[0].services_checked.value = 0;
             document.forms[0].url_back.value = location.href;
 
             showBillFormDiv("group1_", "<%=Encode.forJavaScript(ctlBillForm)%>");
@@ -1337,7 +1337,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
         <tr>
             <td colspan="2" style="background-color:lightgray;"><b>
                 <a href="javascript:void(0);"
-                   onclick="toggleDiv('<%=ctlcode%>', '<%=ctlcodename %>','<%=billType%>');showHideLayers('Layer1','','hide');"><%=ctlcodename%>
+                   onclick="toggleDiv('<%=Encode.forJavaScriptAttribute(ctlcode)%>', '<%=Encode.forJavaScriptAttribute(ctlcodename)%>','<%=Encode.forJavaScriptAttribute(billType)%>');showHideLayers('Layer1','','hide');"><%=Encode.forHtml(ctlcodename)%>
                 </a>
             </b></td>
         </tr>
@@ -1463,7 +1463,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 					<table  style="width: 100%;">
                     <tr>
                         <td style="white-space:nowrap; width: 10%; text-align: center"><b>&nbsp;<oscar:nameage
-                                demographicNo="<%=Encode.forHtmlAttribute(demo_no)%>"/> <%=roster_status%>
+                                demographicNo="<%=demo_no%>"/> <%=Encode.forHtml(roster_status)%>
                         </b>
                             <%if (appt_no.compareTo("0") == 0) {%>
                             <span class="input-group">
@@ -1475,7 +1475,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                          style="height:14px;" alt="cal"></span></span>
                             <%} else {%>
                                 <input type="text" id="service_date" name="service_date" readonly
-								value="<%= Encode.forHtmlAttribute(request.getParameter("appointment_date")) %>"
+								value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date"))) %>"
                                    maxlength="10" style="width: 80px;"> <%}%></td>
                         <%
                             String warningClass = "";
@@ -1558,10 +1558,10 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                         <input
                                                 type="text" name="referralCode" class="form-control form-control-sm d-inline-block w-auto" maxlength="6"
                                                 placeholder="<fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"
-                                                value="<%=refNo%>"><br/>
+                                                value="<%=Encode.forHtmlAttribute(refNo)%>"><br/>
                                         <input placeholder="<fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>"
                                                type="text" name="referralDocName" class="form-control" maxlength="60"
-                                               value="<%=refName%>">
+                                               value="<%=Encode.forHtmlAttribute(refName)%>">
                                     </td>
                                 </tr>
                                 <tr>
@@ -1610,7 +1610,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 	while (iter.hasNext()) {
 		Provider p=iter.next();
 		if ("1".equals(p.getStatus()) && StringUtils.isNotBlank(p.getOhipNo())) {
-	%><option value='<%= Encode.forJavaScript(p.getProviderNo()) %>|<%= Encode.forJavaScript(p.getOhipNo()) %>' ><%=Encode.forJavaScript(Encode.forHtml(p.getLastName()))%>, <%=Encode.forJavaScript(Encode.forHtml(p.getFirstName()))%></option><%}}%>";
+	%><option value='<%= Encode.forJavaScript(p.getProviderNo()) %>|<%= Encode.forJavaScript(p.getOhipNo()) %>' ><%=Encode.forJavaScript(p.getLastName())%>, <%=Encode.forJavaScript(p.getFirstName())%></option><%}}%>";
                                             <%}%>
 
                                             function changeSite(sel) {
@@ -2203,19 +2203,19 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
         <input type="hidden" name="sex" value="<%= Encode.forHtmlAttribute(demoSex) %>"/>
 
         <input type="hidden" name="start_time"
-               value="<%= Encode.forHtmlAttribute(request.getParameter("start_time")) %>"/>
+               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time"))) %>"/>
 
         <input type="hidden" name="demographic_dob" value="<%=demoDOB%>"/>
 
         <input type="hidden" name="apptProvider_no"
-               value="<%= Encode.forHtmlAttribute(request.getParameter("apptProvider_no")) %>"/>
+               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no"))) %>"/>
         <input type="hidden" name="asstProvider_no"
-               value="<%= Encode.forHtmlAttribute(request.getParameter("asstProvider_no")) %>"/>
+               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("asstProvider_no"))) %>"/>
 
         <input type="hidden" name="demographic_name" value="<%=Encode.forHtmlAttribute(demoname)%>"/>
         <input type="hidden" name="providerview" value="<%=Encode.forHtmlAttribute(providerview)%>"/>
         <input type="hidden" name="appointment_date"
-               value="<%= Encode.forHtmlAttribute(request.getParameter("appointment_date")) %>"/>
+               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date"))) %>"/>
         <input type="hidden" name="assgProvider_no"
                value="<%= Encode.forHtmlAttribute(assgProvider_no) %>"/>
         <input type="hidden" name="billForm" value="<%=Encode.forHtmlAttribute(ctlBillForm)%>"/>
@@ -2223,9 +2223,9 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
         <input type="hidden" name="services_checked">
         <input type="hidden" name="url_back">
         <input type="hidden" name="billNo_old" id="billNo_old"
-               value="<%= Encode.forHtmlAttribute(request.getParameter("billNo_old")) %>"/>
+               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("billNo_old"))) %>"/>
         <input type="hidden" name="billStatus_old" id="billStatus_old"
-               value="<%= Encode.forHtmlAttribute(request.getParameter("billStatus_old")) %>"/>
+               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("billStatus_old"))) %>"/>
 
     </table>
 

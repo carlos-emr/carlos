@@ -65,6 +65,7 @@
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -199,7 +200,7 @@
                             <td bgcolor="#CCFFCC">
                                 <div align="right"><input type="hidden" name="Submit" value="">
                                     <input type="hidden" name="provider_no"
-                                           value="<%= Encode.forHtmlAttribute(request.getParameter("provider_no")) %>"> <input
+                                           value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provider_no"))) %>"> <input
                                             type="button"
                                             value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduledatepopup.btnSave"/>'
                                             onclick="document.forms['schedule'].Submit.value=' Save '; document.forms['schedule'].submit();">

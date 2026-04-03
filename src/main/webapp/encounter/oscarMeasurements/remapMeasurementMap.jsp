@@ -134,17 +134,17 @@
                         </tr>
                         <tr>
                             <td class="Cell" width="20%">Identifier:</td>
-                            <td class="Cell" width="80%"><%= identifier %>
+                            <td class="Cell" width="80%"><%= Encode.forHtml(identifier) %>
                             </td>
                         </tr>
                         <tr>
                             <td class="Cell" width="20%">Name:</td>
-                            <td class="Cell" width="80%"><%= name %>
+                            <td class="Cell" width="80%"><%= Encode.forHtml(name) %>
                             </td>
                         </tr>
                         <tr>
                             <td class="Cell" width="20%">Lab Type:</td>
-                            <td class="Cell" width="80%"><%= type %>
+                            <td class="Cell" width="80%"><%= Encode.forHtml(type) %>
                             </td>
                         </tr>
                         <tr>

@@ -34,6 +34,7 @@
 %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page
         import="java.util.*, java.net.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
         errorPage="/errorpage.jsp" %>
@@ -114,7 +115,7 @@
             function changeGroup(s) {
                 var newGroupNo = s.options[s.selectedIndex].value;
                 newGroupNo = s.options[s.selectedIndex].value;
-                self.location.href = "scheduleedittemplate.jsp?providerid=<%= Encode.forUriComponent(request.getParameter("providerid")) %>&providername=<%=URLEncoder.encode(request.getParameter("providername"), StandardCharsets.UTF_8)%>&step=" + newGroupNo;
+                self.location.href = "scheduleedittemplate.jsp?providerid=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerid"))) %>&providername=<%=URLEncoder.encode(request.getParameter("providername"), StandardCharsets.UTF_8)%>&step=" + newGroupNo;
 
             }
 
@@ -136,7 +137,7 @@
                         <input type="hidden" name="step" value="">
                         <tr bgcolor="#CCFFCC">
                             <td nowrap>
-                                <p><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleedittemplate.formProvider"/>: <%= Encode.forHtml(request.getParameter("providername")) %>
+                                <p><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleedittemplate.formProvider"/>: <%= Encode.forHtml(StringUtils.noNull(request.getParameter("providername"))) %>
                                 </p>
                             </td>
                             <td align='right'><select name="name">
@@ -158,9 +159,9 @@
                                     }
                                 %>
                             </select> <input type="hidden" name="providerid"
-                                             value="<%= Encode.forHtmlAttribute(request.getParameter("providerid")) %>"> <input
+                                             value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerid"))) %>"> <input
                                     type="hidden" name="providername"
-                                    value="<%= Encode.forHtmlAttribute(request.getParameter("providername")) %>">
+                                    value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providername"))) %>">
                             <td align='right'><input type="button"
                                                      value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleedittemplate.btnEdit"/>'
                                                      onclick="document.forms['addtemplatecode1'].dboperation.value=' Edit '; document.forms['addtemplatecode1'].submit();">
@@ -181,9 +182,9 @@
                                 </option>
                                 <% } %>
                             </select> <input type="hidden" name="providerid"
-                                             value="<%= Encode.forHtmlAttribute(request.getParameter("providerid")) %>"> <input
+                                             value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerid"))) %>"> <input
                                     type="hidden" name="providername"
-                                    value="<%= Encode.forHtmlAttribute(request.getParameter("providername")) %>"> <input
+                                    value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providername"))) %>"> <input
                                     type="button" value='Go'
                                     onclick="document.forms['addtemplatecode1'].step.value=document.forms[1].step1.options[document.forms[1].step1.selectedIndex].value; document.forms['addtemplatecode1'].submit();">
                             </td>
@@ -260,9 +261,9 @@
                            onclick="document.forms['addtemplatecode'].dboperation.value='Delete'; document.forms['addtemplatecode'].submit();">
                 </td>
                 <td align="right"><input type="hidden" name="providerid"
-                                         value="<%= Encode.forHtmlAttribute(request.getParameter("providerid")) %>"> <input
+                                         value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerid"))) %>"> <input
                         type="hidden" name="providername"
-                        value="<%= Encode.forHtmlAttribute(request.getParameter("providername")) %>"> <input
+                        value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providername"))) %>"> <input
                         type="hidden" name="dboperation" value=""> <input
                         type="button"
                         value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleedittemplate.btnSave"/>'

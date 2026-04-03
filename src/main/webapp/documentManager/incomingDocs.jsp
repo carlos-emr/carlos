@@ -856,7 +856,7 @@
                         <tr>
                             <td>
                                 <fieldset>
-                                    <legend>[<%=pdfDir%>]: <% if (Integer.parseInt(pdfNo) <= 0) {%><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.noFile"/><% } else {%> <%=pdfNo%>/ <%=pdfList.size()%>
+                                    <legend>[<%=Encode.forHtml(pdfDir)%>]: <% if (Integer.parseInt(pdfNo) <= 0) {%><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.noFile"/><% } else {%> <%=pdfNo%>/ <%=pdfList.size()%>
                                         <b><%=pdfList.get(Integer.parseInt(pdfNo) - 1)%>
                                         </b> <%}%></legend>
                                     <table>
@@ -1183,7 +1183,7 @@
             </td>
             <td class="topalign">
                 <div>
-                    <%if (Integer.parseInt(pdfNo) > 0) {%>Page : <b id="pgnum"><%=pdfPageNumber%> <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.of"/><span
+                    <%if (Integer.parseInt(pdfNo) > 0) {%>Page : <b id="pgnum"><%=Encode.forHtml(pdfPageNumber)%> <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.of"/><span
                         class="<%= numOfPage > 1 ? "multiPage" : "singlePage" %>"> <%=numOfPage%> <%}%></span></b>
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.viewAs"/>:
                     <select tabIndex="<%=tabIndex++%>" name="imageTypeList" id="imageTypeList"

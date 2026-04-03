@@ -35,6 +35,7 @@
         import="io.github.carlos_emr.carlos.rx.pageUtil.*,io.github.carlos_emr.carlos.rx.data.*,java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -64,11 +65,11 @@
             <%
              if (request.getParameter("ID") != null && type != null && type.equals("View")){ %>
             $(function () {
-                var data = "pharmacyId=<%=Encode.forJavaScript(request.getParameter("ID"))%>";
+                var data = "pharmacyId=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("ID")))%>";
                 $.get("<%=request.getContextPath()%>/oscarRx/managePharmacy.do?method=getPharmacyInfo",
                     data, function (data) {
                         if (data.name) {
-                            $('#pharmacyId').val('<%=Encode.forJavaScript(request.getParameter("ID"))%>');
+                            $('#pharmacyId').val('<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("ID")))%>');
                             $('#pharmacyName').text(data.name);
                             $('#pharmacyAddress').text(data.address);
                             $('#pharmacyCity').text(data.city);

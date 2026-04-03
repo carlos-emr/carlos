@@ -365,7 +365,7 @@
 
                 var parentId = "<%=Encode.forJavaScript(parentAjaxId)%>";
                 var Url = window.opener.URLs;
-                var update = "<%=updateParent%>";
+                var update = "<%=Encode.forJavaScript(updateParent)%>";
 
                 if (update == "true" && parentId != "" && !window.opener.closed) {
                     window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentId;

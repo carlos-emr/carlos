@@ -173,7 +173,7 @@
                         <td nowrap></td>
                         <td nowrap></td>
                         <td valign="middle" rowspan="2" ALIGN="left"><input type="text"
-                                                                            NAME="keyword" VALUE="<%=keyword%>"
+                                                                            NAME="keyword" VALUE="<%=Encode.forHtmlAttribute(keyword)%>"
                                                                             SIZE="17" MAXLENGTH="100">
                             <%
                                 String searchMode = request.getParameter("search_mode");
@@ -213,8 +213,8 @@
 </table>
 <script>
     // Auto-close window and write selection back to parent if demographic was selected
-    if ("<%=demographic_no%>" != "null") {
-        write2Parent("<%=keyword%>", "<%=demographic_no%>");
+    if ("<%=Encode.forJavaScript(demographic_no)%>" != "null") {
+        write2Parent("<%=Encode.forJavaScript(keyword)%>", "<%=Encode.forJavaScript(demographic_no)%>");
         self.window.close();
     }
 </script>

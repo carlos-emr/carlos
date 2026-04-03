@@ -580,7 +580,7 @@
         <input type="submit" value="Save"/> <%
                 if ( h != null && h.get("ID") != null){ %> <input
             type="button"
-            onClick="javascript: popup(700,600,'addRhInjection.jsp?demographic_no=<%=demographicNo%>&amp;workflowId=<%=h.get("ID")%>&amp;formId=<%=formId%>','addInjection');"
+            onClick="javascript: popup(700,600,'addRhInjection.jsp?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicNo))%>&amp;workflowId=<%=Encode.forJavaScriptAttribute(String.valueOf(h.get("ID")))%>&amp;formId=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(formId))%>','addInjection');"
             value="Add Injection"/> <%-- a style="color:blue; " href="javascript: function myFunction() {return false; }" onClick="popup(700,600,'addRhInjection.jsp?demographic_no=<%=demographicNo%>&amp;workflowId=<%=h.get("ID")%>&amp;formId=<%=formId%>','addInjection')">Add Injection</a --%>
                 <%}%>
         </form>
@@ -623,7 +623,7 @@
                 //console.log("calling get renal dosing information");
                 var url = "<%= request.getContextPath() %>/form/RhInjectionDisplay.jsp";
                 var ran_number = Math.round(Math.random() * 1000000);
-                var params = "demographicNo=<%=demographicNo%>&id=<%=h.get("ID")%>&date=<%=(Date) h.get("completion_date")%>&rand=" + ran_number;  //hack to get around ie caching the page
+                var params = "demographicNo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicNo))%>&id=<%=Encode.forJavaScript(String.valueOf(h.get("ID")))%>&date=<%=Encode.forJavaScript(String.valueOf((Date) h.get("completion_date")))%>&rand=" + ran_number;  //hack to get around ie caching the page
                 //console.log("params" + params);
                 CarlosAjax.updater('injectionInfo', url, {method: 'get', parameters: params});
                 //alert(origRequest.responseText);

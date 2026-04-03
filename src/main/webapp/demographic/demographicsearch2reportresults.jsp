@@ -68,6 +68,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
@@ -144,7 +145,7 @@
 
 <table width="95%" border="0">
     <tr>
-        <td align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.msgKeywords"/> <%= Encode.forHtml(request.getParameter("keyword")) %>
+        <td align="left"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.msgKeywords"/> <%= Encode.forHtml(StringUtils.noNull(request.getParameter("keyword"))) %>
         </td>
     </tr>
 </table>
@@ -156,7 +157,7 @@
 
     function addName(demographic_no, lastname, firstname, chartno, messageID, doctorNo) {
         fullname = lastname + "," + firstname;
-        document.addform.action = "<%= Encode.forJavaScript(request.getParameter("originalpage")) %>&demographicNoParam=" + demographic_no + "&demographic_no=" + demographic_no + "&firstNameParam=" + firstname + "&lastNameParam=" + lastname + "&chart_no=" + chartno;
+        document.addform.action = "<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("originalpage"))) %>&demographicNoParam=" + demographic_no + "&demographic_no=" + demographic_no + "&firstNameParam=" + firstname + "&lastNameParam=" + lastname + "&chart_no=" + chartno;
         document.addform.submit();
         return true;
     }
@@ -165,19 +166,19 @@
 
     function addNameCaisi(demographic_no, lastname, firstname, chartno, messageID) {
         fullname = lastname + "," + firstname;
-        if (opener.document['<%= Encode.forJavaScript(request.getParameter("formName")) %>'] != null) {
-            if (opener.document['<%= Encode.forJavaScript(request.getParameter("formName")) %>'].
-            elements['<%= Encode.forJavaScript(request.getParameter("elementName")) %>'] != null
+        if (opener.document['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("formName"))) %>'] != null) {
+            if (opener.document['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("formName"))) %>'].
+            elements['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("elementName"))) %>'] != null
         )
             opener.document
-        ['<%= Encode.forJavaScript(request.getParameter("formName")) %>'].
-            elements['<%= Encode.forJavaScript(request.getParameter("elementName")) %>'].value = fullname;
-            if (opener.document['<%= Encode.forJavaScript(request.getParameter("formName")) %>'].
-            elements['<%= Encode.forJavaScript(request.getParameter("elementId")) %>'] != null
+        ['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("formName"))) %>'].
+            elements['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("elementName"))) %>'].value = fullname;
+            if (opener.document['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("formName"))) %>'].
+            elements['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("elementId"))) %>'] != null
         )
             opener.document
-        ['<%= Encode.forJavaScript(request.getParameter("formName")) %>'].
-            elements['<%= Encode.forJavaScript(request.getParameter("elementId")) %>'].value = demographic_no;
+        ['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("formName"))) %>'].
+            elements['<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("elementId"))) %>'].value = demographic_no;
         }
         self.close();
     }
@@ -227,11 +228,11 @@
                 onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
                 onMouseout="this.style.backgroundColor='<%=bgColor%>';"
                 onClick="<% if(caisi) { out.print("addNameCaisi");}
-						else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo(), StandardCharsets.UTF_8)%>','<%= Encode.forJavaScript(request.getParameter("messageId")) %>','<%=demo.getProviderNo()%>')">
+						else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo(), StandardCharsets.UTF_8)%>','<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("messageId"))) %>','<%=demo.getProviderNo()%>')">
 
                 <td><input type="submit" class="mbttn" name="demographic_no" value="<%=demo.getDemographicNo()%>"
                            onClick="<% if(caisi) {out.print("addNameCaisi");}
-					else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo(), StandardCharsets.UTF_8)%>','<%= Encode.forJavaScript(request.getParameter("messageId")) %>','<%=demo.getProviderNo()%>')">
+					else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo(), StandardCharsets.UTF_8)%>','<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("messageId"))) %>','<%=demo.getProviderNo()%>')">
                 </td>
                 <td><%=Encode.forHtml(Misc.toUpperLowerCase(demo.getLastName()))%>
                 </td>
@@ -262,7 +263,7 @@
                     temp = e.nextElement().toString();
                     if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("submit") || temp.equals("chart_no"))
                         continue;
-                    out.println("<input type='hidden' name='" + Encode.forHtmlAttribute(temp) + "' value='" + Encode.forHtmlAttribute(request.getParameter(temp)) + "'>");
+                    out.println("<input type='hidden' name='" + Encode.forHtmlAttribute(temp) + "' value='" + Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter(temp))) + "'>");
                 }
 
                 //should close the pipe connected to the database here!!!
@@ -280,19 +281,19 @@
         if (nItems == 0 && nLastPage <= 0) {
     %> <caisi:isModuleLoad moduleName="caisi" reverse="true">
     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.noResultsWereFound"/>
-    <a href="<%= request.getContextPath() %>/demographic/demographicaddarecordhtm.jsp?search_mode=<%= Encode.forUriComponent(request.getParameter("search_mode")) %>&keyword=<%= Encode.forUriComponent(request.getParameter("keyword")) %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.btnCreateNew"/></a>
+    <a href="<%= request.getContextPath() %>/demographic/demographicaddarecordhtm.jsp?search_mode=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode"))) %>&keyword=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword"))) %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.btnCreateNew"/></a>
 </caisi:isModuleLoad> <%
     }
 %>
     <script language="JavaScript">
         <!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("originalpage"))) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("keyword"))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("search_mode"))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("orderby"))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("originalpage")))) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>";
             //document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("originalpage"))) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("keyword"))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("search_mode"))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("orderby"))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("originalpage")))) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>";
             //document.nextform.submit();
         }
 
@@ -315,7 +316,7 @@
         for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
             temp = e.nextElement().toString();
             if (temp.equals("submit") || temp.equals("chart_no")) continue;
-            out.println("<input type='hidden' name='" + Encode.forHtmlAttribute(temp) + "' value='" + Encode.forHtmlAttribute(request.getParameter(temp)) + "'>");
+            out.println("<input type='hidden' name='" + Encode.forHtmlAttribute(temp) + "' value='" + Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter(temp))) + "'>");
 
         }
     %>

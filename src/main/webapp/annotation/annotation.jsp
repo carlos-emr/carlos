@@ -234,7 +234,7 @@
         <input type="hidden" name="saved"/>
         <div class="header"></div>
         <div class="card">
-            <%=display%> Annotation:
+            <%=Encode.forHtml(display)%> Annotation:
             <%if (lastCmn != null) {%>
             <div class="label">Documentation Date: <%=lastCmn.getCreate_date()%>
             </div>

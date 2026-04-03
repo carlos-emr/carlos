@@ -147,8 +147,8 @@
 
     <div align="center">
         <form action="<%= request.getContextPath() %>/form/createpdf" method="POST">
-            <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(request.getParameter("demographic_no")) %>"/>
-            <input type="hidden" name="form_id" value="<%= Encode.forHtmlAttribute(request.getParameter("form_id")) %>"/>
+            <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("demographic_no"))) %>"/>
+            <input type="hidden" name="form_id" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("form_id"))) %>"/>
             <input type="hidden" name="__title" value="PatientEcounterWorksheet"/>
             <input type="hidden" name="__cfgfile" value="patientEncounterWorksheetCfg"/>
             <input type="hidden" name="__template" value="patientEncounterWorksheet"/>

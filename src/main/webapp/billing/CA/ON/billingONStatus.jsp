@@ -494,15 +494,15 @@
                                     while (iter.hasNext()) {
                                     	Provider p=iter.next();
                                     	if (pros.contains(p.getProviderNo())) {
-                                    %><option value='<%= p.getProviderNo() %>'><%= Encode.forHtml(p.getLastName()) %>, <%= Encode.forHtml(p.getFirstName()) %></option><% }} %>";
+                                    %><option value='<%= Encode.forJavaScript(p.getProviderNo()) %>'><%= Encode.forJavaScript(p.getLastName()) %>, <%= Encode.forJavaScript(p.getFirstName()) %></option><% }} %>";
                             <% } %>
 
                             function changeSite(sel) {
                                 sel.form.providerview.innerHTML = sel.value == "none" ? "" : "<option value='none'>---select providers---</option>" + _providers[sel.value];
                                 sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
-                                if (sel.value == '<%=Encode.forJavaScript(request.getParameter("site"))%>') {
+                                if (sel.value == '<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("site")))%>') {
                                     if (document.serviceform.provider_ohipNo.value != '')
-                                        sel.form.providerview.value = '<%= Encode.forJavaScript(request.getParameter("providerview")) %>';
+                                        sel.form.providerview.value = '<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("providerview"))) %>';
                                 }
                                 changeProvider(false);
                             }
@@ -1001,17 +1001,17 @@
 
                     %>
                     <tr <%=color %>>
-                        <td style="text-align:center"><%= ch1Obj.getBilling_date()%>  <%--=ch1Obj.getBilling_time()--%></td>
+                        <td style="text-align:center"><%= Encode.forHtml(ch1Obj.getBilling_date())%>  <%--=ch1Obj.getBilling_time()--%></td>
                         <!--SERVICE DATE-->
-                        <td style="text-align:center"><%=ch1Obj.getDemographic_no()%>
+                        <td style="text-align:center"><%=Encode.forHtml(ch1Obj.getDemographic_no())%>
                         </td>
                         <!--PATIENT-->
                         <td style="text-align:center" class="<%=hideName?"d-print-none":""%>"><a href=#
-                                                                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=ch1Obj.getDemographic_no()%>&displaymode=edit&dboperation=search_detail');return false;"><%= Encode.forHtml(ch1Obj.getDemographic_name())%>
+                                                                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forJavaScriptAttribute(ch1Obj.getDemographic_no())%>&displaymode=edit&dboperation=search_detail');return false;"><%= Encode.forHtml(ch1Obj.getDemographic_name())%>
                         </a></td>
-                        <td style="text-align:center"><%=ch1Obj.getFacilty_num() != null ? ch1Obj.getFacilty_num() : "" %>
+                        <td style="text-align:center"><%=Encode.forHtml(ch1Obj.getFacilty_num() != null ? ch1Obj.getFacilty_num() : "")%>
                         </td>
-                        <td style="text-align:center"><%=ch1Obj.getStatus()%>
+                        <td style="text-align:center"><%=Encode.forHtml(ch1Obj.getStatus())%>
                         </td>
                         <!--STAT-->
                         <td style="text-align:center"><%=settleDate%>

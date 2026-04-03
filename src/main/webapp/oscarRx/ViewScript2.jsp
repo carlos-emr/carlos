@@ -48,6 +48,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProviderManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
@@ -555,7 +556,7 @@
                 let faxNumber = document.getElementById('faxNumber');
                 frames['preview'].document.getElementById('finalFax').value = faxNumber.options[faxNumber.selectedIndex].value;
                 frames['preview'].document.getElementById('pdfId').value = '<%=signatureRequestId%>';
-                onPrint2('oscarRxFax', "<%=Encode.forJavaScript(request.getParameter("scriptId"))%>");
+                onPrint2('oscarRxFax', "<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("scriptId")))%>");
 
             }
 
@@ -679,7 +680,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
                                         <iframe id='preview' name='preview' width=420px height=890px
-							src="oscarRx/Preview2.jsp?scriptId=<%=bean.getStashItem(0).getScript_no()%>&rePrint=<%=reprint%>&pharmacyId=<%= Encode.forUriComponent(request.getParameter("pharmacyId")) %>"
+							src="oscarRx/Preview2.jsp?scriptId=<%=bean.getStashItem(0).getScript_no()%>&rePrint=<%=reprint%>&pharmacyId=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("pharmacyId"))) %>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>
                                 </td>

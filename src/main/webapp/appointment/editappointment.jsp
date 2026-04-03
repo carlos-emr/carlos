@@ -968,7 +968,7 @@
                     </td>
                     <td>
                 <input type="time" name="start_time" class="form-control"
-                               value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getStartTime()):request.getParameter("start_time")%>"
+                               value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getStartTime()):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))%>"
                                onChange="checkTimeTypeIn(this);updateTime();">
                     </td>
                 </tr>
@@ -1000,7 +1000,7 @@
                                 }
                             }
                         %> <input type="hidden" name="end_time"
-                                  value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getEndTime()):Encode.forHtmlAttribute(request.getParameter("end_time"))%>"
+                                  value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getEndTime()):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("end_time")))%>"
                     >
 
 				<input type="number" name="duration" id="duration" class="form-control"
@@ -1263,7 +1263,7 @@
                     <td>
                 <input type="text" name="demographic_no" id="demographic_no" class="form-control"
                                ONFOCUS="onBlockFieldFocus(this)" readonly
-                               value="<%=bFirstDisp?( (appt.getDemographicNo())==0?"":(""+appt.getDemographicNo()) ):request.getParameter("demographic_no")%>">
+                               value="<%=bFirstDisp?( (appt.getDemographicNo())==0?"":(""+appt.getDemographicNo()) ):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))%>">
                     </td>
                 </tr>
                 <tr>
@@ -1272,7 +1272,7 @@
                     </td>
                     <td>
                 <input type="text" name="chart_no" class="form-control"
-                    readonly value="<%=bFirstDisp?StringUtils.trimToEmpty(chartno):request.getParameter("chart_no")%>"
+                    readonly value="<%=bFirstDisp?StringUtils.trimToEmpty(chartno):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("chart_no")))%>"
                         >
                     </td>
                 </tr>

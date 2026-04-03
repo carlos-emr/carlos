@@ -35,6 +35,7 @@
         import="io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingFavoritesDao, io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingFavorite" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao, io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <html>
@@ -78,12 +79,12 @@
             }
         }
 
-        var isListView = '<%= Encode.forJavaScript(request.getParameter("isListView")) %>';
-        var docId = '<%= Encode.forJavaScript(request.getParameter("docId")) %>';
-        var labDisplay = '<%= Encode.forJavaScript(request.getParameter("labDisplay")) %>';
+        var isListView = '<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("isListView"))) %>';
+        var docId = '<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("docId"))) %>';
+        var labDisplay = '<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("labDisplay"))) %>';
         var frm = "reassignForm";
 
-        if (docId != "null" && labDisplay == "null") {
+        if (docId != "" && labDisplay == "") {
             frm += "_" + docId;
             var form = self.opener.document.forms[frm];
             if (form) {
@@ -92,7 +93,7 @@
             }
             self.opener.forwardDocument(docId);
             self.close();
-        } else if (isListView != "null" && isListView == true) {
+        } else if (isListView != "" && isListView == true) {
             var forwardListEl = document.getElementById("forwardList");
             if (forwardListEl) {
                 forwardLabs(forwardListEl.value, fwdProviders);

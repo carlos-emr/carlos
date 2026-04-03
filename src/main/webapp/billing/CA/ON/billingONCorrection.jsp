@@ -1359,7 +1359,7 @@
         }, 5000);
 
         function display3rdPartyPayments() {
-            popupPage('800', '860', 'billingON3rdPayments.do?method=listPayments&billingNo=<%= billNo %>');
+            popupPage('800', '860', 'billingON3rdPayments.do?method=listPayments&billingNo=<%= Encode.forJavaScript(Encode.forUriComponent(billNo)) %>');
         }
 
         document.addEventListener('DOMContentLoaded', function () {

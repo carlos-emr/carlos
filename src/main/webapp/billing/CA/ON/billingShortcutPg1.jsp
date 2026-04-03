@@ -704,7 +704,7 @@
         %>
         <tr bgcolor=<%=ctlCount % 2 == 0 ? "#FFFFFF" : "#EEEEFF"%>>
             <td colspan="2"><b><font size="-2" color="#7A388D"><a
-                    href="billingShortcutPg1.jsp?billForm=<%=ctlcode%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forUriComponent(request.getParameter("appointment_no")) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forUriComponent(request.getParameter("demographic_no")) %>&user_no=<%=user_no%>&apptProvider_no=<%= Encode.forUriComponent(request.getParameter("apptProvider_no")) %>&providerview=<%= Encode.forUriComponent(request.getParameter("apptProvider_no")) %>&appointment_date=<%= Encode.forUriComponent(request.getParameter("appointment_date")) %>&status=<%= Encode.forUriComponent(request.getParameter("status")) %>&start_time=<%= Encode.forUriComponent(request.getParameter("start_time")) %>&bNewForm=1"
+                    href="billingShortcutPg1.jsp?billForm=<%=ctlcode%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no"))) %>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&user_no=<%=user_no%>&apptProvider_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no"))) %>&providerview=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no"))) %>&appointment_date=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date"))) %>&status=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status"))) %>&start_time=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time"))) %>&bNewForm=1"
                     onClick="showHideLayers('Layer1','','hide');"><%=ctlcodename%>
             </a></font></b></td>
         </tr>
@@ -1277,19 +1277,19 @@
         <input type="hidden" name="hin" value="<%=demoHIN%>"/>
 
         <input type="hidden" name="start_time"
-               value="<%= Encode.forHtmlAttribute(request.getParameter("start_time")) %>"/>
+               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time"))) %>"/>
 
         <input type="hidden" name="demographic_dob" value="<%=demoDOB%>"/>
 
         <input type="hidden" name="apptProvider_no"
-               value="<%= Encode.forHtmlAttribute(request.getParameter("apptProvider_no")) %>"/>
+               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no"))) %>"/>
         <input type="hidden" name="asstProvider_no"
-               value="<%= Encode.forHtmlAttribute(request.getParameter("asstProvider_no")) %>"/>
+               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("asstProvider_no"))) %>"/>
 
         <input type="hidden" name="demographic_name" value="<%=Encode.forHtmlAttribute(demoname)%>"/>
         <input type="hidden" name="providerview" value="<%=Encode.forHtmlAttribute(providerview)%>"/>
         <input type="hidden" name="appointment_date"
-               value="<%= Encode.forHtmlAttribute(request.getParameter("appointment_date")) %>"/>
+               value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date"))) %>"/>
         <input type="hidden" name="assgProvider_no"
                value="<%=Encode.forHtmlAttribute(assgProvider_no)%>"/>
         <input type="hidden" name="billForm" value="<%=Encode.forHtmlAttribute(ctlBillForm)%>"/>

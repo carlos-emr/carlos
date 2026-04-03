@@ -176,6 +176,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -1209,7 +1210,7 @@
                 <td style="font-weight: bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.internetResources"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.searchFor"/><%= Encode.forHtml(request.getParameter("userName")) %>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.searchFor"/><%= Encode.forHtml(StringUtils.noNull(request.getParameter("userName"))) %>
                 </td>
             </tr>
             <tr>
