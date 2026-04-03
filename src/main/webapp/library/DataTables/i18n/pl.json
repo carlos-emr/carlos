@@ -149,7 +149,7 @@
             "title": "Aktualizacja wpisu"
         },
         "error": {
-            "system": "Nastąpił błąd systemu (<a target=\"\\\" rel=\"\\ nofollow\" href=\"\\\">Więcej informacji&lt;\\\/a&gt;).<\/a>"
+            "system": "Nastąpił błąd systemu (<a target=\"_blank\" rel=\"nofollow\" href=\"//datatables.net/tn/5\">Więcej informacji</a>)."
         },
         "multi": {
             "info": "Wybrane pole zawiera wiele elementów z różnymi wartościami. Aby zmienić ich wartość kliknij w nie, inaczej zachowane zostaną ich wartości domyślne.",
@@ -184,7 +184,7 @@
     "searchBuilder": {
         "add": "Dodaj warunek",
         "button": {
-            "_": "Aktywne zapytania",
+            "_": "Budowanie zapytania (%d)",
             "0": "Budowanie zapytania"
         },
         "clearAll": "Wyczyść wszystko",
@@ -241,7 +241,7 @@
         "rightTitle": "Prawy",
         "search": "Szukaj",
         "title": {
-            "_": "Aktywne zapytania",
+            "_": "Budowanie zapytania (%d)",
             "0": "Budowanie zapytania"
         },
         "value": "Wartość"
@@ -266,12 +266,12 @@
         "cells": {
             "_": "zaznaczono %d komórek",
             "0": "",
-            "1": "zaznaczono %d komórkę"
+            "1": "zaznaczono 1 komórkę"
         },
         "columns": {
             "_": "zaznaczono %d kolumn",
             "0": "",
-            "1": "zaznaczono %d kolumnę"
+            "1": "zaznaczono 1 kolumnę"
         },
         "rows": {
             "_": "Zaznaczono %d wierszy",

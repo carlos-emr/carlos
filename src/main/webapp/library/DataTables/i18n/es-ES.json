@@ -24,7 +24,7 @@
         "copy": "Copiar",
         "copyKeys": "Presione ctrl o u2318 + C para copiar los datos de la tabla al portapapeles del sistema. <br \/> <br \/> Para cancelar, haga clic en este mensaje o presione escape.",
         "copySuccess": {
-            "_": "Copiadas %ds filas al portapapeles",
+            "_": "Copiadas %d filas al portapapeles",
             "1": "Copiada 1 fila al portapapeles"
         },
         "copyTitle": "Copiar al portapapeles",
@@ -59,7 +59,7 @@
             "search": "Buscar.."
         },
         "orderAddAsc": "Añadir a ordenación ascendente",
-        "orderAddDesc": "Añadir a ordenación descencente",
+        "orderAddDesc": "Añadir a ordenación descendente",
         "orderAsc": "Ordenar ascendentemente",
         "orderClear": "Borrar ordenación",
         "orderDesc": "Ordenar descendentemente",
@@ -91,7 +91,7 @@
                 "empty": "Vacío",
                 "ends": "Finaliza con",
                 "equal": "Igual a",
-                "notContains": "no contiene",
+                "notContains": "No contiene",
                 "notEmpty": "No vacío",
                 "notEqual": "Diferente de",
                 "starts": "Empieza con"
@@ -121,7 +121,7 @@
             "8": "Septiembre",
             "9": "Octubre"
         },
-        "next": "Próximo",
+        "next": "Siguiente",
         "previous": "Anterior",
         "seconds": "Segundos",
         "unknown": "-",
@@ -149,7 +149,7 @@
             "title": "Editar Registro"
         },
         "error": {
-            "system": "Ha ocurrido un error en el sistema (<a target=\"\\\" rel=\"\\ nofollow\" href=\"\\\">Más información&lt;\\\/a&gt;).<\/a>"
+            "system": "Ha ocurrido un error en el sistema (<a target=\"_blank\" rel=\"nofollow\" href=\"//datatables.net/tn/5\">Más información</a>)."
         },
         "multi": {
             "info": "Los elementos seleccionados contienen diferentes valores para este registro. Para editar y establecer todos los elementos de este registro con el mismo valor, haga clic o pulse aquí, de lo contrario conservarán sus valores individuales.",
@@ -226,14 +226,14 @@
                 "endsWith": "Termina en",
                 "equals": "Igual a",
                 "not": "Diferente de",
-                "notContains": "No Contiene",
+                "notContains": "No contiene",
                 "notEmpty": "No Vacío",
                 "notEndsWith": "No termina con",
                 "notStartsWith": "No empieza con",
                 "startsWith": "Empieza con"
             }
         },
-        "data": "Data",
+        "data": "Datos",
         "deleteTitle": "Eliminar regla de filtrado",
         "leftTitle": "Criterios anulados",
         "logicAnd": "Y",

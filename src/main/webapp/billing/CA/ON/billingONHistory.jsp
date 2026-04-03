@@ -96,7 +96,7 @@
 <!DOCTYPE html>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message var="msgOnUnbilledText" key="provider.appointmentProviderAdminDay.onUnbilled"/>
-<fmt:message var="dtLanguageCode" key="global.i18nLanguagecode"/>
+<fmt:message var="dtLanguageCode" key="global.i18n.datatablescode"/>
 <html>
 <head>
     <title><fmt:message key="billing.billingONHistory.title"/></title>
