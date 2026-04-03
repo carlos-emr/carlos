@@ -1034,7 +1034,7 @@
                                     href="javascript:ClearAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerDemoMain.btnClearAll"/></a> &nbsp; &nbsp; &nbsp;
                                 &nbsp; &nbsp; <input type="button" name="button"
                                                      value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerDemoMain.btnAddTickler"/>"
-                                                     onClick="popupPage('400','600', 'ticklerAdd.jsp?updateParent=true&parentAjaxId=<%=Encode.forUriComponent(parentAjaxId)%>&bFirstDisp=false&messageID=null&demographic_no=<%=d.getDemographicNo()%>&chart_no=<%=d.getChartNo()%>&name=<%=d.getDisplayName()%>')"
+                                                     onClick="popupPage('400','600', 'ticklerAdd.jsp?updateParent=true&parentAjaxId=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(parentAjaxId))%>&bFirstDisp=false&messageID=null&demographic_no=<%=Encode.forJavaScriptAttribute(String.valueOf(d.getDemographicNo()))%>&chart_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(d.getChartNo()))%>&name=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(d.getDisplayName()))%>')"
                                                      class="sbttn"> <input type="hidden" name="submit_form"
                                                                            value=""> <% if (ticklerview.compareTo("D") == 0) {%>
                                 <input
