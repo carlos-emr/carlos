@@ -31,9 +31,7 @@
         <action name="messenger/ImportDemographic" class="io.github.carlos_emr.carlos.messenger.pageUtil.ImportDemographic2Action">
             <result name="success">/messenger/ViewMessage.do</result>
         </action>
-        <action name="messenger/SendMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSendMessage2Action">
-            <result name="success">/messenger/SentMessage.jsp</result>
-        </action>
+
         <action name="messenger/CreateMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgCreateMessage2Action">
             <result name="success">/messenger/SentMessage.jsp</result>
             <result name="error">/messenger/CreateMessage.jsp</result>
@@ -64,9 +62,7 @@
             <result name="success">/messenger/selfCloseAndRefreshOpener.jsp</result>
             <result name="attaching">/messenger/generatePreviewPDF.jsp</result>
         </action>
-        <action name="messenger/ProcessDoc2PDF" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDoc2PDF2Action">
-            <result name="success">/messenger/selfClose.jsp</result>
-        </action>
+
         <action name="messenger/HandleMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action">
             <result name="success">/messenger/DisplayMessages.jsp</result>
             <result name="reply">/messenger/CreateMessage.jsp</result>
@@ -87,9 +83,7 @@
         <action name="messenger/ViewPDFFile" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewPDF2Action">
             <result name="success">/messenger/ViewPDFFile.jsp</result>
         </action>
-        <action name="messenger/Transfer/Proceed" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgProceed2Action">
-            <result name="success">/messenger/Transfer/SearchComplete.jsp</result>
-        </action>
+
         <action name="messenger/ClearMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgClearMessage2Action">
             <result name="success">/messenger/CreateMessage.jsp</result>
         </action>
