@@ -1218,7 +1218,7 @@
 
                 <!-- Quick Date Navigation Shortcuts with Multiplier -->
                 <span class="quick-nav noprint" style="margin-left: 10px;">
-                    <input type="button" value="M-" class="quick-btn" onclick="getLocation('monthBackward', document.getElementById('dateMultiplier').value)" title="<fmt:message key="provider.appointmentProviderAdminDay.monthBack"/>"/>
+                    <input type="button" value="<fmt:message key="appointment.addappointment.msgM"/>-" class="quick-btn" onclick="getLocation('monthBackward', document.getElementById('dateMultiplier').value)" title="<fmt:message key="provider.appointmentProviderAdminDay.monthBack"/>"/>
                     <input type="button" value="<fmt:message key="appointment.addappointment.msgW"/>-" class="quick-btn" onclick="getLocation('weekBackward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekBack"/>"/>
                     <input type="number" id="dateMultiplier" value="1" min="1" max="99" class="multiplier-input" title="<fmt:message key="provider.appointmentProviderAdminDay.multiplier"/>"/>
                     <script>
@@ -1253,12 +1253,12 @@
                       })();
                     </script>
                     <input type="button" value="<fmt:message key="appointment.addappointment.msgW"/>+" class="quick-btn" onclick="getLocation('weekForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekForward"/>"/>
-                    <input type="button" value="M+" class="quick-btn" onclick="getLocation('monthForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.monthForward"/>"/>
+                    <input type="button" value="<fmt:message key="appointment.addappointment.msgM"/>+" class="quick-btn" onclick="getLocation('monthForward', document.getElementById('dateMultiplier').value)" title="<fmt:message key="provider.appointmentProviderAdminDay.monthForward"/>"/>
                     |
                     <input type="button" value="2<fmt:message key="appointment.addappointment.msgW"/>" class="quick-btn" onclick="getLocation('weekForward', 2)" title="2 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weeks"/>"/>
                     <input type="button" value="4<fmt:message key="appointment.addappointment.msgW"/>" class="quick-btn" onclick="getLocation('weekForward', 4)" title="4 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weeks"/>"/>
-                    <input type="button" value="3M" class="quick-btn" onclick="getLocation('monthForward', 3)" title="3 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.months"/>"/>
-                    <input type="button" value="6M" class="quick-btn" onclick="getLocation('monthForward', 6)" title="6 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.months"/>"/>
+                    <input type="button" value="3<fmt:message key="appointment.addappointment.msgM"/>" class="quick-btn" onclick="getLocation('monthForward', 3)" title="3 <fmt:message key="provider.appointmentProviderAdminDay.months"/>"/>
+                    <input type="button" value="6<fmt:message key="appointment.addappointment.msgM"/>" class="quick-btn" onclick="getLocation('monthForward', 6)" title="6 <fmt:message key="provider.appointmentProviderAdminDay.months"/>"/>
                 </span>
 
                 <!-- Toggle Cancelled Appointments -->
