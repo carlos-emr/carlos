@@ -164,7 +164,7 @@
 <html>
     <head>
         <fmt:setBundle basename="oscarResources"/>
-        <title><fmt:message key="dms.documentReport.msgDocuments"/> Manager</title>
+        <title><fmt:message key="dms.documentReport.titleDocumentManager"/></title>
 
         <%@ include file="/includes/global-head.jspf" %>
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"
@@ -398,7 +398,7 @@
                  class="bi bi-file-earmark" viewBox="0 0 16 16">
                 <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5z"></path>
             </svg>
-            <fmt:message key="dms.documentReport.msgDocuments"/> Manager
+            <fmt:message key="dms.documentReport.titleDocumentManager"/>
         </h2>
 
         <div id="docListAlertContainer"></div>
