@@ -312,7 +312,7 @@
                     pageLength: initialPageLength,
                     order: [[4, 'desc']],
                     language: {
-                        url: '${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18nLanguagecode"/>.json'
+                        url: '${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
                         },
                     ajax: {
                         url: ctx + '/tickler/ListTicklers.do',
