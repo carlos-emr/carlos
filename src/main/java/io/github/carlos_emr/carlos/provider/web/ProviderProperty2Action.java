@@ -752,75 +752,7 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
 
-    public String viewUseRx3() {
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-
-        UserProperty prop = this.userPropertyDAO.getProp(providerNo, UserProperty.RX_USE_RX3);
-
-        String propValue = "";
-        if (prop == null) {
-            prop = new UserProperty();
-        } else {
-            propValue = prop.getValue();
-        }
-
-        boolean checked;
-        if (propValue.equalsIgnoreCase("yes"))
-            checked = true;
-        else
-            checked = false;
-
-        prop.setChecked(checked);
-        request.setAttribute("rxUseRx3Property", prop);
-        request.setAttribute("providertitle", "provider.setRxRxUseRx3.title");
-        request.setAttribute("providermsgPrefs", "provider.setRxRxUseRx3.msgPrefs");
-        request.setAttribute("providermsgProvider", "provider.setRxRxUseRx3.msgProfileView");
-        request.setAttribute("providermsgEdit", "provider.setRxUseRx3.msgEdit");
-        request.setAttribute("providerbtnSubmit", "provider.setRxUseRx3.btnSubmit");
-        request.setAttribute("providermsgSuccess", "provider.setRxUseRx3.msgSuccess_selected");
-        request.setAttribute("method", "saveUseRx3");
-
-        this.setRxUseRx3Property(prop);
-        return "genRxUseRx3";
-    }
-
-    public String saveUseRx3() {
-        String checkboxValue = request.getParameter("rxUseRx3Property.checked");
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-
-        UserProperty UUseRx3 = this.getRxUseRx3Property();
-
-        UserProperty prop = this.userPropertyDAO.getProp(providerNo, UserProperty.RX_USE_RX3);
-        if (prop == null) {
-            prop = new UserProperty();
-            prop.setName(UserProperty.RX_USE_RX3);
-            prop.setProviderNo(providerNo);
-        }
-        boolean checked = checkboxValue != null;
-        String useRx3 = "no";
-        if (checked)
-            useRx3 = "yes";
-        prop.setValue(useRx3);
-        this.userPropertyDAO.saveProp(prop);
-
-        request.setAttribute("status", "success");
-        request.setAttribute("rxUseRx3Property", prop);
-        request.setAttribute("providertitle", "provider.setRxRxUseRx3.title");
-        request.setAttribute("providermsgPrefs", "provider.setRxRxUseRx3.msgPrefs");
-        request.setAttribute("providermsgProvider", "provider.setRxRxUseRx3.msgProfileView");
-        request.setAttribute("providermsgEdit", "provider.setRxUseRx3.msgEdit");
-        request.setAttribute("providerbtnSubmit", "provider.setRxUseRx3.btnSubmit");
-        if (checked)
-            request.setAttribute("providermsgSuccess", "provider.setRxUseRx3.msgSuccess_selected");
-        else
-            request.setAttribute("providermsgSuccess", "provider.setRxUseRx3.msgSuccess_unselected");
-        request.setAttribute("method", "saveUseRx3");
-        return "genRxUseRx3";
-    }
 
     public String viewDefaultQuantity() {
 
@@ -2827,8 +2759,6 @@ public class ProviderProperty2Action extends ActionSupport {
         methodMap.put("saveRxProfileView", this::saveRxProfileView);
         methodMap.put("viewShowPatientDOB", this::viewShowPatientDOB);
         methodMap.put("saveShowPatientDOB", this::saveShowPatientDOB);
-        methodMap.put("viewUseRx3", this::viewUseRx3);
-        methodMap.put("saveUseRx3", this::saveUseRx3);
         methodMap.put("viewDefaultQuantity", this::viewDefaultQuantity);
         methodMap.put("saveDefaultQuantity", this::saveDefaultQuantity);
         methodMap.put("viewOntarioMDId", this::viewOntarioMDId);
@@ -2885,7 +2815,6 @@ public class ProviderProperty2Action extends ActionSupport {
     private UserProperty newDefaultDocQueueProperty;
     private UserProperty rxProfileViewProperty;
     private UserProperty rxShowPatientDOBProperty;
-    private UserProperty rxUseRx3Property;
     private UserProperty rxDefaultQuantityProperty;
     private UserProperty dateProperty2;
     private UserProperty cppSingleLineProperty;
@@ -2984,16 +2913,6 @@ public class ProviderProperty2Action extends ActionSupport {
         this.rxShowPatientDOBProperty = rxShowPatientDOBProperty;
     }
 
-
-    @StrutsParameter(depth = 1)
-    public UserProperty getRxUseRx3Property() {
-        return rxUseRx3Property;
-    }
-
-    @StrutsParameter
-    public void setRxUseRx3Property(UserProperty rxUseRx3Property) {
-        this.rxUseRx3Property = rxUseRx3Property;
-    }
 
     @StrutsParameter(depth = 1)
     public UserProperty getRxDefaultQuantityProperty() {

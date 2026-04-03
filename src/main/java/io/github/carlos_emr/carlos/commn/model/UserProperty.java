@@ -47,7 +47,6 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
     public static final String RX_PAGE_SIZE = "rx_page_size";
     public static final String RX_DEFAULT_QUANTITY = "rx_default_quantity";
     public static final String RX_PROFILE_VIEW = "rx_profile_view";
-    public static final String RX_USE_RX3 = "rx_use_rx3";
     public static final String DMFLOW_SHEET_VIEW = "DMFlowsheet_view";
     public static final String DOC_DEFAULT_QUEUE = "doc_default_queue";
     public static final String HC_TYPE = "HC_Type";

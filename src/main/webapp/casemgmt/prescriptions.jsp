@@ -79,7 +79,7 @@ Prescriptions
                                           demoNo='<%=request.getParameter("demographicNo")%>'
                                           programId='<%=(String)session.getAttribute("case_program_id")%>'>
                     <a <%= styleColor%> target="_blank"
-                                        href="<%= request.getContextPath() %>/oscarRx/StaticScript.jsp?regionalIdentifier=<c:out value="${prescription.regionalIdentifier}"/>&cn=<c:out value="${prescription.customName}"/>">
+                                        href="<%= request.getContextPath() %>/oscarRx/StaticScript2.jsp?regionalIdentifier=<c:out value="${prescription.regionalIdentifier}"/>&cn=<c:out value="${prescription.customName}"/>">
                         <c:out value="${prescription.special}"/>
                     </a>
                 </caisirole:SecurityAccess>
