@@ -1205,7 +1205,7 @@
                       title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.clickToOpenCalendar"/>">
                     <span class="dateAppointment"><%
                     if (isWeekView) {
-                %><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.week"/> <%=week%><%
+                %><fmt:message key="provider.appointmentProviderAdminDay.week"/> <%=week%><%
                 } else {
                 %><%=formatDate%><%
                     }
@@ -1213,14 +1213,25 @@
                 <a class="redArrow"
                    href="providercontrol.jsp?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%=isWeekView?"&provider_no="+provNum:""%>&viewall=<%=viewall%>">
                     <span class="fa-solid fa-forward-step"
-                          title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewNextDay"/>"></span>
+                          title="<fmt:message key="provider.appointmentProviderAdminDay.viewNextDay"/>"></span>
                 </a>
 
                 <!-- Quick Date Navigation Shortcuts with Multiplier -->
+                <fmt:message key="provider.appointmentProviderAdminDay.weekLetter" var="weekLetter"/>
+                <fmt:message key="appointment.addappointment.msgM" var="msgM"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.monthBack" var="monthBackTitle"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.weekBack" var="weekBackTitle"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.multiplier" var="multiplierTitle"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.weekForward" var="weekForwardTitle"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.monthForward" var="monthForwardTitle"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.weeks" var="weeksLabel"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.months" var="monthsLabel"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.findProvider" var="findProviderTitle"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.enterLastname" var="enterLastnameLabel"/>
                 <span class="quick-nav noprint" style="margin-left: 10px;">
-                    <input type="button" value="M-" class="quick-btn" onclick="getLocation('monthBackward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.monthBack"/>"/>
-                    <input type="button" value="W-" class="quick-btn" onclick="getLocation('weekBackward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekBack"/>"/>
-                    <input type="number" id="dateMultiplier" value="1" min="1" max="99" class="multiplier-input" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.multiplier"/>"/>
+                    <input type="button" value="${e:forHtmlAttribute(msgM)}-" class="quick-btn" onclick="getLocation('monthBackward', document.getElementById('dateMultiplier').value)" title="${e:forHtmlAttribute(monthBackTitle)}"/>
+                    <input type="button" value="${e:forHtmlAttribute(weekLetter)}-" class="quick-btn" onclick="getLocation('weekBackward', document.getElementById('dateMultiplier').value)" title="${e:forHtmlAttribute(weekBackTitle)}"/>
+                    <input type="number" id="dateMultiplier" value="1" min="1" max="99" class="multiplier-input" title="${e:forHtmlAttribute(multiplierTitle)}"/>
                     <script>
                       (function() {
                         'use strict';
@@ -1252,13 +1263,13 @@
                         });
                       })();
                     </script>
-                    <input type="button" value="W+" class="quick-btn" onclick="getLocation('weekForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekForward"/>"/>
-                    <input type="button" value="M+" class="quick-btn" onclick="getLocation('monthForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.monthForward"/>"/>
+                    <input type="button" value="${e:forHtmlAttribute(weekLetter)}+" class="quick-btn" onclick="getLocation('weekForward', document.getElementById('dateMultiplier').value)" title="${e:forHtmlAttribute(weekForwardTitle)}"/>
+                    <input type="button" value="${e:forHtmlAttribute(msgM)}+" class="quick-btn" onclick="getLocation('monthForward', document.getElementById('dateMultiplier').value)" title="${e:forHtmlAttribute(monthForwardTitle)}"/>
                     |
-                    <input type="button" value="2W" class="quick-btn" onclick="getLocation('weekForward', 2)" title="2 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weeks"/>"/>
-                    <input type="button" value="4W" class="quick-btn" onclick="getLocation('weekForward', 4)" title="4 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weeks"/>"/>
-                    <input type="button" value="3M" class="quick-btn" onclick="getLocation('monthForward', 3)" title="3 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.months"/>"/>
-                    <input type="button" value="6M" class="quick-btn" onclick="getLocation('monthForward', 6)" title="6 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.months"/>"/>
+                    <input type="button" value="2${e:forHtmlAttribute(weekLetter)}" class="quick-btn" onclick="getLocation('weekForward', 2)" title="2 ${e:forHtmlAttribute(weeksLabel)}"/>
+                    <input type="button" value="4${e:forHtmlAttribute(weekLetter)}" class="quick-btn" onclick="getLocation('weekForward', 4)" title="4 ${e:forHtmlAttribute(weeksLabel)}"/>
+                    <input type="button" value="3${e:forHtmlAttribute(msgM)}" class="quick-btn" onclick="getLocation('monthForward', 3)" title="3 ${e:forHtmlAttribute(monthsLabel)}"/>
+                    <input type="button" value="6${e:forHtmlAttribute(msgM)}" class="quick-btn" onclick="getLocation('monthForward', 6)" title="6 ${e:forHtmlAttribute(monthsLabel)}"/>
                 </span>
 
                 <!-- Toggle Cancelled Appointments -->
@@ -1365,7 +1376,7 @@
                               target="apptReception"
                               action="receptionistfindprovider.jsp">
                             <INPUT TYPE="text" NAME="providername" VALUE=""
-                                   maxlength="10" class="noprint" title="Find a Provider" placeholder="Enter Lastname">
+                                   maxlength="10" class="noprint" title="${e:forHtmlAttribute(findProviderTitle)}" placeholder="${e:forHtmlAttribute(enterLastnameLabel)}">
                             <INPUT TYPE="SUBMIT" NAME="Go"
                                    VALUE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.btnGo"/>'
                                    class="noprint" onClick="findProvider(<%=year%>,<%=month%>,<%=day%>);return false;">
