@@ -49,7 +49,7 @@
             <result name="eFormError">/eform/efmshowform_data.jsp?error=true</result>
         </action>
         <action name="admin/ManageEmails" class="io.github.carlos_emr.carlos.email.admin.ManageEmails2Action">
-            <result name="show">/admin/manageEmails.jsp</result>
+            <result name="show">/WEB-INF/jsp/admin/manageEmails.jsp</result>
             <result name="emailstatus">/admin/emailStatusResults.jspf</result>
             <result name="compose">/email/emailCompose.jsp</result>
         </action>

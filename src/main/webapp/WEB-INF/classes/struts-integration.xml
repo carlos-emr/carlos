@@ -30,7 +30,7 @@
 
         <action name="web/dashboard/OutcomesDashboard" class="io.github.carlos_emr.carlos.integration.dashboard.OutcomesDashboard2Action"/>
         <action name="demographic/ValidateSwipeCard" class="io.github.carlos_emr.carlos.integration.mchcv.ValidateSwipeCard2Action">
-            <result name="success">/demographic/demographicswipe.jsp</result>
+            <result name="success">/WEB-INF/jsp/demographic/demographicswipe.jsp</result>
         </action>
         <action name="mcedt/mcedt" class="io.github.carlos_emr.carlos.integration.mcedt.Resource2Action">
             <result name="success">/mcedt/index.jsp</result>

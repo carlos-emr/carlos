@@ -67,7 +67,7 @@
             <interceptor-ref name="defaultStack"/>
         </action>
         <action name="admin/AuditLogPurge" class="io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action">
-            <result name="success">/admin/auditLogPurge.jsp</result>
+            <result name="success">/WEB-INF/jsp/admin/auditLogPurge.jsp</result>
         </action>
 
     </package>

@@ -73,7 +73,7 @@
             <result name="form">/oscarPrevention/AddPreventionData.jsp</result>
         </action>
         <action name="oscarPrevention/PreventionReport" class="io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReport2Action">
-            <result name="success">/oscarPrevention/PreventionReporting.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarPrevention/PreventionReporting.jsp</result>
         </action>
         <action name="oscarPrevention/printPrevention" class="io.github.carlos_emr.carlos.prevention.pageUtil.PreventionPrint2Action">
             <result name="error">/oscarPrevention/index.jsp</result>

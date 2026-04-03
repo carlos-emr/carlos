@@ -38,10 +38,10 @@
             <result name="error">/billing/CA/BC/quickBillingBC.jsp?saved=false</result>
         </action>
         <action name="admin/GstControl" class="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action">
-            <result name="success">/admin/gstControl.jsp</result>
+            <result name="success">/WEB-INF/jsp/admin/gstControl.jsp</result>
         </action>
         <action name="admin/manageCSSStyles" class="io.github.carlos_emr.carlos.billing.CA.ON.web.ManageCSS2Action">
-            <result name="init">/admin/manageCSSStyles.jsp</result>
+            <result name="init">/WEB-INF/jsp/admin/manageCSSStyles.jsp</result>
         </action>
         <action name="billing" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.Billing2Action">
             <result name="BC">/billing/CA/BC/billingBC.jsp</result>

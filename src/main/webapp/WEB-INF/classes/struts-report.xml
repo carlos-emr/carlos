@@ -76,10 +76,10 @@
             <result name="success">/oscarReport/oscarMeasurements/CDMReport.jsp</result>
         </action>
         <action name="report/DemographicSetEdit" class="io.github.carlos_emr.carlos.report.pageUtil.DemographicSetEdit2Action">
-            <result name="success">/oscarReport/demographicSetEdit.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarReport/demographicSetEdit.jsp</result>
         </action>
         <action name="report/SetEligibility" class="io.github.carlos_emr.carlos.report.pageUtil.DemographicSetEligibility2Action">
-            <result name="success">/oscarReport/demographicSetEdit.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarReport/demographicSetEdit.jsp</result>
         </action>
         <action name="RunClinicalReport" class="io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil.RunClinicalReport2Action">
             <result name="success">/report/ClinicalReports.jsp</result>
@@ -101,7 +101,7 @@
         </action>
         <action name="report/ManageLetters" class="io.github.carlos_emr.carlos.report.pageUtil.ManagePatientLetters2Action">
             <result name="success">/report/GenerateLetters.jsp</result>
-            <result name="success_manage_from_prevention">/oscarPrevention/PreventionReporting.jsp</result>
+            <result name="success_manage_from_prevention">/WEB-INF/jsp/oscarPrevention/PreventionReporting.jsp</result>
         </action>
         <action name="report/DownloadLetter" class="io.github.carlos_emr.carlos.report.pageUtil.DownloadPatientLetters2Action">
             <result name="success">/report/GenerateLetters.jsp</result>
