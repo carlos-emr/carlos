@@ -1254,7 +1254,7 @@
 
                     <%if (billNo != null) {%>
 
-                    <a id="reprintLink" onclick="return sanityCheck('<%=nullToEmpty(billNo)%>', <%=billNoErr%>)" href="billingON3rdInv.jsp?billingNo=<%= Encode.forUriComponent(billNo) %>" class="btn btn-secondary"><i
+                    <a id="reprintLink" onclick="return sanityCheck('<%= Encode.forJavaScriptAttribute(nullToEmpty(billNo)) %>', <%=billNoErr%>)" href="billingON3rdInv.jsp?billingNo=<%= Encode.forUriComponent(billNo) %>" class="btn btn-secondary"><i
                             class="fa-solid fa-print"></i> Reprint</a>
                     <a id="rebillLink"
                        onclick="document.querySelector(&quot;select[name='status']&quot;).value = 'O'; document.getElementsByName(&quot;submit&quot;)[1].click();"

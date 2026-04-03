@@ -109,6 +109,7 @@
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -270,12 +271,12 @@
         <script language="JavaScript">
             <!--
             function last() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(Encode.forUriComponent(request.getParameter("keyword")))%>&search_mode=<%=Encode.forJavaScript(Encode.forUriComponent(request.getParameter("search_mode")))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(request.getParameter("orderby")))%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword"))))%>&search_mode=<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode"))))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby"))))%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(Encode.forUriComponent(request.getParameter("keyword")))%>&search_mode=<%=Encode.forJavaScript(Encode.forUriComponent(request.getParameter("search_mode")))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(request.getParameter("orderby")))%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword"))))%>&search_mode=<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode"))))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby"))))%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 

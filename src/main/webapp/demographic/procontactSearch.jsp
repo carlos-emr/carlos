@@ -50,6 +50,7 @@
 -->
 <%@ page import="java.util.*,java.sql.*, java.net.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalContact" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
@@ -302,12 +303,12 @@
     <script type="text/javascript">
         //<!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("keyword"))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("search_mode"))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("orderby"))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
             document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("keyword"))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("search_mode"))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("orderby"))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
             document.nextform.submit();
         }
 

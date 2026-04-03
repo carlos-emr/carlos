@@ -434,7 +434,7 @@
             } else {
             %>
             <script language="JavaScript">
-                document.add2WLFrm.action = "<%= request.getContextPath() %>/waitinglist/Add2WaitingList.jsp?demographicNo=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&listId=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("list_id"))) %>&waitingListNote=<%= Encode.forUriComponent(request.getParameter("waiting_list_note")==null?"":request.getParameter("waiting_list_note")) %>&onListSince=<%= Encode.forUriComponent(request.getParameter("waiting_list_referral_date")==null?"":request.getParameter("waiting_list_referral_date")) %>";
+                document.add2WLFrm.action = "<%= request.getContextPath() %>/waitinglist/Add2WaitingList.jsp?demographicNo=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))) %>&listId=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("list_id")))) %>&waitingListNote=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("waiting_list_note")==null?"":request.getParameter("waiting_list_note"))) %>&onListSince=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("waiting_list_referral_date")==null?"":request.getParameter("waiting_list_referral_date"))) %>";
                 document.add2WLFrm.submit();
             </script>
             <%

@@ -93,7 +93,7 @@
             }
             self.opener.forwardDocument(docId);
             self.close();
-        } else if (isListView != "" && isListView == true) {
+        } else if (isListView === 'true') {
             var forwardListEl = document.getElementById("forwardList");
             if (forwardListEl) {
                 forwardLabs(forwardListEl.value, fwdProviders);
