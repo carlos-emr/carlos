@@ -1059,19 +1059,18 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
     /**
      * Tests for {@link LookupDao#getCountOfActiveClient(String)}.
      *
-     * <p>This method executes two raw JDBC queries via {@code DBPreparedHandler}:</p>
+     * <p>This method executes two raw JDBC queries via parameterized {@link java.sql.PreparedStatement}:</p>
      * <ol>
      *   <li>Count of admissions with status 'admitted' in programs under the org</li>
      *   <li>If first count is zero, count of program_queue entries for programs under the org</li>
      * </ol>
      *
-     * <p><b>SQL injection risk:</b> The orgCd parameter is concatenated directly into SQL
-     * strings without parameterization. This is a known security issue documented for
-     * future remediation during EntityManager migration.</p>
-     *
      * <p><b>H2 compatibility:</b> The SQL uses Oracle-style concatenation ({@code ||})
      * which H2 supports, but references tables (admission, program_queue) that don't
      * exist in the test schema by default.</p>
+     *
+     * <p>LIKE metacharacter escaping is tested via {@link BuildLikeParamTests}, which
+     * exercises {@link LookupDaoImpl#buildLikeParam(String)} directly.</p>
      */
     @Nested
     @DisplayName("getCountOfActiveClient")
@@ -1079,22 +1078,84 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("aggregate")
-        @DisplayName("should use string concatenation in SQL - documents injection risk for migration")
-        void shouldDocumentSqlInjectionRisk_inGetCountOfActiveClient() {
-            // Given - This test documents that getCountOfActiveClient builds SQL with
-            // string concatenation of the orgCd parameter:
-            //   "... where codecsv like '%' || '" + orgCd + ",' || '%'"
-            // This is a SQL injection vulnerability that should be fixed during
-            // the EntityManager migration.
+        @DisplayName("should treat SQL injection payload as literal string, not break SQL syntax")
+        void shouldTreatInjectionPayloadAsLiteral_whenOrgCdContainsSqlCharacters() {
+            // Given - orgCd contains a classic SQL injection payload
+            // Before the fix, this caused a JdbcSQLSyntaxErrorException because the value
+            // was concatenated into the SQL string. After parameterization, the value is
+            // bound as a PreparedStatement parameter and treated as a literal string.
 
-            // When/Then - DbConnectionFilter does obtain a connection in the Spring test
-            // context, so SQL is executed. The injected payload causes a syntax error
-            // in H2 (embedded semicolons in string literals break multi-statement parsing),
-            // resulting in a JdbcSQLSyntaxErrorException (extends java.sql.SQLException).
-            // This confirms the SQL injection risk: the orgCd value is concatenated
-            // directly into the query string.
+            // When/Then - The injected payload no longer breaks SQL syntax. The query still
+            // throws a SQLException due to missing tables (admission, program_queue) in H2,
+            // but NOT a syntax/parse error from the injection.
             assertThatThrownBy(() -> lookupDao.getCountOfActiveClient("'; DROP TABLE admission; --"))
-                .isInstanceOf(java.sql.SQLException.class);
+                .isInstanceOf(java.sql.SQLException.class)
+                .hasMessageNotContaining("Syntax error");
+        }
+    }
+
+    // =========================================================================
+    // buildLikeParam tests
+    // =========================================================================
+
+    /**
+     * Unit tests for {@link LookupDaoImpl#buildLikeParam(String)}.
+     *
+     * <p>Verifies that LIKE metacharacters ({@code %}, {@code _}, {@code !}) within the
+     * {@code orgCd} argument are escaped so they are treated as literals by the database
+     * engine when combined with {@code ESCAPE '!'} in the SQL query.</p>
+     */
+    @Nested
+    @DisplayName("buildLikeParam")
+    class BuildLikeParamTests {
+
+        @Test
+        @Tag("security")
+        @DisplayName("should return literal pattern for plain alphanumeric orgCd")
+        void shouldReturnLiteralPattern_whenOrgCdHasNoSpecialChars() {
+            assertThat(LookupDaoImpl.buildLikeParam("ORG1")).isEqualTo("%ORG1,%");
+        }
+
+        @Test
+        @Tag("security")
+        @DisplayName("should escape percent sign so it matches literally")
+        void shouldEscapePercent_soItMatchesLiterally() {
+            assertThat(LookupDaoImpl.buildLikeParam("a%b")).isEqualTo("%a!%b,%");
+        }
+
+        @Test
+        @Tag("security")
+        @DisplayName("should escape underscore so it matches literally")
+        void shouldEscapeUnderscore_soItMatchesLiterally() {
+            assertThat(LookupDaoImpl.buildLikeParam("a_b")).isEqualTo("%a!_b,%");
+        }
+
+        @Test
+        @Tag("security")
+        @DisplayName("should escape exclamation mark so it is not treated as escape prefix")
+        void shouldEscapeExclamation_soItIsNotTreatedAsEscapePrefix() {
+            assertThat(LookupDaoImpl.buildLikeParam("a!b")).isEqualTo("%a!!b,%");
+        }
+
+        @Test
+        @Tag("security")
+        @DisplayName("should escape all three metacharacters when all are present")
+        void shouldEscapeAllMetachars_whenAllPresent() {
+            assertThat(LookupDaoImpl.buildLikeParam("a%_!b")).isEqualTo("%a!%!_!!b,%");
+        }
+
+        @Test
+        @Tag("security")
+        @DisplayName("should return empty pattern when orgCd is empty")
+        void shouldReturnEmptyPattern_whenOrgCdIsEmpty() {
+            assertThat(LookupDaoImpl.buildLikeParam("")).isEqualTo("%,%");
+        }
+
+        @Test
+        @Tag("security")
+        @DisplayName("should escape multiple consecutive percent signs")
+        void shouldEscapeMultipleConsecutivePercents() {
+            assertThat(LookupDaoImpl.buildLikeParam("a%%b")).isEqualTo("%a!%!%b,%");
         }
     }
 

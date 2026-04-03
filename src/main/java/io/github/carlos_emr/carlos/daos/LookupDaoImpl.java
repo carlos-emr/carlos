@@ -722,11 +722,24 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         db.procExecute(procName, params);
     }
 
+    /**
+     * Builds a LIKE parameter that matches {@code orgCd} as a literal prefix entry in a
+     * comma-separated code list (e.g., {@code "%abc,%"}).
+     *
+     * <p>LIKE metacharacters ({@code !}, {@code %}, {@code _}) in {@code orgCd} are escaped
+     * with {@code !} so they are treated as literals when the query uses {@code ESCAPE '!'}.
+     *
+     * @param orgCd String the organization code to search for (must not be null)
+     * @return String the escaped LIKE pattern suitable for use with {@code ESCAPE '!'}
+     */
+    static String buildLikeParam(String orgCd) {
+        String escaped = orgCd.replace("!", "!!").replace("%", "!%").replace("_", "!_");
+        return "%" + escaped + ",%";
+    }
+
     @Override
     public int getCountOfActiveClient(String orgCd) throws SQLException {
-        // Escape LIKE wildcards in orgCd so it is treated as a literal value in the pattern
-        String escapedOrgCd = orgCd.replace("!", "!!").replace("%", "!%").replace("_", "!_");
-        String likeParam = "%" + escapedOrgCd + ",%";
+        String likeParam = buildLikeParam(orgCd);
         String sql = "select count(*) from admission where admission_status='" + KeyConstants.INTAKE_STATUS_ADMITTED
                 + "' and 'P' || program_id in (select code from lst_orgcd where codecsv like ? ESCAPE '!')";
         String sql1 = "select count(*) from program_queue where 'P' || program_id in ("
