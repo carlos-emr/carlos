@@ -124,10 +124,6 @@
         <action name="ArchiveView" class="io.github.carlos_emr.carlos.casemgmt.web.ArchiveView2Action" method="execute">
             <result name="view">/provider/providercontrol.jsp</result>
         </action>
-        <action name="renal/CkdDSA" class="io.github.carlos_emr.carlos.renal.web.CkdDSA2Action">
-            <result name="detail">/renal/ckd_dsa_detail.jsp</result>
-        </action>
-        <action name="renal/Renal" class="io.github.carlos_emr.carlos.renal.web.Renal2Action"/>
 
     </package>
 </struts>
