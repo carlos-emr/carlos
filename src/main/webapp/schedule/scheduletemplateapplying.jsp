@@ -77,6 +77,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <html lang="en">
 
     <%
@@ -95,9 +96,9 @@
     </security:oscarSec>
 
 
-    <%! boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable(); %>
     <%
-        // Request-local variables (NOT instance variables — avoids thread-safety issues)
+        // All variables are request-local (NOT instance variables — avoids thread-safety issues)
+        boolean bMultisites = IsPropertiesOn.isMultisitesEnable();
         String[] bgColors = null;
         List<String> excludedSites = new ArrayList<>();
 
@@ -113,11 +114,17 @@
         String[] addr;
 
         if (bMultisites) {
+            // Reject requests with a missing or blank provider_no before any DAO calls.
+            String reqProviderNo = request.getParameter("provider_no");
+            if (reqProviderNo == null || reqProviderNo.isBlank()) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
+
             // Upfront authorization: when site-access privacy is enabled, verify the current user
             // shares at least one site with the requested provider before loading any provider-scoped data.
             if (isSiteAccessPrivacy) {
-                String reqProviderNo = request.getParameter("provider_no");
-                if (reqProviderNo != null && !reqProviderNo.equals(CurProviderNo)) {
+                if (!reqProviderNo.equals(CurProviderNo)) {
                     SiteDao authCheck = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
                     List<Site> targetSites = authCheck.getActiveSitesByProviderNo(reqProviderNo);
                     List<Site> curUserSites = authCheck.getActiveSitesByProviderNo(CurProviderNo);
@@ -137,7 +144,7 @@
 
             //multisite starts =====================
             SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
-            List<Site> sites = siteDao.getActiveSitesByProviderNo(request.getParameter("provider_no"));
+            List<Site> sites = siteDao.getActiveSitesByProviderNo(reqProviderNo);
             List<Site> managerSites;
 
             if (isSiteAccessPrivacy) {
@@ -761,7 +768,7 @@
                                                                    readonly>
                                                             <input type="button" class="btn btn-secondary" name="sunto1" value="<<"
                                                                    onclick="javascript:tranbutton1_click();">
-                                                            <%=bMoreAddr ? getSelectAddr("sunaddr1", addr, param4[0][0], bgColors, excludedSites) : ""  %>
+                                                            <%=bMoreAddr ? getSelectAddr("sunaddr1", addr, param4[0][0], bgColors, excludedSites, bMultisites) : ""  %>
                                                         </td>
                                                     </tr>
                                                     <tr>
@@ -773,7 +780,7 @@
                                                                    readonly>
                                                             <input type="button" class="btn btn-secondary" name="monto1" value="<<"
                                                                    onclick="javascript:tranbutton2_click();">
-                                                            <%=bMoreAddr ? getSelectAddr("monaddr1", addr, param4[1][0], bgColors, excludedSites) : ""  %>
+                                                            <%=bMoreAddr ? getSelectAddr("monaddr1", addr, param4[1][0], bgColors, excludedSites, bMultisites) : ""  %>
                                                         </td>
                                                     </tr>
                                                     <tr class="table-success">
@@ -786,7 +793,7 @@
                                                                    readonly>
                                                             <input type="button" class="btn btn-secondary" name="tueto1" value="<<"
                                                                    onclick="javascript:tranbutton3_click();">
-                                                            <%=bMoreAddr ? getSelectAddr("tueaddr1", addr, param4[2][0], bgColors, excludedSites) : ""  %>
+                                                            <%=bMoreAddr ? getSelectAddr("tueaddr1", addr, param4[2][0], bgColors, excludedSites, bMultisites) : ""  %>
                                                         </td>
                                                     </tr>
                                                     <tr>
@@ -799,7 +806,7 @@
                                                                    readonly>
                                                             <input type="button" class="btn btn-secondary" name="wedto1" value="<<"
                                                                    onclick="javascript:tranbutton4_click();">
-                                                            <%=bMoreAddr ? getSelectAddr("wedaddr1", addr, param4[3][0], bgColors, excludedSites) : ""  %>
+                                                            <%=bMoreAddr ? getSelectAddr("wedaddr1", addr, param4[3][0], bgColors, excludedSites, bMultisites) : ""  %>
                                                         </td>
                                                     </tr>
                                                     <tr class="table-success">
@@ -812,7 +819,7 @@
                                                                    readonly>
                                                             <input type="button" class="btn btn-secondary" name="thuto1" value="<<"
                                                                    onclick="javascript:tranbutton5_click();">
-                                                            <%=bMoreAddr ? getSelectAddr("thuaddr1", addr, param4[4][0], bgColors, excludedSites) : ""  %>
+                                                            <%=bMoreAddr ? getSelectAddr("thuaddr1", addr, param4[4][0], bgColors, excludedSites, bMultisites) : ""  %>
                                                         </td>
                                                     </tr>
                                                     <tr>
@@ -824,7 +831,7 @@
                                                                    readonly>
                                                             <input type="button" class="btn btn-secondary" name="frito1" value="<<"
                                                                    onclick="javascript:tranbutton6_click();">
-                                                            <%=bMoreAddr ? getSelectAddr("friaddr1", addr, param4[5][0], bgColors, excludedSites) : ""  %>
+                                                            <%=bMoreAddr ? getSelectAddr("friaddr1", addr, param4[5][0], bgColors, excludedSites, bMultisites) : ""  %>
                                                         </td>
                                                     </tr>
                                                     <tr class="table-success">
@@ -837,7 +844,7 @@
                                                                    readonly>
                                                             <input type="button" class="btn btn-secondary" name="satto1" value="<<"
                                                                    onclick="javascript:tranbutton7_click();">
-                                                            <%=bMoreAddr ? getSelectAddr("sataddr1", addr, param4[6][0], bgColors, excludedSites) : ""  %>
+                                                            <%=bMoreAddr ? getSelectAddr("sataddr1", addr, param4[6][0], bgColors, excludedSites, bMultisites) : ""  %>
                                                         </td>
                                                     </tr>
                                                     <%
@@ -927,7 +934,7 @@
                                                             <input
                                                                     type="button" name="sunto2" value="<<"
                                                                     onclick="javascript:tranbuttonb1_click();">
-                                                            <%=bMoreAddr ? getSelectAddr("sunaddr2", addr, param4[0][0], bgColors, excludedSites) : ""  %>
+                                                            <%=bMoreAddr ? getSelectAddr("sunaddr2", addr, param4[0][0], bgColors, excludedSites, bMultisites) : ""  %>
                                                         </td>
                                                     </tr>
                                                     <tr>
@@ -939,7 +946,7 @@
                                                             <input
                                                                     type="button" name="monto2" value="<<"
                                                                     onclick="javascript:tranbuttonb2_click();">
-                                                            <%=bMoreAddr ? getSelectAddr("monaddr2", addr, param4[1][0], bgColors, excludedSites) : ""  %>
+                                                            <%=bMoreAddr ? getSelectAddr("monaddr2", addr, param4[1][0], bgColors, excludedSites, bMultisites) : ""  %>
                                                         </td>
                                                     </tr>
                                                     <tr class="table-info">
@@ -952,7 +959,7 @@
                                                             <input
                                                                     type="button" name="tueto2" value="<<"
                                                                     onclick="javascript:tranbuttonb3_click();">
-                                                            <%=bMoreAddr ? getSelectAddr("tueaddr2", addr, param4[2][0], bgColors, excludedSites) : ""  %>
+                                                            <%=bMoreAddr ? getSelectAddr("tueaddr2", addr, param4[2][0], bgColors, excludedSites, bMultisites) : ""  %>
                                                         </td>
                                                     </tr>
                                                     <tr>
@@ -965,7 +972,7 @@
                                                             <input
                                                                     type="button" name="wedto2" value="<<"
                                                                     onclick="javascript:tranbuttonb4_click();">
-                                                            <%=bMoreAddr ? getSelectAddr("wedaddr2", addr, param4[3][0], bgColors, excludedSites) : ""  %>
+                                                            <%=bMoreAddr ? getSelectAddr("wedaddr2", addr, param4[3][0], bgColors, excludedSites, bMultisites) : ""  %>
                                                         </td>
                                                     </tr>
                                                     <tr class="table-info">
@@ -978,7 +985,7 @@
                                                             <input
                                                                     type="button" name="thuto2" value="<<"
                                                                     onclick="javascript:tranbuttonb5_click();">
-                                                            <%=bMoreAddr ? getSelectAddr("thuaddr2", addr, param4[4][0], bgColors, excludedSites) : ""  %>
+                                                            <%=bMoreAddr ? getSelectAddr("thuaddr2", addr, param4[4][0], bgColors, excludedSites, bMultisites) : ""  %>
                                                         </td>
                                                     </tr>
                                                     <tr>
@@ -990,7 +997,7 @@
                                                             <input
                                                                     type="button" name="frito2" value="<<"
                                                                     onclick="javascript:tranbuttonb6_click();">
-                                                            <%=bMoreAddr ? getSelectAddr("friaddr2", addr, param4[5][0], bgColors, excludedSites) : ""  %>
+                                                            <%=bMoreAddr ? getSelectAddr("friaddr2", addr, param4[5][0], bgColors, excludedSites, bMultisites) : ""  %>
                                                         </td>
                                                     </tr>
                                                     <tr class="table-info">
@@ -1003,7 +1010,7 @@
                                                             <input
                                                                     type="button" name="satto2" value="<<"
                                                                     onclick="javascript:tranbuttonb7_click();">
-                                                            <%=bMoreAddr ? getSelectAddr("sataddr2", addr, param4[6][0], bgColors, excludedSites) : ""  %>
+                                                            <%=bMoreAddr ? getSelectAddr("sataddr2", addr, param4[6][0], bgColors, excludedSites, bMultisites) : ""  %>
                                                         </td>
                                                     </tr>
                                                     <% }
@@ -1073,7 +1080,7 @@
         } //end if
     %>
     </body>
-    <%! String getSelectAddr(String s, String[] site, String sel, String[] bgColors, List<String> excludedSites) {
+    <%! String getSelectAddr(String s, String[] site, String sel, String[] bgColors, List<String> excludedSites, boolean bMultisites) {
 
         boolean isExcludedSiteSelected = false;
         if (bMultisites && excludedSites.contains(sel))
