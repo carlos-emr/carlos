@@ -20,47 +20,38 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
+package io.github.carlos_emr.carlos.commn.hl7.v2;
 
-package io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar;
+import ca.uhn.hl7v2.parser.PipeParser;
+import ca.uhn.hl7v2.validation.impl.NoValidation;
 
-import java.io.IOException;
-import java.io.OutputStream;
+/**
+ * Shared HL7 parser utilities used across modules that need HL7 v2 message encoding/decoding.
+ *
+ * <p>Extracted from the removed Oscar-to-Oscar communication package to support
+ * features like prescription QR code generation that use HL7 message formatting.
+ *
+ * @since 2026-04-03
+ */
+public final class Hl7ParserUtils {
 
-import org.apache.hc.client5.http.entity.mime.AbstractContentBody;
-import org.apache.hc.core5.http.ContentType;
+    /** Pre-configured HAPI PipeParser with no validation, suitable for encoding/decoding HL7 messages. */
+    public static final PipeParser pipeParser = initialisePipeParser();
 
-public class ByteArrayBody extends AbstractContentBody {
-
-    private byte[] byteArray;
-    private String fileName;
-
-    public ByteArrayBody(byte[] byteArray, String fileName) {
-        super(ContentType.APPLICATION_OCTET_STREAM);
-        this.byteArray = byteArray;
-        this.fileName = fileName;
+    private Hl7ParserUtils() {
+        // utility class
     }
 
-    @Override
-    public void writeTo(OutputStream outputStream) throws IOException {
-        outputStream.write(byteArray);
-        outputStream.flush();
+    private static PipeParser initialisePipeParser() {
+        PipeParser pipeParser = new PipeParser();
+        pipeParser.setValidationContext(new NoValidation());
+        return pipeParser;
     }
-
-    @Override
-    public String getFilename() {
-        return (fileName);
-    }
-
-    @Override
-    public long getContentLength() {
-        return (byteArray.length);
-    }
-
 }

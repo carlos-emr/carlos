@@ -479,32 +479,6 @@ public final class EctConsultationFormRequestForm {
     }
 
     /**
-     * This url will include the context path.
-     */
-    public String getOruR01UrlString(HttpServletRequest request) {
-        // /lab/CA/ALL/sendOruR01.jsp
-
-        StringBuilder sb = new StringBuilder();
-
-        sb.append(request.getContextPath());
-        sb.append("/lab/CA/ALL/sendOruR01.jsp");
-
-        HashMap<String, Object> queryParameters = new HashMap<String, Object>();
-
-        // buildQueryString will take null into account
-        queryParameters.put("hl7TextMessageId", hl7TextMessageId);
-        queryParameters.put("clientFirstName", patientFirstName);
-        queryParameters.put("clientLastName", patientLastName);
-        queryParameters.put("clientHin", patientHealthNum);
-        queryParameters.put("clientBirthDate", patientDOB);
-        queryParameters.put("clientGender", patientSex);
-
-        sb.append(WebUtils.buildQueryString(queryParameters));
-
-        return (StringEscapeUtils.escapeHtml4(sb.toString()));
-    }
-
-    /**
      * @return the followUpDate
      */
     public String getFollowUpDate() {

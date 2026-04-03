@@ -121,7 +121,6 @@
     }
 %>
 
-<%@page import="io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OscarToOscarUtils" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -217,7 +216,6 @@
                             <option value="IHAPOI">IHAPOI</option>
                             <option value="MDS">MDS/Lifelabs</option>
                             <!-- <option value="HL7">HL7</option> -->
-                            <option value="OSCAR_TO_OSCAR_HL7_V2">CARLOS_TO_CARLOS_HL7_V2</option>
                             <option value="SIOUX">SIOUX</option>
                             <option value="Spire">Spire</option>
                             <option value="PDFDOC">PDFDOC</option>
