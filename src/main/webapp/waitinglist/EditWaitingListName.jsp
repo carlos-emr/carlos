@@ -84,7 +84,7 @@
     %>
 
 
-    <form action="${pageContext.request.contextPath}/oscarWaitingList/WLEditWaitingListNameAction.do?edit=Y.do" method="post">
+    <form action="${pageContext.request.contextPath}/waitinglist/WLEditWaitingListNameAction.do?edit=Y.do" method="post">
         <input type="hidden" name="actionChosen" id="actionChosen"/>
 
         <h3>&nbsp;&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarwaitinglist.displayPatientWaitingList.waitinglist"/></h3>

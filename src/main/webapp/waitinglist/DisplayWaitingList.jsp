@@ -74,7 +74,7 @@
     <body class="BodyStyle" vlink="#0000FF"
           onload='window.resizeTo(900,400)'>
     <!--  -->
-    <form action="${pageContext.request.contextPath}/oscarWaitingList/SetupDisplayWaitingList.do?update=Y" method="post">
+    <form action="${pageContext.request.contextPath}/waitinglist/SetupDisplayWaitingList.do?update=Y" method="post">
 
         <input type="hidden" name="demographicNumSelected" value=""/>
         <input type="hidden" name="wlNoteSelected" value=""/>
@@ -202,7 +202,7 @@
                                                     </option>
                                                 </c:forEach>
                                             </select>
-                                            <a href="#" onClick="popupPage(${ctr.index}, '${waitingListBean.patientName}', '${waitingListBean.demographicNo}', '${today}', 400, 780, '<%= request.getContextPath() %>/schedule/scheduleflipview.jsp?originalpage=<%= request.getContextPath() %>/oscarWaitingList/DisplayWaitingList.jsp'); return false;">
+                                            <a href="#" onClick="popupPage(${ctr.index}, '${waitingListBean.patientName}', '${waitingListBean.demographicNo}', '${today}', 400, 780, '<%= request.getContextPath() %>/schedule/scheduleflipview.jsp?originalpage=<%= request.getContextPath() %>/waitinglist/DisplayWaitingList.jsp'); return false;">
                                                 make_appt
                                             </a>
                                         </td>
@@ -237,7 +237,7 @@
         function goToPage() {
             document.forms[0].waitingListId.value =
                 document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value;
-            window.location = "<%=request.getContextPath()%>/oscarWaitingList/SetupDisplayWaitingList.do?waitingListId=" +
+            window.location = "<%=request.getContextPath()%>/waitinglist/SetupDisplayWaitingList.do?waitingListId=" +
                 document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value;
         }
 
@@ -245,7 +245,7 @@
             document.forms[0].waitingListId.value =
                 document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value;
 
-            var redirectPage = "<%=request.getContextPath()%>/oscarWaitingList/WLEditWaitingListNameAction.do?waitingListId=" +
+            var redirectPage = "<%=request.getContextPath()%>/waitinglist/WLEditWaitingListNameAction.do?waitingListId=" +
                 document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value + "&edit=Y";
             popupDemographicPage(redirectPage);
         }
@@ -300,7 +300,7 @@
         function updateWaitingList(waitingListId, ctr) {
             document.forms[0].waitingListId.value = waitingListId;
             document.forms[0].update.value = "Y";
-            document.forms[0].action = "<%=request.getContextPath()%>/oscarWaitingList/SetupDisplayWaitingList.do#anchor_" + ctr;
+            document.forms[0].action = "<%=request.getContextPath()%>/waitinglist/SetupDisplayWaitingList.do#anchor_" + ctr;
             document.forms[0].submit();
         }
 
