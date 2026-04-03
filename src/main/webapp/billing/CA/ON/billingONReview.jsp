@@ -163,7 +163,8 @@
     String apptProvider_no = request.getParameter("apptProvider_no");
     String ctlBillForm = request.getParameter("billForm");
     String assgProvider_no = request.getParameter("assgProvider_no");
-    String billType = request.getParameter("xml_billtype").substring(0, ((String) request.getParameter("xml_billtype")).indexOf("|")).trim();
+    String xmlBilltypeRaw = request.getParameter("xml_billtype");
+    String billType = (xmlBilltypeRaw != null && xmlBilltypeRaw.contains("|")) ? xmlBilltypeRaw.substring(0, xmlBilltypeRaw.indexOf("|")).trim() : "";
     String demoSex = request.getParameter("DemoSex");
     GregorianCalendar now = new GregorianCalendar();
     int curYear = now.get(Calendar.YEAR);
@@ -607,7 +608,7 @@
                                 <tr>
                                     <!--<input type="text" name="checkFlag" id="checkFlag" value="<%= Encode.forHtmlAttribute(request.getParameter("checkFlag")) %>" />  -->
                                     <td style="white-space:nowrap; width:30%; text-align:center"><b>Service Date</b><br>
-                                        <%= String.join("<br>", java.util.Arrays.stream(request.getParameter("service_date").split("\\n")).map(Encode::forHtml).toArray(String[]::new)) %>
+                                        <%= request.getParameter("service_date") != null ? String.join("<br>", java.util.Arrays.stream(request.getParameter("service_date").split("\\n")).map(Encode::forHtml).toArray(String[]::new)) : "" %>
                                     </td>
                                     <td style="text-align:center; width:33%"><b>Diagnostic Code</b><br>
                                         <%=dxCode%><br>
@@ -637,19 +638,16 @@
                                 <tr>
 
                                     <td style="width:30%"><b>Visit Type</b></td>
-                                    <td style="width:20%"><%= Encode.forHtml(request.getParameter("xml_visittype").substring(
-                                            request.getParameter("xml_visittype").indexOf("|") + 1)) %>
+                                    <td style="width:20%"><%= Encode.forHtml(request.getParameter("xml_visittype") != null && request.getParameter("xml_visittype").contains("|") ? request.getParameter("xml_visittype").substring(request.getParameter("xml_visittype").indexOf("|") + 1) : "") %>
                                     </td>
 
                                     <td style="width:30%"><b>Billing Type</b></td>
-                                    <td style="width:20%"><%= Encode.forHtml(request.getParameter("xml_billtype").substring(
-                                            request.getParameter("xml_billtype").indexOf("|") + 1)) %>
+                                    <td style="width:20%"><%= Encode.forHtml(request.getParameter("xml_billtype") != null && request.getParameter("xml_billtype").contains("|") ? request.getParameter("xml_billtype").substring(request.getParameter("xml_billtype").indexOf("|") + 1) : "") %>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td><b>Visit Location</b></td>
-                                    <td><%= Encode.forHtml(request.getParameter("xml_location").substring(
-                                            request.getParameter("xml_location").indexOf("|") + 1)) %> &nbsp;
+                                    <td><%= Encode.forHtml(request.getParameter("xml_location") != null && request.getParameter("xml_location").contains("|") ? request.getParameter("xml_location").substring(request.getParameter("xml_location").indexOf("|") + 1) : "") %> &nbsp;
                                         <% if (request.getParameter("m_review") != null) {
                                             out.println("<b>Manual: Y</b>");
                                         } %>
@@ -663,7 +661,7 @@
                                 </tr>
                                 <tr>
                                     <td><b>SLI Code</b></td>
-                                    <td><%= Encode.forHtml(request.getParameter("xml_slicode").substring(request.getParameter("xml_slicode").indexOf("|") + 1)) %>
+                                    <td><%= Encode.forHtml(request.getParameter("xml_slicode") != null && request.getParameter("xml_slicode").contains("|") ? request.getParameter("xml_slicode").substring(request.getParameter("xml_slicode").indexOf("|") + 1) : "") %>
                                         &nbsp;
                                     </td>
                                     <% if (bMultisites) { %>
@@ -1056,7 +1054,7 @@
                     CarlosProperties props = CarlosProperties.getInstance();
                     boolean bMoreAddr = props.getProperty("scheduleSiteID", "").equals("") ? false : true;
                     if (bMoreAddr) {
-                        tempLoc = request.getParameter("siteId").trim();
+                        tempLoc = request.getParameter("siteId") != null ? request.getParameter("siteId").trim() : "";
                     } else {
                         tempLoc = props.getProperty("BILLING_NOTE", "");
                     }
@@ -1196,7 +1194,7 @@
                     </td>
                     <td style="text-align:right">
                         <input type="hidden" name="provider_no"
-                               value="<%= Encode.forHtmlAttribute(request.getParameter("xml_provider").substring(0,request.getParameter("xml_provider").indexOf("|"))) %>"/>
+                               value="<%= Encode.forHtmlAttribute(request.getParameter("xml_provider") != null && request.getParameter("xml_provider").contains("|") ? request.getParameter("xml_provider").substring(0, request.getParameter("xml_provider").indexOf("|")) : "") %>"/>
                         GST Billed:<input type="text" id="gst" name="gst" value="<%=gstTotal%>"><br>
                         <input type="hidden" id="gstBilledTotal" name="gstBilledTotal" value="<%=gstbilledtotal%>">
                         Total:<input type="text" id="stotal" disabled name="stotal" value="0.00"><br>

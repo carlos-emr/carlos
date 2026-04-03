@@ -135,7 +135,7 @@
 
         <script LANGUAGE="JavaScript">
             self.opener.refresh();
-            popupPage(350, 750, '<%= request.getContextPath() %>/report/reportdaysheet.jsp?dsmode=new&provider_no=<%= Encode.forUriComponent(request.getParameter("provider_no")) %>&sdate=<%= Encode.forUriComponent(request.getParameter("appointment_date")) %>');
+            popupPage(350, 750, '<%= request.getContextPath() %>/report/reportdaysheet.jsp?dsmode=new&provider_no=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("provider_no"))) %>&sdate=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("appointment_date"))) %>');
             self.close();
         </script>
         <%

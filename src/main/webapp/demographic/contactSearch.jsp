@@ -196,12 +196,12 @@
     <script type="text/javascript">
 
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/contactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forUriComponent(request.getParameter("keyword")) %>&search_mode=<%= Encode.forUriComponent(request.getParameter("search_mode")) %>&orderby=<%= Encode.forUriComponent(request.getParameter("orderby")) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/contactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("keyword"))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("search_mode"))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("orderby"))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
             document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/contactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forUriComponent(request.getParameter("keyword")) %>&search_mode=<%= Encode.forUriComponent(request.getParameter("search_mode")) %>&orderby=<%= Encode.forUriComponent(request.getParameter("orderby")) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/contactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("keyword"))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("search_mode"))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("orderby"))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
             document.nextform.submit();
         }
 

@@ -349,14 +349,14 @@
                 //param[8]=MyDateFormat.getTimeXX_XX_XX(request.getParameter("billing_time"));
                 param[9] = tempDate[k]; // parse(billingDate) ;//request.getParameter("appointment_date");
                 param[10] = request.getParameter("start_time");
-                param[11] = request.getParameter("xml_location").substring(0, request.getParameter("xml_location").indexOf("|")).trim(); //request.getParameter("clinic_ref_code");
+                param[11] = request.getParameter("xml_location") != null && request.getParameter("xml_location").contains("|") ? request.getParameter("xml_location").substring(0, request.getParameter("xml_location").indexOf("|")).trim() : ""; //request.getParameter("clinic_ref_code");
                 param[12] = content; //request.getParameter("content");
                 param[13] = total; // calculate total; //request.getParameter("total");
-                param[14] = request.getParameter("xml_billtype").substring(0, 1);
+                param[14] = request.getParameter("xml_billtype") != null && request.getParameter("xml_billtype").length() >= 1 ? request.getParameter("xml_billtype").substring(0, 1) : "";
                 param[15] = request.getParameter("demographic_dob");
 
                 param[16] = request.getParameter("xml_vdate"); // don't consider the appt date. request.getParameter("visitdate");
-                param[17] = request.getParameter("xml_visittype").substring(0, 2); //request.getParameter("visittype");
+                param[17] = request.getParameter("xml_visittype") != null && request.getParameter("xml_visittype").length() >= 2 ? request.getParameter("xml_visittype").substring(0, 2) : ""; //request.getParameter("visittype");
                 param[18] = proOHIPNO; //request.getParameter("pohip_no");
                 param[19] = proRMA; //request.getParameter("prma_no");
                 param[20] = request.getParameter("apptProvider_no"); //"none"; //
@@ -433,7 +433,7 @@
                         bd.setBillingAmount(("" + bdEachTotal).replaceAll("\\.", ""));
                         bd.setDiagnosticCode(request.getParameter("dxCode"));
                         bd.setAppointmentDate(MyDateFormat.getSysDate(tempDate[k]));
-                        bd.setStatus(request.getParameter("xml_billtype").substring(0, 1));
+                        bd.setStatus(request.getParameter("xml_billtype") != null && request.getParameter("xml_billtype").length() >= 1 ? request.getParameter("xml_billtype").substring(0, 1) : "");
                         bd.setBillingUnit((String) vecServiceCodeUnit.get(i));
                         billingDetailDao.persist(bd);
 
@@ -534,7 +534,7 @@
                                 <tr>
                                     <td nowrap width="30%" align="center" valign="top"><b>Service
                                         Date</b><br>
-                                        <%= String.join("<br>", java.util.Arrays.stream(request.getParameter("billDate").split("\\n")).map(Encode::forHtml).toArray(String[]::new)) %>
+                                        <%= request.getParameter("billDate") != null ? String.join("<br>", java.util.Arrays.stream(request.getParameter("billDate").split("\\n")).map(Encode::forHtml).toArray(String[]::new)) : "" %>
                                     </td>
                                     <td align="center" width="33%"><b>Diagnostic Code</b><br>
                                         <%= Encode.forHtml(request.getParameter("dxCode")) %>
@@ -566,23 +566,23 @@
                                 <tr>
 
                                     <td width="30%"><b>Visit Type</b></td>
-                                    <td width="20%"><%= Encode.forHtml(request.getParameter("xml_visittype").substring(request.getParameter("xml_visittype").indexOf("|") + 1)) %>
+                                    <td width="20%"><%= Encode.forHtml(request.getParameter("xml_visittype") != null && request.getParameter("xml_visittype").contains("|") ? request.getParameter("xml_visittype").substring(request.getParameter("xml_visittype").indexOf("|") + 1) : "") %>
                                     </td>
 
                                     <td width="30%"><b>Billing Type</b></td>
-                                    <td width="20%"><%= Encode.forHtml(request.getParameter("xml_billtype").substring(request.getParameter("xml_billtype").indexOf("|") + 1)) %>
+                                    <td width="20%"><%= Encode.forHtml(request.getParameter("xml_billtype") != null && request.getParameter("xml_billtype").contains("|") ? request.getParameter("xml_billtype").substring(request.getParameter("xml_billtype").indexOf("|") + 1) : "") %>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td><b>Visit Location</b></td>
-                                    <td colspan="3"><%= Encode.forHtml(request.getParameter("xml_location").substring(request.getParameter("xml_location").indexOf("|") + 1)) %>
+                                    <td colspan="3"><%= Encode.forHtml(request.getParameter("xml_location") != null && request.getParameter("xml_location").contains("|") ? request.getParameter("xml_location").substring(request.getParameter("xml_location").indexOf("|") + 1) : "") %>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td><b>SLI Code</b></td>
                                     <td><%
-                                        String testSliCode = request.getParameter("xml_slicode").substring(
-                                                request.getParameter("xml_slicode").indexOf("|") + 1);
+                                        String xmlSlicodeRaw = request.getParameter("xml_slicode");
+                                        String testSliCode = (xmlSlicodeRaw != null && xmlSlicodeRaw.contains("|")) ? xmlSlicodeRaw.substring(xmlSlicodeRaw.indexOf("|") + 1) : "";
                                         if (testSliCode.startsWith(oscarVariables.getProperty("clinic_no", "").trim())) {
                                     %>
                                         Not Applicable &nbsp;
