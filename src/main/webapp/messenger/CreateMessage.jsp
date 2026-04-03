@@ -80,8 +80,6 @@
 --%>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-
 
 <%@ page import="org.w3c.dom.*" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.util.Msgxml" %>
@@ -102,6 +100,8 @@
 <%@ page import="java.util.ResourceBundle" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
