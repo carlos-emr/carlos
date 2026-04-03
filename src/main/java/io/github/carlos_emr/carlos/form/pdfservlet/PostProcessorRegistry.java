@@ -40,8 +40,8 @@ import java.util.Optional;
  * is a critical security vulnerability (SonarCloud rule javasecurity:S6173).
  *
  * <p>Only processors explicitly registered in {@link #ALLOWED} can be resolved.
- * Any unknown name returns {@link Optional#empty()} and the calling code silently
- * skips post-processing.
+ * Any unknown name returns {@link Optional#empty()}, and calling code skips
+ * post-processing and may emit a warning log for the unallowlisted name.
  *
  * <p>To add a new processor: add its short name (the value passed as the
  * {@code postProcessor} request parameter) and its class to the {@code ALLOWED} map below.
