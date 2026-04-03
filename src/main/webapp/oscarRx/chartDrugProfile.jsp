@@ -141,7 +141,7 @@
             </table>
 
 
-            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements.do?method=ChartMeds&demographic_no=<%= Encode.forHtmlAttribute(demographicNo) %><%=drugForGraph%>"/>
+            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements.do?method=ChartMeds&demographic_no=<%= Encode.forUriComponent(demographicNo) %><%=drugForGraph%>"/>
 
 
             <fieldset>
