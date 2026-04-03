@@ -4928,7 +4928,7 @@
 
         function callEligibilityWebService(url, id) {
             var ran_number = Math.round(Math.random() * 1000000);
-            var params = "demographic=<%=demographic_no%>&method=checkElig&rand=" + ran_number;  //hack to get around ie caching the page
+            var params = "demographic=<%= Encode.forJavaScript(Encode.forUriComponent(demographic_no)) %>&method=checkElig&rand=" + ran_number;  //hack to get around ie caching the page
             fetch(url + '?' + params, {
                 method: 'GET',
                 credentials: 'same-origin',
@@ -4945,7 +4945,7 @@
         
         function checkInsuranceEligibility() {
             let params = {};
-            params.demographic =<%=demographic_no%>;
+            params.demographic = '<%= Encode.forJavaScript(demographic_no) %>';
             params.method = 'checkElig';
             params.rand = Math.round(Math.random()*1000000);  //hack to get around ie caching the page
             let url = '${ctx}/billing/CA/BC/ManageTeleplan.do';

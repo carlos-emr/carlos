@@ -452,7 +452,7 @@
             Office Claim No
         </td>
         <td class="bCellData">
-            <%=billingmasterNo%>
+            <%= Encode.forHtml(billingmasterNo != null ? billingmasterNo : "") %>
         </td>
         <td align="left" class="bCellData">
             <font color="#000000">Last update: <%=UpdateDate%>

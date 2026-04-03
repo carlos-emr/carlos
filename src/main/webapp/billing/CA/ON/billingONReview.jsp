@@ -1343,7 +1343,7 @@
         //alert("calling get NEW current Dx Code List");
         var url = "<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/currentCodeList.jsp";
         var ran_number = Math.round(Math.random() * 1000000);
-        var params = "demographicNo=<%=demo_no%>&rand=" + ran_number;  //hack to get around ie caching the page
+        var params = "demographicNo=<%= Encode.forJavaScript(Encode.forUriComponent(demo_no)) %>&rand=" + ran_number;  //hack to get around ie caching the page
         //alert(params);
         //new Ajax.Updater('dxFullListing',url, {method:'get',parameters:params,asynchronous:true});
 

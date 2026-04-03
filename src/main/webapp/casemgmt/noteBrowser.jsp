@@ -418,11 +418,11 @@
         }
 
         function AddTickler() {
-            popup(450, 600, '<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&docId=' + docid + '&demographic_no=<%=demographicID%>', 'tickler');
+            popup(450, 600, '<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&docId=' + docid + '&demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'tickler');
         }
 
         function DocAnnotation() {
-            popup(350, 500, '<%= request.getContextPath() %>/annotation/annotation.jsp?display=Documents&table_id=' + docid + '&demo=<%=demographicID%>', 'anwin');
+            popup(350, 500, '<%= request.getContextPath() %>/annotation/annotation.jsp?display=Documents&table_id=' + docid + '&demo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'anwin');
         }
 
         function DocEdit() {
@@ -434,10 +434,10 @@
             var doctype = selected[0].value.substring(docidindexend + 1, selected[0].value.length);
 
             if (doctype == 'text/html') {
-                popup(450, 600, '<%= request.getContextPath() %>/documentManager/addedithtmldocument.jsp?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=demographicID%>', 'EditDoc');
+                popup(450, 600, '<%= request.getContextPath() %>/documentManager/addedithtmldocument.jsp?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
             } else {
 
-                popup(350, 500, '<%= request.getContextPath() %>/documentManager/editDocument.jsp?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=demographicID%>', 'EditDoc');
+                popup(350, 500, '<%= request.getContextPath() %>/documentManager/editDocument.jsp?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
             }
         }
 
