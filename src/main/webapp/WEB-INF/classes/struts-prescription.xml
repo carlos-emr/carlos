@@ -169,9 +169,6 @@
             <result name="success">/oscarRx/CopyFavorites2.jsp</result>
             <result name="edit">/appointment/appointmentstatusedit.jsp</result>
         </action>
-        <action name="oscarRx/Dispense" class="io.github.carlos_emr.carlos.prescription.dispensary.Dispensary2Action">
-            <result name="list">/oscarRx/dispensary/list.jsp</result>
-        </action>
 
     </package>
 </struts>
