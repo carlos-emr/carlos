@@ -125,7 +125,7 @@ public class FrmRecordFactory {
         Class<? extends FrmRecord> clazz = FORM_REGISTRY.get(which);
 
         if (clazz == null) {
-            MiscUtils.getLogger().warn("FrmRecordFactory: unknown or disallowed form type requested: {}",
+            MiscUtils.getLogger().debug("FrmRecordFactory: unknown or disallowed form type requested: {}",
                     Encode.forJava(which));
             return null;
         }
