@@ -80,7 +80,6 @@
             <result name="edit">page.pmm.client</result>
             <result name="refer_vacancy">page.pmm.client.vacancy</result>
             <result name="edit-redirect">page.pmm.client</result>
-            <result name="vaccine-report">/VaccineProviderReport.do</result>
             <result name="search">/PMmodule/ClientSearch2.do</result>
             <result name="service_restriction_error">page.pmm.client.service_restriction_error</result>
         </action>
