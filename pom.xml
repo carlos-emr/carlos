@@ -26,6 +26,15 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- SonarCloud -->
         <sonar.organization>carlos-emr</sonar.organization>
+        <!-- Include webapp (JSP/JS/HTML) and resources in SonarCloud analysis alongside Java sources -->
+        <sonar.sources>src/main/java,src/main/resources,src/main/webapp</sonar.sources>
+        <!-- Exclude vendored/minified third-party assets to avoid inflating LOC count and generating noise -->
+        <sonar.exclusions>
+            src/main/webapp/library/**,
+            src/main/webapp/share/**,
+            src/main/webapp/**/*.min.js,
+            src/main/webapp/**/*.min.css
+        </sonar.exclusions>
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
         <!--
             Suppress SonarCloud S2083 (path traversal) false positives in files that use

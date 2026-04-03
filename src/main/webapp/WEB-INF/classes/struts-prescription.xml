@@ -67,9 +67,7 @@
         <action name="oscarRx/addFavoriteStaticScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action">
             <result name="success">/oscarRx/StaticScript.jsp</result>
         </action>
-        <action name="oscarRx/addFavoriteViewScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action">
-            <result name="success">/oscarRx/ViewScript.jsp</result>
-        </action>
+
         <action name="oscarRx/addFavoriteWriteScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action">
             <result name="success">/oscarRx/WriteScript.jsp</result>
         </action>
@@ -168,9 +166,6 @@
         <action name="oscarRx/copyFavorite2" class="io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action" method="execute">
             <result name="success">/oscarRx/CopyFavorites2.jsp</result>
             <result name="edit">/appointment/appointmentstatusedit.jsp</result>
-        </action>
-        <action name="oscarRx/Dispense" class="io.github.carlos_emr.carlos.prescription.dispensary.Dispensary2Action">
-            <result name="list">/oscarRx/dispensary/list.jsp</result>
         </action>
 
     </package>

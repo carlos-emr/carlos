@@ -313,7 +313,7 @@
                     pageLength: initialPageLength,
                     order: [[4, 'desc']],
                     language: {
-                        url: '${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18nLanguagecode"/>.json'
+                        url: '${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
                         },
                     ajax: {
                         url: ctx + '/tickler/ListTicklers.do',
@@ -641,23 +641,6 @@
                         jQuery("#saveViewButton").addClass('btn-danger').removeClass('btn-primary')
                             .attr('title', i18nErrorSaveViewFailed);
                     });
-            }
-
-            function generateRenalLabReq(demographicNo) {
-                var url = ctx + '/form/formlabreq<%=labReqVer%>.jsp?demographic_no=' + demographicNo + '&formId=0&provNo=<%=org.owasp.encoder.Encode.forJavaScript(org.owasp.encoder.Encode.forUriComponent(session.getAttribute("user").toString()))%>&fromSession=true';
-                jQuery.ajax({
-                    type: 'POST',
-                    url: ctx + '/renal/Renal.do',
-                    data: {method: 'createLabReq', demographicNo: demographicNo},
-                    async: false,
-                    success: function (data) {
-                        popupPage(900, 850, url);
-                    },
-                    error: function(jqXHR, textStatus, errorThrown) {
-                        console.error('[ticklerMain] Failed to create renal lab req (HTTP ' + jqXHR.status + '):', errorThrown);
-                        alert('<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerMain.errorLabReqFailed"))%>');
-                    }
-                });
             }
 
             // Listen for tickler refresh broadcasts from ticklerAdd/ticklerEdit popup windows

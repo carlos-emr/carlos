@@ -141,7 +141,7 @@ Ontario, Canada
 					"lengthMenu": [[15, 30, 60, 120, -1], [15, 30, 60, 120, "<fmt:message key='demographic.search.All'/>"]],
 					"order": [[0,'asc']],
 					"language": {
-						"url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key='global.i18nLanguagecode'/>.json"
+						"url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key='global.i18n.datatablescode'/>.json"
 					}
 				});
 

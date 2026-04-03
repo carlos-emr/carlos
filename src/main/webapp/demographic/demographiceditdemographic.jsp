@@ -875,8 +875,9 @@
                 const hcType = jQuery("#hcTypeBox").val();
 
                 jQuery.ajax({
-                    type: "GET",
-                    url: '<%=request.getContextPath() %>/ws/rs/patientDetailStatusService/validateHC?hin=' + hin + '&ver=' + ver,
+                    type: "POST",
+                    url: '<%=request.getContextPath() %>/ws/rs/patientDetailStatusService/validateHC',
+                    data: JSON.stringify({hin: hin, ver: ver}),
                     dataType: 'json',
                     contentType: 'application/json',
                     success: function (data) {
@@ -1030,7 +1031,7 @@
                         %>
                         <tr>
                             <td><a
-                                    href="<%= request.getContextPath() %>/oscarWaitingList/SetupDisplayPatientWaitingList.do?demographic_no=<%=demographic.getDemographicNo()%>">
+                                    href="<%= request.getContextPath() %>/waitinglist/SetupDisplayPatientWaitingList.do?demographic_no=<%=demographic.getDemographicNo()%>">
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgWaitList"/></a>
                             </td>
                         </tr>
@@ -1044,13 +1045,7 @@
                             <tr>
                                 <td>
                                     <%
-                                        if ("CLINICAID".equals(prov)) {
-                                    %>
-                                    <a href="<%= request.getContextPath() %>/billing.do?billRegion=CLINICAID&action=invoice_reports" target="_blank">
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/>
-                                    </a>
-                                    <%
-                                    } else if ("ON".equals(prov)) {
+                                        if ("ON".equals(prov)) {
                                     %>
                                     <a href="javascript: function myFunction() {return false; }"
                                        onClick="popupPage(500,800,'<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/billing/CA/ON/billingONHistory.jsp?demographic_no=" + Encode.forUriComponent(String.valueOf(demographic.getDemographicNo()))) %>')">
@@ -4854,19 +4849,6 @@
                                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgExport"/>"
                                                                    onclick="window.open('<%= request.getContextPath() %>/demographic/demographicExport.jsp?demographicNo=<%=demographic.getDemographicNo()%>');"/>
                                                         </security:oscarSec>
-                                                        <oscar:oscarPropertiesCheck value="BC" property="billregion">
-                                                            <security:oscarSec roleName="<%=roleName$%>" objectName="_careconnect" rights="r">
-                                                                <c:set value="${ CarlosProperties.getInstance()['BC_CARECONNECT_URL'] }" var="url" scope="page"/>
-                                                                <c:if test="${ not empty url }">
-                                                                    <script type="text/javascript" src="${ctx}/careconnect/careconnect.js"></script>
-                                                                    <input type="button" class="btn-toolbar-secondary"
-                                                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCareConnect"/>"
-                                                                           onclick="callCareConnect('<%= Encode.forJavaScriptAttribute((String) pageContext.getAttribute("url")) %>', '<%= Encode.forJavaScriptAttribute(demographic.getHin()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getFirstName()) %>',
-                                                                                   '<%= Encode.forJavaScriptAttribute(demographic.getLastName()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getFormattedDob()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getSex()) %>',
-                                                                                   '<%= Encode.forJavaScriptAttribute(CarlosProperties.getInstance().getProperty("BC_CARECONNECT_REGION", "")) %>' )"/>
-                                                                </c:if>
-                                                            </security:oscarSec>
-                                                        </oscar:oscarPropertiesCheck>
                                                         <input type="button" class="btn-toolbar-secondary"
                                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnAuditInfo"/>"
                                                                onclick="window.open('<%= Encode.forJavaScriptAttribute(request.getContextPath()) %>/demographic/demographicAudit.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic.getDemographicNo().toString())) %>');"/>

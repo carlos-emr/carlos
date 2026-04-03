@@ -153,8 +153,6 @@
         "&start_time=" + (bean.startTime != null ? bean.startTime : "") +
         "&apptProvider=" + (bean.curProviderNo != null ? bean.curProviderNo : "") +
         "&providerview=" + (bean.curProviderNo != null ? bean.curProviderNo : "") +
-        "&msgType=" + request.getParameter("msgType") +
-        "&OscarMsgTypeLink=" + request.getParameter("OscarMsgTypeLink") +
         "&noteId=" + request.getParameter("noteId") +
         (request.getParameter("noteId") != null ? "&forceNote=true" : "");
 

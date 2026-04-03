@@ -23,7 +23,7 @@
 -->
 <!--
     CARLOS EMR - Clinical Actions
-    Contains action mappings for diagnosis research, prevention/immunization, case management notes, clinical decision support, and renal care.
+    Contains action mappings for diagnosis research, prevention/immunization, case management notes, and clinical decision support.
 -->
 <struts>
     <package name="clinical" namespace="/" extends="struts-default">
@@ -120,14 +120,10 @@
             <result name="success">/casemgmt/uploadimage.jsp</result>
         </action>
         <action name="casemgmt/ExtPrintRegistry" class="io.github.carlos_emr.carlos.casemgmt.web.ExtPrintRegistry2Action"/>
-        <action name="casemgmt/RegisterCppCode" class="io.github.carlos_emr.carlos.casemgmt.web.RegisterCppCode2Action"/>
+
         <action name="ArchiveView" class="io.github.carlos_emr.carlos.casemgmt.web.ArchiveView2Action" method="execute">
             <result name="view">/provider/providercontrol.jsp</result>
         </action>
-        <action name="renal/CkdDSA" class="io.github.carlos_emr.carlos.renal.web.CkdDSA2Action">
-            <result name="detail">/renal/ckd_dsa_detail.jsp</result>
-        </action>
-        <action name="renal/Renal" class="io.github.carlos_emr.carlos.renal.web.Renal2Action"/>
 
     </package>
 </struts>

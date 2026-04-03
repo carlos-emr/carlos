@@ -43,6 +43,7 @@ import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.DefaultHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 
@@ -74,7 +75,7 @@ public final class HandlerClassFactory {
         try (InputStream is = HandlerClassFactory.class.getClassLoader().getResourceAsStream("io/github/carlos_emr/carlos/lab/ca/all/upload/message_config.xml")) {
             logger.info("HandlerClassFactory.getHandler: Loading config from io/github/carlos_emr/carlos/lab/ca/all/upload/message_config.xml, stream is: " + (is != null ? "valid" : "null"));
 
-            SAXBuilder parser = new SAXBuilder();
+            SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
             doc = parser.build(is);
             Element root = doc.getRootElement();
 

@@ -172,7 +172,6 @@
             <bean class="io.github.carlos_emr.carlos.webserv.rest.FormsService"  autowire="byName"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.OscarJobService"  autowire="byName"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.NotesService" autowire="byName" />
-            <bean class="io.github.carlos_emr.carlos.webserv.rest.ProductDispensingService"  autowire="byName"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.RecordUxService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.ReportingService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.BillingService" autowire="byName" />

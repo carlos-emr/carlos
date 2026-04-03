@@ -465,15 +465,9 @@
     </div>
 </div>
 <%-- Insert smart note templates here --%>
-<%
-    String oscarMsgType = (String) request.getParameter("msgType");
-    String OscarMsgTypeLink = (String) request.getParameter("OscarMsgTypeLink");
-%>
 <form name="caseManagementEntryForm" id="caseManagementEntryForm" action="<%=request.getContextPath()%>/CaseManagementEntry.do" method="post">
     <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
     <input type="hidden" name="includeIssue" value="off"/>
-    <input type="hidden" name="OscarMsgType" value="<%= Encode.forHtmlAttribute(oscarMsgType) %>"/>
-    <input type="hidden" name="OscarMsgTypeLink" value="<%= Encode.forHtmlAttribute(OscarMsgTypeLink) %>"/>
     <%
         String apptNo = request.getParameter("appointmentNo");
         if (apptNo == null || apptNo.equals("") || apptNo.equals("null")) {

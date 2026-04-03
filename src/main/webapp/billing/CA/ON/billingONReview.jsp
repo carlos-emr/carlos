@@ -45,6 +45,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*, java.util.Properties" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
