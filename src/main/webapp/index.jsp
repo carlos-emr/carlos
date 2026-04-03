@@ -569,13 +569,7 @@ body {
 
         <div class="heading">
 
-            <!-- Clinic logo  -->
             <div id="clinic_logo">
-                <a target="_blank" href="${ LoginResourceBean.clinicLink }">
-                    <img src="${ pageContext.request.contextPath }/loginResource/clinicLogo.png"
-                         alt="${ LoginResourceBean.clinicLink }"
-                         onerror="this.style.display='none'"/>
-                </a>
             </div>
 
 <div>
@@ -733,9 +727,8 @@ body {
             </c:if>
             <div class="support_details">
                 <a target="_blank" href="${ LoginResourceBean.supportLink }" id="supportImageLink">
-                    <img src="${ pageContext.request.contextPath }/loginResource/supportLogo.png"
-                         alt="Support Image"
-                         onerror="this.style.display='none'; document.getElementById('supportImageLink').style.display='none';">
+                    <img alt="Support Image"
+                         style="display:none;">
                 </a>
                 <c:if test="${ not empty LoginResourceBean.supportName }">
                     <div id="support_name">

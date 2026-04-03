@@ -166,9 +166,8 @@
         <div id="support">
             <div class="support_details">
                 <a target="_blank" href="${e:forHtmlAttribute(LoginResourceBean.supportLink)}" id="supportImageLink">
-                    <img width="150px" src="${e:forUri(pageContext.request.contextPath)}/loginResource/supportLogo.png"
-                         alt="${e:forHtmlAttribute(LoginResourceBean.supportName)}"
-                         onerror="this.style.display='none'; document.getElementById('supportImageLink').style.display='none';">
+                    <img width="150px" alt="${e:forHtmlAttribute(LoginResourceBean.supportName)}"
+                         style="display:none;">
                 </a>
                 <c:if test="${ not empty LoginResourceBean.supportName }">
                     <div id="support_name">

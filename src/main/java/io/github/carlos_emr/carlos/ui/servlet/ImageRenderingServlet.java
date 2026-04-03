@@ -44,7 +44,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.*;
 import java.net.SocketException;
-import java.net.URL;
 
 /**
  * This servlet requires a parameter called "source" which should signify where to get the image from. Examples include source=local_client. Depending on the source, you may optionally need more parameters, as an example a local_client
@@ -261,17 +260,8 @@ public final class ImageRenderingServlet extends HttpServlet {
             return;
         }
 
-        // Get the default logo from the web resources
-        URL defaultResourceUrl = session.getServletContext()
-                .getResource("/WEB-INF/classes/loginResource/openosp_logo.png");
-        String defaultClinicLogo = (defaultResourceUrl != null) ? defaultResourceUrl.getPath() : null;
-
         try {
-            // Set the filename from properties or use the default logo
-            String filename = CarlosProperties.getInstance().getProperty("CLINIC_LOGO_FILE", defaultClinicLogo);
-            if (filename == null || filename.isEmpty()) {
-                filename = defaultClinicLogo;
-            }
+            String filename = CarlosProperties.getInstance().getProperty("CLINIC_LOGO_FILE");
 
             if (filename != null) {
                 File f = new File(filename);

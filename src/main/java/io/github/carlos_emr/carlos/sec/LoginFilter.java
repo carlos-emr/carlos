@@ -159,7 +159,6 @@ public class LoginFilter implements Filter {
             "/js/bootstap",
             "/css/bootstrap",
             "/css/Roboto.css",
-            "/loginResource",
             "/css/font/Roboto",
 		"/csrfguard",
 		"/mfa/",
@@ -206,7 +205,6 @@ public class LoginFilter implements Filter {
             "/js/bootstrap",
             "/css/bootstrap",
             "/css/Roboto.css",
-            "/loginResource",
             "/css/font/Roboto",
             // Heartbeat polling must not extend the inactivity timer, otherwise
             // background heartbeats would prevent legitimate session timeouts

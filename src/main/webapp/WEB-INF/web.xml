@@ -530,16 +530,6 @@
 	     </user-data-constraint>
     </security-constraint>
 	
-	<servlet>
-		<servlet-name>LoginResourceAction</servlet-name>
-		<servlet-class>io.github.carlos_emr.carlos.login.LoginResourceAction</servlet-class>
-	</servlet>
-	
-	<servlet-mapping>
-		<servlet-name>LoginResourceAction</servlet-name>
-		<url-pattern>/loginResource/*</url-pattern>
-	</servlet-mapping>
-
   <welcome-file-list>
     <welcome-file>index.jsp</welcome-file>
     <welcome-file>index.html</welcome-file>
