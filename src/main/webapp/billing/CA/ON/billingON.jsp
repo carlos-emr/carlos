@@ -424,6 +424,7 @@
     BillingServiceDao bDao = SpringUtils.getBean(BillingServiceDao.class);
     CtlBillingServicePremiumDao pDao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
 
+    String defaultBillFormName = "";
     for (Object[] i : cbsDao.findServiceTypesByStatus("A")) {
         ArrayList<Properties> listGroup1 = new ArrayList<Properties>();
         ArrayList<Properties> listGroup2 = new ArrayList<Properties>();
@@ -431,6 +432,10 @@
 
         String ctlcode = String.valueOf(i[1]);
         String ctlcodename = String.valueOf(i[0]);
+
+        if (ctlcode.equals(ctlBillForm)) {
+            defaultBillFormName = ctlcodename;
+        }
 
         listServiceType.add(ctlcode);
 
@@ -1311,7 +1316,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
     </script>
 </head>
 
-<body onload="prepareBack();changeCodeDesc();getDays();">
+<body onload="prepareBack();changeCodeDesc();getDays();toggleDiv('<%=Encode.forJavaScriptAttribute(ctlBillForm)%>', '<%=Encode.forJavaScriptAttribute(defaultBillFormName)%>', '<%=Encode.forJavaScriptAttribute(defaultBillType)%>');">
 <div id="Instrdiv" class="demo1">
 
     <table style="width: 99%;">
