@@ -1599,18 +1599,14 @@ input[id^='acklabel_']{
                                                     report = ackList.get(i); %>
                                                 <%= Encode.forHtml(report.getProviderName()) %> :
 
-                                                <% String ackStatus = report.getStatus();
-                                                    if (ackStatus.equals("A")) {
-                                                        ackStatus = "Acknowledged";
-                                                    } else if (ackStatus.equals("F")) {
-                                                        ackStatus = "Filed but not Acknowledged";
-                                                    } else {
-                                                        ackStatus = "Not Acknowledged";
-                                                    }
-                                                %>
-                                                <span style="color:red"><%= ackStatus %>
+                                                <% String ackStatusCode = report.getStatus(); %>
+                                                <span style="color:red">
+                                                    <% if (ackStatusCode.equals("A")) { %><fmt:message key="oscarMDS.segmentDisplay.statusAcknowledged"/>
+                                                    <% } else if (ackStatusCode.equals("F")) { %><fmt:message key="oscarMDS.segmentDisplay.statusFiledNotAcknowledged"/>
+                                                    <% } else { %><fmt:message key="oscarMDS.segmentDisplay.statusNotAcknowledged"/>
+                                                    <% } %>
                                                 </span>
-                                                <% if (ackStatus.equals("Acknowledged")) { %>
+                                                <% if (ackStatusCode.equals("A")) { %>
                                                 <%= Encode.forHtml(report.getTimestamp()) %>,
                                                 <% } %>
                                                 <span id="<%=report.getOscarProviderNo() + "_" + segmentID%>commentLabel"><%=report.getComment() == null || report.getComment().equals("") ? "no comment" : "comment : "%></span><span
