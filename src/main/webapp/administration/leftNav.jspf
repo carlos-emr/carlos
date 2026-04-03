@@ -801,7 +801,6 @@ String curProvider_no = (String)session.getAttribute("user");
 						<li>&nbsp;<a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/api/clients.jsp"><fmt:message key="admin.admin.restClients"/></a></li>
 						</ul>
 					</li>
-<%--					<li><a href='javascript:void(0);' class="xlink" rel='${ctx}/lab/CA/ALL/sendOruR01.jsp'><fmt:message key="admin.admin.sendOruR01"/></a></li>--%>
 					
 					<caisi:isModuleLoad moduleName="HRM">
 						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hospitalReportManager.jsp"><fmt:message key="admin.admin.hrmStatus"/></a></li>

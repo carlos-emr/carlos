@@ -746,9 +746,6 @@
             <result name="failure">/encounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=failure</result>
             <result name="failedcheck">/encounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=failedcheck</result>
         </action>
-        <action name="encounter/ViewAttachment" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctViewAttachment2Action">
-            <result name="success">/encounter/ViewAttachment.jsp</result>
-        </action>
         <action name="oscarMeasurement/AddShortMeasurement" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddShortMeasurement2Action">
             <result name="success">/oscarPrevention/PreventionReporting.jsp</result>
         </action>
