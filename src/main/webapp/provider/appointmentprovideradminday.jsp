@@ -2423,9 +2423,6 @@
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.adminShortcut"/> :
                         newWindow("<%= request.getContextPath() %>/administration/", "admin");
                         return false;  //run code for 'A'dmin
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.billingShortcut"/> :
-                        popupOscarRx(600, 1024, '<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=loggedInInfo1.getLoggedInProviderNo()%>');
-                        return false;  //code for 'B'illing
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.calendarShortcut"/> :
                         popupOscarRx(425, 430, '<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/provider/providercontrol.jsp&year=<%=strYear%>&month=<%=strMonth%>&param=<%=URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday","UTF-8")%>');
                         return false;  //run code for 'C'alendar
