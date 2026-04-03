@@ -644,7 +644,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         casemgmtNoteLock.setIpAddress(request.getRemoteAddr());
         String currentSessionId = request.getSession().getId();
         casemgmtNoteLock.setSessionId(currentSessionId);
-        logger.debug("UPDATING LOCK DEMO " + demoNo + " SESSION " + casemgmtNoteLock.getSessionId() + " LOCK IP " + casemgmtNoteLock.getIpAddress());
+        logger.debug("UPDATING LOCK DEMO " + demoNo + " LOCK IP " + casemgmtNoteLock.getIpAddress());
         casemgmtNoteLockDao.merge(casemgmtNoteLock);
 
         session.setAttribute("casemgmtNoteLock" + demoNo, casemgmtNoteLock);
