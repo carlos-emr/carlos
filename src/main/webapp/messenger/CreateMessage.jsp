@@ -356,16 +356,16 @@ function validateFields() {
 				document.forms[0].submit();
 			} else {
 				showAlert(msgArchiveFailed, 'warning');
-				document.forms[0].submit();
+				setTimeout(function() { document.forms[0].submit(); }, 2500);
 			}
 		};
 		oRequest.onerror = function() {
 			showAlert(msgArchiveError, 'danger');
-			document.forms[0].submit();
+			setTimeout(function() { document.forms[0].submit(); }, 2500);
 		};
 		oRequest.ontimeout = function() {
 			showAlert(msgArchiveTimeout, 'warning');
-			document.forms[0].submit();
+			setTimeout(function() { document.forms[0].submit(); }, 2500);
 		};
 		oRequest.send('btnDelete=archive&messageNo=' + encodeURIComponent(messageNo));
 	}
