@@ -84,7 +84,7 @@ public class RptByExample2Action extends ActionSupport {
         List<SecUserRole> userRoles = secUserRoleDao.findByRoleNameAndProviderNo("admin", providerNo);
         if (userRoles.isEmpty()) {
             MiscUtils.getLogger().warn("providers " + providerNo + " does not have admin privileges to run query by example");
-            return "/oscarReport/RptByExample.jsp";
+            return SUCCESS;
         }
 
         RptByExampleQueryBeanHandler hd = new RptByExampleQueryBeanHandler();

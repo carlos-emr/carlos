@@ -75,7 +75,7 @@ public class dxResearchUpdateQuickList2Action extends ActionSupport {
         }
 
         if (!valid) {
-            response.sendRedirect(contextPath + "/oscarResearch/oscarDxResearch/dxResearchEditQuickList.jsp");
+            response.sendRedirect(contextPath + "/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems.do");
             return NONE;
         }
 

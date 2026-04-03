@@ -75,7 +75,7 @@ public class Obec2Action extends ActionSupport {
       if (!validation.isDate(startDate)){
          MiscUtils.getLogger().debug("Invalid date format!");
          addActionError("errors.invalid");
-         response.sendRedirect(request.getContextPath() + "/oscarReport/obec.jsp");
+         response.sendRedirect(request.getContextPath() + "/oscarReport/obec.do");
          return NONE;
       }
       
