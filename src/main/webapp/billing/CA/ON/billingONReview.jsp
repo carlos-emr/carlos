@@ -44,6 +44,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*, java.util.Properties" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -569,10 +570,10 @@
 <body onload="showtotal(),calculatePayment()">
 
 <form method="post" name="titlesearch" action="billingONSave.jsp" onsubmit="return onSave();">
-    <input type="hidden" name="url_back" value="<%=request.getParameter("url_back")%>">
-    <input type="hidden" name="billNo_old" id="billNo_old" value="<%=request.getParameter("billNo_old")%>"/>
-    <input type="hidden" name="billStatus_old" id="billStatus_old" value="<%=request.getParameter("billStatus_old")%>"/>
-    <input type="hidden" name="billForm" id="billForm" value="<%=request.getParameter("billForm")%>"/>
+    <input type="hidden" name="url_back" value="<%=Encode.forHtmlAttribute(request.getParameter("url_back"))%>">
+    <input type="hidden" name="billNo_old" id="billNo_old" value="<%=Encode.forHtmlAttribute(request.getParameter("billNo_old"))%>"/>
+    <input type="hidden" name="billStatus_old" id="billStatus_old" value="<%=Encode.forHtmlAttribute(request.getParameter("billStatus_old"))%>"/>
+    <input type="hidden" name="billForm" id="billForm" value="<%=Encode.forHtmlAttribute(request.getParameter("billForm"))%>"/>
     <input type="hidden" name="payeename" id="payeename" value=""/>
     <table style="width:100%" class="myIvory">
         <tr>
@@ -1195,7 +1196,7 @@
                     </td>
                     <td style="text-align:right">
                         <input type="hidden" name="provider_no"
-                               value="<%=request.getParameter("xml_provider").substring(0,request.getParameter("xml_provider").indexOf("|"))%>"/>
+                               value="<%=Encode.forHtmlAttribute(request.getParameter("xml_provider").substring(0,request.getParameter("xml_provider").indexOf("|")))%>"/>
                         GST Billed:<input type="text" id="gst" name="gst" value="<%=gstTotal%>"><br>
                         <input type="hidden" id="gstBilledTotal" name="gstBilledTotal" value="<%=gstbilledtotal%>">
                         Total:<input type="text" id="stotal" disabled name="stotal" value="0.00"><br>
