@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 import jakarta.servlet.ServletContext;
@@ -55,6 +56,7 @@ import org.openpdf.text.*;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.printing.FontSettings;
 import io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -64,6 +66,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.form.graphic.FrmGraphicFactory;
 import io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphic;
 import io.github.carlos_emr.carlos.form.pdfservlet.FrmPDFPostValueProcessor;
+import io.github.carlos_emr.carlos.form.pdfservlet.PostProcessorRegistry;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 
 import org.openpdf.text.pdf.BaseFont;
@@ -493,13 +496,17 @@ public class EFormPDFServlet extends HttpServlet {
             props.setProperty(temp.toString(), req.getParameter(temp.toString()));
         }
 
-        if (req.getParameter("postProcessor" + suffix) != null) {
-            String className = "io.github.carlos_emr.carlos.form.pdfservlet." + req.getParameter("postProcessor" + suffix);
-            try {
-                FrmPDFPostValueProcessor pp = (FrmPDFPostValueProcessor) Class.forName(className).newInstance();
-                props = pp.process(props);
-            } catch (Exception e) {
-                log.warn("Post-processor {} could not be loaded or failed during execution - form rendered without post-processing", className, e);
+        String postProcessorName = req.getParameter("postProcessor" + suffix);
+        if (postProcessorName != null) {
+            Optional<FrmPDFPostValueProcessor> pp = PostProcessorRegistry.resolve(postProcessorName);
+            if (pp.isPresent()) {
+                try {
+                    props = pp.get().process(props);
+                } catch (Exception e) {
+                    log.warn("Post-processor {} failed during execution - form rendered without post-processing", Encode.forJava(postProcessorName), e);
+                }
+            } else {
+                log.warn("Post-processor '{}' is not on the allowlist and will not be applied", Encode.forJava(postProcessorName));
             }
         }
 
