@@ -934,11 +934,16 @@ public final class Login2Action extends ActionSupport {
         if (nextPage == null || nextPage.isEmpty()) {
             return false;
         }
+        // Reject literal backslash and percent-encoded variants (%5c / %5C) before URI parsing.
+        // Browsers normalize /\evil.com to //evil.com, so both the literal and encoded forms
+        // must be blocked to prevent open redirect bypasses.
+        if (nextPage.contains("\\") || nextPage.toLowerCase(java.util.Locale.ROOT).contains("%5c")) {
+            return false;
+        }
         try {
             URI url = new URI(nextPage);
-            // Reject absolute URIs (http://...), protocol-relative URIs (//evil.com),
-            // and backslash-based bypasses (/\evil.com normalizes to //evil.com in browsers)
-            return !url.isAbsolute() && url.getAuthority() == null && !nextPage.contains("\\");
+            // Reject absolute URIs (http://...) and protocol-relative URIs (//evil.com)
+            return !url.isAbsolute() && url.getAuthority() == null;
         } catch (URISyntaxException e) {
             return false;
         }
