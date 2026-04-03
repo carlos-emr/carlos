@@ -293,7 +293,7 @@
                 </td>
                 <td width="1"></td>
                 <td width="300">
-                  <a href="<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=loggedInInfo1.getLoggedInProviderNo()%>" target="_blank"><fmt:message key="global.genBillReport"/></a></td>
+                  <a href="<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=URLEncoder.encode(loggedInInfo1.getLoggedInProviderNo(), StandardCharsets.UTF_8)%>" target="_blank"><fmt:message key="global.genBillReport"/></a></td>
                 <td></td>
                 <td></td>
                 <td></td>
