@@ -80,8 +80,6 @@
 --%>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-
 
 <%@ page import="org.w3c.dom.*" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.util.Msgxml" %>
@@ -102,6 +100,8 @@
 <%@ page import="java.util.ResourceBundle" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -222,6 +222,7 @@
     <%-- global.css: CARLOS color overrides for Bootstrap (messenger pages don't use global-head.jspf) --%>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/share/css/global.css">
     <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"><!-- fontawesome 6.x -->
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
     <style>
         .toastui-editor-contents{
@@ -229,8 +230,45 @@
         }
     </style>
 
+<%-- Extract i18n alert messages into page-scope variables so they can be safely encoded for JavaScript --%>
+<fmt:message key="messenger.CreateMessage.msgEmptyMessage" var="msg_EmptyMessage"/>
+<fmt:message key="messenger.CreateMessage.msgNoProvider" var="msg_NoProvider"/>
+<fmt:message key="messenger.CreateMessage.archiveFailed" var="msg_ArchiveFailed"/>
+<fmt:message key="messenger.CreateMessage.archiveError" var="msg_ArchiveError"/>
+<fmt:message key="messenger.CreateMessage.archiveTimeout" var="msg_ArchiveTimeout"/>
+<fmt:message key="messenger.CreateMessage.msgSelectDemographic" var="msg_SelectDemographic"/>
+
 <script>
 
+// Encoded i18n strings for use in JavaScript — single quotes in French translations
+// (e.g. "n'a", "L'archivage") are safely escaped by forJavaScript()
+var msgEmptyMessage     = '${e:forJavaScript(msg_EmptyMessage)}';
+var msgNoProvider       = '${e:forJavaScript(msg_NoProvider)}';
+var msgArchiveFailed    = '${e:forJavaScript(msg_ArchiveFailed)}';
+var msgArchiveError     = '${e:forJavaScript(msg_ArchiveError)}';
+var msgArchiveTimeout   = '${e:forJavaScript(msg_ArchiveTimeout)}';
+var msgSelectDemographic = '${e:forJavaScript(msg_SelectDemographic)}';
+
+// Displays a dismissable Bootstrap alert in the fixed alert container at the top of the page.
+// type: Bootstrap contextual class ('warning', 'danger', 'info', 'success')
+function showAlert(message, type) {
+    type = type || 'warning';
+    var container = document.getElementById('msg-alert-container');
+    var alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-' + type + ' alert-dismissible fade show';
+    alertDiv.role = 'alert';
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'btn-close';
+    closeBtn.setAttribute('data-bs-dismiss', 'alert');
+    closeBtn.setAttribute('aria-label', 'Close');
+    var msgSpan = document.createElement('span');
+    msgSpan.textContent = message;
+    alertDiv.appendChild(msgSpan);
+    alertDiv.appendChild(closeBtn);
+    container.appendChild(alertDiv);
+    container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
 
 // Toggles all provider checkboxes within a group when the group header checkbox is clicked
 function checkGroup(group) {
@@ -253,13 +291,13 @@ function validateFields() {
     }
     // Check if message body is empty
     if (document.forms[0].message.value.length === 0) {
-        alert('<fmt:message key="messenger.CreateMessage.msgEmptyMessage"/>');
+        showAlert(msgEmptyMessage, 'warning');
         return false;
     }
     // Validate check boxes
     var val = validateCheckBoxes(document.forms[0]);
     if (val === "0") {
-        alert('<fmt:message key="messenger.CreateMessage.msgNoProvider"/>');
+        showAlert(msgNoProvider, 'warning');
         return false;
     }
     return true;
@@ -277,10 +315,6 @@ function validateFields() {
 	    if (boxes[i].checked) return "1";
 	  return "0";
 	}
-
-	var msgArchiveFailed = '<fmt:message key="messenger.CreateMessage.archiveFailed"/>';
-	var msgArchiveError = '<fmt:message key="messenger.CreateMessage.archiveError"/>';
-	var msgArchiveTimeout = '<fmt:message key="messenger.CreateMessage.archiveTimeout"/>';
 
 	// Archives the current message via XHR before submitting the compose form.
 	// Includes CSRF token and 10-second timeout. On failure or timeout, still submits
@@ -321,17 +355,17 @@ function validateFields() {
 			if (oRequest.status >= 200 && oRequest.status < 300) {
 				document.forms[0].submit();
 			} else {
-				alert(msgArchiveFailed);
-				document.forms[0].submit();
+				showAlert(msgArchiveFailed, 'warning');
+				setTimeout(function() { document.forms[0].submit(); }, 2500);
 			}
 		};
 		oRequest.onerror = function() {
-			alert(msgArchiveError);
-			document.forms[0].submit();
+			showAlert(msgArchiveError, 'danger');
+			setTimeout(function() { document.forms[0].submit(); }, 2500);
 		};
 		oRequest.ontimeout = function() {
-			alert(msgArchiveTimeout);
-			document.forms[0].submit();
+			showAlert(msgArchiveTimeout, 'warning');
+			setTimeout(function() { document.forms[0].submit(); }, 2500);
 		};
 		oRequest.send('btnDelete=archive&messageNo=' + encodeURIComponent(messageNo));
 	}
@@ -344,7 +378,7 @@ function validateFields() {
 	    var page = 'attachmentFrameset.jsp?demographic_no=' +demographic;
 
 	    if ( demographic == "" || !demographic || demographic == "null") {
-	        alert("Please select a demographic.");
+	        showAlert(msgSelectDemographic, 'warning');
 	    }
 	    else {
 	        var popUp=window.open(page, "msgAttachDemo", windowprops);
@@ -369,7 +403,7 @@ function validateFields() {
 		var submissionerror = '<%= Encode.forJavaScript(createMsgError) %>';
 		if(submissionerror)
 		{
-			alert(submissionerror);
+			showAlert(submissionerror, 'danger');
 		}
 
         document.getElementsByName("message")[0].setAttribute("style", "display:none;");
@@ -389,6 +423,8 @@ function validateFields() {
 </script>
 </head>
 <body>
+<%-- Dismissable Bootstrap alert container — alerts from showAlert() are appended here --%>
+<div id="msg-alert-container" style="position:sticky; top:0; z-index:1050; padding:0 0.5rem;"></div>
 <table style="width:100%;">
     <tr>
         <td style="vertical-align:top">
