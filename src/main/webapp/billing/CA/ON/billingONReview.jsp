@@ -1196,7 +1196,7 @@
                     </td>
                     <td style="text-align:right">
                         <input type="hidden" name="provider_no"
-                               value="<%=request.getParameter("xml_provider").substring(0,request.getParameter("xml_provider").indexOf("|"))%>"/>
+                               value="<%=Encode.forHtmlAttribute(request.getParameter("xml_provider").substring(0,request.getParameter("xml_provider").indexOf("|")))%>"/>
                         GST Billed:<input type="text" id="gst" name="gst" value="<%=gstTotal%>"><br>
                         <input type="hidden" id="gstBilledTotal" name="gstBilledTotal" value="<%=gstbilledtotal%>">
                         Total:<input type="text" id="stotal" disabled name="stotal" value="0.00"><br>
