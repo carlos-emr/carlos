@@ -1033,19 +1033,6 @@
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
 
-                            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                                <oscar:oscarPropertiesCheck property="NOT_FOR_CAISI" value="no" defaultVal="true">
-                                    <c:if test="${billingRights}">
-                                        <li>
-                                            <a HREF="#"
-                                               ONCLICK="popupPage2('<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=loggedInInfo1.getLoggedInProviderNo()%>');return false;"
-                                               TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genBillReport"/>'
-                                               onMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genBillReport"/>';return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.billing"/></a>
-                                        </li>
-                                    </c:if>
-                                </oscar:oscarPropertiesCheck>
-                            </caisi:isModuleLoad>
-
                             <oscar:oscarPropertiesCheck property="referral_menu" value="yes">
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.misc" rights="r">
                                     <li id="ref">
