@@ -503,21 +503,6 @@
                         }
 
                     %>
-                    <li>
-                        <a href="#" onclick='popupPage(550,800, "${pageContext.request.contextPath}/renal/ckd_screening_report.jsp");return false;'>
-                            CKD Screening Report
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" onclick='popupPage(550,800, "${pageContext.request.contextPath}/renal/preImplementationSubmit.jsp");return false;'>
-                            Pre-Implementation Report
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" onclick='popupPage(550,800, "${pageContext.request.contextPath}/renal/patientLetterManager.jsp");return false;'>
-                            Manage Patient Letter
-                        </a>
-                    </li>
                 </ul>
             </div>
         </security:oscarSec>
@@ -804,7 +789,6 @@
                 <ul>
 
                     <li>&nbsp;<a href="#" onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/api/clients.jsp");return false;'>REST Clients</a></li>
-                    <li><a href="<%=request.getContextPath()%>/lab/CA/ALL/sendOruR01.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.sendOruR01"/></a></li>
                     <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hospitalReportManager.jsp");return false;'>Hospital
                         Report Manager (HRM) Status</a></li>
 

@@ -29,17 +29,17 @@
     <package name="scheduling" namespace="/" extends="struts-default">
 
         <action name="notification/create" class="io.github.carlos_emr.carlos.commn.web.ProviderNotification2Action"/>
-        <action name="oscarWaitingList/SetupDisplayPatientWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action">
-            <result name="continue">/oscarWaitingList/DisplayPatientWaitingList.jsp</result>
+        <action name="waitinglist/SetupDisplayPatientWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action">
+            <result name="continue">/waitinglist/DisplayPatientWaitingList.jsp</result>
         </action>
-        <action name="oscarWaitingList/SetupDisplayWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action">
-            <result name="continue">/oscarWaitingList/DisplayWaitingList.jsp</result>
-            <result name="failure">/oscarWaitingList/DisplayWaitingList.jsp</result>
+        <action name="waitinglist/SetupDisplayWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action">
+            <result name="continue">/waitinglist/DisplayWaitingList.jsp</result>
+            <result name="failure">/waitinglist/DisplayWaitingList.jsp</result>
         </action>
-        <action name="oscarWaitingList/WLEditWaitingListNameAction" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action">
-            <result name="continue">/oscarWaitingList/EditWaitingListName.jsp</result>
-            <result name="editSuccess">/oscarWaitingList/SetupDisplayWaitingList.do</result>
-            <result name="failure">/oscarWaitingList/EditWaitingListName.jsp</result>
+        <action name="waitinglist/WLEditWaitingListNameAction" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action">
+            <result name="continue">/waitinglist/EditWaitingListName.jsp</result>
+            <result name="editSuccess">/waitinglist/SetupDisplayWaitingList.do</result>
+            <result name="failure">/waitinglist/EditWaitingListName.jsp</result>
         </action>
         <action name="demographic/SearchDemographic" class="io.github.carlos_emr.carlos.commn.web.SearchDemographicAutoComplete2Action">
             <result name="success">/demographic/autocomplete.jsp</result>

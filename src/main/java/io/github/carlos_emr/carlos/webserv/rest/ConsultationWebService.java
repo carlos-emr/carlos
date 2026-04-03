@@ -321,27 +321,6 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return response;
     }
 
-    /**
-     * Electronically sends a consultation referral request via HL7 to the configured remote system.
-     *
-     * @param requestId Integer the consultation request ID to transmit
-     * @return RestResponse with success confirmation or a user-facing error message
-     */
-    @POST
-    @Path("/eSendRequest")
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    @Produces(MediaType.APPLICATION_JSON)
-    public RestResponse<String> eSendRequest(@FormParam("requestId") Integer requestId) {
-        try {
-            consultationManager.doHl7Send(getLoggedInInfo(), requestId);
-            return RestResponse.successResponse("Referral Electronically Sent");
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error contacting remote server.", e);
-            return RestResponse.errorResponse("There was an error sending electronically, please try again or manually process the referral.");
-        }
-    }
-
-
     /********************************
      * Consultation Response methods *
      ********************************/

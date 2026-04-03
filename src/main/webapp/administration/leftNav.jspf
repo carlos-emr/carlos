@@ -394,25 +394,6 @@ String curProvider_no = (String)session.getAttribute("user");
 
 
 
-				<!-- <li>
-					<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/ckd_screening_report.jsp">CKD Screening Report</a>
-					</li>	
--->
-					<li>
-					<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/ckdScreeningReportSubmit.jsp"><fmt:message key="admin.admin.ckdScreeningReport"/></a>
-					</li>	
-					
-					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/preImplementationSubmit.jsp">
-							<fmt:message key="admin.admin.preImplementationReport"/>
-						</a>
-					</li>
-					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/patientLetterManager.jsp">
-							<fmt:message key="admin.renal.managePatientLetter"/>
-						</a>
-					</li>
-					
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fieldnote" rights="r" reverse="<%=false%>">
 					<li><a href='javascript:void(0);' 
 						class="xlink" rel="${ctx}/eform/fieldNoteReport/fieldnotereport.jsp">
@@ -820,7 +801,6 @@ String curProvider_no = (String)session.getAttribute("user");
 						<li>&nbsp;<a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/api/clients.jsp"><fmt:message key="admin.admin.restClients"/></a></li>
 						</ul>
 					</li>
-<%--					<li><a href='javascript:void(0);' class="xlink" rel='${ctx}/lab/CA/ALL/sendOruR01.jsp'><fmt:message key="admin.admin.sendOruR01"/></a></li>--%>
 					
 					<caisi:isModuleLoad moduleName="HRM">
 						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hospitalReportManager.jsp"><fmt:message key="admin.admin.hrmStatus"/></a></li>

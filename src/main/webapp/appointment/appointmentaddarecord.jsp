@@ -217,7 +217,7 @@
 
         %>
         <form name="updateWLFrm" method="post"
-              action="<%= request.getContextPath() %>/oscarWaitingList/RemoveFromWaitingList.jsp"><input
+              action="<%= request.getContextPath() %>/waitinglist/RemoveFromWaitingList.jsp"><input
                 type="hidden" name="listId"
                 value="<%=wl1.getListId()%>"/><input
                 type="hidden" name="demographicNo"
@@ -226,7 +226,7 @@
                     LANGUAGE="JavaScript">
                 var removeList = confirm("Click OK to remove patient from the waiting list: <%=wln.getName()%>");
                 if (removeList) {
-                    document.forms[0].action = "<%= request.getContextPath() %>/oscarWaitingList/RemoveFromWaitingList.jsp";
+                    document.forms[0].action = "<%= request.getContextPath() %>/waitinglist/RemoveFromWaitingList.jsp";
                     document.forms[0].submit();
                 }
             </script>

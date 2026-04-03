@@ -796,9 +796,9 @@ Patient waiting list management.
 
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
-| oscarWaitingList/SetupDisplayPatientWaitingList | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action | Sets up patient waiting list display |
-| oscarWaitingList/SetupDisplayWaitingList | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action | Sets up waiting list display |
-| oscarWaitingList/WLEditWaitingListNameAction | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action | Edits waiting list names |
+| waitinglist/SetupDisplayPatientWaitingList | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action | Sets up patient waiting list display |
+| waitinglist/SetupDisplayWaitingList | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action | Sets up waiting list display |
+| waitinglist/WLEditWaitingListNameAction | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action | Edits waiting list names |
 
 ## Page Monitoring Module
 
