@@ -63,7 +63,7 @@
     boolean bTodayDate = false;
 %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<%= Encode.forHtmlAttribute(request.getLocale().getLanguage()) %>">
 <head>
     <meta charset="UTF-8">
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
