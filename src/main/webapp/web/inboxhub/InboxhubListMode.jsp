@@ -218,13 +218,22 @@
     function removeReport(reportId) {
         const rowEl = jQuery("#labdoc_" + reportId);
         if (rowEl.length > 0) {
-            const labType = rowEl.data('labType');
-            jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);
+            const labType = rowEl.data('lab-type') || rowEl.attr('data-lab-type');
+            try {
+                jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);
+            } catch (e) {
+                // Fallback: remove the row directly if DataTable API is unavailable
+                console.warn('DataTable row removal failed, removing DOM element directly:', e);
+                rowEl.remove();
+            }
             const countStatId = labType === 'DOC' ? 'totalDocsCountStat' :
                                 labType === 'HRM' ? 'totalHRMsCountStat' : 'totalLabssCountStat';
-            const current = parseInt(jQuery('#' + countStatId).text()) || 0;
-            if (current > 0) {
-                jQuery('#' + countStatId).text(current - 1);
+            const countEl = jQuery('#' + countStatId);
+            if (countEl.length > 0) {
+                const current = parseInt(countEl.text()) || 0;
+                if (current > 0) {
+                    countEl.text(current - 1);
+                }
             }
         }
     }

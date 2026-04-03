@@ -520,7 +520,7 @@ pre {
 [id^=ticklerWrap]{position:relative;top:0px;background-color:#FF6600;width:100%;}
 
 input[id^='acklabel_']{
-    margin-top: 10px; /* align with bootstrap buttons */
+    margin-top: 0;
 }
 
 
@@ -925,6 +925,11 @@ input[id^='acklabel_']{
         })
         .then(function() {
             if (closeOnSuccess) {
+                // Notify the parent inbox to remove this lab from the list before closing.
+                var segMatch = formid.match(/acknowledgeForm_(.+)/);
+                if (segMatch && self.opener && typeof self.opener.removeReport === 'function') {
+                    try { self.opener.removeReport(segMatch[1]); } catch (e) { /* ignore */ }
+                }
                 window.close();
             }
         })
@@ -1063,21 +1068,15 @@ input[id^='acklabel_']{
                                 <%
                                     if (remoteLabKey == null || remoteLabKey.isEmpty()) {
                                 %>
-
-                                <% if (!label.equals(null) && !label.equals("")) { %>
+</div>
+<div class="d-flex align-items-center gap-1 mt-1">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="createLabel_<%= Encode.forHtmlAttribute(segmentID) %>"
                                         value="Label"
                                         onclick="submitLabel(this, '<%=Encode.forJavaScript(segmentID)%>');">Label
                                 </button>
-                                <%} else { %>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="createLabel_<%= Encode.forHtmlAttribute(segmentID) %>"
-                                        value="Label"
-                                        onclick="submitLabel(this, '<%=Encode.forJavaScript(segmentID)%>');">Label
-                                </button>
-                                <%} %>
                                 <input type="hidden" id="labNum_<%=Encode.forHtmlAttribute(segmentID) %>" name="lab_no"
                                        value="<%=lab_no%>">
-                                <input type="text" class="form-control form-control-sm" style="width: 140px; margin-top: 0px;" id="acklabel_<%= Encode.forHtmlAttribute(segmentID) %>" name="label"
+                                <input type="text" class="form-control form-control-sm flex-grow-0" style="width: 140px;" id="acklabel_<%= Encode.forHtmlAttribute(segmentID) %>" name="label"
                                        value="">
 
                                 <% String labelval = "";
@@ -1085,13 +1084,14 @@ input[id^='acklabel_']{
                                         labelval = label;
                                     } else {
                                         labelval = "(not set)";
-
                                     } %>
                                 <span id="labelspan_<%= Encode.forHtmlAttribute(segmentID) %>"
-                                      ><i><%= Encode.forHtml(labelval) %> </i></span>
-
-                                <% } %>
+                                      ><i><%= Encode.forHtml(labelval) %></i></span>
 </div>
+                                <% } else { %>
+</div>
+                                <% } %>
+
                             </td>
                         </tr>
                         <tr>

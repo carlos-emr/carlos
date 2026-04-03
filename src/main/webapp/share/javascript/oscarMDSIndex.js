@@ -1907,18 +1907,26 @@ function updateStatus(formid) {//acknowledge
 					// Hide the parent <div> of the iframe only for new inbox previews loaded in an iframe
 					jQuery(window.frameElement).closest('.document-card.card').slideUp();
 				} else if (typeof _in_window !== 'undefined' && _in_window) {
-                    if (self.opener && typeof self.opener.removeReport !== 'undefined') {
+                    if (self.opener && typeof self.opener.removeReport === 'function') {
 						/**
 						 * When a user acknowledges any lab version, it automatically files away older versions
 						 * as well as the acknowledged version. This function removes those versions from the
 						 * inbox results by calling the jQuery `removeReport` function on IDs up to and including
 						 * the doclabid.
 						 */
-						const multiIds = data.multiID.split(",");
-						for (const id of multiIds) {
-							self.opener.removeReport(id);
-							if (id === doclabid) break;
+						try {
+							const multiIds = (data.multiID || doclabid).toString().split(",");
+							for (const id of multiIds) {
+								self.opener.removeReport(id);
+								if (id === doclabid) break;
+							}
+						} catch (e) {
+							console.warn('removeReport failed, reloading parent:', e);
+							self.opener.location.reload();
 						}
+                    } else if (self.opener) {
+                        // removeReport not available — reload the parent inbox to reflect the change
+                        self.opener.location.reload();
                     }
                     window.close();
                 } else {
