@@ -49,22 +49,24 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
-<%@ page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.EForm" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.EncounterForm" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
-<%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page errorPage="/errorpage.jsp" %>
+
+<%@ page import="java.util.*" %>
+
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.EForm" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.EncounterForm" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean" %>
+<%@ page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%!
     // DAOs declared at class level -- thread-safe Spring singletons shared across all requests
     CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
@@ -236,7 +238,7 @@
     <meta charset="utf-8">
     <%@ include file="/includes/global-head.jspf" %>
     <c:set var="ctx" value="${pageContext.request.contextPath}"/>
-    <title>Provider Preferences</title>
+    <title><fmt:message key="provider.providerpreference.pageTitle"/></title>
 
     <style>
         /* ─── Colour palette matched to CARLOS schedule page ─── */
@@ -531,8 +533,8 @@
      HEADER BAR - Sticky navy header matching the schedule page top bar
      ═══════════════════════════════════════════════════════════════════════ --%>
 <div class="pref-header">
-    <h1><i class="fas fa-cog"></i> Provider Preferences</h1>
-    <span class="header-hint"><i class="fas fa-info-circle"></i> Click "Save All Preferences" to apply changes</span>
+    <h1><i class="fas fa-cog"></i> <fmt:message key="provider.providerpreference.pageTitle"/></h1>
+    <span class="header-hint"><i class="fas fa-info-circle"></i> <fmt:message key="provider.providerpreference.headerHint"/></span>
 </div>
 
 <div class="pref-body">
@@ -546,7 +548,7 @@
     <h2 class="accordion-header">
         <button class="accordion-button" type="button"
                 data-bs-toggle="collapse" data-bs-target="#secSchedule" aria-expanded="true" aria-controls="secSchedule">
-            <i class="fas fa-calendar-alt section-icon"></i> Schedule &amp; Appointments
+            <i class="fas fa-calendar-alt section-icon"></i> <fmt:message key="provider.providerpreference.section.schedule"/>
         </button>
     </h2>
     <div id="secSchedule" class="accordion-collapse collapse show" data-bs-parent="#prefAccordion">
@@ -554,21 +556,21 @@
 
             <%-- Schedule time range --%>
             <div class="pref-row">
-                <div class="pref-label">Start Hour <span class="hint">(0-23)</span></div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.startHour"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.hours023"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="start_hour" value="<%=Encode.forHtmlAttribute(startHour)%>"
                            class="pref-input input-xs" maxlength="2">
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">End Hour <span class="hint">(0-23)</span></div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.endHour"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.hours023"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="end_hour" value="<%=Encode.forHtmlAttribute(endHour)%>"
                            class="pref-input input-xs" maxlength="2">
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Period <span class="hint">(minutes per slot)</span></div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.period"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.minPerSlot"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="every_min" value="<%=Encode.forHtmlAttribute(everyMin)%>"
                            class="pref-input input-xs" maxlength="2">
@@ -577,19 +579,19 @@
 
             <%-- Provider group assignment --%>
             <div class="pref-row">
-                <div class="pref-label">Group No</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.groupNo"/></div>
                 <div class="pref-value" style="display:flex; align-items:center; gap:8px;">
                     <input type="text" name="mygroup_no" value="<%=Encode.forHtmlAttribute(myGroupNo != null ? myGroupNo : "")%>"
                            class="pref-input form-select-sm" maxlength="10">
                     <a href="providerdisplaymygroup.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
-                        <i class="fas fa-users"></i> View Groups
+                        <i class="fas fa-users"></i> <fmt:message key="provider.providerpreference.link.viewGroups"/>
                     </a>
                 </div>
             </div>
 
             <%-- Week view weekend toggle --%>
             <div class="pref-row">
-                <div class="pref-label">Show Weekends in Week View</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.showWeekendsWeekView"/></div>
                 <div class="pref-value">
                     <input type="checkbox" class="form-check-input" role="switch"
                            name="<%=UserProperty.SCHEDULE_WEEK_VIEW_WEEKENDS%>"
@@ -599,7 +601,7 @@
 
             <%-- Link name display length on appointment screen --%>
             <div class="pref-row">
-                <div class="pref-label">Link Name Display Length</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.linkNameDisplayLength"/></div>
                 <div class="pref-value">
                     <input type="text" name="appointmentScreenFormsNameDisplayLength"
                            value="<%=Encode.forHtmlAttribute(String.valueOf(providerPreference.getAppointmentScreenLinkNameDisplayLength()))%>"
@@ -609,7 +611,7 @@
 
             <%-- Encounter forms available on appointment screen --%>
             <div class="pref-row align-top">
-                <div class="pref-label">Encounter Forms on Appointments</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.encounterFormsAppointments"/></div>
                 <div class="pref-value">
                     <div class="scroll-box"><%
                         List<EncounterForm> encounterForms = ProviderPreferencesUIBean.getAllEncounterForms();
@@ -628,7 +630,7 @@
                  Unlike encounter forms (which match by name), eForms match by numeric ID
                  against the provider's saved EformLink collection. --%>
             <div class="pref-row align-top">
-                <div class="pref-label">eForms on Appointments</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.eFormsAppointments"/></div>
                 <div class="pref-value">
                     <div class="scroll-box"><%
                         List<EForm> eforms = ProviderPreferencesUIBean.getAllEForms();
@@ -653,14 +655,16 @@
 
             <%-- Quick links shown on the appointment screen --%>
             <div class="pref-row align-top">
-                <div class="pref-label">Quick Links</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.quickLinks"/></div>
+                <fmt:message key="provider.providerpreference.quickLinks.remove" var="_qlRemoveLabel"/>
                 <div class="pref-value">
                     <div class="scroll-box" style="max-height:100px; margin-bottom:6px"><%
                         Collection<ProviderPreference.QuickLink> quickLinks =
                                 ProviderPreferencesUIBean.getQuickLinks(providerNo);
+                        String qlRemoveLabel = (String) pageContext.getAttribute("_qlRemoveLabel");
                         for (ProviderPreference.QuickLink ql : quickLinks) {
                     %><div style="padding:2px 0">
-                        <input type="button" value="Remove"
+                        <input type="button" value="<%=Encode.forHtmlAttribute(qlRemoveLabel)%>"
                                class="btn btn-sm btn-outline-danger"
                                style="font-size:10px; padding:1px 6px"
                                onclick="submitQuickLinkAction('remove','<%=Encode.forJavaScriptAttribute(ql.getName())%>','')">
@@ -671,11 +675,11 @@
                     %></div>
                     <table class="ql-table">
                         <tr>
-                            <td style="width:50px">Name</td>
+                            <td style="width:50px"><fmt:message key="provider.providerpreference.quickLinks.name"/></td>
                             <td><input type="text" name="quickLinkName" class="pref-input" style="max-width:200px"></td>
                         </tr>
                         <tr>
-                            <td>URL</td>
+                            <td><fmt:message key="provider.providerpreference.quickLinks.url"/></td>
                             <td>
                                 <input type="text" name="quickLinkUrl" class="pref-input" style="max-width:200px">
                                 <span class="hint">(tokens: &#36;{contextPath} &#36;{demographicId} &#36;{appointmentId} &#36;{providerId} &#36;{providerOhip} &#36;{demographicHin} &#36;{demographicVer})</span>
@@ -687,7 +691,7 @@
                                 <button type="button" class="btn btn-sm mt-1"
                                         style="background:var(--carlos-navy); color:#fff; font-size:11px"
                                         onclick="addQuickLink()">
-                                    <i class="fas fa-plus"></i> Add Link
+                                    <i class="fas fa-plus"></i> <fmt:message key="provider.providerpreference.quickLinks.addLink"/>
                                 </button>
                             </td>
                         </tr>
@@ -707,52 +711,52 @@
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
                 data-bs-toggle="collapse" data-bs-target="#secContact" aria-expanded="false" aria-controls="secContact">
-            <i class="fas fa-address-card section-icon"></i> Contact Information
+            <i class="fas fa-address-card section-icon"></i> <fmt:message key="provider.providerpreference.section.contact"/>
         </button>
     </h2>
     <div id="secContact" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
         <div class="accordion-body">
             <div class="section-note">
                 <i class="fas fa-info-circle"></i>
-                Address and phone used on prescriptions and consult letters.
+                <fmt:message key="provider.providerpreference.contact.sectionNote"/>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Address</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.address"/></div>
                 <div class="pref-value">
                     <input type="text" name="rxAddress" class="pref-input"
                            value="<%=Encode.forHtmlAttribute(rxAddress)%>">
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">City</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.city"/></div>
                 <div class="pref-value">
                     <input type="text" name="rxCity" class="pref-input"
                            value="<%=Encode.forHtmlAttribute(rxCity)%>">
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Province</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.province"/></div>
                 <div class="pref-value">
                     <input type="text" name="rxProvince" class="pref-input form-select-sm"
                            value="<%=Encode.forHtmlAttribute(rxProvince)%>">
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Postal Code</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.postalCode"/></div>
                 <div class="pref-value">
                     <input type="text" name="rxPostal" class="pref-input form-select-sm"
                            value="<%=Encode.forHtmlAttribute(rxPostal)%>">
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Phone Number <span class="hint">(XXX-XXX-XXXX)</span></div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.phoneNumber"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.phoneFormat"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="rxPhone" class="pref-input input-md"
                            value="<%=Encode.forHtmlAttribute(rxPhone)%>">
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Fax Number <span class="hint">(XXX-XXX-XXXX)</span></div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.faxNumber"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.phoneFormat"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="faxnumber" class="pref-input input-md"
                            value="<%=Encode.forHtmlAttribute(faxNum)%>">
@@ -770,44 +774,44 @@
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
                 data-bs-toggle="collapse" data-bs-target="#secRx" aria-expanded="false" aria-controls="secRx">
-            <i class="fas fa-prescription-bottle-alt section-icon"></i> Prescriptions
+            <i class="fas fa-prescription-bottle-alt section-icon"></i> <fmt:message key="provider.providerpreference.section.prescriptions"/>
         </button>
     </h2>
     <div id="secRx" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
         <div class="accordion-body">
             <div class="pref-row">
-                <div class="pref-label">Print QR Codes on Prescriptions</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.printQrCodesRx"/></div>
                 <div class="pref-value">
                     <input type="checkbox" class="form-check-input" role="switch"
                            name="prescriptionQrCodes" <%=qrChecked ? "checked" : ""%>>
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Rx Page Size</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.rxPageSize"/></div>
                 <div class="pref-value">
                     <select name="rx_page_size" class="pref-input form-select-sm">
-                        <option value="">Default</option>
+                        <option value=""><fmt:message key="provider.providerpreference.option.default"/></option>
                         <option value="PageSize.A4" <%="PageSize.A4".equals(rxPageSize)?"selected":""%>>A4</option>
                         <option value="PageSize.A6" <%="PageSize.A6".equals(rxPageSize)?"selected":""%>>A6</option>
                     </select>
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Use Rx3</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.useRx3"/></div>
                 <div class="pref-value">
                     <input type="checkbox" class="form-check-input" role="switch"
                            name="rx_use_rx3" value="yes" <%=rxUseRx3 ? "checked" : ""%>>
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Show Patient DOB on Rx</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.showPatientDobRx"/></div>
                 <div class="pref-value">
                     <input type="checkbox" class="form-check-input" role="switch"
                            name="rx_show_patient_dob" value="yes" <%=rxShowDOB ? "checked" : ""%>>
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Default Rx Quantity</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.defaultRxQty"/></div>
                 <div class="pref-value">
                     <input type="text" name="rx_default_quantity"
                            value="<%=Encode.forHtmlAttribute(rxDefaultQty)%>"
@@ -816,16 +820,16 @@
             </div>
             <div class="pref-row">
                 <div class="pref-label">
-                    Rx Interaction Warning Level
-                    <span class="badge-auto">auto-save</span>
+                    <fmt:message key="provider.providerpreference.label.rxInteractionWarningLevel"/>
+                    <span class="badge-auto"><fmt:message key="provider.providerpreference.badge.autoSave"/></span>
                 </div>
                 <div class="pref-value">
                     <select id="rxInteractionWarningLevel" class="pref-input input-md">
-                        <option value="0" <%="0".equals(warningLevel)?"selected":""%>>Not Specified</option>
-                        <option value="1" <%="1".equals(warningLevel)?"selected":""%>>Low</option>
-                        <option value="2" <%="2".equals(warningLevel)?"selected":""%>>Medium</option>
-                        <option value="3" <%="3".equals(warningLevel)?"selected":""%>>High</option>
-                        <option value="4" <%="4".equals(warningLevel)?"selected":""%>>None</option>
+                        <option value="0" <%="0".equals(warningLevel)?"selected":""%>><fmt:message key="provider.providerpreference.rxWarning.notSpecified"/></option>
+                        <option value="1" <%="1".equals(warningLevel)?"selected":""%>><fmt:message key="provider.providerpreference.rxWarning.low"/></option>
+                        <option value="2" <%="2".equals(warningLevel)?"selected":""%>><fmt:message key="provider.providerpreference.rxWarning.medium"/></option>
+                        <option value="3" <%="3".equals(warningLevel)?"selected":""%>><fmt:message key="provider.providerpreference.rxWarning.high"/></option>
+                        <option value="4" <%="4".equals(warningLevel)?"selected":""%>><fmt:message key="provider.providerpreference.rxWarning.rxNone"/></option>
                     </select>
                 </div>
             </div>
@@ -842,13 +846,13 @@
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
                 data-bs-toggle="collapse" data-bs-target="#secClinical" aria-expanded="false" aria-controls="secClinical">
-            <i class="fas fa-stethoscope section-icon"></i> Clinical Settings
+            <i class="fas fa-stethoscope section-icon"></i> <fmt:message key="provider.providerpreference.section.clinical"/>
         </button>
     </h2>
     <div id="secClinical" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
         <div class="accordion-body">
             <div class="pref-row">
-                <div class="pref-label">Default Sex</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.defaultSex"/></div>
                 <div class="pref-value">
                     <select name="default_sex" class="pref-input input-xs">
                         <option value="">--</option>
@@ -858,40 +862,40 @@
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Default HC Type</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.defaultHcType"/></div>
                 <div class="pref-value">
                     <select name="HC_Type" class="pref-input input-md">
                         <option value="">--</option>
-                        <option value="AB" <%="AB".equals(hcType)?"selected":""%>>Alberta</option>
-                        <option value="BC" <%="BC".equals(hcType)?"selected":""%>>British Columbia</option>
-                        <option value="MB" <%="MB".equals(hcType)?"selected":""%>>Manitoba</option>
-                        <option value="NB" <%="NB".equals(hcType)?"selected":""%>>New Brunswick</option>
-                        <option value="NL" <%="NL".equals(hcType)?"selected":""%>>Newfoundland</option>
-                        <option value="NT" <%="NT".equals(hcType)?"selected":""%>>Northwest Territory</option>
-                        <option value="NS" <%="NS".equals(hcType)?"selected":""%>>Nova Scotia</option>
-                        <option value="NU" <%="NU".equals(hcType)?"selected":""%>>Nunavut</option>
-                        <option value="ON" <%="ON".equals(hcType)?"selected":""%>>Ontario</option>
-                        <option value="PE" <%="PE".equals(hcType)?"selected":""%>>Prince Edward Island</option>
-                        <option value="QC" <%="QC".equals(hcType)?"selected":""%>>Quebec</option>
-                        <option value="SK" <%="SK".equals(hcType)?"selected":""%>>Saskatchewan</option>
-                        <option value="YT" <%="YT".equals(hcType)?"selected":""%>>Yukon</option>
-                        <option value="US" <%="US".equals(hcType)?"selected":""%>>US Resident</option>
+                        <option value="AB" <%="AB".equals(hcType)?"selected":""%>><fmt:message key="provider.providerpreference.hcType.ab"/></option>
+                        <option value="BC" <%="BC".equals(hcType)?"selected":""%>><fmt:message key="provider.providerpreference.hcType.bc"/></option>
+                        <option value="MB" <%="MB".equals(hcType)?"selected":""%>><fmt:message key="provider.providerpreference.hcType.mb"/></option>
+                        <option value="NB" <%="NB".equals(hcType)?"selected":""%>><fmt:message key="provider.providerpreference.hcType.nb"/></option>
+                        <option value="NL" <%="NL".equals(hcType)?"selected":""%>><fmt:message key="provider.providerpreference.hcType.nl"/></option>
+                        <option value="NT" <%="NT".equals(hcType)?"selected":""%>><fmt:message key="provider.providerpreference.hcType.nt"/></option>
+                        <option value="NS" <%="NS".equals(hcType)?"selected":""%>><fmt:message key="provider.providerpreference.hcType.ns"/></option>
+                        <option value="NU" <%="NU".equals(hcType)?"selected":""%>><fmt:message key="provider.providerpreference.hcType.nu"/></option>
+                        <option value="ON" <%="ON".equals(hcType)?"selected":""%>><fmt:message key="provider.providerpreference.hcType.on"/></option>
+                        <option value="PE" <%="PE".equals(hcType)?"selected":""%>><fmt:message key="provider.providerpreference.hcType.pe"/></option>
+                        <option value="QC" <%="QC".equals(hcType)?"selected":""%>><fmt:message key="provider.providerpreference.hcType.qc"/></option>
+                        <option value="SK" <%="SK".equals(hcType)?"selected":""%>><fmt:message key="provider.providerpreference.hcType.sk"/></option>
+                        <option value="YT" <%="YT".equals(hcType)?"selected":""%>><fmt:message key="provider.providerpreference.hcType.yt"/></option>
+                        <option value="US" <%="US".equals(hcType)?"selected":""%>><fmt:message key="provider.providerpreference.hcType.us"/></option>
                     </select>
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Default Billing Dx Code</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.defaultBillingDxCode"/></div>
                 <div class="pref-value" style="display:flex; align-items:center; gap:8px;">
                     <input type="text" name="dxCode" id="dxCode"
                            value="<%=Encode.forHtmlAttribute(providerPreference.getDefaultDxCode() != null ? providerPreference.getDefaultDxCode() : "")%>"
                            class="pref-input input-xs" maxlength="5">
                     <button type="button" class="pref-link" data-bs-toggle="modal" data-bs-target="#dxSearchModal">
-                        <i class="fas fa-search"></i> Search
+                        <i class="fas fa-search"></i> <fmt:message key="provider.providerpreference.btn.search"/>
                     </button>
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Enable CPP Single Line</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.cppSingleLine"/></div>
                 <div class="pref-value">
                     <input type="checkbox" class="form-check-input" role="switch"
                            name="cpp_single_line" value="yes" <%=cppSingleLine ? "checked" : ""%>>
@@ -903,22 +907,24 @@
                  notes from the last N months. Values 0-36 generate options "-0" to "-36"
                  ("-0" effectively shows no notes; "A" is typically the preferred default). --%>
             <div class="pref-row">
-                <div class="pref-label">Stale Date for Case Notes</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.staleDateCaseNotes"/></div>
+                <fmt:message key="provider.providerpreference.staleDate.months" var="_staleDateMonthsWord"/>
                 <div class="pref-value">
                     <select name="cme_note_date" class="pref-input input-md">
-                        <option value="A" <%="A".equals(staleNoteDate)?"selected":""%>>All</option><%
+                        <option value="A" <%="A".equals(staleNoteDate)?"selected":""%>><fmt:message key="provider.providerpreference.staleDate.all"/></option><%
+                        String staleDateMonthsWord = (String) pageContext.getAttribute("_staleDateMonthsWord");
                         for (int i = 0; i <= 36; i++) {
-                    %><option value="-<%=i%>" <%=("-"+i).equals(staleNoteDate)?"selected":""%>><%=i%> months</option><%
+                    %><option value="-<%=i%>" <%=("-"+i).equals(staleNoteDate)?"selected":""%>><%=i%> <%=Encode.forHtml(staleDateMonthsWord)%></option><%
                         }
                     %></select>
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Stale Date Format (show date)</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.staleDateFormat"/></div>
                 <div class="pref-value">
                     <select name="cme_note_format" class="pref-input input-xs">
-                        <option value="no" <%="no".equals(staleFormat)?"selected":""%>>No</option>
-                        <option value="yes" <%="yes".equals(staleFormat)?"selected":""%>>Yes</option>
+                        <option value="no" <%="no".equals(staleFormat)?"selected":""%>><fmt:message key="provider.providerpreference.staleDate.no"/></option>
+                        <option value="yes" <%="yes".equals(staleFormat)?"selected":""%>><fmt:message key="provider.providerpreference.staleDate.yes"/></option>
                     </select>
                 </div>
             </div>
@@ -934,13 +940,13 @@
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
                 data-bs-toggle="collapse" data-bs-target="#secConsult" aria-expanded="false" aria-controls="secConsult">
-            <i class="fas fa-user-md section-icon"></i> Consultation
+            <i class="fas fa-user-md section-icon"></i> <fmt:message key="provider.providerpreference.section.consultation"/>
         </button>
     </h2>
     <div id="secConsult" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
         <div class="accordion-body">
             <div class="pref-row">
-                <div class="pref-label">Consultation Cutoff Time <span class="hint">(days)</span></div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.consultCutoff"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.days"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="consultation_time_period_warning"
                            value="<%=Encode.forHtmlAttribute(consultCutoff)%>"
@@ -948,7 +954,7 @@
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Consultation Team Warning</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.consultTeamWarning"/></div>
                 <div class="pref-value">
                     <input type="text" name="consultation_team_warning"
                            value="<%=Encode.forHtmlAttribute(consultTeam)%>"
@@ -956,7 +962,7 @@
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Workload Management</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.workloadMgmt"/></div>
                 <div class="pref-value">
                     <input type="text" name="workload_management"
                            value="<%=Encode.forHtmlAttribute(workloadMgmt)%>"
@@ -964,12 +970,12 @@
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Consultation Paste Format</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.consultPasteFmt"/></div>
                 <div class="pref-value">
                     <select name="consultation_req_paste_fmt" class="pref-input input-md">
-                        <option value="">Default</option>
-                        <option value="single" <%="single".equals(consultPasteFmt)?"selected":""%>>Single Line</option>
-                        <option value="multi" <%="multi".equals(consultPasteFmt)?"selected":""%>>Multi Line</option>
+                        <option value=""><fmt:message key="provider.providerpreference.option.default"/></option>
+                        <option value="single" <%="single".equals(consultPasteFmt)?"selected":""%>><fmt:message key="provider.providerpreference.pasteFmt.singleLine"/></option>
+                        <option value="multi" <%="multi".equals(consultPasteFmt)?"selected":""%>><fmt:message key="provider.providerpreference.pasteFmt.multiLine"/></option>
                     </select>
                 </div>
             </div>
@@ -985,7 +991,7 @@
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
                 data-bs-toggle="collapse" data-bs-target="#secDisplay" aria-expanded="false" aria-controls="secDisplay">
-            <i class="fas fa-desktop section-icon"></i> Display &amp; UI
+            <i class="fas fa-desktop section-icon"></i> <fmt:message key="provider.providerpreference.section.display"/>
         </button>
     </h2>
     <div id="secDisplay" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
@@ -993,7 +999,7 @@
 
             <%-- Encounter window sizing --%>
             <div class="pref-row">
-                <div class="pref-label">Encounter Window Width <span class="hint">(px)</span></div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.encWinWidth"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.px"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="encounterWindowWidth"
                            value="<%=Encode.forHtmlAttribute(encWinWidth)%>"
@@ -1001,7 +1007,7 @@
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Encounter Window Height <span class="hint">(px)</span></div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.encWinHeight"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.px"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="encounterWindowHeight"
                            value="<%=Encode.forHtmlAttribute(encWinHeight)%>"
@@ -1009,21 +1015,21 @@
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Maximize Encounter Window</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.maxEncWin"/></div>
                 <div class="pref-value">
                     <input type="checkbox" class="form-check-input" role="switch"
                            name="encounterWindowMaximize" value="yes" <%=encWinMax ? "checked" : ""%>>
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Open in Tabs</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.openInTabs"/></div>
                 <div class="pref-value">
                     <input type="checkbox" class="form-check-input" role="switch"
                            name="encounter_open_in_tab" value="yes" <%=encOpenInTab ? "checked" : ""%>>
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Quick Chart Size <span class="hint">(px)</span></div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.quickChartSize"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.px"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="quickChartSize"
                            value="<%=Encode.forHtmlAttribute(quickChartSize)%>"
@@ -1031,7 +1037,7 @@
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Max Patient Name Length</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.maxPatientNameLen"/></div>
                 <div class="pref-value">
                     <input type="text" name="patient_name_length"
                            value="<%=Encode.forHtmlAttribute(patientNameLen)%>"
@@ -1039,24 +1045,24 @@
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Display Document As</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.displayDocAs"/></div>
                 <div class="pref-value">
                     <select name="display_document_as" class="pref-input form-select-sm">
-                        <option value="">Default</option>
+                        <option value=""><fmt:message key="provider.providerpreference.option.default"/></option>
                         <option value="PDF" <%="PDF".equals(displayDocAs)?"selected":""%>>PDF</option>
-                        <option value="Image" <%="Image".equals(displayDocAs)?"selected":""%>>Image</option>
+                        <option value="Image" <%="Image".equals(displayDocAs)?"selected":""%>><fmt:message key="provider.providerpreference.displayDoc.image"/></option>
                     </select>
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">eDoc Browser in Document Report</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.eDocInDocReport"/></div>
                 <div class="pref-value">
                     <input type="checkbox" class="form-check-input" role="switch"
                            name="edoc_browser_in_document_report" value="yes" <%=eDocInReport ? "checked" : ""%>>
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">eDoc Browser in Master Record</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.eDocInMasterRecord"/></div>
                 <div class="pref-value">
                     <input type="checkbox" class="form-check-input" role="switch"
                            name="edoc_browser_in_master_file" value="yes" <%=eDocInMaster ? "checked" : ""%>>
@@ -1074,7 +1080,7 @@
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
                 data-bs-toggle="collapse" data-bs-target="#secLab" aria-expanded="false" aria-controls="secLab">
-            <i class="fas fa-flask section-icon"></i> Lab, Prevention &amp; Messaging
+            <i class="fas fa-flask section-icon"></i> <fmt:message key="provider.providerpreference.section.lab"/>
         </button>
     </h2>
     <div id="secLab" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
@@ -1082,7 +1088,7 @@
 
             <%-- Lab acknowledgement --%>
             <div class="pref-row">
-                <div class="pref-label">Disable Comment Box on Lab Acknowledge</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.disableLabAckComment"/></div>
                 <div class="pref-value">
                     <input type="checkbox" class="form-check-input" role="switch"
                            name="lab_ack_comment" value="yes" <%=labAckComment ? "checked" : ""%>>
@@ -1092,8 +1098,8 @@
             <%-- Review messages time - auto-saved via AJAX --%>
             <div class="pref-row">
                 <div class="pref-label">
-                    Review Messages Time
-                    <span class="badge-auto">auto-save</span>
+                    <fmt:message key="provider.providerpreference.label.reviewMsgTime"/>
+                    <span class="badge-auto"><fmt:message key="provider.providerpreference.badge.autoSave"/></span>
                 </div>
                 <div class="pref-value">
                     <select id="reviewMsg" name="reviewMsg" class="pref-input form-select-sm"><%
@@ -1110,7 +1116,7 @@
 
             <%-- Dashboard sharing --%>
             <div class="pref-row">
-                <div class="pref-label"><i class="fas fa-share-alt" style="margin-right:4px"></i> Share Dashboard</div>
+                <div class="pref-label"><i class="fas fa-share-alt" style="margin-right:4px"></i> <fmt:message key="provider.providerpreference.label.shareDashboard"/></div>
                 <div class="pref-value">
                     <input type="checkbox" class="form-check-input" role="switch"
                            name="dashboard_share" value="yes" <%=dashboardShare ? "checked" : ""%>>
@@ -1119,21 +1125,21 @@
 
             <%-- Prevention warning toggles (stored as "true"/"false") --%>
             <div class="pref-row">
-                <div class="pref-label">Prevention SSO Warning</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.prevSsoWarning"/></div>
                 <div class="pref-value">
                     <input type="checkbox" class="form-check-input" role="switch"
                            name="prevention_sso_warning" value="true" <%=prevSSO ? "checked" : ""%>>
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Prevention ISPA Warning</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.prevIspaWarning"/></div>
                 <div class="pref-value">
                     <input type="checkbox" class="form-check-input" role="switch"
                            name="prevention_ispa_warning" value="true" <%=prevISPA ? "checked" : ""%>>
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Prevention Non-ISPA Warning</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.prevNonIspaWarning"/></div>
                 <div class="pref-value">
                     <input type="checkbox" class="form-check-input" role="switch"
                            name="prevention_non_ispa_warning" value="true" <%=prevNonISPA ? "checked" : ""%>>
@@ -1142,10 +1148,10 @@
 
             <%-- Favourite eForm group dropdown --%>
             <div class="pref-row">
-                <div class="pref-label">Favourite eForm Group</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.favEformGroup"/></div>
                 <div class="pref-value">
                     <select name="favourite_eform_group" class="pref-input input-md">
-                        <option value="">None</option><%
+                        <option value=""><fmt:message key="provider.providerpreference.option.none"/></option><%
                         for (HashMap<String, String> grp : eformGroups) {
                             String gName = grp.get("groupName") != null ? grp.get("groupName") : "";
                             String sel = gName.equals(eformGroup) ? "selected" : "";
@@ -1157,15 +1163,15 @@
 
             <%-- External links for complex lab settings UIs --%>
             <div class="pref-row">
-                <div class="pref-label">Lab Recall &amp; Macros</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.labRecallMacros"/></div>
                 <div class="pref-value pref-links">
                     <a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewLabRecall"
                        class="pref-link" target="_blank" rel="noopener noreferrer">
-                        <i class="fas fa-redo"></i> Lab Recall Settings
+                        <i class="fas fa-redo"></i> <fmt:message key="provider.providerpreference.link.labRecallSettings"/>
                     </a>
                     <a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewLabMacroPrefs"
                        class="pref-link" target="_blank" rel="noopener noreferrer">
-                        <i class="fas fa-code"></i> Lab Macros
+                        <i class="fas fa-code"></i> <fmt:message key="provider.providerpreference.link.labMacros"/>
                     </a>
                 </div>
             </div>
@@ -1181,31 +1187,31 @@
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
                 data-bs-toggle="collapse" data-bs-target="#secApptCard" aria-expanded="false" aria-controls="secApptCard">
-            <i class="fas fa-id-card section-icon"></i> Appointment Card
+            <i class="fas fa-id-card section-icon"></i> <fmt:message key="provider.providerpreference.section.apptCard"/>
         </button>
     </h2>
     <div id="secApptCard" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
         <div class="accordion-body">
             <div class="section-note">
                 <i class="fas fa-info-circle"></i>
-                Info printed on appointment reminder cards for patients.
+                <fmt:message key="provider.providerpreference.apptCard.sectionNote"/>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Clinic Name</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.clinicName"/></div>
                 <div class="pref-value">
                     <input type="text" name="appointmentCardName" class="pref-input"
                            value="<%=Encode.forHtmlAttribute(apptCardName)%>">
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Phone Number</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.phoneNumber"/></div>
                 <div class="pref-value">
                     <input type="text" name="appointmentCardPhone" class="pref-input input-md"
                            value="<%=Encode.forHtmlAttribute(apptCardPhone)%>">
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label">Fax Number</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.faxNumber"/></div>
                 <div class="pref-value">
                     <input type="text" name="appointmentCardFax" class="pref-input input-md"
                            value="<%=Encode.forHtmlAttribute(apptCardFax)%>">
@@ -1229,16 +1235,16 @@
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
                 data-bs-toggle="collapse" data-bs-target="#secBilling" aria-expanded="false" aria-controls="secBilling">
-            <i class="fas fa-file-invoice-dollar section-icon"></i> Billing
+            <i class="fas fa-file-invoice-dollar section-icon"></i> <fmt:message key="provider.providerpreference.section.billing"/>
         </button>
     </h2>
     <div id="secBilling" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
         <div class="accordion-body">
             <div class="pref-row">
-                <div class="pref-label">Default Billing Form</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.defaultBillingForm"/></div>
                 <div class="pref-value">
                     <select name="default_servicetype" class="pref-input input-md">
-                        <option value="no">-- none --</option><%
+                        <option value="no"><fmt:message key="provider.providerpreference.billing.noneOption"/></option><%
                         String def = providerPreference.getDefaultServiceType();
                         for (Object[] result : ctlBillingServiceDao.getUniqueServiceTypes("A")) {
                     %><option value="<%=Encode.forHtmlAttribute((String)result[0])%>"
@@ -1249,13 +1255,13 @@
             </div>
             <%-- BC-specific billing preferences link --%>
             <div class="pref-row">
-                <div class="pref-label">Regional Billing Settings</div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.regionalBillingSettings"/></div>
                 <div class="pref-value pref-links"><%
                     String br = CarlosProperties.getInstance().getProperty("billregion");
                     if ("BC".equals(br)) {
                 %><a href="<%=request.getContextPath()%>/billing/CA/BC/viewBillingPreferencesAction.do?providerNo=<%=Encode.forUriComponent(providerNo)%>"
                      class="pref-link" target="_blank" rel="noopener noreferrer">
-                    <i class="fas fa-external-link-alt"></i> BC Billing Preferences
+                    <i class="fas fa-external-link-alt"></i> <fmt:message key="provider.providerpreference.link.bcBillingPrefs"/>
                 </a><%
                     }
                 %></div>
@@ -1351,38 +1357,38 @@
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
                 data-bs-toggle="collapse" data-bs-target="#secAccount" aria-expanded="false" aria-controls="secAccount">
-            <i class="fas fa-user-cog section-icon"></i> Account &amp; Advanced
+            <i class="fas fa-user-cog section-icon"></i> <fmt:message key="provider.providerpreference.section.account"/>
         </button>
     </h2>
     <div id="secAccount" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
         <div class="accordion-body">
             <div class="section-note">
                 <i class="fas fa-external-link-alt"></i>
-                These settings open in a separate window due to their complexity.
+                <fmt:message key="provider.providerpreference.account.sectionNote"/>
             </div>
             <div class="pref-links">
                 <a href="providerchangepassword.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
-                    <i class="fas fa-key"></i> Change Password
+                    <i class="fas fa-key"></i> <fmt:message key="provider.providerpreference.link.changePassword"/>
                 </a>
                 <a href="providerSignature.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-pen-nib"></i> <fmt:message key="provider.providerpreference.linkEditTextSig"/>
                 </a>
                 <a href="providerPrinter.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
-                    <i class="fas fa-print"></i> Set Default Printer
+                    <i class="fas fa-print"></i> <fmt:message key="provider.providerpreference.link.setDefaultPrinter"/>
                 </a>
                 <a href="<%=request.getContextPath()%>/provider/CppPreferences.do" class="pref-link" target="_blank" rel="noopener noreferrer">
-                    <i class="fas fa-columns"></i> Configure eChart CPP
+                    <i class="fas fa-columns"></i> <fmt:message key="provider.providerpreference.link.configureEChartCpp"/>
                 </a>
                 <a href="clients.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
-                    <i class="fas fa-plug"></i> Manage API Clients
+                    <i class="fas fa-plug"></i> <fmt:message key="provider.providerpreference.link.manageApiClients"/>
                 </a>
                 <a href="<%= request.getContextPath() %>/admin/displayDocumentDescriptionTemplate.jsp"
                    class="pref-link" target="_blank" rel="noopener noreferrer">
-                    <i class="fas fa-file-alt"></i> Document Description Template
+                    <i class="fas fa-file-alt"></i> <fmt:message key="provider.providerpreference.link.docDescTemplate"/>
                 </a>
                 <a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewTicklerTaskAssignee"
                    class="pref-link" target="_blank" rel="noopener noreferrer">
-                    <i class="fas fa-tasks"></i> Tickler Preferences
+                    <i class="fas fa-tasks"></i> <fmt:message key="provider.providerpreference.link.ticklerPrefs"/>
                 </a>
             </div>
         </div>
@@ -1397,10 +1403,10 @@
      ═══════════════════════════════════════════════════════════════════════ --%>
 <div class="footer-bar">
     <button type="submit" class="btn btn-save">
-        <i class="fas fa-save"></i> Save All Preferences
+        <i class="fas fa-save"></i> <fmt:message key="provider.providerpreference.btn.saveAll"/>
     </button>
     <button type="button" class="btn btn-close-pref ms-2" onclick="closePreferences()">
-        <i class="fas fa-times"></i> Close
+        <i class="fas fa-times"></i> <fmt:message key="provider.providerpreference.btn.close"/>
     </button>
 </div>
 
@@ -1416,19 +1422,46 @@
         <div class="modal-content">
             <div class="modal-header" style="background:var(--carlos-navy);color:#fff;padding:8px 16px">
                 <h5 class="modal-title" id="dxSearchLabel" style="font-size:14px;margin:0">
-                    <i class="fas fa-search" style="margin-right:6px"></i> Search Diagnostic Codes
+                    <i class="fas fa-search" style="margin-right:6px"></i> <fmt:message key="provider.providerpreference.modal.dxSearch.title"/>
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body" style="padding:0;height:450px">
-                <iframe id="dxSearchFrame" style="width:100%;height:100%;border:none" title="Diagnostic Code Search"></iframe>
+                <fmt:message key="provider.providerpreference.modal.dxSearch.iframeTitle" var="_dxSearchIframeTitle"/>
+                <iframe id="dxSearchFrame" style="width:100%;height:100%;border:none" title="<%=Encode.forHtmlAttribute((String)pageContext.getAttribute("_dxSearchIframeTitle"))%>"></iframe>
             </div>
         </div>
     </div>
 </div>
 
 
+<%-- JS message variables for schedule validation and quick link alerts --%>
+<fmt:message key="provider.providerpreference.js.scheduleInvalidNumbers" var="_jsSchedInvalidNumbers"/>
+<fmt:message key="provider.providerpreference.js.endHourRange" var="_jsEndHourRange"/>
+<fmt:message key="provider.providerpreference.js.startBeforeEnd" var="_jsStartBeforeEnd"/>
+<fmt:message key="provider.providerpreference.js.periodInvalid" var="_jsPeriodInvalid"/>
+<fmt:message key="provider.providerpreference.js.periodMax120" var="_jsPeriodMax120"/>
+<fmt:message key="provider.providerpreference.js.quickLinkRequired" var="_jsQuickLinkRequired"/>
+<fmt:message key="provider.providerpreference.js.quickLinkNavigate" var="_jsQuickLinkNavigate"/>
+<fmt:message key="provider.providerpreference.js.rxWarnSaveFailed.session" var="_jsRxWarnSession"/>
+<fmt:message key="provider.providerpreference.js.rxWarnSaveFailed.retry" var="_jsRxWarnRetry"/>
+<fmt:message key="provider.providerpreference.js.reviewMsgSaveFailed.session" var="_jsReviewMsgSession"/>
+<fmt:message key="provider.providerpreference.js.reviewMsgSaveFailed.retry" var="_jsReviewMsgRetry"/>
 <script>
+var _i18n = {
+    schedInvalidNumbers: '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsSchedInvalidNumbers"))%>',
+    endHourRange:        '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsEndHourRange"))%>',
+    startBeforeEnd:      '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsStartBeforeEnd"))%>',
+    periodInvalid:       '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsPeriodInvalid"))%>',
+    periodMax120:        '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsPeriodMax120"))%>',
+    quickLinkRequired:   '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsQuickLinkRequired"))%>',
+    quickLinkNavigate:   '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsQuickLinkNavigate"))%>',
+    rxWarnSession:       '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsRxWarnSession"))%>',
+    rxWarnRetry:         '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsRxWarnRetry"))%>',
+    reviewMsgSession:    '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsReviewMsgSession"))%>',
+    reviewMsgRetry:      '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsReviewMsgRetry"))%>'
+};
+
 /**
  * Sets initial focus on the group number field for quick editing.
  */
@@ -1456,27 +1489,27 @@ function checkTypeInAll() {
 
     // All three schedule fields must be valid numbers
     if (isNaN(s) || isNaN(e) || isNaN(i)) {
-        alert("Schedule values must be valid numbers. Start/end hours: 0-23, period: 1-120 minutes.");
+        alert(_i18n.schedInvalidNumbers);
         return false;
     }
     // End hour must be within 24-hour range
     if (e >= 24) {
-        alert("End hour must be between 0 and 23.");
+        alert(_i18n.endHourRange);
         return false;
     }
     // Start must come before end
     if (s >= e) {
-        alert("Start hour must be earlier than end hour.");
+        alert(_i18n.startBeforeEnd);
         return false;
     }
     // Period must be positive and fit within the hour range
     if (i <= 0 || i > (e - s) * 60) {
-        alert("Appointment period must be a positive number that fits within the scheduled hours (start to end).");
+        alert(_i18n.periodInvalid);
         return false;
     }
     // Enforce server-side 120-minute maximum to match backend validation
     if (i > 120) {
-        alert("Appointment period cannot exceed 120 minutes (2 hours). Value will be automatically adjusted to 120.");
+        alert(_i18n.periodMax120);
         // Allow submission - server will clamp the value and notify user
         return true;
     }
@@ -1514,10 +1547,10 @@ function addQuickLink() {
     var name = document.UPDATEPRE.quickLinkName.value.trim();
     var url = document.UPDATEPRE.quickLinkUrl.value.trim();
     if (!name || !url) {
-        alert('Please enter both a name and URL for the quick link.');
+        alert(_i18n.quickLinkRequired);
         return;
     }
-    if (!confirm('Adding a quick link will navigate away from this page. Any unsaved preference changes will be lost. Continue?')) {
+    if (!confirm(_i18n.quickLinkNavigate)) {
         return;
     }
     submitQuickLinkAction('add', name, url);
@@ -1591,14 +1624,14 @@ function isValidAutoSaveResponse(status, body) {
                     console.error('Rx interaction warning level: unexpected response (possible session expiry)');
                     self.value = previousValue;
                     flashAutoSave(self, false);
-                    alert('Failed to save Rx Interaction Warning Level. Your session may have expired.');
+                    alert(_i18n.rxWarnSession);
                 }
             });
         }).catch(function(err) {
             console.error('Failed to save rx interaction warning level:', err);
             self.value = previousValue;
             flashAutoSave(self, false);
-            alert('Failed to save Rx Interaction Warning Level. Please try again.');
+            alert(_i18n.rxWarnRetry);
         });
     });
 })();
@@ -1631,14 +1664,14 @@ function isValidAutoSaveResponse(status, body) {
                     console.error('Review message time: unexpected response (possible session expiry)');
                     self.value = previousValue;
                     flashAutoSave(self, false);
-                    alert('Failed to save Review Messages Time. Your session may have expired.');
+                    alert(_i18n.reviewMsgSession);
                 }
             });
         }).catch(function(err) {
             console.error('Failed to save review message time:', err);
             self.value = previousValue;
             flashAutoSave(self, false);
-            alert('Failed to save Review Messages Time. Please try again.');
+            alert(_i18n.reviewMsgRetry);
         });
     });
 })();
@@ -1683,25 +1716,25 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
      SIGNATURE STAMP - Canvas drawing and upload/delete AJAX handlers.
      Operates independently from the main preferences form.
      ═══════════════════════════════════════════════════════════════════════ --%>
+<%-- JS message variables for signature stamp AJAX handlers --%>
+<fmt:message key="provider.providerpreference.signatureStamp.msgSelectFirst" var="_sigSelectFirst"/>
+<fmt:message key="provider.providerpreference.signatureStamp.msgUploadSuccess" var="_sigUploadSuccess"/>
+<fmt:message key="provider.providerpreference.signatureStamp.msgUploadFailed" var="_sigUploadFailed"/>
+<fmt:message key="provider.providerpreference.signatureStamp.msgUploadError" var="_sigUploadError"/>
+<fmt:message key="provider.providerpreference.signatureStamp.msgDrawFirst" var="_sigDrawFirst"/>
+<fmt:message key="provider.providerpreference.signatureStamp.msgSaveSuccess" var="_sigSaveSuccess"/>
+<fmt:message key="provider.providerpreference.signatureStamp.msgSaveFailed" var="_sigSaveFailed"/>
+<fmt:message key="provider.providerpreference.signatureStamp.msgSaveError" var="_sigSaveError"/>
+<fmt:message key="provider.providerpreference.signatureStamp.msgDeleteConfirm" var="_sigDeleteConfirm"/>
+<fmt:message key="provider.providerpreference.signatureStamp.msgDeleteSuccess" var="_sigDeleteSuccess"/>
+<fmt:message key="provider.providerpreference.signatureStamp.msgDeleteFailed" var="_sigDeleteFailed"/>
+<fmt:message key="provider.providerpreference.signatureStamp.msgDeleteError" var="_sigDeleteError"/>
+<fmt:message key="provider.providerpreference.signatureStamp.noSigUploaded" var="_sigNoSigUploaded"/>
+<fmt:message key="provider.providerpreference.signatureStamp.btnDelete" var="_sigBtnDelete"/>
 <script>
 (function() {
     var sigStampUrl = '<%=request.getContextPath()%>/provider/providerSignatureStamp.do';
 
-    // ── Localized message strings (via fmt:message for safe fallback, OWASP-encoded for JS) ──
-    <fmt:message key="provider.providerpreference.signatureStamp.msgSelectFirst" var="_sigSelectFirst"/>
-    <fmt:message key="provider.providerpreference.signatureStamp.msgUploadSuccess" var="_sigUploadSuccess"/>
-    <fmt:message key="provider.providerpreference.signatureStamp.msgUploadFailed" var="_sigUploadFailed"/>
-    <fmt:message key="provider.providerpreference.signatureStamp.msgUploadError" var="_sigUploadError"/>
-    <fmt:message key="provider.providerpreference.signatureStamp.msgDrawFirst" var="_sigDrawFirst"/>
-    <fmt:message key="provider.providerpreference.signatureStamp.msgSaveSuccess" var="_sigSaveSuccess"/>
-    <fmt:message key="provider.providerpreference.signatureStamp.msgSaveFailed" var="_sigSaveFailed"/>
-    <fmt:message key="provider.providerpreference.signatureStamp.msgSaveError" var="_sigSaveError"/>
-    <fmt:message key="provider.providerpreference.signatureStamp.msgDeleteConfirm" var="_sigDeleteConfirm"/>
-    <fmt:message key="provider.providerpreference.signatureStamp.msgDeleteSuccess" var="_sigDeleteSuccess"/>
-    <fmt:message key="provider.providerpreference.signatureStamp.msgDeleteFailed" var="_sigDeleteFailed"/>
-    <fmt:message key="provider.providerpreference.signatureStamp.msgDeleteError" var="_sigDeleteError"/>
-    <fmt:message key="provider.providerpreference.signatureStamp.noSigUploaded" var="_sigNoSigUploaded"/>
-    <fmt:message key="provider.providerpreference.signatureStamp.btnDelete" var="_sigBtnDelete"/>
     var _msg = {
         selectFirst:    '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigSelectFirst"))%>',
         uploadSuccess:  '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigUploadSuccess"))%>',

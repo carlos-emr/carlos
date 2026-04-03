@@ -49,7 +49,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -84,7 +86,7 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MultiReadHttpServletRequest.class);
 
-    private ByteArrayOutputStream cachedBytes;
+    private ExposedByteArrayOutputStream cachedBytes;
 
     /** Maximum request body size (500 MB) to prevent memory exhaustion. Matches struts.multipart.maxSize. */
     static final long MAX_BODY_SIZE = 500L * 1024 * 1024;
@@ -250,9 +252,10 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             upload.setFileSizeMax(MAX_BODY_SIZE);
             upload.setSizeMax(MAX_BODY_SIZE);
 
-            // Note: toByteArray() copies the buffer. For a request near MAX_BODY_SIZE (500 MB),
-            // peak memory will temporarily be ~2x the body size.
-            byte[] body = cachedBytes.toByteArray();
+            // Use the internal buffer directly (no copy). The buffer contents are stable
+            // after cacheInputStream() completes — freeze() blocks all further writes.
+            final byte[] buf = cachedBytes.getBuffer();
+            final int count = cachedBytes.getCount();
 
             UploadContext ctx = new UploadContext() {
                 @Override
@@ -267,12 +270,12 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
 
                 @Override
                 public InputStream getInputStream() {
-                    return new ByteArrayInputStream(body);
+                    return new ByteArrayInputStream(buf, 0, count);
                 }
 
                 @Override
                 public long contentLength() {
-                    return body.length;
+                    return count;
                 }
             };
 
@@ -283,8 +286,15 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             }
             cachedParts = Collections.unmodifiableList(parts);
         } catch (FileUploadException e) {
+            int bodySize;
+            try {
+                bodySize = cachedBytes.getCount();
+            } catch (RuntimeException ex) {
+                bodySize = -1;
+                e.addSuppressed(ex);
+            }
             LOGGER.error("Failed to parse multipart parts from cached bytes (URI: {}, bodySize: {} bytes)",
-                    getRequestURI(), cachedBytes.size(), e);
+                    getRequestURI(), bodySize, e);
             throw new ServletException("Failed to parse multipart request from cached bytes", e);
         }
 
@@ -342,28 +352,38 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         }
 
         try {
-            multipartParams = parseMultipartFormFields(cachedBytes.toByteArray(), contentType);
-        } catch (Exception e) {
-            LOGGER.warn("Failed to parse multipart form fields", e);
+            multipartParams = parseMultipartFormFields(cachedBytes.getBuffer(), cachedBytes.getCount(), contentType);
+        } catch (IllegalStateException e) {
+            LOGGER.error("Buffer not in expected frozen state during multipart param extraction "
+                    + "(URI: {}). CSRF token extraction will fail for this request.",
+                    getRequestURI(), e);
+            multipartParams = Collections.emptyMap();
+        } catch (RuntimeException e) {
+            LOGGER.error("Failed to parse multipart form fields (URI: {}). "
+                    + "CSRF token extraction will fail for this request.",
+                    getRequestURI(), e);
             multipartParams = Collections.emptyMap();
         }
         return multipartParams;
     }
 
     private void cacheInputStream() throws IOException {
-        cachedBytes = new ByteArrayOutputStream();
+        ExposedByteArrayOutputStream buffer = new ExposedByteArrayOutputStream();
         try {
             ServletInputStream input = super.getInputStream();
-            long copied = IOUtils.copyLarge(input, cachedBytes, 0, MAX_BODY_SIZE);
+            long copied = IOUtils.copyLarge(input, buffer, 0, MAX_BODY_SIZE);
             if (copied >= MAX_BODY_SIZE && input.read() != -1) {
-                cachedBytes = null;
                 throw new IOException("Request body exceeds maximum allowed size of "
                         + (MAX_BODY_SIZE / (1024 * 1024)) + " MB");
             }
-        } catch (IOException e) {
-            cachedBytes = null;
-            throw e;
+            buffer.freeze();
+            cachedBytes = buffer; // Only assign after successful freeze
+        } catch (UncheckedIOException e) {
+            throw new IOException("Failed to cache request body", e);
         }
+        // IOException propagates naturally — cachedBytes remains null so callers
+        // will see uncached state. RuntimeException is not caught: it indicates a
+        // programming bug and must propagate to make the failure visible.
     }
 
     // ------------------------------------------------------------------
@@ -380,11 +400,12 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
      * validate tokens, so the CSRF token embedded in the multipart body must be
      * extractable.</p>
      *
-     * @param body        the raw request body bytes
+     * @param body        the raw request body bytes (may be larger than {@code bodyLength})
+     * @param bodyLength  the number of valid bytes in {@code body}
      * @param contentType the Content-Type header value (must start with "multipart/")
      * @return a map of field name to list of values (text fields only)
      */
-    static Map<String, List<String>> parseMultipartFormFields(byte[] body, String contentType) {
+    static Map<String, List<String>> parseMultipartFormFields(byte[] body, int bodyLength, String contentType) {
         String boundary = extractBoundary(contentType);
         if (boundary == null) {
             return Collections.emptyMap();
@@ -393,14 +414,14 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         Map<String, List<String>> params = new LinkedHashMap<>();
         byte[] boundaryMarker = ("--" + boundary).getBytes(StandardCharsets.ISO_8859_1);
 
-        int pos = indexOf(body, boundaryMarker, 0);
+        int pos = indexOf(body, bodyLength, boundaryMarker, 0);
         if (pos < 0) {
             return Collections.emptyMap();
         }
 
         while (pos >= 0) {
             pos += boundaryMarker.length;
-            if (pos + 2 > body.length) {
+            if (pos + 2 > bodyLength) {
                 break;
             }
 
@@ -410,12 +431,12 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             }
 
             // Skip CRLF after boundary marker
-            if (pos + 1 < body.length && body[pos] == '\r' && body[pos + 1] == '\n') {
+            if (pos + 1 < bodyLength && body[pos] == '\r' && body[pos + 1] == '\n') {
                 pos += 2;
             }
 
             // Find the blank line separating headers from body
-            int headerEnd = indexOf(body, HEADER_BODY_SEPARATOR, pos);
+            int headerEnd = indexOf(body, bodyLength, HEADER_BODY_SEPARATOR, pos);
             if (headerEnd < 0) {
                 break;
             }
@@ -424,7 +445,7 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             int bodyStart = headerEnd + HEADER_BODY_SEPARATOR.length;
 
             // Find the next boundary
-            int nextBoundary = indexOf(body, boundaryMarker, bodyStart);
+            int nextBoundary = indexOf(body, bodyLength, boundaryMarker, bodyStart);
             if (nextBoundary < 0) {
                 break;
             }
@@ -490,10 +511,14 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
     /**
      * Finds the first occurrence of {@code target} in {@code source} starting from {@code fromIndex}.
      *
+     * @param source       the byte array to search in
+     * @param sourceLength the number of valid bytes in {@code source}
+     * @param target       the byte sequence to search for
+     * @param fromIndex    the index to start searching from
      * @return the index of the first match, or {@code -1} if not found
      */
-    private static int indexOf(byte[] source, byte[] target, int fromIndex) {
-        int searchLimit = source.length - target.length;
+    private static int indexOf(byte[] source, int sourceLength, byte[] target, int fromIndex) {
+        int searchLimit = sourceLength - target.length;
         for (int i = fromIndex; i <= searchLimit; i++) {
             boolean match = true;
             for (int j = 0; j < target.length; j++) {
@@ -509,13 +534,160 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         return -1;
     }
 
+    /**
+     * A {@link ByteArrayOutputStream} subclass that exposes its internal buffer and byte
+     * count without copying. This allows zero-copy reads after the stream has been fully
+     * written.
+     *
+     * <p>The buffer is shared — callers must not modify it. After {@link #freeze()} is
+     * called, all mutating methods ({@code write}, {@code reset}) throw
+     * {@link IllegalStateException}, enforcing the immutability contract at runtime.</p>
+     *
+     * <p>{@code cacheInputStream()} calls {@code freeze()} once writing is complete.
+     * After that point, the buffer and count are stable for subsequent reads within
+     * the same request-processing thread. This class is intended for single-thread-per-request
+     * use as guaranteed by the servlet container's dispatch model. The {@code synchronized}
+     * modifiers are retained as a defensive measure; this class adds synchronization to
+     * methods like {@code writeBytes()} and {@code writeTo()} that the parent does not
+     * synchronize, ensuring uniform locking across all entry points. They do not indicate
+     * a design for concurrent use.</p>
+     */
+    static final class ExposedByteArrayOutputStream extends ByteArrayOutputStream {
+
+        private volatile boolean frozen;
+
+        /** Freezes this stream, preventing any further writes or resets. */
+        synchronized void freeze() {
+            this.frozen = true;
+        }
+
+        /**
+         * Returns the internal byte buffer (may be larger than {@link #getCount()}).
+         *
+         * @throws IllegalStateException if the stream has not been frozen yet
+         */
+        synchronized byte[] getBuffer() {
+            if (!frozen) {
+                throw new IllegalStateException("Buffer must be frozen before reading");
+            }
+            return buf;
+        }
+
+        /**
+         * Returns the number of valid bytes in {@link #getBuffer()}.
+         *
+         * @throws IllegalStateException if the stream has not been frozen yet
+         */
+        synchronized int getCount() {
+            if (!frozen) {
+                throw new IllegalStateException("Buffer must be frozen before reading");
+            }
+            return count;
+        }
+
+        @Override
+        public synchronized void write(int b) {
+            if (frozen) {
+                throw new IllegalStateException("Buffer is frozen after cacheInputStream()");
+            }
+            super.write(b);
+        }
+
+        @Override
+        public synchronized void write(byte[] b, int off, int len) {
+            if (frozen) {
+                throw new IllegalStateException("Buffer is frozen after cacheInputStream()");
+            }
+            super.write(b, off, len);
+        }
+
+        @Override
+        public synchronized void write(byte[] b) throws IOException {
+            if (frozen) {
+                throw new IllegalStateException("Buffer is frozen after cacheInputStream()");
+            }
+            super.write(b);
+        }
+
+        @Override
+        public synchronized void writeBytes(byte[] b) {
+            if (frozen) {
+                throw new IllegalStateException("Buffer is frozen after cacheInputStream()");
+            }
+            super.writeBytes(b);
+        }
+
+        /**
+         * Disabled to prevent accidental memory copies. Use {@link #getBuffer()} and
+         * {@link #getCount()} for zero-copy access.
+         *
+         * @throws UnsupportedOperationException always
+         */
+        @Override
+        public synchronized byte[] toByteArray() {
+            throw new UnsupportedOperationException(
+                    "Use getBuffer()/getCount() for zero-copy access. "
+                    + "toByteArray() is disabled to prevent accidental memory copies.");
+        }
+
+        @Override
+        public synchronized void writeTo(OutputStream out) throws IOException {
+            if (!frozen) {
+                throw new IllegalStateException("Buffer must be frozen before reading");
+            }
+            out.write(buf, 0, count);
+        }
+
+        @Override
+        public synchronized int size() {
+            if (!frozen) {
+                throw new IllegalStateException("Buffer must be frozen before reading");
+            }
+            return count;
+        }
+
+        @Override
+        public synchronized String toString() {
+            return "ExposedByteArrayOutputStream[frozen=" + frozen + ", count=" + (frozen ? count : "?") + "]";
+        }
+
+        @SuppressWarnings("deprecation")
+        @Override
+        public synchronized String toString(int hibyte) {
+            throw new UnsupportedOperationException(
+                    "toString(int) disabled to prevent accidental memory copies.");
+        }
+
+        @Override
+        public synchronized String toString(String charsetName) {
+            throw new UnsupportedOperationException(
+                    "toString(String) disabled to prevent accidental memory copies.");
+        }
+
+        @Override
+        public synchronized String toString(Charset charset) {
+            throw new UnsupportedOperationException(
+                    "toString(Charset) disabled to prevent accidental memory copies.");
+        }
+
+        @Override
+        public synchronized void reset() {
+            if (frozen) {
+                throw new IllegalStateException("Buffer is frozen after cacheInputStream()");
+            }
+            super.reset();
+        }
+    }
+
     /* An inputstream which reads the cached request body */
     private static class CachedServletInputStream extends ServletInputStream {
         private final ByteArrayInputStream input;
 
-        public CachedServletInputStream(ByteArrayOutputStream cachedBytes) {
-            /* create a new input stream from the cached request body */
-            input = new ByteArrayInputStream(cachedBytes.toByteArray());
+        public CachedServletInputStream(ExposedByteArrayOutputStream cachedBytes) {
+            // Use the internal buffer directly (no copy). The offset+length form of
+            // ByteArrayInputStream limits readable bytes to exactly count, preventing
+            // reads of uninitialized data beyond the valid region of the over-allocated buffer.
+            input = new ByteArrayInputStream(cachedBytes.getBuffer(), 0, cachedBytes.getCount());
         }
 
         @Override

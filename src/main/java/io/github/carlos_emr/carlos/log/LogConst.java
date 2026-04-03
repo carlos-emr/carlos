@@ -56,6 +56,7 @@ public class LogConst {
     public static final String REFUSED = "refused";
     public static final String UNLINK = "unlink";
     public static final String SENT = "sent";
+    public static final String EXPORT = "export";
 
     public static final String CON_LOGIN_AGREEMENT = "login agreement";
     public static final String CON_LOGIN = "login";

@@ -1326,8 +1326,6 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                     <td colspan=4>
                                         <fmt:message key="WriteScript.msgLongTermMedication"/>:
                                         <input type="checkbox" name="longTerm" onchange="javascript:writeScriptDisplay();"/>&nbsp;&nbsp;
-                                        <fmt:message key="WriteScript.msgDispenseInternal"/>:
-                                        <input type="checkbox" name="dispenseInternal" onchange="javascript:writeScriptDisplay();"/>&nbsp;&nbsp;
                                         <fmt:message key="WriteScript.msgPastMedication"/>:
                                         <input type="checkbox" name="pastMed" onchange="javascript:writeScriptDisplay();"/>&nbsp;&nbsp;
                                         <fmt:message key="WriteScript.msgPatientCompliance"/>:

@@ -115,6 +115,9 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentComment;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -2546,8 +2549,14 @@ public class DemographicExportAction42Action extends ActionSupport {
                             //omdCdsDoc.save(files.get(files.size()-1), options);
 
                         } catch (IOException ex) {
-                            logger.error("Error", ex);
-                            throw new Exception("Cannot write .xml file(s) to export directory.\n Please check directory permissions.");
+                            logger.error("Error writing export file to directory", ex);
+                            // Remove the file entry that could not be written so the list stays consistent
+                            if (!files.isEmpty()) {
+                                files.remove(files.size() - 1);
+                                dirs.remove(dirs.size() - 1);
+                            }
+                            ffwd = "fail";
+                            break;
                         }
                     }
 
@@ -2566,7 +2575,8 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                     if (files.isEmpty()) {
                         logger.warn("no files to export");
-                        return "fail";
+                        ffwd = "fail";
+                        break;
                     }
 
                     //create ReadMe.txt & ExportEvent.log
@@ -2741,6 +2751,65 @@ public class DemographicExportAction42Action extends ActionSupport {
                 break;
         }
 
+        String exportedIds = null;
+        String exportOutcome = ffwd;
+        String exportException = null;
+        try {
+            StringBuilder exportedIdsBuilder = new StringBuilder();
+            boolean truncated = false;
+            for (String id : list) {
+                if (id == null) {
+                    continue;
+                }
+                if (exportedIdsBuilder.length() > 0) {
+                    if (exportedIdsBuilder.length() + 1 > 500) {
+                        truncated = true;
+                        break;
+                    }
+                    exportedIdsBuilder.append(',');
+                }
+                if (exportedIdsBuilder.length() + id.length() > 500) {
+                    truncated = true;
+                    break;
+                }
+                exportedIdsBuilder.append(id);
+            }
+            exportedIds = exportedIdsBuilder.toString();
+            if (truncated && !exportedIds.isEmpty()) {
+                int lastComma = exportedIds.lastIndexOf(',');
+                if (lastComma > 0) {
+                    exportedIds = exportedIds.substring(0, lastComma);
+                }
+                exportedIds = exportedIds + "...";
+            }
+        } catch (RuntimeException e) {
+            // Ensure failures in the export tail are still audited without exposing PHI
+            exportOutcome = "error";
+            exportException = e.getClass().getSimpleName();
+            throw e;
+        } finally {
+            if (exportedIds == null) {
+                exportedIds = "<unavailable>";
+            }
+            OscarLog exportAuditLog = new OscarLog();
+            if (loggedInInfo.getLoggedInSecurity() != null) {
+                exportAuditLog.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
+            }
+            if (loggedInInfo.getLoggedInProvider() != null) {
+                exportAuditLog.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+            }
+            exportAuditLog.setAction(LogConst.EXPORT);
+            exportAuditLog.setContent(LogConst.CON_DEMOGRAPHIC);
+            exportAuditLog.setIp(loggedInInfo.getIp());
+            StringBuilder dataBuilder = new StringBuilder();
+            dataBuilder.append("Exported ").append(list.size()).append(" records; outcome=").append(exportOutcome);
+            if (exportException != null) {
+                dataBuilder.append("; error=").append(exportException);
+            }
+            dataBuilder.append("; ids=").append(exportedIds);
+            exportAuditLog.setData(dataBuilder.toString());
+            LogAction.addLogSynchronous(exportAuditLog);
+        }
         return ffwd;
     }
 

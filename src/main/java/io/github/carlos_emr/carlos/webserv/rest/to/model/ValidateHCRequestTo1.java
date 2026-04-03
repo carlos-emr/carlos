@@ -1,5 +1,4 @@
 /**
- * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -21,22 +20,50 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- * <p>
- * Modifications made by Magenta Health in 2024.
  
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
-package io.github.carlos_emr.carlos.commn.dao;
+package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
-import java.util.List;
+import java.io.Serializable;
 
-import io.github.carlos_emr.carlos.commn.model.DrugDispensing;
+import jakarta.xml.bind.annotation.XmlRootElement;
 
-public interface DrugDispensingDao extends AbstractDao<DrugDispensing> {
+/**
+ * Request transfer object for the validateHC endpoint.
+ *
+ * <p>Carries Health Insurance Number (HIN) and version code in the POST body
+ * so that PHI never appears in the URL, server access logs, or browser history.</p>
+ *
+ * @since 2026-04-02
+ */
+@XmlRootElement
+public class ValidateHCRequestTo1 implements Serializable {
 
-    public List<DrugDispensing> findByDrugId(Integer drugId);
+    private static final long serialVersionUID = 1L;
 
+    /** Health Insurance Number (HIN) — PHI, must not be sent via URL. */
+    private String hin;
+
+    /** Version code associated with the health card. */
+    private String ver;
+
+    public String getHin() {
+        return hin;
+    }
+
+    public void setHin(String hin) {
+        this.hin = hin;
+    }
+
+    public String getVer() {
+        return ver;
+    }
+
+    public void setVer(String ver) {
+        this.ver = ver;
+    }
 }
