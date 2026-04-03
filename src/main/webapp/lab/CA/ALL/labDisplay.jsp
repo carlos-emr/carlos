@@ -380,7 +380,7 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
         const ctx = contextpath;
 
         <%-- Pre-declare i18n messages used in JavaScript so they can be safely embedded
-        in JavaScript string literals using OWASP ${e:forJavaScript(msg_Comment} encoding --%>
+        in JavaScript string literals using OWASP ${e:forJavaScript(msg_Comment)} encoding --%>
 
         <fmt:message key="oscarMDS.segmentDisplay.msgComment"  var="msg_Comment"/>
         <fmt:message key="oscarMDS.index.msgConfirmAcknowledge" var="msg_ack"/>
@@ -587,7 +587,7 @@ input[id^='acklabel_']{
                     comment = "";
                 }
             }
-            var commentVal = prompt('${e:forJavaScript(msg_Comment}',comment);
+            var commentVal = prompt('${e:forJavaScript(msg_Comment)}',comment);
 
             var ackForm = document.forms['acknowledgeForm_' + segmentId];
             if (commentVal == null) {
@@ -711,23 +711,23 @@ input[id^='acklabel_']{
 
         function confirmAck() {
             <% if (props.getProperty("confirmAck", "").equals("yes")) { %>
-            return confirm('${e:forJavaScript(msg_ack}');
+            return confirm('${e:forJavaScript(msg_ack)}');
             <% } else { %>
             return true;
             <% } %>
         }
 
         function confirmCommentUnmatched() {
-            return confirm('${e:forJavaScript(msg_ack_unmatched}');
+            return confirm('${e:forJavaScript(msg_ack_unmatched)}');
         }
 
         function confirmAckUnmatched() {
-            return confirm('${e:forJavaScript(msg_ack_unmatched}');
+            return confirm('${e:forJavaScript(msg_ack_unmatched)}');
         }
 
         function unlinkDemographic(labNo) {
             var reason = "Incorrect demographic";
-            reason = prompt('${e:forJavaScript(msg_unlink}', reason);
+            reason = prompt('${e:forJavaScript(msg_unlink)}', reason);
 
             //must include reason
             if (reason == null || reason.length === 0) {
