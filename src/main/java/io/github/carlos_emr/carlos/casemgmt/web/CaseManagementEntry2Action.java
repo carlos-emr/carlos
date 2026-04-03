@@ -2056,7 +2056,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                     + "&billForm=" + defaultView
                     + "&hotclick=&appointment_no="
                     + appointmentNo
-                    + "&amp;status=t&demographic_no=" + demoNo
+                    + "&status=t&demographic_no=" + demoNo
                     + "&providerview=" + providerview
                     + "&user_no=" + providerNo
                     + "&apptProvider_no=" + apptProvider
