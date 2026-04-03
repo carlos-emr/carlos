@@ -82,10 +82,10 @@
             <result name="success">/WEB-INF/jsp/oscarReport/demographicSetEdit.jsp</result>
         </action>
         <action name="RunClinicalReport" class="io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil.RunClinicalReport2Action">
-            <result name="success">/report/ClinicalReports.jsp</result>
+            <result name="success">/WEB-INF/jsp/report/ClinicalReports.jsp</result>
         </action>
         <action name="report/RemoveClinicalReport" class="io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil.RemoveClinicalReportFromHistory2Action">
-            <result name="success">/report/ClinicalReports.jsp</result>
+            <result name="success">/WEB-INF/jsp/report/ClinicalReports.jsp</result>
         </action>
         <action name="report/DeleteDemographicReport" class="io.github.carlos_emr.carlos.report.pageUtil.RptDemographQueryFavouriteDelete2Action">
             <result name="success">/oscarReport/ReportDemographicReport.jsp</result>
@@ -107,7 +107,7 @@
             <result name="success">/report/GenerateLetters.jsp</result>
         </action>
         <action name="report/DeleteLetter" class="io.github.carlos_emr.carlos.report.pageUtil.DeletePatientLetters2Action">
-            <result name="success">/report/ManageLetters.jsp</result>
+            <result name="success">/WEB-INF/jsp/report/ManageLetters.jsp</result>
         </action>
         <action name="oscarReport/reportByTemplate/GenerateReportAction" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateReport2Action">
             <result name="success">/oscarReport/reportByTemplate/resultReport.jsp</result>

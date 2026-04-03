@@ -75,7 +75,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
 
             if (!saveFile(file, fileName)) {
                 addActionError(getText("errors.fileNotAdded"));
-                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp");
+                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/AddMeasurementStyleSheet.do");
                 return NONE;
             } else {
                 write2Database(fileName);

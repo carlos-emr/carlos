@@ -40,13 +40,13 @@
         </action>
         <action name="messenger/DisplayMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayMessages2Action">
             <result name="success">/messenger/DisplayMessages.jsp</result>
-            <result name="demoMsg">/messenger/DisplayDemographicMessages.jsp</result>
+            <result name="demoMsg">/WEB-INF/jsp/messenger/DisplayDemographicMessages.jsp</result>
         </action>
         <action name="messenger/SendDemoMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSendDemographicMessage2Action">
             <result name="success">/messenger/CreateMessage.jsp</result>
         </action>
         <action name="messenger/DisplayDemographicMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayDemographicMessages2Action">
-            <result name="demoMsg">/messenger/DisplayDemographicMessages.jsp</result>
+            <result name="demoMsg">/WEB-INF/jsp/messenger/DisplayDemographicMessages.jsp</result>
         </action>
         <action name="messenger/ReDisplayMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgReDisplayMessages2Action">
             <result name="success">/messenger/DisplayMessages.jsp</result>
@@ -82,10 +82,10 @@
             <result name="success">/messenger/ViewAttachment.jsp</result>
         </action>
         <action name="messenger/ViewPDFAttach" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewPDFAttachment2Action">
-            <result name="success">/messenger/ViewPDFAttachment.jsp</result>
+            <result name="success">/WEB-INF/jsp/messenger/ViewPDFAttachment.jsp</result>
         </action>
         <action name="messenger/ViewPDFFile" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewPDF2Action">
-            <result name="success">/messenger/ViewPDFFile.jsp</result>
+            <result name="success">/WEB-INF/jsp/messenger/ViewPDFFile.jsp</result>
         </action>
         <action name="messenger/Transfer/Proceed" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgProceed2Action">
             <result name="success">/messenger/Transfer/SearchComplete.jsp</result>

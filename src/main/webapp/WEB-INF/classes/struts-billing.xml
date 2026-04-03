@@ -129,10 +129,10 @@
             <result name="success">/billing/CA/ON/ScheduleOfBenefitsUpload.jsp</result>
         </action>
         <action name="billing/CA/BC/receivePaymentAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ReceivePayment2Action">
-            <result name="success">/billing/CA/BC/receivePayment.jsp</result>
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/receivePayment.jsp</result>
         </action>
         <action name="billing/CA/BC/viewReceivePaymentAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewReceivePayment2Action">
-            <result name="success">/billing/CA/BC/receivePayment.jsp</result>
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/receivePayment.jsp</result>
         </action>
         <action name="billing/CA/BC/saveBillingPreferencesAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveBillingPreferences2Action">
             <result name="success">/billing/CA/BC/viewBillingPreferencesAction.do</result>

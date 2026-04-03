@@ -155,10 +155,10 @@
                                                  onClick="javascript:goURL('encounter/immunization/config/CreateImmunizationSetInit.jsp');">
                             <% if (deletedList == true) { %> <input type="button" name="action"
                                                                     value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.config.administrativeImmunizationSets.btnSetlist"/>"
-                                                                    onClick="goURL('encounter/immunization/config/AdministrateImmunizationSets.jsp');"> <% } else { %>
+                                                                    onClick="goURL('encounter/immunization/config/initConfig.do');"> <% } else { %>
                             <input type="button" name="action"
                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.config.administrativeImmunizationSets.btnDelList"/>"
-                                   onClick="goURL('encounter/immunization/config/AdministrateImmunizationSets.jsp?stat=2');">
+                                   onClick="goURL('encounter/immunization/config/initConfig.do?stat=2');">
                             <% } %>
                         </td>
                     </tr>

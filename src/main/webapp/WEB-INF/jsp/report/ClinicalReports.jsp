@@ -354,7 +354,7 @@
                     ArrayList<ReportEvaluator> arrList = (ArrayList) session.getAttribute("ClinicalReports");
                     if (arrList != null) {
                 %>
-                <a href="<%= request.getContextPath() %>/report/ClinicalReports.jsp?clear=yes"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgClear"/></a>
+                <a href="<%= request.getContextPath() %>/report/RemoveClinicalReport.do?clear=yes"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgClear"/></a>
                 <ul style="list-style-type:square; margin-left:1px;padding-left:4px;padding-top:2px;margin-top:2px;">
                     <% for (int i = 0; i < arrList.size(); i++) {
                         ReportEvaluator re = arrList.get(i);

@@ -89,14 +89,14 @@ public class EctAddMeasuringInstruction2Action extends ActionSupport {
                 isValid = false;
             }
             if (!isValid) {
-                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/AddMeasuringInstruction.jsp");
+                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/SetupAddMeasuringInstruction.do");
                 return NONE;
             }
 
             List<MeasurementType> mts = dao.findByMeasuringInstructionAndTypeDisplayName(measuringInstrc, typeDisplayName);
             if (mts.size() > 0) {
                 addActionError(getText("error.encounter.Measurements.duplicateTypeName"));
-                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/AddMeasuringInstruction.jsp");
+                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/SetupAddMeasuringInstruction.do");
                 return NONE;
             }
 

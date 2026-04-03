@@ -57,11 +57,11 @@
             <result name="successUserSent">/mcedt/mailbox/index.jsp?tab=sent</result>
         </action>
         <action name="mcedt/openAutoUpload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Resource2Action">
-            <result name="success">/mcedt/mailbox/autoUpload.jsp</result>
+            <result name="success">/WEB-INF/jsp/mcedt/mailbox/autoUpload.jsp</result>
         </action>
         <action name="mcedt/autoUpload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action">
-            <result name="success">/mcedt/mailbox/autoUpload.jsp</result>
-            <result name="failure">/mcedt/mailbox/autoUpload.jsp?connection=failed</result>
+            <result name="success">/WEB-INF/jsp/mcedt/mailbox/autoUpload.jsp</result>
+            <result name="failure">/WEB-INF/jsp/mcedt/mailbox/autoUpload.jsp?connection=failed</result>
             <result name="cancel">/mcedt/kaimcedt.do</result>
         </action>
         <action name="mcedt/upload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action">
@@ -79,7 +79,7 @@
             <result name="cancel">/mcedt/kaimcedt.do</result>
         </action>
         <action name="mcedt/kaiautodl" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Download2Action">
-            <result name="success">/mcedt/mailbox/autoDownload.jsp</result>
+            <result name="success">/WEB-INF/jsp/mcedt/mailbox/autoDownload.jsp</result>
             <result name="cancel">/mcedt/kaimcedt.do</result>
         </action>
         <action name="mcedt/download" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Download2Action">
