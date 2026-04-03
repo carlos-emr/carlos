@@ -132,14 +132,14 @@
 
             function typeInData1(data) {
                 self.close();
-                opener.<%=param%> = data;
+                opener['<%= Encode.forJavaScript(param) %>'] = data;
             }
 
             <%if(param2.length()>0) {%>
 
             function typeInData2(data1, data2) {
-                opener.<%=param%> = data1;
-                opener.<%=param2%> = data2;
+                opener['<%= Encode.forJavaScript(param) %>'] = data1;
+                opener['<%= Encode.forJavaScript(param2) %>'] = data2;
                 self.close();
             }
 
@@ -198,7 +198,7 @@
            value="<%=StringEscapeUtils.escapeHtml4(param2)%>">
     <table width="95%" border="0">
         <tr>
-            <td align="left">Results based on keyword(s): <%=keyword == null ? "" : keyword%>
+            <td align="left">Results based on keyword(s): <%= Encode.forHtml(keyword == null ? "" : keyword) %>
             </td>
         </tr>
         </form>
@@ -270,12 +270,12 @@
         <script language="JavaScript">
             <!--
             function last() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(request.getParameter("keyword"))%>&search_mode=<%=Encode.forJavaScript(request.getParameter("search_mode"))%>&orderby=<%=Encode.forJavaScript(request.getParameter("orderby"))%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(Encode.forUriComponent(request.getParameter("keyword")))%>&search_mode=<%=Encode.forJavaScript(Encode.forUriComponent(request.getParameter("search_mode")))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(request.getParameter("orderby")))%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(request.getParameter("keyword"))%>&search_mode=<%=Encode.forJavaScript(request.getParameter("search_mode"))%>&orderby=<%=Encode.forJavaScript(request.getParameter("orderby"))%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(Encode.forUriComponent(request.getParameter("keyword")))%>&search_mode=<%=Encode.forJavaScript(Encode.forUriComponent(request.getParameter("search_mode")))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(request.getParameter("orderby")))%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 

@@ -90,7 +90,7 @@ Use returnForm and returnItem request params and this page will fill in that inp
         function typeMultiDate(year1, month1, day1) {
             self.close();
             opener.document
-        .<%=returnForm%>.<%=returnItem%>.
+        ['<%= Encode.forJavaScript(returnForm) %>']['<%= Encode.forJavaScript(returnItem) %>'].
             value = year1 + "-" + month1 + "-" + day1;
         }
 
@@ -105,12 +105,12 @@ Use returnForm and returnItem request params and this page will fill in that inp
 <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
     <tr>
         <td BGCOLOR="#FFD7C4" width="50%" align="center"><a
-                href="billingCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=-1&type=<%= Encode.forUriComponent(type) %>&returnForm=<%=returnForm%>&returnItem=<%=returnItem%>">
+                href="billingCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=-1&type=<%= Encode.forUriComponent(type) %>&returnForm=<%= Encode.forUriComponent(returnForm) %>&returnItem=<%= Encode.forUriComponent(returnItem) %>">
             &nbsp;&nbsp;<img src="<%= request.getContextPath() %>/images/previous.gif" WIDTH="10"
                              HEIGHT="9" BORDER="0" ALT="View Last Month" vspace="2"> last
             month&nbsp;&nbsp; </a> <b><span CLASS=title><%=year%>-<%=month%></span></b>
             <a
-                    href="billingCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=1&type=<%= Encode.forUriComponent(type) %>&returnForm=<%=returnForm%>&returnItem=<%=returnItem%>">
+                    href="billingCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=1&type=<%= Encode.forUriComponent(type) %>&returnForm=<%= Encode.forUriComponent(returnForm) %>&returnItem=<%= Encode.forUriComponent(returnItem) %>">
                 &nbsp;&nbsp;next month <img src="<%= request.getContextPath() %>/images/next.gif" WIDTH="10"
                                             HEIGHT="9" BORDER="0" ALT="View Next Month" vspace="2">&nbsp;&nbsp;</a></td>
     </TR>

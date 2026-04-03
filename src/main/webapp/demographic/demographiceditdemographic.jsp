@@ -1178,7 +1178,7 @@
                         </special:SpecialPlugin>
                         <tr>
                             <td><a
-                                    href="<%= request.getContextPath() %>/eform/efmpatientformlist.jsp?demographic_no=<%= Encode.forJavaScript(demographic_no) %>&apptProvider=<%=apptProvider%>&appointment=<%=appointment%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
+                                    href="<%= request.getContextPath() %>/eform/efmpatientformlist.jsp?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&apptProvider=<%= Encode.forUriComponent(apptProvider != null ? apptProvider : "") %>&appointment=<%= Encode.forUriComponent(appointment != null ? appointment : "") %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
                         </tr>
 
                     </table>
@@ -1440,7 +1440,7 @@
 														<span class="label" style="color:red;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:
 														</span>
                                                                         <span class="info" style="color:red;">
-															<c:out value="<%=Encode.forHtml(demographic.getAlias())%>"/>
+															<%= Encode.forHtml(demographic.getAlias()) %>
 														</span>
                                                                     </li>
 
@@ -2596,7 +2596,7 @@
                                                         <td align="left"><input type="text"
                                                                                 name="nameUsed" <%=getDisabled("nameUsed")%>
                                                                                 size="30"
-                                                                                value="<c:out value="<%=Encode.forHtmlAttribute(demographic.getAlias())%>" />"
+                                                                                value="<%= Encode.forHtmlAttribute(demographic.getAlias()) %>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td style="text-align: right;">
                                                             <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></strong>

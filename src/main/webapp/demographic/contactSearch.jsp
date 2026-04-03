@@ -99,10 +99,10 @@
                     serializePopupData(data1, data2);
                 } catch (error) {
                     opener.document
-                .<%=form%>.
+                ['<%= Encode.forJavaScript(form) %>'].
                     elements['<%= Encode.forJavaScript(elementId) %>'].value = data1;
                     opener.document
-                .<%=form%>.
+                ['<%= Encode.forJavaScript(form) %>'].
                     elements['<%= Encode.forJavaScript(elementName) %>'].value = data2;
                     self.close();
                 }

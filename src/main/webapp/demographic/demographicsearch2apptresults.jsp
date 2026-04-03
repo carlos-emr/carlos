@@ -326,18 +326,18 @@
 
             function addNameCaisi(demographic_no, lastname, firstname, chartno, messageID) {
                 fullname = lastname + "," + firstname;
-                if (opener.document.<%= Encode.forJavaScript(request.getParameter("formName")) %> != null) {
-                    if (opener.document.<%= Encode.forJavaScript(request.getParameter("formName")) %>.
+                if (opener.document['<%= Encode.forJavaScript(request.getParameter("formName")) %>'] != null) {
+                    if (opener.document['<%= Encode.forJavaScript(request.getParameter("formName")) %>'].
                     elements['<%= Encode.forJavaScript(request.getParameter("elementName")) %>'] != null
                 )
                     opener.document
-                .<%= Encode.forJavaScript(request.getParameter("formName")) %>.
+                ['<%= Encode.forJavaScript(request.getParameter("formName")) %>'].
                     elements['<%= Encode.forJavaScript(request.getParameter("elementName")) %>'].value = fullname;
-                    if (opener.document.<%= Encode.forJavaScript(request.getParameter("formName")) %>.
+                    if (opener.document['<%= Encode.forJavaScript(request.getParameter("formName")) %>'].
                     elements['<%= Encode.forJavaScript(request.getParameter("elementId")) %>'] != null
                 )
                     opener.document
-                .<%= Encode.forJavaScript(request.getParameter("formName")) %>.
+                ['<%= Encode.forJavaScript(request.getParameter("formName")) %>'].
                     elements['<%= Encode.forJavaScript(request.getParameter("elementId")) %>'].value = demographic_no;
                 }
                 self.close();

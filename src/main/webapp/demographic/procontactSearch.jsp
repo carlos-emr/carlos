@@ -132,10 +132,10 @@
                     // split contact type [0] from contact id [1]
                     data1 = data1.split("_")[1].trim();
                     opener.document
-                .<%=form%>.
+                ['<%= Encode.forJavaScript(form) %>'].
                     elements['<%= Encode.forJavaScript(elementId) %>'].value = data1;
                     opener.document
-                .<%=form%>.
+                ['<%= Encode.forJavaScript(form) %>'].
                     elements['<%= Encode.forJavaScript(elementName) %>'].value = data2;
                     self.close();
                 }
@@ -223,7 +223,7 @@
 
         <tr style="background-color:white;border:white;">
             <td colspan="3">
-                <strong>Results based on keyword(s):</strong> <%=keyword == null ? "" : keyword%>
+                <strong>Results based on keyword(s):</strong> <%= Encode.forHtml(keyword == null ? "" : keyword) %>
             </td>
         </tr>
 
@@ -302,12 +302,12 @@
     <script type="text/javascript">
         //<!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forUriComponent(request.getParameter("keyword")) %>&search_mode=<%= Encode.forUriComponent(request.getParameter("search_mode")) %>&orderby=<%= Encode.forUriComponent(request.getParameter("orderby")) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("keyword"))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("search_mode"))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("orderby"))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
             document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forUriComponent(request.getParameter("keyword")) %>&search_mode=<%= Encode.forUriComponent(request.getParameter("search_mode")) %>&orderby=<%= Encode.forUriComponent(request.getParameter("orderby")) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("keyword"))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("search_mode"))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("orderby"))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
             document.nextform.submit();
         }
 

@@ -426,7 +426,7 @@
                                 <% } %>
                                 <input type="button" class="smallButton"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
-                                       onClick="popupStart(300, 400, '<%= request.getContextPath() %>/oscarMDS/SelectProviderAltView.jsp?doc_no=<%=Encode.forJavaScriptAttribute(segmentID)%>&providerNo=<%=Encode.forJavaScriptAttribute(providerNo)%>&searchProviderNo=<%=searchProviderNo%>', 'providerselect')">
+                                       onClick="popupStart(300, 400, '<%= request.getContextPath() %>/oscarMDS/SelectProviderAltView.jsp?doc_no=<%=Encode.forJavaScriptAttribute(segmentID)%>&providerNo=<%=Encode.forJavaScriptAttribute(providerNo)%>&searchProviderNo=<%=Encode.forJavaScriptAttribute(searchProviderNo)%>', 'providerselect')">
                                 <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
                                        onClick="printPDF('<%=Encode.forJavaScriptAttribute(segmentID)%>')">
 
@@ -491,7 +491,7 @@
                                 } else {
                                     if (searchProviderNo != null) { // null if we were called from e-chart
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= searchProviderNo %>', 'labVersion');">v<%= i + 1 %>
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>', 'labVersion');">v<%= i + 1 %>
                                 </a>&#160;<%
                                 } else {
                                 %><a href="javascript:void(0);"
@@ -503,7 +503,7 @@
                                     if (multiID.length > 1) {
                                         if (searchProviderNo != null) { // null if we were called from e-chart
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=Encode.forJavaScriptAttribute(segmentID)%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= searchProviderNo %>&all=true', 'labVersion');">All</a>&#160;<%
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=Encode.forJavaScriptAttribute(segmentID)%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&all=true', 'labVersion');">All</a>&#160;<%
                                 } else {
                                 %><a href="javascript:void(0);"
                                      onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=Encode.forJavaScriptAttribute(segmentID)%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&all=true', 'labVersion');">All</a>&#160;<%
@@ -1290,7 +1290,7 @@
                                onclick="getComment('<%=Encode.forJavaScriptAttribute(segmentID)%>','addComment')">
                         <% } %>
                         <input type="button" class="smallButton" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
-                               onClick="popupStart(300, 400, '${pageContext.request.contextPath}/oscarMDS/SelectProviderAltView.jsp?doc_no=<%=Encode.forJavaScriptAttribute(segmentID)%>&providerNo=<%=Encode.forJavaScriptAttribute(providerNo)%>&searchProviderNo=<%=searchProviderNo%>', 'providerselect')">
+                               onClick="popupStart(300, 400, '${pageContext.request.contextPath}/oscarMDS/SelectProviderAltView.jsp?doc_no=<%=Encode.forJavaScriptAttribute(segmentID)%>&providerNo=<%=Encode.forJavaScriptAttribute(providerNo)%>&searchProviderNo=<%=Encode.forJavaScriptAttribute(searchProviderNo)%>', 'providerselect')">
 
                         <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
                                onClick="printPDF('<%=Encode.forJavaScriptAttribute(segmentID)%>')">

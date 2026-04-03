@@ -1610,7 +1610,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 	while (iter.hasNext()) {
 		Provider p=iter.next();
 		if ("1".equals(p.getStatus()) && StringUtils.isNotBlank(p.getOhipNo())) {
-	%><option value='<%= p.getProviderNo() %>|<%= p.getOhipNo() %>' ><%=Encode.forJavaScript(p.getLastName())%>, <%=Encode.forJavaScript(p.getFirstName())%></option><%}}%>";
+	%><option value='<%= p.getProviderNo() %>|<%= p.getOhipNo() %>' ><%=Encode.forHtml(p.getLastName())%>, <%=Encode.forHtml(p.getFirstName())%></option><%}}%>";
                                             <%}%>
 
                                             function changeSite(sel) {
