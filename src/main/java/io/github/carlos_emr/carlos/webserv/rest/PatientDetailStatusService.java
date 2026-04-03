@@ -91,8 +91,8 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
             error.setResponseDescription("Invalid Health Card Number");
             return error;
         }
-        String healthCardNo = request.getHin();
-        String versionCode = request.getVer();
+        String healthCardNo = request.getHin().trim();
+        String versionCode = request.getVer() == null ? null : request.getVer().trim();
         HCValidator validator = HCValidationFactory.getHCValidator();
         HCValidationResult result = null;
 
