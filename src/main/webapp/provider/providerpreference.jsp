@@ -40,7 +40,7 @@
       - Saves: POST to providerupdatepreference.jsp which calls both
                ProviderPreferencesUIBean.updateOrCreateProviderPreferences() and
                ProviderPropertyAction.updateOrCreateProviderProperties()
-      - Two fields auto-save via AJAX: rxInteractionWarningLevel, reviewMsg
+      - One field auto-saves via AJAX: rxInteractionWarningLevel
 
     @since 2002 (original), redesigned 2026-02-14 for consolidated single-page view
 --%>
@@ -207,25 +207,6 @@
     UserProperty showWeekendsProp = propertyDao.getProp(providerNo, UserProperty.SCHEDULE_WEEK_VIEW_WEEKENDS);
     if (showWeekendsProp != null) {
         weekendsEnabled = Boolean.parseBoolean(showWeekendsProp.getValue());
-    }
-
-    // Review messages time - stored as "H:m" string (e.g., "9:0", "14:30") in
-    // OSCAR_MSG_RECVD property. Parsed into separate hour/minute integers for the
-    // dropdown selection logic. Default is 0:00 if no preference is saved or malformed.
-    Integer reviewH = 0;
-    Integer reviewMins = 0;
-    UserProperty reviewMsgProp = propertyDao.getProp(providerNo, UserProperty.OSCAR_MSG_RECVD);
-    if (reviewMsgProp != null && reviewMsgProp.getValue() != null) {
-        try {
-            String[] tmp = reviewMsgProp.getValue().split(":");
-            if (tmp.length >= 2) {
-                reviewH = Integer.valueOf(tmp[0]);
-                reviewMins = Integer.valueOf(tmp[1]);
-            }
-        } catch (NumberFormatException e) {
-            MiscUtils.getLogger().warn("Malformed review message time for provider "
-                    + providerNo + ": '" + reviewMsgProp.getValue() + "', defaulting to 0:00");
-        }
     }
 
     // eForm groups for the favourite group dropdown
@@ -1074,7 +1055,7 @@
 
 <%-- ═══════════════════════════════════════════════════════════════════════
      SECTION 7: LAB, PREVENTION & MESSAGING
-     Lab acknowledgement, prevention warnings, review messages, dashboard
+     Lab acknowledgement, prevention warnings, dashboard
      ═══════════════════════════════════════════════════════════════════════ --%>
 <div class="accordion-item">
     <h2 class="accordion-header">
@@ -1092,25 +1073,6 @@
                 <div class="pref-value">
                     <input type="checkbox" class="form-check-input" role="switch"
                            name="lab_ack_comment" value="yes" <%=labAckComment ? "checked" : ""%>>
-                </div>
-            </div>
-
-            <%-- Review messages time - auto-saved via AJAX --%>
-            <div class="pref-row">
-                <div class="pref-label">
-                    <fmt:message key="provider.providerpreference.label.reviewMsgTime"/>
-                    <span class="badge-auto"><fmt:message key="provider.providerpreference.badge.autoSave"/></span>
-                </div>
-                <div class="pref-value">
-                    <select id="reviewMsg" name="reviewMsg" class="pref-input form-select-sm"><%
-                        for (int hr = 0; hr < 24; ++hr) {
-                            for (int min = 0; min < 60; min += 30) {
-                                String sel = (hr == reviewH && min == reviewMins) ? "selected" : "";
-                                String lbl = hr + ":" + (min == 0 ? "00" : String.valueOf(min));
-                    %><option value="<%=hr%>:<%=min%>" <%=sel%>><%=lbl%></option><%
-                            }
-                        }
-                    %></select>
                 </div>
             </div>
 
@@ -1445,8 +1407,6 @@
 <fmt:message key="provider.providerpreference.js.quickLinkNavigate" var="_jsQuickLinkNavigate"/>
 <fmt:message key="provider.providerpreference.js.rxWarnSaveFailed.session" var="_jsRxWarnSession"/>
 <fmt:message key="provider.providerpreference.js.rxWarnSaveFailed.retry" var="_jsRxWarnRetry"/>
-<fmt:message key="provider.providerpreference.js.reviewMsgSaveFailed.session" var="_jsReviewMsgSession"/>
-<fmt:message key="provider.providerpreference.js.reviewMsgSaveFailed.retry" var="_jsReviewMsgRetry"/>
 <script>
 var _i18n = {
     schedInvalidNumbers: '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsSchedInvalidNumbers"))%>',
@@ -1457,9 +1417,7 @@ var _i18n = {
     quickLinkRequired:   '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsQuickLinkRequired"))%>',
     quickLinkNavigate:   '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsQuickLinkNavigate"))%>',
     rxWarnSession:       '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsRxWarnSession"))%>',
-    rxWarnRetry:         '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsRxWarnRetry"))%>',
-    reviewMsgSession:    '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsReviewMsgSession"))%>',
-    reviewMsgRetry:      '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsReviewMsgRetry"))%>'
+    rxWarnRetry:         '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsRxWarnRetry"))%>'
 };
 
 /**
@@ -1632,46 +1590,6 @@ function isValidAutoSaveResponse(status, body) {
             self.value = previousValue;
             flashAutoSave(self, false);
             alert(_i18n.rxWarnRetry);
-        });
-    });
-})();
-
-// Review Messages Time - saves via setProviderStaleDate.do
-(function() {
-    var el = document.getElementById('reviewMsg');
-    var previousValue = el.value;
-    el.addEventListener('focus', function() { previousValue = this.value; });
-    el.addEventListener('change', function() {
-        var self = this;
-        var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-        var csrfToken = csrfEl ? csrfEl.value : '';
-        fetch('<c:out value="${ctx}"/>/setProviderStaleDate.do', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-Requested-With': 'XMLHttpRequest',
-                'CSRF-TOKEN': csrfToken
-            },
-            body: 'method=OscarMsgRecvd&value=' + encodeURIComponent(self.value)
-                + '&provider_no=<%=Encode.forJavaScript(providerNo)%>'
-        }).then(function(r) {
-            return r.text().then(function(body) {
-                if (isValidAutoSaveResponse(r.status, body)) {
-                    flashAutoSave(self, true);
-                    previousValue = self.value;
-                } else {
-                    console.error('Review message time: unexpected response (possible session expiry)');
-                    self.value = previousValue;
-                    flashAutoSave(self, false);
-                    alert(_i18n.reviewMsgSession);
-                }
-            });
-        }).catch(function(err) {
-            console.error('Failed to save review message time:', err);
-            self.value = previousValue;
-            flashAutoSave(self, false);
-            alert(_i18n.reviewMsgRetry);
         });
     });
 })();
