@@ -374,19 +374,6 @@
             }
 
 
-            function generateRenalLabReq(demographicNo) {
-                var url = '<%=request.getContextPath()%>/form/formlabreq<%=labReqVer%>.jsp?demographic_no=' + demographicNo + '&formId=0&provNo=<%=session.getAttribute("user")%>&fromSession=true';
-                jQuery.ajax({
-                    type: 'POST',
-                    url: '<%=request.getContextPath()%>/renal/Renal.do',
-                    data: {method: 'createLabReq', demographicNo: demographicNo},
-                    async: false,
-                    success: function (data) {
-                        popupPage(900, 850, url);
-                    }
-                });
-            }
-
             function reportWindow(page) {
                 windowprops = "height=660, width=960, location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
                 var popup = window.open(page, "labreport", windowprops);

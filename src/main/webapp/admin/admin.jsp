@@ -503,21 +503,6 @@
                         }
 
                     %>
-                    <li>
-                        <a href="#" onclick='popupPage(550,800, "${pageContext.request.contextPath}/renal/ckd_screening_report.jsp");return false;'>
-                            CKD Screening Report
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" onclick='popupPage(550,800, "${pageContext.request.contextPath}/renal/preImplementationSubmit.jsp");return false;'>
-                            Pre-Implementation Report
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" onclick='popupPage(550,800, "${pageContext.request.contextPath}/renal/patientLetterManager.jsp");return false;'>
-                            Manage Patient Letter
-                        </a>
-                    </li>
                 </ul>
             </div>
         </security:oscarSec>
