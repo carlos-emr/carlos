@@ -71,7 +71,7 @@
             $(document).ready(function () {
                 $('#episodeTable').DataTable({
                     "language": {
-                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>.json"
+                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18n.datatablescode"/>.json"
                     }
                     //  "aaSorting": [[ 1, "desc" ]]
                 });

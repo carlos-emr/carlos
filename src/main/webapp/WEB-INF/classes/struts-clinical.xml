@@ -120,7 +120,7 @@
             <result name="success">/casemgmt/uploadimage.jsp</result>
         </action>
         <action name="casemgmt/ExtPrintRegistry" class="io.github.carlos_emr.carlos.casemgmt.web.ExtPrintRegistry2Action"/>
-        <action name="casemgmt/RegisterCppCode" class="io.github.carlos_emr.carlos.casemgmt.web.RegisterCppCode2Action"/>
+
         <action name="ArchiveView" class="io.github.carlos_emr.carlos.casemgmt.web.ArchiveView2Action" method="execute">
             <result name="view">/provider/providercontrol.jsp</result>
         </action>
