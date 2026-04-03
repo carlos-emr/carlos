@@ -451,10 +451,10 @@ class HttpMethodGuardFilterUnitTest {
         }
 
         @Test
-        @DisplayName("should block GET to setProviderAvailability.jsp with submit=save")
-        void shouldBlock_forGetToSetProviderAvailabilityWithSave() throws Exception {
+        @DisplayName("should block GET to admin JSP with submit=save")
+        void shouldBlock_forGetToAdminJspWithSave() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/admin/hamiltonPublicHealth/setProviderAvailability.jsp");
+            when(request.getRequestURI()).thenReturn("/carlos/admin/demographicmergerecord.jsp");
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(Collections.singletonList("submit")));
 
@@ -465,10 +465,10 @@ class HttpMethodGuardFilterUnitTest {
         }
 
         @Test
-        @DisplayName("should pass through GET to setProviderAvailability.jsp without mutator params")
-        void shouldPassThrough_forGetToSetProviderAvailabilityWithoutSave() throws Exception {
+        @DisplayName("should pass through GET to admin JSP without mutator params")
+        void shouldPassThrough_forGetToAdminJspWithoutSave() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/admin/hamiltonPublicHealth/setProviderAvailability.jsp");
+            when(request.getRequestURI()).thenReturn("/carlos/admin/demographicmergerecord.jsp");
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(Collections.emptyList()));
 

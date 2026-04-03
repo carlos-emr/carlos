@@ -106,7 +106,6 @@ public class DrugTo1 implements Serializable {
 
     private Boolean noSubstitutions;
 
-    private Boolean dispenseInternal = null;
     private String dispenseIntervalNumber = null;
     private Integer refillDuration = null;
     private Integer refillQuantity = null;
@@ -366,14 +365,6 @@ public class DrugTo1 implements Serializable {
 
     public void setCustomName(String customName) {
         this.customName = customName;
-    }
-
-    public Boolean getDispenseInternal() {
-        return dispenseInternal;
-    }
-
-    public void setDispenseInternal(Boolean dispenseInternal) {
-        this.dispenseInternal = dispenseInternal;
     }
 
     public String getDispenseIntervalNumber() {
