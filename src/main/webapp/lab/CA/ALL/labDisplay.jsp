@@ -142,12 +142,13 @@
 <%@ page import="org.w3c.dom.Document" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %> 
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProperties" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -363,7 +364,6 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
     CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
 
 %>
-<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE HTML>
 
 <html>
@@ -380,12 +380,12 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
         const ctx = contextpath;
 
         <%-- Pre-declare i18n messages used in JavaScript so they can be safely embedded
-        in JavaScript string literals using OWASP ${e:forJavaScript(msg_Comment)} encoding --%>
+        in JavaScript string literals using OWASP ${e:forJavaScript(msgComment)} encoding --%>
 
-        <fmt:message key="oscarMDS.segmentDisplay.msgComment"  var="msg_Comment"/>
-        <fmt:message key="oscarMDS.index.msgConfirmAcknowledge" var="msg_ack"/>
-        <fmt:message key="oscarMDS.index.msgConfirmAcknowledgeUnmatched" var="msg_ack_unmatched"/>
-        <fmt:message key="oscarMDS.segmentDisplay.msgUnlink" var="msg_unlink"/>  
+        <fmt:message key="oscarMDS.segmentDisplay.msgComment" var="msgComment"/>
+        <fmt:message key="oscarMDS.index.msgConfirmAcknowledge" var="msgAck"/>
+        <fmt:message key="oscarMDS.index.msgConfirmAcknowledgeUnmatched" var="msgAckUnmatched"/>
+        <fmt:message key="oscarMDS.segmentDisplay.msgUnlink" var="msgUnlink"/>
 
     </script>
 
@@ -587,7 +587,7 @@ input[id^='acklabel_']{
                     comment = "";
                 }
             }
-            var commentVal = prompt('${e:forJavaScript(msg_Comment)}',comment);
+            var commentVal = prompt('${e:forJavaScript(msgComment)}',comment);
 
             var ackForm = document.forms['acknowledgeForm_' + segmentId];
             if (commentVal == null) {
@@ -711,23 +711,23 @@ input[id^='acklabel_']{
 
         function confirmAck() {
             <% if (props.getProperty("confirmAck", "").equals("yes")) { %>
-            return confirm('${e:forJavaScript(msg_ack)}');
+            return confirm('${e:forJavaScript(msgAck)}');
             <% } else { %>
             return true;
             <% } %>
         }
 
         function confirmCommentUnmatched() {
-            return confirm('${e:forJavaScript(msg_ack_unmatched)}');
+            return confirm('${e:forJavaScript(msgAckUnmatched)}');
         }
 
         function confirmAckUnmatched() {
-            return confirm('${e:forJavaScript(msg_ack_unmatched)}');
+            return confirm('${e:forJavaScript(msgAckUnmatched)}');
         }
 
         function unlinkDemographic(labNo) {
             var reason = "Incorrect demographic";
-            reason = prompt('${e:forJavaScript(msg_unlink)}', reason);
+            reason = prompt('${e:forJavaScript(msgUnlink)}', reason);
 
             //must include reason
             if (reason == null || reason.length === 0) {
