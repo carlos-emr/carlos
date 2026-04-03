@@ -288,7 +288,7 @@
                 <td></td>
                 <td></td>
             </tr>
-            <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
+            <security:oscarSec roleName="<%=roleName2$%>" objectName="_admin" rights="r" reverse="<%=false%>">
             <tr>
                 <td width="2"><%=j%>
                     <%j++;%>
