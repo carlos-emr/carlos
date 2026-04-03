@@ -419,8 +419,6 @@
             <result name="success">/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
             <result name="error">/encounter/ViewRequest.do?error=true</result>
             <result name="failESend">/encounter/ViewRequest.do</result>
-            <result name="print">/encounter/oscarConsultationRequest/ConsultationFormPrint.jsp</result>
-            <result name="printalt">/encounter/oscarConsultationRequest/ConsultationFormPrint2.jsp</result>
             <result name="printpdf">/encounter/oscarConsultationRequest/printPdf.do</result>
             <result name="printIndivica">/encounter/oscarConsultationRequest/printPdf2.do</result>
             <result name="fax">/fax/CoverPage.jsp</result>
@@ -487,14 +485,6 @@
         <action name="encounter/InsertTemplate" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctInsertTemplate2Action">
             <result name="success">/encounter/InsertTemplate.jsp</result>
             <result name="success2">/encounter/InsertTemplate2.jsp</result>
-        </action>
-        <action name="CreateImmunizationSetConfig" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action">
-            <result name="success">/immunizationConfig/AdministrateImmunizationSets.jsp</result>
-            <result name="goBack">/immunizationConfig/CreateImmunizationSetConfig.jsp</result>
-        </action>
-
-        <action name="ImmunizationSetDisplay" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmImmunizationSetDisplay2Action">
-            <result name="success">/immunizationConfig/ImmunizationSetDisplay.jsp</result>
         </action>
         <action name="encounter/immunization/deleteSchedule" class="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.EctImmDeleteImmSchedule2Action">
             <result name="success">/encounter/immunization/Schedule.jsp</result>

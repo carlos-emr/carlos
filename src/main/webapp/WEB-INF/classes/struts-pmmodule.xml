@@ -57,7 +57,6 @@
         <action name="PMmodule/ProgramManager" class="io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramManager2Action" method="execute">
             <result name="list">page.pmm.admin.list</result>
             <result name="edit">page.pmm.admin.edit</result>
-            <result name="timeout">/PMmodule/Timeout.jsp</result>
             <result name="programSignatures">/PMmodule/Admin/ProgramSignatures.jsp</result>
         </action>
 
@@ -81,14 +80,9 @@
             <result name="edit">page.pmm.client</result>
             <result name="refer_vacancy">page.pmm.client.vacancy</result>
             <result name="edit-redirect">page.pmm.client</result>
-            <result name="search_programs">/PMmodule/ClientManager/ProgramSearch.jsp</result>
             <result name="vaccine-report">/VaccineProviderReport.do</result>
             <result name="search">/PMmodule/ClientSearch2.do</result>
-            <result name="links">/PMmodule/ClientManager/links.jsp</result>
-            <result name="view_referral">/PMmodule/ClientManager/view_referral.jsp</result>
-            <result name="view_admission">/PMmodule/ClientManager/view_admission.jsp</result>
             <result name="service_restriction_error">page.pmm.client.service_restriction_error</result>
-            <result name="generalFormsReport">/PMmodule/GeneralFormsReport.jsp</result>
         </action>
         <action name="PMmodule/ProviderInfo" class="io.github.carlos_emr.carlos.PMmodule.web.ProviderInfo2Action" method="execute">
             <result name="view">page.pmm.provider.view</result>
@@ -98,10 +92,6 @@
             <result name="edit">page.pmm.staff.edit</result>
         </action>
 
-        <action name="PMmodule/Reports/ProgramActivityReport" class="io.github.carlos_emr.carlos.PMmodule.web.reports.ActivityReport2Action" method="execute">
-            <result name="form">/PMmodule/reports/ActivityReportForm.jsp</result>
-            <result name="report">/PMmodule/reports/ActivityReport.jsp</result>
-        </action>
 
 
     </package>

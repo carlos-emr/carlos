@@ -88,7 +88,6 @@
             <result name="clientNeverInTheProgramError">/casemgmt/clientNeverInTheProgramError.jsp</result>
             <result name="unlockForm">/casemgmt/unlockNoteForm.jsp</result>
             <result name="unlockSuccess">/casemgmt/unlockNoteSuccess.jsp</result>
-            <result name="unlockError">/casemgmt/unlockNoteError.jsp</result>
             <result name="unlock_ajax">/casemgmt/unlockAjax.jsp</result>
             <result name="expired">/casemgmt/expired.jsp</result>
             <result name="listNotes">/casemgmt/viewNotes.jsp</result>
@@ -108,7 +107,6 @@
             <result name="windowCloseError">/casemgmt/closeWithError.jsp</result>
             <result name="historyview">/casemgmt/historyview.jsp</result>
             <result name="showHistory">/casemgmt/showHistory.jsp</result>
-            <result name="issueAutoCompletion">/casemgmt/IssueList.jsp</result>
             <result name="issueList_ajax">/casemgmt/noteIssueList.jsp</result>
             <result name="expired">/casemgmt/expired.jsp</result>
         </action>

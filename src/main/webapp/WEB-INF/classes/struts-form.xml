@@ -75,7 +75,6 @@
         </action>
         <action name="form/formname" class="io.github.carlos_emr.carlos.form.Frm2Action">
             <result name="exit">/encounter/close.jsp</result>
-            <result name="print">/form/forwardprint.jsp</result>
             <result name="printAll">/form/createpdf</result>
             <result name="printAllJasperReport">/form/formPdfJasperReport.do</result>
             <result name="printLabReq">/form/formlabreqprint.jsp</result>
@@ -91,9 +90,6 @@
         </action>
         <action name="form/AddRHWorkFlow" class="io.github.carlos_emr.carlos.form.pageUtil.FrmFormAddRHWorkFlow2Action">
             <result name="success">/form/RHPrevention.do</result>
-        </action>
-        <action name="VaccineProviderReport" class="io.github.carlos_emr.carlos.vaccine.VaccineProviderReport2Action" method="execute">
-            <result name="report">/PMmodule/vaccine/vaccine_provider_report.jsp</result>
         </action>
         <action name="form/BCAR2020" class="io.github.carlos_emr.carlos.form.FrmBCAR20202Action">
             <result name="pg1">/form/formBCAR2020pg1.jsp</result>
