@@ -1606,11 +1606,11 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                                 Set<Provider> siteProviders = sites.get(i).getProviders();
                                                 List<Provider>  siteProvidersList = new ArrayList<Provider> (siteProviders);
                                                  Collections.sort(siteProvidersList,(new Provider()).ComparatorName());%>
-                                            _providers["<%= Encode.forJavaScriptBlock(sites.get(i).getName()) %>"] = "<% Iterator<Provider> iter = siteProvidersList.iterator();
+                                            _providers["<%= Encode.forJavaScript(sites.get(i).getName()) %>"] = "<% Iterator<Provider> iter = siteProvidersList.iterator();
 	while (iter.hasNext()) {
 		Provider p=iter.next();
 		if ("1".equals(p.getStatus()) && StringUtils.isNotBlank(p.getOhipNo())) {
-	%><option value='<%= Encode.forJavaScript(p.getProviderNo()) %>|<%= Encode.forJavaScript(p.getOhipNo()) %>' ><%=Encode.forJavaScript(Encode.forHtml(p.getLastName()))%>, <%=Encode.forJavaScript(Encode.forHtml(p.getFirstName()))%></option><%}}%>";
+	%><option value='<%= Encode.forJavaScript(p.getProviderNo()) %>|<%= Encode.forJavaScript(p.getOhipNo()) %>' ><%=Encode.forJavaScript(p.getLastName())%>, <%=Encode.forJavaScript(p.getFirstName())%></option><%}}%>";
                                             <%}%>
 
                                             function changeSite(sel) {
@@ -1648,7 +1648,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                     ></select>
                                         <script>
                                             changeSite(document.getElementById("site"));
-                                            document.getElementById("xml_provider").value = '<%=Encode.forJavaScriptBlock(request.getParameter("xml_provider")==null?xmlp:request.getParameter("xml_provider"))%>';
+                                            document.getElementById("xml_provider").value = '<%=Encode.forJavaScript(request.getParameter("xml_provider")==null?xmlp:request.getParameter("xml_provider"))%>';
                                         </script>
                                         <%
                                             // multisite end ==========================================

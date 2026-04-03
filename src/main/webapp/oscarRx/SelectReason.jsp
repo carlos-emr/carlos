@@ -178,8 +178,8 @@
                         <tr>
                             <td>
                                 <a href="javascript:void(0);"
-                                   onclick="assignPatientDxLink('<%=dx.getDxresearchCode()%>', '<%=idc9Desc%>')"
-                                   title="<%=dx.getDxresearchCode()%> - <%=idc9Desc%>">
+                                   onclick="assignPatientDxLink('<%=Encode.forJavaScriptAttribute(dx.getDxresearchCode())%>', '<%=Encode.forJavaScriptAttribute(idc9Desc)%>')"
+                                   title="<%=Encode.forHtmlAttribute(dx.getDxresearchCode())%> - <%=Encode.forHtmlAttribute(idc9Desc)%>">
                                     <%=dx.getDxresearchCode()%>
                                     - <%=StringUtils.maxLenString(idc9Desc, 10, 6, StringUtils.ELLIPSIS)%>
                                 </a>

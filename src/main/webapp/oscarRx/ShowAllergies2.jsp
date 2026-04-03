@@ -562,7 +562,7 @@
 
                                                     String title = "";
                                                     if (allergy.getRegionalIdentifier() != null && !allergy.getRegionalIdentifier().trim().equalsIgnoreCase("null") && !allergy.getRegionalIdentifier().trim().equals("")) {
-                                                        title = " title=\"Din: " + allergy.getRegionalIdentifier() + "\" ";
+                                                        title = " title=\"Din: " + Encode.forHtmlAttribute(allergy.getRegionalIdentifier()) + "\" ";
                                                     }
 
                                                     boolean filterOut = false;
@@ -615,7 +615,7 @@
                                                 </td>
                                                 <td><%=allergy.getLastUpdateDate() != null ? DateUtils.formatDate(allergy.getLastUpdateDate(), request.getLocale()) : "" %>
                                                 </td>
-                                                <td <%=title%> ><%=allergy.getDescription() %>
+                                                <td <%=title%> ><%=Encode.forHtml(allergy.getDescription())%>
                                                 </td>
                                                 <td><%=allergy.getTypeDesc() %>
                                                 </td>
@@ -626,7 +626,7 @@
                                                 </td>
                                                 <td><%=allergy.getOnSetOfReactionDesc() %>
                                                 </td>
-                                                <td><%=allergy.getReaction() != null ? allergy.getReaction() : "" %>
+                                                <td><%=allergy.getReaction() != null ? Encode.forHtml(allergy.getReaction()) : "" %>
                                                 </td>
                                                 <td><%=startDate == null ? "" : startDate %>
                                                 </td>

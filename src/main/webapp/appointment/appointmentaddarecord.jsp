@@ -225,7 +225,7 @@
                 value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>"/>
             <script
                     LANGUAGE="JavaScript">
-                var removeList = confirm("Click OK to remove patient from the waiting list: <%=wln.getName()%>");
+                var removeList = confirm("Click OK to remove patient from the waiting list: <%=Encode.forJavaScript(wln.getName())%>");
                 if (removeList) {
                     document.forms[0].action = "<%= request.getContextPath() %>/waitinglist/RemoveFromWaitingList.jsp";
                     document.forms[0].submit();

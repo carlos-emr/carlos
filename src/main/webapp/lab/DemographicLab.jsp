@@ -315,23 +315,23 @@
             <td>
                 <%
                     if (result.isMDS()) { %> <a
-                    href="javascript:reportWindow('<%= request.getContextPath() %>/oscarMDS/SegmentDisplay.jsp?demographicId=<%=demographicNo%>&segmentID=<%=segmentID%>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%= result.getDiscipline()%>
+                    href="javascript:reportWindow('<%= request.getContextPath() %>/oscarMDS/SegmentDisplay.jsp?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')"><%= result.getDiscipline()%>
             </a>
                 <% } else if (result.isCML()) { %> <a
-                    href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/CMLDisplay.jsp?demographicId=<%=demographicNo%>&segmentID=<%=segmentID%>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=(String) result.getDiscipline()%>
+                    href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/CMLDisplay.jsp?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')"><%=(String) result.getDiscipline()%>
             </a>
                 <% } else if (result.isHL7TEXT()) {%>
-                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/labDisplay.jsp?demographicId=<%=demographicNo%>&segmentID=<%=segmentID%>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')">
-                    <%=StringUtils.trimToEmpty(result.getLabel())%>
+                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/labDisplay.jsp?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')">
+                    <%=Encode.forHtml(StringUtils.trimToEmpty(result.getLabel()))%>
                 </a>
                 <% } else {%>
-                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/labDisplay.jsp?demographicId=<%=demographicNo%>&segmentID=<%=segmentID%>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')">
-                    <%=StringUtils.trimToEmpty(result.getLabel())%>
+                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/labDisplay.jsp?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')">
+                    <%=Encode.forHtml(StringUtils.trimToEmpty(result.getLabel()))%>
                 </a>
                 <% }%>
             </td>
 
-            <td><%= StringUtils.trimToEmpty(result.getRequestingClient())%>
+            <td><%= Encode.forHtml(StringUtils.trimToEmpty(result.getRequestingClient()))%>
             </td>
             <td><%= (result.isAbnormal() ? "Abnormal" : "") %>
             </td>

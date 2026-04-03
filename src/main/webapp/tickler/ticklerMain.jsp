@@ -764,7 +764,7 @@
                             _providers["<%=Encode.forJavaScript(String.valueOf(sites.get(i).getSiteId()))%>"] = "<%Iterator<Provider> iter = sites.get(i).getProviders().iterator();
                             while (iter.hasNext()) {
                                 Provider p=iter.next();
-                                if ("1".equals(p.getStatus())) {%><option value='<%=Encode.forJavaScript(p.getProviderNo())%>'><%=Encode.forJavaScript(Encode.forHtml(p.getLastName()))%>, <%=Encode.forJavaScript(Encode.forHtml(p.getFirstName()))%></option><%}%>";
+                                if ("1".equals(p.getStatus())) {%><option value='<%=Encode.forJavaScript(p.getProviderNo())%>'><%=Encode.forJavaScript(p.getLastName())%>, <%=Encode.forJavaScript(p.getFirstName())%></option><%}%>";
                             <%}}%>
 
                             function changeSite(sel) {

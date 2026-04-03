@@ -204,7 +204,7 @@
                     <tr>
                         <td style="font-size: small;"><br/>
                             <br/>
-                            <b>Patient Name:</b> <%=patient.getFirstName()%> <%=patient.getSurname()%> <br/>
+                            <b>Patient Name:</b> <%=Encode.forHtml(patient.getFirstName())%> <%=Encode.forHtml(patient.getSurname())%> <br/>
                             <br/>
                         </td>
                     </tr>
@@ -261,7 +261,7 @@
                                         <a href="javascript:void(0);"
                                            onclick="popup(600, 425,'<%= request.getContextPath() %>/oscarRx/DisplayRxRecord.jsp?id=<%=drug.localDrugId%>','displayRxWindow')">
                                             <%}%>
-                                            <%=drug.prescriptionDetails%>
+                                            <%=Encode.forHtml(drug.prescriptionDetails)%>
                                             <%if (drug.localDrugId != null) { %>
                                         </a>
                                         <%}%>
@@ -305,7 +305,7 @@
                                             <%
 							if (drug.customName==null)
 									{
-						%> <a href="javascript:ShowDrugInfo('<%=drug.genericName%>');">Info</a> <%
+						%> <a href="javascript:ShowDrugInfo('<%=Encode.forJavaScriptAttribute(drug.genericName)%>');">Info</a> <%
 							}
 						%>
                         </td>

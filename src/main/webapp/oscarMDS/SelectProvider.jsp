@@ -154,7 +154,7 @@
                     for (ProviderLabRoutingFavorite fav : currentFavorites) {
                         Provider prov = providerDao.getProvider(fav.getRoute_to_provider_no());
                 %>
-                <option id="<%=prov.getProviderNo()%>" value="<%=prov.getProviderNo()%>"><%=prov.getFormattedName()%>
+                <option id="<%=Encode.forHtmlAttribute(prov.getProviderNo())%>" value="<%=Encode.forHtmlAttribute(prov.getProviderNo())%>"><%=Encode.forHtml(prov.getFormattedName())%>
                 </option>
                 <%
                     }

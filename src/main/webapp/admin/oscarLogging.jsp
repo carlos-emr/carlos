@@ -136,7 +136,7 @@
 
         String temp = FileUtils.readFileToString(new File(fileName),
                 "UTF-8");
-        out.write("<pre id=\"log-results\">" + temp + "</pre>");
+        out.write("<pre id=\"log-results\">" + Encode.forHtml(temp) + "</pre>");
     }
 %>
 

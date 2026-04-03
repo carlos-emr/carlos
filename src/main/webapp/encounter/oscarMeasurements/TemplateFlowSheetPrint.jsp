@@ -610,7 +610,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <div class="headPrevention">
 
                         <p>
-                            <span style=""><%=item.getDisplayName()%></span>
+                            <span style=""><%=Encode.forHtml(item.getDisplayName())%></span>
                             <br/>
 
                         </p>
@@ -754,8 +754,8 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <%}%>
 
                     <div class="headPrevention">
-                        <p title="<%=h2.get("display_name")%>">
-                            <span title="<%=h2.get("guideline")%>"><%=h2.get("display_name")%></span>
+                        <p title="<%=Encode.forHtmlAttribute(String.valueOf(h2.get("display_name")))%>">
+                            <span title="<%=Encode.forHtmlAttribute(String.valueOf(h2.get("guideline")))%>"><%=Encode.forHtml(String.valueOf(h2.get("display_name")))%></span>
                         </p>
                     </div><!--headPrevention-->
                     <%

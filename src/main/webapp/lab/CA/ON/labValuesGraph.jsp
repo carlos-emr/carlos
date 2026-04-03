@@ -69,7 +69,7 @@
         String[] drugs = request.getParameterValues("drug");
 
         for (String d : drugs) {
-            sb.append("&drug=" + d);
+            sb.append("&drug=" + Encode.forUriComponent(d));
             h.put(d, "drug");
         }
         drugForGraph = sb.toString();
@@ -205,7 +205,7 @@
                             </tr-->
             </table>
 
-            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements.do?method=actualLab&demographic_no=<%=demographicNo%>&labType=<%= Encode.forUriComponent(labType) %>&identifier=<%=identifier%>&testName=<%=testName%><%=drugForGraph%>"/>
+            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements.do?method=actualLab&demographic_no=<%=Encode.forUriComponent(demographicNo)%>&labType=<%= Encode.forUriComponent(labType) %>&identifier=<%=Encode.forUriComponent(identifier)%>&testName=<%=Encode.forUriComponent(testName)%><%=drugForGraph%>"/>
 
 
             <table width="100%" border="0" cellspacing="0" cellpadding="3"

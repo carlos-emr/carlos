@@ -137,7 +137,7 @@
                 editors.append(p.getFormattedName()).append(";");
             }
 
-            String htmlNoteTxt = note.getNote() + addlData;
+            String htmlNoteTxt = Encode.forHtml(note.getNote() + addlData);
 
             boolean singleLine = Boolean.valueOf(CarlosProperties.getInstance().getProperty("echart.cpp.single_line", "false"));
             UserPropertyDAO userPropertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);

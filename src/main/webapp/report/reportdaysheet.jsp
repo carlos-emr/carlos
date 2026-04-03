@@ -265,15 +265,15 @@
     <table class="table table-sm table-bordered table-striped" style="font-size:13px; margin-bottom:0;">
         <thead>
         <tr>
-            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=start_time<%= Encode.forHtmlAttribute(encodedDsmode) %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgAppointmentTime"/></a></th>
-            <th style="width:15%"><a href="<%=sortBaseUrl%>&orderby=name<%= Encode.forHtmlAttribute(encodedDsmode) %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgPatientLastName"/></a></th>
-            <th style="width:10%"><a href="<%=sortBaseUrl%>&orderby=phone<%= Encode.forHtmlAttribute(encodedDsmode) %>">Phone</a></th>
-            <th style="width:3%"><a href="<%=sortBaseUrl%>&orderby=sex<%= Encode.forHtmlAttribute(encodedDsmode) %>">Gender</a></th>
-            <th style="width:9%"><a href="<%=sortBaseUrl%>&orderby=hin<%= Encode.forHtmlAttribute(encodedDsmode) %>">Health Card</a></th>
-            <th style="width:5%"><a href="<%=sortBaseUrl%>&orderby=ver<%= Encode.forHtmlAttribute(encodedDsmode) %>">Version</a></th>
-            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=chart_no<%= Encode.forHtmlAttribute(encodedDsmode) %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgChartNo"/></a></th>
+            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=start_time<%= encodedDsmode %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgAppointmentTime"/></a></th>
+            <th style="width:15%"><a href="<%=sortBaseUrl%>&orderby=name<%= encodedDsmode %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgPatientLastName"/></a></th>
+            <th style="width:10%"><a href="<%=sortBaseUrl%>&orderby=phone<%= encodedDsmode %>">Phone</a></th>
+            <th style="width:3%"><a href="<%=sortBaseUrl%>&orderby=sex<%= encodedDsmode %>">Gender</a></th>
+            <th style="width:9%"><a href="<%=sortBaseUrl%>&orderby=hin<%= encodedDsmode %>">Health Card</a></th>
+            <th style="width:5%"><a href="<%=sortBaseUrl%>&orderby=ver<%= encodedDsmode %>">Version</a></th>
+            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=chart_no<%= encodedDsmode %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgChartNo"/></a></th>
             <% if (!bDob) {%>
-            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=roster_status<%= Encode.forHtmlAttribute(encodedDsmode) %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgRosterStatus"/></a></th>
+            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=roster_status<%= encodedDsmode %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgRosterStatus"/></a></th>
             <% } else {%>
             <th style="width:10%">DOB</th>
             <% }%>

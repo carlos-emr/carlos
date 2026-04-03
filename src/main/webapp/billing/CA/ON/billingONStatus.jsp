@@ -490,11 +490,11 @@
                                 Set<Provider> siteProviders = sites.get(i).getProviders();
                                 List<Provider>  siteProvidersList = new ArrayList<Provider> (siteProviders);
                                 Collections.sort(siteProvidersList,(new Provider()).ComparatorName());%>
-                            _providers["<%= Encode.forJavaScriptBlock(sites.get(i).getName()) %>"] = "<% Iterator<Provider> iter = siteProvidersList.iterator();
+                            _providers["<%= Encode.forJavaScript(sites.get(i).getName()) %>"] = "<% Iterator<Provider> iter = siteProvidersList.iterator();
                                     while (iter.hasNext()) {
                                     	Provider p=iter.next();
                                     	if (pros.contains(p.getProviderNo())) {
-                                    %><option value='<%= Encode.forJavaScript(p.getProviderNo()) %>'><%= Encode.forJavaScript(Encode.forHtml(p.getLastName())) %>, <%= Encode.forJavaScript(Encode.forHtml(p.getFirstName())) %></option><% }} %>";
+                                    %><option value='<%= Encode.forJavaScript(p.getProviderNo()) %>'><%= Encode.forJavaScript(p.getLastName()) %>, <%= Encode.forJavaScript(p.getFirstName()) %></option><% }} %>";
                             <% } %>
 
                             function changeSite(sel) {

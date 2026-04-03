@@ -145,7 +145,7 @@
         </table>
         <table>
             <tr>
-                <td align="left">Results based on keyword(s): <%=keyword == null ? "" : keyword%>
+                <td align="left">Results based on keyword(s): <%=keyword == null ? "" : Encode.forHtml(keyword)%>
                 </td>
             </tr>
         </table>

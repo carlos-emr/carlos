@@ -160,7 +160,7 @@
                             <td class="ButtonCell"><input type="submit" value="DELETE"
                                                           onclick="deleteMapping(<%= mapping.getId() %>)"></td>
                             <td class="ButtonCell"><input type="button" value="REMAP"
-                                                          onclick="remap(<%= "'"+ mapping.getId() +"','"+ mapping.getIdentCode() +"','"+ mapping.getName() +"','"+ mapping.getLabType()+"'" %>)">
+                                                          onclick="remap('<%= Encode.forJavaScriptAttribute(String.valueOf(mapping.getId())) %>','<%= Encode.forJavaScriptAttribute(mapping.getIdentCode()) %>','<%= Encode.forJavaScriptAttribute(mapping.getName()) %>','<%= Encode.forJavaScriptAttribute(mapping.getLabType()) %>')">
                             </td>
                             <td class="TableCell"><%= mapping.getIdentCode() %>
                             </td>

@@ -210,7 +210,7 @@
     });
 
     <% if( request.getAttribute("NoteLockError") != null ) { %>
-    alert("<%=request.getAttribute("NoteLockError")%>");
+    alert("<%=Encode.forJavaScript(String.valueOf(request.getAttribute("NoteLockError")))%>");
     <%}%>
 
 </script>
@@ -331,7 +331,7 @@
                                         providerNo = prov.getProviderNo();
                                 %>
                                 <li>
-                                    <input type="checkbox" name="filter_providers" value="<%= providerNo %>" onclick="filterCheckBox(this)" /><%=prov.getFormattedName()%>
+                                    <input type="checkbox" name="filter_providers" value="<%= providerNo %>" onclick="filterCheckBox(this)" /><%=Encode.forHtml(prov.getFormattedName())%>
                                 </li>
                                 <%
                                     }
@@ -354,7 +354,7 @@
                                 %>
                                 <li>
                                     <input type="checkbox" name="filter_roles" value="<%=String.valueOf(role.getId())%>" onclick="filterCheckBox(this)" />
-                                    <%=role.getName()%>
+                                    <%=Encode.forHtml(role.getName())%>
                                 </li>
                                 <%
                                     }
@@ -403,7 +403,7 @@
                                 <li>
                                     <input type="checkbox" name="issues" value="<%=String.valueOf(issue_checkBoxBean.getIssue().getId())%>"
                                                    onclick="filterCheckBox(this)" />
-                                    <%=issue_checkBoxBean.getIssueDisplay().getResolved().equals("resolved") ? "* " : ""%> <%=issue_checkBoxBean.getIssueDisplay().getDescription()%>
+                                    <%=issue_checkBoxBean.getIssueDisplay().getResolved().equals("resolved") ? "* " : ""%> <%=Encode.forHtml(issue_checkBoxBean.getIssueDisplay().getDescription())%>
                                 </li>
                                 <%
                                     }

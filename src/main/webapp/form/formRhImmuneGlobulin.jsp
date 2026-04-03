@@ -580,7 +580,7 @@
         <input type="submit" value="Save"/> <%
                 if ( h != null && h.get("ID") != null){ %> <input
             type="button"
-            onClick="javascript: popup(700,600,'addRhInjection.jsp?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicNo))%>&amp;workflowId=<%=Encode.forJavaScriptAttribute(String.valueOf(h.get("ID")))%>&amp;formId=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(formId))%>','addInjection');"
+            onClick="javascript: popup(700,600,'addRhInjection.jsp?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicNo))%>&amp;workflowId=<%=Encode.forJavaScriptAttribute(String.valueOf(h.get("ID")))%>&amp;formId=<%=Encode.forJavaScriptAttribute(String.valueOf(formId))%>','addInjection');"
             value="Add Injection"/> <%-- a style="color:blue; " href="javascript: function myFunction() {return false; }" onClick="popup(700,600,'addRhInjection.jsp?demographic_no=<%=demographicNo%>&amp;workflowId=<%=h.get("ID")%>&amp;formId=<%=formId%>','addInjection')">Add Injection</a --%>
                 <%}%>
         </form>

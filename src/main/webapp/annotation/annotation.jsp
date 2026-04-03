@@ -248,7 +248,7 @@
             <p>&nbsp;</p>
             <p>
                 Extra data from Import:<br>
-                <textarea rows="10" name="dump" readonly="readonly"><%=dump%></textarea>
+                <textarea rows="10" name="dump" readonly="readonly"><%=Encode.forHtml(dump)%></textarea>
             </p>
             <% if (rev > 0) { %>
             <div class="revision" style="float: right;">

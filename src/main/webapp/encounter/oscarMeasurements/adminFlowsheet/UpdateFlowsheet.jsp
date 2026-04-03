@@ -193,12 +193,12 @@ display:inline-block;
 
                         <div class="mtype-details">
                             Display Name: <br/>
-                            <input type="text" name="display_name" value="<%= h2.get("display_name")%>"/>
+                            <input type="text" name="display_name" value="<%= Encode.forHtmlAttribute(String.valueOf(h2.get("display_name")))%>"/>
                         </div>
 
                         <div class="mtype-details">
                             Guideline: <br/>
-                            <input type="text" name="guideline" value="<%=h2.get("guideline")%>"/>
+                            <input type="text" name="guideline" value="<%= Encode.forHtmlAttribute(String.valueOf(h2.get("guideline")))%>"/>
                         </div>
 
                         <div class="mtype-details">
@@ -211,7 +211,7 @@ display:inline-block;
 
                         <div class="mtype-details">
                             Value Name:<br/>
-                            <input type="text" name="value_name" value="<%=h2.get("value_name")%>"/>
+                            <input type="text" name="value_name" value="<%= Encode.forHtmlAttribute(String.valueOf(h2.get("value_name")))%>"/>
                         </div>
                     </div>
 
@@ -256,11 +256,11 @@ display:inline-block;
 							</div>
 
 							<div class="mtype-details">
-                                   Param: <br /><input type="text" name="param<%=count%>c<%=condCount%>" value="<%=s(cond.getParam())%>" />
+                                   Param: <br /><input type="text" name="param<%=count%>c<%=condCount%>" value="<%=Encode.forHtmlAttribute(s(cond.getParam()))%>" />
                             </div>
 
                             <div class="mtype-details">
-                                   Value: <br /><input type="text" class="ruleValue" name="value<%=count%>c<%=condCount%>" value="<%=cond.getValue()%>" placeholder="e.g. 5-10, >5, <10, 7"/>
+                                   Value: <br /><input type="text" class="ruleValue" name="value<%=count%>c<%=condCount%>" value="<%=Encode.forHtmlAttribute(cond.getValue())%>" placeholder="e.g. 5-10, >5, <10, 7"/>
                                    <br><div class="errorRuleValue"></div>
                              </div>
 
@@ -377,12 +377,12 @@ display:inline-block;
 
                                     <div class="mtype-details">
                                         Param:<br/> <input type="text" name="targetparam<%=targetCount%>c<%=condCount%>"
-                                                           value="<%=s(cond.getParam())%>"/>
+                                                           value="<%=Encode.forHtmlAttribute(s(cond.getParam()))%>"/>
                                     </div>
 
                                     <div class="mtype-details">
                                         Value: <br/><input type="text" name="targetvalue<%=targetCount%>c<%=condCount%>"
-                                                           value="<%=cond.getValue()%>"/>
+                                                           value="<%=Encode.forHtmlAttribute(cond.getValue())%>"/>
                                     </div>
                                     <br/>
 

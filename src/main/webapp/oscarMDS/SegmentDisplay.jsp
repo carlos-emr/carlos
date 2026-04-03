@@ -260,7 +260,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
 
                                                                         <a
                                                                                 href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=MDS&segmentID=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("segmentID"))) %>&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8) %>', 'searchPatientWindow')">
-                                                                            <% } %> <%=pd.getPatientName()%>
+                                                                            <% } %> <%=Encode.forHtml(pd.getPatientName())%>
                                                                         </a></div>
                                                             </td>
                                                         </tr>
@@ -626,23 +626,23 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                         class="<%=thisResult.resultStatus.startsWith("Corrected")?"CorrectedRes":AbnFlag.compareTo("HI")==0?"AbnormalRes":AbnFlag.compareTo("LO")==0?"HiLoRes":"NormalRes"%>">
                         <!--td valign="top" align="right"><%=thisResult.name %></td-->
                         <td valign="top" align="left"><a
-                                href="<%= request.getContextPath() %>/lab/CA/ON/labValues.jsp?testName=<%=thisResult.name%>&demo=<%= Encode.forUriComponent(demoNo) %>&labType=MDS"><%=thisResult.name %>
+                                href="<%= request.getContextPath() %>/lab/CA/ON/labValues.jsp?testName=<%=Encode.forUriComponent(thisResult.name)%>&demo=<%= Encode.forUriComponent(demoNo) %>&labType=MDS"><%=Encode.forHtml(thisResult.name)%>
                         </a></td>
                         <% if (thisResult.observationValue.equals("") && thisResult.notes != null) {
                             lineContinued = true;
                         } else { %>
-                        <td align="left"><%=thisResult.observationValue %>
+                        <td align="left"><%=Encode.forHtml(thisResult.observationValue)%>
                         </td>
-                        <td align="center"><%=thisResult.abnormalFlags %>
+                        <td align="center"><%=Encode.forHtml(thisResult.abnormalFlags)%>
                         </td>
-                        <td align="left"><%=thisResult.referenceRange %>
+                        <td align="left"><%=Encode.forHtml(thisResult.referenceRange)%>
                         </td>
-                        <td align="left"><%=thisResult.units %>
+                        <td align="left"><%=Encode.forHtml(thisResult.units)%>
                         </td>
                         <td align="center"></td>
-                        <td align="center"><%=thisResult.labID %>
+                        <td align="center"><%=Encode.forHtml(thisResult.labID)%>
                         </td>
-                        <td align="center"><%=thisResult.resultStatus %>
+                        <td align="center"><%=Encode.forHtml(thisResult.resultStatus)%>
                         </td>
                     </tr>
                     <% }
@@ -657,12 +657,12 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                         class="<%=thisResult.resultStatus.startsWith("Corrected")?"CorrectedRes":AbnFlag.compareTo("HI")==0?"AbnormalRes":AbnFlag.compareTo("LO")==0?"HiLoRes":"NormalRes"%>">
                         <td>&nbsp;</td>
                         <% } // end if !lineContinued %>
-                        <td align="left" colspan="5"><%= notetext %>
+                        <td align="left" colspan="5"><%= Encode.forHtml(notetext) %>
                         </td>
                         <% if (lineContinued) { %>
-                        <td align="center"><%=thisResult.labID %>
+                        <td align="center"><%=Encode.forHtml(thisResult.labID)%>
                         </td>
-                        <td align="center"><%=thisResult.resultStatus %>
+                        <td align="center"><%=Encode.forHtml(thisResult.resultStatus)%>
                         </td>
                         <% } else { %>
                         <td></td>
@@ -740,24 +740,24 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                         class="<%=thisResult.resultStatus.startsWith("Corrected")?"CorrectedRes":AbnFlag.startsWith("HI", AbnFlag.indexOf("~") + 1)?"AbnormalRes":AbnFlag.startsWith("LO", AbnFlag.indexOf("~") + 1)?"HiLoRes":"NormalRes"%>">
                         <!--td valign="top" align="left"><%=thisResult.name %></td-->
                         <td valign="top" align="left"><a
-                                href="<%= request.getContextPath() %>/lab/CA/ON/labValues.jsp?testName=<%=thisResult.name%>&demo=<%= Encode.forUriComponent(demoNo) %>&labType=MDS"><%=thisResult.name %>
+                                href="<%= request.getContextPath() %>/lab/CA/ON/labValues.jsp?testName=<%=Encode.forUriComponent(thisResult.name)%>&demo=<%= Encode.forUriComponent(demoNo) %>&labType=MDS"><%=Encode.forHtml(thisResult.name)%>
                         </a></td>
                         <% if (thisResult.observationValue.equals("") && thisResult.notes != null) {
                             lineContinued = true;
                         } else { %>
-                        <td align="right"><%=thisResult.observationValue %>
+                        <td align="right"><%=Encode.forHtml(thisResult.observationValue)%>
                         </td>
-                        <td align="center"><%=thisResult.abnormalFlags %>
+                        <td align="center"><%=Encode.forHtml(thisResult.abnormalFlags)%>
                         </td>
-                        <td align="left"><%=thisResult.referenceRange %>
+                        <td align="left"><%=Encode.forHtml(thisResult.referenceRange)%>
                         </td>
-                        <td align="left"><%=thisResult.units %>
+                        <td align="left"><%=Encode.forHtml(thisResult.units)%>
                         </td>
-                        <td align="center"><%=thisGroup.timeStamp %>
+                        <td align="center"><%=Encode.forHtml(thisGroup.timeStamp)%>
                         </td>
-                        <td align="center"><%=thisResult.labID %>
+                        <td align="center"><%=Encode.forHtml(thisResult.labID)%>
                         </td>
-                        <td align="center"><%=thisResult.resultStatus %>
+                        <td align="center"><%=Encode.forHtml(thisResult.resultStatus)%>
                         </td>
                     </tr>
                     <% }
@@ -772,12 +772,12 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                         class="<%=thisResult.resultStatus.startsWith("Corrected")?"CorrectedRes":AbnFlag.compareTo("HI")==0?"AbnormalRes":AbnFlag.compareTo("LO")==0?"HiLoRes":"NormalRes"%>">
                         <td>&nbsp;</td>
                         <% } // end if !lineContinued %>
-                        <td align="left" colspan="5"><%= notetext %>
+                        <td align="left" colspan="5"><%= Encode.forHtml(notetext) %>
                         </td>
                         <% if (lineContinued) { %>
-                        <td align="center"><%=thisResult.labID %>
+                        <td align="center"><%=Encode.forHtml(thisResult.labID)%>
                         </td>
-                        <td align="center"><%=thisResult.resultStatus %>
+                        <td align="center"><%=Encode.forHtml(thisResult.resultStatus)%>
                         </td>
                         <% } else { %>
                         <td></td>

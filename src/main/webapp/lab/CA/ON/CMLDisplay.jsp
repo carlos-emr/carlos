@@ -262,13 +262,13 @@
                                                             <td colspan="2" nowrap>
                                                                 <div class="FieldData" nowrap="nowrap">
                                                                     <% if (request.getParameter("searchProviderNo") == null) { // we were called from e-chart %>
-                                                                    <a href="javascript:window.close()"><%=lab.pLastName%>
-                                                                        , <%=lab.pFirstName%>
+                                                                    <a href="javascript:window.close()"><%=Encode.forHtml(lab.pLastName)%>
+                                                                        , <%=Encode.forHtml(lab.pFirstName)%>
                                                                     </a>
                                                                     <% } else { // we were called from lab module %>
                                                                     <a
                                                                             href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=CML&segmentID=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID)) %>&name=<%=java.net.URLEncoder.encode(lab.pLastName+", "+lab.pFirstName )%>', 'searchPatientWindow')">
-                                                                        <%=lab.pLastName%>, <%=lab.pFirstName%>
+                                                                        <%=Encode.forHtml(lab.pLastName)%>, <%=Encode.forHtml(lab.pFirstName)%>
                                                                     </a> <% } %></div>
                                                             </td>
                                                         </tr>

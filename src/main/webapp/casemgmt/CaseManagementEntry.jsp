@@ -40,6 +40,7 @@
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
@@ -401,7 +402,7 @@
             <tr>
                 <td class="fieldValue" colspan="1">
                     <textarea name="caseNote_note" id="caseNote_note" cols="60" rows="20" wrap="hard"
-                              onchange="setChangeFlag(true);">${caseNote.note}
+                              onchange="setChangeFlag(true);">${e:forHtml(caseNote.note)}
                             </textarea>
                 </td>
                 <td class="fieldTitle"></td>
@@ -441,7 +442,7 @@
                             <td class="fieldValue">
                                 ${caseNote.billing_code}
                                 <input type="button" value="add billing"
-                                       onclick="self.open('<%=(String)session.getAttribute("billing_url")%>','','scrollbars=yes,menubars=no,toolbars=no,resizable=yes');return false;">
+                                       onclick="self.open('<%=Encode.forJavaScriptAttribute((String)session.getAttribute("billing_url"))%>','','scrollbars=yes,menubars=no,toolbars=no,resizable=yes');return false;">
                             </td>
                         </tr>
                     </caisirole:SecurityAccess>

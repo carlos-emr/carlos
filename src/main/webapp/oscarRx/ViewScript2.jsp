@@ -220,7 +220,7 @@
             if (pharmacyId != null && !"null".equalsIgnoreCase(pharmacyId)) {
                 pharmacy = pharmacyData.getPharmacy(pharmacyId);
                 if (pharmacy != null) {
-                    prefPharmacy = pharmacy.getName().replace("'", "\\'");
+                    prefPharmacy = Encode.forJavaScript(pharmacy.getName());
                     prefPharmacyId = String.valueOf(pharmacy.getId());
                     prefPharmacy = prefPharmacy.trim();
                     prefPharmacyId = prefPharmacyId.trim();

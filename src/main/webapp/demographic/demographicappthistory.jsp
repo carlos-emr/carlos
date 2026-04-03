@@ -338,15 +338,15 @@
                         </td>
                         <td align="center">
                             <%if (as != null && as.getDescription() != null) {%>
-                            <%=as.getDescription()%>
+                            <%=Encode.forHtml(as.getDescription())%>
                             <% } %>
                         </td>
-                        <td><%=appointment.getType() %>
+                        <td><%=Encode.forHtml(appointment.getType())%>
                         </td>
                         <td><%=(reasonCodeName != null && !reasonCodeName.isEmpty()) ? reasonCodeName : ""%><%=(appointment.getReason() != null && !appointment.getReason().isEmpty()) ? ((reasonCodeName != null && !reasonCodeName.isEmpty()) ? " - " : "") + UtilMisc.htmlEscape(appointment.getReason()) : ""%>
                         </td>
                         <% if (provider != null) {%>
-                        <td><%=(provider.getLastName() == null ? "N/A" : provider.getLastName()) + "," + (provider.getFirstName() == null ? "N/A" : provider.getFirstName())%>
+                        <td><%=Encode.forHtml((provider.getLastName() == null ? "N/A" : provider.getLastName()) + "," + (provider.getFirstName() == null ? "N/A" : provider.getFirstName()))%>
                         </td>
                         <%} else { %>
                         <td>N/A</td>

@@ -506,7 +506,7 @@
                 </select>
                 <fieldset>
                     <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgView"/>:</legend>
-                    <input type="hidden" name="view" value="<%=view%>">
+                    <input type="hidden" name="view" value="<%=Encode.forHtmlAttribute(view)%>">
                     <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicID) %>">
                     <input type="hidden" name="undelDocumentNo" value="">
                     <input type="hidden" name="delDocumentNo" value="">
@@ -573,10 +573,10 @@
                             for (int i2 = 0; i2 < docs.size(); i2++) {
                                 EDoc cmicurdoc = docs.get(i2);
                         %>
-                        <option VALUE="<%=cmicurdoc.getDocId()%>-<%=cmicurdoc.getContentType()%>"
-                                title="<%=cmicurdoc.getDescription()%>"><%=sortorder.equals("Content") ? UtilDateUtilities.DateToString(cmicurdoc.getContentDateTime(), "yyyy-MM-dd") : cmicurdoc.getDateTimeStamp()%>&nbsp;&nbsp; <%=cmicurdoc.getObservationDate()%>
-                            [<%=cmicurdoc.getType()%>
-                            ] <%=(cmicurdoc.getDescription().length() < 30 ? cmicurdoc.getDescription() : cmicurdoc.getDescription().substring(0, 30) + "...")%>
+                        <option VALUE="<%=Encode.forHtmlAttribute(cmicurdoc.getDocId())%>-<%=Encode.forHtmlAttribute(cmicurdoc.getContentType())%>"
+                                title="<%=Encode.forHtmlAttribute(cmicurdoc.getDescription())%>"><%=Encode.forHtml(sortorder.equals("Content") ? UtilDateUtilities.DateToString(cmicurdoc.getContentDateTime(), "yyyy-MM-dd") : cmicurdoc.getDateTimeStamp())%>&nbsp;&nbsp; <%=Encode.forHtml(cmicurdoc.getObservationDate())%>
+                            [<%=Encode.forHtml(cmicurdoc.getType())%>
+                            ] <%=Encode.forHtml(cmicurdoc.getDescription().length() < 30 ? cmicurdoc.getDescription() : cmicurdoc.getDescription().substring(0, 30) + "...")%>
                         </option>
                         <%}%>
                     </SELECT>
@@ -599,14 +599,14 @@
                                 NoteDisplay curNote = notesToDisplay.get(idx);
                                 if (!(curNote.isDocument()) && !(curNote.isEformData()) && !(curNote.isRxAnnotation()) && !(curNote.isCpp())) {
                         %>
-                        <option value="<%=curNote.getNoteId()%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=curNote.getProviderName()%>
+                        <option value="<%=curNote.getNoteId()%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=Encode.forHtml(curNote.getProviderName())%>
                         </option>
                         <%
                             }
 
                             if (curNote.isExternalNote()) {
                         %>
-                        <option value="<%=curNote.getNoteId()%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=curNote.getProviderName()%>
+                        <option value="<%=curNote.getNoteId()%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=Encode.forHtml(curNote.getProviderName())%>
                         </option>
                         <%
                                 }

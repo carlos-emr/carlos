@@ -1428,8 +1428,7 @@
                                                                         <span class="info"><%=Encode.forHtmlContent(demographic.getFirstName())%></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formMiddleNames"/>:</span>
-                                                                        <span class="info"> <c:out
-                                                                                value="<%=Encode.forHtmlContent(demographic.getMiddleNames())%>"/></span>
+                                                                        <span class="info"> <%=Encode.forHtmlContent(demographic.getMiddleNames())%></span>
                                                                     </li>
                                                                     <li>
 														<span class="label" style="color:red;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:

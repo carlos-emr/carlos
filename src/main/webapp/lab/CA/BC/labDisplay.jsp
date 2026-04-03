@@ -215,7 +215,7 @@
                                                                     <a href="javascript:window.close()"> <% } else { // we were called from lab module %>
                                                                         <a
                                                                                 href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=BCP&segmentID=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(request.getParameter("segmentID")))) %>&name=<%=Encode.forJavaScriptAttribute(java.net.URLEncoder.encode(lab.pName, StandardCharsets.UTF_8))%>', 'searchPatientWindow')">
-                                                                            <% } %> <%=lab.pName%>
+                                                                            <% } %> <%=Encode.forHtml(lab.pName)%>
                                                                         </a></div>
                                                             </td>
                                                         </tr>
