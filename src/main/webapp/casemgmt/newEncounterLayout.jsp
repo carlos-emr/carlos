@@ -152,18 +152,6 @@
 <!--js code for newCaseManagementView.jsp -->
 <script type="text/javascript" src="<c:out value="${ctx}/js/newCaseManagementView.js.jsp"/>"></script>
 
-            <%-- Javascripts for the BC Care Connect Button --%>
-        <oscar:oscarPropertiesCheck value="BC" property="billregion">
-            <security:oscarSec roleName="<%=roleName%>" objectName="_careconnect" rights="r">
-                <c:set value="${ CarlosProperties.getInstance()['BC_CARECONNECT_URL'] }" var="careconnecturl"
-                       scope="application"/>
-                <c:if test="${ not empty careconnecturl }">
-                    <script type="text/javascript"
-                            src="${pageContext.servletContext.contextPath}/careconnect/careconnect.js"></script>
-                </c:if>
-            </security:oscarSec>
-        </oscar:oscarPropertiesCheck>
-
         <script type="text/javascript">
 
             jQuery(document).on("ready", function () {
