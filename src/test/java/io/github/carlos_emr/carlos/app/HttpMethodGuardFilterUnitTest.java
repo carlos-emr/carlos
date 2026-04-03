@@ -442,7 +442,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to Add2WaitingList.jsp (unconditional mutator)")
         void shouldBlock_forGetToAdd2WaitingListJsp() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/oscarWaitingList/Add2WaitingList.jsp");
+            when(request.getRequestURI()).thenReturn("/carlos/waitinglist/Add2WaitingList.jsp");
 
             filter.doFilter(request, response, chain);
 

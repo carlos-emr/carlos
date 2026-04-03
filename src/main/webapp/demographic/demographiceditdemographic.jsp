@@ -1031,7 +1031,7 @@
                         %>
                         <tr>
                             <td><a
-                                    href="<%= request.getContextPath() %>/oscarWaitingList/SetupDisplayPatientWaitingList.do?demographic_no=<%=demographic.getDemographicNo()%>">
+                                    href="<%= request.getContextPath() %>/waitinglist/SetupDisplayPatientWaitingList.do?demographic_no=<%=demographic.getDemographicNo()%>">
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgWaitList"/></a>
                             </td>
                         </tr>
