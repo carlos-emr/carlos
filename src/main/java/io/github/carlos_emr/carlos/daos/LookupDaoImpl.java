@@ -277,23 +277,23 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         }
         sql += " from " + tableName + " s";
         sql += " where " + idFieldName + " = ?";
-        DBPreparedHandler db = new DBPreparedHandler();
-        try {
-            ResultSet rs = db.queryResults(sql, code);
-            if (rs.next()) {
-                for (int i = 0; i < fs.size(); i++) {
-                    FieldDefValue fdv = (FieldDefValue) fs.get(i);
-                    String val = Misc.getString(rs, (i + 1));
-                    if ("D".equals(fdv.getFieldType()))
-                        if (fdv.isEditable()) {
-                            val = MyDateFormat.getStandardDate(MyDateFormat.getCalendarwithTime(val));
-                        } else {
-                            val = MyDateFormat.getStandardDateTime(MyDateFormat.getCalendarwithTime(val));
-                        }
-                    fdv.setVal(val);
+        try (PreparedStatement ps = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(sql)) {
+            ps.setString(1, code);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    for (int i = 0; i < fs.size(); i++) {
+                        FieldDefValue fdv = (FieldDefValue) fs.get(i);
+                        String val = Misc.getString(rs, (i + 1));
+                        if ("D".equals(fdv.getFieldType()))
+                            if (fdv.isEditable()) {
+                                val = MyDateFormat.getStandardDate(MyDateFormat.getCalendarwithTime(val));
+                            } else {
+                                val = MyDateFormat.getStandardDateTime(MyDateFormat.getCalendarwithTime(val));
+                            }
+                        fdv.setVal(val);
+                    }
                 }
             }
-            rs.close();
             for (int i = 0; i < fs.size(); i++) {
                 FieldDefValue fdv = (FieldDefValue) fs.get(i);
                 if (!Utility.IsEmpty(fdv.getLookupTable())) {
@@ -732,20 +732,24 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         String sql1 = "select count(*) from program_queue where 'P' || program_id in ("
                 + "select code from lst_orgcd where codecsv like ? ESCAPE '!')";
 
-        DBPreparedHandler db = new DBPreparedHandler();
-
-        ResultSet rs = db.queryResults(sql, likeParam);
         int id = 0;
-        if (rs.next())
-            id = rs.getInt(1);
+        try (PreparedStatement ps = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(sql)) {
+            ps.setString(1, likeParam);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next())
+                    id = rs.getInt(1);
+            }
+        }
         if (id > 0)
             return id;
 
-        rs.close();
-        rs = db.queryResults(sql1, likeParam);
-        if (rs.next())
-            id = rs.getInt(1);
-        rs.close();
+        try (PreparedStatement ps = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(sql1)) {
+            ps.setString(1, likeParam);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next())
+                    id = rs.getInt(1);
+            }
+        }
         return id;
     }
 
