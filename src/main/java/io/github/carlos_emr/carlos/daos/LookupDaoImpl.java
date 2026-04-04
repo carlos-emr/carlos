@@ -276,10 +276,12 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
             }
         }
         sql += " from " + tableName + " s";
-        sql += " where " + idFieldName + "='" + code + "'";
+        // Use a parameterized placeholder for the code value to prevent SQL injection.
+        sql += " where " + idFieldName + "=?";
         DBPreparedHandler db = new DBPreparedHandler();
         try {
-            ResultSet rs = db.queryResults(sql);
+            DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[]{ new DBPreparedHandlerParam(code) };
+            ResultSet rs = db.queryResults(sql, params);
             if (rs.next()) {
                 for (int i = 0; i < fs.size(); i++) {
                     FieldDefValue fdv = (FieldDefValue) fs.get(i);
@@ -724,15 +726,26 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
 
     @Override
     public int getCountOfActiveClient(String orgCd) throws SQLException {
-        String sql = "select count(*) from admission where admission_status='" + KeyConstants.INTAKE_STATUS_ADMITTED
-                + "' and  'P' || program_id in (" + " select code from lst_orgcd  where codecsv like '%' || '" + orgCd
-                + ",' || '%')";
+        // Parameterized queries eliminate the SQL injection risk from orgCd.
+        // The original query used string concatenation; the % || ? || % pattern used here
+        // is MySQL/MariaDB compatible for LIKE with a parameter.
+        String sql = "select count(*) from admission where admission_status=? and  'P' || program_id in ("
+                + " select code from lst_orgcd  where codecsv like ?)";
         String sql1 = "select count(*) from program_queue where  'P' || program_id in ("
-                + " select code from lst_orgcd  where codecsv like '%' || '" + orgCd + ",' || '%')";
+                + " select code from lst_orgcd  where codecsv like ?)";
+
+        String likePattern = "%" + orgCd + ",%";
+        DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[]{
+            new DBPreparedHandlerParam(KeyConstants.INTAKE_STATUS_ADMITTED),
+            new DBPreparedHandlerParam(likePattern)
+        };
+        DBPreparedHandlerParam[] params1 = new DBPreparedHandlerParam[]{
+            new DBPreparedHandlerParam(likePattern)
+        };
 
         DBPreparedHandler db = new DBPreparedHandler();
 
-        ResultSet rs = db.queryResults(sql);
+        ResultSet rs = db.queryResults(sql, params);
         int id = 0;
         if (rs.next())
             id = rs.getInt(1);
@@ -740,7 +753,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
             return id;
 
         rs.close();
-        rs = db.queryResults(sql1);
+        rs = db.queryResults(sql1, params1);
         if (rs.next())
             id = rs.getInt(1);
         rs.close();

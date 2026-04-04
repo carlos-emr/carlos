@@ -33,6 +33,7 @@
 package io.github.carlos_emr.carlos.report.reportByTemplate;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -191,6 +192,151 @@ public class ReportObjectGeneric implements ReportObject {
         }
         MiscUtils.getLogger().debug("<REPORT BY TEMPLATE> SQL: " + sql);
         return sql;
+    }
+
+    /**
+     * Builds a parameterized SQL query from the template and the provided HTTP request parameters.
+     * <p>
+     * Each <code>{paramId}</code> placeholder (and any enclosing single/double-quote characters) is
+     * replaced with one or more JDBC <code>?</code> placeholders.  The corresponding values are
+     * returned in the array elements starting at index&nbsp;1; element&nbsp;0 holds the SQL string.
+     * <p>
+     * Using this method together with {@link io.github.carlos_emr.carlos.db.DBHandler#GetPreSQL} prevents
+     * SQL injection because user-supplied values never become part of the SQL text.
+     *
+     * @param parameters the HTTP request parameter map (from {@code request.getParameterMap()})
+     * @return {@code String[]} where {@code [0]} is the parameterized SQL and {@code [1..n]} are the
+     *         parameter values in the order they appear in the SQL; returns a one-element array with an
+     *         empty string if the template cannot be resolved
+     */
+    public String[] getParameterizedSQL(Map parameters) {
+        String sql = (new ReportManager()).getSQL(this.templateId);
+        List<String> params = new ArrayList<>();
+
+        int cursor1;
+        while ((cursor1 = sql.indexOf("{")) != -1) {
+            int cursor2 = sql.indexOf("}", cursor1);
+            if (cursor2 == -1) break; // malformed template – stop processing
+            String paramId = sql.substring(cursor1 + 1, cursor2);
+
+            String[] substValues = (String[]) parameters.get(paramId);
+            if (substValues == null) {
+                substValues = (String[]) parameters.get(paramId + ":list");
+                if (substValues != null) {
+                    substValues[0] = substValues[0].replaceAll(" ", "");
+                    substValues = StringUtils.splitToStringArray(substValues[0], ",");
+                } else if (parameters.get(paramId + ":check") != null) {
+                    substValues = new String[0];
+                } else {
+                    return new String[]{""};
+                }
+            }
+
+            // Determine if the placeholder is wrapped in quotes in the template (e.g. '{foo}').
+            // If so we include those quote characters in the replacement range so that the
+            // resulting parameterized SQL does not contain literal quotes around the placeholder.
+            boolean hasLeadingQuote = cursor1 > 0
+                    && (sql.charAt(cursor1 - 1) == '\'' || sql.charAt(cursor1 - 1) == '"');
+            boolean hasTrailingQuote = cursor2 + 1 < sql.length()
+                    && (sql.charAt(cursor2 + 1) == '\'' || sql.charAt(cursor2 + 1) == '"');
+            int replStart = hasLeadingQuote ? cursor1 - 1 : cursor1;
+            int replEnd   = hasTrailingQuote ? cursor2 + 2 : cursor2 + 1;
+
+            if (substValues.length == 0) {
+                // Checkboxes with no selection – replace with empty string placeholder
+                sql = sql.substring(0, replStart) + "''" + sql.substring(replEnd);
+            } else if (substValues.length == 1) {
+                sql = sql.substring(0, replStart) + "?" + sql.substring(replEnd);
+                params.add(substValues[0]);
+            } else {
+                // Multiple values (e.g. for an IN list) – expand to ?,?,?
+                StringBuilder placeholders = new StringBuilder();
+                for (String v : substValues) {
+                    if (placeholders.length() > 0) placeholders.append(",");
+                    placeholders.append("?");
+                    params.add(v);
+                }
+                sql = sql.substring(0, replStart) + placeholders.toString() + sql.substring(replEnd);
+            }
+        }
+
+        MiscUtils.getLogger().debug("<REPORT BY TEMPLATE> Parameterized SQL: {}", sql);
+        String[] result = new String[params.size() + 1];
+        result[0] = sql;
+        for (int i = 0; i < params.size(); i++) {
+            result[i + 1] = params.get(i);
+        }
+        return result;
+    }
+
+    /**
+     * Builds a parameterized SQL query for the specified sequence entry of a multi-statement template.
+     * See {@link #getParameterizedSQL(Map)} for full documentation of the return format.
+     *
+     * @param sequenceNo zero-based index of the SQL statement within the template
+     * @param parameters the HTTP request parameter map
+     * @return {@code String[]} in the same format as {@link #getParameterizedSQL(Map)}, or {@code null}
+     *         if {@code sequenceNo} is out of range
+     */
+    public String[] getParameterizedSQL(int sequenceNo, Map parameters) {
+        String sql = (new ReportManager()).getSQL(this.templateId);
+        String[] parts = sql.split(";");
+        if (parts.length <= sequenceNo) {
+            return null;
+        }
+        // Process the selected statement directly
+        sql = parts[sequenceNo];
+        List<String> params = new ArrayList<>();
+
+        int cursor1;
+        while ((cursor1 = sql.indexOf("{")) != -1) {
+            int cursor2 = sql.indexOf("}", cursor1);
+            if (cursor2 == -1) break;
+            String paramId = sql.substring(cursor1 + 1, cursor2);
+
+            String[] substValues = (String[]) parameters.get(paramId);
+            if (substValues == null) {
+                substValues = (String[]) parameters.get(paramId + ":list");
+                if (substValues != null) {
+                    substValues[0] = substValues[0].replaceAll(" ", "");
+                    substValues = StringUtils.splitToStringArray(substValues[0], ",");
+                } else if (parameters.get(paramId + ":check") != null) {
+                    substValues = new String[0];
+                } else {
+                    return new String[]{""};
+                }
+            }
+
+            boolean hasLeadingQuote = cursor1 > 0
+                    && (sql.charAt(cursor1 - 1) == '\'' || sql.charAt(cursor1 - 1) == '"');
+            boolean hasTrailingQuote = cursor2 + 1 < sql.length()
+                    && (sql.charAt(cursor2 + 1) == '\'' || sql.charAt(cursor2 + 1) == '"');
+            int replStart = hasLeadingQuote ? cursor1 - 1 : cursor1;
+            int replEnd   = hasTrailingQuote ? cursor2 + 2 : cursor2 + 1;
+
+            if (substValues.length == 0) {
+                sql = sql.substring(0, replStart) + "''" + sql.substring(replEnd);
+            } else if (substValues.length == 1) {
+                sql = sql.substring(0, replStart) + "?" + sql.substring(replEnd);
+                params.add(substValues[0]);
+            } else {
+                StringBuilder placeholders = new StringBuilder();
+                for (String v : substValues) {
+                    if (placeholders.length() > 0) placeholders.append(",");
+                    placeholders.append("?");
+                    params.add(v);
+                }
+                sql = sql.substring(0, replStart) + placeholders.toString() + sql.substring(replEnd);
+            }
+        }
+
+        MiscUtils.getLogger().debug("<REPORT BY TEMPLATE> Parameterized SQL[{}]: {}", sequenceNo, sql);
+        String[] result = new String[params.size() + 1];
+        result[0] = sql;
+        for (int i = 0; i < params.size(); i++) {
+            result[i + 1] = params.get(i);
+        }
+        return result;
     }
 
     public int getActive() {

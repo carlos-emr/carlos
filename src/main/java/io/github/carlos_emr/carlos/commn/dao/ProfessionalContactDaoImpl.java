@@ -32,7 +32,10 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.ProfessionalContact;
@@ -40,6 +43,37 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class ProfessionalContactDaoImpl extends AbstractDaoImpl<ProfessionalContact> implements ProfessionalContactDao {
+
+    /**
+     * Allowlist mapping valid search-mode names to the corresponding safe HQL property name.
+     * Values come from this map (not from user input), which breaks any CodeQL taint flow
+     * from the HTTP request into the query string.
+     */
+    private static final Map<String, String> VALID_SEARCH_MODES;
+    /**
+     * Allowlist mapping valid ORDER BY column names to the corresponding safe HQL property name.
+     */
+    private static final Map<String, String> VALID_ORDER_BY_COLUMNS;
+
+    static {
+        VALID_SEARCH_MODES = new LinkedHashMap<>();
+        for (String col : Arrays.asList(
+                "search_name", "updateDate", "id", "lastName", "firstName", "address", "address2",
+                "city", "province", "country", "postal", "residencePhone",
+                "cellPhone", "workPhone", "workPhoneExtension", "email", "fax", "note", "deleted",
+                "specialty", "cpso", "systemId")) {
+            VALID_SEARCH_MODES.put(col, col);
+        }
+
+        VALID_ORDER_BY_COLUMNS = new LinkedHashMap<>();
+        for (String col : Arrays.asList(
+                "updateDate", "id", "lastName", "firstName", "address", "address2", "city",
+                "province", "country", "postal", "residencePhone", "cellPhone",
+                "workPhone", "workPhoneExtension", "email", "fax", "note", "deleted",
+                "specialty", "cpso", "systemId")) {
+            VALID_ORDER_BY_COLUMNS.put(col, col);
+        }
+    }
 
     public ProfessionalContactDaoImpl() {
         super(ProfessionalContact.class);
@@ -92,9 +126,12 @@ public class ProfessionalContactDaoImpl extends AbstractDaoImpl<ProfessionalCont
     }
     
     /**
-     * Validates the searchMode parameter to ensure it only contains valid column names
+     * Validates the searchMode parameter to ensure it only contains valid column names.
+     * Returns the safe, hardcoded column name from {@link #VALID_SEARCH_MODES} — never the raw
+     * user input — so CodeQL taint flow from request parameters cannot reach the HQL query.
+     *
      * @param searchMode the search mode to validate
-     * @return the validated search mode
+     * @return the validated search mode from the allowlist
      * @throws IllegalArgumentException if searchMode is invalid
      */
     private String validateSearchMode(String searchMode) {
@@ -102,41 +139,29 @@ public class ProfessionalContactDaoImpl extends AbstractDaoImpl<ProfessionalCont
             return "lastName"; // default to lastName
         }
         
-        // Valid searchable fields from Contact and ProfessionalContact entities
-        String[] validSearchModes = {
-            "search_name", "updateDate", "id", "lastName", "firstName", "address", "address2", 
-            "city", "province", "country", "postal", "residencePhone", 
-            "cellPhone", "workPhone", "workPhoneExtension", "email", "fax", "note", "deleted",
-            "specialty", "cpso", "systemId"
-        };
-        
-        for (String validMode : validSearchModes) {
-            if (validMode.equals(searchMode)) {
-                return searchMode;
-            }
+        // Return the value from the static allowlist Map — not the user-supplied string — to
+        // break any CodeQL taint flow from request parameters into the query string.
+        String safeMode = VALID_SEARCH_MODES.get(searchMode);
+        if (safeMode != null) {
+            return safeMode;
         }
         
         throw new IllegalArgumentException("Invalid search mode: " + searchMode);
     }
     
     /**
-     * Validates the orderBy parameter to ensure it only contains valid column names and sort orders
+     * Validates the orderBy parameter to ensure it only contains valid column names and sort orders.
+     * Constructs the ORDER BY expression exclusively from {@link #VALID_ORDER_BY_COLUMNS} — never
+     * from the raw user input — so CodeQL taint flow from request parameters cannot reach the HQL query.
+     *
      * @param orderBy the order by clause to validate
-     * @return the validated order by clause
+     * @return the validated order by clause built from allowlisted constants
      * @throws IllegalArgumentException if orderBy contains invalid column names
      */
     private String validateOrderBy(String orderBy) {
         if (orderBy == null || orderBy.trim().isEmpty()) {
             return "c.lastName, c.firstName"; // default ordering
         }
-        
-        // Valid sortable fields from Contact and ProfessionalContact entities
-        String[] validColumns = {
-            "updateDate", "id", "lastName", "firstName", "address", "address2", "city", 
-            "province", "country", "postal", "residencePhone", "cellPhone", 
-            "workPhone", "workPhoneExtension", "email", "fax", "note", "deleted", 
-            "specialty", "cpso", "systemId"
-        };
         
         StringBuilder validatedOrderBy = new StringBuilder();
         String[] orderByParts = orderBy.split(",");
@@ -162,23 +187,17 @@ public class ProfessionalContactDaoImpl extends AbstractDaoImpl<ProfessionalCont
                 }
             }
             
-            // Validate column name
-            boolean isValid = false;
-            for (String validColumn : validColumns) {
-                if (validColumn.equals(column)) {
-                    isValid = true;
-                    break;
-                }
-            }
-            
-            if (!isValid) {
+            // Validate column name; use the allowlisted constant from the map, not user input
+            String safeColumn = VALID_ORDER_BY_COLUMNS.get(column);
+            if (safeColumn == null) {
                 throw new IllegalArgumentException("Invalid order by column: " + column);
             }
             
             if (i > 0) {
                 validatedOrderBy.append(", ");
             }
-            validatedOrderBy.append("c.").append(column).append(sortOrder);
+            // Append the safe constant from the static allowlist, not the raw user-supplied column
+            validatedOrderBy.append("c.").append(safeColumn).append(sortOrder);
         }
         
         return validatedOrderBy.length() > 0 ? validatedOrderBy.toString() : "c.lastName, c.firstName";

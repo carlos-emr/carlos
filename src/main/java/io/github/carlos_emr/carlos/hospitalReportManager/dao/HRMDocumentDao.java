@@ -17,6 +17,7 @@ package io.github.carlos_emr.carlos.hospitalReportManager.dao;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.persistence.Query;
 
@@ -27,6 +28,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
+
+    /**
+     * Allowlist mapping user-supplied ORDER BY column names to the corresponding
+     * safe HQL property expression. Values come from this map (not from user input),
+     * which breaks any CodeQL taint flow from the request into the query string.
+     */
+    private static final Map<String, String> ORDER_COLUMN_HQL = Map.of(
+            "formattedName", "x.formattedName",
+            "dob", "x.dob",
+            "reportDate", "x.reportDate",
+            "timeReceived", "x.timeReceived",
+            "sourceFacility", "x.sourceFacility"
+    );
 
     public HRMDocumentDao() {
         super(HRMDocument.class);
@@ -167,7 +181,10 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
 
 
         if (!StringUtils.isEmpty(orderColumn) && !StringUtils.isEmpty(orderDirection)) {
-            sql = sql + " ORDER BY x." + orderColumn + " " + orderDirection;
+            // Use the pre-validated safe HQL property from the allowlist map, not the raw user input
+            String safeOrderColumn = ORDER_COLUMN_HQL.get(orderColumn);
+            String safeOrderDirection = orderDirection.equalsIgnoreCase("ASC") ? "ASC" : "DESC";
+            sql = sql + " ORDER BY " + safeOrderColumn + " " + safeOrderDirection;
         }
 
 
@@ -227,7 +244,10 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
 
 
         if (!StringUtils.isEmpty(orderColumn) && !StringUtils.isEmpty(orderDirection)) {
-            sql = sql + " ORDER BY x." + orderColumn + " " + orderDirection;
+            // Use the pre-validated safe HQL property from the allowlist map, not the raw user input
+            String safeOrderColumn = ORDER_COLUMN_HQL.get(orderColumn);
+            String safeOrderDirection = orderDirection.equalsIgnoreCase("ASC") ? "ASC" : "DESC";
+            sql = sql + " ORDER BY " + safeOrderColumn + " " + safeOrderDirection;
         }
 
 
