@@ -678,3 +678,100 @@
             navLayout.scrollTop += event.deltaY;
         }
     }, { passive: false, capture: true });
+
+    /**
+     * EChart Keyboard Shortcuts
+     *
+     * Alt-key shortcuts for common encounter actions. These mirror the toolbar
+     * buttons in ChartNotes.jsp and navigation links in navigation.jsp, giving
+     * providers keyboard-driven workflow without reaching for the mouse.
+     *
+     * Alt+1  Sign, Save & Bill — signs the note, flags for billing, submits and exits
+     * Alt+2  Save              — saves the current note without signing or exiting
+     * Alt+3  Sign & Save       — signs the note, submits and exits (no billing)
+     * Alt+4  Exit              — exits the encounter (prompts if unsaved changes)
+     * Alt+T  New Tickler       — opens the Add Tickler window for this patient
+     * Alt+C  New Consult       — opens a new Consultation Request form for this patient
+     * Alt+P  Open Prescriptions — opens the Prescriptions (Rx) window for this patient
+     *
+     * Save/sign/exit shortcuts (Alt+1-4) are suppressed when focus is inside an
+     * input or select to avoid interfering with normal typing, but still work from
+     * the note textarea. Popup shortcuts (Alt+T/C/P) work from any context.
+     * The Alt modifier was chosen because Ctrl combinations conflict with browser
+     * defaults (Ctrl+S = save page, etc).
+     *
+     * @since 2026-04-04
+     */
+    document.addEventListener('keydown', function (event) {
+        // Only handle plain Alt+key — ignore Ctrl+Alt and Cmd+Alt combos (used by OS/browser)
+        if (!event.altKey || event.ctrlKey || event.metaKey) return;
+
+        // Don't intercept Alt keys when typing in form fields (except the note
+        // textarea, where providers spend most of their time and need quick access)
+        var tag = event.target.tagName;
+        var isFormField = (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT');
+
+        var frm = document.forms['caseManagementEntryForm'];
+        var handled = false;
+
+        // Chrome/Edge report uppercase letters for Alt+key; normalize to lowercase
+        var key = event.key.toLowerCase();
+
+        switch (key) {
+            case '1': // Alt+1: Sign, Save & Bill
+                if (!isFormField || tag === 'TEXTAREA') {
+                    frm.sign.value = 'on';
+                    frm.toBill.value = 'true';
+                    savePage('saveAndExit', '');
+                    handled = true;
+                }
+                break;
+
+            case '2': // Alt+2: Save
+                if (!isFormField || tag === 'TEXTAREA') {
+                    saveNoteAjax('save', 'list');
+                    handled = true;
+                }
+                break;
+
+            case '3': // Alt+3: Sign & Save
+                if (!isFormField || tag === 'TEXTAREA') {
+                    frm.sign.value = 'on';
+                    savePage('saveAndExit', '');
+                    handled = true;
+                }
+                break;
+
+            case '4': // Alt+4: Exit
+                if (!isFormField || tag === 'TEXTAREA') {
+                    closeEnc(event);
+                    handled = true;
+                }
+                break;
+
+            case 't': // Alt+T: New Tickler
+                window.open(ctx + '/tickler/ticklerAdd.jsp?demographic_no=' + demographicNo, '',
+                    'height=600,width=700,scrollbars=yes,resizable=yes');
+                handled = true;
+                break;
+
+            case 'c': // Alt+C: New Consult Request
+                window.open(ctx + '/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=' + demographicNo, '',
+                    'height=700,width=960,scrollbars=yes,resizable=yes');
+                handled = true;
+                break;
+
+            case 'p': // Alt+P: Open Prescriptions (Rx)
+                // String.fromCharCode(38) produces '&' at runtime — a literal '&' in this .js.jsp
+                // file may be misinterpreted by the JSP compiler as an HTML entity start.
+                window.open(ctx + '/oscarRx/choosePatient.do?providerNo=' + providerNo + String.fromCharCode(38) + 'demographicNo=' + demographicNo, '',
+                    'height=700,width=1027,scrollbars=yes,resizable=yes');
+                handled = true;
+                break;
+        }
+
+        if (handled) {
+            event.preventDefault();   // Suppress browser's default Alt+key behavior
+            event.stopPropagation();  // Prevent other keydown listeners from reacting
+        }
+    });

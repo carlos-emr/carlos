@@ -2476,6 +2476,24 @@
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.workflowShortcut"/> :
                         popupOscarRx(700, 1024, '<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.jsp', '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.workflow"/>');
                         return false; //code for 'W'orkflow
+                    // Date navigation shortcuts — use raw key codes because arrow keys
+                    // and digits are universal across keyboard layouts (unlike the alpha
+                    // shortcuts above which are i18n-configurable via oscarResources).
+                    // Alt+Left Arrow: Back 1 day
+                    case 37:
+                        getLocation('dayBackward', 1);
+                        return false;
+                    // Alt+Right Arrow: Forward 1 day
+                    case 39:
+                        getLocation('dayForward', 1);
+                        return false;
+                    // Alt+1 through Alt+6: Forward 1-6 months
+                    case 49: getLocation('monthForward', 1); return false;
+                    case 50: getLocation('monthForward', 2); return false;
+                    case 51: getLocation('monthForward', 3); return false;
+                    case 52: getLocation('monthForward', 4); return false;
+                    case 53: getLocation('monthForward', 5); return false;
+                    case 54: getLocation('monthForward', 6); return false;
                     default :
                         return;
                 }
