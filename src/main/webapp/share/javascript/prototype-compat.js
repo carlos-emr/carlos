@@ -412,7 +412,10 @@ window.carlosExtractAndExecScripts = function (element, html) {
         scripts.push(match[1]);
     }
 
-    // Remove script tags from HTML (loop to handle nested/overlapping patterns)
+    // Remove script tags from HTML (loop to handle nested/overlapping patterns).
+    // Extraction above is single-pass; stripping here is multi-pass. Reconstituted
+    // scripts (from nested patterns like <scr<script>ipt>) are stripped but NOT
+    // executed — this is intentional as they indicate an injection attempt.
     var cleanHtml = html;
     var prev;
     do {

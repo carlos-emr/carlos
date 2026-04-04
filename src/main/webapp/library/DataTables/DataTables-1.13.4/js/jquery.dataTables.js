@@ -1455,6 +1455,9 @@
 
 
     var _stripHtml = function (d) {
+        if (typeof d !== 'string') {
+            return d;
+        }
         var prev;
         do {
             prev = d;
@@ -5291,9 +5294,6 @@
             i++;
         }
     }
-
-
-    var __re_html_remove = /<.*?>/g;
 
 
     /**
