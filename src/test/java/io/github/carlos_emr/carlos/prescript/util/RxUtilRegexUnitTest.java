@@ -113,7 +113,8 @@ class RxUtilRegexUnitTest {
             // With the old \d*\.*\d+ pattern this forces O(n²) backtracking attempts;
             // with the fixed pattern it runs in O(n).
             String adversarial = "1".repeat(100);
-            assertTimeout(Duration.ofMillis(500), () -> RxUtil.isStringToNumber(adversarial));
+            boolean result = assertTimeout(Duration.ofMillis(500), () -> RxUtil.isStringToNumber(adversarial));
+            assertThat(result).isTrue();
         }
 
         @Test
@@ -122,7 +123,8 @@ class RxUtilRegexUnitTest {
             // Digits followed by a letter — the trailing letter prevents the outer
             // context from matching, forcing maximum backtracking with the old pattern.
             String adversarial = "1".repeat(100) + "X";
-            assertTimeout(Duration.ofMillis(500), () -> RxUtil.isStringToNumber(adversarial));
+            boolean result = assertTimeout(Duration.ofMillis(500), () -> RxUtil.isStringToNumber(adversarial));
+            assertThat(result).isFalse();
         }
     }
 
@@ -211,10 +213,11 @@ class RxUtilRegexUnitTest {
     @DisplayName("applyStJoesPolicy ReDoS safety")
     class ApplyStJoesPolicyReDoSSafety {
 
-        private void checkWithTimeout(String instr) {
-            assertTimeout(Duration.ofMillis(500), () -> {
+        private List<String> checkWithTimeout(String instr) {
+            return assertTimeout(Duration.ofMillis(500), () -> {
                 List<String> errors = new ArrayList<>();
                 RxInstructionPolicy.applyStJoesPolicy(instr, errors);
+                return errors;
             });
         }
 
