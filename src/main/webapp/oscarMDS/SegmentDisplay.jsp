@@ -187,7 +187,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                    value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                                    onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=MDS&segmentID=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("segmentID"))) %>&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
                             <% } %> &nbsp; <a
-                                href="javascript:popupStart(400,850,'${pageContext.request.contextPath}/demographic/demographiccontrol.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demoNo)) %>&last_name=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demoNo))%>&first_name=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demoNo))%>&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
+                                href="javascript:popupStart(400,850,'${pageContext.request.contextPath}/demographic/demographiccontrol.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demoNo)) %>&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
                                 style="font-size: 12px;" title="Click to see appointment history"><span
                                 class="Field2"><i>Next Appointment: <oscar:nextAppt
                                 demographicNo="<%=demoNo%>"/></i></span></a></td>
