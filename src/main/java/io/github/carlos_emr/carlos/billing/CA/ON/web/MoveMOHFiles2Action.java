@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import org.owasp.encoder.Encode;
 
 /**
  * Struts2 action for managing Ontario Ministry of Health (MOH) billing file archival operations.
@@ -138,7 +139,7 @@ public class MoveMOHFiles2Action extends ActionSupport {
                 if (file == null) {
                     logger.warn("Unable to get file {}{}{}", LogSanitizer.sanitize(folderPath), File.separator, LogSanitizer.sanitize(fileName));
 
-                    errors.append("Unable to find file " + fileName + ".<br/>");
+                    errors.append("Unable to find file ").append(Encode.forHtml(fileName)).append(".<br/>");
                     continue;
                 }
 
@@ -146,16 +147,16 @@ public class MoveMOHFiles2Action extends ActionSupport {
                 if (!isValidFileLocation) {
                     logger.warn("Invalid file location {}", LogSanitizer.sanitize(fileName));
 
-                    errors.append("Unable to find file " + fileName + ".<br/>");
+                    errors.append("Unable to find file ").append(Encode.forHtml(fileName)).append(".<br/>");
                     continue;
                 }
 
                 if (file.exists()) {
                     boolean isMoved = moveFile(file);
                     if (isMoved) {
-                        messages.append("Archived file " + file.getName() + " successfully.<br/>");
+                        messages.append("Archived file ").append(Encode.forHtml(file.getName())).append(" successfully.<br/>");
                     } else {
-                        errors.append("Unable to archive " + file.getName());
+                        errors.append("Unable to archive ").append(Encode.forHtml(file.getName()));
                     }
                 }
             }

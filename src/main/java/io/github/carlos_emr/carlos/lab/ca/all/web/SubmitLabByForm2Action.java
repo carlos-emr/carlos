@@ -205,8 +205,8 @@ public class SubmitLabByForm2Action extends ActionSupport {
         String outcome = null;
 
         if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-            logger.info("filePath: {}", LogSanitizer.sanitize(filePath));
-            logger.info("Type: {}", LogSanitizer.sanitize(labName));
+            logger.info("filePath {}", LogSanitizer.sanitize(filePath));
+            logger.info("Type :{}", LogSanitizer.sanitize(labName));
             MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
             if (msgHandler != null) {
                 logger.info("MESSAGE HANDLER {}", msgHandler.getClass().getName());

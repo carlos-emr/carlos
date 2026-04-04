@@ -213,6 +213,14 @@
 <body>
 <div class="card card-body bg-body-tertiary">
 
+    <%-- Display Struts action errors (e.g., failed HL7 generation) --%>
+    <%@ taglib uri="/struts-tags" prefix="s" %>
+    <s:if test="hasActionErrors()">
+        <div class="alert alert-danger" role="alert">
+            <s:actionerror/>
+        </div>
+    </s:if>
+
     <form name="testForm" method="post" action="<%=request.getContextPath()%>/oscarMDS/SubmitLab.do?method=saveManage"
           onsubmit="return confirmSave();">
 

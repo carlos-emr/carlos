@@ -561,7 +561,7 @@ public class CaseManagementView2Action extends ActionSupport {
             for (String s : checkedIssues) {
                 String[] temp = s.split("\\.");
                 if (temp.length == 2) checkedCodeList.add(temp[1]);
-                else logger.warn("Unexpected parameter, wrong format: {}", LogSanitizer.sanitize(s));
+                else logger.warn("Unexpected parameter, wrong format : {}", LogSanitizer.sanitize(s));
             }
         }
 

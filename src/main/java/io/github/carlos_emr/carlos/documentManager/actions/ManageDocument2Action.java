@@ -561,7 +561,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         Long note_id = cmm.saveNoteSimpleReturnID(cmn);
         // Debugging purposes on the live server
-        MiscUtils.getLogger().info("Document Note ID: {}", LogSanitizer.sanitize(note_id));
+        MiscUtils.getLogger().info("Document Note ID: {}", note_id);
 
         // Add a noteLink to casemgmt_note_link
         CaseManagementNoteLink cmnl = new CaseManagementNoteLink();
@@ -680,7 +680,7 @@ public class ManageDocument2Action extends ActionSupport {
                 int pageIndex = pageNum - 1;
                 int totalPages = pdf.getNumberOfPages();
                 if (pageIndex < 0 || pageIndex >= totalPages) {
-                    log.error("Invalid page number {} for document {} with {} pages", LogSanitizer.sanitize(pageNum), LogSanitizer.sanitize(d.getDocfilename()), totalPages);
+                    log.error("Invalid page number {} for document {} with {} pages", pageNum, LogSanitizer.sanitize(d.getDocfilename()), totalPages);
                     return null;
                 }
 
@@ -725,11 +725,11 @@ public class ManageDocument2Action extends ActionSupport {
     public void getPage(int pageNum) {
 
         String doc_no = request.getParameter("doc_no");
-        log.debug("Document No: {}", LogSanitizer.sanitize(doc_no));
+        log.debug("Document No :{}", LogSanitizer.sanitize(doc_no));
         LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
         Document d = documentDao.getDocument(doc_no);
 
-        log.debug("Document Name: {}", LogSanitizer.sanitize(d.getDocfilename()));
+        log.debug("Document Name :{}", LogSanitizer.sanitize(d.getDocfilename()));
 
         File outfile = hasCacheVersion(d, pageNum);
 
@@ -763,7 +763,7 @@ public class ManageDocument2Action extends ActionSupport {
             pageNum = "1";
         }
         Integer pn = Integer.parseInt(pageNum);
-        log.debug("Document No: {}", LogSanitizer.sanitize(doc_no));
+        log.debug("Document No :{}", LogSanitizer.sanitize(doc_no));
         LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
 
         Document d = documentDao.getDocument(doc_no);
@@ -777,7 +777,7 @@ public class ManageDocument2Action extends ActionSupport {
             return;
         }
 
-        log.debug("Document Name: {}", LogSanitizer.sanitize(d.getDocfilename()));
+        log.debug("Document Name :{}", LogSanitizer.sanitize(d.getDocfilename()));
         //if the file is not a pdf, use display function
         if (!(d.getContenttype().equals("application/pdf") || d.getDocfilename().endsWith(".pdf"))) {
             try {
@@ -851,7 +851,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String doc_no = request.getParameter("doc_no");
-        log.debug("Document No: {}", LogSanitizer.sanitize(doc_no));
+        log.debug("Document No :{}", LogSanitizer.sanitize(doc_no));
         String demoNo = request.getParameter("demoNo");
 
         String docxml = null;
@@ -868,7 +868,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         Document d = documentDao.getDocument(doc_no);
 
-        log.debug("Document Name: {}", LogSanitizer.sanitize(d.getDocfilename()));
+        log.debug("Document Name :{}", LogSanitizer.sanitize(d.getDocfilename()));
 
         docxml = d.getDocxml();
         contentType = d.getContenttype();
@@ -1265,7 +1265,7 @@ public class ManageDocument2Action extends ActionSupport {
             int pageIndex = pageNumber - 1;
             int totalPages = reader.getNumberOfPages();
             if (pageIndex < 0 || pageIndex >= totalPages) {
-                log.error("Invalid page number {} for PDF {} with {} pages", LogSanitizer.sanitize(pageNumber), LogSanitizer.sanitize(sanitizedPdfName), totalPages);
+                log.error("Invalid page number {} for PDF {} with {} pages", pageNumber, LogSanitizer.sanitize(sanitizedPdfName), totalPages);
                 response.setContentType("text/html;charset=UTF-8");
                 response.getWriter().print(props.getString("dms.incomingDocs.errorInOpening") + Encode.forHtml(sanitizedPdfName));
                 response.getWriter().print("<br>Invalid page number");
@@ -1524,7 +1524,7 @@ public class ManageDocument2Action extends ActionSupport {
             int pageIndex = pageNum - 1;
             int totalPages = document.getNumberOfPages();
             if (pageIndex < 0 || pageIndex >= totalPages) {
-                log.error("Invalid page number {} for PDF {}{}{} with {} pages", LogSanitizer.sanitize(pageNum), LogSanitizer.sanitize(pdfDir), File.separator, LogSanitizer.sanitize(sanitizedPdfName), totalPages);
+                log.error("Invalid page number {} for PDF {}{}{} with {} pages", pageNum, LogSanitizer.sanitize(pdfDir), File.separator, LogSanitizer.sanitize(sanitizedPdfName), totalPages);
                 return null;
             }
 

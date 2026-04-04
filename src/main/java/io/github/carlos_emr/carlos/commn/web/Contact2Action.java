@@ -985,7 +985,7 @@ public class Contact2Action extends ActionSupport {
         Integer newPharmacyId = pharmacyManager.savePharmacyInfo(loggedInInfo, pharmacyInfo);
 
         // Link to demographic if this is a new contact generated from a demographic.
-        logger.info("Linking new Pharmacy {} to demographic {}", LogSanitizer.sanitize(newPharmacyId), LogSanitizer.sanitize(demographic_no));
+        logger.info("Linking new Pharmacy {} to demographic {}", newPharmacyId, LogSanitizer.sanitize(demographic_no));
         if (newPharmacyId > 0 && !demographic_no.isEmpty() && currentPharmacyId == 0) {
             pharmacyManager.addPharmacy(loggedInInfo, Integer.parseInt(demographic_no), newPharmacyId, 0);
         }

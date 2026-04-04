@@ -134,7 +134,9 @@ public final class LogSanitizer {
      *
      * <p>Converts the object to its {@link Object#toString()} representation and delegates
      * to {@link #sanitize(String)}. If {@code toString()} throws a runtime exception, returns
-     * a safe fallback string containing the class name and exception type.</p>
+     * a safe fallback string containing the class name and exception type. Catches
+     * {@code Throwable} (including {@code Error} subclasses like {@code StackOverflowError})
+     * to ensure a sanitize call never crashes the calling thread.</p>
      *
      * @param input Object the value to sanitize; may be {@code null}
      * @return String the sanitized string; never {@code null}
@@ -145,7 +147,7 @@ public final class LogSanitizer {
         }
         try {
             return sanitize(input.toString());
-        } catch (RuntimeException e) {
+        } catch (Throwable e) {
             return "[toString() failed: " + input.getClass().getName() + " (" + e.getClass().getSimpleName() + ")]";
         }
     }

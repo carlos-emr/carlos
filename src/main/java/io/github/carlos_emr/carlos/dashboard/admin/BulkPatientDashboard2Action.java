@@ -130,7 +130,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             messageHandler.notifyProvider(subject, message, mrp, null); //parseIntegers(patientIdsJson));
         }
 
-        logger.info("{}", LogSanitizer.sanitize(message));
+        logger.info("Bulk operation notification sent to provider(s)");
 
         return null;
     }
@@ -182,7 +182,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             messageHandler.notifyProvider(subject, message, mrp, null); //patientIdList);
         }
 
-        logger.info("{}", LogSanitizer.sanitize(message));
+        logger.info("Bulk operation notification sent to provider(s)");
 
         return null;
     }
@@ -242,7 +242,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             messageHandler.notifyProvider(subject, message, mrp);
         }
 
-        logger.info("{}", LogSanitizer.sanitize(message));
+        logger.info("Bulk operation notification sent to provider(s)");
 
         return null;
     }

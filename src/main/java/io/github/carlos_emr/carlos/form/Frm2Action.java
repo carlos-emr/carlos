@@ -238,10 +238,10 @@ public final class Frm2Action extends ActionSupport {
                 newID = rec.saveFormRecord(props);
 
                 if (newID > 0) {
-                    log.info("{} new form ID {} successfully saved.", LogSanitizer.sanitize(formClassName), LogSanitizer.sanitize(newID));
+                    log.info("{} new form ID {} successfully saved.", LogSanitizer.sanitize(formClassName), newID);
                     saveSuccess = Boolean.TRUE;
                 } else {
-                    log.info("{} form ID {} failed to save.", LogSanitizer.sanitize(formClassName), LogSanitizer.sanitize(formId));
+                    log.info("{} form ID {} failed to save.", LogSanitizer.sanitize(formClassName), formId);
                 }
 
                 String ip = request.getRemoteAddr();

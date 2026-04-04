@@ -131,7 +131,7 @@ public class BillingCorrection2Action extends ActionSupport {
 
             return SUCCESS;
         } else {
-            MiscUtils.getLogger().error("Invalid billing invoice: {}", LogSanitizer.sanitize(invoiceNo));
+            MiscUtils.getLogger().error("Invalid billing invoice:{}", LogSanitizer.sanitize(invoiceNo));
             return "closeReload";
         }
 
@@ -286,7 +286,7 @@ public class BillingCorrection2Action extends ActionSupport {
             try {
                 billingDate = DateUtils.parseDate(request.getParameter("xml_appointment_date"), locale);
             } catch (java.text.ParseException e) {
-                MiscUtils.getLogger().error("Invalid billing date: {}", LogSanitizer.sanitize(request.getParameter("xml_appointment_date")), e);
+                MiscUtils.getLogger().error("Invalid billing date:{}", LogSanitizer.sanitize(request.getParameter("xml_appointment_date")), e);
                 return false;
             }
 
@@ -432,7 +432,7 @@ public class BillingCorrection2Action extends ActionSupport {
 
                 //Determine Unit
                 String unit = request.getParameter("billingunit" + i);
-                MiscUtils.getLogger().info("({}) Unit Amount: {}", LogSanitizer.sanitize(serviceCodeId), LogSanitizer.sanitize(unit));
+                MiscUtils.getLogger().info("({}) Unit Amount:{}", LogSanitizer.sanitize(serviceCodeId), LogSanitizer.sanitize(unit));
                 if (!unit.matches("\\d+")) {
                     unit = "1";
                 }

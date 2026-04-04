@@ -120,7 +120,7 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
                 issueCode, Integer.valueOf(demo));
 
         if (list.size() > 1) {
-            log.error("Expected 1 result got more: {} ({},{})", list.size(), LogSanitizer.sanitize(demo), LogSanitizer.sanitize(issueCode));
+            log.error("Expected 1 result got more : {} ({},{})", list.size(), LogSanitizer.sanitize(demo), LogSanitizer.sanitize(issueCode));
         }
 
         if (list.size() == 1 || list.size() > 1)

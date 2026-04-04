@@ -176,7 +176,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
         if (!result.isBlocked()) {
             return false;
         }
-        logger.warn("Cannot {} measurement {} - blocked at {} level", LogSanitizer.sanitize(action), LogSanitizer.sanitize(measurement), LogSanitizer.sanitize(result.getBlockingLevel()));
+        logger.warn("Cannot {} measurement {} - blocked at {} level", LogSanitizer.sanitize(action), LogSanitizer.sanitize(measurement), result.getBlockingLevel());
         request.setAttribute("errorMessage",
             "Cannot " + action + " measurement: blocked at " + result.getBlockingLevel() + " level");
         setResponseAttributes(ctx);
@@ -263,7 +263,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
 
                 if (cascadeResult.isBlocked()) {
                     logger.warn("Cannot add measurement {} - blocked at {} level",
-                        LogSanitizer.sanitize(measurementType), LogSanitizer.sanitize(cascadeResult.getBlockingLevel()));
+                        LogSanitizer.sanitize(measurementType), cascadeResult.getBlockingLevel());
                     request.setAttribute("errorMessage",
                         "Cannot add measurement: blocked at " + cascadeResult.getBlockingLevel() + " level");
                     request.setAttribute("demographic", demographicNo);
@@ -548,7 +548,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
 
             if (canArchive.isBlocked()) {
                 logger.warn("Cannot archive customization {} - created at {} level",
-                    LogSanitizer.sanitize(id), LogSanitizer.sanitize(canArchive.getBlockingLevel()));
+                    LogSanitizer.sanitize(id), canArchive.getBlockingLevel());
                 request.setAttribute("errorMessage",
                     "Cannot remove customization: created at " + canArchive.getBlockingLevel() + " level");
                 request.setAttribute("demographic", demographicNo);
