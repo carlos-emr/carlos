@@ -68,7 +68,7 @@ public class EFormAttachDocs2Action
         String provNo = providerNo;
 
         if (StringUtils.isEmpty(requestId)) {
-            writeOkResponse();
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing requestId");
             return null;
         }
         if (!CarlosProperties.getInstance().isPropertyActive("consultation_indivica_attachment_enabled")) {
