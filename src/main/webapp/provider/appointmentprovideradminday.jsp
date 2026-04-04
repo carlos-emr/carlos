@@ -453,7 +453,7 @@
 
 <html>
     <head>
-        <title><%=WordUtils.capitalize(userlastname + ", " + org.apache.commons.lang3.StringUtils.substring(userfirstname, 0, 1)) + "-"%><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.title"/></title>
+        <title><%=WordUtils.capitalize(userlastname + ", " + org.apache.commons.lang3.StringUtils.substring(userfirstname, 0, 1)) + "-"%><fmt:message key="provider.appointmentProviderAdminDay.title"/></title>
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
         <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <link rel="stylesheet"
@@ -907,14 +907,14 @@
                         <% if (request.getParameter("viewall") != null && request.getParameter("viewall").equals("1")) { %>
                         <li>
                             <a href=# onClick="review('0')"
-                               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewProvAval"/>">
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.schedView"/>
+                               title="<fmt:message key="provider.appointmentProviderAdminDay.viewProvAval"/>">
+                                <fmt:message key="provider.appointmentProviderAdminDay.schedView"/>
                             </a>
                         </li>
                         <% } else { %>
                         <li>
                             <a href='providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1'>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.schedView"/>
+                                <fmt:message key="provider.appointmentProviderAdminDay.schedView"/>
                             </a>
                         </li>
                         <% } %>
@@ -925,7 +925,7 @@
                     %>
                     <!-- Add a menu button for mobile version, which opens menu contents when clicked on -->
                     <li id="menu"><a class="leftButton top" onClick="showHideItem('navlistcontents');">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="global.menu"/></a>
+                        <fmt:message key="global.menu"/></a>
                         <ul id="navlistcontents" style="display:none;">
                             <% } %>
 
@@ -937,21 +937,21 @@
                                             if ("true".equalsIgnoreCase(caisiSearch)) {
                                         %>
                                         <a href="<%= request.getContextPath() %>/PMmodule/ClientSearch2.do"
-                                           TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.searchPatientRecords"/>'
-                                           OnMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.searchPatientRecords"/>' ; return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
+                                           TITLE='<fmt:message key="global.searchPatientRecords"/>'
+                                           OnMouseOver="window.status='<fmt:message key="global.searchPatientRecords"/>' ; return true"><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
 
                                         <%
                                         } else {
                                         %>
                                         <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/search.jsp');return false;"
-                                           TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.searchPatientRecords"/>'
-                                           OnMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.searchPatientRecords"/>' ; return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
+                                           TITLE='<fmt:message key="global.searchPatientRecords"/>'
+                                           OnMouseOver="window.status='<fmt:message key="global.searchPatientRecords"/>' ; return true"><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
                                         <% } %>
                                     </caisi:isModuleLoad>
                                     <caisi:isModuleLoad moduleName="caisi" reverse="true">
                                         <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/search.jsp');return false;"
-                                           TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.searchPatientRecords"/>'
-                                           OnMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.searchPatientRecords"/>' ; return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
+                                           TITLE='<fmt:message key="global.searchPatientRecords"/>'
+                                           OnMouseOver="window.status='<fmt:message key="global.searchPatientRecords"/>' ; return true"><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
                                     </caisi:isModuleLoad>
                                 </li>
                             </security:oscarSec>
@@ -975,9 +975,9 @@
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
                                 <li>
                                     <a HREF="#"
-                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ticklerMain.jsp','<fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/>');return false;"
-                                       TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/>'>
-                                        <span id="oscar_new_tickler"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btntickler"/></span></a>
+                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ticklerMain.jsp','<fmt:message key="global.tickler"/>');return false;"
+                                       TITLE='<fmt:message key="global.tickler"/>'>
+                                        <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span></a>
                                 </li>
                             </security:oscarSec>
 
@@ -986,8 +986,8 @@
                                     <li>
                                         <a HREF="#"
                                            ONCLICK="popupOscarRx(600,1024,'<%=request.getContextPath()%>/messenger/DisplayMessages.do?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(loggedInInfo1.getLoggedInProvider().getFirstName()+" "+loggedInInfo1.getLoggedInProvider().getLastName(), StandardCharsets.UTF_8)%>')"
-                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.messenger"/>">
-                                            <span id="oscar_new_msg"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.msg"/></span></a>
+                                           title="<fmt:message key="global.messenger"/>">
+                                            <span id="oscar_new_msg"><fmt:message key="global.msg"/></span></a>
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
@@ -996,8 +996,8 @@
                                     <li id="con">
                                         <a HREF="#"
                                            ONCLICK="popupOscarRx(625,1024,'<%=request.getContextPath()%>/encounter/IncomingConsultation.do?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(loggedInInfo1.getLoggedInProvider().getFirstName()+" "+loggedInInfo1.getLoggedInProvider().getLastName(), StandardCharsets.UTF_8)%>')"
-                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewConReq"/>">
-                                            <span id="oscar_aged_consults"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.con"/></span></a>
+                                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewConReq"/>">
+                                            <span id="oscar_aged_consults"><fmt:message key="global.con"/></span></a>
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
@@ -1007,8 +1007,8 @@
                             %>
                             <li id="econ">
                                 <a href="#" onclick="popupOscarRx(625, 1024, '<%=request.getContextPath()%>/encounter/econsult.do')"
-                                   title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.eConsult"/>">
-                                    <span><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.eConsult"/></span></a>
+                                   title="<fmt:message key="provider.appointmentProviderAdminDay.eConsult"/>">
+                                    <span><fmt:message key="provider.appointmentProviderAdminDay.eConsult"/></span></a>
                             </li>
                             <% } %>
 
@@ -1017,7 +1017,7 @@
                                     <li>
                                         <a HREF="#"
                                            onclick="popup('700', '1024', '<%= request.getContextPath() %>/documentManager/documentReport.jsp?function=providers&functionid=<%=loggedInInfo1.getLoggedInProviderNo()%>&curUser=<%=loggedInInfo1.getLoggedInProviderNo()%>', 'edocView');"
-                                           TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewEdoc"/>'><fmt:setBundle basename="oscarResources"/><fmt:message key="global.edoc"/></a>
+                                           TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewEdoc"/>'><fmt:message key="global.edoc"/></a>
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
@@ -1027,8 +1027,8 @@
                                     <li>
                                         <a HREF="#"
                                            ONCLICK="popupPage2('<%= request.getContextPath() %>/report/reportindex.jsp','reportPage');return false;"
-                                           TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genReport"/>'
-                                           OnMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genReport"/>' ; return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.report"/></a>
+                                           TITLE='<fmt:message key="global.genReport"/>'
+                                           OnMouseOver="window.status='<fmt:message key="global.genReport"/>' ; return true"><fmt:message key="global.report"/></a>
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
@@ -1037,14 +1037,14 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.misc" rights="r">
                                     <li id="ref">
                                         <a href="#"
-                                           onclick="popupPage(550,800,'<%=request.getContextPath()%>/admin/ManageBillingReferral.do');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.manageReferrals"/></a>
+                                           onclick="popupPage(550,800,'<%=request.getContextPath()%>/admin/ManageBillingReferral.do');return false;"><fmt:message key="global.manageReferrals"/></a>
                                     </li>
                                 </security:oscarSec>
                             </oscar:oscarPropertiesCheck>
 
                             <oscar:oscarPropertiesCheck property="WORKFLOW" value="yes">
                                 <li><a href="javascript:void(0)"
-                                       onClick="popup(700,1024,'<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.jsp','<fmt:setBundle basename="oscarResources"/><fmt:message key="global.workflow"/>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnworkflow"/>
+                                       onClick="popup(700,1024,'<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.jsp','<fmt:message key="global.workflow"/>')"><fmt:message key="global.btnworkflow"/>
                                 </a></li>
                             </oscar:oscarPropertiesCheck>
 
@@ -1056,7 +1056,7 @@
 
                                     <li id="admin2">
                                         <a href="javascript:void(0)" id="admin-panel"
-                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.page.title"/>"
+                                           title="<fmt:message key="admin.admin.page.title"/>"
                                            onclick="newWindow('<%=request.getContextPath()%>/administration/','admin')">Administration</a>
                                     </li>
 
@@ -1104,7 +1104,7 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_resource" rights="r">
                                     <li>
                                         <a href="https://www.oscargalaxy.org" target="_blank" rel="noopener noreferrer"
-                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewResources"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.clinicalResources"/></a>
+                                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewResources"/>"><fmt:message key="encounter.Index.clinicalResources"/></a>
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
@@ -1121,7 +1121,7 @@
             <td id="userSettings">
                 <ul id="userSettingsMenu" style="display: flex; gap:5px;">
                     <li>
-                        <a title="<fmt:setBundle basename="oscarResources"/><fmt:message key="ScratchPad.title"/>" href="javascript: function myFunction() {return false; }"
+                        <a title="<fmt:message key="ScratchPad.title"/>" href="javascript: function myFunction() {return false; }"
                            onClick="popup(700,1024,'<%= request.getContextPath() %>/scratch/index.jsp','scratch')">
                             		<span>
 							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
@@ -1135,7 +1135,7 @@
                     <li>
                         <a href="javascript:void(0)" style="display: flex; align-items: flex-end;"
                            onClick="popupPage(800,1000,'providerpreference.jsp?provider_no=<%= Encode.forUriComponent(loggedInInfo1.getLoggedInProviderNo()) %>')"
-                           title='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
+                           title='<fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
                             <span>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
                                      class="bi bi-person-fill" viewBox="0 0 16 16">
@@ -1149,7 +1149,7 @@
                     </li>
                 </ul>
                 <div>
-                    <a id="logoutButton" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnLogout"/>" href="<%= request.getContextPath() %>/logout.jsp">
+                    <a id="logoutButton" title="<fmt:message key="global.btnLogout"/>" href="<%= request.getContextPath() %>/logout.jsp">
                         <span class="fa-solid fa-power-off"></span>
                     </a>
                 </div>
@@ -1180,7 +1180,7 @@
                 <a class="redArrow"
                    href="providercontrol.jsp?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%=isWeekView?"&provider_no="+provNum:""%>&viewall=<%=viewall%>">
                     <span class="fa-solid fa-backward-step"
-                          title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewPrevDay"/>"></span>
+                          title="<fmt:message key="provider.appointmentProviderAdminDay.viewPrevDay"/>"></span>
                 </a>
                 <%
                     String calendarUrl = request.getContextPath() + "/share/CalendarPopup.jsp?urlfrom=" + request.getContextPath() + "/provider/providercontrol.jsp" + "&year=" + strYear + "&month=" + strMonth + "&param=" + URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday&viewall=" + viewall, "UTF-8");
@@ -1190,7 +1190,7 @@
                     }
                 %>
                 <b><a href="#" class="clickable-date" onclick="popupPage(425,430,'<%=calendarUrl%>'); return false;"
-                      title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.clickToOpenCalendar"/>">
+                      title="<fmt:message key="provider.appointmentProviderAdminDay.clickToOpenCalendar"/>">
                     <span class="dateAppointment"><%
                     if (isWeekView) {
                 %><fmt:message key="provider.appointmentProviderAdminDay.week"/> <%=week%><%
@@ -1262,9 +1262,9 @@
 
                 <!-- Toggle Cancelled Appointments -->
                 <a id="toggleCancelledBtn" href="javascript:void(0)" onclick="toggleCancelled();" class="noprint" style="margin-left: 10px;"
-                   title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.hideCancelled"/>"
-                   data-title-hide="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.hideCancelled"/>"
-                   data-title-show="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.showCancelled"/>">
+                   title="<fmt:message key="provider.appointmentProviderAdminDay.hideCancelled"/>"
+                   data-title-hide="<fmt:message key="provider.appointmentProviderAdminDay.hideCancelled"/>"
+                   data-title-show="<fmt:message key="provider.appointmentProviderAdminDay.showCancelled"/>">
                     <span id="toggleCancelledIcon">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye" viewBox="0 0 16 16">
                             <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/>
@@ -1276,11 +1276,11 @@
                 <c:if test="${infirmaryView_isOscar != 'false'}">
                     <% if (request.getParameter("viewall") != null && request.getParameter("viewall").equals("1")) { %>
                     <u><a href=# onClick="review('0')"
-                          title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewAllProv"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.schedView"/></a></u>
+                          title="<fmt:message key="provider.appointmentProviderAdminDay.viewAllProv"/>"><fmt:message key="provider.appointmentProviderAdminDay.schedView"/></a></u>
 
                     <%} else {%>
                     <u><a href=# onClick="review('1')"
-                          title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewAllProv"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewAll"/></a></u>
+                          title="<fmt:message key="provider.appointmentProviderAdminDay.viewAllProv"/>"><fmt:message key="provider.appointmentProviderAdminDay.viewAll"/></a></u>
                     <%}%>
                 </c:if>
 
@@ -1288,15 +1288,15 @@
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_day" rights="r">
                         <a class="rightButton top"
                            href="providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%><%=viewString%>&displaymode=day&dboperation=searchappointmentday"
-                           TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewDaySched"/>'
-                           OnMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewDaySched"/>' ; return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.today"/></a>
+                           TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewDaySched"/>'
+                           OnMouseOver="window.status='<fmt:message key="provider.appointmentProviderAdminDay.viewDaySched"/>' ; return true"><fmt:message key="global.today"/></a>
                     </security:oscarSec>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_month" rights="r">
 
                         <a
                                 href="providercontrol.jsp?year=<%=year%>&month=<%=month%>&day=1<%=viewString%>&displaymode=month&dboperation=searchappointmentmonth"
-                                TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewMonthSched"/>'
-                                OnMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewMonthSched"/>' ; return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.month"/></a>
+                                TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewMonthSched"/>'
+                                OnMouseOver="window.status='<fmt:message key="provider.appointmentProviderAdminDay.viewMonthSched"/>' ; return true"><fmt:message key="global.month"/></a>
 
                     </security:oscarSec>
 
@@ -1349,7 +1349,7 @@
                     <%--                <a href='providercontrol.jsp?year=<%=strYear%>&month=<%=strMonth%>&day=<%=strDay%>&view=0&displaymode=day&dboperation=searchappointmentday'><fmt:message--%>
                     <%--                        key="providers.appointmentProviderAdminDay.grpView"/></a>--%>
                     <%--                <% } %>--%>
-                    <%--&lt;%&ndash;                <% if (!isMobileOptimized) { %> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.hello"/> <% } %>&ndash;%&gt;--%>
+                    <%--&lt;%&ndash;                <% if (!isMobileOptimized) { %> <fmt:message key="global.hello"/> <% } %>&ndash;%&gt;--%>
                     <%--&lt;%&ndash;                <% out.println(userfirstname + " " + userlastname); %>&ndash;%&gt;--%>
                     <%--                <%} %>--%>
             </td>
@@ -1366,7 +1366,7 @@
                             <INPUT TYPE="text" NAME="providername" VALUE=""
                                    maxlength="10" class="noprint" title="${e:forHtmlAttribute(findProviderTitle)}" placeholder="${e:forHtmlAttribute(enterLastnameLabel)}">
                             <INPUT TYPE="SUBMIT" NAME="Go"
-                                   VALUE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.btnGo"/>'
+                                   VALUE='<fmt:message key="provider.appointmentprovideradminmonth.btnGo"/>'
                                    class="noprint" onClick="findProvider(<%=year%>,<%=month%>,<%=day%>);return false;">
                         </form>
                     </div>
@@ -1374,7 +1374,7 @@
                 <div>
                     <form name="appointmentForm">
                         <% if (isWeekView) { %>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.provider"/>:
+                        <fmt:message key="provider.appointmentProviderAdminDay.provider"/>:
                         <select name="provider_select" onChange="goWeekView(this.options[this.selectedIndex].value)">
                             <%
                                 for (nProvider = 0; nProvider < numProvider; nProvider++) {
@@ -1452,13 +1452,13 @@
                                         <%
                                             }
                                         %>
-                                        <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.group"/>:</span>
+                                        <span><fmt:message key="global.group"/>:</span>
 
                                         <%
                                             List<MyGroupAccessRestriction> restrictions = myGroupAccessRestrictionDao.findByProviderNo(loggedInInfo1.getLoggedInProviderNo());
                                         %>
                                         <select id="mygroup_no" name="mygroup_no" onChange="changeGroup(this)">
-                                            <option value='.<fmt:setBundle basename="oscarResources"/><fmt:message key="global.default"/>'>.<fmt:setBundle basename="oscarResources"/><fmt:message key="global.default"/></option>
+                                            <option value='.<fmt:message key="global.default"/>'>.<fmt:message key="global.default"/></option>
 
 
                                             <security:oscarSec roleName="<%=roleName$%>"
@@ -1701,10 +1701,10 @@
                                             } else {
                                             %>
                                             <input type='button'
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekLetter"/>"
+                                                   value="<fmt:message key="provider.appointmentProviderAdminDay.weekLetter"/>"
                                                    name='weekview'
                                                    onClick="goWeekView('<%=curProvider_no[nProvider]%>')"
-                                                   title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekView"/>"
+                                                   title="<fmt:message key="provider.appointmentProviderAdminDay.weekView"/>"
                                                    style="color:black" class="noprint">
                                             <% if (CarlosProperties.getInstance().isPropertyActive("view.appointmentdaysheetbutton")) { %>
                                             <input type='button' value="DS" name='daysheetview'
@@ -1712,10 +1712,10 @@
                                                    title="<fmt:message key="report.reportindex.formDaySheet"/>" style="color:black">
                                             <% } %>
                                             <input type='button'
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.searchLetter"/>"
+                                                   value="<fmt:message key="provider.appointmentProviderAdminDay.searchLetter"/>"
                                                    name='searchview'
                                                    onClick="goSearchView('<%=curProvider_no[nProvider]%>')"
-                                                   title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.searchView"/>"
+                                                   title="<fmt:message key="provider.appointmentProviderAdminDay.searchView"/>"
                                                    style="color:black" class="noprint">
                                             <input type='radio' name='flipview' class="noprint"
                                                    onClick="goFilpView('<%=curProvider_no[nProvider]%>')"
@@ -1723,7 +1723,7 @@
                                             <a href=#
                                                onClick="goZoomView('<%=curProvider_no[nProvider]%>','<%= Encode.forJavaScript(curProviderName[nProvider])%>')"
                                                onDblClick="goFilpView('<%=curProvider_no[nProvider]%>')"
-                                               title='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.zoomView"/>'>
+                                               title='<fmt:message key="provider.appointmentProviderAdminDay.zoomView"/>'>
                                                 <c:out value='<%=curProviderName[nProvider]  + " (" + appointmentCount + ") " %>'/>
                                             </a>
                                                 <oscar:oscarPropertiesCheck value="yes" property="TOGGLE_REASON_BY_PROVIDER" defaultVal="yes">
@@ -1731,7 +1731,7 @@
                                                        class="expand-reason-btn"
                                                        data-provider="<%= curProvider_no[nProvider] %>"
                                                        onclick="toggleReason(event, '<%= curProvider_no[nProvider] %>');"
-                                                       title="<fmt:setBundle basename='oscarResources'/><fmt:message key='provider.appointmentProviderAdminDay.expandreason'/>"
+                                                       title="<fmt:message key='provider.appointmentProviderAdminDay.expandreason'/>"
                                                     >*</a>
                                                 </oscar:oscarPropertiesCheck>
 
@@ -1740,7 +1740,7 @@
                                             <%
                                                 if (!userAvail) {
                                             %>
-                                            [<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgNotOnSched"/>]
+                                            [<fmt:message key="provider.appointmentProviderAdminDay.msgNotOnSched"/>]
                                             <%
                                                 }
                                             %>
@@ -2045,7 +2045,7 @@
                                                         <% if (tickler_no.compareTo("") != 0) {%>
                                                             <a href="#"
                                                                onClick="popupPage(700,1024, '<%= request.getContextPath() %>/tickler/ticklerMain.jsp?demoview=0');return false;"
-                                                               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.ticklerMsg"/>: <%=Encode.forHtmlAttribute(tickler_note)%>">
+                                                               title="<fmt:message key="provider.appointmentProviderAdminDay.ticklerMsg"/>: <%=Encode.forHtmlAttribute(tickler_note)%>">
                                                                 <span color="red">!</span></a>
                                                         <%} %>
 
@@ -2106,7 +2106,7 @@
                                                         %> <% if (tickler_no.compareTo("") != 0) {%>
                                                             <a href="#"
                                                                onClick="popupPage(700,1024, '<%= request.getContextPath() %>/tickler/ticklerMain.jsp?demoview=<%=demographic_no%>');return false;"
-                                                               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.ticklerMsg"/>: <%=UtilMisc.htmlEscape(tickler_note)%>"><span
+                                                               title="<fmt:message key="provider.appointmentProviderAdminDay.ticklerMsg"/>: <%=UtilMisc.htmlEscape(tickler_note)%>"><span
                                                                     color="red">!</span></a>
                                                         <%} %>
 
@@ -2138,17 +2138,17 @@
 
                                                             <% if (ver != null && ver != "" && "##".compareTo(ver.toString()) == 0) {%><a
                                                                 href="#"
-                                                                title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.versionMsg"/> <%=UtilMisc.htmlEscape(ver)%>">
+                                                                title="<fmt:message key="provider.appointmentProviderAdminDay.versionMsg"/> <%=UtilMisc.htmlEscape(ver)%>">
                                                             <span style="color:red;">*</span></a><%}%>
 
                                                             <% if (roster != "" && "FS".equalsIgnoreCase(roster)) {%>
                                                             <a href="#"
-                                                               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.rosterMsg"/> <%=UtilMisc.htmlEscape(roster)%>"><span
+                                                               title="<fmt:message key="provider.appointmentProviderAdminDay.rosterMsg"/> <%=UtilMisc.htmlEscape(roster)%>"><span
                                                                     style="color:red;">$</span></a><%}%>
 
                                                             <% if ("NR".equalsIgnoreCase(roster) || "PL".equalsIgnoreCase(roster)) {%>
                                                             <a href="#"
-                                                               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.rosterMsg"/> <%=UtilMisc.htmlEscape(roster)%>"><span
+                                                               title="<fmt:message key="provider.appointmentProviderAdminDay.rosterMsg"/> <%=UtilMisc.htmlEscape(roster)%>"><span
                                                                     style="color:red;">#</span></a><%}%>
 
                                                         </c:if>
@@ -2200,7 +2200,7 @@
                                                                 property="eform_in_appointment" value="yes">
                                                             &#124; <b><a href="#"
                                                                          onclick="popupPage(500,1024,'<%= request.getContextPath() %>/eform/efmformslistadd.jsp?parentAjaxId=eforms&demographic_no=<%=demographic_no%>&appointment=<%=appointment.getId()%>'); return false;"
-                                                                         title="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.myform.title"/>">F</a></b>
+                                                                         title="<fmt:message key="eform.myform.title"/>">F</a></b>
                                                         </oscar:oscarPropertiesCheck>
 
                                                         <!-- doctor code block 3 -->
@@ -2232,8 +2232,8 @@
                                                         <% if (showOldEchartLink) { %>
                                                         &#124; <a href="javascript:void(0)" class="encounterBtn"
                                                                   onClick="popupWithApptNo(710, 1024,'<%=eURL%>','encounter',<%=appointment.getId()%>);return false;"
-                                                                  title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.encounter"/>">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.btnE"/></a>
+                                                                  title="<fmt:message key="global.encounter"/>">
+                                                        <fmt:message key="provider.appointmentProviderAdminDay.btnE"/></a>
                                                         <% }
                                                         } // end if not is week view %>
 
@@ -2245,20 +2245,20 @@
                                                             %>
                                                             &#124; <a href=#
                                                                       onClick='popupPage(755,1200, "<%=request.getContextPath()%>/billing.do?billRegion=<%=URLEncoder.encode(prov, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=appointment.getId()%>&demographic_name=<%=URLEncoder.encode(name, StandardCharsets.UTF_8)%>&status=<%=status%>&demographic_no=<%=demographic_no%>&providerview=<%=curProvider_no[nProvider]%>&user_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&apptProvider_no=<%=curProvider_no[nProvider]%>&xml_provider=<%=curProvider_no[nProvider]%>&appointment_date=<%=year+"-"+month+"-"+day%>&start_time=<%=start_time%>&bNewForm=1");return false;'
-                                                                      title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.billingtag"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.btnB"/></a>
+                                                                      title="<fmt:message key="global.billingtag"/>"><fmt:message key="provider.appointmentProviderAdminDay.btnB"/></a>
                                                             <%
                                                             } else {
                                                                 if (caisiBillingPreferenceNotDelete != null && caisiBillingPreferenceNotDelete.equals("1")) {
                                                             %>
                                                             &#124; <a href=#
                                                                       onClick='onUpdatebill("<%= request.getContextPath() %>/billing/CA/ON/billingEditWithApptNo.jsp?billRegion=<%=URLEncoder.encode(prov, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=appointment.getId()%>&demographic_name=<%=URLEncoder.encode(name, StandardCharsets.UTF_8)%>&status=<%=status%>&demographic_no=<%=demographic_no%>&providerview=<%=curProvider_no[nProvider]%>&user_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&apptProvider_no=<%=curProvider_no[nProvider]%>&appointment_date=<%=year+"-"+month+"-"+day%>&start_time=<%=iS+":"+iSm%>&bNewForm=1");return false;'
-                                                                      title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.billingtag"/>">=<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.btnB"/></a>
+                                                                      title="<fmt:message key="global.billingtag"/>">=<fmt:message key="provider.appointmentProviderAdminDay.btnB"/></a>
                                                             <%
                                                             } else {
                                                             %>
                                                             &#124; <a href=#
                                                                       onClick='onUnbilled("<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingDeleteWithoutNo.jsp?status=<%=status%>&appointment_no=<%=appointment.getId()%>");return false;'
-                                                                      title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.billingtag"/>">-<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.btnB"/></a>
+                                                                      title="<fmt:message key="global.billingtag"/>">-<fmt:message key="provider.appointmentProviderAdminDay.btnB"/></a>
                                                             <%
                                                                     }
                                                                 }
@@ -2271,7 +2271,7 @@
                                                             &#124; <a class="masterBtn"
                                                                       href="javascript:void(0)"
                                                                       onClick="popupWithApptNo(700,1024, '<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=demographic_no%>&apptProvider=<%=curProvider_no[nProvider]%>&appointment=<%=appointment.getId()%>&displaymode=edit&dboperation=search_detail','master',<%=appointment.getId()%>)"
-                                                                      title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.btnM"/></a>
+                                                                      title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>"><fmt:message key="provider.appointmentProviderAdminDay.btnM"/></a>
 
                                                         </c:if>
                                                         <% if (!isWeekView) { %>
@@ -2281,7 +2281,7 @@
                                                         <c:if test="${doctorLinkRights}">
                                                             &#124; <a href=#
                                                                       onClick="popupWithApptNo(700,1027,'<%=request.getContextPath()%>/oscarRx/choosePatient.do?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&demographicNo=<%=demographic_no%>','rx',<%=appointment.getId()%>)"
-                                                                      title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.prescriptions"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.rx"/>
+                                                                      title="<fmt:message key="global.prescriptions"/>"><fmt:message key="global.rx"/>
                                                         </a>
 
 
@@ -2312,7 +2312,7 @@
                                                         <!-- add one link to caisi Program Management Module -->
                                                         <caisi:isModuleLoad moduleName="caisi">
                                                             <a href=${pageContext.servletContext.contextPath}'/PMmodule/ClientManager.do?id=<%=demographic_no%>'
-                                                               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.programManagement"/>">|P</a>
+                                                               title="<fmt:message key="provider.appointmentProviderAdminDay.programManagement"/>">|P</a>
                                                         </caisi:isModuleLoad>
 
                                                         <span class="birthday-cake" data-month="<%= monthDay %>"
@@ -2421,51 +2421,51 @@
             if (evt.altKey) {
                 //use (evt.altKey || evt.metaKey) for Mac if you want Apple+A, you will probably want a seperate onkeypress handler in that case to return false to prevent propagation
                 switch (evt.keyCode) {
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.adminShortcut"/> :
+                    case <fmt:message key="global.adminShortcut"/> :
                         newWindow("<%= request.getContextPath() %>/administration/", "admin");
                         return false;  //run code for 'A'dmin
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.calendarShortcut"/> :
+                    case <fmt:message key="global.calendarShortcut"/> :
                         popupOscarRx(425, 430, '<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/provider/providercontrol.jsp&year=<%=strYear%>&month=<%=strMonth%>&param=<%=URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday","UTF-8")%>');
                         return false;  //run code for 'C'alendar
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.edocShortcut"/> :
+                    case <fmt:message key="global.edocShortcut"/> :
                         popupOscarRx('700', '1024', '<%= request.getContextPath() %>/documentManager/documentReport.jsp?function=providers&functionid=<%=loggedInInfo1.getLoggedInProviderNo()%>&curUser=<%=loggedInInfo1.getLoggedInProviderNo()%>', 'edocView');
                         return false;  //run code for e'D'oc
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.resourcesShortcut"/> :
+                    case <fmt:message key="global.resourcesShortcut"/> :
                         popupOscarRx(550, 687, '<%=resourcebaseurl%>');
                         return false; // code for R'e'sources
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.helpShortcut"/> :
+                    case <fmt:message key="global.helpShortcut"/> :
                         popupOscarRx(600, 750, '<%=resourcebaseurl%>');
                         return false;  //run code for 'H'elp
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.ticklerShortcut"/> : {
-                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/tickler/ticklerMain.jsp', '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/>') //run code for t'I'ckler
+                    case <fmt:message key="global.ticklerShortcut"/> : {
+                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/tickler/ticklerMain.jsp', '<fmt:message key="global.tickler"/>') //run code for t'I'ckler
                         return false;
                     }
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.labShortcut"/> :
-                        popupOscarRx(600, 1024, '<%=request.getContextPath()%>/web/inboxhub/Inboxhub.do?method=displayInboxForm', '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.lab"/>');
+                    case <fmt:message key="global.labShortcut"/> :
+                        popupOscarRx(600, 1024, '<%=request.getContextPath()%>/web/inboxhub/Inboxhub.do?method=displayInboxForm', '<fmt:message key="global.lab"/>');
                         return false;  //run code for 'L'ab
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.msgShortcut"/> :
+                    case <fmt:message key="global.msgShortcut"/> :
                         popupOscarRx(600, 1024, '<%=request.getContextPath()%>/messenger/DisplayMessages.do?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
                         return false;  //run code for 'M'essage
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.monthShortcut"/> :
+                    case <fmt:message key="global.monthShortcut"/> :
                         window.open("providercontrol.jsp?year=<%=year%>&month=<%=month%>&day=1<%=viewString%>&displaymode=month&dboperation=searchappointmentmonth", "_self");
                         return false;  //run code for Mo'n'th
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.conShortcut"/> :
+                    case <fmt:message key="global.conShortcut"/> :
                         popupOscarRx(625, 1024, '<%=request.getContextPath()%>/encounter/IncomingConsultation.do?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
                         return false;  //run code for c'O'nsultation
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.reportShortcut"/> :
+                    case <fmt:message key="global.reportShortcut"/> :
                         popupOscarRx(650, 1024, '<%= request.getContextPath() %>/report/reportindex.jsp', 'reportPage');
                         return false;  //run code for 'R'eports
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.prefShortcut"/> : {
+                    case <fmt:message key="global.prefShortcut"/> : {
                         popupOscarRx(715, 680, 'providerpreference.jsp?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<%=mygroupno%>'); //run code for 'P'references
                         return false;
                     }
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.searchShortcut"/> :
+                    case <fmt:message key="global.searchShortcut"/> :
                         popupOscarRx(550, 687, '<%= request.getContextPath() %>/demographic/search.jsp');
                         return false;  //run code for 'S'earch
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.dayShortcut"/> :
+                    case <fmt:message key="global.dayShortcut"/> :
                         window.open("providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%><%=viewString%>&displaymode=day&dboperation=searchappointmentday", "_self");
                         return false;  //run code for 'T'oday
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.viewShortcut"/> : {
+                    case <fmt:message key="global.viewShortcut"/> : {
                         <% if(request.getParameter("viewall")!=null && request.getParameter("viewall").equals("1") ) { %>
                         review('0');
                         return false; //scheduled providers 'V'iew
@@ -2474,8 +2474,8 @@
                         return false; //all providers 'V'iew
                         <% } %>
                     }
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.workflowShortcut"/> :
-                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.jsp', '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.workflow"/>');
+                    case <fmt:message key="global.workflowShortcut"/> :
+                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.jsp', '<fmt:message key="global.workflow"/>');
                         return false; //code for 'W'orkflow
                     default :
                         return;
@@ -2483,7 +2483,7 @@
             }
             if (evt.ctrlKey) {
                 switch (evt.keyCode || evt.charCode) {
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnLogoutShortcut"/> :
+                    case <fmt:message key="global.btnLogoutShortcut"/> :
                         window.open('<%= request.getContextPath() %>/logout.jsp', '_self');
                         return false;  // 'Q'uit/log out
                     default :
