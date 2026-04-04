@@ -28,6 +28,8 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.WcbNoiCode" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.WcbNoiCodeDao" %>
@@ -54,7 +56,7 @@
     <script language="JavaScript">
     function posttoText(index){
     self.close();
-    opener.document.<%=form%>.<%=field%>.value = index;
+    opener.document["<%= Encode.forJavaScript(StringUtils.noNull(form)) %>"]["<%= Encode.forJavaScript(StringUtils.noNull(field)) %>"].value = index;
     opener.document.focus();
     }
     </script>

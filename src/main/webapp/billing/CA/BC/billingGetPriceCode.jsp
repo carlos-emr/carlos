@@ -32,6 +32,8 @@
     String user_no = (String) session.getAttribute("user");
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
@@ -56,9 +58,7 @@
     <script LANGUAGE="JavaScript">
         function CodeAttach(cost) {
             self.close();
-            self.opener.document
-        .<%=formName%>.<%=formElementPrice%>.
-            value = cost;
+            self.opener.document["<%= Encode.forJavaScript(StringUtils.noNull(formName)) %>"]["<%= Encode.forJavaScript(StringUtils.noNull(formElementPrice)) %>"].value = cost;
         }
     </script>
 </head>
