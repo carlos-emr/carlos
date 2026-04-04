@@ -254,7 +254,7 @@
             %>
             <span style="color:red;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.msgDuplicatedHINError"/></span><br>
             <fmt:message key="demographic.msgDuplicatedHINDetail"/>
-            <a href="demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(dupDemo.getDemographicNo().toString()) %>&displaymode=edit&dboperation=search_detail"><%= Encode.forHtml(dupDemo.getLastName() + ", " + dupDemo.getFirstName()) %></a><br><br>
+            <a href="DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(dupDemo.getDemographicNo().toString()) %>"><%= Encode.forHtml(dupDemo.getLastName() + ", " + dupDemo.getFirstName()) %></a><br><br>
             <a href="#" onClick="history.go(-1);return false;"><b>&lt;-<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></b></a>
             <%
                         return;
@@ -441,12 +441,12 @@
         <p>
         <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.msgSuccessful"/></h2>
 
-        <a href="demographiccontrol.jsp?demographic_no=<%=dem%>&displaymode=edit&dboperation=search_detail"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.goToRecord"/></a>
+        <a href="DemographicEdit.do?demographic_no=<%=dem%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.goToRecord"/></a>
 
         <caisi:isModuleLoad moduleName="caisi">
             <br/>
             <a href="<%= request.getContextPath() %>/PMmodule/ClientManager.do?id=<%=dem%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.goToCaisiRecord"/> (<a href="#"
-                                                                                  onclick="popup(700,1027,'demographiccontrol.jsp?demographic_no=<%=dem%>&displaymode=edit&dboperation=search_detail')">New
+                                                                                  onclick="popup(700,1027,'DemographicEdit.do?demographic_no=<%=dem%>')">New
                 Window</a>)</a>
         </caisi:isModuleLoad>
 

@@ -1007,7 +1007,7 @@
                         </td>
                         <!--PATIENT-->
                         <td style="text-align:center" class="<%=hideName?"d-print-none":""%>"><a href=#
-                                                                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forJavaScriptAttribute(ch1Obj.getDemographic_no())%>&displaymode=edit&dboperation=search_detail');return false;"><%= Encode.forHtml(ch1Obj.getDemographic_name())%>
+                                                                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forJavaScriptAttribute(ch1Obj.getDemographic_no())%>');return false;"><%= Encode.forHtml(ch1Obj.getDemographic_name())%>
                         </a></td>
                         <td style="text-align:center"><%=Encode.forHtml(ch1Obj.getFacilty_num() != null ? ch1Obj.getFacilty_num() : "")%>
                         </td>

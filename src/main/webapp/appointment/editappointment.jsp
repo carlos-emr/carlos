@@ -352,7 +352,7 @@
             function demographicdetail(vheight, vwidth) {
                 if (document.forms['EDITAPPT'].demographic_no.value === "") return;
                 self.close();
-                var page = "<%=request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=" + document.forms['EDITAPPT'].demographic_no.value + "&displaymode=edit&dboperation=search_detail";
+                var page = "<%=request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=" + document.forms['EDITAPPT'].demographic_no.value + "";
                 //windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
                 var popup = window.open(page, "demographic")//, windowprops);
             }

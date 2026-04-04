@@ -897,7 +897,7 @@
                             </TD>
                             <TD ROWSPAN="1" class="<%=cellColour%>"><a
                                     href=#
-                                    onClick="popupPage(600,800,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=t.getDemographicNo()%>&displaymode=edit&dboperation=search_detail')"><%=d.getLastName()%>
+                                    onClick="popupPage(600,800,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=t.getDemographicNo()%>')"><%=d.getLastName()%>
                                 ,<%=d.getFirstName()%>
                             </a></TD>
                             <TD ROWSPAN="1" class="<%=cellColour%>"><%=provider%>

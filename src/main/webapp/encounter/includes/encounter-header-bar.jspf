@@ -16,7 +16,7 @@
     <%-- Right side: Patient name, appointment history, search --%>
     <div class="d-flex align-items-center flex-grow-1" style="white-space: nowrap;">
         <a href="#"
-           onclick="popupPage(700,1000,'Master${bean.demographicNo}','${ctx}/demographic/demographiccontrol.jsp?demographic_no=${bean.demographicNo}&amp;displaymode=edit&amp;dboperation=search_detail'); return false;"
+           onclick="popupPage(700,1000,'Master${bean.demographicNo}','${ctx}/demographic/DemographicEdit.do?demographic_no=${bean.demographicNo}'); return false;"
            title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>"
            style="font-weight: bold;">
             <e:forHtmlContent value="${bean.patientLastName}"/>, <e:forHtmlContent value="${bean.patientFirstName}"/>

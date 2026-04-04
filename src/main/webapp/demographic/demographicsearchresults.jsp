@@ -387,7 +387,7 @@
                     } else {
                     %>
                     <a title="Master Demographic File" href="javascript:void(0)"
-                       onclick="popup(700,1027,'demographiccontrol.jsp?demographic_no=<%=head%>&displaymode=edit&dboperation=search_detail')"><%=dem_no%>
+                       onclick="popup(700,1027,'DemographicEdit.do?demographic_no=<%=head%>')"><%=dem_no%>
                     </a></td>
 
                     <!-- Rights -->

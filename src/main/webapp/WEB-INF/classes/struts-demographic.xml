@@ -68,5 +68,15 @@
             <result name="display">/demographic/rourkeExport.jsp</result>
         </action>
 
+        <action name="demographic/DemographicEdit"
+                class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEdit2Action">
+            <result name="success">/WEB-INF/jsp/demographic/edit.jsp</result>
+        </action>
+
+        <action name="demographic/DemographicAdd"
+                class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicAdd2Action">
+            <result name="success">/WEB-INF/jsp/demographic/add.jsp</result>
+        </action>
+
     </package>
 </struts>

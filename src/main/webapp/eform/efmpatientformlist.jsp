@@ -193,7 +193,7 @@
 
             <div class="left-column">
 
-                <a href="${pageContext.request.contextPath}/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&appointment=<%=Encode.forUriComponent(appointment)%>&displaymode=edit&dboperation=search_detail">
+                <a href="${pageContext.request.contextPath}/demographic/DemographicEdit.do?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&appointment=<%=Encode.forUriComponent(appointment)%>">
                     <fmt:message key="demographic.demographiceditdemographic.btnMasterFile"/></a>
                 <a href="efmformslistadd.jsp?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&appointment=<%=Encode.forUriComponent(appointment)%>&parentAjaxId=<%=Encode.forUriComponent(parentAjaxId)%>"
                    class="current"> <fmt:message key="eform.showmyform.btnAddEForm"/></a>

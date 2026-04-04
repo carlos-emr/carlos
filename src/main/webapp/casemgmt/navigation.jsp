@@ -209,7 +209,7 @@
 
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/demographic/demographiccontrol.jsp?demographic_no=<%=bean.demographicNo%>&displaymode=edit&dboperation=search_detail');return false;">Master</a>
+                               onClick="popupPage('<%=bsurl%>/demographic/DemographicEdit.do?demographic_no=<%=bean.demographicNo%>');return false;">Master</a>
                         </td>
                     </tr>
 

@@ -1529,7 +1529,7 @@ Ontario, Canada
                     <div class="card-header">
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgDemgraphics"/>
                         <a title="Master File"
-                           onclick="popup(700,1000,'<%=request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forUriComponent(demoNo)%>&amp;displaymode=edit&amp;dboperation=search_detail','master')"
+                           onclick="popup(700,1000,'<%=request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forUriComponent(demoNo)%>','master')"
                            href="javascript: function myFunction() {return false; }"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnEdit"/></a>
                         &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgSex"/>: <%=Encode.forHtmlContent(sex)%>
                         &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgDOB"/>: <%=Encode.forHtmlContent(dob)%>

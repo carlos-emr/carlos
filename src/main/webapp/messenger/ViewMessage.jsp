@@ -635,7 +635,7 @@ function fmtOscarMsg() {
 								<%
                                     String demoKeyJs = Encode.forJavaScript((String) (pageContext.getAttribute("demographicNumber")+""));
                                     %>
-                                    <a href="javascript:popupViewAttach(700,960,'../demographic/demographiccontrol.jsp?demographic_no=<%=demoKeyJs%>&displaymode=edit&dboperation=search_detail')"><fmt:message key="global.M" /></a>
+                                    <a href="javascript:popupViewAttach(700,960,'../demographic/DemographicEdit.do?demographic_no=<%=demoKeyJs%>')"><fmt:message key="global.M" /></a>
                                     <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../encounter/IncomingEncounter.do?demographicNo=<%=demoKeyJs%>&curProviderNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>');return false;"><fmt:message key="global.E" /></a>
                                     <a href="javascript:popupViewAttach(700,960,'../oscarRx/choosePatient.do?providerNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>&demographicNo=<%=demoKeyJs%>')">Rx</a>
                                 </span>

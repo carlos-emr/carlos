@@ -638,7 +638,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                                         <%} else if (cust.getDemographicNo().equals("0")) { %>
                                         Your patients
                                         <%} else { %>
-                                        <a href="<%=request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=cust.getDemographicNo()%>&displaymode=edit&dboperation=search_detail"
+                                        <a href="<%=request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=cust.getDemographicNo()%>"
                                            target="_blank"><%=cust.getDemographicNo()%>
                                         </a>
                                         <%} %>

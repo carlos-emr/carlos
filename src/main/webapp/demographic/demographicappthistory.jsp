@@ -240,7 +240,7 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn" valign="top"><a
-                    href="<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&apptProvider=<%=session.getAttribute("user") %>&displaymode=edit&dboperation=search_detail"
+                    href="<%=request.getContextPath()%>/demographic/DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&apptProvider=<%=session.getAttribute("user") %>"
                     onMouseOver="self.status=document.referrer;return true">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></a>
                 <br/>

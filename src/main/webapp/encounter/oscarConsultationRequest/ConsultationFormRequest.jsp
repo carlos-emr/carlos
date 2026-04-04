@@ -2385,7 +2385,7 @@ if (userAgent != null) {
                                     <div class="card-header p-2 fw-semibold" style="font-size:0.85rem;">
                                         <i class="fa-solid fa-user me-1"></i>
                                         <a href="javascript:void(0);"
-                                           onClick="popupAttach(600,900,'<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=demo%>&displaymode=edit&dboperation=search_detail')"><%=Encode.forHtml(thisForm.getPatientName())%></a>
+                                           onClick="popupAttach(600,900,'<%=request.getContextPath()%>/demographic/DemographicEdit.do?demographic_no=<%=demo%>')"><%=Encode.forHtml(thisForm.getPatientName())%></a>
                                     </div>
                                     <div class="card-body p-2">
                                         <div class="row g-2" style="font-size:0.85rem;">

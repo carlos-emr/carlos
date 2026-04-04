@@ -35,7 +35,7 @@
 
 <core:set var="ctx" value="${ pageContext.servletContext.contextPath }"/>
 <core:set var="url"
-       value="${ ctx }/demographic/demographiccontrol.jsp?demographic_no=${ param.demographicNo }&displaymode=edit&dboperation=search_detail&appointment="/>
+       value="${ ctx }/demographic/DemographicEdit.do?demographic_no=${ param.demographicNo }&appointment="/>
 
 <table id="${ not empty param.tableId ? param.tableId : 'topLink' }">
     <tr>

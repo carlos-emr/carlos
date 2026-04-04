@@ -354,7 +354,7 @@
                 %>
                 <td width="15%" align="center" height="25">
                     <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                        <a href="javascript:popupWindow('<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%= head %>&displaymode=edit&dboperation=search_detail')"><%=demographicNo%>
+                        <a href="javascript:popupWindow('<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%= head %>')"><%=demographicNo%>
                         </a>
                     </caisi:isModuleLoad></td>
                 <td align="center" width="20%" height="25"><%=Encode.forHtml(demo.getLastName())%>

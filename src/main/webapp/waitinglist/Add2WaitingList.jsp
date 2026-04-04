@@ -43,7 +43,7 @@
         <title></title>
         <%
             WLWaitingListUtil.add2WaitingList(request.getParameter("listId"), request.getParameter("waitingListNote"), request.getParameter("demographicNo"), request.getParameter("onListSince"));
-            response.sendRedirect(request.getContextPath() + "/demographic/demographiccontrol.jsp?demographic_no=" + request.getParameter("demographicNo") + "&displaymode=edit&dboperation=search_detail");
+            response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit.do?demographic_no=" + request.getParameter("demographicNo") + "");
         %>
 
 
