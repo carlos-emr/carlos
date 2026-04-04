@@ -32,6 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
@@ -175,7 +176,7 @@
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="demographic_no" readonly
-                                    value="<%=request.getParameter("demographic_no").trim()%> " size="20">
+                                    value="<%=Encode.forHtmlAttribute(batchDemoNo != null ? batchDemoNo.trim() : "")%>" size="20">
                             </font></td>
                             <td rowspan="8" width="21%" valign="middle">
                                 <p><br>

@@ -44,6 +44,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*, java.util.Properties" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -590,7 +591,7 @@
             <td>
                 <table style="width:100%" class="myYellow">
                     <tr>
-                        <td style="white-space:nowrap; width:10%; text-align:center"><%=demoname%>
+                        <td style="white-space:nowrap; width:10%; text-align:center"><%=Encode.forHtml(demoname)%>
                             &nbsp;&nbsp; <%=demoSex.equals("1") ? "Male" : "Female"%> &nbsp;&nbsp;
                             <%=" DOB: " + demoDOBYY + "/" + demoDOBMM + "/" + demoDOBDD + " &nbsp;&nbsp; HIN: " + demoHIN + "" + demoVer%>
                         </td>

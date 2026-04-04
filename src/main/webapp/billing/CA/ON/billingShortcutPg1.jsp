@@ -40,6 +40,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -775,7 +776,7 @@
             <td>
                 <table border="0" cellspacing="0" cellpadding="0" width="100%">
                     <tr bgcolor="#33CCCC">
-                        <td nowrap bgcolor="#FFCC99" width="10%" align="center"><%= demoname %>
+                        <td nowrap bgcolor="#FFCC99" width="10%" align="center"><%= Encode.forHtml(demoname) %>
                         </td>
                         <td bgcolor="#99CCCC" align="center"><font color="black"><%= msg %>
                         </font>
@@ -1286,7 +1287,6 @@
         <input type="hidden" name="asstProvider_no"
                value="<%=request.getParameter("asstProvider_no")%>"/>
 
-        <input type="hidden" name="demographic_name" value="<%=demoname%>"/>
         <input type="hidden" name="providerview" value="<%=providerview%>"/>
         <input type="hidden" name="appointment_date"
                value="<%=request.getParameter("appointment_date")%>"/>
@@ -1304,7 +1304,7 @@
 <table border="0" cellpadding="0" cellspacing="2" width="100%"
        bgcolor="#CCCCFF">
     <tr>
-        <td colspan="6" class="RowTop"><%= demoname %> - <b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.hospitalBilling.frmBillHistory"/>
+        <td colspan="6" class="RowTop"><%= Encode.forHtml(demoname) %> - <b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.hospitalBilling.frmBillHistory"/>
         </b> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.hospitalBilling.frmLastFive"/></td>
     </tr>
     <tr>
@@ -1350,7 +1350,7 @@
 <table border="0" cellpadding="1" cellspacing="2" width="100%"
        class="myIvory">
     <tr class="myYellow">
-        <td colspan="6"><%=demoname%> - <b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.hospitalBilling.frmBillHistory"/></b>
+        <td colspan="6"><%=Encode.forHtml(demoname)%> - <b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.hospitalBilling.frmBillHistory"/></b>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.hospitalBilling.frmLastFive"/>
         </td>
     </tr>

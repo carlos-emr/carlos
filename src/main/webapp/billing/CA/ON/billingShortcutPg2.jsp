@@ -31,6 +31,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -457,11 +458,16 @@
             if ("Save".equals(request.getParameter("submit"))) {
                 msg += "<script language=\"JavaScript\"> self.close();</script>";
             } else {
-                msg += "<script language=\"JavaScript\">window.location = 'billingShortcutPg1.jsp?billRegion=&billForm="
-                        + URLEncoder.encode(oscarVariables.getProperty("hospital_view", oscarVariables.getProperty("default_view"))) + "&hotclick=&appointment_no=0&demographic_no="
-                        + demo_no + "&providerview=1&user_no="
-                        + user_no + "&apptProvider_no=none&appointment_date="
-                        + curYear + "-" + curMonth + "-" + curDay + "&start_time=0:00:00&bNewForm=1&status=t'</script>";
+                String redirectUrl = "billingShortcutPg1.jsp?billRegion=&billForm="
+                        + URLEncoder.encode(oscarVariables.getProperty("hospital_view", oscarVariables.getProperty("default_view")), StandardCharsets.UTF_8)
+                        + "&hotclick=&appointment_no=0&demographic_no="
+                        + URLEncoder.encode(demo_no == null ? "" : demo_no, StandardCharsets.UTF_8)
+                        + "&providerview=1&user_no="
+                        + URLEncoder.encode(user_no == null ? "" : user_no, StandardCharsets.UTF_8)
+                        + "&apptProvider_no=none&appointment_date="
+                        + curYear + "-" + curMonth + "-" + curDay + "&start_time=0:00:00&bNewForm=1&status=t";
+                msg += "<script language=\"JavaScript\">window.location = '"
+                        + Encode.forJavaScript(redirectUrl) + "'</script>";
             }
         }
     }

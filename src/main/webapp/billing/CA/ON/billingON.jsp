@@ -2212,7 +2212,6 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
         <input type="hidden" name="asstProvider_no"
                value="<%=request.getParameter("asstProvider_no")%>"/>
 
-        <input type="hidden" name="demographic_name" value="<%=Encode.forHtmlAttribute(demoname)%>"/>
         <input type="hidden" name="providerview" value="<%=providerview%>"/>
         <input type="hidden" name="appointment_date"
                value="<%=request.getParameter("appointment_date")%>"/>
