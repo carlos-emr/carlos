@@ -109,7 +109,7 @@ public class EctConsultationFormRequestUtil {
      * {@link #estActiveTeams()}, {@link #estTeams()}, {@link #estTeamsBySite(String)},
      * or {@link #estTeamsByTeam(String)}.
      */
-    public Vector teamVec = new Vector();
+    public Vector<String> teamVec = new Vector<>();
     public String demoNo;
     public String pwb;
     public String mrp = "";
