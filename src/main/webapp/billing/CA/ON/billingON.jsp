@@ -35,29 +35,47 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page errorPage="/errorpage.jsp"%>
 
-<%@page import="java.util.*,java.net.*,java.sql.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.appt.*" %>
+<%@page import="java.util.*,java.net.*,java.sql.*" %>
+<%@page import="io.github.carlos_emr.*" %>
+<%@page import="io.github.carlos_emr.carlos.util.*" %>
+<%@page import="io.github.carlos_emr.carlos.appt.*" %>
 <%@page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO, io.github.carlos_emr.carlos.commn.model.ProviderPreference, io.github.carlos_emr.carlos.commn.model.CssStyle" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao, io.github.carlos_emr.carlos.commn.model.BillingService" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao, io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao, io.github.carlos_emr.carlos.commn.model.CtlBillingType" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao, io.github.carlos_emr.carlos.commn.model.CtlBillingService" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao, io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao, io.github.carlos_emr.carlos.commn.model.CtlDiagCode, io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO, io.github.carlos_emr.carlos.commn.model.Dxresearch" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao, io.github.carlos_emr.carlos.commn.model.MyGroup" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao, io.github.carlos_emr.carlos.commn.model.Appointment" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao, io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CssStyle" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingType" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CtlDiagCode" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Dxresearch" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao, io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence" %>
 <%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
-<%@page import="io.github.carlos_emr.carlos.managers.DemographicManager,io.github.carlos_emr.carlos.billing.CA.filters.CodeFilterManager" %>
+<%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.filters.CodeFilterManager" %>
 
 <%
 	ProfessionalSpecialistDao professionalSpecialistDao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
@@ -405,6 +423,7 @@
     BillingServiceDao bDao = SpringUtils.getBean(BillingServiceDao.class);
     CtlBillingServicePremiumDao pDao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
 
+    String defaultBillFormName = "";
     for (Object[] i : cbsDao.findServiceTypesByStatus("A")) {
         ArrayList<Properties> listGroup1 = new ArrayList<Properties>();
         ArrayList<Properties> listGroup2 = new ArrayList<Properties>();
@@ -412,6 +431,10 @@
 
         String ctlcode = String.valueOf(i[1]);
         String ctlcodename = String.valueOf(i[0]);
+
+        if (ctlcode.equals(ctlBillForm)) {
+            defaultBillFormName = ctlcodename;
+        }
 
         listServiceType.add(ctlcode);
 
@@ -568,8 +591,6 @@
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference"%>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.JdbcApptImpl" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
@@ -1292,7 +1313,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
     </script>
 </head>
 
-<body onload="prepareBack();changeCodeDesc();getDays();">
+<body onload="prepareBack();changeCodeDesc();getDays();toggleDiv('<%=Encode.forJavaScriptAttribute(ctlBillForm)%>', '<%=Encode.forJavaScriptAttribute(defaultBillFormName)%>', document.forms[0].xml_billtype.value.substring(0, 3));">
 <div id="Instrdiv" class="demo1">
 
     <table style="width: 99%;">
