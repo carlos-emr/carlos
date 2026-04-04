@@ -992,11 +992,16 @@
             }).data('ui-autocomplete');
 
             if (acWidget) {
-                // HTML encoding helper using DOM APIs — functionally equivalent to the jQuery .text().html() idiom but uses a pattern that static analysis tools (CodeQL) can verify as safe
+                // HTML encoding helper — pure-string implementation avoids DOM text/innerHTML round-trip.
+                // IMPORTANT: & must be replaced first to prevent double-encoding of other entity references.
                 function escapeHtml(text) {
-                    var div = document.createElement('div');
-                    div.appendChild(document.createTextNode(text));
-                    return div.innerHTML;
+                    return String(text == null ? '' : text)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#x27;')
+                        .replace(/\//g, '&#x2F;');
                 }
                 acWidget._renderItem = function(ul, item) {
                     var serviceBadges = (item.serviceNames || []).map(function(sn) {
@@ -1168,22 +1173,28 @@
 
             jQuery('.consult-import-menu').each(function() {
                 var target = String(jQuery(this).data('target')).replace(/[^a-zA-Z0-9_-]/g, '');
-                var html = '';
+                var $menu = jQuery(this).empty();
                 for (var i = 0; i < fullImportItems.length; i++) {
                     var item = fullImportItems[i];
-                    if (item.divider) { html += '<li><hr class="dropdown-divider"></li>'; continue; }
-                    html += '<li><a class="dropdown-item ' + item.cls + '" id="' + item.prefix + '_' + target + '" href="javascript:void(0);">' + item.label + '</a></li>';
+                    if (item.divider) { $menu.append('<li><hr class="dropdown-divider"></li>'); continue; }
+                    var $a = jQuery('<a>').addClass('dropdown-item').addClass(item.cls)
+                        .attr('id', item.prefix + '_' + target)
+                        .attr('href', 'javascript:void(0);')
+                        .text(item.label);
+                    $menu.append(jQuery('<li>').append($a));
                 }
-                jQuery(this).html(html);
             });
             jQuery('.consult-import-menu-meds').each(function() {
                 var target = String(jQuery(this).data('target')).replace(/[^a-zA-Z0-9_-]/g, '');
-                var html = '';
+                var $menu = jQuery(this).empty();
                 for (var i = 0; i < medsOnlyItems.length; i++) {
                     var item = medsOnlyItems[i];
-                    html += '<li><a class="dropdown-item ' + item.cls + '" id="' + item.prefix + '_' + target + '" href="javascript:void(0);">' + item.label + '</a></li>';
+                    var $a = jQuery('<a>').addClass('dropdown-item').addClass(item.cls)
+                        .attr('id', item.prefix + '_' + target)
+                        .attr('href', 'javascript:void(0);')
+                        .text(item.label);
+                    $menu.append(jQuery('<li>').append($a));
                 }
-                jQuery(this).html(html);
             });
         }
 
