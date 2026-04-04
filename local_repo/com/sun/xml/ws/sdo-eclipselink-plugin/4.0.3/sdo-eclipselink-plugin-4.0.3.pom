@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (c) 1997, 2023 Oracle and/or its affiliates. All rights reserved.
+
+    This program and the accompanying materials are made available under the
+    terms of the Eclipse Distribution License v. 1.0, which is available at
+    http://www.eclipse.org/org/documents/edl-v10.php.
+
+    SPDX-License-Identifier: BSD-3-Clause
+
+-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+    <parent>
+        <groupId>com.sun.xml.ws</groupId>
+        <artifactId>project</artifactId>
+        <version>4.0.3</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.sun.xml.ws</groupId>
+    <artifactId>sdo-eclipselink-plugin</artifactId>
+    <version>4.0.3</version>
+
+    <name>JAX-WS RI Eclipselink SDO Plugin</name>
+    <description>Pluggable databinding module employing Eclipselink SDO</description>
+
+    <properties>
+        <spotbugs.exclude>${project.basedir}/exclude.xml</spotbugs.exclude>
+        <argLine/>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.eclipse.persistence</groupId>
+            <artifactId>org.eclipse.persistence.sdo</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.persistence</groupId>
+            <artifactId>org.eclipse.persistence.moxy</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>jaxws-rt</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.sun.xml.bind</groupId>
+            <artifactId>jaxb-xjc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <forkNode implementation="org.apache.maven.plugin.surefire.extensions.SurefireForkNodeFactory"/>
+                    <argLine>
+                        --add-reads org.eclipse.persistence.moxy=com.sun.tools.xjc
+                        --add-exports com.sun.xml.ws.sdo/com.sun.xml.ws.sdo.test.add=org.eclipse.persistence.sdo
+                        --add-exports com.sun.xml.ws.sdo/com.sun.xml.ws.sdo.test.helloSDO=ALL-UNNAMED
+                        --add-exports com.sun.xml.ws.sdo/com.sun.xml.ws.sdo.sample.service.types=org.eclipse.persistence.sdo
+                        --add-exports com.sun.xml.ws.sdo/com.sun.xml.ws.sdo.sample.service=com.sun.xml.ws
+                        --add-exports com.sun.xml.ws.sdo/com.sun.xml.ws.sdo.sample.service=ALL-UNNAMED
+                        @{argLine}
+                    </argLine>
+                    <forkCount>1</forkCount>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>osgi-bundle</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>manifest</goal>
+                        </goals>
+                        <configuration>
+                            <instructions>
+                                <Bundle-ActivationPolicy>lazy</Bundle-ActivationPolicy>
+                                <Import-Package>
+                                    commonj.sdo.*;version=!,
+                                    org.eclipse.persistence.*;version=!,
+                                    *
+                                </Import-Package>
+                                <Require-Capability><![CDATA[
+                            osgi.extender;filter:="(&(osgi.extender=osgi.serviceloader.registrar)
+                              (version>=1.0.0)(!(version>=2.0.0)))";resolution:=optional
+                            ]]>
+                                </Require-Capability>
+                                <Provide-Capability><![CDATA[
+                            osgi.serviceloader;
+                              osgi.serviceloader="com.sun.xml.ws.spi.db.BindingContextFactory"
+                            ]]>
+                                </Provide-Capability>
+                            </instructions>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

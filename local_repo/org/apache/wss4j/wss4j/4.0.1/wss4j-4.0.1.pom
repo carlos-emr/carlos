@@ -1,0 +1,526 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements. See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership. The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License. You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied. See the License for the
+  specific language governing permissions and limitations
+  under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>org.apache.wss4j</groupId>
+    <artifactId>wss4j</artifactId>
+    <version>4.0.1</version>
+    <packaging>pom</packaging>
+    <name>Apache WSS4J</name>
+    <description>
+        The Apache WSS4J project provides a Java implementation of the primary security standards 
+        for Web Services, namely the OASIS Web Services Security (WS-Security) specifications 
+        from the OASIS Web Services Security TC.
+    </description>
+    <url>https://ws.apache.org/wss4j/</url>
+    <issueManagement>
+        <system>JIRA</system>
+        <url>https://issues.apache.org/jira/browse/WSS</url>
+    </issueManagement>
+    <mailingLists>
+        <mailingList>
+            <name>Apache Web Services Developer List</name>
+            <subscribe>dev-subscribe@ws.apache.org</subscribe>
+            <unsubscribe>
+                dev-unsubscribe@ws.apache.org
+            </unsubscribe>
+            <post>dev@ws.apache.org</post>
+            <archive>
+                https://lists.apache.org/list.html?dev@ws.apache.org
+            </archive>
+        </mailingList>
+        <mailingList>
+            <name>Apache Web Services Users List</name>
+            <subscribe>users-subscribe@ws.apache.org</subscribe>
+            <unsubscribe>
+                users-unsubscribe@ws.apache.org
+            </unsubscribe>
+            <post>users@ws.apache.org</post>
+            <archive>
+                https://lists.apache.org/list.html?users@ws.apache.org
+            </archive>
+        </mailingList>
+        <mailingList>
+            <name>Apache Web Services Commits List</name>
+            <subscribe>commits-subscribe@ws.apache.org</subscribe>
+            <unsubscribe>
+                commits-unsubscribe@ws.apache.org
+            </unsubscribe>
+            <archive>
+                https://lists.apache.org/list.html?commits@ws.apache.org
+            </archive>
+        </mailingList>
+    </mailingLists>
+    <inceptionYear>2004</inceptionYear>
+    <licenses>
+        <license>
+            <name>Apache-2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <scm>
+        <connection>scm:git:https://gitbox.apache.org/repos/asf/ws-wss4j.git</connection>
+        <developerConnection>scm:git:https://gitbox.apache.org/repos/asf/ws-wss4j.git</developerConnection>
+        <url>https://gitbox.apache.org/repos/asf?p=ws-wss4j.git;a=summary</url>
+      <tag>wss4j-4.0.1</tag>
+  </scm>
+    <organization>
+        <name>The Apache Software Foundation</name>
+        <url>https://www.apache.org/</url>
+    </organization>
+    <developers>
+        <developer>
+            <name>The Apache WSS4J Team</name>
+            <email>wss4j-dev@ws.apache.org</email>
+            <url>https://ws.apache.org/wss4j</url>
+            <organization>Apache Software Foundation</organization>
+            <organizationUrl>https://apache.org/</organizationUrl>
+        </developer>
+    </developers>
+
+    <parent>
+        <groupId>org.apache</groupId>
+        <artifactId>apache</artifactId>
+        <version>35</version>
+    </parent>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <targetJdk>17</targetJdk>
+        <maven.compiler.target>17</maven.compiler.target>
+        <buildtools.dir>${basedir}/build-tools</buildtools.dir>
+        <maven-owasp-plugin-version>12.1.8</maven-owasp-plugin-version>
+        <project.build.outputTimestamp>2025-10-28T15:04:19Z</project.build.outputTimestamp>
+    </properties>
+
+    <modules>
+        <module>parent</module>
+        <module>bindings</module>
+        <module>policy</module>
+        <module>ws-security-common</module>
+        <module>ws-security-dom</module>
+        <module>ws-security-stax</module>
+        <module>ws-security-web</module>
+        <module>integration</module>
+        <module>ws-security-policy-stax</module>
+        <!-- <module>performance</module>-->
+    </modules>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-pmd-plugin</artifactId>
+                <version>3.19.0</version>
+                <configuration>
+                    <rulesets>
+                        <ruleset>${buildtools.dir}/wss4j-pmd-ruleset.xml</ruleset>
+                    </rulesets>
+                    <sourceEncoding>UTF-8</sourceEncoding>
+                    <failOnViolation>true</failOnViolation>
+                    <linkXRef>false</linkXRef>
+                    <verbose>true</verbose>
+                    <includeTests>false</includeTests>
+                    <!-- TODO <targetJdk>${targetJdk}</targetJdk>-->
+                    <targetJdk>1.8</targetJdk>
+                    <excludeRoots>
+                        <excludeRoot>${basedir}/src/main/generated</excludeRoot>
+                    </excludeRoots>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>validate</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>3.6.0</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.puppycrawl.tools</groupId>
+                        <artifactId>checkstyle</artifactId>
+                        <version>12.1.1</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <configLocation>${buildtools.dir}/wss4j-checkstyle.xml</configLocation>
+                    <includeTestSourceDirectory>false</includeTestSourceDirectory>
+                    <includeTestResources>false</includeTestResources>
+                    <encoding>UTF-8</encoding>
+                    <failOnViolation>true</failOnViolation>
+                </configuration>
+                <executions>
+                    <execution>
+                       <id>validate</id>
+                       <phase>validate</phase>
+                       <goals>
+                           <goal>check</goal>
+                       </goals>
+                    </execution>
+                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-release-plugin</artifactId>
+                <configuration>
+                    <useReleaseProfile>false</useReleaseProfile>
+                    <preparationGoals>clean install</preparationGoals>
+                    <goals>deploy</goals>
+                    <arguments>-Papache-release</arguments>
+                    <autoVersionSubmodules>true</autoVersionSubmodules>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.cyclonedx</groupId>
+                <artifactId>cyclonedx-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.felix</groupId>
+                    <artifactId>maven-bundle-plugin</artifactId>
+                    <version>6.0.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.14.1</version>
+                    <configuration>
+                        <source>${targetJdk}</source>
+                        <target>${targetJdk}</target>
+                        <compilerArgs>
+                            <arg>-XDcompilePolicy=simple</arg>
+                        </compilerArgs>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>com.google.errorprone</groupId>
+                                <artifactId>error_prone_core</artifactId>
+                                <version>2.38.0</version>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.rat</groupId>
+                    <artifactId>apache-rat-plugin</artifactId>
+                    <version>0.17</version>
+                    <executions>
+                        <execution>
+                            <phase>verify</phase>
+                            <goals>
+                                <goal>check</goal>
+                           </goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <excludes>
+                        <exclude>**/*.sh</exclude>
+                        <exclude>*.txt</exclude>
+                        <exclude>.gitignore</exclude>
+                        <exclude>.git/**</exclude>
+                        <exclude>.pmd/**</exclude>
+                        <exclude>.externalToolBuilders/**</exclude>
+                        <exclude>.checkstyle/**</exclude>
+                        <exclude>.classpath</exclude>
+                        <exclude>.project</exclude>
+                        <exclude>.settings/**</exclude>
+                        <exclude>.idea/**</exclude>
+                        <exclude>**/src/main/resources/**</exclude>
+                        <exclude>**/src/site/**</exclude>
+                        <exclude>**/src/test/resources/**</exclude>
+                        <exclude>**/*.patch</exclude>
+                        <exclude>NOTICE</exclude>
+                        </excludes>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>cobertura-maven-plugin</artifactId>
+                    <version>2.7</version>
+                    <inherited>true</inherited>
+                    <configuration>
+                        <check>
+                            <branchRate>100</branchRate>
+                            <lineRate>100</lineRate>
+                            <haltOnFailure>false</haltOnFailure>
+                            <totalBranchRate>100</totalBranchRate>
+                            <totalLineRate>100</totalLineRate>
+                            <packageLineRate>100</packageLineRate>
+                            <packageBranchRate>100</packageBranchRate>
+                        </check>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>3.12.0</version>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>jar</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <attach>true</attach>
+                        <sourcepath>src/main/java</sourcepath>
+                        <additionalJOptions>
+                            <additionalJOption>-Xdoclint:none</additionalJOption>
+                        </additionalJOptions>
+                        <notimestamp>true</notimestamp>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-site-plugin</artifactId>
+                    <version>3.21.0</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.asciidoctor</groupId>
+                            <artifactId>asciidoctor-maven-plugin</artifactId>
+                            <version>3.2.0</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <groupId>org.owasp</groupId>
+                    <artifactId>dependency-check-maven</artifactId>
+                    <version>${maven-owasp-plugin-version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <version>3.6.2</version>
+                    <configuration>
+                        <rules>
+                            <requireMavenVersion>
+                                <version>3.5</version>
+                            </requireMavenVersion>
+                        </rules>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>3.3.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.cyclonedx</groupId>
+                    <artifactId>cyclonedx-maven-plugin</artifactId>
+                    <version>2.9.1</version>
+                    <executions>
+                        <execution>
+                            <id>make-bom</id>
+                            <phase>package</phase>
+                            <goals>
+                                <goal>makeAggregateBom</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <outputName>${project.artifactId}-${project.version}-bom</outputName>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
+        <defaultGoal>install</defaultGoal>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>fastinstall</id>
+            <properties>
+                <maven.test.skip>true</maven.test.skip>
+                <pmd.skip>true</pmd.skip>
+                <checkstyle.skip>true</checkstyle.skip>
+            </properties>
+        </profile>
+        <profile>
+            <id>nochecks</id>
+            <properties>
+                <pmd.skip>true</pmd.skip>
+                <checkstyle.skip>true</checkstyle.skip>
+            </properties>
+        </profile>
+        <profile>
+            <id>jdk19-plus</id>
+            <activation>
+                <jdk>[9,)</jdk>
+            </activation>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-surefire-plugin</artifactId>
+                            <version>3.5.4</version>
+                            <configuration>
+                                <reportFormat>brief</reportFormat>
+                                <useFile>false</useFile>
+                                <childDelegation>false</childDelegation>
+                                <includes>
+                                    <include>**/*Test.java</include>
+                                </includes>
+                                <argLine>--add-opens java.base/java.lang.reflect=ALL-UNNAMED</argLine>
+                                <systemPropertyVariables>
+                                    <java.io.tmpdir>${basedir}/target</java.io.tmpdir>
+                                    <org.apache.xml.security.securerandom.algorithm>SHA1PRNG</org.apache.xml.security.securerandom.algorithm>
+                                </systemPropertyVariables>
+                            </configuration>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+            </build>
+        </profile>
+
+        <profile>
+            <id>activate-buildtools-in-module</id>
+            <activation>
+                <file>
+                    <exists>${basedir}/../build-tools/wss4j-checkstyle.xml</exists>
+                </file>
+            </activation>
+            <properties>
+                <buildtools.dir>${basedir}/../build-tools</buildtools.dir>
+            </properties>
+        </profile>
+        <profile>
+            <id>activate-buildtools-in-submodule</id>
+            <activation>
+                <file>
+                    <exists>${basedir}/../../build-tools/wss4j-checkstyle.xml</exists>
+                </file>
+            </activation>
+            <properties>
+                <buildtools.dir>${basedir}/../../build-tools</buildtools.dir>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>dependencycheck</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.owasp</groupId>
+                        <artifactId>dependency-check-maven</artifactId>
+                        <configuration>
+                            <failBuildOnCVSS>6</failBuildOnCVSS>
+                            <skipProvidedScope>true</skipProvidedScope>
+                            <skipRuntimeScope>true</skipRuntimeScope>
+                            <suppressionFiles>
+                                <suppressionFile>${buildtools.dir}/dependency-check-suppression.xml</suppressionFile>
+                            </suppressionFiles>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+    </profiles>
+
+    <reporting>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-project-info-reports-plugin</artifactId>
+                <version>3.9.0</version>
+                <reportSets>
+                    <reportSet>
+                        <reports>
+                            <report>issue-management</report>
+                            <report>licenses</report>
+                            <report>mailing-lists</report>
+                            <report>scm</report>
+                        </reports>
+                    </reportSet>
+                </reportSets>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.12.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jxr-plugin</artifactId>
+                <version>3.6.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.owasp</groupId>
+                <artifactId>dependency-check-maven</artifactId>
+            </plugin>
+        </plugins>
+    </reporting>
+
+    <distributionManagement>
+        <repository>
+            <id>apache.releases.https</id>
+            <name>Apache Release Distribution Repository</name>
+            <url>https://repository.apache.org/service/local/staging/deploy/maven2</url>
+        </repository>
+        <snapshotRepository>
+            <id>apache.snapshots.https</id>
+            <name>Apache Development Snapshot Repository</name>
+            <url>https://repository.apache.org/content/repositories/snapshots</url>
+            <!--uniqueVersion>false</uniqueVersion-->
+        </snapshotRepository>
+    </distributionManagement>
+
+    <repositories>
+        <repository>
+            <id>A_maven.central</id>
+            <name>Maven Central</name>
+            <url>https://repo1.maven.org/maven2/</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>B_shibboleth</id>
+            <name>OpenSAML</name>
+            <url>https://build.shibboleth.net/nexus/content/groups/public</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+        </repository>
+    </repositories>
+
+</project>

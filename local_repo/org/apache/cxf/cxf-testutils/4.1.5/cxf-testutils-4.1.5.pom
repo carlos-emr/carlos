@@ -1,0 +1,414 @@
+<?xml version="1.0"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements. See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership. The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License. You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied. See the License for the
+  specific language governing permissions and limitations
+  under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>cxf-testutils</artifactId>
+    <packaging>bundle</packaging>
+    <name>Apache CXF Test Utilities</name>
+    <description>Apache CXF Test Utilities</description>
+    <url>https://cxf.apache.org</url>
+    <parent>
+        <groupId>org.apache.cxf</groupId>
+        <artifactId>cxf-parent</artifactId>
+        <version>4.1.5</version>
+        <relativePath>../parent/pom.xml</relativePath>
+    </parent>
+    <properties>
+        <cxf.module.name>org.apache.cxf.testutils</cxf.module.name>
+        <cxf.osgi.import>
+            jakarta.xml.soap;version="${cxf.osgi.saaj.version}",
+            jakarta.jws*;version="${cxf.osgi.jakarta.jwsapi.version}",
+            jakarta.xml.ws*;version="${cxf.osgi.jakarta.xml.ws.version}",
+            jakarta.xml.bind*;version="${cxf.osgi.jakarta.bind.version}",
+            jakarta.annotation*;version="${cxf.osgi.jakarta.annotation.version}",
+            jakarta.activation;version="${cxf.osgi.jakarta.activation.version}"
+        </cxf.osgi.import>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>jakarta.xml.ws</groupId>
+            <artifactId>jakarta.xml.ws-api</artifactId>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.xml.soap</groupId>
+            <artifactId>jakarta.xml.soap-api</artifactId>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-wsdl</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.artemis</groupId>
+            <artifactId>artemis-jakarta-server</artifactId>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.mail</groupId>
+            <artifactId>jakarta.mail-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-core</artifactId>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+    </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <!--
+                            Run in validate phase to ensure wsdls exist
+                            before running wsdl2java in generate-sources
+                            phase.
+                        -->
+                        <id>validate</id>
+                        <phase>validate</phase>
+                        <configuration>
+                            <target>
+                                <property name="generated.target" value="${basedir}/target/generated" />
+                                <property name="generated.src.test" value="${generated.target}/src/main/java" />
+                                <property name="generated.resources.test" value="${generated.target}/src/main/resources" />
+                                <property name="generated.wsdl.test" value="${generated.resources.test}/" />
+                                <property name="test.resources.dir" location="${basedir}/src/main/resources" />
+                                <mkdir dir="${generated.resources.test}/wsdl/type_test" />
+                                <xslt style="${test.resources.dir}/wsdl/type_test/type_test_ID_xsd.xsl" in="${test.resources.dir}/wsdl/type_test/type_test.xsd" out="${generated.resources.test}/wsdl/type_test/type_test_1.xsd">
+                                    <param name="groupID" expression="1" />
+                                </xslt>
+                                <xslt style="${test.resources.dir}/wsdl/type_test/type_test_ID_xsd.xsl" in="${test.resources.dir}/wsdl/type_test/type_test.xsd" out="${generated.resources.test}/wsdl/type_test/type_test_2.xsd">
+                                    <param name="groupID" expression="2" />
+                                </xslt>
+                                <xslt style="${test.resources.dir}/wsdl/type_test/type_test_ID_xsd.xsl" in="${test.resources.dir}/wsdl/type_test/type_test.xsd" out="${generated.resources.test}/wsdl/type_test/type_test_3.xsd">
+                                    <param name="groupID" expression="3" />
+                                </xslt>
+                                <xslt style="${test.resources.dir}/wsdl/type_test/type_test_wsdl.xsl" in="${test.resources.dir}/wsdl/type_test/type_test.xsd" out="${generated.resources.test}/wsdl/type_test/type_test_doclit.wsdl">
+                                    <param name="inc_xsd_path" expression="." />
+                                    <param name="use_style" expression="document" />
+                                    <param name="tns_suffix" expression="doc" />
+                                </xslt>
+                                <xslt style="${test.resources.dir}/wsdl/type_test/type_test_wsdl.xsl" in="${test.resources.dir}/wsdl/type_test/type_test.xsd" out="${generated.resources.test}/wsdl/type_test/type_test_rpclit.wsdl">
+                                    <param name="inc_xsd_path" expression="." />
+                                    <param name="use_style" expression="rpc" />
+                                    <param name="tns_suffix" expression="rpc" />
+                                </xslt>
+                                <xslt style="${test.resources.dir}/wsdl/type_test/type_test_wsdl.xsl" in="${test.resources.dir}/wsdl/type_test/type_test.xsd" out="${generated.resources.test}/wsdl/type_test/type_test_xml_inc.wsdl">
+                                    <param name="inc_xsd_path" expression="." />
+                                    <param name="use_style" expression="document" />
+                                    <param name="tns_suffix" expression="xml" />
+                                </xslt>
+                                <xslt style="${test.resources.dir}/wsdl/type_test/type_test_xml_wsdl.xsl" in="${test.resources.dir}/wsdl/type_test/type_test.xsd" out="${generated.resources.test}/wsdl/type_test/type_test_xml.wsdl">
+                                    <param name="inc_wsdl_path" expression="." />
+                                    <param name="port" expression="9008" />
+                                </xslt>
+                                <xslt style="${test.resources.dir}/wsdl/type_test/type_test_soap_wsdl.xsl" in="${test.resources.dir}/wsdl/type_test/type_test.xsd" out="${generated.resources.test}/wsdl/type_test/type_test_doclit_soap.wsdl">
+                                    <param name="inc_wsdl_path" expression="." />
+                                    <param name="use_style" expression="document" />
+                                    <param name="port" expression="9007" />
+                                </xslt>
+                                <xslt style="${test.resources.dir}/wsdl/type_test/type_test_soap_wsdl.xsl" in="${test.resources.dir}/wsdl/type_test/type_test.xsd" out="${generated.resources.test}/wsdl/type_test/type_test_rpclit_soap.wsdl">
+                                    <param name="inc_wsdl_path" expression="." />
+                                    <param name="use_style" expression="rpc" />
+                                    <param name="port" expression="9006" />
+                                </xslt>
+                                <mkdir dir="${generated.src.test}/org/apache/cxf/systest/type_test" />
+                                <xslt style="${test.resources.dir}/wsdl/type_test/type_test_impl_java.xsl" in="${test.resources.dir}/wsdl/type_test/type_test.xsd" out="${generated.src.test}/org/apache/cxf/systest/type_test/TypeTestImpl.java" />
+                                <xslt style="${test.resources.dir}/wsdl/type_test/type_test_tester_java.xsl" in="${test.resources.dir}/wsdl/type_test/type_test.xsd" out="${generated.src.test}/org/apache/cxf/systest/type_test/TypeTestTester.java" />
+                                <xslt style="${test.resources.dir}/wsdl/type_test/validation.xsl" in="${generated.resources.test}/wsdl/type_test/type_test_1.xsd" out="${generated.resources.test}/wsdl/type_test/type_test_1_validation.xsd" />
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!--plugin>
+                <groupId>org.apache.cxf</groupId>
+                <artifactId>cxf-wsdl-validator-plugin</artifactId>
+                <version>${project.version}</version>
+                <executions>
+                    <execution>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>wsdlvalidator</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin-->
+            <plugin>
+                <groupId>org.apache.cxf</groupId>
+                <artifactId>cxf-codegen-plugin</artifactId>
+                <version>${project.version}</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.cxf.xjcplugins</groupId>
+                        <artifactId>cxf-xjc-bug986</artifactId>
+                        <version>${cxf.xjc-utils.version}</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <id>generate-sources</id>
+                        <phase>generate-sources</phase>
+                        <configuration>
+                            <fork>${cxf.codegenplugin.forkmode}</fork>
+                            <sourceRoot>target/generated/src/main/java</sourceRoot>
+                            <wsdlRoot>src/main/resources/wsdl</wsdlRoot>
+                            <includes>
+                                <include>*.wsdl</include>
+                                <include>rt-javascript/*.wsdl</include>
+                            </includes>
+                            <defaultOptions>
+                                <xjcargs>
+                                    <xjcarg>-Xbug986</xjcarg>
+                                </xjcargs>
+                                <!--extraargs>
+                                    <extraarg>${cxf.test.keep}</extraarg>
+                                </extraargs-->
+                                <markGenerated>true</markGenerated>
+                                <faultSerialVersionUID>1</faultSerialVersionUID>
+                            </defaultOptions>
+                            <wsdlOptions>
+                                <wsdlOption>
+                                    <wsdl>target/generated/src/main/resources/wsdl/type_test/type_test_xml.wsdl</wsdl>
+                                    <dependencies>
+                                        <dependency>
+                                            ${basedir}/target/generated/src/main/resources/wsdl/type_test/type_test_xml_inc.wsdl
+                                        </dependency>
+                                        <dependency>
+                                            ${basedir}/target/generated/src/main/resources/wsdl/type_test/type_test_1.xsd
+                                        </dependency>
+                                        <dependency>
+                                            ${basedir}/target/generated/src/main/resources/wsdl/type_test/type_test_2.xsd
+                                        </dependency>
+                                        <dependency>
+                                            ${basedir}/target/generated/src/main/resources/wsdl/type_test/type_test_3.xsd
+                                        </dependency>
+                                    </dependencies>
+                                </wsdlOption>
+                                <wsdlOption>
+                                    <wsdl>target/generated/src/main/resources/wsdl/type_test/type_test_doclit_soap.wsdl</wsdl>
+                                    <dependencies>
+                                        <dependency>
+                                            ${basedir}/target/generated/src/main/resources/wsdl/type_test/type_test_doclit.wsdl
+                                        </dependency>
+                                        <dependency>
+                                            ${basedir}/target/generated/src/main/resources/wsdl/type_test/type_test_1.xsd
+                                        </dependency>
+                                        <dependency>
+                                            ${basedir}/target/generated/src/main/resources/wsdl/type_test/type_test_2.xsd
+                                        </dependency>
+                                        <dependency>
+                                            ${basedir}/target/generated/src/main/resources/wsdl/type_test/type_test_3.xsd
+                                        </dependency>
+                                    </dependencies>
+                                </wsdlOption>
+                                <wsdlOption>
+                                    <wsdl>target/generated/src/main/resources/wsdl/type_test/type_test_rpclit_soap.wsdl</wsdl>
+                                    <dependencies>
+                                        <dependency>
+                                            ${basedir}/target/generated/src/main/resources/wsdl/type_test/type_test_rpclit.wsdl
+                                        </dependency>
+                                        <dependency>
+                                            ${basedir}/target/generated/src/main/resources/wsdl/type_test/type_test_1.xsd
+                                        </dependency>
+                                        <dependency>
+                                            ${basedir}/target/generated/src/main/resources/wsdl/type_test/type_test_2.xsd
+                                        </dependency>
+                                        <dependency>
+                                            ${basedir}/target/generated/src/main/resources/wsdl/type_test/type_test_3.xsd
+                                        </dependency>
+                                    </dependencies>
+                                </wsdlOption>
+                            </wsdlOptions>
+                            <additionalJvmArgs>${cxf.codegen.jvmArgs}</additionalJvmArgs>
+                        </configuration>
+                        <goals>
+                            <goal>wsdl2java</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.cxf</groupId>
+                <artifactId>cxf-xjc-plugin</artifactId>
+                <version>${cxf.xjc-utils.version}</version>
+                <executions>
+                    <execution>
+                        <id>generate-sources</id>
+                        <phase>generate-sources</phase>
+                        <configuration>
+                            <sourceRoot>${basedir}/target/generated/src/main/java</sourceRoot>
+                            <xsdOptions>
+                                <xsdOption>
+                                    <xsd>${basedir}/src/main/resources/wsdl/oob_headertype.xsd</xsd>
+                                    <extension>true</extension>
+                                    <extensionArgs>
+                                        <extensionArg>-Xdv</extensionArg>
+                                    </extensionArgs>
+                                </xsdOption>
+                            </xsdOptions>
+                            <fork>${xf.xjcplugin.forkmode}</fork>
+                            <additionalJvmArgs>${cxf.xjc.jvmArgs}</additionalJvmArgs>
+                        </configuration>
+                        <goals>
+                            <goal>xsdtojava</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <extensions>
+                        <extension>org.apache.cxf.xjcplugins:cxf-xjc-dv:${cxf.xjc-utils.version}</extension>
+                    </extensions>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>key-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                        <configuration>
+                            <classifier>keys</classifier>
+                            <classesDirectory>${basedir}/src/test/resources</classesDirectory>
+                            <includes>
+                                <include>**/*.*</include>
+                            </includes>
+                            <archive>
+                                <manifestEntries>
+                                    <Automatic-Module-Name>${cxf.module.name}.key</Automatic-Module-Name>
+                                </manifestEntries>
+                            </archive>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                        <configuration>
+                            <archive>
+                                <manifestEntries>
+                                    <Automatic-Module-Name>${cxf.module.name}.tests</Automatic-Module-Name>
+                                </manifestEntries>
+                            </archive>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+        <pluginManagement>
+            <plugins>
+                <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
+                <plugin>
+                    <groupId>org.eclipse.m2e</groupId>
+                    <artifactId>lifecycle-mapping</artifactId>
+                    <version>1.0.0</version>
+                    <configuration>
+                        <lifecycleMappingMetadata>
+                            <pluginExecutions>
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>
+                                            org.apache.maven.plugins
+                                        </groupId>
+                                        <artifactId>
+                                            maven-antrun-plugin
+                                        </artifactId>
+                                        <versionRange>
+                                            [1.7,)
+                                        </versionRange>
+                                        <goals>
+                                            <goal>run</goal>
+                                        </goals>
+                                    </pluginExecutionFilter>
+                                    <action>
+                                        <execute>
+                                            <runOnIncremental>false</runOnIncremental>
+                                        </execute>
+                                    </action>
+                                </pluginExecution>
+                            </pluginExecutions>
+                        </lifecycleMappingMetadata>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+    <profiles>
+        <profile>
+            <id>setup.eclipse</id>
+            <build>
+                <defaultGoal>process-test-sources</defaultGoal>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>setup.eclipse.project.sdo</id>
+                                <phase>process-test-sources</phase>
+                                <configuration>
+                                    <target>
+                                        <!-- JAXB generated code for one of our type tests uses a raw Comparable -->
+                                        <propertyfile file="${basedir}/.settings/org.eclipse.jdt.core.prefs">
+                                            <entry key="org.eclipse.jdt.core.compiler.problem.rawTypeReference" value="ignore" />
+                                        </propertyfile>
+                                    </target>
+                                </configuration>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

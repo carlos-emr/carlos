@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (c) 2013, 2023 Oracle and/or its affiliates. All rights reserved.
+
+    This program and the accompanying materials are made available under the
+    terms of the Eclipse Distribution License v. 1.0, which is available at
+    http://www.eclipse.org/org/documents/edl-v10.php.
+
+    SPDX-License-Identifier: BSD-3-Clause
+
+-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.sun.xml.bind.mvn</groupId>
+        <artifactId>jaxb-bundles</artifactId>
+        <version>4.0.5</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <groupId>com.sun.xml.bind</groupId>
+    <artifactId>jaxb-xjc</artifactId>
+
+    <packaging>jar</packaging>
+    <name>Old JAXB XJC</name>
+    <description>
+        Old JAXB Binding Compiler. Contains source code needed for binding customization files into java sources.
+        In other words: the *tool* to generate java classes for the given xml representation.
+        <!--todo: finish me-->
+    </description>
+    <url>https://eclipse-ee4j.github.io/jaxb-ri/</url>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.sun.xml.bind</groupId>
+            <artifactId>jaxb-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ant</groupId>
+            <artifactId>ant</artifactId>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>jaxb-xjc</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>codemodel</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>xsom</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.sun.istack</groupId>
+            <artifactId>istack-commons-tools</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.sun.xml.bind.external</groupId>
+            <artifactId>relaxng-datatype</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.sun.xml.bind.external</groupId>
+            <artifactId>rngom</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.sun.xml.dtd-parser</groupId>
+            <artifactId>dtd-parser</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.relaxng</groupId>
+            <artifactId>relaxngDatatype</artifactId>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <properties>
+        <dep.sources>${project.build.directory}/generated-sources/dependencies</dep.sources>
+    </properties>
+
+    <profiles>
+        <profile>
+            <id>default-profile</id>
+            <activation>
+                <property>
+                    <name>!dev</name>
+                </property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>org.osgi</groupId>
+                    <artifactId>osgi.core</artifactId>
+                    <version>${felix.osgi.core}</version>
+                    <scope>test</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.glassfish.jaxb</groupId>
+                    <artifactId>osgi-test-xjc</artifactId>
+                    <version>${project.version}</version>
+                    <scope>test</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.glassfish.jaxb</groupId>
+                    <artifactId>osgi-test-parent</artifactId>
+                    <version>${project.version}</version>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
+    <build>
+        <plugins>
+            <plugin> <!-- want to unpack sources from individual modules -->
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>unpack-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>unpack-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <includeGroupIds>org.glassfish.jaxb,com.sun.istack,com.sun.xml.bind.external,com.sun.xml.dtd-parser</includeGroupIds>
+                            <includeScope>provided</includeScope>
+                            <classifier>sources</classifier>
+                            <excludeTransitive>true</excludeTransitive>
+                            <excludes>module-info.*,META-INF/versions/**,META-INF/MANIFEST.MF</excludes>
+                            <outputDirectory>${dep.sources}</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>add-resource</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>add-resource</goal>
+                        </goals>
+                        <configuration>
+                            <resources>
+                                <resource>
+                                    <directory>${dep.sources}</directory>
+                                    <excludes>
+                                        <exclude>**/*.java</exclude>
+                                        <exclude>com/sun/tools/xjc/MessageBundle*.properties</exclude>
+                                    </excludes>
+                                </resource>
+                                <resource>
+                                    <directory>${dep.sources}/com/sun/tools/xjc/runtime</directory>
+                                    <targetPath>com/sun/tools/xjc/runtime</targetPath>
+                                    <includes>
+                                        <include>*.java</include>
+                                    </includes>
+                                    <excludes>
+                                        <exclude>package-info.java</exclude>
+                                    </excludes>
+                                </resource>
+                                <resource>
+                                    <directory>${dep.sources}</directory>
+                                    <includes>
+                                        <include>com/sun/tools/xjc/MessageBundle*.properties</include>
+                                    </includes>
+                                    <filtering>true</filtering>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>add-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${dep.sources}</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>default-compile</id>
+                        <configuration>
+                            <compilerArgs>
+                                <arg>--add-reads</arg>
+                                <arg>com.sun.tools.xjc=ALL-UNNAMED</arg>
+                            </compilerArgs>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
+                        <manifestEntries>
+                            <Class-Path>jaxb-core.jar jaxb-impl.jar</Class-Path>
+                        </manifestEntries>
+                        <manifest>
+                            <mainClass>com.sun.tools.xjc.XJCFacade</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <configuration>
+                    <sourceFileExcludes>
+                        <sourceFileExclude>META-INF/versions/**</sourceFileExclude>
+                    </sourceFileExcludes>
+                    <includeDependencySources>false</includeDependencySources>
+                    <additionalJOptions>
+                        <additionalJOption>--add-reads</additionalJOption>
+                        <additionalJOption>com.sun.tools.xjc=ALL-UNNAMED</additionalJOption>
+                    </additionalJOptions>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-junit4osgi-plugin</artifactId>
+                <version>${felix.junit4osgi}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <phase>integration-test</phase>
+                        <configuration>
+                            <skip>${skipOsgiTests}</skip>
+                            <m_deployProjectArtifact>true</m_deployProjectArtifact>
+                            <configuration>
+                                <org.osgi.framework.system.packages.extra>
+                                    javax.swing.tree,
+                                    javax.xml.namespace,
+                                    org.xml.sax,
+                                    javax.xml.stream,
+                                    org.xml.sax.ext,
+                                    javax.swing,
+                                    javax.xml.transform.sax,
+                                    javax.swing.border,
+                                    javax.lang.model.util,
+                                    javax.xml.parsers,
+                                    org.w3c.dom,
+                                    javax.xml.datatype,
+                                    javax.xml.xpath,
+                                    javax.xml.transform.stream,
+                                    javax.xml.validation,
+                                    org.xml.sax.helpers,
+                                    javax.annotation.processing,
+                                    javax.lang.model.type,
+                                    javax.xml.transform.dom,
+                                    org.w3c.dom.ls,
+                                    org.apache.tools.ant.types,
+                                    javax.lang.model.element,
+                                    javax.tools,
+                                    org.apache.tools.ant,
+                                    jakarta.activation,
+                                    javax.xml.transform,
+                                    javax.xml
+                                </org.osgi.framework.system.packages.extra>
+                            </configuration>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>bundle-manifest</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>manifest</goal>
+                        </goals>
+                        <configuration>
+                            <!-- javax.xml.bind.annotation - used by XJC -target < 3.0-->
+                            <instructions>
+                                <Bundle-ActivationPolicy>lazy</Bundle-ActivationPolicy>
+                                <Export-Package>
+                                    !META-INF.*,
+                                    *
+                                </Export-Package>
+                                <Import-Package>
+                                    javax.xml.bind.annotation;resolution:=optional,
+                                    javax.lang.model.*;resolution:=optional,
+                                    *
+                                </Import-Package>
+                                <Require-Capability><![CDATA[
+                            osgi.extender;filter:="(&(osgi.extender=osgi.serviceloader.processor)
+                              (version>=1.0.0)(!(version>=2.0.0)))";resolution:=optional,
+                            osgi.serviceloader;
+                              filter:="(osgi.serviceloader=com.sun.tools.xjc.Plugin)";
+                                osgi.serviceloader="com.sun.tools.xjc.Plugin";
+                                cardinality:=multiple;resolution:=optional,
+                            osgi.serviceloader;
+                              filter:="(osgi.serviceloader=com.sun.tools.rngdatatype.DatatypeLibraryFactory)";
+                                osgi.serviceloader="com.sun.tools.rngdatatype.DatatypeLibraryFactory";
+                                cardinality:=multiple;resolution:=optional,
+                            osgi.extender;filter:="(&(osgi.extender=osgi.serviceloader.registrar)
+                              (version>=1.0.0)(!(version>=2.0.0)))";resolution:=optional
+                            ]]>
+                                </Require-Capability>
+                                <Provide-Capability><![CDATA[
+                            osgi.serviceloader;
+                              osgi.serviceloader="com.sun.tools.xjc.Plugin",
+                            osgi.serviceloader;
+                              osgi.serviceloader="com.sun.tools.rngdatatype.DatatypeLibraryFactory"
+                            ]]>
+                                </Provide-Capability>
+                            </instructions>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>default-test</id>
+                        <phase>integration-test</phase>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <jaxb.spec.version>${xml.bind-api.version}</jaxb.spec.version>
+                                <osgi.dist>${project.build.directory}/${project.build.finalName}</osgi.dist>
+                            </systemPropertyVariables>
+                            <classpathDependencyExcludes>
+                                <classpathDependencyExclude>org.glassfish.jaxb:*</classpathDependencyExclude>
+                                <classpathDependencyExclude>com.sun.xml.bind.external:*</classpathDependencyExclude>
+                            </classpathDependencyExcludes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

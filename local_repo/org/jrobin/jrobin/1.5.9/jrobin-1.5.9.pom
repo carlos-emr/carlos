@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.jrobin</groupId>
+  <artifactId>jrobin</artifactId>
+  <packaging>jar</packaging>
+
+  <name>JRobin</name>
+  <version>1.5.9</version>
+  <description>
+    JRobin is a 100% pure Java alternative to RRDTool, with about exactly the same specifications. If you provide the
+    same data to RRDTool and JRobin, you will get exactly the same results and graphs. All standard RRDTool operations
+    are supported.
+  </description>
+  <url>http://www.jrobin.org/</url>
+  <inceptionYear>2003</inceptionYear>
+  <developers>
+    <developer>
+      <id>saxon64</id>
+      <name>Sasa Markovic</name>
+      <email>saxon64@users.sourceforge.net</email>
+    </developer>
+    <developer>
+      <id>cobralord</id>
+      <name>Arne Vandamme</name>
+      <email>cobralord@users.sourceforge.net</email>
+    </developer>
+    <developer>
+      <id>tarus</id>
+      <name>Tarus Balog</name>
+      <email>tarus@users.sourceforge.net</email>
+    </developer>
+    <developer>
+      <id>djgregor</id>
+      <name>DJ Gregor</name>
+      <email>djgregor@users.sourceforge.net</email>
+    </developer>
+    <developer>
+      <id>rangerrick</id>
+      <name>Benjamin Reed</name>
+      <email>rangerrick@users.sourceforge.net</email>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:cvs:pserver:anonymous@jrobin.cvs.sourceforge.net:/cvsroot/jrobin:project</connection>
+    <developerConnection>scm:cvs:ext:rangerrick@jrobin.cvs.sourceforge.net:/cvsroot/jrobin:project</developerConnection>
+    <url>http://jrobin.cvs.sourceforge.net/jrobin/</url>
+  </scm>
+  <licenses>
+    <license>
+      <name>LGPL</name>
+    </license>
+  </licenses>
+  <issueManagement>
+    <system>SF Bug Tracker</system>
+    <url>http://sourceforge.net/tracker/?atid=566805&amp;group_id=82668</url>
+  </issueManagement>
+  <mailingLists>
+    <mailingList>
+      <name>jrobin-devel</name>
+      <subscribe>https://lists.sourceforge.net/lists/listinfo/jrobin-devel</subscribe>
+      <unsubscribe>https://lists.sourceforge.net/lists/listinfo/jrobin-devel</unsubscribe>
+      <post>jrobin-devel@lists.sourceforge.net</post>
+    </mailingList>
+    <mailingList>
+      <name>jrobin-commits</name>
+      <subscribe>https://lists.sourceforge.net/lists/listinfo/jrobin-commits</subscribe>
+      <unsubscribe>https://lists.sourceforge.net/lists/listinfo/jrobin-commits</unsubscribe>
+      <archive>http://sourceforge.net/mailarchive/forum.php?forum_name=jrobin-commits</archive>
+    </mailingList>
+    <mailingList>
+      <name>jrobin-discuss</name>
+      <subscribe>https://lists.sourceforge.net/lists/listinfo/jrobin-discuss</subscribe>
+      <unsubscribe>https://lists.sourceforge.net/lists/listinfo/jrobin-discuss</unsubscribe>
+      <post>jrobin-discuss@lists.sourceforge.net</post>
+      <archive>http://sourceforge.net/mailarchive/forum.php?forum_name=jrobin-discuss</archive>
+    </mailingList>
+  </mailingLists>
+
+  <build>
+    <sourceDirectory>src</sourceDirectory>
+    <resources>
+      <resource>
+        <directory>fonts</directory>
+      </resource>
+    </resources>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>2.0.2</version>
+        <configuration>
+          <source>1.5</source>
+          <target>1.5</target>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <version>2.3</version>
+        <configuration>
+          <repositoryId>opennms-repo</repositoryId>
+          <!-- <repositoryId>opennms-snapshot-repo</repositoryId> -->
+          <file>jrobin.jar</file>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>2.3</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>2.0.3</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>2.1</version>
+        <configuration>
+          <archive>
+            <index>true</index>
+            <manifest>
+              <mainClass>org.jrobin.cmd.RrdCommander</mainClass>
+            </manifest>
+            <manifestEntries>
+              <Built-By>${maven.username}</Built-By>
+              <Specification-Title>${project.name}</Specification-Title>
+              <Specification-Version>${project.version}</Specification-Version>
+              <Specification-Vendor>Sasa Markovic</Specification-Vendor>
+              <Implementation-Title>${project.groupId}</Implementation-Title>
+              <!-- TODO : add date to impl-version when http://jira.codehaus.org/browse/MNG-1832 is done -->
+              <Implementation-Version>${project.version}</Implementation-Version>
+              <Implementation-Vendor>${project.url}</Implementation-Vendor>
+            </manifestEntries>
+          </archive>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+  <reporting>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-site-plugin</artifactId>
+        <version>2.0-beta-7</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-project-info-reports-plugin</artifactId>
+        <version>2.1</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>2.4</version>
+        <configuration>
+          <overview>${basedir}/src/overview.html</overview>
+          <linksource>true</linksource>
+          <links>
+            <link>http://java.sun.com/j2se/1.5.0/docs/api</link>
+            <link>http://www.junit.org/junit/javadoc/4.4</link>
+          </links>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-pmd-plugin</artifactId>
+        <version>2.4</version>
+        <configuration>
+          <linkXRef>true</linkXRef>
+          <sourceEncoding>utf-8</sourceEncoding>
+          <targetJdk>1.5</targetJdk>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jxr-plugin</artifactId>
+        <version>2.1</version>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>jdepend-maven-plugin</artifactId>
+        <version>2.0-beta-1</version>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>findbugs-maven-plugin</artifactId>
+        <version>1.1.1</version>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>javancss-maven-plugin</artifactId>
+        <version>2.0-beta-2</version>
+      </plugin>
+    </plugins>
+  </reporting>
+  <dependencies>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.4</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+  <distributionManagement>
+    <site>
+      <id>opennms-site</id>
+      <name>OpenNMS Site</name>
+      <url>scpexe://repo.opennms.org/var/www/sites/opennms.org/site/repo/sites/jrobin/${project.version}/</url>
+    </site>
+    <!-- use the following if you're not using a snapshot version. -->
+    <repository>
+      <id>opennms-repo</id>
+      <name>OpenNMS Release Repository</name>
+      <url>scpexe://repo.opennms.org/var/www/sites/opennms.org/site/repo/maven2</url>
+    </repository>
+    <!-- use the following if you ARE using a snapshot version. -->
+    <snapshotRepository>
+      <id>opennms-snapshot-repo</id>
+      <name>OpenNMS Snapshot Repository</name>
+      <url>scpexe://repo.opennms.org/var/www/sites/opennms.org/site/repo/snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
+</project>

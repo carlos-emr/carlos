@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion> 
+  <parent>
+    <groupId>com.fasterxml.jackson</groupId>
+    <artifactId>jackson-base</artifactId>
+    <version>2.21.1</version>
+  </parent>
+  <groupId>com.fasterxml.jackson.jakarta.rs</groupId>
+  <artifactId>jackson-jakarta-rs-providers</artifactId>
+  <name>Jackson modules: Jakarta-RS</name>
+  <version>2.21.1</version>
+  <packaging>pom</packaging>
+  <description>Parent for Jackson Jakarta-RS (jakarta.ws.rs) providers
+  </description>
+  <licenses>
+    <license>
+      <name>The Apache Software License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <modules>
+    <module>base</module>
+    <module>cbor</module>
+    <module>json</module>
+    <module>smile</module>
+    <module>xml</module>
+    <module>yaml</module>
+  </modules>
+  <url>https://github.com/FasterXML/jackson-jakarta-rs-providers</url>    
+  <scm>
+    <connection>scm:git:git@github.com:FasterXML/jackson-jakarta-rs-providers.git</connection>
+    <developerConnection>scm:git:git@github.com:FasterXML/jackson-jakarta-rs-providers.git</developerConnection>
+    <url>https://github.com/FasterXML/jackson-jakarta-rs-providers</url>
+    <tag>jackson-jakarta-rs-providers-2.21.1</tag>
+  </scm>
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding> 
+
+    <version.jersey>3.0.16</version.jersey>
+    <!-- 29-May-2021, tatu: Jetty 10 and above require Java 11 (ugh!)
+        Which means we must build with JDK 11 from now now on (2.13+)
+      -->
+    <version.jetty>11.0.24</version.jetty>
+
+    <version.servlet>5.0.0</version.servlet>
+
+    <!-- Needed to enable jax-rs 2.0 usage under OSGi -->
+    <jakarta.ws.rs.version>[3.0.0,4.0)</jakarta.ws.rs.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>jakarta.xml.bind</groupId>
+        <artifactId>jakarta.xml.bind-api</artifactId>
+        <version>3.0.1</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+
+    <!-- and we need JAX-RS annotations for testing as well; but usually provided
+      by container (and app should definitely have direct dep too, when using annotations)
+       -->
+    <dependency>
+      <groupId>jakarta.ws.rs</groupId>
+      <artifactId>jakarta.ws.rs-api</artifactId>
+      <version>3.0.0</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-server</artifactId>
+      <version>${version.jetty}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-servlet</artifactId>
+      <version>${version.jetty}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <!-- For testing, Jersey and its Deps:
+        -->
+      <groupId>org.glassfish.jersey.core</groupId>
+      <artifactId>jersey-server</artifactId>
+      <version>${version.jersey}</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-api</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.glassfish.jersey.containers</groupId>
+      <artifactId>jersey-container-servlet</artifactId>
+      <version>${version.jersey}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- 29-May-2021, tatu: With Jersey 3/Jetty 11, will require this addition,
+        too, as per:
+https://stackoverflow.com/questions/44088493/jersey-stopped-working-with-injectionmanagerfactory-not-found
+      -->
+    <dependency>
+      <groupId>org.glassfish.jersey.inject</groupId>
+      <artifactId>jersey-hk2</artifactId>
+      <version>${version.jersey}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- And to get some test output in case of problems... -->
+    <dependency>
+      <groupId>ch.qos.logback </groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.2.3</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <!-- Need to include snapshot reference to find snapshot of parent -->
+  <repositories>
+    <!-- 13-May-2025, tatu: now access snapshots via Central Portal -->
+    <repository>
+      <id>central-snapshots</id>
+      <name>Sonatype Central Portal (snapshots)</name>
+      <url>https://central.sonatype.com/repository/maven-snapshots</url>
+      <releases><enabled>false</enabled></releases>
+      <snapshots><enabled>true</enabled></snapshots>
+    </repository>
+  </repositories>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.felix</groupId>
+          <artifactId>maven-bundle-plugin</artifactId>
+          <configuration>
+            <instructions>
+              <_nouses>false</_nouses>
+            </instructions>
+          </configuration>
+        </plugin>
+
+        <plugin>
+          <!-- Inherited from oss-base. Generate PackageVersion.java.-->
+          <groupId>com.google.code.maven-replacer-plugin</groupId>
+          <artifactId>replacer</artifactId>
+          <executions>
+            <execution>
+              <id>process-packageVersion</id>
+              <phase>generate-sources</phase>
+            </execution>
+          </executions>
+        </plugin>
+
+        <plugin>
+          <groupId>org.moditect</groupId>
+          <artifactId>moditect-maven-plugin</artifactId>
+          <!-- 20-Feb-2021, tatu: For Jackson 2.x, put `module-info.class` under location
+                  only visible to JDK 11+ (to avoid issues with older pre-Java9 frameworks?)
+            -->
+          <configuration>
+            <jvmVersion>11</jvmVersion>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+</project>

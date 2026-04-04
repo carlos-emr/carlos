@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+  http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.apache.tomcat</groupId>
+  <artifactId>tomcat-servlet-api</artifactId>
+  <version>11.0.20</version>
+  <description>jakarta.servlet package</description>
+  <url>https://tomcat.apache.org/</url>
+  <licenses>
+    <license>
+      <name>
+        Apache License, Version 2.0 and
+        Common Development And Distribution License (CDDL) Version 1.0 and
+        Eclipse Public License - v 2.0
+      </name>
+      <url>
+        http://www.apache.org/licenses/LICENSE-2.0.txt and
+        http://www.opensource.org/licenses/cddl1.txt and
+        https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.txt
+      </url>
+      <distribution>repo</distribution>
+      <comments>
+        The Apache License, version 2.0 applies to all files apart from
+        javaee_5.xsd,
+        javaee_6.xsd,
+        javaee_7.xsd,
+        javaee_8.xsd,
+        javaee_web_services_1_2.xsd,
+        javaee_web_services_client_1_2.xsd,
+        javaee_web_services_1_3.xsd,
+        javaee_web_services_client_1_3.xsd,
+        javaee_web_services_1_4.xsd,
+        javaee_web_services_client_1_4.xsd,
+        jsp_2_2.xsd,
+        jsp_2_3.xsd,
+        web-app_3_0.xsd,
+        web-common_3_0.xsd,
+        web-fragment_3_0.xsd,
+        web-app_3_1.xsd,
+        web-common_3_1.xsd,
+        web-fragment_3_1.xsd,
+        web-app_4_0.xsd,
+        web-common_4_0.xsd,
+        web-fragment_4_0.xsd,
+        to which the CDDL version 1.0 applies and
+        jakartaee_9.xsd
+        jakartaee_10.xsd
+        jakartaee_11.xsd
+        jakarta_web-services_2_0.xsd
+        jakarta_web-services_client_2_0.xsd
+        jsp_3_0.xsd
+        jsp_3_1.xsd
+        jsp_4_0.xsd
+        web-app_5_0.xsd
+        web-app_6_0.xsd
+        web-app_6_1.xsd
+        web-common_5_0.xsd
+        web-common_6_0.xsd
+        web-common_6_1.xsd
+        web-fragment_5_0.xsd
+        web-fragment_6_0.xsd
+        web-fragment_6_1.xsd
+        web-jsptaglibrary_3_0.xsd
+        web-jsptaglibrary_3_1.xsd
+        web-jsptaglibrary_4_0.xsd
+        to which the EPLv2 applies.
+      </comments>
+    </license>
+  </licenses>
+</project>

@@ -1,5 +1,6 @@
-#NOTE: This is an Aether internal implementation file, its format can be changed without prior notice.
-#Tue Dec 20 11:03:02 EST 2016
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Sat Apr 04 04:16:46 UTC 2026
 hapi-base-1.0.1-sources.jar>hapi-sf=
 hapi-base-1.0.1.jar>hapi-sf=
+hapi-base-1.0.1.pom>local_repo=
 hapi-base-1.0.1.pom>hapi-sf=

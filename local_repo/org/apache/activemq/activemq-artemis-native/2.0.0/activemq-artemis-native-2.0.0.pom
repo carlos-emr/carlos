@@ -1,0 +1,601 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>org.apache.activemq</groupId>
+    <artifactId>activemq-artemis-native</artifactId>
+    <packaging>bundle</packaging>
+    <version>2.0.0</version>
+
+    <parent>
+        <groupId>org.apache</groupId>
+        <artifactId>apache</artifactId>
+        <version>23</version>
+        <relativePath>org.apache:apache</relativePath>
+    </parent>
+
+    <name>ActiveMQ Artemis Native</name>
+    <url />
+
+    <properties>
+        <slf4j.version>1.7.36</slf4j.version>
+        <version.org.jacoco>0.8.6</version.org.jacoco>
+        <version.org.jacoco.plugin>0.8.6</version.org.jacoco.plugin>
+        <surefire.version>2.22.2</surefire.version>
+        <junit.version>4.13.2</junit.version>
+        <maven.bundle.plugin.version>5.1.2</maven.bundle.plugin.version>
+        <exec-maven-plugin.version>3.0.0</exec-maven-plugin.version>
+        <maven-enforcer-plugin.version>3.0.0</maven-enforcer-plugin.version>
+
+        <test.stress.time>5000</test.stress.time>
+
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.release>11</maven.compiler.release>
+
+        <activemq-surefire-argline>
+            -Dtest.stress.time=${test.stress.time} -Djava.library.path="${activemq.basedir}/target/lib/linux-${os.arch}"
+        </activemq-surefire-argline>
+        <activemq.basedir>${project.basedir}</activemq.basedir>
+
+        <maven.test.failure.ignore>false</maven.test.failure.ignore>
+        <maven.test.redirectTestOutputToFile>false</maven.test.redirectTestOutputToFile>
+    </properties>
+
+    <scm>
+        <connection>scm:git:https://gitbox.apache.org/repos/asf/activemq-artemis-native.git</connection>
+        <developerConnection>scm:git:https://gitbox.apache.org/repos/asf/activemq-artemis-native.git</developerConnection>
+        <url>https://github.com/apache/activemq-artemis-native</url>
+        <tag>2.0.0</tag>
+    </scm>
+
+    <distributionManagement>
+        <site>
+            <!-- this needs to match a server in your settings.xml with upload settings -->
+            <id>activemq-website</id>
+            <!-- set the staging.siteURL in your ~/.m2/settings.xml in a release or other profile -->
+            <url>${staging.siteURL}/maven/${project.version}</url>
+            <!--<url>${site-repo-url}</url>-->
+        </site>
+    </distributionManagement>
+
+    <issueManagement>
+        <system>JIRA</system>
+        <url>https://issues.apache.org/jira/browse/ARTEMIS</url>
+    </issueManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+            <scope>provided</scope>
+            <!-- License: MIT -->
+        </dependency>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+            <!-- License: EPL 1.0 -->
+        </dependency>
+        <dependency>
+            <groupId>org.jacoco</groupId>
+            <artifactId>org.jacoco.ant</artifactId>
+            <version>${version.org.jacoco}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jacoco</groupId>
+            <artifactId>org.jacoco.core</artifactId>
+            <version>${version.org.jacoco}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+            <scope>test</scope>
+            <!-- License: MIT -->
+        </dependency>
+    </dependencies>
+
+    <profiles>
+        <profile>
+            <id>distro</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+        </profile>
+        <profile>
+            <id>bare-metal</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>build</id>
+                                <phase>process-sources</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>bash</executable>
+                                    <commandlineArgs>./scripts/compile-native.sh</commandlineArgs>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>podman</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>build</id>
+                                <phase>process-sources</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>bash</executable>
+                                    <commandlineArgs>./scripts/compile-using-podman.sh</commandlineArgs>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>docker</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>build</id>
+                                <phase>process-sources</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>bash</executable>
+                                    <commandlineArgs>./scripts/compile-using-docker.sh</commandlineArgs>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.rat</groupId>
+                        <artifactId>apache-rat-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>dev</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.rat</groupId>
+                        <artifactId>apache-rat-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <!-- Override the apache-release profile from the parent to skip creating
+             a source-release archive assembly, it is handled elsewhere. -->
+        <profile>
+            <id>apache-release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-assembly-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>source-release-assembly</id>
+                                <configuration>
+                                    <skipAssembly>true</skipAssembly>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration>
+                        <forkMode>once</forkMode>
+                        <testFailureIgnore>${maven.test.failure.ignore}</testFailureIgnore>
+                        <runOrder>alphabetical</runOrder>
+                        <redirectTestOutputToFile>${maven.test.redirectTestOutputToFile}</redirectTestOutputToFile>
+                        <argLine>${activemq-surefire-argline}</argLine>
+                        <systemPropertyVariables>
+                            <org.slf4j.simpleLogger.defaultLogLevel>TRACE</org.slf4j.simpleLogger.defaultLogLevel>
+                        </systemPropertyVariables>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-install-plugin</artifactId>
+                    <configuration>
+                        <createChecksum>true</createChecksum>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.felix</groupId>
+                    <artifactId>maven-bundle-plugin</artifactId>
+                    <version>${maven.bundle.plugin.version}</version>
+                    <extensions>true</extensions>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>${exec-maven-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.felix</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <version>${maven-enforcer-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.rat</groupId>
+                    <artifactId>apache-rat-plugin</artifactId>
+                    <configuration>
+                        <reportFile>${activemq.basedir}/ratReport.txt</reportFile>
+                        <excludes>
+                            <exclude>.github/workflows/*.yml</exclude>
+                            <exclude>.travis.yml</exclude>
+                            <exclude>**/footer.html</exclude>
+                            <exclude>**/*.txt</exclude>
+                            <exclude>**/*.md</exclude>
+                            <exclude>etc/ide-settings/**</exclude>
+                            <exclude>docs/**/*.json</exclude>
+                            <exclude>docs/**/_book/</exclude>
+                            <exclude>**/target/</exclude>
+                            <exclude>**/META-INF/services/*</exclude>
+                            <exclude>**/META-INF/MANIFEST.MF</exclude>
+                            <exclude>**/*.iml</exclude>
+                            <exclude>**/*.jceks</exclude>
+                            <exclude>**/*.jks</exclude>
+                            <exclude>**/xml.xsd</exclude>
+                            <exclude>**/org/apache/activemq/artemis/utils/json/**</exclude>
+                            <exclude>**/org/apache/activemq/artemis/utils/Base64.java</exclude>
+                            <exclude>**/.settings/**</exclude>
+                            <exclude>**/.project</exclude>
+                            <exclude>**/.classpath</exclude>
+                            <exclude>**/.editorconfig</exclude>
+                            <exclude>**/.checkstyle</exclude>
+                            <exclude>**/.factorypath</exclude>
+                            <exclude>**/org.apache.activemq.artemis.cfg</exclude>
+                            <exclude>**/nb-configuration.xml</exclude>
+                            <!-- activemq5 unit tests exclude -->
+                            <exclude>**/*.data</exclude>
+                            <exclude>**/*.bin</exclude>
+                            <exclude>**/src/test/resources/keystore</exclude>
+                            <exclude>**/*.log</exclude>
+                            <exclude>**/*.redo</exclude>
+
+                            <!-- NPM files -->
+                            <exclude>**/node/**</exclude>
+                            <exclude>**/node_modules/**</exclude>
+                            <exclude>**/package.json</exclude>
+                            <exclude>**/npm-shrinkwrap.json</exclude>
+
+                            <!-- Build time overlay folder -->
+                            <exclude>**/overlays/**</exclude>
+
+                            <!-- things from cmake on the native build -->
+                            <exclude>**/CMakeFiles/</exclude>
+                            <exclude>**/Makefile</exclude>
+                            <exclude>**/cmake_install.cmake</exclude>
+                            <exclude>artemis-libaio/src/main/c/org_apache_activemq_artemis_jlibaio_LibaioContext.h</exclude>
+                            <exclude>**/dependency-reduced-pom.xml</exclude>
+
+                        </excludes>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <id>enforce-java-version</id>
+                            <goals>
+                                <goal>enforce</goal>
+                            </goals>
+                            <configuration>
+                                <rules>
+                                    <requireJavaVersion>
+                                    <version>[11,)</version>
+                                    <message>You must use Java 11+ to build</message>
+                                    </requireJavaVersion>
+                                </rules>
+                            </configuration>
+                        </execution>
+                        <execution>
+                            <id>enforce-maven-version</id>
+                            <goals>
+                                <goal>enforce</goal>
+                            </goals>
+                            <configuration>
+                                <rules>
+                                    <requireMavenVersion>
+                                    <version>3.5.0</version>
+                                    <message>You must use Maven 3.5.0+ to build</message>
+                                    </requireMavenVersion>
+                                </rules>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <resources>
+            <resource>
+                <directory>${basedir}/target/output/</directory>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-help-plugin</artifactId>
+                <version>2.2</version>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>default-compile</id>
+                        <!-- Running compilation at generate-sources stage instead, to also generate the .h file
+                             ahead of running the cmake build at process-sources phase, in the profiles above -->
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <compilerArgs>
+                                <arg>-h</arg>
+                                <arg>./target/include</arg>
+                            </compilerArgs>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+                <extensions>true</extensions>
+                <configuration>
+                    <instructions>
+                        <!-- Adding Bundle-NativeCode to allow loading library from bundle. The asterisk at the end is important, so bundle resolves also without a matching library, e.g. on Windows. -->
+                        <Bundle-NativeCode>lib/linux-i686/libartemis-native-32.so; osname=Linux; processor=x86, lib/linux-x86_64/libartemis-native-64.so; osname=Linux; processor=x86-64, *</Bundle-NativeCode>
+                    </instructions>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifestEntries>
+                            <Automatic-Module-Name>artemis.jni</Automatic-Module-Name>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-resources-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-resources-i686</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${basedir}/target/output/lib/linux-i686/</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>target/lib/linux-i686</directory>
+                                    <includes>
+                                        <include>libartemis-native-32.so</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-resources-x86_64</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${basedir}/target/output/lib/linux-x86_64/</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>target/lib/linux-amd64</directory>
+                                    <includes>
+                                        <include>libartemis-native-64.so</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-resources-aarch64</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${basedir}/target/output/lib/linux-aarch64/</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>target/lib/linux-aarch64</directory>
+                                    <includes>
+                                        <include>libartemis-native-64.so</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-resources-ppc64le</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${basedir}/target/output/lib/linux-ppc64le/</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>target/lib/linux-ppc64le</directory>
+                                    <includes>
+                                        <include>libartemis-native-64.so</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-resources-s390x</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${basedir}/target/output/lib/linux-s390x/</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>target/lib/linux-s390x</directory>
+                                    <includes>
+                                        <include>libartemis-native-64.so</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-deploy-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>source</id>
+                        <configuration>
+                            <descriptors>
+                               <descriptor>src/main/assembly/source.xml</descriptor>
+                            </descriptors>
+                            <tarLongFileMode>gnu</tarLongFileMode>
+                        </configuration>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+
+    <reporting>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <configuration>
+                    <minmemory>128m</minmemory>
+                    <maxmemory>1024m</maxmemory>
+                    <quiet>false</quiet>
+                    <!-- XXX FIXME 'aggregate' is deprecated -->
+                    <aggregate>true</aggregate>
+                    <excludePackageNames>com.restfully.*:org.jboss.resteasy.examples.*:org.jboss.resteasy.tests.*
+                    </excludePackageNames>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-project-info-reports-plugin</artifactId>
+                <version>2.7</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-report-plugin</artifactId>
+                <version>2.14.1</version>
+            </plugin>
+
+        </plugins>
+    </reporting>
+
+</project>

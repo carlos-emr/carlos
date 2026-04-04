@@ -1,0 +1,12 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Sat Apr 04 04:16:57 UTC 2026
+https\://repo.maven.apache.org/maven2/.lastUpdated=1775276217510
+@default-jitpack.io-https\://jitpack.io/.lastUpdated=1775276217511
+https\://repo1.maven.org/maven2/.error=
+file\:///home/runner/work/carlos/carlos/local_repo/.error=
+@default-B_shibboleth-https\://build.shibboleth.net/nexus/content/groups/public/.lastUpdated=1775276217538
+https\://jitpack.io/.error=Could not transfer artifact org.opensaml\:opensaml-xacml-impl\:pom\:5.1.6 from/to jitpack.io (https\://jitpack.io)\: jitpack.io
+https\://repo.maven.apache.org/maven2/.error=
+https\://build.shibboleth.net/nexus/content/groups/public/.error=Could not transfer artifact org.opensaml\:opensaml-xacml-impl\:pom\:5.1.6 from/to B_shibboleth (https\://build.shibboleth.net/nexus/content/groups/public)\: build.shibboleth.net
+https\://repo1.maven.org/maven2/.lastUpdated=1775276217537
+file\:///home/runner/work/carlos/carlos/local_repo/.lastUpdated=1775276217488

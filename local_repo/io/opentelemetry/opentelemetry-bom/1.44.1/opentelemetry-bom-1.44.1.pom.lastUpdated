@@ -1,0 +1,7 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Sat Apr 04 04:17:01 UTC 2026
+https\://repo.maven.apache.org/maven2/.lastUpdated=1775276221305
+@default-jitpack.io-https\://jitpack.io/.lastUpdated=1775276221282
+file\:///home/runner/work/carlos/carlos/local_repo/.error=
+https\://jitpack.io/.error=Could not transfer artifact io.opentelemetry\:opentelemetry-bom\:pom\:1.44.1 from/to jitpack.io (https\://jitpack.io)\: jitpack.io\: No address associated with hostname
+file\:///home/runner/work/carlos/carlos/local_repo/.lastUpdated=1775276221280
