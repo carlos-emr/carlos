@@ -77,6 +77,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class EFormUtil {
     private static final Logger logger = MiscUtils.getLogger();
@@ -433,7 +434,7 @@ public class EFormUtil {
         io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao.find(id);
         HashMap<String, Object> curht = new HashMap<String, Object>();
         if (eform == null) {
-            logger.error("Unable to find EForm with ID = " + fid);
+            logger.error("Unable to find EForm with ID = {}", LogSanitizer.sanitize(fid));
             curht.put("formName", "");
             curht.put("formHtml", "No Such Form in Database");
             return curht;
@@ -1289,7 +1290,7 @@ public class EFormUtil {
 
         io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao.find(ConversionUtils.fromIntString(fid));
         if (eform == null) {
-            logger.error("Unable to find EForm for " + fid);
+            logger.error("Unable to find EForm for {}", LogSanitizer.sanitize(fid));
             return;
         }
         eform.setCurrent(status);
