@@ -112,9 +112,12 @@ class RedirectValidationUtilsUnitTest {
         @ValueSource(strings = {
             "/\\evil.com",
             "\\evil.com",
-            "/path\\..\\evil.com"
+            "/path\\..\\evil.com",
+            "/%5cevil.com",
+            "/%5Cevil.com",
+            "/path%5c..%5cevil.com"
         })
-        @DisplayName("backslash-based bypass vectors")
+        @DisplayName("backslash-based bypass vectors (literal and percent-encoded)")
         void shouldRejectRedirect_whenBackslashBypass(String url) {
             assertThat(RedirectValidationUtils.isValidRelativeRedirect(url)).isFalse();
         }

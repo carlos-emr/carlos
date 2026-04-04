@@ -34,8 +34,9 @@ import java.util.regex.Pattern;
  *       {@code javascript:alert(1)}, {@code data:text/html,...})</li>
  *   <li>Protocol-relative URLs — authority present without a scheme
  *       (e.g. {@code //evil.com})</li>
- *   <li>Backslash-based bypasses — some browsers normalise {@code /\evil.com}
- *       to {@code //evil.com} after a redirect</li>
+ *   <li>Backslash-based bypasses — literal backslash and percent-encoded
+ *       variants ({@code %5c}/{@code %5C}), since some browsers normalise
+ *       {@code /\evil.com} to {@code //evil.com} after a redirect</li>
  *   <li>Path-traversal sequences — {@code ..} segments that escape the
  *       application root (e.g. {@code /../evil})</li>
  *   <li>Syntactically invalid URIs</li>
@@ -68,7 +69,8 @@ public final class RedirectValidationUtils {
      * <p>A URL is considered safe when it:</p>
      * <ol>
      *   <li>is not {@code null} or empty</li>
-     *   <li>does not contain a backslash ({@code \})</li>
+     *   <li>does not contain a backslash ({@code \}) or percent-encoded
+     *       backslash ({@code %5c}/{@code %5C})</li>
      *   <li>is parseable as a {@link URI}</li>
      *   <li>has no scheme (not absolute)</li>
      *   <li>has no authority component (no {@code //host} prefix)</li>
@@ -86,8 +88,9 @@ public final class RedirectValidationUtils {
             return false;
         }
 
-        // Block backslash-based bypasses: /\evil.com normalises to //evil.com in browsers
-        if (url.contains("\\")) {
+        // Block literal backslash and percent-encoded variants (%5c / %5C).
+        // Browsers normalise /\evil.com to //evil.com, so both forms must be blocked.
+        if (url.contains("\\") || url.toLowerCase(java.util.Locale.ROOT).contains("%5c")) {
             return false;
         }
 
