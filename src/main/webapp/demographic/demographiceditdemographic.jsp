@@ -29,10 +29,68 @@
 
 --%>
 
-<%@page import="java.nio.charset.StandardCharsets" %>
-<%@page import="io.github.carlos_emr.carlos.commn.ISO36612" %>
-<%@page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
+<%@ page import="java.util.*" %>
+<%@ page import="java.net.*" %>
+<%@ page import="java.text.DecimalFormat" %>
+<%@ page import="io.github.carlos_emr.*" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.ProvinceNames" %>
+<%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
+<%@ page import="io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.OtherIdManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
+<%@ page import="java.util.HashSet" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.ISO36612" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicRelationship" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
+
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
+
+<c:set var="ctx" value="${ pageContext.request.contextPath }"/>
+
+<jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean" scope="session"/>
+<jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
+
+
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
@@ -41,23 +99,6 @@
     <%authed = false; %>
     <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
 </security:oscarSec>
-<%
-    if (!authed) {
-        return;
-    }
-%>
-<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@page import="io.github.carlos_emr.CarlosProperties" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.Gender" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
-<%@page import="java.util.HashSet" %>
-<%@page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean" scope="session"/>
 <%
     String demographic$ = request.getParameter("demographic_no");
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -75,26 +116,12 @@
     if (!authed) {
         return;
     }
-
+    if (session.getAttribute("user") == null) {
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        return;
+    }
 %>
-<%@ page
-        import="java.util.*, java.net.*,java.text.DecimalFormat, io.github.carlos_emr.*, io.github.carlos_emr.carlos.demographic.data.ProvinceNames, io.github.carlos_emr.carlos.waitinglist.WaitingList, io.github.carlos_emr.carlos.report.data.DemographicSets,io.github.carlos_emr.carlos.log.*" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.OtherIdManager" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="org.apache.commons.lang3.StringUtils" %>
+
 
 <%!
 
@@ -126,22 +153,7 @@
     CaseManagementManager cmm = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
     LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
 %>
-
-<jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
-
-
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
-
-<%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
-
-<c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%
-    if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
-        return;
-    }
-
     String curProvider_no = (String) session.getAttribute("user");
     String demographic_no = request.getParameter("demographic_no");
     String apptProvider = request.getParameter("apptProvider");
@@ -230,21 +242,8 @@
 
 %>
 
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicRelationship" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
-<%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <!DOCTYPE html>
 <html>
-
     <head>
         <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.title"/></title>
@@ -281,8 +280,6 @@
         <% if (isMobileOptimized) { %>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/mobile/editdemographicstyle.css">
         <% } %>
-        <script language="javascript" type="text/javascript"
-                src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
 
         <!--popup menu for encounter type -->
         <script src="<c:out value="${ctx}"/>/share/javascript/popupmenu.js"
@@ -293,7 +290,7 @@
         <script type="text/javascript"
                 src="<%=request.getContextPath() %>/demographic/demographiceditdemographic.js.jsp"></script>
 
-        <script language="JavaScript" type="text/javascript">
+        <script>
 
             function checkTypeIn() {
                 var dob = document.titlesearch.keyword;
@@ -547,7 +544,7 @@
             }
 
         </script>
-        <script language="JavaScript">
+        <script>
             function showEdit() {
                 document.getElementById('editDemographic').style.display = 'table';
                 document.getElementById('viewDemographics2').style.display = 'none';
@@ -931,7 +928,7 @@
         }
         pageContext.setAttribute("demographic", demographic, PageContext.PAGE_SCOPE);
     %>
-    <div id="editDemographicWrapper" style="margin: auto 10px;">
+    <div id="editDemographicWrapper" style="margin-left:auto;margin-right:auto;">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <%
                 //----------------------------REFERRAL DOCTOR------------------------------
@@ -998,9 +995,9 @@
 
                                 %>
                                 <span class="patient-header-name"><%= Encode.forHtml(demographic.getLastName()) %>, <%= Encode.forHtml(demographic.getFirstName()) %></span>
-                                <span class="patient-header-details"><%= Encode.forHtml(Gender.valueOf(demographic.getSex()).getText()) %> &middot; <%= Encode.forHtml(demographic.getAgeAsOf(new Date())) %> &middot; DOB: <%= Encode.forHtml(birthYear) %>-<%= Encode.forHtml(birthMonth) %>-<%= Encode.forHtml(birthDate) %></span>
+                                <span class="patient-header-details"><%= Encode.forHtml(Gender.valueOf(demographic.getSex()).getText()) %> &middot; <%= Encode.forHtml(demographic.getAgeAsOf(new Date())) %> &middot; <fmt:message key="demographic.demographiceditdemographic.formDOB"/>: <%= Encode.forHtml(birthYear) %>-<%= Encode.forHtml(birthMonth) %>-<%= Encode.forHtml(birthDate) %></span>
                                 <% if (demographic.getHin() != null && !demographic.getHin().isEmpty()) { %>
-                                <span class="patient-header-hin">HIN: <%= Encode.forHtml(demographic.getHin()) %><% if (demographic.getVer() != null && !demographic.getVer().isEmpty()) { %> <%= Encode.forHtml(demographic.getVer()) %><% } %></span>
+                                <span class="patient-header-hin"><fmt:message key="demographic.patient.context.hin"/>: <%= Encode.forHtml(demographic.getHin()) %><% if (demographic.getVer() != null && !demographic.getVer().isEmpty()) { %> <%= Encode.forHtml(demographic.getVer()) %><% } %></span>
                                 <% } %>
                                 <span class="patient-header-appt"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgNextAppt"/>: <oscar:nextAppt demographicNo='<%=demographic.getDemographicNo().toString()%>'/></span>
 
