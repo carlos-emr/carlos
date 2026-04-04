@@ -15,9 +15,8 @@
   </context-param>
 
     <!-- ==================== WAF Layer (runs before all application filters) ====================
-         All WAF components are disabled by default. Enable individually via carlos.properties:
-           WAF_RATE_LIMIT_ENABLED=true    (uncomment RateLimitFilter entries below)
-           WAF_GEOIP_ENABLED=true         (GeoIP country filtering + Spamhaus DROP list)
+         WAF components (except rate limiting) are disabled by default. Enable via carlos.properties:
+           WAF_GEOIP_ENABLED=true         (GeoIP country filtering)
            WAF_DROP_LIST_ENABLED=true      (Spamhaus DROP list, requires WAF_GEOIP_ENABLED)
            WAF_ENABLED=true               (request inspection: SQLi, XSS, traversal, bots)
            WAF_HSTS_ENABLED=true          (Strict-Transport-Security header)
@@ -28,10 +27,9 @@
     -->
 
     <!-- Tomcat 11 built-in rate limiter: 100 requests/minute per IP (global).
-         Unlike other WAF components, rate limiting is a Tomcat built-in filter that cannot
-         be toggled via carlos.properties. Uncomment to enable. When behind a reverse proxy,
+         Always active — not controlled by carlos.properties. When behind a reverse proxy,
          ensure RemoteIpFilter is mapped before this filter so rate limiting uses the real
-         client IP.
+         client IP. -->
     <filter>
         <filter-name>RateLimitFilter</filter-name>
         <filter-class>org.apache.catalina.filters.RateLimitFilter</filter-class>
@@ -56,10 +54,9 @@
         <filter-name>RateLimitFilter</filter-name>
         <url-pattern>/*</url-pattern>
     </filter-mapping>
-    -->
 
     <!-- Login-specific rate limit: 10 attempts/minute per IP (brute force protection).
-         Uncomment to enable.
+         Always active — not controlled by carlos.properties. -->
     <filter>
         <filter-name>LoginRateLimitFilter</filter-name>
         <filter-class>org.apache.catalina.filters.RateLimitFilter</filter-class>
@@ -80,7 +77,6 @@
         <filter-name>LoginRateLimitFilter</filter-name>
         <url-pattern>/login.do</url-pattern>
     </filter-mapping>
-    -->
 
     <!-- GeoIP filter: restricts access to Canadian IPs only + Spamhaus DROP list blocking.
          Controlled by WAF_GEOIP_ENABLED and WAF_DROP_LIST_ENABLED in carlos.properties.
