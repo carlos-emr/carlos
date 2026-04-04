@@ -345,7 +345,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <% String currentURI = request.getContextPath() + "/demographic/DemographicPdfLabel.do?demographic_no=" + demographic_no + ""; %>
+                                        <% String currentURI = request.getContextPath() + "/demographic/DemographicPdfLabel.do?demographic_no=" + demographic_no; %>
                                         <input type="checkbox" name="uriArray" value="<%=currentURI%>"
                                                        style="display:none"/>
 

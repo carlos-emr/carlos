@@ -162,7 +162,7 @@ class RedirectValidationUtilsUnitTest {
             "/provider/providercontrol.jsp",
             "/carlos/provider/providercontrol.jsp",
             "/billing/CA/ON/billingON.jsp",
-            "/demographic/demographiccontrol.jsp",
+            "/demographic/DemographicSearch.do",
             "/index.jsp",
             "/provider/providercontrol.jsp?status=active",
             "/provider/providercontrol.jsp?a=1&b=2"

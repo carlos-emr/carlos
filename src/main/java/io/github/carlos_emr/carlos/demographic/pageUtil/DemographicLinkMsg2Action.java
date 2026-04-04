@@ -30,8 +30,9 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Struts2 action for linking a message to a demographic record. Replaces the
+ * Struts2 action for the messenger demographic search popup. Replaces the
  * {@code demographiccontrol.jsp} {@code displaymode=linkMsg2Demo} route.
+ * Forwards to the patient selection popup used by the messenger system.
  *
  * @since 2026-04-04
  */

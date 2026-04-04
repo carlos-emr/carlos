@@ -71,6 +71,13 @@
     String operation = requestParamDict.getDef("displaymode", "");
 
     // redirect to a file associated with operation
+    String target = opToFileDict.getDef(operation, "");
     out.clearBuffer();
-    request.getRequestDispatcher(opToFileDict.getDef(operation, "")).include(request, response);
+    // Struts2 actions (.do) require FORWARD dispatch — the Struts2 filter
+    // does not intercept INCLUDE dispatches (only REQUEST and FORWARD).
+    if (target.endsWith(".do")) {
+        request.getRequestDispatcher(target).forward(request, response);
+    } else {
+        request.getRequestDispatcher(target).include(request, response);
+    }
 %>

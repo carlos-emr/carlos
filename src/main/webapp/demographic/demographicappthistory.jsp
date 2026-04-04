@@ -402,14 +402,14 @@
                     nPrevPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
                     if (nPrevPage >= 0) {
                 %>
-                <a href="DemographicApptHistory.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&displaymode=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("displaymode"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nPrevPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
+                <a href="DemographicApptHistory.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nPrevPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.btnPrevPage"/></a>
                 <%
                     }
 
                     if (nItems >= Integer.parseInt(strLimit2)) {
                 %>
-                <a href="DemographicApptHistory.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&displaymode=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("displaymode"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
+                <a href="DemographicApptHistory.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.btnNextPage"/></a>
                 <%
                     }

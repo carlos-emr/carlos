@@ -31,12 +31,13 @@ import org.apache.struts2.ServletActionContext;
 
 /**
  * Struts2 action for demographic search. Replaces the {@code demographiccontrol.jsp}
- * {@code displaymode=Search} route. The target JSPs handle their own data loading
- * via DAOs — this action only performs security validation.
+ * {@code displaymode=Search} route. Performs security validation and routes to the
+ * appropriate result JSP. The target JSPs handle their own data loading via DAOs.
  *
  * <p>Routes to {@code demographicsearchresults.jsp} for general search, or
  * {@code demographicsearch2apptresults.jsp} for appointment-context search
- * (distinguished by the trailing space in the legacy {@code displaymode} parameter).</p>
+ * (distinguished by a trailing space in the {@code displaymode} parameter, a
+ * convention still used by appointment-context callers).</p>
  *
  * @since 2026-04-04
  */
@@ -57,6 +58,9 @@ public class DemographicSearch2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
+        // "Search " (with trailing space) is passed by appointment-context callers
+        // (appointmentcontrol.jsp, ticklerAdd.jsp, PatientSearch.jsp, etc.)
+        // to distinguish appointment search from general demographic search.
         String displaymode = request.getParameter("displaymode");
         if ("Search ".equals(displaymode)) {
             return "apptResults";
