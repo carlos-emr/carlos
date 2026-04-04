@@ -22,6 +22,7 @@ the WAF for production deployment or during security audits.
 - [NIST SP 800-53 Rev. 5 Control Mapping](#nist-sp-800-53-rev-5-control-mapping)
 - [NIST SP 800-44 Rev. 2 Alignment](#nist-sp-800-44-rev-2-alignment)
 - [PIPEDA and HIPAA Considerations](#pipeda-and-hipaa-considerations)
+- [OWASP WAFEC Evaluation Criteria](#owasp-wafec-evaluation-criteria)
 - [WAF Deployment Best Practices](#waf-deployment-best-practices)
 - [Configuration Reference](#configuration-reference)
 - [Related Issues and Future Work](#related-issues-and-future-work)
@@ -32,9 +33,15 @@ the WAF for production deployment or during security audits.
 
 The OWASP Core Rule Set (CRS) is the industry-standard set of generic attack
 detection rules for use with web application firewalls. Originally developed for
-ModSecurity, CRS v4.x is engine-agnostic. Our `WafFilter` implements a subset
-of CRS-equivalent patterns in a lightweight servlet filter suitable for embedded
-deployment without an external WAF engine.
+ModSecurity (as "OWASP ModSecurity CRS"), the project was renamed to "OWASP CRS"
+and starting with CRS v4.0.0 (February 2024) is fully engine-agnostic —
+supporting ModSecurity v2/v3, OWASP Coraza, and other compatible WAF engines.
+The current release is CRS v4.8.0 (October 2024).
+
+Our `WafFilter` implements a subset of CRS-equivalent patterns in a lightweight
+Java servlet filter suitable for embedded deployment without an external WAF
+engine. This approach avoids adding a ModSecurity/Coraza dependency to the Tomcat
+stack while still providing CRS-aligned protection.
 
 ### CRS Rule Group Mapping
 
@@ -58,8 +65,12 @@ Each WafFilter module maps to an OWASP CRS rule group:
 | IP Reputation | 910xxx | Handled separately by `GeoIpFilter` (Spamhaus DROP list) |
 | Request Smuggling | 921xxx (subset) | Mitigated at Tomcat connector level (HTTP/1.1 strict parsing) |
 | Multipart Attacks | 922xxx | Handled by Tomcat's multipart config and CSRFGuard multipart wrapper |
-| Java/RCE | 944xxx | Partial coverage via command injection module; full deserialization protection at application layer |
-| Data Leakage | 950xxx-959xxx | Planned: see [ResponseSanitizationFilter issue](#related-issues-and-future-work) |
+| Remote File Inclusion | 931xxx | Low risk — application does not dynamically include remote URLs |
+| PHP Attacks | 933xxx | Not applicable — Java application |
+| Generic App Attacks | 934xxx | Partial coverage via command injection (Node.js patterns not applicable) |
+| Session Fixation | 943xxx | Handled at application layer (`LoginFilter`, session management) |
+| Java/RCE | 944xxx | Partial coverage via command injection module (JNDI `${...}` patterns); full deserialization protection at application layer |
+| Data Leakage (outbound) | 950xxx–953xxx | Planned: see [ResponseSanitizationFilter issue](#related-issues-and-future-work) |
 
 ### CRS Paranoia Levels
 
@@ -240,6 +251,46 @@ to be accessed from within Canadian jurisdiction.
 - All WAF controls layer on top of application-level access controls
   (`SecurityInfoManager.hasPrivilege()`)
 
+### HIPAA Technical Safeguards (45 CFR §164.312)
+
+The HIPAA Security Rule does not mandate specific products but requires
+"reasonable and appropriate" technical safeguards for ePHI. WAFs are a widely
+recognized control for mitigating web application threats to ePHI:
+
+| HIPAA Requirement | Safeguard | CARLOS WAF Implementation |
+|---|---|---|
+| §164.312(a)(1) | Access Control | GeoIP filtering, rate limiting, scanner blocking |
+| §164.312(b) | Audit Controls | WAF violation logging with PHI-safe output |
+| §164.312(c)(1) | Integrity Controls | Injection detection prevents unauthorized data modification |
+| §164.312(e)(1) | Transmission Security | WAF inspects HTTP layer; TLS at transport layer |
+
+**Note on managed WAF services**: If deploying behind a cloud WAF (AWS WAF,
+Cloudflare, Azure WAF), a Business Associate Agreement (BAA) must be executed
+with the WAF provider, as the WAF infrastructure may process ePHI present in
+HTTP headers or request payloads. CARLOS's embedded servlet filter approach
+avoids this requirement since all WAF processing occurs within the application
+server.
+
+---
+
+## OWASP WAFEC Evaluation Criteria
+
+The OWASP Web Application Firewall Evaluation Criteria (WAFEC) project defines
+a standardized framework for evaluating WAF capabilities. The following table
+maps WAFEC v1.0 evaluation categories to the CARLOS implementation:
+
+| WAFEC Category | Description | CARLOS Implementation |
+|---|---|---|
+| **Deployment Architecture** | Modes of operation, SSL/TLS, HA, inline operation | Embedded servlet filter (host-based); no separate WAF appliance needed. TLS termination at reverse proxy or Tomcat connector level |
+| **HTTP Support** | HTTP versions, encoding, protocol validation, authentication | HTTP/1.1 via Tomcat 11; URL decoding and double-encoding detection in `WafFilter.decodeValue()` |
+| **Detection Techniques** | Signature-based, anomaly-based, evasion detection | Signature-based (regex patterns aligned to CRS PL1); double-encoding detection; case-insensitive matching |
+| **Protection Techniques** | Brute force, cookie tampering, session attacks | Rate limiting (`RateLimitFilter`), CSRF protection (`CSRFGuard 4.5`), session management (`LoginFilter`) |
+| **Logging** | Transaction IDs, event logs, sensitive data handling | PHI-safe logging (never logs parameter values); dedicated `waf.filter` and `waf.geoip` log categories; SLF4J/Logback integration |
+| **Reporting** | Event reports, formats, distribution | Standard log output routable to centralized logging (ELK, Splunk, CloudWatch); no built-in dashboard |
+| **Management** | Policy enforcement, refinement, verification | `waf-rules.properties` for module toggles, path exclusions, limits; detect/enforce mode toggle; `carlos.properties` master switches |
+| **Performance** | Latency, throughput under load | Lightweight regex matching in-process; no network hop to external WAF; allowlisted paths (static assets) skip all checks |
+| **XML** | XML web services protection, schema validation | Not implemented — CXF web services have their own input validation |
+
 ---
 
 ## WAF Deployment Best Practices
@@ -321,6 +372,22 @@ inline documentation and NIST/OWASP references for each setting.
   production. Add via `ResponseDefaultsFilter` once TLS is deployed.
 - **Cross-Origin-Opener-Policy (COOP)** — Cannot be adopted until the 40+
   `window.opener` popup patterns in JSP files are refactored.
+
+---
+
+## Normative References
+
+| Document | Version | Date | URL |
+|---|---|---|---|
+| OWASP Core Rule Set | v4.8.0 | October 2024 | https://coreruleset.org/ |
+| OWASP Top 10 | 2021 | 2021 | https://owasp.org/Top10/ |
+| OWASP ASVS | 4.0.3 | 2021 | https://owasp.org/www-project-application-security-verification-standard/ |
+| OWASP WAFEC | 1.0 | 2006 | https://owasp.org/www-project-wafec/ |
+| OWASP Best Practices: Use of WAFs | 1.05 | 2008 | https://owasp.org/www-community/Web_Application_Firewall |
+| NIST SP 800-53 | Rev. 5 Update 1 | January 2024 | https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final |
+| NIST SP 800-44 | Version 2 | September 2007 | https://csrc.nist.gov/pubs/sp/800/44/ver2/final |
+| HIPAA Security Rule | 45 CFR §164.312 | 2013 (Omnibus) | https://www.hhs.gov/hipaa/for-professionals/security/ |
+| PIPEDA | S.C. 2000, c. 5 | 2000 (amended) | https://laws-lois.justice.gc.ca/eng/acts/P-8.6/ |
 
 ---
 
