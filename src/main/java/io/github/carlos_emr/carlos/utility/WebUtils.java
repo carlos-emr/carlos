@@ -51,12 +51,12 @@ public final class WebUtils {
     }
 
     public static void dumpParameters(HttpServletRequest request) {
-        logger.error("--- Dump Request Parameters Start for " + request.getRequestURI() + " Start ---");
+        logger.error("--- Dump Request Parameters Start for {} Start ---", LogSanitizer.sanitize(request.getRequestURI()));
         Enumeration e = request.getParameterNames();
 
         while (e.hasMoreElements()) {
             String key = (String) e.nextElement();
-            logger.error(key + '=' + request.getParameter(key));
+            logger.error("{}={}", LogSanitizer.sanitize(key), LogSanitizer.sanitize(request.getParameter(key)));
         }
 
         logger.error("--- Dump Request Parameters End ---");

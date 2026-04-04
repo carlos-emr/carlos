@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.DxAssociation;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 @Repository
 public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
@@ -99,7 +100,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
         // in the map the input is invalid and we return an empty result.
         String safeSystem = VALID_CODING_SYSTEMS.get(codingSystem);
         if (safeSystem == null) {
-            MiscUtils.getLogger().warn("Invalid coding system name: " + codingSystem);
+            MiscUtils.getLogger().warn("Invalid coding system name: {}", LogSanitizer.sanitize(codingSystem));
             return new ArrayList<Object[]>();
         }
 
@@ -112,7 +113,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
             query.setParameter(1, code);
             return query.getResultList();
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error querying coding system: " + codingSystem, e);
+            MiscUtils.getLogger().error("error executing query for codingSystem: {}", LogSanitizer.sanitize(codingSystem), e);
             return new ArrayList<Object[]>();
         }
     }
@@ -125,7 +126,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
             // Use the allowlist map to obtain a safe table/column name.
             String safeSystem = VALID_CODING_SYSTEMS.get(codingSystem);
             if (safeSystem == null) {
-                MiscUtils.getLogger().warn("Invalid coding system name: " + codingSystem);
+                MiscUtils.getLogger().warn("Invalid coding system name: {}", LogSanitizer.sanitize(codingSystem));
                 return new ArrayList<Object[]>();
             }
             
@@ -180,7 +181,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
         // Use the allowlist map to obtain a safe table/column name.
         String safeSystem = VALID_CODING_SYSTEMS.get(codingSystem);
         if (safeSystem == null) {
-            MiscUtils.getLogger().warn("Invalid coding system name: " + codingSystem);
+            MiscUtils.getLogger().warn("Invalid coding system name: {}", LogSanitizer.sanitize(codingSystem));
             return desc;
         }
         
@@ -191,7 +192,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
             query.setParameter(1, code);
             desc = (String) query.getSingleResult();
         } catch (Exception e) {
-            MiscUtils.getLogger().error("error executing query for codingSystem: " + codingSystem, e);
+            MiscUtils.getLogger().error("error executing query for codingSystem: {}", LogSanitizer.sanitize(codingSystem), e);
         }
         return desc;
     }

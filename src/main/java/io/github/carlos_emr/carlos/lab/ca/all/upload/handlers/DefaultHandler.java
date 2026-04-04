@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class DefaultHandler implements MessageHandler {
     Logger logger = MiscUtils.getLogger();
@@ -71,7 +72,7 @@ public class DefaultHandler implements MessageHandler {
     }
 
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
-        logger.info("DefaultHandler.parse: Called with serviceName=" + serviceName + ", fileName=" + fileName + ", fileId=" + fileId);
+        logger.info("DefaultHandler.parse: Called with serviceName={}, fileName={}, fileId={}", LogSanitizer.sanitize(serviceName), LogSanitizer.sanitize(fileName), fileId);
         Document xmlDoc = getXML(fileName);
 
         /*

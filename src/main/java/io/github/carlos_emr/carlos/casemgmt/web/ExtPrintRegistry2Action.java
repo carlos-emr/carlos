@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class ExtPrintRegistry2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -57,7 +58,7 @@ public class ExtPrintRegistry2Action extends ActionSupport {
 
         ExtPrintRegistry.addEntry(name, bean);
 
-        logger.info("ext print registry added " + name + ":" + bean);
+        logger.info("ext print registry added {}:{}", LogSanitizer.sanitize(name), LogSanitizer.sanitize(bean));
         return null;
     }
 
