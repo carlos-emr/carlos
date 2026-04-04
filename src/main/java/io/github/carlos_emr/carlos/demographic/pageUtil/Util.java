@@ -303,7 +303,7 @@ public class Util {
                 }
             }
         } catch (IOException ex) {
-            logger.error("Error during file download: {}", fileName, ex);
+            logger.error("Error during file download: {}", LogSanitizer.sanitize(fileName), ex);
         }
     }
     

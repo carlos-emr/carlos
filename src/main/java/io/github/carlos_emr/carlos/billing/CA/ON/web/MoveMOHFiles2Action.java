@@ -135,14 +135,16 @@ public class MoveMOHFiles2Action extends ActionSupport {
             String folderPath = getFolderPath(folderParam);
             for (String fileName : fileNames) {
                 File file = getFile(folderPath, fileName);
-                boolean isValidFileLocation = validateFileLocation(file);
-                if (!isValidFileLocation) {
-                    logger.warn("Invalid file location {}", LogSanitizer.sanitize(fileName));
+                if (file == null) {
+                    logger.warn("Unable to get file {}{}{}", LogSanitizer.sanitize(folderPath), File.separator, LogSanitizer.sanitize(fileName));
+
+                    errors.append("Unable to find file " + fileName + ".<br/>");
                     continue;
                 }
 
-                if (file == null) {
-                    logger.warn("Unable to get file {}{}{}", LogSanitizer.sanitize(folderPath), File.pathSeparator, LogSanitizer.sanitize(fileName));
+                boolean isValidFileLocation = validateFileLocation(file);
+                if (!isValidFileLocation) {
+                    logger.warn("Invalid file location {}", LogSanitizer.sanitize(fileName));
 
                     errors.append("Unable to find file " + fileName + ".<br/>");
                     continue;

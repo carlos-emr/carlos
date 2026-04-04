@@ -334,7 +334,7 @@ public class FaxManagerImpl implements FaxManager {
         try {
             faxDocument = resolveAndValidateFilePath(faxFilePath);
         } catch (SecurityException | IOException e) {
-            logger.error("Invalid or inaccessible fax file path: {}", faxFilePath, e);
+            logger.error("Invalid or inaccessible fax file path: {}", LogSanitizer.sanitize(faxFilePath), e);
             faxJob.setStatus(STATUS.ERROR);
             faxJob.setStatusString("File missing on local storage or invalid file path.");
             return faxJob;
@@ -802,7 +802,7 @@ public class FaxManagerImpl implements FaxManager {
         } catch (SecurityException e) {
             // File not in document dir, check if it's in allowed temp directories
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
-                logger.error("File path outside allowed directories: {}", filePath);
+                logger.error("File path outside allowed directories: {}", LogSanitizer.sanitize(filePath));
                 throw new SecurityException("File path must be within allowed directories");
             }
         }

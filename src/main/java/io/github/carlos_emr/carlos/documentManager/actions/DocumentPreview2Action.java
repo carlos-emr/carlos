@@ -337,7 +337,7 @@ public class DocumentPreview2Action extends ActionSupport {
                 outs.flush();
             }
         } catch (IOException e) {
-            logger.error("Error processing PDF file: " + pdfPathString, e);
+            logger.error("Error processing PDF file: {}", LogSanitizer.sanitize(pdfPathString), e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
