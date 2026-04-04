@@ -494,7 +494,7 @@
                                     while (iter.hasNext()) {
                                     	Provider p=iter.next();
                                     	if (pros.contains(p.getProviderNo())) {
-                                    %><option value='<%= Encode.forJavaScript(p.getProviderNo()) %>'><%= Encode.forJavaScript(p.getLastName()) %>, <%= Encode.forJavaScript(p.getFirstName()) %></option><% }} %>";
+                                    %><option value='<%= Encode.forJavaScript(Encode.forHtmlAttribute(p.getProviderNo())) %>'><%= Encode.forJavaScript(Encode.forHtml(p.getLastName())) %>, <%= Encode.forJavaScript(Encode.forHtml(p.getFirstName())) %></option><% }} %>";
                             <% } %>
 
                             function changeSite(sel) {

@@ -129,18 +129,29 @@
                 return true;
             }
 
+            function setOpenerProperty(path, value) {
+                var tokens = path.match(/[^.\[\]'"]+/g);
+                if (!tokens || tokens.length === 0) return;
+                var obj = opener;
+                for (var i = 0; i < tokens.length - 1; i++) {
+                    if (obj == null) return;
+                    obj = obj[tokens[i]];
+                }
+                if (obj != null) obj[tokens[tokens.length - 1]] = value;
+            }
+
             <%if(param.length()>0) {%>
 
             function typeInData1(data) {
                 self.close();
-                opener['<%= Encode.forJavaScript(param) %>'] = data;
+                setOpenerProperty('<%= Encode.forJavaScript(param) %>', data);
             }
 
             <%if(param2.length()>0) {%>
 
             function typeInData2(data1, data2) {
-                opener['<%= Encode.forJavaScript(param) %>'] = data1;
-                opener['<%= Encode.forJavaScript(param2) %>'] = data2;
+                setOpenerProperty('<%= Encode.forJavaScript(param) %>', data1);
+                setOpenerProperty('<%= Encode.forJavaScript(param2) %>', data2);
                 self.close();
             }
 

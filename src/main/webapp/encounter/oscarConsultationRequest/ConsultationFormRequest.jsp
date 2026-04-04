@@ -2336,7 +2336,6 @@ if (userAgent != null) {
                                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndFax"/>"
                                            onclick="return checkForm('Submit And Fax','EctConsultationFormRequest2Form');"/>
                                 </oscar:oscarPropertiesCheck>
-                                </c:if>
 
                                 <% } %>
                                 </div>

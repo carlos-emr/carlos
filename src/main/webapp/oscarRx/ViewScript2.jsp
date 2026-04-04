@@ -220,7 +220,7 @@
             if (pharmacyId != null && !"null".equalsIgnoreCase(pharmacyId)) {
                 pharmacy = pharmacyData.getPharmacy(pharmacyId);
                 if (pharmacy != null) {
-                    prefPharmacy = Encode.forJavaScript(pharmacy.getName());
+                    prefPharmacy = pharmacy.getName();
                     prefPharmacyId = String.valueOf(pharmacy.getId());
                     prefPharmacy = prefPharmacy.trim();
                     prefPharmacyId = prefPharmacyId.trim();
@@ -401,7 +401,7 @@
                     }
                     <% if (props.isPropertyActive("rx_paste_asterisk")) {
                             if(prefPharmacy!=null && prefPharmacy.trim()!=""){ %>
-                    text += "<%=prefPharmacy%>\n"
+                    text += "<%=Encode.forJavaScript(prefPharmacy)%>\n"
                     <% } %>
                     text += "****<%=Encode.forJavaScript(ProviderData.getProviderName(bean.getProviderNo()))%>********************************************************************************\n";
                     <% } %>
