@@ -176,7 +176,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
                 ".*.*.*",     // nested wildcards
                 "[invalid",   // unclosed character class
                 "(?invalid)", // invalid group
-                "one\\Q OD",  // embedded quote sequence
+                "one\\Q OD",  // \\Q...\\E is Pattern.quote()'s own escape syntax; ensuring user input containing \\Q does not break the quoting wrapper
             };
             for (String prefix : adversarialPrefixes) {
                 // Embed the adversarial text before the recognized frequency so the
