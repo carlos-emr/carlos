@@ -22,7 +22,7 @@
             <e:forHtmlContent value="${bean.patientLastName}"/>, <e:forHtmlContent value="${bean.patientFirstName}"/>
         </a>&nbsp;<e:forHtmlContent value="${bean.patientSex}"/> <e:forHtmlContent value="${bean.patientAge}"/>
 
-        <a href="javascript:popupPage(400,850,'ApptHist','${ctx}/demographic/demographiccontrol.jsp?demographic_no=${bean.demographicNo}&amp;orderby=appointment_date&amp;displaymode=appt_history&amp;dboperation=appt_history&amp;limit1=0&amp;limit2=25')"
+        <a href="javascript:popupPage(400,850,'ApptHist','${ctx}/demographic/DemographicApptHistory.do?demographic_no=${bean.demographicNo}&amp;orderby=appointment_date&amp;dboperation=appt_history&amp;limit1=0&amp;limit2=25')"
            title="Click to see appointment history">
             <span style="margin-left: 20px;">Next Appt: <oscar:nextAppt demographicNo="${bean.demographicNo}"/></span>
         </a>

@@ -50,7 +50,7 @@
             {"Add Appt & PrintCard", "appointmentaddrecordcard.jsp"},
             {"PrintCard", "appointmentviewrecordcard.jsp"},
             {"TicklerSearch", "/tickler/ticklerAdd.jsp"},
-            {"Search ", "/demographic/demographiccontrol.jsp"},
+            {"Search ", "/demographic/DemographicSearch.do"},
             {"Search", "appointmentsearchrecords.jsp"},
             {"edit", "editappointment.jsp"},
             {"Update Appt", "appointmentupdatearecord.jsp"},

@@ -381,7 +381,7 @@
     </SCRIPT>
 
     <form method="post" name="nextform"
-          action="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp"><input
+          action="<%= request.getContextPath() %>/demographic/DemographicUpdate.do"><input
             type="hidden" name="labNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labNo"))) %>">
         <input type="hidden" name="labType"
                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labType"))) %>"/> <%
