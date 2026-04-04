@@ -32,52 +32,28 @@
 <%@ page import="java.util.*" %>
 <%@ page import="java.net.*" %>
 <%@ page import="java.text.DecimalFormat" %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.*" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.ProvinceNames" %>
-<%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
-<%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
-<%@ page import="io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.OtherIdManager" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.*" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.*" %>
+<%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.*" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.service.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
-<%@ page import="java.util.HashSet" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
-<%@ page import="java.nio.charset.StandardCharsets" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.ISO36612" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicRelationship" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
-<%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -290,6 +266,40 @@
         <script type="text/javascript"
                 src="<%=request.getContextPath() %>/demographic/demographiceditdemographic.js.jsp"></script>
 
+        <!-- Pre-computed i18n strings, safely encoded for JavaScript embedding -->
+        <script>
+            var i18n = {
+                msgWrongDOB:                  '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgWrongDOB")) %>',
+                msgNameRequired:              '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgNameRequired")) %>',
+                msgWrongDate:                 '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgWrongDate")) %>',
+                msgWrongHIN:                  '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgWrongHIN")) %>',
+                msgBlankRoster:               '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgBlankRoster")) %>',
+                msgForbiddenRosterDate:       '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgForbiddenRosterDate")) %>',
+                msgLeaveBlank:                '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgLeaveBlank")) %>',
+                msgWrongRosterDate:           '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgWrongRosterDate")) %>',
+                msgWrongRosterEnrolledTo:     '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgWrongRosterEnrolledTo")) %>',
+                msgWrongRosterTerminationDate:'<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgWrongRosterTerminationDate")) %>',
+                msgNoTerminationReason:       '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgNoTerminationReason")) %>',
+                msgWrongPatientStatusDate:    '<%= Encode.forJavaScript(oscarResources.getString("demographic.search.msgWrongPatientStatusDate")) %>',
+                msgWrongReferral:             '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgWrongReferral")) %>',
+                msgPromptStatus:              '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgPromptStatus")) %>',
+                msgInvalidEntry:              '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgInvalidEntry")) %>',
+                updateCBIReminder:            '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.updateCBIReminder")) %>',
+                btnCancel:                    '<%= Encode.forJavaScript(oscarResources.getString("global.btnCancel")) %>',
+                btnBack:                      '<%= Encode.forJavaScript(oscarResources.getString("global.btnBack")) %>'
+            };
+
+            function showAlert(message) {
+                var container = document.getElementById('carlos-alert-container');
+                var alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-warning alert-dismissible fade show';
+                alertDiv.setAttribute('role', 'alert');
+                alertDiv.innerHTML = '<span>' + message + '</span>'
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                container.appendChild(alertDiv);
+            }
+        </script>
+
         <script>
 
             function checkTypeIn() {
@@ -308,7 +318,7 @@
                         typeInOK = true;
                     }
                     if (dob.value.length != 10) {
-                        alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgWrongDOB"/>");
+                        showAlert(i18n.msgWrongDOB);
                         typeInOK = false;
                     }
 
@@ -323,7 +333,7 @@
                 if (document.updatedelete.last_name.value != "" && document.updatedelete.first_name.value != "" && document.updatedelete.last_name.value != " " && document.updatedelete.first_name.value != " ") {
                     typeInOK = true;
                 } else {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgNameRequired"/>");
+                    showAlert(i18n.msgNameRequired);
                 }
                 return typeInOK;
             }
@@ -352,7 +362,7 @@
                 }
 
                 if (!isValidDate(dd, mm, yyyy) || !typeInOK) {
-                    alert(err_msg + "\n<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgWrongDate"/>");
+                    showAlert(err_msg + '<br>' + i18n.msgWrongDate);
                     typeInOK = false;
                 }
 
@@ -364,7 +374,7 @@
                 var mm = document.updatedelete.month_of_birth.value;
                 var dd = document.updatedelete.date_of_birth.value;
 
-                return checkDate(yyyy, mm, dd, "<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgWrongDOB"/>");
+                return checkDate(yyyy, mm, dd, i18n.msgWrongDOB);
             }
 
             function isValidDate(day, month, year) {
@@ -379,7 +389,7 @@
                 var province = document.updatedelete.hc_type.value;
 
                 if (!isValidHin(hin, province)) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgWrongHIN"/>");
+                    showAlert(i18n.msgWrongHIN);
                     return (false);
                 }
 
@@ -391,7 +401,7 @@
                 if (rosterStatusChanged()) {
 
                     if (document.updatedelete.roster_status.value == "") {
-                        alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgBlankRoster"/>");
+                        showAlert(i18n.msgBlankRoster);
                         document.updatedelete.roster_status.focus();
                         return false;
                     }
@@ -408,7 +418,7 @@
                     dd = document.updatedelete.roster_date_day.value.trim();
 
                     if (yyyy != "" || mm != "" || dd != "") {
-                        alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgForbiddenRosterDate"/>");
+                        showAlert(i18n.msgForbiddenRosterDate);
                         return false;
                     }
                     return true;
@@ -420,10 +430,10 @@
                 yyyy = document.updatedelete.roster_date_year.value.trim();
                 mm = document.updatedelete.roster_date_month.value.trim();
                 dd = document.updatedelete.roster_date_day.value.trim();
-                var errMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgWrongRosterDate"/>";
+                var errMsg = i18n.msgWrongRosterDate;
 
                 if (trueIfBlank) {
-                    errMsg += "\n<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgLeaveBlank"/>";
+                    errMsg += '<br>' + i18n.msgLeaveBlank;
                     if (yyyy == "" && mm == "" && dd == "") return true;
                 }
                 return checkDate(yyyy, mm, dd, errMsg);
@@ -432,20 +442,19 @@
 
             function rosterEnrolledToValid(trueIfBlank) {
                 var val = document.updatedelete.roster_enrolled_to.value.trim();
+                var errMsg = '';
 
                 if (trueIfBlank) {
-                    errMsg += "\n<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgLeaveBlank"/>";
+                    errMsg += i18n.msgLeaveBlank;
                     if (val == "") return true;
                 }
 
-                var errMsg = '';
-
                 if (val == "") {
-                    errMsg += "<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgWrongRosterEnrolledTo"/>";
+                    errMsg += i18n.msgWrongRosterEnrolledTo;
                 }
 
                 if (errMsg != '') {
-                    alert(errMsg);
+                    showAlert(errMsg);
                     return false;
                 }
                 return true;
@@ -475,10 +484,10 @@
                 yyyy = document.updatedelete.roster_termination_date_year.value.trim();
                 mm = document.updatedelete.roster_termination_date_month.value.trim();
                 dd = document.updatedelete.roster_termination_date_day.value.trim();
-                var errMsg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgWrongRosterTerminationDate"/>";
+                var errMsg = i18n.msgWrongRosterTerminationDate;
 
                 if (trueIfBlank) {
-                    errMsg += "\n<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgLeaveBlank"/>";
+                    errMsg += '<br>' + i18n.msgLeaveBlank;
                     if (yyyy == "" && mm == "" && dd == "") return true;
                 }
                 return checkDate(yyyy, mm, dd, errMsg);
@@ -486,7 +495,7 @@
 
             function rosterStatusTerminationReasonNotBlank() {
                 if (document.updatedelete.roster_termination_reason.value == "") {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgNoTerminationReason"/>");
+                    showAlert(i18n.msgNoTerminationReason);
                     return false;
                 }
                 return true;
@@ -501,7 +510,7 @@
                 if (trueIfBlank) {
                     if (yyyy == "" && mm == "" && dd == "") return true;
                 }
-                return checkDate(yyyy, mm, dd, "<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgWrongPatientStatusDate"/>");
+                return checkDate(yyyy, mm, dd, i18n.msgWrongPatientStatusDate);
             }
 
 
@@ -512,7 +521,7 @@
 	%>
                 var referralNo = document.updatedelete.r_doctor_ohip.value;
                 if (document.updatedelete.hc_type.value == 'ON' && referralNo.length > 0 && referralNo.length != 6) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgWrongReferral"/>");
+                    showAlert(i18n.msgWrongReferral);
                 }
 
                 <% } %>
@@ -520,26 +529,26 @@
 
 
             function newStatus() {
-                newOpt = prompt("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgPromptStatus"/>:", "");
+                newOpt = prompt(i18n.msgPromptStatus + ':', "");
                 if (newOpt == null) {
                     return;
                 } else if (newOpt != "") {
                     document.updatedelete.patient_status.options[document.updatedelete.patient_status.length] = new Option(newOpt, newOpt);
                     document.updatedelete.patient_status.options[document.updatedelete.patient_status.length - 1].selected = true;
                 } else {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgInvalidEntry"/>");
+                    showAlert(i18n.msgInvalidEntry);
                 }
             }
 
             function newStatus1() {
-                newOpt = prompt("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgPromptStatus"/>:", "");
+                newOpt = prompt(i18n.msgPromptStatus + ':', "");
                 if (newOpt == null) {
                     return;
                 } else if (newOpt != "") {
                     document.updatedelete.roster_status.options[document.updatedelete.roster_status.length] = new Option(newOpt, newOpt);
                     document.updatedelete.roster_status.options[document.updatedelete.roster_status.length - 1].selected = true;
                 } else {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgInvalidEntry"/>");
+                    showAlert(i18n.msgInvalidEntry);
                 }
             }
 
@@ -576,8 +585,8 @@
                     showHideItem(sections[i]);
                 }
                 // Change behaviour of cancel button
-                var cancelValue = "<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>";
-                var backValue = "<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>";
+                var cancelValue = i18n.btnCancel;
+                var backValue = i18n.btnBack;
                 var cancelBtn = document.getElementById('cancelButton');
                 if (cancelBtn.value == cancelValue) {
                     cancelBtn.value = backValue;
@@ -754,7 +763,7 @@
 
 
             function showCbiReminder() {
-                alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.updateCBIReminder"/>');
+                showAlert(i18n.updateCBIReminder);
             }
 
 
@@ -878,10 +887,10 @@
                     dataType: 'json',
                     contentType: 'application/json',
                     success: function (data) {
-                        alert(data.responseDescription);
+                        showAlert(data.responseDescription);
                     },
                     error: function (data) {
-                        alert('An error occured.');
+                        showAlert('An error occurred.');
                     }
                 });
             }
@@ -914,6 +923,9 @@
     </head>
     <body onLoad="setfocus(); checkONReferralNo(); formatPhoneNum(); checkRosterStatus2();"
           topmargin="0" leftmargin="0" rightmargin="0" id="demographiceditdemographic">
+    <!-- Bootstrap dismissible alert container -->
+    <div id="carlos-alert-container" aria-live="polite"
+         style="position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:9999;min-width:300px;max-width:600px;"></div>
     <%
         Demographic demographic = demographicDao.getDemographic(demographic_no);
         List<DemographicArchive> archives = demographicArchiveDao.findByDemographicNo(Integer.parseInt(demographic_no));
@@ -928,7 +940,7 @@
         }
         pageContext.setAttribute("demographic", demographic, PageContext.PAGE_SCOPE);
     %>
-    <div id="editDemographicWrapper" style="margin-left:auto;margin-right:auto;">
+    <div id="editDemographicWrapper" style="margin: 0 auto;">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <%
                 //----------------------------REFERRAL DOCTOR------------------------------
@@ -995,7 +1007,19 @@
 
                                 %>
                                 <span class="patient-header-name"><%= Encode.forHtml(demographic.getLastName()) %>, <%= Encode.forHtml(demographic.getFirstName()) %></span>
-                                <span class="patient-header-details"><%= Encode.forHtml(Gender.valueOf(demographic.getSex()).getText()) %> &middot; <%= Encode.forHtml(demographic.getAgeAsOf(new Date())) %> &middot; <fmt:message key="demographic.demographiceditdemographic.formDOB"/>: <%= Encode.forHtml(birthYear) %>-<%= Encode.forHtml(birthMonth) %>-<%= Encode.forHtml(birthDate) %></span>
+                                <%
+                                    String sexCode = demographic.getSex() != null ? demographic.getSex().toUpperCase() : "U";
+                                    String genderI18nKey;
+                                    switch (sexCode) {
+                                        case "M":  genderI18nKey = "global.gender.male";        break;
+                                        case "F":  genderI18nKey = "global.gender.female";      break;
+                                        case "X":  genderI18nKey = "global.gender.intersex";    break;
+                                        case "O":  genderI18nKey = "global.gender.other";       break;
+                                        default:   genderI18nKey = "global.gender.undisclosed"; break;
+                                    }
+                                    String genderDisplayText = oscarResources.getString(genderI18nKey);
+                                %>
+                                <span class="patient-header-details"><%= Encode.forHtml(genderDisplayText) %> &middot; <%= Encode.forHtml(demographic.getAgeAsOf(new Date())) %> &middot; <fmt:message key="demographic.demographiceditdemographic.formDOB"/>: <%= Encode.forHtml(birthYear) %>-<%= Encode.forHtml(birthMonth) %>-<%= Encode.forHtml(birthDate) %></span>
                                 <% if (demographic.getHin() != null && !demographic.getHin().isEmpty()) { %>
                                 <span class="patient-header-hin"><fmt:message key="demographic.patient.context.hin"/>: <%= Encode.forHtml(demographic.getHin()) %><% if (demographic.getVer() != null && !demographic.getVer().isEmpty()) { %> <%= Encode.forHtml(demographic.getVer()) %><% } %></span>
                                 <% } %>
@@ -1439,7 +1463,17 @@
                                                                         <span class="info"><%=Encode.forHtmlContent(StringUtils.trimToEmpty(demographic.getPronoun()))%></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formSex"/>:</span>
-                                                                        <span class="info"><%=Gender.valueOf(demographic.getSex()).getText()%></span>
+                                                                        <span class="info"><%
+                                                                            String viewSexCode = demographic.getSex() != null ? demographic.getSex().toUpperCase() : "U";
+                                                                            String viewGenderKey;
+                                                                            switch (viewSexCode) {
+                                                                                case "M":  viewGenderKey = "global.gender.male";        break;
+                                                                                case "F":  viewGenderKey = "global.gender.female";      break;
+                                                                                case "X":  viewGenderKey = "global.gender.intersex";    break;
+                                                                                case "O":  viewGenderKey = "global.gender.other";       break;
+                                                                                default:   viewGenderKey = "global.gender.undisclosed"; break;
+                                                                            }
+                                                                        %><%= Encode.forHtml(oscarResources.getString(viewGenderKey)) %></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formGender"/>:</span>
                                                                         <span class="info"><%=Encode.forHtmlContent(StringUtils.trimToEmpty(demographic.getGender()))%></span>
@@ -3332,9 +3366,9 @@
                                                                 <%} %>
                                                             </select>
 
-                                                            <label for="age">Age:</label>
+                                                            <label for="age"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgDemoAge"/>:</label>
                                                             <input type="text" name="age" id="age"
-                                                                   value="<%=demographic.getAgeAsOf(new Date())%>"
+                                                                   value="<%=Encode.forHtmlAttribute(demographic.getAgeAsOf(new Date()))%>"
                                                                    readonly>
 
                                                         </td>
@@ -3342,8 +3376,17 @@
                                                         </td>
                                                         <td><select name="sex" id="sex">
                                                             <option value=""></option>
-                                                            <% for (Gender gn : Gender.values()) { %>
-                                                            <option value=<%=gn.name()%> <%=((demographic.getSex().toUpperCase().equals(gn.name())) ? " selected=\"selected\" " : "") %>><%=gn.getText()%>
+                                                            <% for (Gender gn : Gender.values()) {
+                                                                String gnI18nKey;
+                                                                switch (gn.name()) {
+                                                                    case "M":  gnI18nKey = "global.gender.male";        break;
+                                                                    case "F":  gnI18nKey = "global.gender.female";      break;
+                                                                    case "X":  gnI18nKey = "global.gender.intersex";    break;
+                                                                    case "O":  gnI18nKey = "global.gender.other";       break;
+                                                                    default:   gnI18nKey = "global.gender.undisclosed"; break;
+                                                                }
+                                                            %>
+                                                            <option value="<%= Encode.forHtmlAttribute(gn.name()) %>" <%=((demographic.getSex().toUpperCase().equals(gn.name())) ? " selected=\"selected\" " : "") %>><%= Encode.forHtml(oscarResources.getString(gnI18nKey)) %>
                                                             </option>
                                                             <% } %>
                                                         </select>
