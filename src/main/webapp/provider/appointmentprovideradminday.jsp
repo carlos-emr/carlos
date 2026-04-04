@@ -961,11 +961,11 @@
                                     <c:if test="${doctorLinkRights}">
                                         <li>
                                        <a HREF="#" id="inboxLink">
-                                                <span id="oscar_new_lab"><fmt:message key="global.lab"/></span>
+                                                <span id="oscar_new_lab" title="<fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>"><fmt:message key="global.lab"/></span>
                                             </a>
                                             <oscar:newUnclaimedLab>
                                                 <a id="unclaimedLabLink" class="tabalert" HREF="javascript:void(0)"
-                                                   title='<fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>'>U</a>
+                                                   title='<fmt:message key="inbox.inboxmanager.msgUnmatched"/>'>U</a>
                                             </oscar:newUnclaimedLab>
                                         </li>
                                     </c:if>
@@ -1055,7 +1055,7 @@
                                                    rights="r">
 
                                     <li id="admin2">
-                                        <a href="javascript:void(0)" id="admin-panel" TITLE='Administration Panel'
+                                        <a href="javascript:void(0)" id="admin-panel" title="Administration Panel"
                                            onclick="newWindow('<%=request.getContextPath()%>/administration/','admin')">Administration</a>
                                     </li>
 
@@ -1708,7 +1708,7 @@
                                             <% if (CarlosProperties.getInstance().isPropertyActive("view.appointmentdaysheetbutton")) { %>
                                             <input type='button' value="DS" name='daysheetview'
                                                    onClick=goDaySheet('<%=curProvider_no[nProvider]%>')
-                                                   title="Day Sheet" style="color:black">
+                                                   title="<fmt:message key="report.reportindex.formDaySheet"/>" style="color:black">
                                             <% } %>
                                             <input type='button'
                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.searchLetter"/>"
@@ -1718,7 +1718,7 @@
                                                    style="color:black" class="noprint">
                                             <input type='radio' name='flipview' class="noprint"
                                                    onClick="goFilpView('<%=curProvider_no[nProvider]%>')"
-                                                   title="Flip view">
+                                                   title="<fmt:message key="schedule.scheduleflipview.title"/>">
                                             <a href=#
                                                onClick="goZoomView('<%=curProvider_no[nProvider]%>','<%= Encode.forJavaScript(curProviderName[nProvider])%>')"
                                                onDblClick="goFilpView('<%=curProvider_no[nProvider]%>')"
