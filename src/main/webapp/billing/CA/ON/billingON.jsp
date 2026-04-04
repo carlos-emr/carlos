@@ -1716,9 +1716,9 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 
                                     </td>
                                     <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.assignedPhysician"/></b></td>
-                                    <td style="width: 20%"><%=providerBean.getProperty(assgProvider_no, "").length() > 15
+                                    <td style="width: 20%"><%= Encode.forHtml(providerBean.getProperty(assgProvider_no, "").length() > 15
                                             ? providerBean.getProperty(assgProvider_no, "").substring(0, 14)
-                                            : providerBean.getProperty(assgProvider_no, "")%>
+                                            : providerBean.getProperty(assgProvider_no, "")) %>
                                     </td>
                                 </tr>
                                 <tr>
