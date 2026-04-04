@@ -279,7 +279,7 @@
 
             async function displayTemplate(s) {
                 var templateName = encodeURIComponent(s.options[s.selectedIndex].value);
-                var url = "scheduleDisplayTemplate.jsp?name=" + templateName + "&providerid=<%=Encode.forJavaScript(Encode.forUriComponent(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : ""))%>";
+                var url = "scheduleDisplayTemplate.jsp?name=" + templateName + "&providerid=<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("provider_no"))))%>";
                 var div = "template";
                 fetch(url)
                     .then(response => response.text())
@@ -640,10 +640,10 @@
                         %>
                         <table style="width:99%">
                             <tr>
-                                <td class="bg-success-subtle"><b><%=Encode.forHtml(request.getParameter("provider_name") != null ? request.getParameter("provider_name") : "")%>
+                                <td class="bg-success-subtle"><b><%= Encode.forHtml(StringUtils.noNull(request.getParameter("provider_name"))) %>
                                 </b>
                                     <input type="hidden" name="provider_name"
-                                           value="<%=Encode.forHtmlAttribute(request.getParameter("provider_name") != null ? request.getParameter("provider_name") : "")%>"></td>
+                                           value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provider_name"))) %>"></td>
                                 <td class="bg-success-subtle text-end"><select
                                         name="select" onChange="selectrschedule(this)">
                                     <%
@@ -1060,7 +1060,7 @@
                             <tr>
                                 <td colspan="2">
                                     <div class="text-end">
-                                        <input type="hidden" name="provider_no" value="<%=Encode.forHtmlAttribute(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "")%>">
+                                        <input type="hidden" name="provider_no" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provider_no"))) %>">
                                         <input type="hidden" name="available" value="<%=bAlternate||bOrigAlt?"A":"1"%>">
                                         <input type="submit" class="btn btn-primary" value="<%=Encode.forHtmlAttribute((String)pageContext.getAttribute("btnNext"))%>">
                                     </div>

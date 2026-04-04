@@ -523,7 +523,7 @@
             int randomNo = new Random().nextInt();%>
         <script id="mainScript"
                 src="${ pageContext.request.contextPath }/js/custom/ocean/conreq.js?no-cache=<%=randomNo%>&autoRefresh=true"
-                ocean-host=<%=Encode.forUriComponent(props.getProperty("ocean_host"))%>></script>
+                ocean-host="<%=Encode.forHtmlAttribute(props.getProperty("ocean_host"))%>"></script>
         <% } %>
         <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/css/healthCareTeam.css"/>
 
@@ -2083,10 +2083,10 @@ if (userAgent != null) {
         <input type="hidden" name="providerNo" value="<%=providerNo%>">
         <% } %>
         <input type="hidden" name="demographicNo" id="demographicNo" value="<%=Encode.forHtmlAttribute(demo)%>">
-        <input type="hidden" name="requestId" id="requestId" value="<%=requestId%>">
-        <input type="hidden" name="ext_appNo" value="<%=request.getParameter("appNo") %>">
+        <input type="hidden" name="requestId" id="requestId" value="<%= Encode.forHtmlAttribute(requestId) %>">
+        <input type="hidden" name="ext_appNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("appNo"))) %>">
         <input type="hidden" name="source"
-               value="<%=(requestId!=null)?thisForm.getSource():request.getParameter("source") %>">
+               value="<%=Encode.forHtmlAttribute((requestId!=null)?thisForm.getSource():StringUtils.noNull(request.getParameter("source")))%>">
         <input type="hidden" name="submission" value="">
         <input type="hidden" id="saved" value="false">
         <input type="hidden" id="contextPath" value="${pageContext.request.contextPath}">
@@ -2336,7 +2336,6 @@ if (userAgent != null) {
                                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndFax"/>"
                                            onclick="return checkForm('Submit And Fax','EctConsultationFormRequest2Form');"/>
                                 </oscar:oscarPropertiesCheck>
-                                </c:if>
 
                                 <% } %>
                                 </div>
@@ -3210,7 +3209,7 @@ if (userAgent != null) {
                                 // addFormIfNotFound only handles form (formNo) attachments;
                                 // skip pre-check for labs, docs, eForms, HRM not found in dialog
                                 if (delegate.startsWith("#formNo")) {
-                                    element = addFormIfNotFound(data, '<%=demo%>', delegate);
+                                    element = addFormIfNotFound(data, '<%= Encode.forJavaScript(demo) %>', delegate);
                                 } else {
                                     return;
                                 }

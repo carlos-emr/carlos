@@ -72,6 +72,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingONCHeader1" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);
     ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);
@@ -184,7 +185,7 @@
             <label class="form-label">Service Date Begin</label>
             <div>
                 <input type="text" id="xml_vdate" name="xml_vdate"
-                       value="<%=xml_vdate%>">
+                       value="<%= Encode.forHtmlAttribute(xml_vdate) %>">
             </div>
         </div>
         <div class="mb-3">
@@ -192,7 +193,7 @@
             <div>
 
                 <input type="text" id="xml_appointment_date"
-                       name="xml_appointment_date" value="<%=xml_appointment_date%>">
+                       name="xml_appointment_date" value="<%= Encode.forHtmlAttribute(xml_appointment_date) %>">
             </div>
         </div>
         <div class="mb-3">

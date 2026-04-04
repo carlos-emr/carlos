@@ -175,6 +175,8 @@
 <%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -668,7 +670,7 @@
 
                 <%String popUrl = request.getParameter("popupUrl");
                   if (popUrl != null){           %>
-                window.setTimeout("popupPageK('<%=popUrl%>')", 2);
+                window.setTimeout("popupPageK('<%= Encode.forJavaScript(popUrl) %>')", 2);
                 <%}%>
 
                 //tmp = document.encForm.enTextarea.value; // these two lines cause the enTextarea to scroll to the bottom (only works in IE)
@@ -915,7 +917,7 @@
                                 + "&reasonCode=" + URLEncoder.encode(request.getParameter("reasonCode") == null ? "" : request.getParameter("reasonCode"), StandardCharsets.UTF_8);
                         %>
                         <tr>
-                            <td><a href="<%=hrefurl%>">Case Management Encounter</a></td>
+                            <td><a href="<%= Encode.forHtmlAttribute(hrefurl) %>">Case Management Encounter</a></td>
                         </tr>
                     </caisi:isModuleLoad>
                     <tr class="Header">
@@ -1208,7 +1210,7 @@
                 <td style="font-weight: bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.internetResources"/></td>
             </tr>
             <tr>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.searchFor"/><%= request.getParameter("userName")%>
+                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.searchFor"/><%= Encode.forHtml(StringUtils.noNull(request.getParameter("userName"))) %>
                 </td>
             </tr>
             <tr>

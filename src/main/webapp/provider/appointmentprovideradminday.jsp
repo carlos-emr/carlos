@@ -2044,7 +2044,7 @@
                                                         <% if (tickler_no.compareTo("") != 0) {%>
                                                             <a href="#"
                                                                onClick="popupPage(700,1024, '<%= request.getContextPath() %>/tickler/ticklerMain.jsp?demoview=0');return false;"
-                                                               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.ticklerMsg"/>: <%=Encode.forHtmlContent(tickler_note)%>">
+                                                               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.ticklerMsg"/>: <%=Encode.forHtmlAttribute(tickler_note)%>">
                                                                 <span color="red">!</span></a>
                                                         <%} %>
 
@@ -2160,7 +2160,7 @@
                                                             <img src="${pageContext.servletContext.contextPath}/images/stop_sign.png"
                                                                  width="14px" height="14px"
                                                                  style="margin-bottom: 3px;margin-left: 3px;"
-                                                                 title="<%=Encode.forHtmlContent(warning)%>"/>&nbsp;
+                                                                 title="<%=Encode.forHtmlAttribute(warning)%>"/>&nbsp;
                                                             <% } %>
                                                         </c:if>
                                                         <%
@@ -2213,7 +2213,7 @@
                                                                 + "&curProviderNo="
                                                                 + curProvider_no[nProvider]
                                                                 + "&reason="
-                                                                + URLEncoder.encode(Encode.forHtmlContent(reason), StandardCharsets.UTF_8)
+                                                                + URLEncoder.encode(reason != null ? reason : "", StandardCharsets.UTF_8)
                                                                 + "&reasonCode=" + (appointment.getReasonCode() != null ? appointment.getReasonCode() : "")
                                                                 + "&encType="
                                                                 + URLEncoder.encode("face to face encounter with client", "UTF-8")
@@ -2498,9 +2498,9 @@
             jQuery('.ds-btn').click(function () {
                 //var provider_no = '<%=loggedInInfo1.getLoggedInProviderNo()%>';
                 var provider_no = jQuery(this).attr('data-provider_no');
-                var y = '<%=request.getParameter("year")%>';
-                var m = '<%=request.getParameter("month")%>';
-                var d = '<%=request.getParameter("day")%>';
+                var y = '<%= Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("year"))) %>';
+                var m = '<%= Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("month"))) %>';
+                var d = '<%= Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("day"))) %>';
                 var sTime = 8;
                 var eTime = 20;
                 var dateStr = y + '-' + m + '-' + d;

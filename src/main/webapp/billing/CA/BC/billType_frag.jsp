@@ -2,6 +2,7 @@
 <%@page
         import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*,io.github.carlos_emr.carlos.billing.ca.bc.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <!--
@@ -50,5 +51,5 @@ TODO: Localize Strings
         </select></td>
     </tr>
 </table>
-<input type="hidden" name="xml_status" value="<%=BillType%>">
+<input type="hidden" name="xml_status" value="<%= Encode.forHtmlAttribute(BillType) %>">
 <br/>

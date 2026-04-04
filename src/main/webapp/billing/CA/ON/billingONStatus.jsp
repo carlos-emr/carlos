@@ -436,8 +436,8 @@
             <a href="javascript: function myFunction() {return false; }" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport')">Manage Provider List</a>-->
         <form name="serviceform" class="d-flex flex-wrap align-items-center gap-2" method="get" action="billingONStatus.jsp"
               onsubmit="ShowSpin(true);">
-            <input type="hidden" id="sortName" name="sortName" value="<%=sortName%>">
-            <input type="hidden" id="sortOrder" name="sortOrder" value="<%=sortOrder%>">
+            <input type="hidden" id="sortName" name="sortName" value="<%= Encode.forHtmlAttribute(sortName) %>">
+            <input type="hidden" id="sortOrder" name="sortOrder" value="<%= Encode.forHtmlAttribute(sortOrder) %>">
             <div class="row card card-body bg-body-tertiary d-print-none">
                 <%
                     String tmpStrBillType = Arrays.toString(strBillType);
@@ -490,19 +490,19 @@
                                 Set<Provider> siteProviders = sites.get(i).getProviders();
                                 List<Provider>  siteProvidersList = new ArrayList<Provider> (siteProviders);
                                 Collections.sort(siteProvidersList,(new Provider()).ComparatorName());%>
-                            _providers["<%= sites.get(i).getName() %>"] = "<% Iterator<Provider> iter = siteProvidersList.iterator();
+                            _providers["<%= Encode.forJavaScript(sites.get(i).getName()) %>"] = "<% Iterator<Provider> iter = siteProvidersList.iterator();
                                     while (iter.hasNext()) {
                                     	Provider p=iter.next();
                                     	if (pros.contains(p.getProviderNo())) {
-                                    %><option value='<%= p.getProviderNo() %>'><%= Encode.forHtml(p.getLastName()) %>, <%= Encode.forHtml(p.getFirstName()) %></option><% }} %>";
+                                    %><option value='<%= Encode.forJavaScript(Encode.forHtmlAttribute(p.getProviderNo())) %>'><%= Encode.forJavaScript(Encode.forHtml(p.getLastName())) %>, <%= Encode.forJavaScript(Encode.forHtml(p.getFirstName())) %></option><% }} %>";
                             <% } %>
 
                             function changeSite(sel) {
                                 sel.form.providerview.innerHTML = sel.value == "none" ? "" : "<option value='none'>---select providers---</option>" + _providers[sel.value];
                                 sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
-                                if (sel.value == '<%=request.getParameter("site")%>') {
+                                if (sel.value == '<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("site")))%>') {
                                     if (document.serviceform.provider_ohipNo.value != '')
-                                        sel.form.providerview.value = '<%=request.getParameter("providerview")%>';
+                                        sel.form.providerview.value = '<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("providerview"))) %>';
                                 }
                                 changeProvider(false);
                             }
@@ -514,7 +514,7 @@
                                 <%
                                     for (int i = 0; i < sites.size(); i++) {
                                 %>
-                                <option value="<%= Encode.forHtml(sites.get(i).getName()) %>"
+                                <option value="<%= Encode.forHtmlAttribute(sites.get(i).getName()) %>"
                                         style="background-color:<%= sites.get(i).getBgColor() %>"
                                         <%=sites.get(i).getName().toString().equals(curSite) ? "selected" : "" %>><%= Encode.forHtml(sites.get(i).getName()) %>
                                 </option>
@@ -565,7 +565,7 @@
                     <div class="col-md-6">
                         <label for="xml_vdate">Start:</label>
                         <div class="input-group">
-                            <input type="text" class="form-control" name="xml_vdate" id="xml_vdate" style="width:90px" value="<%=startDate%>"
+                            <input type="text" class="form-control" name="xml_vdate" id="xml_vdate" style="width:90px" value="<%= Encode.forHtmlAttribute(startDate) %>"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" required>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -581,7 +581,7 @@
                             </small></label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="xml_appointment_date" style="width:90px" id="xml_appointment_date"
-                                   value="<%=endDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                                   value="<%= Encode.forHtmlAttribute(endDate) %>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off" required>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -591,18 +591,18 @@
                 <div class="row">
                     <div class="col-md-12">
                         <label>Dx:
-                            <input type="text" name="dx" class="form-control form-control-sm d-inline-block w-auto" placeholder="123" value="<%=dx%>"></label>
+                            <input type="text" name="dx" class="form-control form-control-sm d-inline-block w-auto" placeholder="123" value="<%= Encode.forHtmlAttribute(dx) %>"></label>
                         <label>Serv. Code:
                             <input type="text" name="serviceCode" class="form-control form-control-sm d-inline-block w-auto" placeholder="A123A"
-                                   value="<%=serviceCode%>"></label>
+                                   value="<%= Encode.forHtmlAttribute(serviceCode) %>"></label>
                         <label>Demographic:
                             <input type="text" name="demographicNo" class="form-control form-control-sm d-inline-block w-auto" placeholder="1234"
-                                   value="<%=demoNo%>"></label>
+                                   value="<%= Encode.forHtmlAttribute(demoNo) %>"></label>
                         <label>RA Code:
                             <input type="text" name="raCode" class="form-control form-control-sm d-inline-block w-auto" placeholder=""
-                                   value="<%=raCode%>"></label>
+                                   value="<%= Encode.forHtmlAttribute(raCode) %>"></label>
                         <label>Claim No (% for any):
-                            <input type="text" name="claimNo" class="form-control form-control-sm d-inline-block w-auto" value="<%=claimNo%>"></label>
+                            <input type="text" name="claimNo" class="form-control form-control-sm d-inline-block w-auto" value="<%= Encode.forHtmlAttribute(claimNo) %>"></label>
                         <label>
                             Visit Type:
                             <select name="visitType" style="background-color:white;">
@@ -662,14 +662,14 @@
                         <label for="paymentStartDate">Payment Start:</label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="paymentStartDate" id="paymentStartDate" style="width:90px"
-                                   value="<%=paymentStartDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                                   value="<%= Encode.forHtmlAttribute(paymentStartDate) %>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                         <label for="paymentEndDate">Payment End:</label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="paymentEndDate" id="paymentEndDate" style="width:90px"
-                                   value="<%=paymentEndDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                                   value="<%= Encode.forHtmlAttribute(paymentEndDate) %>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -1001,17 +1001,17 @@
 
                     %>
                     <tr <%=color %>>
-                        <td style="text-align:center"><%= ch1Obj.getBilling_date()%>  <%--=ch1Obj.getBilling_time()--%></td>
+                        <td style="text-align:center"><%= Encode.forHtml(ch1Obj.getBilling_date())%>  <%--=ch1Obj.getBilling_time()--%></td>
                         <!--SERVICE DATE-->
-                        <td style="text-align:center"><%=ch1Obj.getDemographic_no()%>
+                        <td style="text-align:center"><%=Encode.forHtml(ch1Obj.getDemographic_no())%>
                         </td>
                         <!--PATIENT-->
                         <td style="text-align:center" class="<%=hideName?"d-print-none":""%>"><a href=#
-                                                                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=ch1Obj.getDemographic_no()%>&displaymode=edit&dboperation=search_detail');return false;"><%= Encode.forHtml(ch1Obj.getDemographic_name())%>
+                                                                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forJavaScriptAttribute(ch1Obj.getDemographic_no())%>&displaymode=edit&dboperation=search_detail');return false;"><%= Encode.forHtml(ch1Obj.getDemographic_name())%>
                         </a></td>
-                        <td style="text-align:center"><%=ch1Obj.getFacilty_num() != null ? ch1Obj.getFacilty_num() : "" %>
+                        <td style="text-align:center"><%=Encode.forHtml(ch1Obj.getFacilty_num() != null ? ch1Obj.getFacilty_num() : "")%>
                         </td>
-                        <td style="text-align:center"><%=ch1Obj.getStatus()%>
+                        <td style="text-align:center"><%=Encode.forHtml(ch1Obj.getStatus())%>
                         </td>
                         <!--STAT-->
                         <td style="text-align:center"><%=settleDate%>

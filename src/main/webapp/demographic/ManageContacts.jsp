@@ -32,6 +32,7 @@
 <%@ page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -293,14 +294,14 @@
                             %>
                 addContactExisting();
                 var num = jQuery("#contact_num").val();
-                setInput(num, 'contact', 'id', '<%=dc.getId()%>');
-                setSelect(num, 'contact', 'role', '<%=dc.getRole()%>');
-                setSelectExisting(num, 'contact', 'type', '<%=dc.getType()%>');
+                setInput(num, 'contact', 'id', '<%=Encode.forJavaScript(String.valueOf(dc.getId()))%>');
+                setSelect(num, 'contact', 'role', '<%=Encode.forJavaScript(dc.getRole() != null ? dc.getRole() : "")%>');
+                setSelectExisting(num, 'contact', 'type', '<%=Encode.forJavaScript(String.valueOf(dc.getType()))%>');
                 setSelect(num, 'contact', 'consentToContact', '<%=dc.isConsentToContact()?"1":"0"%>');
                 setSelect(num, 'contact', 'active', '<%=dc.isActive()?"1":"0"%>');
-                setInput(num, 'contact', 'contactId', '<%=dc.getContactId()%>');
-                setInput(num, 'contact', 'contactName', '<%=dc.getContactName()%>');
-                setTextarea(num, 'contact', 'note', `<%=dc.getNote()!=null?dc.getNote():""%>`);
+                setInput(num, 'contact', 'contactId', '<%=Encode.forJavaScript(String.valueOf(dc.getContactId()))%>');
+                setInput(num, 'contact', 'contactName', '<%=Encode.forJavaScript(dc.getContactName() != null ? dc.getContactName() : "")%>');
+                setTextarea(num, 'contact', 'note', '<%=Encode.forJavaScript(dc.getNote()!=null?dc.getNote():"")%>');
 
                 <%if(dc.getSdm() != null && dc.getSdm().equals("true")) {%>setChecked(num, 'contact', 'sdm');
                 <%}%>
@@ -317,13 +318,13 @@
                 %>
                 addProContactExisting();
                 var num = jQuery("#procontact_num").val();
-                setInput(num, 'procontact', 'id', '<%=dc.getId()%>');
-                setSelect(num, 'procontact', 'role', '<%=dc.getRole()%>');
+                setInput(num, 'procontact', 'id', '<%=Encode.forJavaScript(String.valueOf(dc.getId()))%>');
+                setSelect(num, 'procontact', 'role', '<%=Encode.forJavaScript(dc.getRole() != null ? dc.getRole() : "")%>');
                 setSelect(num, 'procontact', 'consentToContact', '<%=dc.isConsentToContact()?"1":"0"%>');
                 setSelect(num, 'procontact', 'active', '<%=dc.isActive()?"1":"0"%>');
-                setSelectExisting(num, 'procontact', 'type', '<%=dc.getType()%>');
-                setInput(num, 'procontact', 'contactId', '<%=dc.getContactId()%>');
-                setInput(num, 'procontact', 'contactName', '<%=dc.getContactName()%>');
+                setSelectExisting(num, 'procontact', 'type', '<%=Encode.forJavaScript(String.valueOf(dc.getType()))%>');
+                setInput(num, 'procontact', 'contactId', '<%=Encode.forJavaScript(String.valueOf(dc.getContactId()))%>');
+                setInput(num, 'procontact', 'contactName', '<%=Encode.forJavaScript(dc.getContactName() != null ? dc.getContactName() : "")%>');
                 <%
             }
         }
@@ -359,7 +360,7 @@
 
                 <form method="post" name="contactForm" id="contactForm" action="<%= request.getContextPath() %>/demographic/Contact.do">
                     <input type="hidden" name="method" value="saveManage"/>
-                    <input type="hidden" name="demographic_no" value="<%=demographic_no%>"/>
+                    <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
 
                     <b>Personal Contacts:</b>
                     <br/>
