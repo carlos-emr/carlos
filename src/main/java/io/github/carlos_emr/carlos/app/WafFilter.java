@@ -133,8 +133,8 @@ public final class WafFilter implements Filter {
             Pattern.compile("(?i);\\s*\\b(drop|delete|update|insert|alter|create|truncate)\\b"),
             // Time-based blind injection
             Pattern.compile("(?i)\\b(sleep|benchmark|waitfor\\s+delay|pg_sleep)\\s*\\("),
-            // Comment-based injection after SQL keywords
-            Pattern.compile("(?i)\\b(select|union|drop|insert|delete|update)\\b.*(/\\*|--|#)"),
+            // Comment-based injection: SQL keyword immediately followed by comment syntax
+            Pattern.compile("(?i)\\b(select|union|drop|insert|delete|update)\\b\\s+.{0,40}(/\\*|--\\s|#)"),
             // INTO OUTFILE / DUMPFILE (data exfiltration)
             Pattern.compile("(?i)\\binto\\s+(out|dump)file\\b"),
             // LOAD_FILE function
@@ -183,7 +183,7 @@ public final class WafFilter implements Filter {
     private static final List<Pattern> COMMAND_INJECTION_PATTERNS = List.of(
             Pattern.compile("(?i)[;|`]\\s*(cat|ls|dir|whoami|id|uname|pwd|wget|curl|nc|ncat|bash|sh|cmd|powershell)\\b"),
             Pattern.compile("(?i)\\$\\((cat|ls|whoami|id|uname|pwd)\\)"),
-            Pattern.compile("(?i)\\$\\{.*\\}"),
+            Pattern.compile("(?i)\\$\\{[^}]*(jndi|runtime|exec|process|class\\.for|getruntime)[^}]*\\}"),
             Pattern.compile("(?i)`[^`]*(cat|ls|whoami|id|uname|pwd)[^`]*`")
     );
 
@@ -192,7 +192,6 @@ public final class WafFilter implements Filter {
      */
     private static final List<Pattern> HEADER_INJECTION_PATTERNS = List.of(
             Pattern.compile("(?i)%0[da]"),
-            Pattern.compile("(?i)\\\\r|\\\\n"),
             Pattern.compile("[\\r\\n]")
     );
 
@@ -234,9 +233,9 @@ public final class WafFilter implements Filter {
         maxParameterCount = getInt(props, "waf.limits.max-parameter-count", 100);
         maxParameterValueLength = getInt(props, "waf.limits.max-parameter-value-length", 65536);
 
-        allowlistPaths = parseCsv(props.getProperty("waf.allowlist.paths", ""));
-        relaxedPaths = parseCsv(props.getProperty("waf.relaxed.paths", ""));
-        scannerSignatures = parseCsv(props.getProperty("waf.scanners",
+        allowlistPaths = parseCsvPreserveCase(props.getProperty("waf.allowlist.paths", ""));
+        relaxedPaths = parseCsvPreserveCase(props.getProperty("waf.relaxed.paths", ""));
+        scannerSignatures = parseCsvLowerCase(props.getProperty("waf.scanners",
                 "sqlmap,nikto,nmap,masscan,zgrab,nuclei,dirbuster,gobuster,wfuzz,hydra,burp,zap"));
 
         logger.info("WAF: mode={}, sqli={}, xss={}, path-traversal={}, cmd-injection={}, "
@@ -270,7 +269,7 @@ public final class WafFilter implements Filter {
 
         String clientIp = request.getRemoteAddr();
 
-        // 2. Protocol enforcement — block TRACE/TRACK
+        // 2. Protocol enforcement — block TRACE/TRACK (always block, even in detect mode)
         if (protocolEnforcementEnabled && BLOCKED_METHODS.contains(method)) {
             handleViolation(response, clientIp, uri, "protocol", HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return;
@@ -280,9 +279,10 @@ public final class WafFilter implements Filter {
         if (requestLimitsEnabled) {
             String violation = checkRequestLimits(request, uri);
             if (violation != null) {
-                handleViolation(response, clientIp, uri, violation,
-                        uri.length() > maxUriLength ? 414 : HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
-                return;
+                if (handleViolation(response, clientIp, uri, violation,
+                        uri.length() > maxUriLength ? 414 : HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE)) {
+                    return;
+                }
             }
         }
 
@@ -290,23 +290,26 @@ public final class WafFilter implements Filter {
         if (scannerDetectionEnabled) {
             String ua = request.getHeader("User-Agent");
             if (isScanner(ua)) {
-                handleViolation(response, clientIp, uri, "scanner", HttpServletResponse.SC_FORBIDDEN);
-                return;
+                if (handleViolation(response, clientIp, uri, "scanner", HttpServletResponse.SC_FORBIDDEN)) {
+                    return;
+                }
             }
         }
 
         // 5. Header injection (CRLF) — check all header values
         if (headerInjectionEnabled && checkHeaderInjection(request)) {
-            handleViolation(response, clientIp, uri, "header-injection", HttpServletResponse.SC_FORBIDDEN);
-            return;
+            if (handleViolation(response, clientIp, uri, "header-injection", HttpServletResponse.SC_FORBIDDEN)) {
+                return;
+            }
         }
 
         // 6. URI-level path traversal check (always applies, even on relaxed paths)
         if (pathTraversalEnabled) {
             String decodedUri = decodeValue(uri);
             if (matchesAny(decodedUri, PATH_TRAVERSAL_PATTERNS)) {
-                handleViolation(response, clientIp, uri, "path-traversal", HttpServletResponse.SC_FORBIDDEN);
-                return;
+                if (handleViolation(response, clientIp, uri, "path-traversal", HttpServletResponse.SC_FORBIDDEN)) {
+                    return;
+                }
             }
         }
 
@@ -315,8 +318,9 @@ public final class WafFilter implements Filter {
         if (!relaxed) {
             String paramViolation = checkParameters(request);
             if (paramViolation != null) {
-                handleViolation(response, clientIp, uri, paramViolation, HttpServletResponse.SC_FORBIDDEN);
-                return;
+                if (handleViolation(response, clientIp, uri, paramViolation, HttpServletResponse.SC_FORBIDDEN)) {
+                    return;
+                }
             }
         } else {
             // Even on relaxed paths, check query string parameters (GET params in a POST URL)
@@ -325,9 +329,10 @@ public final class WafFilter implements Filter {
                 String decoded = decodeValue(queryString);
                 String qsViolation = checkValue(decoded);
                 if (qsViolation != null) {
-                    handleViolation(response, clientIp, uri, qsViolation + " (query-string)",
-                            HttpServletResponse.SC_FORBIDDEN);
-                    return;
+                    if (handleViolation(response, clientIp, uri, qsViolation + " (query-string)",
+                            HttpServletResponse.SC_FORBIDDEN)) {
+                        return;
+                    }
                 }
             }
         }
@@ -447,14 +452,19 @@ public final class WafFilter implements Filter {
     /**
      * Handles a WAF violation by logging and optionally blocking the request.
      * Never logs parameter values to prevent PHI exposure.
+     *
+     * @return {@code true} if the request was blocked (enforce mode), {@code false} if it
+     *         should continue through the filter chain (detect mode)
      */
-    private void handleViolation(HttpServletResponse response, String clientIp, String uri,
-                                 String rule, int statusCode) throws IOException {
+    private boolean handleViolation(HttpServletResponse response, String clientIp, String uri,
+                                    String rule, int statusCode) throws IOException {
         if (enforcing) {
             logger.warn("WAF BLOCK: ip={} uri={} rule={}", clientIp, sanitizeLogValue(uri), rule);
             response.sendError(statusCode);
+            return true;
         } else {
             logger.info("WAF DETECT: ip={} uri={} rule={}", clientIp, sanitizeLogValue(uri), rule);
+            return false;
         }
     }
 
@@ -503,7 +513,17 @@ public final class WafFilter implements Filter {
         return safe.length() > 200 ? safe.substring(0, 200) + "..." : safe;
     }
 
-    private static Set<String> parseCsv(String value) {
+    private static Set<String> parseCsvPreserveCase(String value) {
+        if (value == null || value.isBlank()) {
+            return Collections.emptySet();
+        }
+        return Arrays.stream(value.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private static Set<String> parseCsvLowerCase(String value) {
         if (value == null || value.isBlank()) {
             return Collections.emptySet();
         }
