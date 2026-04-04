@@ -59,10 +59,6 @@ import jakarta.servlet.http.HttpServletResponse;
  *   <li>{@code X-Permitted-Cross-Domain-Policies: none} — blocks Flash/Acrobat cross-domain data loading</li>
  *   <li>{@code Permissions-Policy: camera=(), microphone=(), geolocation=()} — restricts unused browser APIs</li>
  *   <li>{@code X-Content-Type-Options: nosniff} — prevents MIME type sniffing attacks</li>
- *   <li>{@code Referrer-Policy: strict-origin-when-cross-origin} — prevents PHI leakage in referrer headers</li>
- *   <li>{@code Cross-Origin-Resource-Policy: same-origin} — prevents cross-origin resource reads</li>
- *   <li>{@code Content-Security-Policy-Report-Only} — XSS defense-in-depth (report-only until tuned)</li>
- *   <li>{@code Strict-Transport-Security} — HTTPS enforcement (only on secure connections)</li>
  * </ul>
  *
  * @since 2012 (OSCAR McMaster heritage; security headers added 2026-02-26)
@@ -201,15 +197,12 @@ public final class ResponseDefaultsFilter implements Filter {
      *
      * <p>Headers are grouped by purpose:
      * <ol>
-     *   <li><strong>Framing/embedding protection</strong> — X-Frame-Options, COOP, CORP, Cross-Domain</li>
+     *   <li><strong>Framing/embedding protection</strong> — X-Frame-Options, Cross-Domain-Policies</li>
      *   <li><strong>Content type protection</strong> — X-Content-Type-Options</li>
      *   <li><strong>Browser feature restrictions</strong> — Permissions-Policy</li>
-     *   <li><strong>Referrer privacy</strong> — Referrer-Policy (prevents PHI leakage in referrer headers)</li>
-     *   <li><strong>XSS defense-in-depth</strong> — Content-Security-Policy-Report-Only</li>
-     *   <li><strong>Transport security</strong> — Strict-Transport-Security (HTTPS only)</li>
      * </ol>
      *
-     * @param request  HttpServletRequest the incoming request (used for HSTS secure check)
+     * @param request  HttpServletRequest the incoming request
      * @param response HttpServletResponse the response to add headers to
      */
     private void setSecurityHeaders(HttpServletRequest request, HttpServletResponse response) {
@@ -225,37 +218,6 @@ public final class ResponseDefaultsFilter implements Filter {
         // Prevent MIME type sniffing (defense-in-depth for content-type handling)
         response.setHeader("X-Content-Type-Options", "nosniff");
 
-        // Prevent PHI leakage in referrer headers — full URL for same-origin, origin-only for cross-origin
-        response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-
-        // Prevent cross-origin reads of application resources
-        response.setHeader("Cross-Origin-Resource-Policy", "same-origin");
-
-        // Note: Cross-Origin-Opener-Policy (COOP) is intentionally NOT set. The application
-        // relies on window.opener for popup-to-parent communication in 40+ JSP files (date
-        // pickers, drug selectors, form dialogs, encounter windows, ticklers, billing).
-        // COOP: same-origin would break all of these. Revisit after migrating to postMessage().
-
-        // Content-Security-Policy in Report-Only mode — logs violations without breaking pages.
-        // The 'unsafe-inline' and 'unsafe-eval' directives are required for legacy JSP inline
-        // scripts and jQuery; tighten these as inline scripts are migrated to external files.
-        // CDN allowlist: cdn.jsdelivr.net (Bootstrap 5.3), code.jquery.com (jQuery UI fallback),
-        // cdnjs.cloudflare.com (serializeJSON plugin). OntarioMD for external auth redirect.
-        response.setHeader("Content-Security-Policy-Report-Only",
-                "default-src 'self'; "
-                + "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.jquery.com https://cdnjs.cloudflare.com; "
-                + "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com; "
-                + "img-src 'self' data: https://www.gnu.org; "
-                + "font-src 'self' https://cdn.jsdelivr.net; "
-                + "frame-ancestors 'self'; "
-                + "base-uri 'self'; "
-                + "form-action 'self' https://www.ontariomd.ca");
-
-        // HSTS — only set on secure (HTTPS) connections to avoid breaking HTTP dev environments.
-        // 2-year max-age per OWASP recommendation; includeSubDomains for comprehensive coverage.
-        if (request.isSecure()) {
-            response.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
-        }
     }
 
     /**
