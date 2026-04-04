@@ -417,7 +417,6 @@ window.carlosExtractAndExecScripts = function (element, html) {
     var prev;
     do {
         prev = cleanHtml;
-        scriptPattern.lastIndex = 0;
         cleanHtml = cleanHtml.replace(scriptPattern, '');
     } while (cleanHtml !== prev);
     element.innerHTML = cleanHtml;

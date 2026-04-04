@@ -458,7 +458,6 @@ var CarlosAjax = (function () {
             var prev;
             do {
                 prev = cleanHtml;
-                scriptPattern.lastIndex = 0;
                 cleanHtml = cleanHtml.replace(scriptPattern, '');
             } while (cleanHtml !== prev);
 
