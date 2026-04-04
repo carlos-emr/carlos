@@ -1619,12 +1619,8 @@ var EFORM_I18N = {
 
         /** HTML-encodes a string for safe insertion into HTML content (e.g. title tags) */
         function escapeHtmlText(value) {
-            return String(value)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
+            var htmlEntities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+            return String(value).replace(/[&<>"']/g, function(match) { return htmlEntities[match]; });
         }
 
         function destroy_gen_widgets($elementSelector) {
@@ -2021,7 +2017,8 @@ var EFORM_I18N = {
             source = source.replace(/>\s*</g, ">\n<");
             //now we need to escape the html special chars
             if (escapeHtml) {
-                source = source.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                var htmlChars = { '&': '&amp;', '<': '&lt;', '>': '&gt;' };
+                source = source.replace(/[&<>]/g, function(match) { return htmlChars[match]; });
                 //now we add <pre> tags to preserve whitespace
                 source = "<pre>" + source + "</pre>";
             }

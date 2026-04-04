@@ -500,9 +500,9 @@
                                                     </td>
                                                     <td align="right"><%=bean.getDx1()%>&nbsp;<%=bean.getDx2()%>&nbsp;<%=bean.getDx3()%>
                                                     </td>
-                                                    <td align="right"><%=java.text.NumberFormat.getCurrencyInstance().format(unitTotal).replace('$', ' ')%>
+                                                    <td align="right"><%=Encode.forHtml(java.text.NumberFormat.getCurrencyInstance().format(unitTotal).replace('$', ' '))%>
                                                     </td>
-                                                    <td align="right"><%=java.text.NumberFormat.getCurrencyInstance().format(lnTotal).replace('$', ' ')%>
+                                                    <td align="right"><%=Encode.forHtml(java.text.NumberFormat.getCurrencyInstance().format(lnTotal).replace('$', ' '))%>
                                                     </td>
                                                 </tr>
                                                 <%
@@ -530,7 +530,7 @@
                                                     <td colspan="2"><%=item.getArchiveDate()%>
                                                     </td>
 
-                                                    <td align="right"><%=java.text.NumberFormat.getCurrencyInstance().format(amtReceived * -1.0).replace('$', ' ')%>
+                                                    <td align="right"><%=Encode.forHtml(java.text.NumberFormat.getCurrencyInstance().format(amtReceived * -1.0).replace('$', ' '))%>
                                                     </td>
                                                 </tr>
                                                 <%
@@ -606,22 +606,22 @@
                                                         </table>
                                                     </td>
                                                     <td align="right">Subtotal:</td>
-                                                    <td align="right"><%=java.text.NumberFormat.getCurrencyInstance().format(bean.calculateSubtotal()).replace('$', ' ')%>
+                                                    <td align="right"><%=Encode.forHtml(java.text.NumberFormat.getCurrencyInstance().format(bean.calculateSubtotal()).replace('$', ' '))%>
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td align="right">Total:</td>
-                                                    <td align="right"><%=java.text.NumberFormat.getCurrencyInstance().format(bean.calculateTotal()).replace('$', ' ')%>
+                                                    <td align="right"><%=Encode.forHtml(java.text.NumberFormat.getCurrencyInstance().format(bean.calculateTotal()).replace('$', ' '))%>
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td align="right">Payments:</td>
-                                                    <td align="right"><%=java.text.NumberFormat.getCurrencyInstance().format(totalPayments).replace('$', ' ')%>
+                                                    <td align="right"><%=Encode.forHtml(java.text.NumberFormat.getCurrencyInstance().format(totalPayments).replace('$', ' '))%>
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td align="right">Refunds:</td>
-                                                    <td align="right"><%=java.text.NumberFormat.getCurrencyInstance().format(totalRefunds).replace('$', ' ')%>
+                                                    <td align="right"><%=Encode.forHtml(java.text.NumberFormat.getCurrencyInstance().format(totalRefunds).replace('$', ' '))%>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -633,7 +633,7 @@
                                                     </td>
                                                     <%double gtotal = bean.calculateTotal() - totalPayments - totalRefunds;%>
                                                     <td align="right">
-                                                        <strong><%=java.text.NumberFormat.getCurrencyInstance().format(gtotal).replace('$', ' ')%>
+                                                        <strong><%=Encode.forHtml(java.text.NumberFormat.getCurrencyInstance().format(gtotal).replace('$', ' '))%>
                                                         </strong></td>
                                                 </tr>
                                                 <tr>
