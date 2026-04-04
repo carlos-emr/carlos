@@ -30,6 +30,7 @@
 --%>
 <%@ page contentType="application/javascript; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
@@ -210,7 +211,8 @@ function getLocation(id, multiplier) {
     // Parse and validate multiplier
     multiplier = parseInt(multiplier, 10);
     if (isNaN(multiplier) || multiplier < 1 || multiplier > 99) {
-        alert('<fmt:message var="multiplierErrorMsg" key="provider.appointmentProviderAdminDay.multiplierError"/><%= Encode.forJavaScript(multiplierErrorMsg) %>');
+        <fmt:message var="multiplierErrorMsg" key="provider.appointmentProviderAdminDay.multiplierError"/>
+        alert('${e:forJavaScript(multiplierErrorMsg)}');
         return;
     }
 
@@ -391,7 +393,8 @@ popupPage2(queryString, 'appointment', height, width);
 }
 else if( doConfirm == "Onc" ) {
 if( allowDay == "No" ) {
-if( confirm('<fmt:message var="confirmOnCallMsg" key="provider.appointmentProviderAdminDay.confirmOnCall"/><%= Encode.forJavaScript(confirmOnCallMsg) %>') ) {
+<fmt:message var="confirmOnCallMsg" key="provider.appointmentProviderAdminDay.confirmOnCall"/>
+if( confirm('${e:forJavaScript(confirmOnCallMsg)}') ) {
 popupPage(height, width, queryString);
 }
 }
@@ -565,7 +568,8 @@ alert(cbi);
 
 if ("<%=newticklerwarningwindow%>"=="enabled") {
 if (IsPopupBlocker()) {
-alert('<fmt:message var="popupBlockerMsg" key="provider.appointmentProviderAdminDay.popupBlockerAlert"/><%= Encode.forJavaScript(popupBlockerMsg) %>');
+<fmt:message var="popupBlockerMsg" key="provider.appointmentProviderAdminDay.popupBlockerAlert"/>
+alert('${e:forJavaScript(popupBlockerMsg)}');
 } else{
 var pu=window.open("<%=request.getContextPath()%>/UnreadTickler.do",'viewUnreadTickler',"height=120,width=250,location=no,scrollbars=no,menubars=no,toolbars=no,resizable=yes,top=500,left=700");
 if(window.focus)

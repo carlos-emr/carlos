@@ -937,21 +937,18 @@
                                             if ("true".equalsIgnoreCase(caisiSearch)) {
                                         %>
                                         <a href="<%= request.getContextPath() %>/PMmodule/ClientSearch2.do"
-                                           TITLE='<fmt:message key="global.searchPatientRecords"/>'
-                                           OnMouseOver="window.status='<fmt:message key="global.searchPatientRecords"/>' ; return true"><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
+                                           TITLE='<fmt:message key="global.searchPatientRecords"/>'><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
 
                                         <%
                                         } else {
                                         %>
                                         <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/search.jsp');return false;"
-                                           TITLE='<fmt:message key="global.searchPatientRecords"/>'
-                                           OnMouseOver="window.status='<fmt:message key="global.searchPatientRecords"/>' ; return true"><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
+                                           TITLE='<fmt:message key="global.searchPatientRecords"/>'><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
                                         <% } %>
                                     </caisi:isModuleLoad>
                                     <caisi:isModuleLoad moduleName="caisi" reverse="true">
                                         <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/search.jsp');return false;"
-                                           TITLE='<fmt:message key="global.searchPatientRecords"/>'
-                                           OnMouseOver="window.status='<fmt:message key="global.searchPatientRecords"/>' ; return true"><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
+                                           TITLE='<fmt:message key="global.searchPatientRecords"/>'><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
                                     </caisi:isModuleLoad>
                                 </li>
                             </security:oscarSec>
@@ -972,11 +969,12 @@
                                 </oscar:oscarPropertiesCheck>
                             </caisi:isModuleLoad>
 
+                            <fmt:message var="ticklerTitle" key="global.tickler"/>
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
                                 <li>
                                     <a HREF="#"
-                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ticklerMain.jsp','<fmt:message key="global.tickler"/>');return false;"
-                                       TITLE='<fmt:message key="global.tickler"/>'>
+                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ticklerMain.jsp','${e:forJavaScriptAttribute(ticklerTitle)}');return false;"
+                                       TITLE='${e:forHtmlAttribute(ticklerTitle)}'>
                                         <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span></a>
                                 </li>
                             </security:oscarSec>
@@ -1027,8 +1025,7 @@
                                     <li>
                                         <a HREF="#"
                                            ONCLICK="popupPage2('<%= request.getContextPath() %>/report/reportindex.jsp','reportPage');return false;"
-                                           TITLE='<fmt:message key="global.genReport"/>'
-                                           OnMouseOver="window.status='<fmt:message key="global.genReport"/>' ; return true"><fmt:message key="global.report"/></a>
+                                           TITLE='<fmt:message key="global.genReport"/>'><fmt:message key="global.report"/></a>
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
@@ -1042,9 +1039,10 @@
                                 </security:oscarSec>
                             </oscar:oscarPropertiesCheck>
 
+                            <fmt:message var="workflowTitle" key="global.workflow"/>
                             <oscar:oscarPropertiesCheck property="WORKFLOW" value="yes">
                                 <li><a href="javascript:void(0)"
-                                       onClick="popup(700,1024,'<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.jsp','<fmt:message key="global.workflow"/>')"><fmt:message key="global.btnworkflow"/>
+                                       onClick="popup(700,1024,'<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.jsp','${e:forJavaScriptAttribute(workflowTitle)}')"><fmt:message key="global.btnworkflow"/>
                                 </a></li>
                             </oscar:oscarPropertiesCheck>
 
@@ -1261,10 +1259,12 @@
                 </span>
 
                 <!-- Toggle Cancelled Appointments -->
+                <fmt:message var="hideCancelledTitle" key="provider.appointmentProviderAdminDay.hideCancelled"/>
+                <fmt:message var="showCancelledTitle" key="provider.appointmentProviderAdminDay.showCancelled"/>
                 <a id="toggleCancelledBtn" href="javascript:void(0)" onclick="toggleCancelled();" class="noprint" style="margin-left: 10px;"
-                   title="<fmt:message key="provider.appointmentProviderAdminDay.hideCancelled"/>"
-                   data-title-hide="<fmt:message key="provider.appointmentProviderAdminDay.hideCancelled"/>"
-                   data-title-show="<fmt:message key="provider.appointmentProviderAdminDay.showCancelled"/>">
+                   title="${e:forHtmlAttribute(hideCancelledTitle)}"
+                   data-title-hide="${e:forHtmlAttribute(hideCancelledTitle)}"
+                   data-title-show="${e:forHtmlAttribute(showCancelledTitle)}">
                     <span id="toggleCancelledIcon">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye" viewBox="0 0 16 16">
                             <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/>
@@ -1288,15 +1288,13 @@
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_day" rights="r">
                         <a class="rightButton top"
                            href="providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%><%=viewString%>&displaymode=day&dboperation=searchappointmentday"
-                           TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewDaySched"/>'
-                           OnMouseOver="window.status='<fmt:message key="provider.appointmentProviderAdminDay.viewDaySched"/>' ; return true"><fmt:message key="global.today"/></a>
+                           TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewDaySched"/>'><fmt:message key="global.today"/></a>
                     </security:oscarSec>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_month" rights="r">
 
                         <a
                                 href="providercontrol.jsp?year=<%=year%>&month=<%=month%>&day=1<%=viewString%>&displaymode=month&dboperation=searchappointmentmonth"
-                                TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewMonthSched"/>'
-                                OnMouseOver="window.status='<fmt:message key="provider.appointmentProviderAdminDay.viewMonthSched"/>' ; return true"><fmt:message key="global.month"/></a>
+                                TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewMonthSched"/>'><fmt:message key="global.month"/></a>
 
                     </security:oscarSec>
 
@@ -2398,6 +2396,7 @@
     </table>
 
     <!-- key shortcut hotkey block added by phc -->
+    <fmt:message var="labTitle" key="global.lab"/>
     <script language="JavaScript">
 
         // popup blocking for the site must be off!
@@ -2437,11 +2436,11 @@
                         popupOscarRx(600, 750, '<%=resourcebaseurl%>');
                         return false;  //run code for 'H'elp
                     case <fmt:message key="global.ticklerShortcut"/> : {
-                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/tickler/ticklerMain.jsp', '<fmt:message key="global.tickler"/>') //run code for t'I'ckler
+                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/tickler/ticklerMain.jsp', '${e:forJavaScript(ticklerTitle)}'); //run code for t'I'ckler
                         return false;
                     }
                     case <fmt:message key="global.labShortcut"/> :
-                        popupOscarRx(600, 1024, '<%=request.getContextPath()%>/web/inboxhub/Inboxhub.do?method=displayInboxForm', '<fmt:message key="global.lab"/>');
+                        popupOscarRx(600, 1024, '<%=request.getContextPath()%>/web/inboxhub/Inboxhub.do?method=displayInboxForm', '${e:forJavaScript(labTitle)}');
                         return false;  //run code for 'L'ab
                     case <fmt:message key="global.msgShortcut"/> :
                         popupOscarRx(600, 1024, '<%=request.getContextPath()%>/messenger/DisplayMessages.do?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
@@ -2475,7 +2474,7 @@
                         <% } %>
                     }
                     case <fmt:message key="global.workflowShortcut"/> :
-                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.jsp', '<fmt:message key="global.workflow"/>');
+                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.jsp', '${e:forJavaScript(workflowTitle)}');
                         return false; //code for 'W'orkflow
                     default :
                         return;
