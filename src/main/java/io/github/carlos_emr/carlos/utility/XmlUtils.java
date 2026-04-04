@@ -73,35 +73,6 @@ public final class XmlUtils {
     }
 
     /**
-     * Creates a new {@link SAXBuilder} instance configured to prevent XML External Entity
-     * (XXE) injection attacks and entity expansion abuse. DTD processing, external entity
-     * resolution, external DTD loading, and entity expansion are disabled by setting the
-     * following features:
-     * <ul>
-     *   <li>{@code http://apache.org/xml/features/disallow-doctype-decl} = {@code true}</li>
-     *   <li>{@code http://xml.org/sax/features/external-general-entities} = {@code false}</li>
-     *   <li>{@code http://xml.org/sax/features/external-parameter-entities} = {@code false}</li>
-     *   <li>{@code http://apache.org/xml/features/nonvalidating/load-external-dtd} = {@code false}</li>
-     *   <li>{@link SAXBuilder#setExpandEntities(boolean)} = {@code false}</li>
-     * </ul>
-     *
-     * <p>Use this factory method instead of {@code new SAXBuilder()} everywhere in the
-     * codebase to ensure consistent XML parser hardening in CARLOS EMR.</p>
-     *
-     * @return SAXBuilder with XXE protection features enabled
-     * @since 2026-04-02
-     */
-    public static SAXBuilder createSecureSAXBuilder() {
-        SAXBuilder parser = new SAXBuilder();
-        parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        parser.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-        parser.setExpandEntities(false);
-        return parser;
-    }
-
-    /**
      * Creates a {@link SAXBuilder} with XXE (XML External Entity) protections enabled.
      *
      * <p>Disables DOCTYPE declarations and external entity resolution to prevent XXE attacks.

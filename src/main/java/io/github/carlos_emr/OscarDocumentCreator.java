@@ -110,7 +110,7 @@ public class OscarDocumentCreator {
         m.put(bc + "csv_rep_mspremsum.jrxml",    bc + "csv_rep_mspremsum.jrxml");
         m.put(bc + "msppremsum.practsum.jrxml",  bc + "msppremsum.practsum.jrxml");
         m.put(bc + "msppremsum.s23.jrxml",       bc + "msppremsum.s23.jrxml");
-        m.put(bc + "msppremsum.s23_orphan.jrxml",bc + "msppremsum.s23_orphan.jrxml");
+        m.put(bc + "msppremsum.s23_orphan.jrxml", bc + "msppremsum.s23_orphan.jrxml");
         m.put(bc + "broadcastmessages.jrxml",    bc + "broadcastmessages.jrxml");
         // ON billing reports
         String on = "/oscar/oscarBilling/ca/on/reports/";
