@@ -94,6 +94,11 @@ public final class RxShowAllergy2Action extends ActionSupport {
     public String reorder() {
         reorder(request);
         try {
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, request.getParameter("demographicNo"));
+            if (patient != null) {
+                request.getSession().setAttribute("Patient", patient);
+            }
             response.sendRedirect(request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + request.getParameter("demographicNo"));
         } catch (IOException e) {
             throw new RuntimeException(e);
