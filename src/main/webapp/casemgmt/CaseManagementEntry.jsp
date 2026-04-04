@@ -402,7 +402,7 @@
             <tr>
                 <td class="fieldValue" colspan="1">
                     <textarea name="caseNote_note" id="caseNote_note" cols="60" rows="20" wrap="hard"
-                              onchange="setChangeFlag(true);">${e:forHtml(caseNote.note)}
+                              onchange="setChangeFlag(true);">${caseNote.note}
                             </textarea>
                 </td>
                 <td class="fieldTitle"></td>
