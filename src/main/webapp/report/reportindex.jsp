@@ -78,7 +78,6 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String country = request.getLocale().getCountry();
     CarlosProperties carlosVariables = CarlosProperties.getInstance();
@@ -287,18 +286,20 @@
                 <td></td>
             </tr>
             <security:oscarSec roleName="<%=roleName2$%>" objectName="_admin,_billing" rights="r" reverse="<%=false%>">
+            <% if (StringUtils.isNotBlank(prov)) { %>
             <tr>
                 <td width="2"><%=j%>
                     <%j++;%>
                 </td>
                 <td width="1"></td>
                 <td width="300">
-                  <a href="<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=URLEncoder.encode(loggedInInfo1.getLoggedInProviderNo(), StandardCharsets.UTF_8)%>" target="_blank"><fmt:message key="global.genBillReport"/></a></td>
+                  <a href="<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&amp;providerview=<%=URLEncoder.encode(loggedInInfo1.getLoggedInProviderNo(), StandardCharsets.UTF_8)%>" target="_blank"><fmt:message key="global.genBillReport"/></a></td>
                 <td></td>
                 <td></td>
                 <td></td>
                 <td></td>
             </tr>
+            <% } %>
             </security:oscarSec>
         </table>
     </form>
