@@ -603,6 +603,72 @@ public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
             }
 
             @Test
+            @DisplayName("should grant read access for patient-specific UPDATE privilege (not lock account)")
+            void shouldGrantReadAccess_forPatientSpecificUpdatePrivilege() {
+                // Patient-specific UPDATE privilege must grant READ and never lock account
+                String patientObjName = TEST_OBJECT_NAME + "$" + TEST_DEMOGRAPHIC_NO;
+                when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(inv -> {
+                    Collection<String> names = inv.getArgument(0);
+                    if (names.contains(patientObjName)) {
+                        return Collections.singletonList(
+                            createPrivilege(ROLE_DOCTOR, patientObjName, "u", 0));
+                    }
+                    return Collections.emptyList();
+                });
+
+                boolean result = securityInfoManager.hasPrivilege(
+                    mockLoggedInInfo, TEST_OBJECT_NAME, SecurityInfoManager.READ,
+                    String.valueOf(TEST_DEMOGRAPHIC_NO));
+
+                assertThat(result).isTrue();
+                verify(mockSession, never()).setAttribute("accountLocked", true);
+            }
+
+            @Test
+            @DisplayName("should grant read access for patient-specific WRITE privilege (not lock account)")
+            void shouldGrantReadAccess_forPatientSpecificWritePrivilege() {
+                // Patient-specific WRITE privilege must grant READ and never lock account
+                String patientObjName = TEST_OBJECT_NAME + "$" + TEST_DEMOGRAPHIC_NO;
+                when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(inv -> {
+                    Collection<String> names = inv.getArgument(0);
+                    if (names.contains(patientObjName)) {
+                        return Collections.singletonList(
+                            createPrivilege(ROLE_DOCTOR, patientObjName, "w", 0));
+                    }
+                    return Collections.emptyList();
+                });
+
+                boolean result = securityInfoManager.hasPrivilege(
+                    mockLoggedInInfo, TEST_OBJECT_NAME, SecurityInfoManager.READ,
+                    String.valueOf(TEST_DEMOGRAPHIC_NO));
+
+                assertThat(result).isTrue();
+                verify(mockSession, never()).setAttribute("accountLocked", true);
+            }
+
+            @Test
+            @DisplayName("should grant update access for patient-specific WRITE privilege (not lock account)")
+            void shouldGrantUpdateAccess_forPatientSpecificWritePrivilege() {
+                // Patient-specific WRITE privilege must grant UPDATE and never lock account
+                String patientObjName = TEST_OBJECT_NAME + "$" + TEST_DEMOGRAPHIC_NO;
+                when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(inv -> {
+                    Collection<String> names = inv.getArgument(0);
+                    if (names.contains(patientObjName)) {
+                        return Collections.singletonList(
+                            createPrivilege(ROLE_DOCTOR, patientObjName, "w", 0));
+                    }
+                    return Collections.emptyList();
+                });
+
+                boolean result = securityInfoManager.hasPrivilege(
+                    mockLoggedInInfo, TEST_OBJECT_NAME, SecurityInfoManager.UPDATE,
+                    String.valueOf(TEST_DEMOGRAPHIC_NO));
+
+                assertThat(result).isTrue();
+                verify(mockSession, never()).setAttribute("accountLocked", true);
+            }
+
+            @Test
             @DisplayName("should lock account and deny access for patient-specific NORIGHTS")
             void shouldLockAccountAndDenyAccess_forPatientSpecificNoRights() {
                 // Patient-specific has NORIGHTS for doctor

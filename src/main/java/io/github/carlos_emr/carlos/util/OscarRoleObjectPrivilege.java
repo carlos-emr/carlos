@@ -30,6 +30,7 @@ package io.github.carlos_emr.carlos.util;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Properties;
 import java.util.Vector;
 
@@ -170,26 +171,27 @@ public class OscarRoleObjectPrivilege {
 
     private static boolean[] checkRights(String privilege, String rights1) {
         boolean[] ret = {false, false}; // (gotRights, break/continue)
-        String rightsLower = rights1.toLowerCase();
+        String rightsLower = rights1.toLowerCase(Locale.ROOT);
+        String privilegeLower = privilege.toLowerCase(Locale.ROOT);
         if ("o".equals(rightsLower)) {
             // NORIGHTS check: only an explicit "o" privilege matches, so that "r", "u", "w"
             // privileges do not incorrectly trigger account locking.
-            ret[0] = "o".equals(privilege);
-        } else if ("x".equals(privilege)) {
+            ret[0] = "o".equals(privilegeLower);
+        } else if ("x".equals(privilegeLower)) {
             // Full access matches any non-NORIGHTS check.
             ret[0] = true;
         } else {
             // Hierarchy r < u < w (see PRIVILEGE_HIERARCHY).
             // indexOf returns -1 for anything not in the hierarchy (e.g. "d" or "o"),
             // which causes the condition to be false and falls through to exact match.
-            int privLevel = PRIVILEGE_HIERARCHY.indexOf(privilege);
+            int privLevel = PRIVILEGE_HIERARCHY.indexOf(privilegeLower);
             int requiredLevel = PRIVILEGE_HIERARCHY.indexOf(rightsLower);
             if (privLevel >= 0 && requiredLevel >= 0) {
                 // Both are in the r/u/w hierarchy: higher level implies lower ones.
                 ret[0] = privLevel >= requiredLevel;
             } else {
                 // Not in the r/u/w hierarchy (e.g. "d" delete): exact match only.
-                ret[0] = privilege.equals(rightsLower);
+                ret[0] = privilegeLower.equals(rightsLower);
             }
         }
         return ret;
