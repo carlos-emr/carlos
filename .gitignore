@@ -45,4 +45,6 @@ __pycache__/
 /node_modules/
 /build/
 /.docusaurus/
+# Suppress Maven cache noise; vendored JARs under local_repo/ that are explicitly
+# committed remain tracked (gitignore does not affect already-tracked files).
 /local_repo/
