@@ -305,7 +305,7 @@ public class BillingCorrectionPrep {
             String sStatus = vecStatus.get(i);
             ret = addItem(ch1Obj, lItemObj, updateProviderNo, dx, serviceDate,
                     sName, sUnit, sFee, sStatus);
-            _logger.info("{} lItemObj(value = {}", LogSanitizer.sanitize(sName), LogSanitizer.sanitize(ret));
+            _logger.info("{} lItemObj(value = {})", LogSanitizer.sanitize(sName), LogSanitizer.sanitize(ret));
         }
 
         // recalculate amount

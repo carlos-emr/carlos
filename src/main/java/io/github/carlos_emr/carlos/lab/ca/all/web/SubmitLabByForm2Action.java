@@ -184,6 +184,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
             logger.info("HL7 generated (length={}, MSH={})", hl7.length(), LogSanitizer.sanitize(mshSegment));
         } else {
             logger.warn("HL7 generation returned null");
+            return manage();
         }
 
         //save file

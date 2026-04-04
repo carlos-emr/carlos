@@ -2661,7 +2661,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
         String demographicQuery = generateDemographicSearchQuery(loggedInInfo, searchRequest, params, "count(*)");
 
-        MiscUtils.getLogger().warn(demographicQuery);
+        MiscUtils.getLogger().warn("demographicQuery: {}", LogSanitizer.sanitize(demographicQuery, 1000));
 
         Session session = currentSession();
             NativeQuery sqlQuery = session.createNativeQuery(demographicQuery);
