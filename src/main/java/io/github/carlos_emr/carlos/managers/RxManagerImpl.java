@@ -319,7 +319,7 @@ public class RxManagerImpl implements RxManager {
 
         if (d == null) { //make sure we have a drug to operate on.
 
-            logger.info("No drug with drugId: " + drugId + " found, failed to discontinue.");
+            logger.info("No drug with drugId: {} found, failed to discontinue.", drugId);
 
             return false;
 

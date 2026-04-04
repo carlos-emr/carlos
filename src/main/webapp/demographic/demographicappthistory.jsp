@@ -185,10 +185,10 @@
                 if (value) {
                     //show deleted
                     //appt_history_w_deleted
-                    location.href = '<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forJavaScript(demographic_no)%>&orderby=<%=Encode.forJavaScript(orderby)%>&displaymode=appt_history&dboperation=appt_history_w_deleted&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>&deleted=true';
+                    location.href = '<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographic_no))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(orderby))%>&displaymode=appt_history&dboperation=appt_history_w_deleted&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>&deleted=true';
                 } else {
                     //don't show deleted
-                    location.href = '<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forJavaScript(demographic_no)%>&orderby=<%=Encode.forJavaScript(orderby)%>&displaymode=appt_history&dboperation=appt_history&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>';
+                    location.href = '<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographic_no))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(orderby))%>&displaymode=appt_history&dboperation=appt_history&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>';
                 }
             }
 
@@ -225,7 +225,7 @@
                 <table class="TopStatusBar">
                     <tr>
                         <td><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.msgResults"/>: <%=Encode.forHtml(demolastname)%>
-                            ,<%=Encode.forHtml(demofirstname)%>(<%=Encode.forHtml(request.getParameter("demographic_no"))%>)
+                            ,<%=Encode.forHtml(demofirstname)%>(<%= Encode.forHtml(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>)
                         </td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
@@ -240,7 +240,7 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn" valign="top"><a
-                    href="<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=request.getParameter("demographic_no")%>&apptProvider=<%=session.getAttribute("user") %>&displaymode=edit&dboperation=search_detail"
+                    href="<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&apptProvider=<%=session.getAttribute("user") %>&displaymode=edit&dboperation=search_detail"
                     onMouseOver="self.status=document.referrer;return true">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></a>
                 <br/>
@@ -334,7 +334,7 @@
                             bgcolor="<%=bodd?weakColor:"white"%>" appt_no="<%=appointment.getId().toString()%>"
                             demographic_no="<%=demographic_no%>" provider_no="<%=provider!=null?provider.getId():""%>">
                         <td align="center"><a href=#
-                                              onClick="popupPageNew(360,680, '<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp?demographic_no=<%=demographic_no%>&appointment_no=<%=appointment.getId().toString()%>&displaymode=edit&dboperation=search');return false;"><%=appointment.getAppointmentDate()%>
+                                              onClick="popupPageNew(360,680, '<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&appointment_no=<%=Encode.forJavaScriptAttribute(appointment.getId().toString())%>&displaymode=edit&dboperation=search');return false;"><%=appointment.getAppointmentDate()%>
                         </a></td>
                         <td align="center"><%=appointment.getStartTime()%>
                         </td>
@@ -342,15 +342,15 @@
                         </td>
                         <td align="center">
                             <%if (as != null && as.getDescription() != null) {%>
-                            <%=as.getDescription()%>
+                            <%=Encode.forHtml(as.getDescription())%>
                             <% } %>
                         </td>
-                        <td><%=appointment.getType() %>
+                        <td><%=Encode.forHtml(appointment.getType())%>
                         </td>
                         <td><%=(reasonCodeName != null && !reasonCodeName.isEmpty()) ? reasonCodeName : ""%><%=(appointment.getReason() != null && !appointment.getReason().isEmpty()) ? ((reasonCodeName != null && !reasonCodeName.isEmpty()) ? " - " : "") + UtilMisc.htmlEscape(appointment.getReason()) : ""%>
                         </td>
                         <% if (provider != null) {%>
-                        <td><%=(provider.getLastName() == null ? "N/A" : provider.getLastName()) + "," + (provider.getFirstName() == null ? "N/A" : provider.getFirstName())%>
+                        <td><%=Encode.forHtml((provider.getLastName() == null ? "N/A" : provider.getLastName()) + "," + (provider.getFirstName() == null ? "N/A" : provider.getFirstName()))%>
                         </td>
                         <%} else { %>
                         <td>N/A</td>
@@ -402,14 +402,14 @@
                     nPrevPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
                     if (nPrevPage >= 0) {
                 %>
-                <a href="demographiccontrol.jsp?demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no"))%>&displaymode=<%=Encode.forUriComponent(request.getParameter("displaymode"))%>&dboperation=<%=Encode.forUriComponent(request.getParameter("dboperation"))%>&orderby=<%=Encode.forUriComponent(request.getParameter("orderby"))%>&limit1=<%=nPrevPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
+                <a href="demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&displaymode=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("displaymode"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nPrevPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.btnPrevPage"/></a>
                 <%
                     }
 
                     if (nItems >= Integer.parseInt(strLimit2)) {
                 %>
-                <a href="demographiccontrol.jsp?demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no"))%>&displaymode=<%=Encode.forUriComponent(request.getParameter("displaymode"))%>&dboperation=<%=Encode.forUriComponent(request.getParameter("dboperation"))%>&orderby=<%=Encode.forUriComponent(request.getParameter("orderby"))%>&limit1=<%=nNextPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
+                <a href="demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&displaymode=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("displaymode"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.btnNextPage"/></a>
                 <%
                     }

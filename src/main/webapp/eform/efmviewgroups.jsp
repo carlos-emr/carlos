@@ -31,6 +31,7 @@
 
 <%@ page import="java.util.*, io.github.carlos_emr.carlos.eform.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
@@ -71,7 +72,7 @@
     <input type="hidden" name="demographic_no" value="<%=demographic_no%>">
     <input type="hidden" name="apptProvider" value="<%=apptProvider%>">
     <input type="hidden" name="appointment" value="<%=appointment%>">
-    <input type="hidden" name="parentAjaxId" value="<%=parentAjaxId%>">
+    <input type="hidden" name="parentAjaxId" value="<%= Encode.forHtmlAttribute(parentAjaxId) %>">
     <div class="grouplist">
         <div class="grouplistHeader"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgViewGroup"/>:</div>
         <ul class="grouplist">

@@ -63,15 +63,27 @@
         return;
     }
 %>
-
+<%@ page import="java.net.URLEncoder" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="java.sql.ResultSet" %>
+<%@ page import="java.util.Calendar" %>
+<%@ page import="java.util.GregorianCalendar" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%
     String country = request.getLocale().getCountry();
+    CarlosProperties carlosVariables = CarlosProperties.getInstance();
+    String prov = (carlosVariables.getProperty("billregion", "")).trim().toUpperCase();
 
+    LoggedInInfo loggedInInfo1 = LoggedInInfo.getLoggedInInfoFromSession(request);
     ProviderPreference providerPreference = (ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE);
     String curUser_no = (String) session.getAttribute("user");
     String mygroupno = "";
@@ -79,22 +91,15 @@
         mygroupno = providerPreference.getMyGroupNo();
     }
     mygroupno = StringUtils.trimToEmpty(mygroupno);
-    String billingRegion = (io.github.carlos_emr.CarlosProperties.getInstance()).getProperty("billregion");
 %>
-<%@ page
-        import="java.util.*, io.github.carlos_emr.*, java.sql.*, java.text.*, java.net.*"
-        errorPage="/errorpage.jsp" %>
+
 <jsp:useBean id="reportMainBean" class="io.github.carlos_emr.AppointmentMainBean"
              scope="session"/>
 <% if (!reportMainBean.getBDoConfigure()) { %>
 <%@ include file="reportMainBeanConn.jspf" %>
 <% } %>
 
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%
     boolean isSiteAccessPrivacy = false;
@@ -274,13 +279,28 @@
                 </td>
                 <td width="1"></td>
                 <td width="300"><a
-                        href="<%= request.getContextPath() %>/oscarPrevention/PreventionReporting.jsp" target="_blank"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.btnReport18n"/></a></td>
+                        href="<%= request.getContextPath() %>/oscarPrevention/PreventionReporting.jsp" target="_blank"><fmt:message key="report.reportindex.btnReport18n"/></a></td>
                 <td></td>
                 <td></td>
                 <td></td>
                 <td></td>
             </tr>
-
+            <security:oscarSec roleName="<%=roleName2$%>" objectName="_admin,_billing" rights="r" reverse="<%=false%>">
+            <% if (StringUtils.isNotBlank(prov)) { %>
+            <tr>
+                <td width="2"><%=j%>
+                    <%j++;%>
+                </td>
+                <td width="1"></td>
+                <td width="300">
+                  <a href="<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&amp;providerview=<%=URLEncoder.encode(loggedInInfo1.getLoggedInProviderNo(), StandardCharsets.UTF_8)%>" target="_blank"><fmt:message key="global.genBillReport"/></a></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+            <% } %>
+            </security:oscarSec>
         </table>
     </form>
     </div>

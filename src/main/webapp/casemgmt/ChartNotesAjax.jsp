@@ -71,7 +71,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
@@ -112,8 +111,6 @@
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     Facility facility = loggedInInfo.getCurrentFacility();
-    ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
-
     EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
 EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
 
@@ -275,7 +272,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         String issuesToHide = CarlosProperties.getInstance().getProperty("encounter.hide_notes_with_issue", "");
         String[] is = issuesToHide.split(",");
 
-        boolean remoteCapableProfessionalSpecialists = professionalSpecialistDao.hasRemoteCapableProfessionalSpecialists();
 
         int currentNcId = 0;
         String strCurrentNcId = null;
@@ -486,14 +482,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             <%
                 }
 
-                if (remoteCapableProfessionalSpecialists) {
-            %>
-            <a href="javascript:void(0)"
-               onclick="window.open('<%=request.getContextPath()+"/lab/CA/ALL/sendOruR01.jsp?noteId="+globalNoteId%>', 'eSend');return(false);"
-               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.eSendTitle"/>"
-               style="float: right; margin-right: 5px;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.eSend"/></a>
-            <%
-                    }
                 }
             } else if (note.isRxAnnotation())//prescription note
             {

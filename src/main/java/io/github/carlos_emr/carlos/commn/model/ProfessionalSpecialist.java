@@ -72,10 +72,6 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
     @Column(name = "specType")
     private String specialtyType;
 
-    private String eDataUrl;
-    private String eDataOscarKey;
-    private String eDataServiceKey;
-    private String eDataServiceName;
     private String annotation;
 
     private String referralNo;
@@ -218,38 +214,6 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
         this.lastUpdated = lastUpdated;
     }
 
-
-    public String geteDataUrl() {
-        return eDataUrl;
-    }
-
-    public void seteDataUrl(String eDataUrl) {
-        this.eDataUrl = StringUtils.trimToNull(eDataUrl);
-    }
-
-    public String geteDataOscarKey() {
-        return eDataOscarKey;
-    }
-
-    public void seteDataOscarKey(String eDataOscarKey) {
-        this.eDataOscarKey = StringUtils.trimToNull(eDataOscarKey);
-    }
-
-    public String geteDataServiceKey() {
-        return eDataServiceKey;
-    }
-
-    public void seteDataServiceKey(String eDataServiceKey) {
-        this.eDataServiceKey = StringUtils.trimToNull(eDataServiceKey);
-    }
-
-    public String geteDataServiceName() {
-        return eDataServiceName;
-    }
-
-    public void seteDataServiceName(String eDataServiceName) {
-        this.eDataServiceName = StringUtils.trimToNull(eDataServiceName);
-    }
 
     public boolean isDeleted() {
         return deleted;

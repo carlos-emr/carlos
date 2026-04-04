@@ -70,11 +70,8 @@
 
 <%@page import="java.util.HashMap" %>
 <%@ page import="java.util.List" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.OscarMsgType" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
@@ -625,7 +622,6 @@ function fmtOscarMsg() {
 						</tr>
                         <%-- Display demographics already linked to this message with
                              encounter (E), prescription (Rx), and appointment shortcuts --%>
-                        <% int demoCount = 0; %>
                         <c:forEach items="${ attachedDemographics }" var="demographic">
              			<c:set var="demographicNumber" value="${ demographic.key }" />
 							<tr>
@@ -637,48 +633,10 @@ function fmtOscarMsg() {
 									title="${ fn:escapeXml(demographic.key) }">
                                 <span class="DoNotPrint">
 								<%
-									CaseManagementNoteDAO caseManagementNoteDAO = SpringUtils.getBean(CaseManagementNoteDAO.class);
-									String params = "";
-									String msgType = (String) session.getAttribute("msgType");
-
-									if (msgType != null) {
-									    Integer msgTypeInt = ConversionUtils.fromIntString(msgType);
-									    if (msgTypeInt > 0 && msgTypeInt.equals(OscarMsgType.OSCAR_REVIEW_TYPE)) {
-									        HashMap < String, List < String >> hashMap = (HashMap < String, List < String >> ) session.getAttribute("msgTypeLink");
-									        if (hashMap != null) {
-									            List < String > demoList = hashMap.get((String) pageContext.getAttribute("demographicNumber"));
-
-									            if (demoList != null && demoCount < demoList.size()) {
-									                String[] val = demoList.get(demoCount).split(":");
-									                if (val.length == 3) {
-									                    String note_id = "";
-									                    Long noteIdLong = ConversionUtils.fromLongString(val[2]);
-									                    CaseManagementNote note = noteIdLong > 0L ? caseManagementNoteDAO.getNote(noteIdLong) : null;
-									                    if (note != null) {
-									                        String uuid = note.getUuid();
-									                        List < CaseManagementNote > noteList = caseManagementNoteDAO.getNotesByUUID(uuid);
-									                        if (noteList != null && !noteList.isEmpty()) {
-									                            if (noteList.get(noteList.size() - 1).getId().equals(note.getId())) {
-									                                note_id = String.valueOf(note.getId());
-									                            } else {
-									                                note_id = String.valueOf(noteList.get(noteList.size() - 1).getId());
-									                            }
-									                        }
-									                    }
-
-									                    params = "&appointmentNo=" + Encode.forUriComponent(val[0].equalsIgnoreCase("null") ? "" : val[0]) + "&msgType=" + Encode.forUriComponent(msgType) + "&OscarMsgTypeLink=" + Encode.forUriComponent(val[1]) + "&noteId=" + Encode.forUriComponent(note_id);
-									                } else {
-									                    params = "";
-									                }
-									            }
-									        }
-									    }
-									}
-
                                     String demoKeyJs = Encode.forJavaScript((String) (pageContext.getAttribute("demographicNumber")+""));
                                     %>
                                     <a href="javascript:popupViewAttach(700,960,'../demographic/demographiccontrol.jsp?demographic_no=<%=demoKeyJs%>&displaymode=edit&dboperation=search_detail')"><fmt:message key="global.M" /></a>
-                                    <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../encounter/IncomingEncounter.do?demographicNo=<%=demoKeyJs%>&curProviderNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%><%=Encode.forJavaScript(params)%>');return false;"><fmt:message key="global.E" /></a>
+                                    <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../encounter/IncomingEncounter.do?demographicNo=<%=demoKeyJs%>&curProviderNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>');return false;"><fmt:message key="global.E" /></a>
                                     <a href="javascript:popupViewAttach(700,960,'../oscarRx/choosePatient.do?providerNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>&demographicNo=<%=demoKeyJs%>')">Rx</a>
                                 </span>
 								</td>
@@ -698,7 +656,6 @@ function fmtOscarMsg() {
 									title="<fmt:message key="messenger.ViewMessage.clickApptHx" />"><fmt:message key="encounter.oscarConsultationRequest.consultationFormPrint.msgappDate" />   <oscar:nextAppt demographicNo="${ demographic.key }" /></a></td>
 								<td></td>
 							</tr>
-						<% ++demoCount; %>
 						</c:forEach>
 
 					</c:otherwise>

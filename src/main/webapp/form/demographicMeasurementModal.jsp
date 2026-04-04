@@ -123,6 +123,7 @@
      * @param appointmentNo - The appointment the form is created on
      */
     function displayDemographicMeasurements(elementId, measurementType, demographicNo, demographicDobString, appointmentNo) {
+        existingMeasurementUsed = false;
         let demographicDob = new Date(demographicDobString);
 
         local_jQuery.ajax({
@@ -131,11 +132,43 @@
             async: false,
             dataType: 'json',
             success: function (data) {
-                // On successful retrieval of the measurement data, a modal body will be constructed with the list for selection
-                let modalHeader = "<h4 class=\"measurement-modal-header\">" + measurementTypeMap[measurementType].name + "</h4>";
-                let measurementValueInput = "Current Value: <input type=\"text\" id=\"currentMeasurementValue\" value=\"" + document.getElementById(elementId).value + "\" onkeydown=\"resetInstructions('" + measurementType + "')\"/> <span id=\"measurementInstruction\">" + measurementTypeMap[measurementType].instructions + "</span>";
-                let observationDateInput = "Observation Date: <input type=\"date\" id=\"currentMeasurementObservationDate\" value=\"" + new Date().toISOString().slice(0, 10) + "\"/>";
-                let body = "<div class=\"view-height-75-scroll\">" + modalHeader + "<div>" + measurementValueInput + "<br/>" + observationDateInput + "</div>";
+                // Build modal content using DOM APIs instead of HTML string concatenation to prevent XSS
+                let bodyContent = document.createElement('div');
+                bodyContent.className = 'view-height-75-scroll';
+
+                // Header
+                let header = document.createElement('h4');
+                header.className = 'measurement-modal-header';
+                header.textContent = measurementTypeMap[measurementType].name;
+                bodyContent.appendChild(header);
+
+                // Input area
+                let inputDiv = document.createElement('div');
+                inputDiv.appendChild(document.createTextNode('Current Value: '));
+
+                let currentValueInput = document.createElement('input');
+                currentValueInput.type = 'text';
+                currentValueInput.id = 'currentMeasurementValue';
+                currentValueInput.value = document.getElementById(elementId).value;
+                currentValueInput.addEventListener('keydown', function () { resetInstructions(measurementType); });
+                inputDiv.appendChild(currentValueInput);
+                inputDiv.appendChild(document.createTextNode(' '));
+
+                let instructionSpan = document.createElement('span');
+                instructionSpan.id = 'measurementInstruction';
+                instructionSpan.textContent = measurementTypeMap[measurementType].instructions;
+                inputDiv.appendChild(instructionSpan);
+
+                inputDiv.appendChild(document.createElement('br'));
+
+                inputDiv.appendChild(document.createTextNode('Observation Date: '));
+                let obsDateInput = document.createElement('input');
+                obsDateInput.type = 'date';
+                obsDateInput.id = 'currentMeasurementObservationDate';
+                obsDateInput.value = new Date().toISOString().slice(0, 10);
+                inputDiv.appendChild(obsDateInput);
+
+                bodyContent.appendChild(inputDiv);
 
                 if (data[-1] !== null && data[-1] !== "No Results Found") {
                     local_jQuery.each(data, function () {
@@ -175,19 +208,36 @@
                         }
 
                         let obsDate = new Date(this.dateObserved.time).toISOString().slice(0, 10);
-                        body += "<a href=\"#\"><p onclick=\"setDemographicMeasurementModalValues('" + this.dataField + "', '" + this.measuringInstruction + "', '" + obsDate + "'); return false;\">" + this.dataField + " " + this.measuringInstruction + " (" + obsDate + " - " + ageDisplay + ")</p></a>";
+
+                        // Capture values for the event-listener closure
+                        let dataField = this.dataField;
+                        let measuringInstruction = this.measuringInstruction;
+
+                        let anchor = document.createElement('a');
+                        anchor.href = '#';
+                        anchor.addEventListener('click', function (e) {
+                            e.preventDefault();
+                            setDemographicMeasurementModalValues(dataField, measuringInstruction, obsDate);
+                        });
+
+                        let para = document.createElement('p');
+                        para.textContent = dataField + ' ' + measuringInstruction + ' (' + obsDate + ' - ' + ageDisplay + ')';
+                        anchor.appendChild(para);
+                        bodyContent.appendChild(anchor);
                     });
                 }
 
-                body += "</div>";
-
-                showMeasurementDialog(body, function (save) {
+                showMeasurementDialog(bodyContent, function (save) {
                     if (save && !existingMeasurementUsed) {
                         // If the user clicks save, complete an ajax call that will save a new measurement record to the database
                         local_jQuery.ajax({
                             type: 'POST',
-                            url: '<%=request.getContextPath()%>/encounter/MeasurementData.do?action=saveMeasurement&demographicNo=' + demographicNo + '&appointmentNo=' + appointmentNo + '&type=' + measurementType +
-                                '&value=' + document.getElementById("currentMeasurementValue").value + '&instruction=' + document.getElementById('measurementInstruction').innerHTML + "&dateObserved=" + document.getElementById('currentMeasurementObservationDate').value,
+                            url: '<%=request.getContextPath()%>/encounter/MeasurementData.do?action=saveMeasurement&demographicNo=' + demographicNo + '&appointmentNo=' + appointmentNo + '&type=' + measurementType,
+                            data: {
+                                value: document.getElementById("currentMeasurementValue").value,
+                                instruction: document.getElementById('measurementInstruction').textContent,
+                                dateObserved: document.getElementById('currentMeasurementObservationDate').value
+                            },
                             dataType: 'json',
                             async: false,
                             success: function (data) {
@@ -227,11 +277,11 @@
      * Shows a confirm-style dialog with Save and Okay buttons.
      * Calls callback(true) on Save, callback(false) on Okay.
      * Supports keyboard dismissal (ESC cancels) and overlay-click to cancel.
-     * Note: bodyHtml is constructed from server measurement data within displayDemographicMeasurements(),
-     * not from user input. It contains onclick/onkeydown handlers that must be preserved, so
-     * DOMPurify cannot be used here (it strips event handler attributes by default).
+     *
+     * @param bodyNode - A DOM node to append as the dialog body content
+     * @param callback - Called with true on Save, false on Okay/Cancel
      */
-    function showMeasurementDialog(bodyHtml, callback) {
+    function showMeasurementDialog(bodyNode, callback) {
         var overlay = document.createElement('div');
         overlay.className = 'meas-dialog-overlay';
 
@@ -240,7 +290,7 @@
 
         var bodyDiv = document.createElement('div');
         bodyDiv.className = 'meas-dialog-body';
-        bodyDiv.innerHTML = bodyHtml;
+        bodyDiv.appendChild(bodyNode);
 
         var footer = document.createElement('div');
         footer.className = 'meas-dialog-footer';

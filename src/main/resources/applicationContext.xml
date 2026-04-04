@@ -292,8 +292,6 @@
 	<bean id="measurementManager" class="io.github.carlos_emr.carlos.managers.MeasurementManagerImpl"></bean>
 	<bean id="prescriptionManager" class="io.github.carlos_emr.carlos.managers.PrescriptionManagerImpl"></bean>
 	<bean id="formsManager" class="io.github.carlos_emr.carlos.managers.FormsManagerImpl"></bean>
-	<bean id="drugDispensingManager" class="io.github.carlos_emr.carlos.managers.DrugDispensingManagerImpl"></bean>
-	<bean id="drugProductManager" class="io.github.carlos_emr.carlos.managers.DrugProductManagerImpl"></bean>
 	<bean id="rxManager" class="io.github.carlos_emr.carlos.managers.RxManagerImpl"></bean> -->
 	<!-- <bean id="drugConverter" class="io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl"></bean>
 	<bean id="prescriptionConverter" class="io.github.carlos_emr.carlos.webserv.rest.conversion.PrescriptionConverterImpl"></bean>

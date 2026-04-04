@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="/struts-tags" prefix="s" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -212,6 +213,13 @@
 </head>
 <body>
 <div class="card card-body bg-body-tertiary">
+
+    <%-- Display Struts action errors (e.g., failed HL7 generation) --%>
+    <s:if test="hasActionErrors()">
+        <div class="alert alert-danger" role="alert">
+            <s:actionerror/>
+        </div>
+    </s:if>
 
     <form name="testForm" method="post" action="<%=request.getContextPath()%>/oscarMDS/SubmitLab.do?method=saveManage"
           onsubmit="return confirmSave();">
