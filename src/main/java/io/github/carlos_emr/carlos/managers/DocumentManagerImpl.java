@@ -403,6 +403,13 @@ public class DocumentManagerImpl implements DocumentManager {
             return null;
         }
 
+        // Reject filenames containing path separators. Stored filenames are plain basenames;
+        // silently stripping a subdirectory component could resolve to a different file.
+        if (filename.contains("/") || filename.contains("\\")) {
+            logger.error("Document filename contains path separator, rejected: {}", Encode.forJava(filename));
+            return null;
+        }
+
         String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
         File validatedFile;

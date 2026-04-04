@@ -108,7 +108,7 @@ public class printLabDaySheet2Action extends ActionSupport {
                     if (resolved != null) {
                         safeXmlStyleFile = resolved;
                     } else {
-                        logger.error("Invalid xmlStyle parameter rejected: " + Encode.forJava(baseName));
+                        logger.error("Invalid xmlStyle parameter rejected: {}", Encode.forJava(baseName));
                     }
                 }
                 
