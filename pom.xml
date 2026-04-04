@@ -1122,6 +1122,13 @@
             <scope>compile</scope>
         </dependency>
 
+        <!-- MaxMind GeoIP2 for country-level geolocation (Canada-only WAF filtering) -->
+        <dependency>
+            <groupId>com.maxmind.geoip2</groupId>
+            <artifactId>geoip2</artifactId>
+            <version>4.2.1</version>
+        </dependency>
+
         <!-- ==================== Testing ==================== -->
 
         <!-- Mockito for Java 21 -->

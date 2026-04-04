@@ -27,10 +27,22 @@
                        resourceName="UserDatabase"/>
             </Realm>
             <Host name="localhost" appBase="webapps" unpackWARs="true" autoDeploy="true">
+                <!-- Detect and interrupt threads stuck for more than 5 minutes (DoS protection).
+                     Prevents resource exhaustion from hung connections or long-running requests. -->
+                <Valve className="org.apache.catalina.valves.StuckThreadDetectionValve"
+                       threshold="300"
+                       interruptThreadThreshold="600"/>
+
                 <Valve className="org.apache.catalina.valves.AccessLogValve"
                        directory="logs"
                        prefix="localhost_access_log." suffix=".txt"
                        pattern="%h %l %u %t &quot;%r&quot; %s %b"/>
+
+                <!-- Production: uncomment to restrict access to specific IP ranges.
+                <Valve className="org.apache.catalina.valves.RemoteCIDRValve"
+                       allow="10.0.0.0/8|172.16.0.0/12|192.168.0.0/16"
+                       denyStatus="403"/>
+                -->
             </Host>
         </Engine>
     </Service>

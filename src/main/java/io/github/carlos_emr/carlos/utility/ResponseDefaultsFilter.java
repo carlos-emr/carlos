@@ -59,6 +59,11 @@ import jakarta.servlet.http.HttpServletResponse;
  *   <li>{@code X-Permitted-Cross-Domain-Policies: none} — blocks Flash/Acrobat cross-domain data loading</li>
  *   <li>{@code Permissions-Policy: camera=(), microphone=(), geolocation=()} — restricts unused browser APIs</li>
  *   <li>{@code X-Content-Type-Options: nosniff} — prevents MIME type sniffing attacks</li>
+ *   <li>{@code Referrer-Policy: strict-origin-when-cross-origin} — prevents PHI leakage in referrer headers</li>
+ *   <li>{@code Cross-Origin-Opener-Policy: same-origin} — isolates browsing context</li>
+ *   <li>{@code Cross-Origin-Resource-Policy: same-origin} — prevents cross-origin resource reads</li>
+ *   <li>{@code Content-Security-Policy-Report-Only} — XSS defense-in-depth (report-only until tuned)</li>
+ *   <li>{@code Strict-Transport-Security} — HTTPS enforcement (only on secure connections)</li>
  * </ul>
  *
  * @since 2012 (OSCAR McMaster heritage; security headers added 2026-02-26)
@@ -153,7 +158,7 @@ public final class ResponseDefaultsFilter implements Filter {
             this.setCaching(request, (HttpServletResponse) response);
         }
 
-        setSecurityHeaders(response);
+        setSecurityHeaders(request, response);
 
         if (this.forceStrongETag || this.warnCharsetCacheChange) {
             response = new ResponseDefaultsFilterResponseWrapper((HttpServletResponse) response, this.forceStrongETag, this.warnCharsetCacheChange);
@@ -165,7 +170,7 @@ public final class ResponseDefaultsFilter implements Filter {
         // The committed check is required because headers cannot be sent after the
         // response body has already been flushed to the client.
         if (!response.isCommitted()) {
-            setSecurityHeaders(response);
+            setSecurityHeaders(request, response);
         }
     }
 
@@ -195,9 +200,20 @@ public final class ResponseDefaultsFilter implements Filter {
      * Sets security headers on every response. Replaces the ESAPI ClickjackFilter
      * that previously only set X-Frame-Options.
      *
+     * <p>Headers are grouped by purpose:
+     * <ol>
+     *   <li><strong>Framing/embedding protection</strong> — X-Frame-Options, COOP, CORP, Cross-Domain</li>
+     *   <li><strong>Content type protection</strong> — X-Content-Type-Options</li>
+     *   <li><strong>Browser feature restrictions</strong> — Permissions-Policy</li>
+     *   <li><strong>Referrer privacy</strong> — Referrer-Policy (prevents PHI leakage in referrer headers)</li>
+     *   <li><strong>XSS defense-in-depth</strong> — Content-Security-Policy-Report-Only</li>
+     *   <li><strong>Transport security</strong> — Strict-Transport-Security (HTTPS only)</li>
+     * </ol>
+     *
+     * @param request  HttpServletRequest the incoming request (used for HSTS secure check)
      * @param response HttpServletResponse the response to add headers to
      */
-    private void setSecurityHeaders(HttpServletResponse response) {
+    private void setSecurityHeaders(HttpServletRequest request, HttpServletResponse response) {
         // Clickjack protection (replaces ESAPI ClickjackFilter)
         response.setHeader("X-Frame-Options", "SAMEORIGIN");
 
@@ -205,10 +221,39 @@ public final class ResponseDefaultsFilter implements Filter {
         response.setHeader("X-Permitted-Cross-Domain-Policies", "none");
 
         // Restrict browser features not used by this application
-        response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+        response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
 
         // Prevent MIME type sniffing (defense-in-depth for content-type handling)
         response.setHeader("X-Content-Type-Options", "nosniff");
+
+        // Prevent PHI leakage in referrer headers — full URL for same-origin, origin-only for cross-origin
+        response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+
+        // Isolate browsing context from cross-origin windows (prevents Spectre-class attacks)
+        response.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+
+        // Prevent cross-origin reads of application resources
+        response.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+
+        // Content-Security-Policy in Report-Only mode — logs violations without breaking pages.
+        // The 'unsafe-inline' and 'unsafe-eval' directives are required for legacy JSP inline
+        // scripts and jQuery; tighten these as inline scripts are migrated to external files.
+        // Bootstrap 5.3 and fonts are loaded from cdn.jsdelivr.net.
+        response.setHeader("Content-Security-Policy-Report-Only",
+                "default-src 'self'; "
+                + "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+                + "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                + "img-src 'self' data:; "
+                + "font-src 'self' https://cdn.jsdelivr.net; "
+                + "frame-ancestors 'self'; "
+                + "base-uri 'self'; "
+                + "form-action 'self'");
+
+        // HSTS — only set on secure (HTTPS) connections to avoid breaking HTTP dev environments.
+        // 2-year max-age per OWASP recommendation; includeSubDomains for comprehensive coverage.
+        if (request.isSecure()) {
+            response.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
+        }
     }
 
     /**
