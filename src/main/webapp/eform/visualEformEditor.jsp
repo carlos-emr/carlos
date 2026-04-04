@@ -2036,12 +2036,15 @@ var EFORM_I18N = {
 
         function showSource(include_fax) {
             var source = generate_eform_source_html(true, include_fax);
-            //now open the window and set the source as the content
-            var sourceWindow = window.open('', 'Source of page', 'height=800,width=800,scrollbars=1,resizable=1');
-            sourceWindow.document.write(source);
-            sourceWindow.document.title = "eForm Source";
-            sourceWindow.document.close(); //close the document for writing, not the window
-            //give source window focus
+            // Use a Blob URL to load the content into a new window, avoiding document.write
+            // with DOM-sourced HTML (CodeQL: DOM text reinterpreted as HTML).
+            var blob = new Blob([source], {type: 'text/html'});
+            var url = URL.createObjectURL(blob);
+            var sourceWindow = window.open(url, 'Source of page', 'height=800,width=800,scrollbars=1,resizable=1');
+            // Revoke the object URL once the window has loaded to free memory
+            if (sourceWindow) {
+                sourceWindow.addEventListener('load', function() { URL.revokeObjectURL(url); });
+            }
             if (window.focus) sourceWindow.focus();
         }
 
@@ -2643,11 +2646,10 @@ var EFORM_I18N = {
 
             var $div = $(data);
 
-			var imported_form = $div.find("#inputForm").html();
+			var $importedInputForm = $div.find("#inputForm");
 			//May-01-2024 Peter Hutten-Czapski
-            var ferengi = false;
-            if (typeof(imported_form)=="undefined")  {
-                ferengi = true;
+            var ferengi = ($importedInputForm.length === 0);
+            if (ferengi) {
                 if ( typeof($div.find("[id^='BGImage']").html() ) == "undefined" ){
                     custom_alert("We are currently unable to convert eform "+eformName+" as it lacks any recognisable background images.");
                     return;
@@ -2656,11 +2658,15 @@ var EFORM_I18N = {
                     custom_alert("We are currently unable to convert eform "+eformName+" as it lacks a recognisable page structure.");
                     return;
                 }
-			    imported_form = loadPages($div);
             }
 
             var $inputForm = $("#inputForm");
-            $inputForm.html(imported_form);
+            if (ferengi) {
+                $inputForm.html(loadPages($div));
+            } else {
+                // Move child nodes directly to avoid the DOM-text-to-HTML roundtrip (.html() read → .html() write)
+                $inputForm.empty().append($importedInputForm.contents());
+            }
 
             // as checkboxes are now Xboxes the only checkboxes left are in the form controls
             $inputForm.find('[checked]').each(function(){
@@ -2799,12 +2805,9 @@ var EFORM_I18N = {
 
 			//console.log($inputForm.html());
 			$('#defaultFaxNo').val(defaultFaxNo);
-			// extract the form with id of inputForm from the imported form
-            var imported_form = $div.find("#inputForm").html();
-			//var imported_form = $div.find("#formName").html();//May-01-2024
-
-            var $inputForm = $("#inputForm");
-            $inputForm.html(imported_form);
+            // inputForm content was already set above (via DOM node movement for standard forms,
+            // or via loadPages for Ferengi forms). The original redundant re-read and re-injection
+            // has been removed to prevent an empty-string overwrite after DOM node movement.
 
             // TODO -- combine with generic makeDraggables and addNewPage
             var $input_elements = $(".input_elements");
@@ -4602,19 +4605,17 @@ var EFORM_I18N = {
                 var style1 = document.getElementById('eform_style').innerHTML;
                 var style2 = document.getElementById('eform_style_shapes').innerHTML;
                 var style3 = document.getElementById('eform_style_signature').innerHTML;
-                var newWin = window.open('', 'Print-Window');
-                newWin.document.open();
+                // Build the print HTML; window.print() + close are triggered via onload in the page itself.
+                // A 1 s close delay ensures Firefox shows the print dialog before the window closes.
                 var htmlPrint = '<html><head><title>' + escapeHtmlText(eformName) + '</title><style>' + style1 + style2 + style3 +
-                    '</style></'+'head><body onload="window.print()">' + divToPrint.innerHTML + '</body></html>';
-                newWin.document.write(htmlPrint);
-                newWin.document.close();
-                var timeout = 1;
-                if (inFirefox) {
-                    timeout = 1000;
+                    '</style></'+'head><body onload="window.print();setTimeout(function(){window.close();},1000);">' + divToPrint.innerHTML + '</body></html>';
+                // Use a Blob URL instead of document.write to avoid DOM text reinterpreted as HTML
+                var blob = new Blob([htmlPrint], {type: 'text/html'});
+                var url = URL.createObjectURL(blob);
+                var newWin = window.open(url, 'Print-Window');
+                if (newWin) {
+                    newWin.addEventListener('load', function() { URL.revokeObjectURL(url); });
                 }
-                newWin.setTimeout(function() {
-                    newWin.close();
-                }, timeout);
             };
             onEformPrintSubmit = function() {
                 onEformPrint();
