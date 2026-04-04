@@ -69,18 +69,30 @@ public final class XmlUtils {
      * <p>Disables DOCTYPE declarations and external entity resolution to prevent XXE attacks.
      * Use this factory method instead of {@code new SAXBuilder()} throughout the codebase.
      *
+     * <p>The critical {@code disallow-doctype-decl} feature is required — an
+     * {@link IllegalStateException} is thrown if it cannot be applied so that callers
+     * never receive an unprotected parser. The remaining defense-in-depth features are
+     * applied on a best-effort basis; a warning is logged if any of them cannot be set.
+     *
      * @return SAXBuilder configured with XXE protections
+     * @throws IllegalStateException if the critical disallow-doctype-decl protection cannot be enabled
      */
     public static SAXBuilder createSecureSAXBuilder() {
         SAXBuilder parser = new SAXBuilder();
+        // Critical protection — fail closed if it cannot be applied
         try {
             parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to enable required XXE protection (disallow-doctype-decl)", ex);
+        }
+        // Defense-in-depth features — warn if unavailable but still return the parser
+        try {
             parser.setFeature("http://xml.org/sax/features/external-general-entities", false);
             parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
             parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
             parser.setExpandEntities(false);
         } catch (Exception ex) {
-            logger.warn("Could not configure SAXBuilder security features: " + ex.getMessage());
+            logger.warn("Could not configure optional SAXBuilder security features", ex);
         }
         return parser;
     }

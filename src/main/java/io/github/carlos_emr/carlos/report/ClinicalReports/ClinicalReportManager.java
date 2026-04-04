@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.report.ClinicalReports;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Hashtable;
@@ -354,6 +355,13 @@ public class ClinicalReportManager {
                     }
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("Error", e);
+                } finally {
+                    if (is != null) {
+                        try {
+                            is.close();
+                        } catch (IOException ignored) {
+                        }
+                    }
                 }
                 loaded = true;
             }
