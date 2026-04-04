@@ -74,18 +74,18 @@
                             <e:forHtmlContent value='${labRead}${labResult.patientName}' />
                         </a>
                     </td>
-                    <td><c:out value="${labResult.sex}" /></td>
+                    <td>${e:forHtml(labResult.sex)}</td>
                     <td><c:if test="${labResult.resultStatus == 'A'}"><fmt:message key="inboxhub.list.abnormal"/></c:if></td>
-                    <td><c:out value="${labResult.label == 'null' ? '' : labResult.label}" /></td>
-                    <td><c:out value="${labResult.dateTime}" /><c:out value="${labResult.document ? ' / ' : ''}" /><c:out value="${labResult.document ?  labResult.lastUpdateDate : ''}"/></td>
-                    <td><c:out value="${labResult.requestingClient}" /></td>
-                    <td><c:out value="${labResult.document ? (labResult.description == null ? '' : labResult.description) : labResult.disciplineDisplayString}" /></td>
-                    <td><c:out value="${labResult.reportStatus}" /></td>
+                    <td>${e:forHtml(labResult.label == 'null' ? '' : labResult.label)}</td>
+                    <td>${e:forHtml(labResult.dateTime)}${labResult.document ? ' / ' : ''}${e:forHtml(labResult.document ? labResult.lastUpdateDate : '')}</td>
+                    <td>${e:forHtml(labResult.requestingClient)}</td>
+                    <td>${e:forHtml(labResult.document ? (labResult.description == null ? '' : labResult.description) : labResult.disciplineDisplayString)}</td>
+                    <td>${e:forHtml(labResult.reportStatus)}</td>
                     <td>
                         <c:set var="multiLabCount" value="${labResult.multipleAckCount}" />
-                        <c:out value="${labResult.ackCount}" />&nbsp;
+                        ${e:forHtml(labResult.ackCount)}&nbsp;
                         <c:if test="${multiLabCount >= 0}">
-                            (<c:out value="${labResult.multipleAckCount}" />)
+                            (${e:forHtml(labResult.multipleAckCount)})
                         </c:if>
                     </td>
                 </tr>

@@ -48,7 +48,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
   <div class="card-body p-2">
     <div class="d-grid">
         <input type="checkbox" class="btn-check btn-sm" name="viewMode2" id="btnViewMode2" autocomplete="off" onchange="fetchInboxhubDataByMode(this)" ${query.viewMode ? 'checked' : ''}>
-        <label class="btn btn-secondary btn-sm" id="btnViewModeLabel" for="btnViewMode2"><c:out value="${query.viewMode ? 'List Mode' : 'Preview Mode'}" /></label>
+        <label class="btn btn-secondary btn-sm" id="btnViewModeLabel" for="btnViewMode2"><c:choose><c:when test="${query.viewMode}"><fmt:message key="inboxhub.form.listMode"/></c:when><c:otherwise><fmt:message key="inboxhub.form.previewMode"/></c:otherwise></c:choose></label>
     </div>
   </div>
 </div>
@@ -58,7 +58,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     <div class="accordion-item">
         <h2 class="accordion-header" id="headingSearch">
             <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSearch" aria-expanded="true" aria-controls="collapseSearch">
-                Search
+                <fmt:message key="inboxhub.form.search"/>
             </button>
         </h2>
         <div id="collapseSearch" class="accordion-collapse collapse show" aria-labelledby="headingSearch" data-bs-parent="#inbox-hub-search">
@@ -126,7 +126,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                     <div class="input-group input-group-sm">
                                         <input class="form-control pe-0 mb-1 mx-1" type="text" name="query.patientHealthNumber" id="inputHIN" value="<e:forHtmlAttribute value='${query.patientHealthNumber}'/>" placeholder="<fmt:message key='oscarMDS.index.msgHealthNumber'/>"/>
                                     </div>
-                                    <div class="text-danger d-none ms-1" id="specificPatientErrorMessage">Please fill at least one field for the specific patient.</div>
+                                    <div class="text-danger d-none ms-1" id="specificPatientErrorMessage"><fmt:message key="inboxhub.form.specificPatientError"/></div>
                                 </div>
                             </div>
                         </div>
@@ -138,7 +138,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                             </label>
                             <div id="dateId" class="inbox-form-date-range">
                                 <div class="inbox-form-datepicker-wrapper mb-1 d-flex">
-                                    <label class="my-auto pe" for="startDate">Start</label>
+                                    <label class="my-auto pe" for="startDate"><fmt:message key="inboxhub.form.startDate"/></label>
                                     <div class="input-group input-group-sm d-inline-flex">
                                         <input class="form-control pe-0 inbox-form-datepicker-input" type="text" placeholder="yyyy-mm-dd" id="startDate" name="query.startDate" value="${query.startDate}"/>
                                         <span class="input-group-text" for="startDate" id="startDateIcon"><i class="fa-solid fa-calendar"></i></span>
@@ -146,7 +146,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                     <i class="fa-solid fa-circle-xmark clear-btn" aria-hidden="true" id="clearStartDate"></i>
                                 </div>
                                 <div class="inbox-form-datepicker-wrapper d-flex">
-                                    <label class="my-auto" for="endDate">End</label>
+                                    <label class="my-auto" for="endDate"><fmt:message key="inboxhub.form.endDate"/></label>
                                     <div class="input-group input-group-sm d-inline-flex">
                                         <input class="form-control pe-0 inbox-form-datepicker-input" type="text" placeholder="yyyy-mm-dd" id="endDate" name="query.endDate" value="${query.endDate}"/>
                                         <span class="input-group-text" for="endDate" id="endDateIcon"><i class="fa-solid fa-calendar"></i></span>
@@ -254,11 +254,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     <div class="accordion mt-1" id="inbox-hub-unmatched-list">
         <div class="accordion-item">
             <h2 class="accordion-header" id="headingUnmatchedList">
-                <a class="text-decoration-none accordion-button ${ param.providerNo eq 0 ? '' : 'collapsed' }" type="button" data-bs-toggle="collapse" data-bs-target="#collapseUnmatched" aria-expanded="false" aria-controls="collapseUnmatched">
-                    Unmatched
+                <a class="text-decoration-none accordion-button <c:out value="${param.providerNo eq 0 ? '' : 'collapsed'}"/>" type="button" data-bs-toggle="collapse" data-bs-target="#collapseUnmatched" aria-expanded="false" aria-controls="collapseUnmatched">
+                    <fmt:message key="inbox.inboxmanager.msgUnmatched"/>
                 </a>
             </h2>
-            <div id="collapseUnmatched" class="accordion-collapse collapse ${ param.providerNo eq 0 ? 'show' : '' }" aria-labelledby="headingUnmatchedList" data-bs-parent="#inbox-hub-unmatched-list">
+            <div id="collapseUnmatched" class="accordion-collapse collapse <c:out value="${param.providerNo eq 0 ? 'show' : ''}"/>" aria-labelledby="headingUnmatchedList" data-bs-parent="#inbox-hub-unmatched-list">
                 <div class="accordion-body my-2 ms-3">
                     <div class="accordion-item border-0">
                         <div class="accordion-header category-list-header d-flex" id="headingUnmatchedAll">
@@ -272,7 +272,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                 + (showHRM ? categoryData.unmatchedHRMCount : 0)}" />
                             <span class="collapse-btn" data-bs-toggle="collapse" data-bs-target="#collapseUnmatchedAll" aria-expanded="true" aria-controls="collapseUnmatchedAll"></span>
                             <a id="patient0all" class="text-decoration-none text-wrap text-start collapse-heading btn category-btn py-1 px-0 ms-3" onclick="filterView(0, 'all', this)">
-                                All (<span id="patientNumDocs0"><c:out value="${totalUnmatchedCount}" /></span>)
+                                <fmt:message key="inbox.inboxmanager.msgAll"/> (<span id="patientNumDocs0">${e:forHtml(totalUnmatchedCount)}</span>)
                             </a>
                         </div>
                         <div id="collapseUnmatchedAll" class="accordion-collapse collapse show" aria-labelledby="headingUnmatchedAll">
@@ -280,22 +280,22 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                 <ul class="list-unstyled" id="labdoc0showSublist">
                                     <c:if test="${ not empty categoryData.unmatchedDocs and (query.doc or allTypes) }" >
                                     <li>
-                                        <a id="patient0docs" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(0, 'doc', this);" title="Documents">
-                                            Documents (<span id="pDocNum_0"><c:out value="${categoryData.unmatchedDocs}" /></span>)
+                                        <a id="patient0docs" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(0, 'doc', this);" title="<fmt:message key='inboxhub.list.documents'/>">
+                                            <fmt:message key="inboxhub.list.documents"/> (<span id="pDocNum_0">${e:forHtml(categoryData.unmatchedDocs)}</span>)
                                         </a>
                                     </li>
                                     </c:if>
                                     <c:if test="${ not empty categoryData.unmatchedLabs and (query.lab or allTypes) }" >
                                     <li>
-                                        <a id="patient0hl7s" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(0, 'lab', this);" title="HL7">
-                                            HL7 (<span id="pLabNum_0"><c:out value="${categoryData.unmatchedLabs}" /></span>)
+                                        <a id="patient0hl7s" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(0, 'lab', this);" title="<fmt:message key='inboxhub.form.hl7'/>">
+                                            <fmt:message key="inboxhub.form.hl7"/> (<span id="pLabNum_0">${e:forHtml(categoryData.unmatchedLabs)}</span>)
                                         </a>
                                     </li>
                                     </c:if>
                                     <c:if test="${ not empty categoryData.unmatchedHRMCount and !CarlosProperties.getInstance().isBritishColumbiaBillingRegion() and showHRM}" >
                                     <li>
-                                        <a id="patient0hrms" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(0, 'hrm', this);" title="HRM">
-                                            HRM (<span id="pHRMNum_0"><c:out value="${categoryData.unmatchedHRMCount}" /></span>)
+                                        <a id="patient0hrms" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(0, 'hrm', this);" title="<fmt:message key='inboxhub.form.hrm'/>">
+                                            <fmt:message key="inboxhub.form.hrm"/> (<span id="pHRMNum_0">${e:forHtml(categoryData.unmatchedHRMCount)}</span>)
                                         </a>
                                     </li>
                                     </c:if>
@@ -315,7 +315,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         <div class="accordion-item">
             <h2 class="accordion-header" id="headingMatchedList">
                 <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseMatched" aria-expanded="false" aria-controls="collapseMatched">
-                    Matched
+                    <fmt:message key="inboxhub.form.matched"/>
                 </button>
             </h2>
             <div id="collapseMatched" class="accordion-collapse collapse show" aria-labelledby="headingMatchedList" data-bs-parent="#inbox-hub-matched-list">
@@ -349,22 +349,22 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                 <ul class="list-unstyled" id="labdoc${patientId}showSublist">
                                     <c:if test="${not empty docCount and (query.doc or allTypes)}">
                                     <li>
-                                        <a id="patient${patientId}docs" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(${patientId}, 'doc', this);" title="Documents">
-                                            Documents (<span id="pDocNum_${patientId}">${docCount}</span>)
+                                        <a id="patient${patientId}docs" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(${patientId}, 'doc', this);" title="<fmt:message key='inboxhub.list.documents'/>">
+                                            <fmt:message key="inboxhub.list.documents"/> (<span id="pDocNum_${patientId}">${e:forHtml(docCount)}</span>)
                                         </a>
                                     </li>
                                     </c:if>
                                     <c:if test="${not empty labCount and (query.lab or allTypes)}">
                                     <li>
-                                        <a id="patient${patientId}hl7s" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(${patientId}, 'lab', this);" title="HL7">
-                                            HL7 (<span id="pLabNum_${patientId}">${labCount}</span>)
+                                        <a id="patient${patientId}hl7s" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(${patientId}, 'lab', this);" title="<fmt:message key='inboxhub.form.hl7'/>">
+                                            <fmt:message key="inboxhub.form.hl7"/> (<span id="pLabNum_${patientId}">${e:forHtml(labCount)}</span>)
                                         </a>
                                     </li>
                                     </c:if>
                                     <c:if test="${not empty hrmCount and !CarlosProperties.getInstance().isBritishColumbiaBillingRegion() and showHRM}">
                                     <li>
-                                        <a id="patient${patientId}hrms" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(${patientId}, 'hrm', this);" title="HRM">
-                                            HRM (<span id="pLabNum_${patientId}">${hrmCount}</span>)
+                                        <a id="patient${patientId}hrms" href="javascript:void(0);" class="btn category-btn text-decoration-none" onclick="filterView(${patientId}, 'hrm', this);" title="<fmt:message key='inboxhub.form.hrm'/>">
+                                            <fmt:message key="inboxhub.form.hrm"/> (<span id="pLabNum_${patientId}">${e:forHtml(hrmCount)}</span>)
                                         </a>
                                     </li>
                                     </c:if>
@@ -386,7 +386,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     <div id="ajaxErrorToast" class="toast align-items-center text-white bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="5000">
         <div class="d-flex">
             <div class="toast-body">
-                An error occurred. Please try again later.
+                <fmt:message key="inboxhub.form.ajaxError"/>
             </div>
             <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
@@ -543,9 +543,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         fetchInboxhubData();
     }
 
+    var listModeLabel = '<fmt:message key="inboxhub.form.listMode"/>';
+    var previewModeLabel = '<fmt:message key="inboxhub.form.previewMode"/>';
+    var percentCompleteLabel = '<fmt:message key="inboxhub.form.percentComplete"/>';
+
     function fetchInboxhubDataByMode(btnViewMode2) {
         jQuery('#btnViewMode').val(btnViewMode2.checked ? 'true' : 'false');
-    	jQuery("#btnViewModeLabel").html(btnViewMode2.checked ? 'List Mode' : 'Preview Mode');
+        jQuery("#btnViewModeLabel").html(btnViewMode2.checked ? listModeLabel : previewModeLabel);
         fetchInboxhubData();
     }
 
@@ -719,7 +723,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         inboxhubListProgressWidth = 0;
         jQuery('#loadInboxListProgressBar').attr('aria-valuemax', totalResultsCount);
         jQuery('#loadInboxListProgressBar').css('width', inboxhubListProgressWidth + '%').attr('aria-valuenow', inboxhubListProgressWidth);
-        jQuery('#inboxListProgressCount').text(inboxhubListProgressWidth + '% Complete');
+        jQuery('#inboxListProgressCount').text(inboxhubListProgressWidth + percentCompleteLabel);
         
         jQuery('#inboxhubFormSearchBtn').prop('disabled', true); // Disable button
         jQuery('#inboxhubFormSearchSpinner').show(); // Show spinner
@@ -754,13 +758,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             const percentage = (currentlyLoadedResultsCount / totalResultsCount) * 100;
             const formattedPercentage = percentage === 100 ? '100' : percentage.toFixed(2); // Keep 2 digits after decimal
             jQuery('#loadInboxListProgressBar').css('width', formattedPercentage + '%').attr('aria-valuenow', currentlyLoadedResultsCount);
-            jQuery('#inboxListProgressCount').text(formattedPercentage + '% Complete');
+            jQuery('#inboxListProgressCount').text(formattedPercentage + percentCompleteLabel);
             return;
         }
 
         if (!hasMoreData) {
             jQuery('#loadInboxListProgressBar').css('width', 100 + '%').attr('aria-valuenow', totalResultsCount);
-            jQuery('#inboxListProgressCount').text(100 + '% Complete');
+            jQuery('#inboxListProgressCount').text(100 + percentCompleteLabel);
             stopInboxhubListProgress(1000);
         }
     }
