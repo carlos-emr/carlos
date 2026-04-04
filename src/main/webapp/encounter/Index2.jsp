@@ -130,11 +130,9 @@
 
 <%-- New case management redirect check --%>
 <%
-    ArrayList<String> users = (ArrayList<String>) session.getServletContext().getAttribute("CaseMgmtUsers");
+    session.setAttribute("newCaseManagement", "true");
     String userNo = (String) request.getSession().getAttribute("user");
-    Boolean useNewEchart = (Boolean) request.getSession().getServletContext().getAttribute("useNewEchart");
-    if (userNo != null && (useNewEchart != null && useNewEchart.equals(Boolean.TRUE))) {
-        session.setAttribute("newCaseManagement", "true");
+    if (userNo != null) {
 %>
 <caisi:isModuleLoad moduleName="caisi" reverse="true">
     <%
@@ -166,9 +164,7 @@
     %>
 </caisi:isModuleLoad>
 
-<% } else
-    session.setAttribute("newCaseManagement", "false");
-%>
+<% } %>
 
 <%-- CAISI module redirect --%>
 <caisi:isModuleLoad moduleName="caisi">

@@ -625,7 +625,6 @@ Clinical encounter management and workflow.
 | encounter/oscarMeasurements/TrackerUpdate | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.FormUpdate2Action | Updates tracker forms |
 | encounter/RequestConsultation | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action | Requests consultations |
 | encounter/SaveEncounter2 | io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action | Saves clinical encounters |
-| encounter/SaveEncounter | io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action | Saves encounter data |
 | encounter/ShowAllInstitutions | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllInstitutions2Action | Shows all consultation institutions |
 | encounter/ShowAllServices | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllServices2Action | Shows all consultation services |
 | encounter/UpdateInstitutionDepartment | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDisplayInstitution2Action | Updates institution departments |
