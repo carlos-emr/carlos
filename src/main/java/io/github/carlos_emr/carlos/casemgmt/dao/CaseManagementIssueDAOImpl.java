@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 @Transactional
 public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements CaseManagementIssueDAO {
@@ -119,7 +120,7 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
                 issueCode, Integer.valueOf(demo));
 
         if (list.size() > 1) {
-            log.error("Expected 1 result got more : " + list.size() + "(" + demo + "," + issueCode + ")");
+            log.error("Expected 1 result got more : {} ({},{})", list.size(), LogSanitizer.sanitize(demo), LogSanitizer.sanitize(issueCode));
         }
 
         if (list.size() == 1 || list.size() > 1)

@@ -1118,19 +1118,19 @@ input[id^='acklabel_']{
                                     %>v<%= i + 1 %>&#160;<%
                                 } else {
                                     if (searchProviderNo != null) { // null if we were called from e-chart
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= providerNo %>&searchProviderNo=<%= searchProviderNo %>">v<%= i + 1 %>
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forUriComponent(providerNo) %>&searchProviderNo=<%= searchProviderNo %>">v<%= i + 1 %>
                                 </a>&#160;<%
                                 } else {
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= providerNo %>">v<%= i + 1 %>
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=multiLabId%>&providerNo=<%= Encode.forUriComponent(providerNo) %>">v<%= i + 1 %>
                                 </a>&#160;<%
                                             }
                                         }
                                     }
 //                                                if( multiID.length > 1 ) {
                                     if (searchProviderNo != null) { // null if we were called from e-chart
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%= Encode.forHtmlAttribute(segmentID) %>&multiID=<%=multiLabId%>&providerNo=<%= providerNo %>&searchProviderNo=<%= searchProviderNo %>&all=true">All</a>&#160;<%
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%= Encode.forUriComponent(segmentID) %>&multiID=<%=multiLabId%>&providerNo=<%= providerNo %>&searchProviderNo=<%= searchProviderNo %>&all=true">All</a>&#160;<%
                                 } else {
-                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%= Encode.forHtmlAttribute(segmentID) %>&multiID=<%=multiLabId%>&providerNo=<%= providerNo %>&all=true">All</a>&#160;<%
+                                %><a href="${pageContext.request.contextPath}/lab/CA/ALL/labDisplay.jsp?segmentID=<%= Encode.forUriComponent(segmentID) %>&multiID=<%=multiLabId%>&providerNo=<%= providerNo %>&all=true">All</a>&#160;<%
                                     }
 //                                                }
                                 %>
@@ -2201,7 +2201,7 @@ input[id^='acklabel_']{
 
             %>
             <td style="text-align:<%=align%>"><a
-                    href="<%=request.getContextPath() %>/lab/DownloadEmbeddedDocumentFromLab.do?labNo=<%= Encode.forHtmlAttribute(segmentID) %>&segment=<%=j%>&group=<%=k%><%=legacy%>">PDF
+                    href="<%=request.getContextPath() %>/lab/DownloadEmbeddedDocumentFromLab.do?labNo=<%= Encode.forUriComponent(segmentID) %>&segment=<%=j%>&group=<%=k%><%=legacy%>">PDF
                 Report</a></td>
             <%
             } else {

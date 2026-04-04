@@ -33,6 +33,7 @@
 
 <%@ page
         import="io.github.carlos_emr.carlos.mds.data.ProviderData, java.util.ArrayList, io.github.carlos_emr.carlos.lab.ForwardingRules, io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
 
@@ -93,7 +94,7 @@
 
 <body>
 <form method="post" name="RULES" action="ForwardingRules.do"><input
-        type="hidden" name="providerNo" value="<%= providerNo %>"> <input
+        type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo) %>"> <input
         type="hidden" name="operation" value="update"> <input
         type="hidden" name="remProviderNum" value="">
     <table width="100%" height="100%" border="0">

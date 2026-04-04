@@ -36,7 +36,6 @@
             <result name="error">/failure.jsp</result>
         </action>
         <action name="admin/ManageFax" class="io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action">
-            <result name="completed">/admin/manageFax.jsp</result>
         </action>
         <action name="admin/ManageFaxes" class="io.github.carlos_emr.carlos.fax.admin.ManageFaxes2Action">
             <result name="faxstatus">/admin/faxStatusResults.jspf</result>

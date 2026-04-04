@@ -44,6 +44,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="java.util.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -786,7 +787,7 @@
                         %>
                         <script>
                             changeSite(document.getElementById("site"));
-                            document.getElementById("assignedTo").value = '<%=org.owasp.encoder.Encode.forJavaScript(request.getParameter("assignedTo"))%>';
+                            document.getElementById("assignedTo").value = '<%=org.owasp.encoder.Encode.forJavaScript(StringUtils.noNull(request.getParameter("assignedTo")))%>';
                         </script>
                         <%
                             }

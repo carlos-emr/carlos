@@ -14,19 +14,33 @@
 
 package io.github.carlos_emr.carlos.hospitalReportManager.dao;
 
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.persistence.Query;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
+
+    /**
+     * Allowlist mapping user-supplied ORDER BY column names to the corresponding
+     * safe HQL property expression. Values come from this map (not from user input),
+     * which breaks any CodeQL taint flow from the request into the query string.
+     */
+    private static final Map<String, String> ORDER_COLUMN_HQL = Map.of(
+            "formattedName", "x.formattedName",
+            "dob", "x.dob",
+            "reportDate", "x.reportDate",
+            "timeReceived", "x.timeReceived",
+            "sourceFacility", "x.sourceFacility"
+    );
 
     public HRMDocumentDao() {
         super(HRMDocument.class);
@@ -135,18 +149,13 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
 
     public List<HRMDocument> query(String providerNo, boolean providerUnmatched, boolean noSignOff, boolean demographicUnmatched, int start, int length, String orderColumn, String orderDirection) {
 
-        if (orderColumn != null && !orderColumn.equals("formattedName") && !orderColumn.equals("dob") && !orderColumn.equals("reportDate")
-                && !orderColumn.equals("timeReceived") && !orderColumn.equals("sourceFacility")) {
-            return new ArrayList<HRMDocument>();
-        }
-        if (orderDirection != null && !orderDirection.equalsIgnoreCase("ASC") && !orderDirection.equalsIgnoreCase("DESC")) {
-            return new ArrayList<HRMDocument>();
+        if (!isValidOrderRequest(orderColumn, orderDirection)) {
+            orderColumn = null;
+            orderDirection = null;
         }
         String sql = "select x from " + this.modelClass.getName() + " x   ";
 
-        //	if(providerNo != null || providerUnmatched) {
         sql += " inner JOIN x.matchedProviders p ";
-        //	}
 
         sql += " WHERE x.parentReport IS NULL  ";
 
@@ -165,16 +174,9 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
             }
         }
 
-
-        if (!StringUtils.isEmpty(orderColumn) && !StringUtils.isEmpty(orderDirection)) {
-            sql = sql + " ORDER BY x." + orderColumn + " " + orderDirection;
-        }
-
+        sql = appendOrderBy(sql, orderColumn, orderDirection);
 
         Query query = entityManager.createQuery(sql);
-        if (providerNo != null || providerUnmatched) {
-
-        }
 
         if (providerUnmatched) {
             query.setParameter("pNo", "-1");
@@ -183,7 +185,6 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
                 query.setParameter("pNo", providerNo);
             }
         }
-
 
         query.setFirstResult(start);
         query.setMaxResults(length);
@@ -195,18 +196,13 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
 
     public long queryForCount(String providerNo, boolean providerUnmatched, boolean noSignOff, boolean demographicUnmatched, int start, int length, String orderColumn, String orderDirection) {
 
-        if (orderColumn != null && !orderColumn.equals("formattedName") && !orderColumn.equals("dob") && !orderColumn.equals("reportDate")
-                && !orderColumn.equals("timeReceived") && !orderColumn.equals("sourceFacility")) {
-            return 0;
-        }
-        if (orderDirection != null && !orderDirection.equalsIgnoreCase("ASC") && !orderDirection.equalsIgnoreCase("DESC")) {
-            return 0;
+        if (!isValidOrderRequest(orderColumn, orderDirection)) {
+            orderColumn = null;
+            orderDirection = null;
         }
         String sql = "select count(x) from " + this.modelClass.getName() + " x   ";
 
-        //	if(providerNo != null || providerUnmatched) {
         sql += " inner JOIN x.matchedProviders p ";
-        //	}
 
         sql += " WHERE x.parentReport IS NULL  ";
 
@@ -225,16 +221,9 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
             }
         }
 
-
-        if (!StringUtils.isEmpty(orderColumn) && !StringUtils.isEmpty(orderDirection)) {
-            sql = sql + " ORDER BY x." + orderColumn + " " + orderDirection;
-        }
-
+        sql = appendOrderBy(sql, orderColumn, orderDirection);
 
         Query query = entityManager.createQuery(sql);
-        if (providerNo != null || providerUnmatched) {
-
-        }
 
         if (providerUnmatched) {
             query.setParameter("pNo", "-1");
@@ -244,10 +233,42 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
             }
         }
 
-
         Long count = (Long) query.getSingleResult();
 
-
         return count;
+    }
+
+    /**
+     * Checks whether the ORDER BY request uses a valid column (if specified) and direction.
+     * Returns {@code true} when no column is specified (no ORDER BY will be appended).
+     * Logs a warning when invalid values are rejected so that missing allowlist entries
+     * can be diagnosed.
+     */
+    private boolean isValidOrderRequest(String orderColumn, String orderDirection) {
+        if (orderColumn != null && !ORDER_COLUMN_HQL.containsKey(orderColumn)) {
+            MiscUtils.getLogger().warn("HRM query: invalid orderColumn '{}' not in allowlist, ignoring ORDER BY", orderColumn);
+            return false;
+        }
+        if (orderDirection != null && !orderDirection.equalsIgnoreCase("ASC") && !orderDirection.equalsIgnoreCase("DESC")) {
+            MiscUtils.getLogger().warn("HRM query: invalid orderDirection '{}', ignoring ORDER BY", orderDirection);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Appends an ORDER BY clause using safe values from {@link #ORDER_COLUMN_HQL}.
+     * safeOrderColumn comes from the allowlist map — not from user input — so it is safe
+     * to interpolate as an HQL identifier.
+     */
+    private String appendOrderBy(String sql, String orderColumn, String orderDirection) {
+        if (!StringUtils.isEmpty(orderColumn) && !StringUtils.isEmpty(orderDirection)) {
+            String safeOrderColumn = ORDER_COLUMN_HQL.get(orderColumn);
+            String safeOrderDirection = orderDirection.equalsIgnoreCase("ASC") ? "ASC" : "DESC";
+            if (safeOrderColumn != null) {
+                sql = sql + " ORDER BY " + safeOrderColumn + " " + safeOrderDirection;
+            }
+        }
+        return sql;
     }
 }

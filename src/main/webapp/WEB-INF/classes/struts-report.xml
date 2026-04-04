@@ -29,9 +29,6 @@
     <package name="report" namespace="/" extends="struts-default">
 
         <action name="report/printLabDaySheetAction" class="io.github.carlos_emr.carlos.report.pageUtil.printLabDaySheet2Action"/>
-        <action name="oscarReport/ShowConsult" class="io.github.carlos_emr.carlos.report.pageUtil.RptShowConsult2Action">
-            <result name="success">/encounter/oscarConsultationRequest/ConsultationFormPrint.jsp</result>
-        </action>
         <action name="oscarReport/FluBilling" class="io.github.carlos_emr.carlos.report.pageUtil.RptFluBilling2Action">
             <result name="success">/oscarReport/oscarReportFluBilling.jsp</result>
         </action>
@@ -50,7 +47,6 @@
         </action>
         <action name="report/DemographicReport" class="io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Action">
             <result name="success">/oscarReport/ReportDemographicReport.jsp</result>
-            <result name="failure">/oscar_sfhc/JAYREPORTS/DemographicReport.jsp</result>
         </action>
         <action name="report/CreateDemographicSet" class="io.github.carlos_emr.carlos.report.pageUtil.RptCreateDemographicSet2Action">
             <result name="success">/oscarReport/ReportDemographicReport.jsp</result>

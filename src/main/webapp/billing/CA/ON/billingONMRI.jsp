@@ -52,6 +52,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReviewPrep" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
@@ -309,7 +310,7 @@
             <div class="col-md-4">
                 <label>Service Date Start:</label>
                 <div class="input-group">
-                    <input type="text" name="xml_vdate" id="xml_vdate" value="<%=xml_vdate%>"
+                    <input type="text" name="xml_vdate" id="xml_vdate" value="<%= Encode.forHtmlAttribute(xml_vdate) %>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -319,7 +320,7 @@
                 <label>Service Date End:</label>
                 <div class="input-group">
                     <input type="text" name="xml_appointment_date" id="xml_appointment_date"
-                           value="<%=xml_appointment_date%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                           value="<%= Encode.forHtmlAttribute(xml_appointment_date) %>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                            autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>

@@ -27,7 +27,6 @@
 
 package io.github.carlos_emr.carlos.PMmodule.web;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -351,18 +350,6 @@ public class ClientManager2Action extends ActionSupport {
         setEditAttributes(request, id);
 
         LogAction.log("read", "pmm client record", id, request);
-
-        String roles = (String) request.getSession().getAttribute("userrole");
-
-        // for Vaccine Provider
-        if (roles.indexOf("Vaccine Provider") != -1) {
-            try {
-                response.sendRedirect(request.getContextPath() + "/VaccineProviderReport.do?id=" + id);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            return null;
-        }
 
         Demographic demographic = clientManager.getClientByDemographicNo(id);
         request.getSession().setAttribute("clientGender", demographic.getSex());

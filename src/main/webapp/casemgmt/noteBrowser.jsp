@@ -55,6 +55,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("userrole") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -250,7 +251,7 @@
         }
 
         function showEncounter(encList) {
-            var url2 = '<%=request.getContextPath()%>' + '/CaseManagementEntry.do?method=displayNotes&demographicNo=<%=demographicID%>' + encList + '&printCPP=false&printRx=false';
+            var url2 = '<%=request.getContextPath()%>' + '/CaseManagementEntry.do?method=displayNotes&demographicNo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>' + encList + '&printCPP=false&printRx=false';
             var iframe = document.createElement('iframe');
             iframe.src = url2;
             iframe.width = (getWidth() - 40);
@@ -412,16 +413,16 @@
                     }
                 }
 
-                popup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry.do?method=print&demographicNo=<%=demographicID%>' + encList + '&printCPP=false&printRx=false', 'PrintEncounter');
+                popup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry.do?method=print&demographicNo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>' + encList + '&printCPP=false&printRx=false', 'PrintEncounter');
             }
         }
 
         function AddTickler() {
-            popup(450, 600, '<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&docId=' + docid + '&demographic_no=<%=demographicID%>', 'tickler');
+            popup(450, 600, '<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&docId=' + docid + '&demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'tickler');
         }
 
         function DocAnnotation() {
-            popup(350, 500, '<%= request.getContextPath() %>/annotation/annotation.jsp?display=Documents&table_id=' + docid + '&demo=<%=demographicID%>', 'anwin');
+            popup(350, 500, '<%= request.getContextPath() %>/annotation/annotation.jsp?display=Documents&table_id=' + docid + '&demo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'anwin');
         }
 
         function DocEdit() {
@@ -433,10 +434,10 @@
             var doctype = selected[0].value.substring(docidindexend + 1, selected[0].value.length);
 
             if (doctype == 'text/html') {
-                popup(450, 600, '<%= request.getContextPath() %>/documentManager/addedithtmldocument.jsp?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=demographicID%>', 'EditDoc');
+                popup(450, 600, '<%= request.getContextPath() %>/documentManager/addedithtmldocument.jsp?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
             } else {
 
-                popup(350, 500, '<%= request.getContextPath() %>/documentManager/editDocument.jsp?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=demographicID%>', 'EditDoc');
+                popup(350, 500, '<%= request.getContextPath() %>/documentManager/editDocument.jsp?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
             }
         }
 
@@ -479,7 +480,7 @@
             <td align="left" valign="top" width="50%">
                 <oscar:nameage demographicNo="<%=demographicID%>"/><br>
 
-                <input type="hidden" name="viewstatus" value="<%=viewstatus%>">
+                <input type="hidden" name="viewstatus" value="<%= Encode.forHtmlAttribute(viewstatus) %>">
                 <input type="hidden" name="sortorder" value="<%=sortorder%>">
 
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgViewStatus"/> <select id="selviewstatus"
@@ -505,8 +506,8 @@
                 </select>
                 <fieldset>
                     <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgView"/>:</legend>
-                    <input type="hidden" name="view" value="<%=view%>">
-                    <input type="hidden" name="demographic_no" value="<%=demographicID%>">
+                    <input type="hidden" name="view" value="<%=Encode.forHtmlAttribute(view)%>">
+                    <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicID) %>">
                     <input type="hidden" name="undelDocumentNo" value="">
                     <input type="hidden" name="delDocumentNo" value="">
                     <input type="hidden" name="refileDocumentNo" value="">
@@ -572,10 +573,10 @@
                             for (int i2 = 0; i2 < docs.size(); i2++) {
                                 EDoc cmicurdoc = docs.get(i2);
                         %>
-                        <option VALUE="<%=cmicurdoc.getDocId()%>-<%=cmicurdoc.getContentType()%>"
-                                title="<%=cmicurdoc.getDescription()%>"><%=sortorder.equals("Content") ? UtilDateUtilities.DateToString(cmicurdoc.getContentDateTime(), "yyyy-MM-dd") : cmicurdoc.getDateTimeStamp()%>&nbsp;&nbsp; <%=cmicurdoc.getObservationDate()%>
-                            [<%=cmicurdoc.getType()%>
-                            ] <%=(cmicurdoc.getDescription().length() < 30 ? cmicurdoc.getDescription() : cmicurdoc.getDescription().substring(0, 30) + "...")%>
+                        <option VALUE="<%=Encode.forHtmlAttribute(cmicurdoc.getDocId())%>-<%=Encode.forHtmlAttribute(cmicurdoc.getContentType())%>"
+                                title="<%=Encode.forHtmlAttribute(cmicurdoc.getDescription())%>"><%=Encode.forHtml(sortorder.equals("Content") ? UtilDateUtilities.DateToString(cmicurdoc.getContentDateTime(), "yyyy-MM-dd") : cmicurdoc.getDateTimeStamp())%>&nbsp;&nbsp; <%=Encode.forHtml(cmicurdoc.getObservationDate())%>
+                            [<%=Encode.forHtml(cmicurdoc.getType())%>
+                            ] <%=Encode.forHtml(cmicurdoc.getDescription().length() < 30 ? cmicurdoc.getDescription() : cmicurdoc.getDescription().substring(0, 30) + "...")%>
                         </option>
                         <%}%>
                     </SELECT>
@@ -598,14 +599,14 @@
                                 NoteDisplay curNote = notesToDisplay.get(idx);
                                 if (!(curNote.isDocument()) && !(curNote.isEformData()) && !(curNote.isRxAnnotation()) && !(curNote.isCpp())) {
                         %>
-                        <option value="<%=curNote.getNoteId()%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=curNote.getProviderName()%>
+                        <option value="<%=curNote.getNoteId()%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=Encode.forHtml(curNote.getProviderName())%>
                         </option>
                         <%
                             }
 
                             if (curNote.isExternalNote()) {
                         %>
-                        <option value="<%=curNote.getNoteId()%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=curNote.getProviderName()%>
+                        <option value="<%=curNote.getNoteId()%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=Encode.forHtml(curNote.getProviderName())%>
                         </option>
                         <%
                                 }

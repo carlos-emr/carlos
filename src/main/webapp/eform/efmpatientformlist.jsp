@@ -133,7 +133,7 @@
 			}
 
 			function updateAjax() {
-				let parentAjaxId = "<%=parentAjaxId%>";
+				let parentAjaxId = "<%=Encode.forJavaScript(parentAjaxId)%>";
 				if (parentAjaxId !== "null") {
 					window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
 					window.opener.updateNeeded = true;
@@ -193,20 +193,20 @@
 
             <div class="left-column">
 
-                <a href="${pageContext.request.contextPath}/demographic/demographiccontrol.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>&displaymode=edit&dboperation=search_detail">
+                <a href="${pageContext.request.contextPath}/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&appointment=<%=Encode.forUriComponent(appointment)%>&displaymode=edit&dboperation=search_detail">
                     <fmt:message key="demographic.demographiceditdemographic.btnMasterFile"/></a>
-                <a href="efmformslistadd.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>"
+                <a href="efmformslistadd.jsp?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&appointment=<%=Encode.forUriComponent(appointment)%>&parentAjaxId=<%=Encode.forUriComponent(parentAjaxId)%>"
                    class="current"> <fmt:message key="eform.showmyform.btnAddEForm"/></a>
-                <a href="efmpatientformlist.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>">
+                <a href="efmpatientformlist.jsp?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&appointment=<%=Encode.forUriComponent(appointment)%>&parentAjaxId=<%=Encode.forUriComponent(parentAjaxId)%>">
                     <fmt:message key="eform.calldeletedformdata.btnGoToForm"/></a>
                 <jsp:include page="efmviewgroups.jsp">
                     <jsp:param name="url" value="${pageContext.request.contextPath}/eform/efmpatientformlist.jsp"/>
-                    <jsp:param name="groupView" value="<%=groupView%>"/>
+                    <jsp:param name="groupView" value="<%= groupView %>"/>
                     <jsp:param name="patientGroups" value="1"/>
                     <jsp:param name="parentAjaxId" value="<%=parentAjaxId%>"/>
                 </jsp:include>
 
-                <a href="efmpatientformlistdeleted.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>&parentAjaxId=<%=parentAjaxId%>">
+                <a href="efmpatientformlistdeleted.jsp?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&appointment=<%=Encode.forUriComponent(appointment)%>&parentAjaxId=<%=Encode.forUriComponent(parentAjaxId)%>">
                     <fmt:message key="eform.showmyform.btnDeleted"/></a>
 
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="r"
@@ -219,7 +219,7 @@
             <div class="right-column">
 
                 <form id="sendToPhrForm" action="efmpatientformlistSendPhrAction.jsp">
-                    <input type="hidden" name="clientId" value="<%=demographic_no%>"/>
+                    <input type="hidden" name="clientId" value="<%=Encode.forHtmlAttribute(demographic_no)%>"/>
                     <table id="efmTable" class="table table-striped table-sm dataTable no-footer">
                         <thead>
                         <tr>
@@ -252,10 +252,10 @@
                         <tr>
 
                             <td><a href="#"
-                                   ONCLICK="popupPage('efmshowform_data.jsp?fdid=<%=curform.get("fdid")%>&appointment=<%=appointment%>', '<%="FormP" + i%>'); return false;"
+                                   ONCLICK="popupPage('efmshowform_data.jsp?fdid=<%=curform.get("fdid")%>&appointment=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(appointment))%>', '<%="FormP" + i%>'); return false;"
                                    TITLE="<fmt:message key="eform.showmyform.msgViewFrm"/>"
                                    onmouseover="window.status='
-                                        <fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=Encode.forHtmlContent((String)curform.get("formName"))%>
+                                        <fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=Encode.forHtml((String)curform.get("formName"))%>
                             </a></td>
                             <td><%=Encode.forHtmlContent((String)curform.get("formSubject"))%>
                             </td>
@@ -264,9 +264,9 @@
                             <td>
                                 <form method="post" action="${pageContext.request.contextPath}/eform/removeEForm.do" style="display:inline;">
                                     <input type="hidden" name="fdid" value="<%=curform.get("fdid")%>"/>
-                                    <input type="hidden" name="group_view" value="<%=groupView%>"/>
-                                    <input type="hidden" name="demographic_no" value="<%=demographic_no%>"/>
-                                    <input type="hidden" name="parentAjaxId" value="<%=parentAjaxId%>"/>
+                                    <input type="hidden" name="group_view" value="<%= Encode.forHtmlAttribute(groupView) %>"/>
+                                    <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>"/>
+                                    <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>"/>
                                     <a style="color:red;" href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){this.closest('form').submit();}">
                                         <fmt:message key="eform.uploadimages.btnDelete"/></a>
                                 </form>
