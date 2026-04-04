@@ -62,6 +62,18 @@ import java.util.stream.Collectors;
 /**
  * GeoIP and IP reputation filter that restricts access by country and blocks known-malicious IPs.
  *
+ * <h3>Standards Compliance</h3>
+ * <ul>
+ *   <li><strong>NIST SP 800-53 Rev. 5 AC-4</strong>: Information Flow Enforcement — restricts
+ *       access by geographic origin and blocks traffic from known-malicious networks</li>
+ *   <li><strong>NIST SP 800-53 Rev. 5 SI-4</strong>: System Monitoring — detect mode enables
+ *       geographic traffic analysis before enforcement</li>
+ *   <li><strong>NIST SP 800-53 Rev. 5 SC-7(5)</strong>: Deny by Default / Allow by Exception —
+ *       only configured countries (default: CA) are permitted</li>
+ *   <li><strong>PIPEDA</strong>: Canadian healthcare EMR restricting access to Canadian IPs
+ *       supports data residency and jurisdiction alignment</li>
+ * </ul>
+ *
  * <h3>GeoIP Filtering</h3>
  * <p>Uses MaxMind GeoLite2-Country database for country-level geolocation. By default, only
  * Canadian IPs are allowed. The database file path is configurable via the {@code geoipDatabase}

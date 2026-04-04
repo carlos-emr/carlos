@@ -63,16 +63,31 @@ import java.util.stream.Collectors;
  *   <li>Protocol enforcement — TRACE/TRACK methods (OWASP CRS 911xxx equivalent)</li>
  * </ul>
  *
+ * <h3>Standards Compliance</h3>
+ * <ul>
+ *   <li><strong>NIST SP 800-53 Rev. 5</strong>: SC-7 (Boundary Protection), SI-3 (Malicious Code
+ *       Protection), SI-4 (System Monitoring), SI-10 (Information Input Validation), CM-7 (Least
+ *       Functionality), AU-3/AU-6 (Audit Records)</li>
+ *   <li><strong>NIST SP 800-44 Rev. 2</strong>: Section 8.2 (Web Application Firewalls),
+ *       Section 8.3 (Intrusion Detection)</li>
+ *   <li><strong>OWASP CRS v4.x</strong>: Pattern signatures derived from Core Rule Set at
+ *       Paranoia Level 1 (low false positives, broad attack coverage)</li>
+ *   <li><strong>OWASP Top 10 (2021)</strong>: A01, A03, A04, A05, A07, A09 coverage</li>
+ *   <li><strong>PIPEDA / HIPAA</strong>: PHI-safe logging — parameter values never logged</li>
+ * </ul>
+ *
  * <h3>Healthcare Awareness</h3>
  * <p>Clinical notes, prescriptions, and medical forms contain text that can trigger naive WAF
  * rules (e.g. "SELECT-ive serotonin reuptake inhibitor", "patient OR family history").
  * The filter supports configurable relaxed paths where only structural checks (request limits,
- * protocol enforcement) apply, and injection patterns are skipped for POST body parameters.</p>
+ * protocol enforcement) apply, and injection patterns are skipped for POST body parameters.
+ * This is consistent with NIST SI-10 guidance for context-aware input validation.</p>
  *
  * <h3>Modes</h3>
  * <ul>
  *   <li>{@code enforce} — blocks matching requests with HTTP 403 (default)</li>
- *   <li>{@code detect} — logs violations but allows the request to proceed</li>
+ *   <li>{@code detect} — logs violations but allows the request to proceed (NIST SI-4
+ *       monitoring mode, recommended for initial deployment)</li>
  * </ul>
  *
  * <h3>Activation</h3>
@@ -83,11 +98,12 @@ import java.util.stream.Collectors;
  *
  * <h3>Configuration</h3>
  * <p>Rules are loaded from {@code /WEB-INF/waf-rules.properties}. Individual modules can be
- * enabled/disabled, paths can be allowlisted or relaxed, and scanner signatures are configurable.</p>
+ * enabled/disabled, paths can be allowlisted or relaxed, and scanner signatures are configurable.
+ * See the properties file for full NIST/OWASP mapping of each setting.</p>
  *
  * <p><strong>Important:</strong> WAF logs never include parameter values or request bodies to
- * prevent PHI from appearing in log files. Only the client IP, request URI, and matched rule
- * category are logged.</p>
+ * prevent PHI from appearing in log files (NIST SP 800-53 AU-3, PIPEDA Principle 7). Only the
+ * client IP, request URI, and matched rule category are logged.</p>
  *
  * @since 2026-04-04
  * @see GeoIpFilter
