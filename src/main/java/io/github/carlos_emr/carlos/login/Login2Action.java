@@ -64,8 +64,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -433,28 +431,18 @@ public final class Login2Action extends ActionSupport {
 
             logger.debug("nextPage: " + Encode.forJava(nextPage));
             if (nextPage != null) {
-                try {
-                    URI url = new URI(nextPage);
-
-                    // Reject absolute URIs (http://...), protocol-relative URIs (//evil.com),
-                    // and backslash-based bypasses (/\evil.com normalizes to //evil.com in browsers)
-                    if (url.isAbsolute() || url.getAuthority() != null || nextPage.contains("\\")) {
-                        logger.warn("Rejected redirect URL: " + Encode.forJava(nextPage));
-                        response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
-                        return NONE;
-                    } else {
-                        // set current facility
-                        String facilityIdString = request.getParameter(SELECTED_FACILITY_ID);
-                        Facility facility = facilityDao.find(Integer.parseInt(facilityIdString));
-                        request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility);
-                        String username = (String) request.getSession().getAttribute("user");
-                        LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIdString, ip);
-                        response.sendRedirect(nextPage);
-                        return NONE;
-                    }
-                } catch (URISyntaxException e) {
-                    logger.warn("Invalid nextPage parameter (URI syntax): " + Encode.forJava(nextPage), e);
+                if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
+                    logger.warn("Rejected redirect URL: " + Encode.forJava(nextPage));
                     response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+                    return NONE;
+                } else {
+                    // set current facility
+                    String facilityIdString = request.getParameter(SELECTED_FACILITY_ID);
+                    Facility facility = facilityDao.find(Integer.parseInt(facilityIdString));
+                    request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility);
+                    String username = (String) request.getSession().getAttribute("user");
+                    LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIdString, ip);
+                    response.sendRedirect(nextPage);
                     return NONE;
                 }
             }
@@ -693,7 +681,8 @@ public final class Login2Action extends ActionSupport {
 
             List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
             if (facilityIds.size() > 1) {
-                String newURL = request.getContextPath() + "/select_facility.jsp?nextPage=" + where;
+                String facilityPath = "/select_facility.jsp?nextPage=";
+                String newURL = request.getContextPath() + facilityPath + Encode.forUriComponent(where);
 
                 response.sendRedirect(newURL);
                 return NONE;
