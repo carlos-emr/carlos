@@ -111,6 +111,36 @@ waf.relaxed.paths=/CaseManagementEntry.do,/CaseManagementView.do,/SaveNote.do,/o
 - Query string parameters are still checked even on relaxed paths
 - URI-level path traversal checks always apply
 
+### Hardened Paths (Pre-Auth & High-Risk)
+
+The opposite of relaxed paths — **hardened paths** receive tighter request limits
+than the global defaults. These are pre-authentication endpoints exposed to the
+internet and high-risk administrative operations:
+
+```properties
+# Tighter limits: 10 params max (vs 100), 1KB values (vs 64KB)
+waf.hardened.paths=/login.do,/logout.jsp,/lab/CMLlabUpload.do,/lab/newLabUpload.do,/mfa/,...
+waf.hardened.max-parameter-count=10
+waf.hardened.max-parameter-value-length=1024
+```
+
+**Three-tier path model:**
+
+| Tier | Injection Checks | Request Limits | Use Case |
+|---|---|---|---|
+| **Hardened** | Full (all patterns) | Tighter (10 params, 1KB values) | Pre-auth paths, admin, exports |
+| **Standard** (default) | Full (all patterns) | Normal (100 params, 64KB values) | Most application paths |
+| **Relaxed** | Skipped on POST body | Normal (100 params, 64KB values) | Clinical notes, eforms |
+
+**Paths in the hardened tier:**
+- `/login.do`, `/logout.jsp`, `/forcepasswordreset.jsp` — authentication (pre-auth, internet-facing)
+- `/lab/CMLlabUpload.do`, `/lab/newLabUpload.do` — unauthenticated lab uploads (highest risk)
+- `/mfa/` — multi-factor authentication (pre-auth)
+- `/admin/MergeRecords.do` — patient record merging (data integrity risk)
+- `/demographic/DemographicExport.do`, `/demographic/cihiExportOMD4.do` — bulk data export (exfiltration risk)
+- `/report/GenerateSpreadsheet.do` — report export (exfiltration risk)
+- `/eformViewForPdfGenerationServlet` — PDF generation (pre-auth exempt)
+
 ---
 
 ## OWASP Top 10 (2021) Coverage

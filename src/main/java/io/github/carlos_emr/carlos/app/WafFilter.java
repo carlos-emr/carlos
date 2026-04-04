@@ -132,8 +132,12 @@ public final class WafFilter implements Filter {
     private int maxParameterCount = 100;
     private int maxParameterValueLength = 65536;
 
+    private int hardenedMaxParameterCount = 10;
+    private int hardenedMaxParameterValueLength = 1024;
+
     private Set<String> allowlistPaths = Set.of();
     private Set<String> relaxedPaths = Set.of();
+    private Set<String> hardenedPaths = Set.of();
     private Set<String> scannerSignatures = Set.of();
 
     /*
@@ -249,17 +253,21 @@ public final class WafFilter implements Filter {
         maxParameterCount = getInt(props, "waf.limits.max-parameter-count", 100);
         maxParameterValueLength = getInt(props, "waf.limits.max-parameter-value-length", 65536);
 
+        hardenedMaxParameterCount = getInt(props, "waf.hardened.max-parameter-count", 10);
+        hardenedMaxParameterValueLength = getInt(props, "waf.hardened.max-parameter-value-length", 1024);
+
         allowlistPaths = parseCsvPreserveCase(props.getProperty("waf.allowlist.paths", ""));
         relaxedPaths = parseCsvPreserveCase(props.getProperty("waf.relaxed.paths", ""));
+        hardenedPaths = parseCsvPreserveCase(props.getProperty("waf.hardened.paths", ""));
         scannerSignatures = parseCsvLowerCase(props.getProperty("waf.scanners",
                 "sqlmap,nikto,nmap,masscan,zgrab,nuclei,dirbuster,gobuster,wfuzz,hydra,burp,zap"));
 
         logger.info("WAF: mode={}, sqli={}, xss={}, path-traversal={}, cmd-injection={}, "
-                        + "scanner={}, limits={}, protocol={}, header-injection={}",
+                        + "scanner={}, limits={}, protocol={}, header-injection={}, hardened-paths={}",
                 enforcing ? "enforce" : "detect",
                 sqliEnabled, xssEnabled, pathTraversalEnabled, commandInjectionEnabled,
                 scannerDetectionEnabled, requestLimitsEnabled, protocolEnforcementEnabled,
-                headerInjectionEnabled);
+                headerInjectionEnabled, hardenedPaths.size());
     }
 
     @Override
@@ -291,9 +299,12 @@ public final class WafFilter implements Filter {
             return;
         }
 
-        // 3. Request limits
+        // 3. Request limits (use tighter limits for hardened paths)
+        boolean hardened = isPathMatch(uri, hardenedPaths);
         if (requestLimitsEnabled) {
-            String violation = checkRequestLimits(request, uri);
+            int effectiveMaxParams = hardened ? hardenedMaxParameterCount : maxParameterCount;
+            int effectiveMaxValueLen = hardened ? hardenedMaxParameterValueLength : maxParameterValueLength;
+            String violation = checkRequestLimits(request, uri, effectiveMaxParams, effectiveMaxValueLen);
             if (violation != null) {
                 if (handleViolation(response, clientIp, uri, violation,
                         uri.length() > maxUriLength ? 414 : HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE)) {
@@ -363,6 +374,7 @@ public final class WafFilter implements Filter {
 
     /**
      * Checks all request parameters against injection patterns.
+     * Parameter size limits are enforced by {@link #checkRequestLimits} which runs first.
      *
      * @return the violation category name, or {@code null} if clean
      */
@@ -377,9 +389,6 @@ public final class WafFilter implements Filter {
             for (String value : values) {
                 if (value == null || value.isEmpty()) {
                     continue;
-                }
-                if (value.length() > maxParameterValueLength) {
-                    return "param-size-exceeded";
                 }
                 String decoded = decodeValue(value);
                 String violation = checkValue(decoded);
@@ -417,18 +426,31 @@ public final class WafFilter implements Filter {
 
     /**
      * Checks request limits: URI length and parameter count.
+     *
+     * @param effectiveMaxParams the maximum parameter count for this request's path
+     * @param effectiveMaxValueLen the maximum parameter value length for this request's path
      */
-    private String checkRequestLimits(HttpServletRequest request, String uri) {
+    private String checkRequestLimits(HttpServletRequest request, String uri,
+                                      int effectiveMaxParams, int effectiveMaxValueLen) {
         if (uri.length() > maxUriLength) {
             return "uri-too-long";
         }
         int paramCount = 0;
         Enumeration<String> names = request.getParameterNames();
         while (names.hasMoreElements()) {
-            names.nextElement();
+            String name = names.nextElement();
             paramCount++;
-            if (paramCount > maxParameterCount) {
+            if (paramCount > effectiveMaxParams) {
                 return "too-many-params";
+            }
+            // Check parameter value lengths as part of request limits (hardened paths)
+            String[] values = request.getParameterValues(name);
+            if (values != null) {
+                for (String value : values) {
+                    if (value != null && value.length() > effectiveMaxValueLen) {
+                        return "param-size-exceeded";
+                    }
+                }
             }
         }
         return null;
