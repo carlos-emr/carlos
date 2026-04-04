@@ -28,6 +28,40 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    demographiceditdemographic.jsp - Patient Demographic Edit Form
+
+    Purpose:
+    The primary form for viewing and editing patient demographic records in CARLOS EMR.
+    Supports both a read-only view mode and a full edit mode with tabbed sections
+    for personal details, contact information, healthcare identifiers, enrolment/roster
+    status, consent, privacy, appointments, and contacts/relationships.
+
+    Features:
+    - View and edit patient personal details (name, DOB, address, phone, email, sex)
+    - Health Insurance Number (HIN) entry and AJAX-based validation
+    - Roster / enrolment status management with confirmation dialogs
+    - Consent (patient consent record) clearing with confirmation dialog
+    - Privacy (extra-sensitive flag) and patient status tracking
+    - Demographic merge/head/tail record navigation
+    - Appointment history tab showing past/future appointments
+    - Patient contacts and relationships tab
+    - Country of birth and language fields (ISO 639-2 / country code lookup)
+    - Provincial ID and other identifier fields
+    - Archive access for historical demographic record versions
+    - CBI reminder on save (configurable via CBI_REMIND_ON_UPDATE_DEMOGRAPHIC property)
+    - Bootstrap 5 dismissible alert container for non-blocking UI messages
+    - All i18n strings pre-computed server-side and safely encoded for JavaScript
+    - Session null check with redirect to logout if session has expired
+
+    Parameters (request):
+    - demographic_no:    Required. Patient demographic number to load (String/Integer)
+    - displaymode:       Optional. "Edit Record" to enter edit mode; view mode otherwise
+    - apptProvider_no:  Optional. Provider number context for appointment display
+    - mode:             Optional. Additional display mode hint
+
+    @since CARLOS EMR 2026
+--%>
 
 <%@ page import="java.util.*" %>
 <%@ page import="java.net.*" %>
@@ -333,7 +367,8 @@
                 btnBack:                      '<%= Encode.forJavaScript(oscarResources.getString("global.btnBack")) %>',
                 msgConfirmClearConsent:       '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgConfirmClearConsent")) %>',
                 msgConfirmEnrolledToMRP:      '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgConfirmEnrolledToMRP")) %>',
-                msgConfirmClearEnrolledTo:    '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgConfirmClearEnrolledTo")) %>'
+                msgConfirmClearEnrolledTo:    '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgConfirmClearEnrolledTo")) %>',
+                msgAjaxError:                 '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgAjaxError")) %>'
             };
 
             function showAlert(message) {
@@ -341,8 +376,16 @@
                 var alertDiv = document.createElement('div');
                 alertDiv.className = 'alert alert-warning alert-dismissible fade show';
                 alertDiv.setAttribute('role', 'alert');
-                alertDiv.innerHTML = '<span>' + message + '</span>'
-                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                var text = document.createElement('span');
+                text.style.whiteSpace = 'pre-line';
+                text.textContent = String(message).replace(/<br\s*\/?>/gi, '\n');
+                alertDiv.appendChild(text);
+                var closeButton = document.createElement('button');
+                closeButton.type = 'button';
+                closeButton.className = 'btn-close';
+                closeButton.setAttribute('data-bs-dismiss', 'alert');
+                closeButton.setAttribute('aria-label', 'Close');
+                alertDiv.appendChild(closeButton);
                 container.appendChild(alertDiv);
             }
         </script>
@@ -810,7 +853,7 @@
 
 
             function showCbiReminder() {
-                showAlert(i18n.updateCBIReminder);
+                return confirm(i18n.updateCBIReminder);
             }
 
 
@@ -937,7 +980,7 @@
                         showAlert(data.responseDescription);
                     },
                     error: function (data) {
-                        showAlert('An error occurred.');
+                        showAlert(i18n.msgAjaxError);
                     }
                 });
             }
@@ -3433,7 +3476,7 @@
                                                                     default:   gnI18nKey = "global.gender.undisclosed"; break;
                                                                 }
                                                             %>
-                                                            <option value="<%= Encode.forHtmlAttribute(gn.name()) %>" <%=((demographic.getSex().toUpperCase().equals(gn.name())) ? " selected=\"selected\" " : "") %>><%= Encode.forHtml(oscarResources.getString(gnI18nKey)) %>
+                                                            <option value="<%= Encode.forHtmlAttribute(gn.name()) %>" <%=(StringUtils.equalsIgnoreCase(demographic.getSex(), gn.name()) ? " selected=\"selected\" " : "") %>><%= Encode.forHtml(oscarResources.getString(gnI18nKey)) %>
                                                             </option>
                                                             <% } %>
                                                         </select>
@@ -4926,7 +4969,7 @@
                                                                 <%
                                                                     boolean showCbiReminder = oscarProps.getBooleanProperty("CBI_REMIND_ON_UPDATE_DEMOGRAPHIC", "true");
                                                                 %>
-                                                                <input type="submit" class="btn-toolbar-update" <%=(showCbiReminder?"onclick='showCbiReminder()'":"")%>
+                                                                <input type="submit" class="btn-toolbar-update" <%=(showCbiReminder?"onclick='return showCbiReminder()'":"")%>
                                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnUpdate"/>">
                                                             </security:oscarSec>
                                                         </span>
