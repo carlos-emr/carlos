@@ -159,8 +159,8 @@ public class Update2Action extends ActionSupport {
         UpdateRequest result = new UpdateRequest();
         result.setResourceID(BigInteger.valueOf(ConversionUtils.fromIntString(resourceId)));
         try {
-            PathValidationUtils.validateUpload(content);
-            result.setContent(Files.readAllBytes(content.toPath()));
+            File validatedContent = PathValidationUtils.validateUpload(content);
+            result.setContent(Files.readAllBytes(validatedContent.toPath()));
         } catch (SecurityException e) {
             throw new SecurityException("Invalid upload file path", e);
         } catch (Exception e) {

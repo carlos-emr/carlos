@@ -88,9 +88,12 @@ public class OscarDocumentCreator {
 
     /**
      * Loads a report template from the classpath.
-     * 
-     * <p>The path must not contain path traversal sequences ({@code ..}) or null bytes,
-     * and the filename component must consist of safe characters only.</p>
+     *
+     * <p>The path must not contain path traversal sequences ({@code ..}), double slashes,
+     * or null bytes. The filename component (last path segment) is validated via
+     * {@code FilenameUtils.getName()} to ensure it contains no additional path separators.
+     * The normalized path (backslashes replaced with forward slashes) is used for resource
+     * loading to prevent path injection attacks.</p>
      *
      * @param path the classpath path to the report template file
      * @return InputStream for the report template, or null if not found or path is invalid
@@ -114,9 +117,7 @@ public class OscarDocumentCreator {
             MiscUtils.getLogger().error("Invalid filename component in classpath path: " + Encode.forJava(path));
             return null;
         }
-        InputStream reportInstream = null;
-        reportInstream = getClass().getClassLoader().getResourceAsStream(path);
-        return reportInstream;
+        return getClass().getClassLoader().getResourceAsStream(normalizedPath);
     }
 
     /**

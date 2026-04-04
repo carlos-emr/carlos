@@ -284,8 +284,8 @@ public class LabPDFCreator extends PdfPageEventHelper {
 
         InputStream mainPDF = null;
         try {
-            PathValidationUtils.validateUpload(currentPDF);
-            mainPDF = new FileInputStream(currentPDF);
+            File validatedPDF = PathValidationUtils.validateUpload(currentPDF);
+            mainPDF = new FileInputStream(validatedPDF);
 
             alist.add(mainPDF);
 
