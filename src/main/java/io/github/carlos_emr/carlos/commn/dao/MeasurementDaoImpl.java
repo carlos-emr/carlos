@@ -74,8 +74,9 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
      */
     @Override
     public List<Measurement> findByCreateDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
-        String sqlCommand = "select x from " + modelClass.getSimpleName()
-                + " x where x.createDate>?1 order by x.createDate";
+        // Entity name hardcoded to break CodeQL taint flow from modelClass.getSimpleName().
+        // Update this literal if the Measurement entity is ever renamed.
+        String sqlCommand = "select x from Measurement x where x.createDate>?1 order by x.createDate";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, updatedAfterThisDateExclusive);
@@ -363,9 +364,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
     @Override
     public List<Measurement> findByIdTypeAndInstruction(Integer demographicId, String type, String instructions) {
-        Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName()
-                + " m WHERE m.demographicId = ?1" + "AND m.type = ?2"
-                + "AND m.measuringInstruction = ?3 ORDER BY m.createDate DESC");
+        Query query = entityManager.createQuery(
+                "FROM Measurement m WHERE m.demographicId = ?1 AND m.type = ?2 AND m.measuringInstruction = ?3 ORDER BY m.createDate DESC");
         query.setParameter(1, demographicId);
         query.setParameter(2, type);
         query.setParameter(3, instructions);
@@ -826,8 +826,7 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     @Override
     public List<Measurement> findByProviderDemographicLastUpdateDate(String providerNo, Integer demographicId,
                                                                      Date updatedAfterThisDateExclusive, int itemsToReturn) {
-        String sql = "select x from " + modelClass.getSimpleName()
-                + " x where x.providerNo=?1 and x.demographicId=?2 and x.createDate>?3 order by x.createDate";
+        String sql = "select x from Measurement x where x.providerNo=?1 and x.demographicId=?2 and x.createDate>?3 order by x.createDate";
 
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, providerNo);
@@ -844,8 +843,7 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     @Override
     public List<Measurement> findByDemographicLastUpdateAfterDate(Integer demographicId,
                                                                   Date updatedAfterThisDateExclusive) {
-        String sql = "select x from " + modelClass.getSimpleName()
-                + " x where x.demographicId=?1 and x.createDate>?2 order by x.createDate";
+        String sql = "select x from Measurement x where x.demographicId=?1 and x.createDate>?2 order by x.createDate";
 
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographicId);

@@ -67,6 +67,8 @@
          import="java.util.*,java.sql.*,java.net.*" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <html>
@@ -87,13 +89,24 @@
                 return true;
             }
 
+            function setOpenerProperty(path, value) {
+                var tokens = path.match(/[^.\[\]'"]+/g);
+                if (!tokens || tokens.length === 0) return;
+                var obj = opener;
+                for (var i = 0; i < tokens.length - 1; i++) {
+                    if (obj == null) return;
+                    obj = obj[tokens[i]];
+                }
+                if (obj != null) obj[tokens[tokens.length - 1]] = value;
+            }
+
             <%if(param.length()>0) {%>
 
             function typeInData1(data) {
                 if (opener.updateElement != undefined) {
-                    opener.updateElement("<%=param%>", data);
+                    opener.updateElement('<%= Encode.forJavaScript(param) %>', data);
                 } else {
-                    opener.<%=param%> = data;
+                    setOpenerProperty('<%= Encode.forJavaScript(param) %>', data);
                 }
 
                 self.close();
@@ -102,8 +115,8 @@
             <%if(param2.length()>0) {%>
 
             function typeInData2(data1, data2) {
-                opener.<%=param%> = data1;
-                opener.<%=param2%> = data2;
+                setOpenerProperty('<%= Encode.forJavaScript(param) %>', data1);
+                setOpenerProperty('<%= Encode.forJavaScript(param2) %>', data2);
                 self.close();
             }
 
@@ -148,7 +161,7 @@
                value="<%=StringEscapeUtils.escapeHtml4(param2)%>">
         <table width="95%" border="0">
             <tr>
-                <td align="left">Results based on keyword(s): <%=keyword == null ? "" : keyword%>
+                <td align="left">Results based on keyword(s): <%= Encode.forHtml(keyword == null ? "" : keyword) %>
                 </td>
             </tr>
         </table>
@@ -221,12 +234,12 @@
         <script language="JavaScript">
             <!--
             function last() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("keyword")))%>&search_mode=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("search_mode")))%>&orderby=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("orderby")))%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("keyword")))%>&search_mode=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("search_mode")))%>&orderby=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("orderby")))%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 

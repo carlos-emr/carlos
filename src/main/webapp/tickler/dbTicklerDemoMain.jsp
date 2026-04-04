@@ -65,9 +65,9 @@
     if (temp == null) {
 %>
 <jsp:forward page='ticklerMain.jsp'>
-    <jsp:param name="demoview" value='<%=demoview%>'/>
-    <jsp:param name="parentAjaxId" value="<%=parentAjaxId%>"/>
-    <jsp:param name="updateParent" value="<%=updateParent%>"/>
+    <jsp:param name="demoview" value='<%= demoview %>'/>
+    <jsp:param name="parentAjaxId" value="<%= parentAjaxId %>"/>
+    <jsp:param name="updateParent" value="<%= updateParent %>"/>
 </jsp:forward>
 <%
     } else {
@@ -91,7 +91,7 @@
     }
 %>
 <jsp:forward page='ticklerMain.jsp'>
-    <jsp:param name="demoview" value='<%=demoview%>'/>
-    <jsp:param name="parentAjaxId" value="<%=parentAjaxId%>"/>
-    <jsp:param name="updateParent" value="<%=updateParent%>"/>
+    <jsp:param name="demoview" value='<%= demoview %>'/>
+    <jsp:param name="parentAjaxId" value="<%= parentAjaxId %>"/>
+    <jsp:param name="updateParent" value="<%= updateParent %>"/>
 </jsp:forward>

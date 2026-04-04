@@ -61,6 +61,7 @@
 <%@page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
@@ -93,7 +94,7 @@
             <label class="form-label">Date</label>
             <div>
                 <input type="text" id="reportDate" name="reportDate" class="form-control"
-                       size="10" value="<%=reportDate%>">
+                       size="10" value="<%= Encode.forHtmlAttribute(reportDate) %>">
             </div>
         </div>
         <div class="mb-3">

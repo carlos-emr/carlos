@@ -28,17 +28,31 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: Entry point for schedule template management. Allows providers and scheduling
+             staff to select a provider and navigate to schedule template creation,
+             application, or holiday configuration.
 
-<%
+    Features:
+    - Provider selection dropdown (filtered by _admin.schedule.curprovider_only privilege)
+    - Links to holiday settings, template code settings (admin-only)
+    - Link to schedule template editor for a selected provider
+    - Site/team access awareness (hides admin links when privacy flags are enabled)
 
-%>
+    Parameters (session):
+    - user      (String) — logged-in provider number
+    - userrole  (String) — role name for security checks
+
+    @since 2001-02-01
+--%>
+<!DOCTYPE html>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*" errorPage="/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 
@@ -52,226 +66,133 @@
     int year = now.get(Calendar.YEAR);
     int month = (now.get(Calendar.MONTH) + 1);
     int day = now.get(Calendar.DAY_OF_MONTH);
-
 %>
 
 <%
     boolean isSiteAccessPrivacy = false;
     boolean isTeamAccessPrivacy = false;
-
     boolean grantOnlyCurProviderScheduleData = false;
 %>
 <security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
     <%
         isSiteAccessPrivacy = true;
-
     %>
 </security:oscarSec>
 <security:oscarSec objectName="_team_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
     <%
         isTeamAccessPrivacy = true;
-
     %>
 </security:oscarSec>
-
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.curprovider_only" rights="r"
-                   reverse="<%=false%>">
+<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.curprovider_only" rights="r" reverse="<%=false%>">
     <%
         grantOnlyCurProviderScheduleData = true;
     %>
 </security:oscarSec>
 
-<html>
+<html lang="en">
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.title"/></title>
-        <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css"/>
-
-        <script language="JavaScript">
-            <!--
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title><fmt:message key="schedule.scheduletemplatesetting.title"/></title>
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
+        <script>
             function setfocus() {
                 this.focus();
             }
 
             function selectprovider(s) {
-                // Safely encode the provider number and name for URL parameters
                 var providerNo = encodeURIComponent(s.options[s.selectedIndex].value);
                 var providerName = encodeURIComponent(s.options[s.selectedIndex].text);
-                self.location.href = "scheduletemplateapplying.jsp?provider_no=" + providerNo + "&provider_name=" + providerName;
-            }
-
-            function urlencode(str) {
-                var ns = (navigator.appName == "Netscape") ? 1 : 0;
-                if (ns) {
-                    return escape(str);
-                }
-                var ms = "%25#23 20+2B?3F<3C>3E{7B}7D[5B]5D|7C^5E~7E`60";
-                var msi = 0;
-                var i, c, rs, ts;
-                while (msi < ms.length) {
-                    c = ms.charAt(msi);
-                    rs = ms.substring(++msi, msi + 2);
-                    msi += 2;
-                    i = 0;
-                    while (true) {
-                        i = str.indexOf(c, i);
-                        if (i == -1) break;
-                        ts = str.substring(0, i);
-                        str = ts + "%" + rs + str.substring(++i, str.length);
-                    }
-                }
-                return str;
+                window.location.href = "scheduletemplateapplying.jsp?provider_no=" + providerNo + "&provider_name=" + providerName;
             }
 
             function go() {
                 var s = document.schedule.providerid.value;
-                // Safely encode the provider ID and name for URL parameters
                 var providerId = encodeURIComponent(s);
                 var providerName = encodeURIComponent(document.schedule.providerid.options[document.schedule.providerid.selectedIndex].text);
                 var u = 'scheduleedittemplate.jsp?providerid=' + providerId + '&providername=' + providerName;
                 popupPage(390, 700, u);
             }
-
-            //-->
         </script>
     </head>
-    <body bgcolor="ivory" bgproperties="fixed" onLoad="setfocus()"
-          topmargin="0" leftmargin="0" rightmargin="0">
-    <form method="post" name="schedule" action="schedulecreatedate.jsp">
+    <body onload="setfocus()">
+    <div class="container-fluid py-3">
 
-        <table border="0" width="100%">
-            <tr>
-                <td width="150" bgcolor="#009966"><!--left column-->
-                    <table border="0" cellspacing="0" cellpadding="0" width="100%">
-                        <tr bgcolor="#486ebd">
-                            <th align="CENTER" bgcolor="#009966">
-                                <p>&nbsp;</p>
-                                <p><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.msgMainLabel"/></font></p>
-                            </th>
-                        </tr>
-                    </table>
-                    <table width="98%" border="0" cellspacing="0" cellpadding="0"
-                           height="500">
-                        <tr>
-                            <td>
-                                <p>&nbsp;</p>
-                                <p><font size="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.msgStepOne"/></font></p>
-                                <p><font size="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.msgStepTwo"/></font></p>
-                                <p>&nbsp;</p>
-                                <p>&nbsp;</p>
-                                <p>&nbsp;</p>
-                                <p>&nbsp;</p>
-                            </td>
-                        </tr>
-                    </table>
+        <h4><fmt:message key="schedule.scheduletemplatesetting.msgMainLabel"/></h4>
 
-                </td>
-                <td>
+        <div class="alert alert-info">
+            <fmt:message key="schedule.scheduletemplatesetting.msgStepOne"/>
+            <br>
+            <fmt:message key="schedule.scheduletemplatesetting.msgStepTwo"/>
+        </div>
 
-                    <center>
-                        <table width="95%" border="0" cellspacing="0" cellpadding="0">
-                            <tr>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.formSelectProvider"/>:
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>&nbsp;</td>
-                            </tr>
-                            <tr>
-                                <td bgcolor="#CCFFCC">&nbsp; <select name="provider_no"
-                                                                     onChange="selectprovider(this)">
-                                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.msgNoProvider"/></option>
+        <form method="post" name="schedule" action="schedulecreatedate.jsp">
+        <div class="card card-body bg-body-tertiary">
 
-                                    <%
-                                        ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+            <div class="mb-3">
+                <label class="form-label"><fmt:message key="schedule.scheduletemplatesetting.formSelectProvider"/>:</label>
+                <select name="provider_no" class="form-select" onchange="selectprovider(this)">
+                    <option value=""><fmt:message key="schedule.scheduletemplatesetting.msgNoProvider"/></option>
+                    <%
+                        ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+                        List<Provider> providers = null;
 
-                                        List<Provider> providers = null;
+                        if (grantOnlyCurProviderScheduleData) {
+                            // Only allow the user to manipulate their own schedule
+                            providers = new ArrayList<Provider>();
+                            Provider curProvider = providerDao.getProvider(curProvider_no);
+                            if (curProvider != null) {
+                                providers.add(curProvider);
+                            }
+                        } else {
+                            providers = providerDao.getActiveProviders();
+                        }
+                        //TODO: filter by site/team if necessary
 
-                                        if (grantOnlyCurProviderScheduleData) {
-                                            //only the allow the user to manipulate their own schedule
-                                            providers = new ArrayList<Provider>();
+                        for (Provider p : providers) {
+                    %>
+                    <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtml(p.getFormattedName())%></option>
+                    <% } %>
+                </select>
+            </div>
 
-                                            Provider curProvider = providerDao.getProvider(curProvider_no);
+            <p><fmt:message key="schedule.scheduletemplatesetting.formOrDo"/>:</p>
 
-                                            if (curProvider != null) {
-                                                providers.add(curProvider);
-                                            }
-                                        } else {
-                                            providers = providerDao.getActiveProviders();
-                                        }
-                                        //TODO: filter by site/team if necessary
+            <div class="d-flex flex-column gap-2">
+                <%if (!(isSiteAccessPrivacy || isTeamAccessPrivacy || grantOnlyCurProviderScheduleData)) {%>
+                <div class="p-2 bg-success-subtle rounded">
+                    <a href="#"
+                       onclick="popupPage(440,530,'scheduleholidaysetting.jsp?year=<%=year%>&month=<%=month%>&day=<%=day%>')"
+                       title="<fmt:message key="schedule.scheduletemplatesetting.msgHolidaySettingTip"/>">
+                        <fmt:message key="schedule.scheduletemplatesetting.btnHolidaySetting"/>
+                    </a>
+                </div>
+                <div class="p-2 bg-success-subtle rounded">
+                    <a href="#" onclick="popupPage(600,700,'scheduletemplatecodesetting.jsp')">
+                        <fmt:message key="schedule.scheduletemplatesetting.btnTemplateCodeSetting"/>
+                    </a>
+                </div>
+                <%}%>
+                <div class="p-2 bg-success-subtle rounded d-flex align-items-center gap-2 flex-wrap">
+                    <a href="#" onclick="go()">
+                        <fmt:message key="schedule.scheduletemplatesetting.btnTemplateSetting"/>
+                    </a>
+                    <span><fmt:message key="schedule.scheduletemplatesetting.msgForProvider"/>:</span>
+                    <select name="providerid" class="form-select form-select-sm" style="width: auto;">
+                        <option value="Public"><fmt:message key="schedule.scheduletemplatesetting.msgPublic"/></option>
+                        <%
+                            for (Provider p : providers) {
+                        %>
+                        <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtml(p.getFormattedName())%></option>
+                        <% } %>
+                    </select>
+                </div>
+            </div>
 
-                                        for (Provider p : providers) {
-                                    %>
-                                    <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtml(p.getFormattedName())%>
-                                    </option>
+        </div>
+        </form>
 
-                                    <% } %>
-
-                                </select></td>
-                            </tr>
-                            <tr>
-                                <td>&nbsp;</td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <p><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.formOrDo"/>:</p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>&nbsp;</td>
-                            </tr>
-                            <%if (!(isSiteAccessPrivacy || isTeamAccessPrivacy || grantOnlyCurProviderScheduleData)) {%>
-                            <tr>
-                                <td nowrap bgcolor="#CCFFCC">&nbsp; <a HREF="#"
-                                                                       ONCLICK="popupPage(440,530,'scheduleholidaysetting.jsp?year=<%=year%>&month=<%=month%>&day=<%=day%>')"
-                                                                       TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.msgHolidaySettingTip"/>;return true'><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.btnHolidaySetting"/></a></td>
-                            </tr>
-                            <tr>
-                                <td>&nbsp;</td>
-                            </tr>
-                            <tr>
-
-                                <td nowrap bgcolor="#CCFFFF">&nbsp; <a HREF="#"
-                                                                       ONCLICK="popupPage(600,700,'scheduletemplatecodesetting.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.btnTemplateCodeSetting"/></a></td>
-
-
-                            </tr>
-                            <%} %>
-                            <tr>
-                                <td nowrap bgcolor="#CCFFFF">&nbsp; <a HREF="#" onClick="go()"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.btnTemplateSetting"/></a>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.msgForProvider"/>&nbsp; <select
-                                        name="providerid">
-                                    <option value="Public"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatesetting.msgPublic"/></option>
-                                    <%
-                                        for (Provider p : providers) {
-                                    %>
-                                    <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtml(p.getFormattedName())%>
-                                    </option>
-
-                                    <% } %>
-
-                                </select></td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <div align="left"></div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <div align="right"></div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>&nbsp;</td>
-                            </tr>
-                        </table>
-                        <p>
-                    </center>
-                </td>
-            </tr>
-        </table>
-
-    </form>
+    </div>
     </body>
 </html>

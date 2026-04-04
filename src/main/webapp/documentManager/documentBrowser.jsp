@@ -50,6 +50,7 @@
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -380,11 +381,11 @@ Remote documents not supported
         }
 
         function AddTickler() {
-            popup(450, 600, '<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&docId=' + docid + '&demographic_no=<%=demographicID%>', 'tickler');
+            popup(450, 600, '<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&docId=' + docid + '&demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'tickler');
         }
 
         function DocAnnotation() {
-            popup(350, 500, '<%= request.getContextPath() %>/annotation/annotation.jsp?display=Documents&table_id=' + docid + '&demo=<%=demographicID%>', 'anwin');
+            popup(350, 500, '<%= request.getContextPath() %>/annotation/annotation.jsp?display=Documents&table_id=' + docid + '&demo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'anwin');
         }
 
         function DocEdit() {
@@ -396,10 +397,10 @@ Remote documents not supported
             var doctype = selected[0].value.substring(docidindexend + 1, selected[0].value.length);
 
             if (doctype == 'text/html') {
-                popup(450, 600, 'addedithtmldocument.jsp?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=demographicID%>', 'EditDoc');
+                popup(450, 600, 'addedithtmldocument.jsp?editDocumentNo=' + docid + '&function=<%=Encode.forJavaScript(Encode.forUriComponent(module))%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
             } else {
 
-                popup(350, 500, 'editDocument.jsp?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<%=demographicID%>', 'EditDoc');
+                popup(350, 500, 'editDocument.jsp?editDocumentNo=' + docid + '&function=<%=Encode.forJavaScript(Encode.forUriComponent(module))%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'EditDoc');
             }
         }
 
@@ -418,14 +419,14 @@ Remote documents not supported
         <tr>
             <td align="left" valign="top" style="width: 400px">
                 <oscar:nameage demographicNo="<%=moduleid%>"/><br>
-                <%=categoryKey%>
+                <%=Encode.forHtml(categoryKey)%>
                 <br>
 
-                <input type="hidden" name="viewstatus" value="<%=viewstatus%>">
+                <input type="hidden" name="viewstatus" value="<%= Encode.forHtmlAttribute(viewstatus) %>">
                 <input type="hidden" name="sortorder" value="<%=sortorder%>">
                 <input type="hidden" name="function" value="<%=module%>">
                 <input type="hidden" name="functionid" value="<%=moduleid%>">
-                <input type="hidden" name="categorykey" value="<%=categoryKey%>">
+                <input type="hidden" name="categorykey" value="<%= Encode.forHtmlAttribute(categoryKey) %>">
 
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentBrowser.msgViewStatus"/> <select id="selviewstatus" name="selviewstatus"
                                                                                 onchange="ReLoadDoc()">
@@ -450,7 +451,7 @@ Remote documents not supported
                 <fieldset>
                     <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentBrowser.msgView"/>:</legend>
                     <input type="hidden" name="view" value="<%=view%>">
-                    <input type="hidden" name="demographic_no" value="<%=demographicID%>">
+                    <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicID) %>">
                     <input type="hidden" name="undelDocumentNo" value="">
                     <input type="hidden" name="delDocumentNo" value="">
                     <input type="hidden" name="refileDocumentNo" value="">

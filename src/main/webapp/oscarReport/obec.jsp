@@ -56,6 +56,7 @@
 
 <%@ page
         import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.DateUtils, java.net.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -119,7 +120,7 @@
                 <div>
 
                     <input id="xml_vdate" type="text" name="xml_vdate"
-                           value="<%=xml_vdate%>" placeholder="Service Begin Date">
+                           value="<%= Encode.forHtmlAttribute(xml_vdate) %>" placeholder="Service Begin Date">
                 </div>
             </div>
             <div class="mb-3" id="providerDiv">
@@ -127,7 +128,7 @@
 
                 <div>
 
-                    <input type="text" id="numDays" name="numDays" value="<%=numDays%>"
+                    <input type="text" id="numDays" name="numDays" value="<%= Encode.forHtmlAttribute(numDays) %>"
                            class="form-control form-control-sm d-inline-block w-auto">
                 </div>
             </div>

@@ -453,7 +453,16 @@ var CarlosAjax = (function () {
                 scripts.push(match[1]);
             }
             scriptPattern.lastIndex = 0;
-            var cleanHtml = html.replace(scriptPattern, '');
+            // Strip script tags (loop to handle nested/overlapping patterns).
+            // Extraction above is single-pass; stripping here is multi-pass. Reconstituted
+            // scripts (from nested patterns like <scr<script>ipt>) are stripped but NOT
+            // executed — this is intentional as they indicate an injection attempt.
+            var cleanHtml = html;
+            var prev;
+            do {
+                prev = cleanHtml;
+                cleanHtml = cleanHtml.replace(scriptPattern, '');
+            } while (cleanHtml !== prev);
 
             if (insertion) {
                 element.insertAdjacentHTML(POS_MAP[insertion] || 'beforeend', cleanHtml);

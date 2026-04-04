@@ -28,6 +28,7 @@
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 
@@ -192,7 +193,7 @@
         type="button" name="cancel" value="Cancel"
         onclick="javascript:window.close()"> <%
     if (request.getParameter("nameF") != null) {
-        out.println("<input type='hidden' name='nameF' value=\"" + Encode.forHtmlAttribute(request.getParameter("nameF")) + "\"/>");
+        out.println("<input type='hidden' name='nameF' value=\"" + Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("nameF"))) + "\"/>");
     }
 %>
 </form>

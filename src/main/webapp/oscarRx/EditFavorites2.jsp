@@ -91,7 +91,6 @@
                 var prn = eval('get.fldPrn' + rowId).checked;
                 var customInstr = eval('get.customInstr' + rowId).checked;
                 var special = eval('get.fldSpecial' + rowId).value;
-                var dispenseInternal = eval('get.dispenseInternal' + rowId).value;
                 // URLSearchParams handles encoding automatically
 
                 if (favoriteName == null || favoriteName.length < 1) {
@@ -135,7 +134,6 @@
                     params.append('prn', prn);
                     params.append('customInstr', customInstr);
                     params.append('special', special);
-                    params.append('dispenseInternal', dispenseInternal);
                     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                     if (csrfEl) params.append('CSRF-TOKEN', csrfEl.value);
                     var url = "<c:out value="${ctx}"/>" + "/oscarRx/updateFavorite2.do?method=ajaxEditFavorite";
@@ -380,14 +378,6 @@
                                                                       rows=5><%=s.trim()%></textarea></td>
                                                     </tr>
                                                 </table>
-                                            </td>
-                                        </tr>
-
-                                        <tr <%= style %>>
-                                            <td colspan=7>
-                                                Dispense Internally:&nbsp;<input type="checkbox"
-                                                                                 name="dispenseInternal<%=i%>" <% if(f.getDispenseInternal() != null && f.getDispenseInternal().booleanValue()) { %>
-                                                                                 checked <%}%>>
                                             </td>
                                         </tr>
 

@@ -47,6 +47,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+
 /**
  * Struts2 action for displaying and managing messages associated with a specific patient demographic.
  * 
@@ -147,10 +148,10 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
             
             // Validate required parameters before proceeding
             if (providerNo == null || userName == null || demographicNo == null) {
-                MiscUtils.getLogger().error("Missing required parameters: " + 
-                                          "providerNo=" + providerNo + 
-                                          ", userName=" + userName + 
-                                          ", demographic_no=" + demographicNo);
+                MiscUtils.getLogger().error("Missing required parameters: providerNo={}, userName={}, demographic_no={}",
+                    providerNo != null ? "present" : "null",
+                    userName != null ? "present" : "null",
+                    demographicNo != null ? "present" : "null");
                 return "error"; 
             }
             

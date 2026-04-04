@@ -476,7 +476,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String ipAddress = request.getRemoteAddr();
         CasemgmtNoteLock casemgmtNoteLock;
         Long note_id = note.getId() != null && note.getId() >= 0 ? note.getId() : 0L;
-        casemgmtNoteLock = isNoteEdited(note_id, demographicNo, providerNo, ipAddress, request.getRequestedSessionId());
+        casemgmtNoteLock = isNoteEdited(note_id, demographicNo, providerNo, ipAddress, request.getSession().getId());
 
         if (casemgmtNoteLock.isLocked()) {
             note = makeNewNote(providerNo, demono, request);
@@ -602,7 +602,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String demoNo = getDemographicNo(request);
         String noteId = request.getParameter("noteId");
         String ipAddress = request.getRemoteAddr();
-        String sessionId = request.getRequestedSessionId();
+        String sessionId = request.getSession().getId();
 
         logger.debug("WEB isNoteEdited CALLED");
         CasemgmtNoteLock casemgmtNoteLock = isNoteEdited(Long.parseLong(noteId), Integer.parseInt(demoNo), providerNo, ipAddress, sessionId);
@@ -642,12 +642,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         casemgmtNoteLock.setIpAddress(request.getRemoteAddr());
-        String currentSessionId = request.getRequestedSessionId();
-        if (currentSessionId == null) {
-            currentSessionId = session.getId();
-        }
+        String currentSessionId = request.getSession().getId();
         casemgmtNoteLock.setSessionId(currentSessionId);
-        logger.debug("UPDATING LOCK DEMO " + demoNo + " SESSION " + casemgmtNoteLock.getSessionId() + " LOCK IP " + casemgmtNoteLock.getIpAddress());
+        logger.debug("UPDATING LOCK DEMO " + demoNo + " LOCK IP " + casemgmtNoteLock.getIpAddress());
         casemgmtNoteLockDao.merge(casemgmtNoteLock);
 
         session.setAttribute("casemgmtNoteLock" + demoNo, casemgmtNoteLock);
@@ -1865,10 +1862,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (casemgmtNoteLock == null) {
                 return false;
             }
-            String currentSessionId = request.getRequestedSessionId();
-            if (currentSessionId == null) {
-                currentSessionId = session.getId();
-            }
+            String currentSessionId = request.getSession().getId();
             return Objects.equals(casemgmtNoteLock.getSessionId(), casemgmtNoteLockSession.getSessionId())
                 && Objects.equals(currentSessionId, casemgmtNoteLockSession.getSessionId());
         } catch (Exception e) {
@@ -1894,7 +1888,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demoNo);
             //If browser is exiting check to see if we should release lock.  It may be held by same user in another window so we check
-            if (request.getRequestedSessionId().equals(casemgmtNoteLockSession.getSessionId()) && casemgmtNoteLockSession.getNoteId() == Long.parseLong(noteId)) {
+            if (request.getSession().getId().equals(casemgmtNoteLockSession.getSessionId()) && casemgmtNoteLockSession.getNoteId() == Long.parseLong(noteId)) {
                 releaseNoteLock(providerNo, Integer.parseInt(demoNo), Long.parseLong(noteId));
                 session.removeAttribute("casemgmtNoteLock" + demoNo);
             }
@@ -1942,66 +1936,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return "windowCloseError";
         }
 
-        String supervisor = null;
-        String reviewer = null;
-        String resident = request.getParameter("resident");
-        String reviewerNo = null;
-        ResidentOscarMsgDao residenOscarMsgDao = SpringUtils.getBean(ResidentOscarMsgDao.class);
-        if (resident != null && !"null".equalsIgnoreCase(resident)) {
-            reviewer = request.getParameter("reviewer");
-            if ("null".equalsIgnoreCase(reviewer) || "".equalsIgnoreCase(reviewer)) {
-                reviewer = null;
-            }
-
-            supervisor = request.getParameter("supervisor");
-            if ("null".equalsIgnoreCase(supervisor) || "".equalsIgnoreCase(supervisor)) {
-                supervisor = null;
-            }
-
-            if (supervisor != null) {
-                Calendar epoch = GregorianCalendar.getInstance();
-                epoch.set(1970, 0, 1, 0, 0, 0);
-                ResidentOscarMsg residentOscarMsg = new ResidentOscarMsg();
-                residentOscarMsg.setComplete(Boolean.FALSE);
-                residentOscarMsg.setCreate_time(new Date(System.currentTimeMillis()));
-                residentOscarMsg.setComplete_time(epoch.getTime());
-                residentOscarMsg.setResident_no(loggedInInfo.getLoggedInProvider().getProviderNo());
-                residentOscarMsg.setSupervisor_no(supervisor);
-                residentOscarMsg.setDemographic_no(Integer.valueOf(demoNo));
-                residentOscarMsg.setNote_id(noteId);
-                if (this.getAppointmentNo() != null) {
-                    residentOscarMsg.setAppointment_no(Integer.valueOf(this.getAppointmentNo()));
-                }
-                residenOscarMsgDao.persist(residentOscarMsg);
-
-                reviewerNo = supervisor;
-            } else if (reviewer != null) {
-                reviewerNo = reviewer;
-            }
-        }
-
-        if (CarlosProperties.getInstance().getProperty("resident_review", "false").equalsIgnoreCase("true")) {
-            String verifyStr = request.getParameter("verify");
-            if (verifyStr != null && verifyStr.equalsIgnoreCase("on")) {
-
-                if (priorNote != null && !"null".equalsIgnoreCase(priorNote) && !"".equalsIgnoreCase(priorNote)) {
-
-                    for (CaseManagementNote n : caseManagementNoteDao.getNotesByUUID(this.getCaseNote().getUuid())) {
-
-                        ResidentOscarMsg residentOscarMsg = residenOscarMsgDao.findByNoteId(n.getId());
-
-                        if (residentOscarMsg != null) {
-
-                            residentOscarMsg.setComplete(Boolean.TRUE);
-                            residentOscarMsg.setComplete_time(new Date(System.currentTimeMillis()));
-
-                            residenOscarMsgDao.merge(residentOscarMsg);
-                        }
-                    }
-                }
-            }
-        }
-
         String toBill = request.getParameter("toBill");
 
         if (toBill != null && toBill.equalsIgnoreCase("true")) {
@@ -2017,17 +1951,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (apptProvider == null || apptProvider.isEmpty() || "none".equals(apptProvider)) {
                 apptProvider = providerNo;
             }
-            String providerview = null;
-            if (reviewerNo != null) {
-                Provider p = providerMgr.getProvider(reviewerNo);
-                if (p.getProviderType().equalsIgnoreCase("nurse")) {
-                    providerview = "000000";
-                } else {
-                    providerview = reviewerNo;
-                }
-            } else {
-                providerview = loggedInInfo.getLoggedInProviderNo();
-            }
+            String providerview = loggedInInfo.getLoggedInProviderNo();
             String defaultView = CarlosProperties.getInstance().getProperty("default_view", "");
 
             Set setIssues = this.getCaseNote().getIssues();

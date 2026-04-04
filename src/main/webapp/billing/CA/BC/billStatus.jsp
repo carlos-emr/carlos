@@ -264,18 +264,18 @@
             <div class="col-lg-12">
                 <i>Results for Demographic</i>
                 :
-                <%=request.getParameter("lastName")%>      ,
-                <%=request.getParameter("firstName")%>      (
-                <%=request.getParameter("demographicNo")%>      )
+                <%= Encode.forHtml(StringUtils.noNull(request.getParameter("lastName"))) %>      ,
+                <%= Encode.forHtml(StringUtils.noNull(request.getParameter("firstName"))) %>      (
+                <%= Encode.forHtml(StringUtils.noNull(request.getParameter("demographicNo"))) %>      )
             </div>
         </div>
         <%}%>
 
 
         <form name="serviceform" method="get" action="billStatus.jsp" class="d-flex flex-wrap align-items-center gap-2">
-            <input type="hidden" name="filterPatient" value="<%=readonly%>"/>
-            <input type="hidden" name="lastName" value="<%=request.getParameter("lastName")%>"/>
-            <input type="hidden" name="firstName" value="<%=request.getParameter("firstName")%>"/>
+            <input type="hidden" name="filterPatient" value="<%= Encode.forHtmlAttribute(readonly) %>"/>
+            <input type="hidden" name="lastName" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("lastName"))) %>"/>
+            <input type="hidden" name="firstName" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("firstName"))) %>"/>
             <div class="row">
                 <div class="col-lg-12">
                     <div class="mb-3">
@@ -331,7 +331,7 @@
                         <label for="xml_vdate">Service Start Date:</label>
                         <div class="input-group">
                             <input type="text" name="xml_vdate" class="form-control" id="xml_vdate"
-                                   value="<%=xml_vdate%>" placeholder="yyyy-mm-dd"
+                                   value="<%= Encode.forHtmlAttribute(xml_vdate) %>" placeholder="yyyy-mm-dd"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -346,7 +346,7 @@
     </label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="xml_appointment_date" placeholder="yyyy-mm-dd"
-                                   id="xml_appointment_date" value="<%=xml_appointment_date%>"
+                                   id="xml_appointment_date" value="<%= Encode.forHtmlAttribute(xml_appointment_date) %>"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -359,7 +359,7 @@
                             String readonlyStr = "true".equals(readonly) ? "readonly" : "";
                         %>
                         <input type="text" class="form-control" id="demographicNo" name="demographicNo" size="6"
-                               value="<%=xml_demoNo%>" <%=readonlyStr%> />
+                               value="<%= Encode.forHtmlAttribute(xml_demoNo) %>" <%=readonlyStr%> />
                     </div>
                 </div>
 

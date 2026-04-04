@@ -58,15 +58,15 @@ public class RxInstructionPolicy {
     public static void applyStJoesPolicy(String instr, List<String> errors) {
         //unit
         addPolicy(new String[]{"\\s+(?i)U\\b", "\\b\\d+(?i)U\\b"}, instr, errors, "U", "Unit");
-        addPolicy(new String[]{"\\s+(?i)I.U.", "\\b\\d+(?i)I.U.\\b"}, instr, errors, "I.U.", "Unit");
+        addPolicy(new String[]{"\\s+(?i)I\\.U\\.", "\\b\\d+(?i)I\\.U\\.(?=\\s|$)"}, instr, errors, "I.U.", "Unit");
 
         //subcutaneous
-        addPolicy(new String[]{"\\s+(?i)S.C.\\b", "^(?i)S.C.\\b"}, instr, errors, "S.C.", "Subcutaneous or subcut");
+        addPolicy(new String[]{"\\s+(?i)S\\.C\\.(?=\\s|$)", "^(?i)S\\.C\\.(?=\\s|$)"}, instr, errors, "S.C.", "Subcutaneous or subcut");
         addPolicy(new String[]{"\\s+(?i)SC\\b", "^(?i)SC\\b"}, instr, errors, "SC", "Subcutaneous or subcut");
 
         //CC
         addPolicy(new String[]{"\\s+(?i)CC\\b", "\\b\\d+(?i)CC\\b"}, instr, errors, "CC", "ml or mL");
-        addPolicy(new String[]{"\\s+C.C.", "\\b\\d+(?i)C.C.\\b"}, instr, errors, "C.C.", "ml or mL");
+        addPolicy(new String[]{"\\s+C\\.C\\.", "\\b\\d+(?i)C\\.C\\.(?=\\s|$)"}, instr, errors, "C.C.", "ml or mL");
 
         //µg
         addPolicy(new String[]{"µg"}, instr, errors, "µg", "microgram or mcg");
@@ -87,13 +87,13 @@ public class RxInstructionPolicy {
         addPolicy(new String[]{"@"}, instr, errors, "@", "at");
 
         //A.S.
-        addPolicy(new String[]{"\\s+(?i)A\\.\\.?S.?\\s+", "\\s+(?i)A\\.\\.?S.?$", "^(?i)A\\.\\.?S.?\\s+", "^(?i)A\\.\\.?S.?$"}, instr, errors, "A.S.", "left ear");
+        addPolicy(new String[]{"\\s+(?i)A\\.\\.?S\\.?\\s+", "\\s+(?i)A\\.\\.?S\\.?$", "^(?i)A\\.\\.?S\\.?\\s+", "^(?i)A\\.\\.?S\\.?$"}, instr, errors, "A.S.", "left ear");
 
         //A.D.
-        addPolicy(new String[]{"\\s+(?i)AD.?\\s+", "\\s+(?i)AD.?$", "^s+(?i)AD.?\\s+", "^(?i)AD.?$", "\\s+(?i)A\\.\\.?D.?\\s+", "\\s+(?i)A\\.\\.?D.?$", "^s+(?i)A\\.\\.?D.?\\s+", "^(?i)A\\.\\.?D.?$"}, instr, errors, "A.D.", "right ear");
+        addPolicy(new String[]{"\\s+(?i)AD\\.?\\s+", "\\s+(?i)AD\\.?$", "^\\s+(?i)AD\\.?\\s+", "^(?i)AD\\.?$", "\\s+(?i)A\\.\\.?D\\.?\\s+", "\\s+(?i)A\\.\\.?D\\.?$", "^\\s+(?i)A\\.\\.?D\\.?\\s+", "^(?i)A\\.\\.?D\\.?$"}, instr, errors, "A.D.", "right ear");
 
         //A.U.
-        addPolicy(new String[]{"\\s+(?i)A.?U.?\\s+", "\\s+(?i)A.?U.?$", "^(?i)A.?U.?\\s+", "^(?i)A.?U.?$"}, instr, errors, "A.U.", "both ears");
+        addPolicy(new String[]{"\\s+(?i)A\\.?U\\.?\\s+", "\\s+(?i)A\\.?U\\.?$", "^(?i)A\\.?U\\.?\\s+", "^(?i)A\\.?U\\.?$"}, instr, errors, "A.U.", "both ears");
 
         //d.0 should be d
         addPolicy(new String[]{"\\b\\.0\\b"}, instr, errors, "10.0", "10");
@@ -102,22 +102,22 @@ public class RxInstructionPolicy {
         addPolicy(new String[]{"\\s+\\.\\d+", "^\\.\\d+"}, instr, errors, ".1", "0.1");
 
         //O.S.
-        addPolicy(new String[]{"\\s+(?i)O.?S.?\\s+", "\\s+(?i)O.?S.?$", "^(?i)O.?S.?\\s+", "^(?i)O.?S.?$"}, instr, errors, "O.S.", "left eye");
+        addPolicy(new String[]{"\\s+(?i)O\\.?S\\.?\\s+", "\\s+(?i)O\\.?S\\.?$", "^(?i)O\\.?S\\.?\\s+", "^(?i)O\\.?S\\.?$"}, instr, errors, "O.S.", "left eye");
 
         //O.D.
-        addPolicy(new String[]{"\\s+(?i)O.?D.?\\s+", "\\s+(?i)O.?D.?$", "^(?i)O.?D.?\\s+", "^(?i)O.?D.?$"}, instr, errors, "O.D.", "right eye");
+        addPolicy(new String[]{"\\s+(?i)O\\.?D\\.?\\s+", "\\s+(?i)O\\.?D\\.?$", "^(?i)O\\.?D\\.?\\s+", "^(?i)O\\.?D\\.?$"}, instr, errors, "O.D.", "right eye");
 
         //O.U.
-        addPolicy(new String[]{"\\s+(?i)O.?U.?\\s+", "\\s+(?i)O.?U.?$", "^(?i)O.?U.?\\s+", "^(?i)O.?U.?$"}, instr, errors, "O.U.", "both eyes");
+        addPolicy(new String[]{"\\s+(?i)O\\.?U\\.?\\s+", "\\s+(?i)O\\.?U\\.?$", "^(?i)O\\.?U\\.?\\s+", "^(?i)O\\.?U\\.?$"}, instr, errors, "O.U.", "both eyes");
 
         //q.o.d
-        addPolicy(new String[]{"\\s+(?i)q.?o.?d.?\\s+", "\\s+(?i)q.?o.?d.?$", "^(?i)q.?o.?d.?\\s+", "^(?i)q.?o.?d.?$"}, instr, errors, "q.o.d", "every other day");
+        addPolicy(new String[]{"\\s+(?i)q\\.?o\\.?d\\.?\\s+", "\\s+(?i)q\\.?o\\.?d\\.?$", "^(?i)q\\.?o\\.?d\\.?\\s+", "^(?i)q\\.?o\\.?d\\.?$"}, instr, errors, "q.o.d", "every other day");
 
         //q.d
-        addPolicy(new String[]{"\\s+(?i)qd.?\\s+", "\\s+(?i)qd.?$", "^s+(?i)qd.?\\s+", "^(?i)qd.?$", "\\s+(?i)q\\.\\.?d.?\\s+", "\\s+(?i)q\\.\\.?d.?$", "^s+(?i)q\\.\\.?d.?\\s+", "^(?i)q\\.\\.?d.?$"}, instr, errors, "q.d", "daily");
+        addPolicy(new String[]{"\\s+(?i)qd\\.?\\s+", "\\s+(?i)qd\\.?$", "^\\s+(?i)qd\\.?\\s+", "^(?i)qd\\.?$", "\\s+(?i)q\\.\\.?d\\.?\\s+", "\\s+(?i)q\\.\\.?d\\.?$", "^\\s+(?i)q\\.\\.?d\\.?\\s+", "^(?i)q\\.\\.?d\\.?$"}, instr, errors, "q.d", "daily");
 
         //o.d.
-        addPolicy(new String[]{"\\s+(?i)o.?d.?\\s+", "\\s+(?i)o.?d.?$", "^(?i)o.?d.?\\s+", "^(?i)o.?d.?$"}, instr, errors, "o.d.", "daily");
+        addPolicy(new String[]{"\\s+(?i)o\\.?d\\.?\\s+", "\\s+(?i)o\\.?d\\.?$", "^(?i)o\\.?d\\.?\\s+", "^(?i)o\\.?d\\.?$"}, instr, errors, "o.d.", "daily");
 
     }
 

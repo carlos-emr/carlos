@@ -35,6 +35,7 @@
 <%@ page
         import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementMap" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
 
@@ -103,10 +104,10 @@
 
 <body>
 <form method="post" name="CONFIG" action="RemapMeasurementMap.do">
-    <input type="hidden" name="id" value="<%= id %>"> <input
-        type="hidden" name="identifier" value="<%= identifier %>"> <input
-        type="hidden" name="name" value="<%= name %>"> <input
-        type="hidden" name="type" value="<%= type %>">
+    <input type="hidden" name="id" value="<%= Encode.forHtmlAttribute(id) %>"> <input
+        type="hidden" name="identifier" value="<%= Encode.forHtmlAttribute(identifier) %>"> <input
+        type="hidden" name="name" value="<%= Encode.forHtmlAttribute(name) %>"> <input
+        type="hidden" name="type" value="<%= Encode.forHtmlAttribute(type) %>">
     <table width="100%" height="100%" border="0">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRow" colspan="9" align="left">
@@ -133,17 +134,17 @@
                         </tr>
                         <tr>
                             <td class="Cell" width="20%">Identifier:</td>
-                            <td class="Cell" width="80%"><%= identifier %>
+                            <td class="Cell" width="80%"><%= Encode.forHtml(identifier) %>
                             </td>
                         </tr>
                         <tr>
                             <td class="Cell" width="20%">Name:</td>
-                            <td class="Cell" width="80%"><%= name %>
+                            <td class="Cell" width="80%"><%= Encode.forHtml(name) %>
                             </td>
                         </tr>
                         <tr>
                             <td class="Cell" width="20%">Lab Type:</td>
-                            <td class="Cell" width="80%"><%= type %>
+                            <td class="Cell" width="80%"><%= Encode.forHtml(type) %>
                             </td>
                         </tr>
                         <tr>
@@ -155,7 +156,7 @@
                                         searchstring = "";
                                 %>
                                 <input type="text" size="30" name="searchstring"
-                                       value="<%= searchstring %>"/> <input type="submit" value="Search"
+                                       value="<%= Encode.forHtmlAttribute(searchstring) %>"/> <input type="submit" value="Search"
                                                                             onclick="return reloadPage()"/></td>
                         <tr>
                             <td class="Cell" width="20%">Select code to map to:</td>

@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * the NioFileManager handles all file input and output of all OscarDocument files
@@ -348,7 +349,7 @@ public class NioFileManagerImpl implements NioFileManager {
         
         // Additional validation - ensure the filename is not empty after sanitization
         if (baseName.trim().isEmpty()) {
-            log.warn("Filename became empty after sanitization: " + fileName);
+            log.warn("Filename became empty after sanitization: {}", LogSanitizer.sanitize(fileName));
             return "invalid_filename";
         }
         

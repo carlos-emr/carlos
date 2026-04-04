@@ -119,10 +119,6 @@ public class EctConEditSpecialists2Action extends ActionSupport {
         request.setAttribute("email", professionalSpecialist.getEmailAddress());
         request.setAttribute("specType", professionalSpecialist.getSpecialtyType());
         request.setAttribute("specId", specId);
-        request.setAttribute("eDataUrl", professionalSpecialist.geteDataUrl());
-        request.setAttribute("eDataOscarKey", professionalSpecialist.geteDataOscarKey());
-        request.setAttribute("eDataServiceKey", professionalSpecialist.geteDataServiceKey());
-        request.setAttribute("eDataServiceName", professionalSpecialist.geteDataServiceName());
         request.setAttribute("annotation", professionalSpecialist.getAnnotation());
         request.setAttribute("referralNo", professionalSpecialist.getReferralNo());
         request.setAttribute("institution", professionalSpecialist.getInstitutionId() != null

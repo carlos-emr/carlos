@@ -42,6 +42,8 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -65,7 +67,7 @@
         <p class="PropSheetLevel1CurrentItem<%=alle%>">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.sideLinks.msgAllergies"/>
             <a href="javascript:void(0);" name="cmdAllergies"
-               onclick="javascript:window.location.href='<%= request.getContextPath() %>/oscarRx/ShowAllergies2.jsp?demographicNo=<%=request.getParameter("demographicNo")%>';"
+               onclick="javascript:window.location.href='<%= request.getContextPath() %>/oscarRx/ShowAllergies2.jsp?demographicNo=<%=Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("demographicNo")))%>';"
                style="width: 200px">+</a>
         </p>
         <p class="PropSheetMenuItemLevel1">

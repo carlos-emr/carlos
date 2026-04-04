@@ -645,8 +645,8 @@ function addEvent(elm, evType, fn, useCapture)
 }
 function checkFav(){
     //oscarLog("****** in checkFav");
-    var usefav='<%=usefav%>';
-    var favid='<%=favid%>';
+    var usefav='<%= Encode.forJavaScript(usefav) %>';
+    var favid='<%= Encode.forJavaScript(favid) %>';
     if(usefav=="true" && favid!=null && favid!='null'){
         //oscarLog("****** favid "+favid);
         useFav2(favid);
