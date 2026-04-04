@@ -1455,7 +1455,12 @@
 
 
     var _stripHtml = function (d) {
-        return d.replace(_re_html, '');
+        var prev;
+        do {
+            prev = d;
+            d = d.replace(_re_html, '');
+        } while (d !== prev);
+        return d;
     };
 
 
@@ -5575,7 +5580,7 @@
 
         for (var i = 0, ien = settings.aoData.length; i < ien; i++) {
             s = _fnGetCellData(settings, i, colIdx, 'display') + '';
-            s = s.replace(__re_html_remove, '');
+            s = _stripHtml(s);
             s = s.replace(/&nbsp;/g, ' ');
 
             if (s.length > max) {
@@ -5815,7 +5820,7 @@
         for (var i = 0, iLen = columns.length; i < iLen; i++) {
             var col = columns[i];
             var asSorting = col.asSorting;
-            var sTitle = col.ariaTitle || col.sTitle.replace(/<.*?>/g, "");
+            var sTitle = col.ariaTitle || _stripHtml(col.sTitle);
             var th = col.nTh;
 
             // IE7 is throwing an error when setting these properties with jQuery's
@@ -14506,9 +14511,7 @@
             return _empty(data) ?
                 data :
                 typeof data === 'string' ?
-                    data
-                        .replace(_re_new_lines, " ")
-                        .replace(_re_html, "") :
+                    _stripHtml(data.replace(_re_new_lines, " ")) :
                     '';
         },
 
@@ -14606,7 +14609,7 @@
             return _empty(a) ?
                 '' :
                 a.replace ?
-                    a.replace(/<.*?>/g, "").toLowerCase() :
+                    _stripHtml(a).toLowerCase() :
                     a + '';
         },
 

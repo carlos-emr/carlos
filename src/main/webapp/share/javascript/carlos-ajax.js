@@ -453,7 +453,14 @@ var CarlosAjax = (function () {
                 scripts.push(match[1]);
             }
             scriptPattern.lastIndex = 0;
-            var cleanHtml = html.replace(scriptPattern, '');
+            // Strip script tags (loop to handle nested/overlapping patterns)
+            var cleanHtml = html;
+            var prev;
+            do {
+                prev = cleanHtml;
+                scriptPattern.lastIndex = 0;
+                cleanHtml = cleanHtml.replace(scriptPattern, '');
+            } while (cleanHtml !== prev);
 
             if (insertion) {
                 element.insertAdjacentHTML(POS_MAP[insertion] || 'beforeend', cleanHtml);

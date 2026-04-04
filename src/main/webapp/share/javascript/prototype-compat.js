@@ -412,8 +412,15 @@ window.carlosExtractAndExecScripts = function (element, html) {
         scripts.push(match[1]);
     }
 
-    // Remove script tags from HTML and set as innerHTML
-    element.innerHTML = html.replace(scriptPattern, '');
+    // Remove script tags from HTML (loop to handle nested/overlapping patterns)
+    var cleanHtml = html;
+    var prev;
+    do {
+        prev = cleanHtml;
+        scriptPattern.lastIndex = 0;
+        cleanHtml = cleanHtml.replace(scriptPattern, '');
+    } while (cleanHtml !== prev);
+    element.innerHTML = cleanHtml;
 
     // Run extracted scripts by creating dynamic script elements
     scripts.forEach(function (scriptContent) {
