@@ -96,7 +96,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
             query.setParameter(1, code);
             return query.getResultList();
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error querying coding system: " + codingSystem, e);
+            MiscUtils.getLogger().error("Error querying coding system: {}", LogSanitizer.sanitize(codingSystem), e);
             return new ArrayList<Object[]>();
         }
     }
@@ -172,7 +172,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
             query.setParameter(1, code);
             desc = (String) query.getSingleResult();
         } catch (Exception e) {
-            MiscUtils.getLogger().error("error executing query for codingSystem: " + codingSystem, e);
+            MiscUtils.getLogger().error("Error executing query for codingSystem: {}", LogSanitizer.sanitize(codingSystem), e);
         }
         return desc;
     }

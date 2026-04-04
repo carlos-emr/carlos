@@ -271,7 +271,7 @@ public final class Frm2Action extends ActionSupport {
 
         } catch (Exception ex) {
             // throw new ServletException(ex);
-            MiscUtils.getLogger().error("Exception for form " + formClassName + " Save failed.", ex);
+            MiscUtils.getLogger().error("Exception for form {} Save failed.", LogSanitizer.sanitize(formClassName), ex);
         }
 
         log.info("Forwarding form {} to {}", LogSanitizer.sanitize(formClassName), LogSanitizer.sanitize(actionForward));

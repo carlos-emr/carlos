@@ -26,10 +26,10 @@ import org.owasp.encoder.Encode;
 /**
  * Utility class for sanitizing user-controlled data before including it in log statements.
  *
- * <p>Prevents log injection attacks (CRLF injection / log forging) and mitigates the risk
- * of PHI (Protected Health Information) leaking into application log files in violation of
- * PIPEDA/HIPAA requirements. All user-supplied values that appear in log statements should
- * be passed through {@link #sanitize(String)} before being included.</p>
+ * <p>Prevents log injection attacks (CRLF injection / log forging) by escaping control
+ * characters in user-supplied values before they appear in log output. All user-supplied
+ * values that appear in log statements should be passed through {@link #sanitize(String)}
+ * before being included.</p>
  *
  * <p>Internally uses the OWASP Java Encoder ({@code Encode.forJava()}) to escape control
  * characters (including CR/LF), then truncates the result to {@value #MAX_LOG_LENGTH}
@@ -48,7 +48,7 @@ import org.owasp.encoder.Encode;
  */
 public final class LogSanitizer {
 
-    /** Maximum number of characters allowed in a sanitized log value. */
+    /** Maximum number of characters allowed in a sanitized log value (applied to raw input before encoding). */
     private static final int MAX_LOG_LENGTH = 200;
 
     private LogSanitizer() {
@@ -58,37 +58,44 @@ public final class LogSanitizer {
     /**
      * Sanitizes a {@code String} value for safe inclusion in a log statement.
      *
-     * <p>Applies OWASP Java Encoder escaping (strips/encodes CR, LF, and other control
-     * characters) and then truncates the result to {@value #MAX_LOG_LENGTH} characters,
-     * appending {@code "..."} when truncation occurs.</p>
+     * <p>Truncates the raw input to {@value #MAX_LOG_LENGTH} characters, then applies
+     * OWASP Java Encoder escaping (converts CR, LF, and other control characters to their
+     * Java escape sequences, e.g. {@code \n} becomes {@code \\n}). Appends {@code "..."}
+     * when truncation occurs.</p>
      *
      * @param input String the value to sanitize; may be {@code null}
-     * @return String the sanitized, truncated string; never {@code null}
+     * @return String the sanitized string; never {@code null}
      */
     public static String sanitize(String input) {
         if (input == null) {
             return "null";
         }
-        String encoded = Encode.forJava(input);
-        if (encoded.length() > MAX_LOG_LENGTH) {
-            return encoded.substring(0, MAX_LOG_LENGTH) + "...";
+        boolean truncated = input.length() > MAX_LOG_LENGTH;
+        if (truncated) {
+            input = input.substring(0, MAX_LOG_LENGTH);
         }
-        return encoded;
+        String encoded = Encode.forJava(input);
+        return truncated ? encoded + "..." : encoded;
     }
 
     /**
      * Sanitizes an arbitrary {@code Object} value for safe inclusion in a log statement.
      *
      * <p>Converts the object to its {@link Object#toString()} representation and delegates
-     * to {@link #sanitize(String)}.</p>
+     * to {@link #sanitize(String)}. If {@code toString()} throws an exception, returns a
+     * safe fallback string containing the class name.</p>
      *
      * @param input Object the value to sanitize; may be {@code null}
-     * @return String the sanitized, truncated string; never {@code null}
+     * @return String the sanitized string; never {@code null}
      */
     public static String sanitize(Object input) {
         if (input == null) {
             return "null";
         }
-        return sanitize(input.toString());
+        try {
+            return sanitize(input.toString());
+        } catch (Exception e) {
+            return "[toString() failed: " + input.getClass().getName() + "]";
+        }
     }
 }

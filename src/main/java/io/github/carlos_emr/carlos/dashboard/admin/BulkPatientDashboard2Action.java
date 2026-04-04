@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
+
 public class BulkPatientDashboard2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -105,7 +106,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         try {
             indicatorId = Integer.parseInt(indicatorIdString);
         } catch (NumberFormatException exception) {
-            logger.error("Could not parse indicator id from: " + indicatorIdString);
+            logger.error("Could not parse indicator id from: {}", LogSanitizer.sanitize(indicatorIdString));
             return null;
         }
 

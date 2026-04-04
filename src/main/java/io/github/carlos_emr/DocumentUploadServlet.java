@@ -122,7 +122,7 @@ public class DocumentUploadServlet extends HttpServlet {
                         providedFile = PathValidationUtils.validatePath(sanitizedFilename, archiveDir);
                     }
                 } catch (SecurityException e) {
-                    MiscUtils.getLogger().error("File does not reside in a valid path: {}", LogSanitizer.sanitize(providedFilename));
+                    MiscUtils.getLogger().error("File does not reside in a valid path: {}", LogSanitizer.sanitize(providedFilename), e);
                     return;
                 }
 
@@ -164,7 +164,7 @@ public class DocumentUploadServlet extends HttpServlet {
                             FileUtils.copyFileToDirectory(savedFile, inboxDir);
                         }
                     } catch (SecurityException e) {
-                        MiscUtils.getLogger().error("Invalid uploaded filename: {}", LogSanitizer.sanitize(submittedFilename));
+                        MiscUtils.getLogger().error("Invalid uploaded filename: {}", LogSanitizer.sanitize(submittedFilename), e);
                         continue;
                     } catch (IOException e) {
                         MiscUtils.getLogger().error("Error processing file: {}", LogSanitizer.sanitize(submittedFilename), e);

@@ -134,7 +134,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
         for (int x = 1; x <= maxTest; x++) {
             String id = request.getParameter("test_" + x + ".id");
             if (id != null) {
-                logger.info("test #" + x);
+                logger.info("test #{}", x);
                 String otherId = request.getParameter("test_" + x + ".id");
                 if (otherId.length() == 0 || otherId.equals("0")) {
                     continue;
@@ -176,8 +176,15 @@ public class SubmitLabByForm2Action extends ActionSupport {
 
         //generate the HL7 from the Lab object.
         String hl7 = generateHL7(lab);
-        // Avoid logging HL7 content (contains PHI) - log length only at debug level
-        logger.debug("HL7 generated (length={})", hl7 != null ? hl7.length() : 0);
+        // Log HL7 metadata at INFO (MSH segment contains system metadata, not PHI).
+        // Full HL7 content is NOT logged to avoid PHI exposure from PID/OBX segments.
+        if (hl7 != null) {
+            int firstCr = hl7.indexOf('\r');
+            String mshSegment = firstCr > 0 ? hl7.substring(0, firstCr) : hl7;
+            logger.info("HL7 generated (length={}, MSH={})", hl7.length(), LogSanitizer.sanitize(mshSegment));
+        } else {
+            logger.warn("HL7 generation returned null");
+        }
 
         //save file
         String filename = "Lab" + providerNo + ((int) (Math.random() * 1000)) + ".hl7";
@@ -206,7 +213,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
             outcome = "uploaded previously";
         }
 
-        logger.info("outcome=" + outcome);
+        logger.info("outcome={}", outcome);
 
 
         return manage();

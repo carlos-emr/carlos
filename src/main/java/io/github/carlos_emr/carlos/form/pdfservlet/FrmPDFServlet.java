@@ -464,9 +464,9 @@ public class FrmPDFServlet extends HttpServlet {
                 reader = new PdfReader(propFilename);
                 log.info("Found template at {}", LogSanitizer.sanitize(propFilename));
             } catch (Exception dex) {
-                log.debug("change path to inside oscar from :" + propFilename);
+                log.debug("change path to inside oscar from: {}", LogSanitizer.sanitize(propFilename));
                 reader = new PdfReader("/oscar/form/prop/" + template);
-                log.debug("Found template at /oscar/form/prop/" + template);
+                log.debug("Found template at /oscar/form/prop/{}", LogSanitizer.sanitize(template));
             }
 
             // retrieve the total number of pages

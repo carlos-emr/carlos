@@ -143,7 +143,7 @@ public class BillingCorrection2Action extends ActionSupport {
         try {
             billingNo = Integer.parseInt(request.getParameter("xml_billing_no"));
         } catch (NumberFormatException e) {
-            MiscUtils.getLogger().error("Billing number invalid for Ch1 Id: " + request.getParameter("xml_billing_no"));
+            MiscUtils.getLogger().error("Billing number invalid for Ch1 Id: {}", LogSanitizer.sanitize(request.getParameter("xml_billing_no")));
             return "closeReload";
         }
         BillingONCHeader1 bCh1 = bCh1Dao.find(billingNo);
@@ -286,7 +286,7 @@ public class BillingCorrection2Action extends ActionSupport {
             try {
                 billingDate = DateUtils.parseDate(request.getParameter("xml_appointment_date"), locale);
             } catch (java.text.ParseException e) {
-                MiscUtils.getLogger().error("Invalid billing date:" + request.getParameter("xml_appointment_date"), e);
+                MiscUtils.getLogger().error("Invalid billing date: {}", LogSanitizer.sanitize(request.getParameter("xml_appointment_date")), e);
                 return false;
             }
 
@@ -294,7 +294,7 @@ public class BillingCorrection2Action extends ActionSupport {
             try {
                 visitDate = DateUtils.parseDate(request.getParameter("xml_vdate"), locale);
             } catch (java.text.ParseException e) {
-                MiscUtils.getLogger().warn("Could not parse visit date: " + request.getParameter("xml_vdate"), e);
+                MiscUtils.getLogger().warn("Could not parse visit date: {}", LogSanitizer.sanitize(request.getParameter("xml_vdate")), e);
             }
 
             String manualReview = "";

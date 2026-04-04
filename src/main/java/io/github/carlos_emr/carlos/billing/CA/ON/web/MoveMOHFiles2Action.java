@@ -224,7 +224,7 @@ public class MoveMOHFiles2Action extends ActionSupport {
     try {
         fileName = URLDecoder.decode(fileName, "UTF-8");
     } catch (UnsupportedEncodingException e) {
-        logger.error("Unable to decode " + fileName, e);
+        logger.error("Unable to decode {}", LogSanitizer.sanitize(fileName), e);
         return null;
     }
 

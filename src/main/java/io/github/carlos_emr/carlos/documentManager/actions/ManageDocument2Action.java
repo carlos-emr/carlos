@@ -243,9 +243,9 @@ public class ManageDocument2Action extends ActionSupport {
                 // Removes the link to the "0" providers so that the document no longer shows up as "unclaimed"
                 providerInboxRoutingDAO.removeLinkFromDocument("DOC", Integer.parseInt(documentId), "0");
             } catch (NumberFormatException e) {
-                log.error("Invalid document ID format during provider routing: {}", documentId, e);
+                log.error("Invalid document ID format during provider routing: {}", LogSanitizer.sanitize(documentId), e);
             } catch (Exception e) {
-                log.error("Failed to route document {} to providers", documentId, e);
+                log.error("Failed to route document {} to providers", LogSanitizer.sanitize(documentId), e);
             }
         }
 
@@ -300,9 +300,9 @@ public class ManageDocument2Action extends ActionSupport {
                 }
             }
         } catch (NumberFormatException e) {
-            log.error("Invalid number format during CTL document update for documentId: {}", documentId, e);
+            log.error("Invalid number format during CTL document update for documentId: {}", LogSanitizer.sanitize(documentId), e);
         } catch (Exception e) {
-            log.error("Failed to update CTL document for documentId: {}", documentId, e);
+            log.error("Failed to update CTL document for documentId: {}", LogSanitizer.sanitize(documentId), e);
         }
 
         HashMap hm = new HashMap();
@@ -384,7 +384,7 @@ public class ManageDocument2Action extends ActionSupport {
         try {
             EDocUtil.refileDocument(documentId, queueId);
         } catch (Exception e) {
-            log.error("Failed to refile document {} to queue {}", documentId, queueId, e);
+            log.error("Failed to refile document {} to queue {}", LogSanitizer.sanitize(documentId), LogSanitizer.sanitize(queueId), e);
         }
         return null;
     }
@@ -442,7 +442,7 @@ public class ManageDocument2Action extends ActionSupport {
                 addActionError("Invalid document ID format. Please check the document ID and try again.");
                 return "error";
             } catch (Exception e) {
-                log.error("Failed to route document {} to providers", documentId, e);
+                log.error("Failed to route document {} to providers", LogSanitizer.sanitize(documentId), e);
             }
         }
         Document d = documentDao.getDocument(documentId);
@@ -478,7 +478,7 @@ public class ManageDocument2Action extends ActionSupport {
             } catch (NumberFormatException e) {
                 log.error("Invalid number format for documentId: {} or demog: {}", LogSanitizer.sanitize(documentId), LogSanitizer.sanitize(demog), e);
             } catch (Exception e) {
-                log.error("Failed to update CTL document for documentId: {}", documentId, e);
+                log.error("Failed to update CTL document for documentId: {}", LogSanitizer.sanitize(documentId), e);
             }
         } else {
             log.warn("Document ID is null or empty, skipping ctlDocument operations");
