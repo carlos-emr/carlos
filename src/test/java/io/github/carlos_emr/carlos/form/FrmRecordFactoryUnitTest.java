@@ -52,7 +52,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @DisplayName("FrmRecordFactory Unit Tests")
 @Tag("unit")
-@Tag("fast")
+@Tag("security")
 class FrmRecordFactoryUnitTest {
 
     private FrmRecordFactory factory;
@@ -107,17 +107,37 @@ class FrmRecordFactoryUnitTest {
     }
 
     @Test
-    @DisplayName("should return correct subtype for each entry in the allowlist registry")
+    @DisplayName("should instantiate every entry in the allowlist registry")
     void shouldInstantiateAllRegisteredFormTypes() {
-        // Spot-check a representative sample of allowlisted keys to ensure the
-        // registry is correctly wired end-to-end.
-        String[] sampleKeys = {
+        // Verify all 61 allowlisted keys are correctly wired end-to-end.
+        // The security guarantee of the CWE-470 fix depends on the registry being
+        // complete and each entry pointing to an instantiable class.
+        // Note: Rourke2009/2017/2020 are included here — their SpringUtils.getBean()
+        // calls are inside method bodies, not field initializers or constructors,
+        // so plain getDeclaredConstructor().newInstance() succeeds without a Spring context.
+        String[] allKeys = {
                 "2MinWalk", "AdfV2", "Annual", "AnnualV2",
-                "BCAR", "Falls", "GripStrength", "GrowthChart",
-                "MMSE", "Rourke", "Rourke2006", "SF36", "chf"
+                "BCAR2007", "BCAR2012", "BCAR2020", "BCAR",
+                "BCBirthSumMo2008",
+                "BCBrithSumMo",  // intentional typo — matches FrmBCBrithSumMoRecord and existing callers
+                "BCClientChartChecklist", "BCHP", "BCINR",
+                "BCNewBorn2008", "BCNewBorn",
+                "CESD", "Caregiver", "Consultant", "CostQuestionnaire",
+                "Counseling", "CounsellorAssessment", "DischargeSummary",
+                "Falls", "GripStrength", "Growth0_36", "GrowthChart",
+                "HomeFalls", "ImmunAllergy", "IntakeInfo", "InternetAccess",
+                "Invoice", "LabReq07", "LabReq10", "LabReq",
+                "LateLifeFDIDisability", "LateLifeFDIFunction",
+                "MMSE", "MentalHealthForm14", "MentalHealthForm1", "MentalHealthForm42", "MentalHealth",
+                "PalliativeCare", "PeriMenopausal", "Policy", "PositionHazard",
+                "ReceptionAssessment", "RhImmuneGlobulin",
+                "Rourke2006", "Rourke2009", "Rourke2017", "Rourke2020", "Rourke",
+                "SF36Caregiver", "SF36", "SatisfactionScale",
+                "SelfAdministered", "SelfAssessment", "SelfEfficacy", "SelfManagement",
+                "TreatmentPref", "chf"
         };
 
-        for (String key : sampleKeys) {
+        for (String key : allKeys) {
             FrmRecord result = factory.factory(key);
             assertThat(result)
                     .as("factory(\"%s\") should return a non-null FrmRecord", key)

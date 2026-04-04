@@ -54,6 +54,9 @@ public class FrmRecordFactory {
             Map.entry("BCAR2020", FrmBCAR2020Record.class),
             Map.entry("BCAR", FrmBCARRecord.class),
             Map.entry("BCBirthSumMo2008", FrmBCBirthSumMo2008Record.class),
+            // Note: "BCBrithSumMo" is an intentional typo matching the existing class name
+            // FrmBCBrithSumMoRecord and the key already used by callers. Do NOT "fix" this
+            // to "BCBirthSumMo" — doing so would silently break existing forms.
             Map.entry("BCBrithSumMo", FrmBCBrithSumMoRecord.class),
             Map.entry("BCClientChartChecklist", FrmBCClientChartChecklistRecord.class),
             Map.entry("BCHP", FrmBCHPRecord.class),
@@ -133,7 +136,10 @@ public class FrmRecordFactory {
         try {
             return clazz.getDeclaredConstructor().newInstance();
         } catch (ReflectiveOperationException e) {
-            MiscUtils.getLogger().debug("FrmRecordFactory: failed to instantiate form record", e);
+            // Log at WARN: this is unexpected — allowlisted classes must have a public no-arg
+            // constructor. A DEBUG log here would make constructor failures invisible in production.
+            MiscUtils.getLogger().warn("FrmRecordFactory: failed to instantiate allowlisted form record: {}",
+                    clazz.getSimpleName(), e);
             return null;
         }
     }
