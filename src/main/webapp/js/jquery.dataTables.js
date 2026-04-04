@@ -14575,12 +14575,12 @@
 
                 // HTML numeric
                 "html-num": function (d) {
-                    return __numericReplace(d, decimalPlace, _re_html);
+                    return __numericReplace(_stripHtml(d), decimalPlace);
                 },
 
                 // HTML numeric, formatted
                 "html-num-fmt": function (d) {
-                    return __numericReplace(d, decimalPlace, _re_html, _re_formatted_numeric);
+                    return __numericReplace(_stripHtml(d), decimalPlace, _re_formatted_numeric);
                 }
             },
             function (key, fn) {
