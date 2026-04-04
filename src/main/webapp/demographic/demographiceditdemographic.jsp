@@ -38,9 +38,11 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.ISO36612" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.OtherIdManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ContactDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CountryCodeDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao" %>
@@ -52,11 +54,15 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.WaitingListDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Admission" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicArchive" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExtArchive" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.CountryCode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
@@ -324,7 +330,10 @@
                 msgInvalidEntry:              '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgInvalidEntry")) %>',
                 updateCBIReminder:            '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.updateCBIReminder")) %>',
                 btnCancel:                    '<%= Encode.forJavaScript(oscarResources.getString("global.btnCancel")) %>',
-                btnBack:                      '<%= Encode.forJavaScript(oscarResources.getString("global.btnBack")) %>'
+                btnBack:                      '<%= Encode.forJavaScript(oscarResources.getString("global.btnBack")) %>',
+                msgConfirmClearConsent:       '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgConfirmClearConsent")) %>',
+                msgConfirmEnrolledToMRP:      '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgConfirmEnrolledToMRP")) %>',
+                msgConfirmClearEnrolledTo:    '<%= Encode.forJavaScript(oscarResources.getString("demographic.demographiceditdemographic.msgConfirmClearEnrolledTo")) %>'
             };
 
             function showAlert(message) {
@@ -875,7 +884,7 @@
 
             function consentClearBtn(radioBtnName) {
 
-                if (confirm("Proceed to clear all record of this consent?")) {
+                if (confirm(i18n.msgConfirmClearConsent)) {
 
                     //clear out opt-in/opt-out radio buttons
                     var ele = document.getElementsByName(radioBtnName);
@@ -903,11 +912,11 @@
             function updateEnrolledTo() {
                 var rosterSelect = document.getElementById("roster_status");
                 if (rosterSelect.getValue() == "RO") {
-                    if (document.getElementById("enrolledTo").value != document.getElementById("mrp").value && confirm("Enrolment status changed to 'rostered'. Would you like to set the 'Enrolled To' to the MRP?")) {
+                    if (document.getElementById("enrolledTo").value != document.getElementById("mrp").value && confirm(i18n.msgConfirmEnrolledToMRP)) {
                         document.getElementById("enrolledTo").value = document.getElementById("mrp").value;
                     }
                 } else {
-                    if (document.getElementById("enrolledTo").value != "" && confirm("Enrolment status changed to '" + rosterSelect.getValue() + "''. Would you like to clear the 'Enrolled To' field?")) {
+                    if (document.getElementById("enrolledTo").value != "" && confirm(i18n.msgConfirmClearEnrolledTo.replace('{0}', rosterSelect.getValue()))) {
                         document.getElementById("enrolledTo").value = "";
                     }
                 }
