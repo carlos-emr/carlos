@@ -28,6 +28,30 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    ConsultationFormRequest.jsp — Consultation Request create/edit form.
+
+    Renders the full consultation request UI including patient demographics,
+    referring practitioner, specialist selection, clinical data (allergies,
+    medications, reason), attachment management, and action buttons
+    (submit/update/print/fax). Handles both new requests (no requestId) and
+    editing existing requests (requestId present).
+
+    Parameters:
+        de          - String demographic number (patient ID)
+        requestId   - String consultation request ID (null for new requests)
+        segmentId   - String HL7 segment ID (for remote consultation requests)
+        providerNo  - String provider number (from session)
+        appNo       - String appointment number (optional, for multisite)
+
+    Actions:
+        EctViewRequest2Action    - prepares form data (execute + fillFormValues)
+        EctConsultationFormRequest2Action - processes submit/update/print/fax
+
+    Security: Requires "_con" write privilege (checked via security taglib).
+
+    @since 2005-01-11
+--%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -2106,6 +2130,9 @@ if (userAgent != null) {
                     <span id="oceanReferButton" class="oceanRefer"></span>
                     <% } %>
                 <% } %>
+                <button type="button" class="btn btn-secondary btn-sm ms-1" onclick="window.close();">
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>
+                </button>
             </div>
         </div>
 
@@ -2304,7 +2331,9 @@ if (userAgent != null) {
                         <span id="editOnOcean" class="oceanRefer"></span>
                         <% }
                         } %>
-                        <%-- Action Buttons --%>
+                        <%-- Action Buttons: hidden for Ocean eReferrals (managed externally).
+                             When editing an existing request (id != null): show Update/Print/Fax buttons.
+                             When creating a new request (id == null): show Submit/Print/Fax buttons. --%>
                         <% if (thisForm.geteReferralId() == null) { %>
                                 <div class="consult-control-panel consult-control-panel-sticky mb-2">
                                 <% if (request.getAttribute("id") != null) { %>

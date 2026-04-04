@@ -97,7 +97,7 @@ public final class DBHandler {
 	public static ResultSet GetPreSQL(String sql, Object... params) throws SQLException {
 		PreparedStatement ps = DbConnectionFilter
 			.getThreadLocalDbConnection()
-			.prepareStatement(sql);
+			.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
 		bindParams(ps, params);
 		return ps.executeQuery();
 	}

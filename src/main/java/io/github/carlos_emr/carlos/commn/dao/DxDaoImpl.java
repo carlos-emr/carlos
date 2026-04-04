@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.persistence.Query;
 
@@ -43,6 +44,19 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 @Repository
 public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
+
+    /**
+     * Allowlist mapping user-supplied coding system names to safe database table/column
+     * names. Values from this map (not user input) are used in native SQL, preventing
+     * injection of user-controlled identifiers.
+     */
+    private static final Map<String, String> VALID_CODING_SYSTEMS = Map.of(
+            "icd9",        "icd9",
+            "icd10",       "icd10",
+            "ichppccode",  "ichppccode",
+            "SnomedCore",  "SnomedCore",
+            "msp",         "msp"
+    );
 
     public DxDaoImpl() {
         super(DxAssociation.class);
@@ -82,15 +96,18 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
     @Override
     @SuppressWarnings("unchecked")
     public List<Object[]> findCodingSystemDescription(String codingSystem, String code) {
-        // Validate codingSystem to prevent SQL injection - only allow alphanumeric and underscore
-        if (codingSystem == null || !codingSystem.matches("^[a-zA-Z0-9_]+$")) {
+        // Use the allowlist map to obtain a safe table/column name; if the value is not
+        // in the map the input is invalid and we return an empty result.
+        String safeSystem = VALID_CODING_SYSTEMS.get(codingSystem);
+        if (safeSystem == null) {
             MiscUtils.getLogger().warn("Invalid coding system name: {}", LogSanitizer.sanitize(codingSystem));
             return new ArrayList<Object[]>();
         }
 
         try {
-            // Use parameterized query for the code value, table/column names must be validated
-            String sql = "SELECT " + codingSystem + ", description FROM " + codingSystem + " WHERE " + codingSystem
+            // safeSystem comes from a hardcoded map — not from user input — so it is safe
+            // to interpolate as a table/column identifier.  The code value is parameterized.
+            String sql = "SELECT " + safeSystem + ", description FROM " + safeSystem + " WHERE " + safeSystem
                     + " = ?1";
             Query query = entityManager.createNativeQuery(sql);
             query.setParameter(1, code);
@@ -106,12 +123,13 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
     @SuppressWarnings("unchecked")
     public List<Object[]> findCodingSystemDescription(String codingSystem, String[] keywords) {
         try {
-            // Validate codingSystem to prevent SQL injection - only allow alphanumeric and underscore
-            if (codingSystem == null || !codingSystem.matches("^[a-zA-Z0-9_]+$")) {
+            // Use the allowlist map to obtain a safe table/column name.
+            String safeSystem = VALID_CODING_SYSTEMS.get(codingSystem);
+            if (safeSystem == null) {
                 MiscUtils.getLogger().warn("Invalid coding system name: {}", LogSanitizer.sanitize(codingSystem));
                 return new ArrayList<Object[]>();
             }
-            
+
             // Filter out empty keywords
             List<String> validKeywords = new ArrayList<>();
             for (String keyword : keywords) {
@@ -121,17 +139,18 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
             }
             
             if (validKeywords.isEmpty()) {
-                Query query = entityManager.createNativeQuery("select " + codingSystem + ", description from " + codingSystem);
+                // safeSystem comes from the allowlist map — safe to use as an identifier
+                Query query = entityManager.createNativeQuery("select " + safeSystem + ", description from " + safeSystem);
                 return query.getResultList();
             }
             
-            // Build parameterized query
-            StringBuilder buf = new StringBuilder("select " + codingSystem + ", description from " + codingSystem + " where ");
+            // Build parameterized query; safeSystem is from the allowlist map
+            StringBuilder buf = new StringBuilder("select " + safeSystem + ", description from " + safeSystem + " where ");
             List<String> conditions = new ArrayList<>();
             
             for (int i = 0; i < validKeywords.size(); i++) {
                 int paramIndex = i * 2 + 1;
-                conditions.add("(" + codingSystem + " like ?" + paramIndex + " or description like ?" + (paramIndex + 1) + ")");
+                conditions.add("(" + safeSystem + " like ?" + paramIndex + " or description like ?" + (paramIndex + 1) + ")");
             }
             
             buf.append(String.join(" or ", conditions));
@@ -159,14 +178,15 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
     public String getCodeDescription(String codingSystem, String code) {
         String desc = "";
         
-        // Validate codingSystem to prevent SQL injection - only allow alphanumeric and underscore
-        if (codingSystem == null || !codingSystem.matches("^[a-zA-Z0-9_]+$")) {
+        // Use the allowlist map to obtain a safe table/column name.
+        String safeSystem = VALID_CODING_SYSTEMS.get(codingSystem);
+        if (safeSystem == null) {
             MiscUtils.getLogger().warn("Invalid coding system name: {}", LogSanitizer.sanitize(codingSystem));
             return desc;
         }
-        
-        // Use parameterized query for the code value
-        String sql = "select description from " + codingSystem + " where " + codingSystem + "=?1";
+
+        // safeSystem comes from the hardcoded allowlist map — safe to use as an identifier
+        String sql = "select description from " + safeSystem + " where " + safeSystem + "=?1";
         try {
             Query query = entityManager.createNativeQuery(sql);
             query.setParameter(1, code);

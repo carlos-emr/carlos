@@ -49,7 +49,30 @@ public final class DBPreparedHandler {
     Statement stmt = null;
     PreparedStatement preparedStmt = null;
 
+    /**
+     * Validates that a stored-procedure name contains only safe identifier characters
+     * (letters, digits, underscores, dots) to prevent SQL injection when the name is
+     * interpolated into the JDBC escape syntax <code>{call procName(...)}</code>.
+     * Stored-procedure names cannot be parameterized in JDBC, so an allowlist character
+     * check is the appropriate defence.
+     *
+     * @param procName the caller-supplied procedure name
+     * @throws SQLException if the name is null, empty, or contains characters outside
+     *         the allowed set {@code [a-zA-Z0-9_.]}
+     */
+    private static void validateProcName(String procName) throws SQLException {
+        if (procName == null || procName.isEmpty()) {
+            throw new SQLException("Stored procedure name must not be null or empty");
+        }
+        if (!procName.matches("[a-zA-Z0-9_.]+")) {
+            throw new SQLException(
+                    "Stored procedure name contains invalid characters; only letters, digits, underscores and dots are allowed");
+        }
+    }
+
     synchronized public void procExecute(String procName, String[] param) throws SQLException {
+        // Validate the procedure name to prevent injection via JDBC escape syntax.
+        validateProcName(procName);
         String sql = "{call " + procName;
         if (param != null && param.length > 0) {
             String prms = "";
