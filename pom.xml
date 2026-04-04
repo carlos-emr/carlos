@@ -1472,7 +1472,7 @@
                     <exclude>src/main/webapp/casemgmt/Index2.jsp</exclude>
                     <exclude>src/main/java/oscar/oscarMessenger/util/MsgDemoMap.java</exclude>
                     <exclude>src/main/java/oscar/encounter/pageUtil/EctDisplayMsgAction.java</exclude>
-                    <exclude>src/main/webapp/encounter/Index.jsp</exclude>
+
                     <exclude>src/main/java/oscar/encounter/data/EctPatientData.java</exclude>
                 </configuration>
                 <dependencies>

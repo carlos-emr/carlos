@@ -379,15 +379,7 @@
             <result name="HRM">/encounter/displayHRM.do</result>
             <result name="eams">/eaaps/displayEctEaaps.do</result>
         </action>
-        <action name="encounter/SaveEncounter" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action">
-            <result name="saveAndStay">/encounter/Index.jsp?saved=true</result>
-            <result name="failure">/errorpage.jsp</result>
-            <result name="success">/encounter/TimeOut.jsp</result>
-            <result name="bill">/billing.do</result>
-            <result name="splitchart">/encounter/Index.jsp?saved=true&amp;splitchart=true</result>
-            <result name="close">/encounter/close.jsp</result>
-            <result name="concurrencyError">/encounter/concurrencyError.jsp</result>
-        </action>
+
         <action name="encounter/SaveEncounter2" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action">
             <result name="saveAndStay">/encounter/Index2.jsp?saved=true</result>
             <result name="failure">/errorpage.jsp</result>
