@@ -434,7 +434,7 @@
                                             Rxbean.setProviderNo((String) request.getSession().getAttribute("user"));
                                             Rxbean.setDemographicNo(Integer.parseInt(demographic_no));
 
-                                        %> <% currentURI = request.getContextPath() + "/oscarRx/PrintDrugProfile.jsp?demographic_no=" + demographic_no; %>
+                                        %> <% currentURI = request.getContextPath() + "/oscarRx/PrintDrugProfile2.jsp?demographic_no=" + demographic_no; %>
 
                                         <input type="checkbox" name="uriArray" value="<%=currentURI%>"
                                                        style="display:none"/>

@@ -133,7 +133,6 @@
 
     // Prescription preferences
     String rxPageSize = props.getOrDefault(UserProperty.RX_PAGE_SIZE, "");
-    boolean rxUseRx3 = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.RX_USE_RX3, "no"));
     boolean rxShowDOB = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.RX_SHOW_PATIENT_DOB, "no"));
     String rxDefaultQty = props.getOrDefault(UserProperty.RX_DEFAULT_QUANTITY, "");
     if (rxDefaultQty.isEmpty()) {
@@ -775,13 +774,6 @@
                         <option value="PageSize.A4" <%="PageSize.A4".equals(rxPageSize)?"selected":""%>>A4</option>
                         <option value="PageSize.A6" <%="PageSize.A6".equals(rxPageSize)?"selected":""%>>A6</option>
                     </select>
-                </div>
-            </div>
-            <div class="pref-row">
-                <div class="pref-label"><fmt:message key="provider.providerpreference.label.useRx3"/></div>
-                <div class="pref-value">
-                    <input type="checkbox" class="form-check-input" role="switch"
-                           name="rx_use_rx3" value="yes" <%=rxUseRx3 ? "checked" : ""%>>
                 </div>
             </div>
             <div class="pref-row">

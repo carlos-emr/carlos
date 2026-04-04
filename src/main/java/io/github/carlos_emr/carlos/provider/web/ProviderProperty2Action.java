@@ -719,75 +719,7 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
 
-    public String viewUseRx3() {
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-
-        UserProperty prop = this.userPropertyDAO.getProp(providerNo, UserProperty.RX_USE_RX3);
-
-        String propValue = "";
-        if (prop == null) {
-            prop = new UserProperty();
-        } else {
-            propValue = prop.getValue();
-        }
-
-        boolean checked;
-        if (propValue.equalsIgnoreCase("yes"))
-            checked = true;
-        else
-            checked = false;
-
-        prop.setChecked(checked);
-        request.setAttribute("rxUseRx3Property", prop);
-        request.setAttribute("providertitle", "provider.setRxRxUseRx3.title");
-        request.setAttribute("providermsgPrefs", "provider.setRxRxUseRx3.msgPrefs");
-        request.setAttribute("providermsgProvider", "provider.setRxRxUseRx3.msgProfileView");
-        request.setAttribute("providermsgEdit", "provider.setRxUseRx3.msgEdit");
-        request.setAttribute("providerbtnSubmit", "provider.setRxUseRx3.btnSubmit");
-        request.setAttribute("providermsgSuccess", "provider.setRxUseRx3.msgSuccess_selected");
-        request.setAttribute("method", "saveUseRx3");
-
-        this.setRxUseRx3Property(prop);
-        return "genRxUseRx3";
-    }
-
-    public String saveUseRx3() {
-        String checkboxValue = request.getParameter("rxUseRx3Property.checked");
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-
-        UserProperty UUseRx3 = this.getRxUseRx3Property();
-
-        UserProperty prop = this.userPropertyDAO.getProp(providerNo, UserProperty.RX_USE_RX3);
-        if (prop == null) {
-            prop = new UserProperty();
-            prop.setName(UserProperty.RX_USE_RX3);
-            prop.setProviderNo(providerNo);
-        }
-        boolean checked = checkboxValue != null;
-        String useRx3 = "no";
-        if (checked)
-            useRx3 = "yes";
-        prop.setValue(useRx3);
-        this.userPropertyDAO.saveProp(prop);
-
-        request.setAttribute("status", "success");
-        request.setAttribute("rxUseRx3Property", prop);
-        request.setAttribute("providertitle", "provider.setRxRxUseRx3.title");
-        request.setAttribute("providermsgPrefs", "provider.setRxRxUseRx3.msgPrefs");
-        request.setAttribute("providermsgProvider", "provider.setRxRxUseRx3.msgProfileView");
-        request.setAttribute("providermsgEdit", "provider.setRxUseRx3.msgEdit");
-        request.setAttribute("providerbtnSubmit", "provider.setRxUseRx3.btnSubmit");
-        if (checked)
-            request.setAttribute("providermsgSuccess", "provider.setRxUseRx3.msgSuccess_selected");
-        else
-            request.setAttribute("providermsgSuccess", "provider.setRxUseRx3.msgSuccess_unselected");
-        request.setAttribute("method", "saveUseRx3");
-        return "genRxUseRx3";
-    }
 
     public String viewDefaultQuantity() {
 
@@ -1399,12 +1331,12 @@ public class ProviderProperty2Action extends ActionSupport {
 
         prop.setChecked(checked);
         request.setAttribute("cppSingleLineProperty", prop);
-        request.setAttribute("providertitle", "provider.setCppSingleLine.title"); //=Select if you want to use Rx3
-        request.setAttribute("providermsgPrefs", "provider.setCppSingleLine.msgPrefs"); //=Preferences
-        request.setAttribute("providermsgProvider", "provider.setCppSingleLine.msgProfileView"); //=Use Rx3
-        request.setAttribute("providermsgEdit", "provider.setCppSingleLine.msgEdit"); //=Do you want to use Rx3?
-        request.setAttribute("providerbtnSubmit", "provider.setCppSingleLine.btnSubmit"); //=Save
-        request.setAttribute("providermsgSuccess", "provider.setCppSingleLine.msgSuccess_selected"); //=CPP Single Line saved
+        request.setAttribute("providertitle", "provider.setCppSingleLine.title");
+        request.setAttribute("providermsgPrefs", "provider.setCppSingleLine.msgPrefs");
+        request.setAttribute("providermsgProvider", "provider.setCppSingleLine.msgProfileView");
+        request.setAttribute("providermsgEdit", "provider.setCppSingleLine.msgEdit");
+        request.setAttribute("providerbtnSubmit", "provider.setCppSingleLine.btnSubmit");
+        request.setAttribute("providermsgSuccess", "provider.setCppSingleLine.msgSuccess_selected");
         request.setAttribute("method", "saveUseCppSingleLine");
 
         this.setCppSingleLineProperty(prop);
@@ -1416,7 +1348,7 @@ public class ProviderProperty2Action extends ActionSupport {
     public String saveUseCppSingleLine() {
         String checkboxValue = request.getParameter("cppSingleLineProperty.checked");
 
-        UserProperty UUseRx3 = this.getCppSingleLineProperty();
+        UserProperty existingProp = this.getCppSingleLineProperty();
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1428,24 +1360,24 @@ public class ProviderProperty2Action extends ActionSupport {
             prop.setProviderNo(providerNo);
         }
         boolean checked = checkboxValue != null;
-        String useRx3 = "no";
+        String value = "no";
         if (checked)
-            useRx3 = "yes";
+            value = "yes";
 
-        prop.setValue(useRx3);
+        prop.setValue(value);
         this.userPropertyDAO.saveProp(prop);
 
         request.setAttribute("status", "success");
         request.setAttribute("cppSingleLineProperty", prop);
-        request.setAttribute("providertitle", "provider.setCppSingleLine.title"); //=Select if you want to use Rx3
-        request.setAttribute("providermsgPrefs", "provider.setCppSingleLine.msgPrefs"); //=Preferences
-        request.setAttribute("providermsgProvider", "provider.setCppSingleLine.msgProfileView"); //=Use Rx3
-        request.setAttribute("providermsgEdit", "provider.setCppSingleLine.msgEdit"); //=Check if you want to use Rx3
-        request.setAttribute("providerbtnSubmit", "provider.setCppSingleLine.btnSubmit"); //=Save
+        request.setAttribute("providertitle", "provider.setCppSingleLine.title");
+        request.setAttribute("providermsgPrefs", "provider.setCppSingleLine.msgPrefs");
+        request.setAttribute("providermsgProvider", "provider.setCppSingleLine.msgProfileView");
+        request.setAttribute("providermsgEdit", "provider.setCppSingleLine.msgEdit");
+        request.setAttribute("providerbtnSubmit", "provider.setCppSingleLine.btnSubmit");
         if (checked)
-            request.setAttribute("providermsgSuccess", "provider.setCppSingleLine.msgSuccess_selected"); //=Rx3 is selected
+            request.setAttribute("providermsgSuccess", "provider.setCppSingleLine.msgSuccess_selected");
         else
-            request.setAttribute("providermsgSuccess", "provider.setCppSingleLine.msgSuccess_unselected"); //=Rx3 is unselected
+            request.setAttribute("providermsgSuccess", "provider.setCppSingleLine.msgSuccess_unselected");
         request.setAttribute("method", "saveUseCppSingleLine");
 
         return "genCppSingleLine";
@@ -1545,12 +1477,12 @@ public class ProviderProperty2Action extends ActionSupport {
 
         prop.setChecked(checked);
         request.setAttribute("eDocBrowserInMasterFileProperty", prop);
-        request.setAttribute("providertitle", "provider.setEDocBrowserInMasterFile.title"); //=Select if you want to use Rx3
-        request.setAttribute("providermsgPrefs", "provider.setEDocBrowserInMasterFile.msgPrefs"); //=Preferences
-        request.setAttribute("providermsgProvider", "provider.setEDocBrowserInMasterFile.msgProfileView"); //=Use Rx3
-        request.setAttribute("providermsgEdit", "provider.setEDocBrowserInMasterFile.msgEdit"); //=Do you want to use Rx3?
-        request.setAttribute("providerbtnSubmit", "provider.setEDocBrowserInMasterFile.btnSubmit"); //=Save
-        request.setAttribute("providermsgSuccess", "provider.setEDocBrowserInMasterFile.msgSuccess_selected"); //=EDoc Browser saved
+        request.setAttribute("providertitle", "provider.setEDocBrowserInMasterFile.title");
+        request.setAttribute("providermsgPrefs", "provider.setEDocBrowserInMasterFile.msgPrefs");
+        request.setAttribute("providermsgProvider", "provider.setEDocBrowserInMasterFile.msgProfileView");
+        request.setAttribute("providermsgEdit", "provider.setEDocBrowserInMasterFile.msgEdit");
+        request.setAttribute("providerbtnSubmit", "provider.setEDocBrowserInMasterFile.btnSubmit");
+        request.setAttribute("providermsgSuccess", "provider.setEDocBrowserInMasterFile.msgSuccess_selected");
         request.setAttribute("method", "saveEDocBrowserInMasterFile");
 
         this.seteDocBrowserInMasterFileProperty(prop);
@@ -2793,8 +2725,6 @@ public class ProviderProperty2Action extends ActionSupport {
         methodMap.put("saveRxProfileView", this::saveRxProfileView);
         methodMap.put("viewShowPatientDOB", this::viewShowPatientDOB);
         methodMap.put("saveShowPatientDOB", this::saveShowPatientDOB);
-        methodMap.put("viewUseRx3", this::viewUseRx3);
-        methodMap.put("saveUseRx3", this::saveUseRx3);
         methodMap.put("viewDefaultQuantity", this::viewDefaultQuantity);
         methodMap.put("saveDefaultQuantity", this::saveDefaultQuantity);
         methodMap.put("viewOntarioMDId", this::viewOntarioMDId);
@@ -2851,7 +2781,6 @@ public class ProviderProperty2Action extends ActionSupport {
     private UserProperty newDefaultDocQueueProperty;
     private UserProperty rxProfileViewProperty;
     private UserProperty rxShowPatientDOBProperty;
-    private UserProperty rxUseRx3Property;
     private UserProperty rxDefaultQuantityProperty;
     private UserProperty dateProperty2;
     private UserProperty cppSingleLineProperty;
@@ -2950,16 +2879,6 @@ public class ProviderProperty2Action extends ActionSupport {
         this.rxShowPatientDOBProperty = rxShowPatientDOBProperty;
     }
 
-
-    @StrutsParameter(depth = 1)
-    public UserProperty getRxUseRx3Property() {
-        return rxUseRx3Property;
-    }
-
-    @StrutsParameter
-    public void setRxUseRx3Property(UserProperty rxUseRx3Property) {
-        this.rxUseRx3Property = rxUseRx3Property;
-    }
 
     @StrutsParameter(depth = 1)
     public UserProperty getRxDefaultQuantityProperty() {

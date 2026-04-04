@@ -129,7 +129,7 @@
             String createAnewRx;
             if (reprint.equalsIgnoreCase("true")) {
                 bean = (RxSessionBean) session.getAttribute("tmpBeanRX");
-                createAnewRx = "window.location.href = '" + request.getContextPath() + "/oscarRx/SearchDrug.jsp'";
+                createAnewRx = "window.location.href = '" + request.getContextPath() + "/oscarRx/SearchDrug3.jsp'";
             } else {
                 createAnewRx = "javascript:clearPending('')";
             }
