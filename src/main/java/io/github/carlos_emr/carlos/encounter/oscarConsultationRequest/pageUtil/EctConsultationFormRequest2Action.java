@@ -34,48 +34,31 @@ import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.managers.*;
 import io.github.carlos_emr.carlos.utility.*;
-import ca.uhn.hl7v2.HL7Exception;
-import ca.uhn.hl7v2.model.v26.message.ORU_R01;
-import ca.uhn.hl7v2.model.v26.message.REF_I12;
 import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.text.StringEscapeUtils;
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OruR01;
-import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OruR01.ObservationData;
-import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.RefI12;
-import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.SendingUtils;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
-import org.openpdf.text.DocumentException;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
-import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.SignatureException;
-import java.security.spec.InvalidKeySpecException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -95,8 +78,6 @@ import java.util.*;
  *       base64-encoded PDF for inline preview</li>
  *   <li><b>"...And Fax"</b> - prepares fax parameters (accounts, recipients, attached document
  *       descriptions) and forwards to the fax confirmation page</li>
- *   <li><b>"...esend"</b> - transmits the consultation via HL7 REF_I12 message to the
- *       specialist's remote EMR system, with attached documents sent as ORU_R01 messages</li>
  * </ul>
  *
  * <p>Supports the Health Care Team integration when the
@@ -578,24 +559,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 			
 			return "fax";
 			
-		} 
-		else if (submission.endsWith("esend"))
-		{
-			// upon success continue as normal with success message
-			// upon failure, go to consultation update page with message
-			try {
-	            doHl7Send(loggedInInfo, Integer.parseInt(requestId));
-	            WebUtils.addLocalisedInfoMessage(request, "encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgCreatedUpdateESent");
-            } catch (Exception e) {
-                logger.error("Error contacting remote server.", e);
-
-                WebUtils.addLocalisedErrorMessage(request, "encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgCreatedUpdateESendError");
-                String forward = "/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp" + "?de=" + demographicNo +
-                        "&requestId=" + requestId;
-                response.sendRedirect(forward);
-                return NONE;
-            }
-        }
+		}
 
         String contextPath = request.getContextPath();
         String forward = contextPath + "/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp?de=" + demographicNo;
@@ -621,90 +585,6 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         obj.setValue(value);
         obj.setRequestId(Integer.parseInt(requestId));
         return obj;
-    }
-
-    /**
-     * Sends the consultation request and its attachments to the specialist's remote EMR via HL7.
-     *
-     * <p>Constructs an HL7 REF_I12 referral message for the consultation request and sends
-     * it to the specialist's remote endpoint. Then iterates over attached documents and lab
-     * results, wrapping each as an ORU_R01 observation message with the binary data payload,
-     * and sends them individually.</p>
-     *
-     * @param loggedInInfo          LoggedInInfo the authenticated session context
-     * @param consultationRequestId Integer the consultation request ID to send
-     * @throws InvalidKeyException      when cryptographic key validation fails
-     * @throws SignatureException        when digital signature operation fails
-     * @throws NoSuchAlgorithmException  when a required cryptographic algorithm is unavailable
-     * @throws NoSuchPaddingException    when a required padding scheme is unavailable
-     * @throws IllegalBlockSizeException when block cipher input size is incorrect
-     * @throws BadPaddingException       when decrypted data padding is incorrect
-     * @throws InvalidKeySpecException   when key specification is invalid
-     * @throws IOException               when an I/O error occurs during transmission
-     * @throws HL7Exception              when HL7 message construction or parsing fails
-     * @throws ServletException          when the remote server returns a non-OK status
-     */
-    private void doHl7Send(LoggedInInfo loggedInInfo, Integer consultationRequestId) throws InvalidKeyException, SignatureException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, IOException, HL7Exception, ServletException {
-
-        ConsultationRequestDao consultationRequestDao = (ConsultationRequestDao) SpringUtils.getBean(ConsultationRequestDao.class);
-        ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
-        Hl7TextInfoDao hl7TextInfoDao = (Hl7TextInfoDao) SpringUtils.getBean(Hl7TextInfoDao.class);
-        ClinicDAO clinicDAO = (ClinicDAO) SpringUtils.getBean(ClinicDAO.class);
-
-        ConsultationRequest consultationRequest = consultationRequestDao.find(consultationRequestId);
-        ProfessionalSpecialist professionalSpecialist = professionalSpecialistDao.find(consultationRequest.getSpecialistId());
-        Clinic clinic = clinicDAO.getClinic();
-
-        // set status now so the remote version shows this status
-        consultationRequest.setStatus("2");
-
-        REF_I12 refI12 = RefI12.makeRefI12(clinic, consultationRequest);
-        SendingUtils.send(loggedInInfo, refI12, professionalSpecialist);
-
-        // save after the sending just in case the sending fails.
-        consultationRequestDao.merge(consultationRequest);
-
-        //--- send attachments ---
-        Provider sendingProvider = loggedInInfo.getLoggedInProvider();
-        DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-        Demographic demographic = demographicManager.getDemographic(loggedInInfo, consultationRequest.getDemographicId());
-
-        //--- process all documents ---
-        ArrayList<EDoc> attachments = EDocUtil.listDocs(loggedInInfo, demographic.getDemographicNo().toString(), consultationRequest.getId().toString(), EDocUtil.ATTACHED);
-        for (EDoc attachment : attachments) {
-            ObservationData observationData = new ObservationData();
-            observationData.subject = attachment.getDescription();
-            observationData.textMessage = "Attachment for consultation : " + consultationRequestId;
-            observationData.binaryDataFileName = attachment.getFileName();
-            observationData.binaryData = attachment.getFileBytes();
-
-            ORU_R01 hl7Message = OruR01.makeOruR01(clinic, demographic, observationData, sendingProvider, professionalSpecialist);
-            SendingUtils.send(loggedInInfo, hl7Message, professionalSpecialist);
-        }
-
-        //--- process all labs ---
-        CommonLabResultData labData = new CommonLabResultData();
-        ArrayList<LabResultData> labs = labData.populateLabResultsData(loggedInInfo, demographic.getDemographicNo().toString(), consultationRequest.getId().toString(), CommonLabResultData.ATTACHED);
-        for (LabResultData attachment : labs) {
-            try {
-                byte[] dataBytes = LabPDFCreator.getPdfBytes(attachment.getSegmentID(), sendingProvider.getProviderNo());
-                Hl7TextInfo hl7TextInfo = hl7TextInfoDao.findLabId(Integer.parseInt(attachment.getSegmentID()));
-
-                ObservationData observationData = new ObservationData();
-                observationData.subject = hl7TextInfo.getDiscipline();
-                observationData.textMessage = "Attachment for consultation : " + consultationRequestId;
-                observationData.binaryDataFileName = hl7TextInfo.getDiscipline() + ".pdf";
-                observationData.binaryData = dataBytes;
-
-
-                ORU_R01 hl7Message = OruR01.makeOruR01(clinic, demographic, observationData, sendingProvider, professionalSpecialist);
-                int statusCode = SendingUtils.send(loggedInInfo, hl7Message, professionalSpecialist);
-                if (HttpServletResponse.SC_OK != statusCode)
-                    throw (new ServletException("Error, received status code:" + statusCode));
-            } catch (DocumentException e) {
-                logger.error("Unexpected error.", e);
-            }
-        }
     }
 
     /**
@@ -1260,37 +1140,6 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     @StrutsParameter
     public void setPatientLastName(String patientLastName) {
         this.patientLastName = patientLastName;
-    }
-
-    /**
-     * Builds the URL for the ORU_R01 lab sending page, including the context path and
-     * patient demographic query parameters. The returned URL is HTML-escaped for safe
-     * embedding in JSP output.
-     *
-     * @param request HttpServletRequest used to obtain the context path
-     * @return String the HTML-escaped URL string with query parameters
-     */
-    public String getOruR01UrlString(HttpServletRequest request) {
-        // /lab/CA/ALL/sendOruR01.jsp
-
-        StringBuilder sb = new StringBuilder();
-
-        sb.append(request.getContextPath());
-        sb.append("/lab/CA/ALL/sendOruR01.jsp");
-
-        HashMap<String, Object> queryParameters = new HashMap<String, Object>();
-
-        // buildQueryString will take null into account
-        queryParameters.put("hl7TextMessageId", hl7TextMessageId);
-        queryParameters.put("clientFirstName", patientFirstName);
-        queryParameters.put("clientLastName", patientLastName);
-        queryParameters.put("clientHin", patientHealthNum);
-        queryParameters.put("clientBirthDate", patientDOB);
-        queryParameters.put("clientGender", patientSex);
-
-        sb.append(WebUtils.buildQueryString(queryParameters));
-
-        return (StringEscapeUtils.escapeHtml4(sb.toString()));
     }
 
     /**

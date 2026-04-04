@@ -523,7 +523,7 @@
             int randomNo = new Random().nextInt();%>
         <script id="mainScript"
                 src="${ pageContext.request.contextPath }/js/custom/ocean/conreq.js?no-cache=<%=randomNo%>&autoRefresh=true"
-                ocean-host=<%=Encode.forUriComponent(props.getProperty("ocean_host"))%>></script>
+                ocean-host="<%=Encode.forHtmlAttribute(props.getProperty("ocean_host"))%>"></script>
         <% } %>
         <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/css/healthCareTeam.css"/>
 
@@ -1032,8 +1032,6 @@
             <%}%>
 
             jQuery.post(ctx + '/getProfessionalSpecialist.do', { id: specData.specId }, function(xml) {
-                var hasUrl = xml.eDataUrl != null && xml.eDataUrl !== '';
-                enableDisableRemoteReferralButton(form, !hasUrl);
                 document.getElementById('annotation').value = xml.annotation || '';
                 updateEFormLink(xml.eformId);
             });
@@ -1273,12 +1271,10 @@
 
                 disableIfExists(form.update, disableFields);
                 disableIfExists(form.updateAndPrint, disableFields);
-                disableIfExists(form.updateAndSendElectronically, disableFields);
                 disableIfExists(form.updateAndFax, disableFields);
 
                 disableIfExists(form.submitSaveOnly, disableFields);
                 disableIfExists(form.submitAndPrint, disableFields);
-                disableIfExists(form.submitAndSendElectronically, disableFields);
                 disableIfExists(form.submitAndFax, disableFields);
 
                 // Calendar elements removed - using native HTML5 date inputs
@@ -1392,7 +1388,6 @@
 
                 // Load additional specialist data (annotation, eform)
                 jQuery.post(ctx + '/getProfessionalSpecialist.do', {id: savedSpecialist}, function(xml) {
-                    enableDisableRemoteReferralButton(form, !(xml.eDataUrl != null && xml.eDataUrl !== ''));
                     document.getElementById('annotation').value = xml.annotation || '';
                     updateEFormLink(xml.eformId);
                 });
@@ -1410,8 +1405,6 @@
                 form.fax.value = ("");
                 form.address.value = ("");
                 document.getElementById("annotation").value = "";
-
-                enableDisableRemoteReferralButton(form, true);
 
                 <%
 		if (props.isConsultationFaxEnabled()) {//
@@ -1456,8 +1449,6 @@
                     jQuery.post(ctx + "/getProfessionalSpecialist.do", {id: aSpeci.specNbr},
                         function (xml) {
                             console.log(xml);
-                            let hasUrl = xml.eDataUrl != null && xml.eDataUrl !== "";
-                            enableDisableRemoteReferralButton(form, !hasUrl);
                             let annotation = document.getElementById("annotation");
                             annotation.value = xml.annotation;
                             updateEFormLink(xml.eformId)
@@ -1508,18 +1499,6 @@
         }
 
         //-----------------------------------------------------------------
-
-        function enableDisableRemoteReferralButton(form, disabled) {
-            var button = form.updateAndSendElectronically;
-            if (button != null) button.disabled = disabled;
-            button = form.submitAndSendElectronically;
-            if (button != null) button.disabled = disabled;
-
-            var button = form.updateAndSendElectronicallyTop;
-            if (button != null) button.disabled = disabled;
-            button = form.submitAndSendElectronicallyTop;
-            if (button != null) button.disabled = disabled;
-        }
 
         //-->
 
@@ -2058,10 +2037,6 @@ if (userAgent != null) {
                     thisForm.setSiteName(consultUtil.siteName);
                     defaultSiteName = consultUtil.siteName;
 
-                } else if (segmentId != null) {
-                    EctViewRequest2Action.fillFormValues(thisForm, segmentId);
-                    thisForm.setSiteName(consultUtil.siteName);
-                    defaultSiteName = consultUtil.siteName;
                 } else if (request.getAttribute("validateError") == null) {
                     //  new request
                     if (demo != null) {
@@ -2108,10 +2083,10 @@ if (userAgent != null) {
         <input type="hidden" name="providerNo" value="<%=providerNo%>">
         <% } %>
         <input type="hidden" name="demographicNo" id="demographicNo" value="<%=Encode.forHtmlAttribute(demo)%>">
-        <input type="hidden" name="requestId" id="requestId" value="<%=requestId%>">
-        <input type="hidden" name="ext_appNo" value="<%=request.getParameter("appNo") %>">
+        <input type="hidden" name="requestId" id="requestId" value="<%= Encode.forHtmlAttribute(requestId) %>">
+        <input type="hidden" name="ext_appNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("appNo"))) %>">
         <input type="hidden" name="source"
-               value="<%=(requestId!=null)?thisForm.getSource():request.getParameter("source") %>">
+               value="<%=Encode.forHtmlAttribute((requestId!=null)?thisForm.getSource():StringUtils.noNull(request.getParameter("source")))%>">
         <input type="hidden" name="submission" value="">
         <input type="hidden" id="saved" value="false">
         <input type="hidden" id="contextPath" value="${pageContext.request.contextPath}">
@@ -2342,12 +2317,6 @@ if (userAgent != null) {
                                 <input name="printPreview" type="button" class="btn btn-primary btn-sm" value="Print Preview"
                                        onclick="return checkForm('And Print Preview','EctConsultationFormRequest2Form');"/>
 
-                                <c:if test="${EctConsultationFormRequest2Form.eReferral == true}">
-                                    <input name="updateAndSendElectronicallyTop" type="button" class="btn btn-outline-info btn-sm"
-                                           value="<fmt:message key='encounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdateAndSendElectronicReferral'/>"
-                                           onclick="return checkForm('Update_esend', 'EctConsultationFormRequest2Form');"/>
-                                </c:if>
-
                                 <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">
                                     <input id="fax_button" name="updateAndFax" type="button" class="btn btn-primary btn-sm"
                                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdateAndFax"/>"
@@ -2362,21 +2331,11 @@ if (userAgent != null) {
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndPrint"/>"
                                        onclick="return checkForm('Submit Consultation Request And Print Preview','EctConsultationFormRequest2Form'); "/>
 
-                                <c:if test="${EctConsultationFormRequest2Form.eReferral == true}">
-                                    <input name="submitAndSendElectronicallyTop" type="button" class="btn btn-outline-info btn-sm"
-                                           value="<fmt:message key='encounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndSendElectronicReferral'/>"
-                                           onclick="return checkForm('Submit_esend', 'EctConsultationFormRequest2Form');"/>
-                                </c:if>
-
                                 <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">
                                     <input id="fax_button" name="submitAndFax" type="button" class="btn btn-primary btn-sm"
                                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndFax"/>"
                                            onclick="return checkForm('Submit And Fax','EctConsultationFormRequest2Form');"/>
                                 </oscar:oscarPropertiesCheck>
-                                <c:if test="${EctConsultationFormRequest2Form.eReferral == true}">
-                                    <input type="button" class="btn btn-outline-success btn-sm" value="Send eResponse"
-                                           onclick="document.getElementById('saved').value='true'; document.location='${thisForm.oruR01UrlString(request)}'"/>
-                                </c:if>
 
                                 <% } %>
                                 </div>
@@ -3250,7 +3209,7 @@ if (userAgent != null) {
                                 // addFormIfNotFound only handles form (formNo) attachments;
                                 // skip pre-check for labs, docs, eForms, HRM not found in dialog
                                 if (delegate.startsWith("#formNo")) {
-                                    element = addFormIfNotFound(data, '<%=demo%>', delegate);
+                                    element = addFormIfNotFound(data, '<%= Encode.forJavaScript(demo) %>', delegate);
                                 } else {
                                     return;
                                 }

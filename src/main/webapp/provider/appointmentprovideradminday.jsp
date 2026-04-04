@@ -1033,19 +1033,6 @@
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
 
-                            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                                <oscar:oscarPropertiesCheck property="NOT_FOR_CAISI" value="no" defaultVal="true">
-                                    <c:if test="${billingRights}">
-                                        <li>
-                                            <a HREF="#"
-                                               ONCLICK="popupPage2('<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=loggedInInfo1.getLoggedInProviderNo()%>');return false;"
-                                               TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genBillReport"/>'
-                                               onMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genBillReport"/>';return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.billing"/></a>
-                                        </li>
-                                    </c:if>
-                                </oscar:oscarPropertiesCheck>
-                            </caisi:isModuleLoad>
-
                             <oscar:oscarPropertiesCheck property="referral_menu" value="yes">
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.misc" rights="r">
                                     <li id="ref">
@@ -1205,7 +1192,7 @@
                       title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.clickToOpenCalendar"/>">
                     <span class="dateAppointment"><%
                     if (isWeekView) {
-                %><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.week"/> <%=week%><%
+                %><fmt:message key="provider.appointmentProviderAdminDay.week"/> <%=week%><%
                 } else {
                 %><%=formatDate%><%
                     }
@@ -1213,14 +1200,25 @@
                 <a class="redArrow"
                    href="providercontrol.jsp?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%=isWeekView?"&provider_no="+provNum:""%>&viewall=<%=viewall%>">
                     <span class="fa-solid fa-forward-step"
-                          title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewNextDay"/>"></span>
+                          title="<fmt:message key="provider.appointmentProviderAdminDay.viewNextDay"/>"></span>
                 </a>
 
                 <!-- Quick Date Navigation Shortcuts with Multiplier -->
+                <fmt:message key="provider.appointmentProviderAdminDay.weekLetter" var="weekLetter"/>
+                <fmt:message key="appointment.addappointment.msgM" var="msgM"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.monthBack" var="monthBackTitle"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.weekBack" var="weekBackTitle"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.multiplier" var="multiplierTitle"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.weekForward" var="weekForwardTitle"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.monthForward" var="monthForwardTitle"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.weeks" var="weeksLabel"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.months" var="monthsLabel"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.findProvider" var="findProviderTitle"/>
+                <fmt:message key="provider.appointmentProviderAdminDay.enterLastname" var="enterLastnameLabel"/>
                 <span class="quick-nav noprint" style="margin-left: 10px;">
-                    <input type="button" value="M-" class="quick-btn" onclick="getLocation('monthBackward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.monthBack"/>"/>
-                    <input type="button" value="W-" class="quick-btn" onclick="getLocation('weekBackward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekBack"/>"/>
-                    <input type="number" id="dateMultiplier" value="1" min="1" max="99" class="multiplier-input" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.multiplier"/>"/>
+                    <input type="button" value="${e:forHtmlAttribute(msgM)}-" class="quick-btn" onclick="getLocation('monthBackward', document.getElementById('dateMultiplier').value)" title="${e:forHtmlAttribute(monthBackTitle)}"/>
+                    <input type="button" value="${e:forHtmlAttribute(weekLetter)}-" class="quick-btn" onclick="getLocation('weekBackward', document.getElementById('dateMultiplier').value)" title="${e:forHtmlAttribute(weekBackTitle)}"/>
+                    <input type="number" id="dateMultiplier" value="1" min="1" max="99" class="multiplier-input" title="${e:forHtmlAttribute(multiplierTitle)}"/>
                     <script>
                       (function() {
                         'use strict';
@@ -1252,13 +1250,13 @@
                         });
                       })();
                     </script>
-                    <input type="button" value="W+" class="quick-btn" onclick="getLocation('weekForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekForward"/>"/>
-                    <input type="button" value="M+" class="quick-btn" onclick="getLocation('monthForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.monthForward"/>"/>
+                    <input type="button" value="${e:forHtmlAttribute(weekLetter)}+" class="quick-btn" onclick="getLocation('weekForward', document.getElementById('dateMultiplier').value)" title="${e:forHtmlAttribute(weekForwardTitle)}"/>
+                    <input type="button" value="${e:forHtmlAttribute(msgM)}+" class="quick-btn" onclick="getLocation('monthForward', document.getElementById('dateMultiplier').value)" title="${e:forHtmlAttribute(monthForwardTitle)}"/>
                     |
-                    <input type="button" value="2W" class="quick-btn" onclick="getLocation('weekForward', 2)" title="2 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weeks"/>"/>
-                    <input type="button" value="4W" class="quick-btn" onclick="getLocation('weekForward', 4)" title="4 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weeks"/>"/>
-                    <input type="button" value="3M" class="quick-btn" onclick="getLocation('monthForward', 3)" title="3 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.months"/>"/>
-                    <input type="button" value="6M" class="quick-btn" onclick="getLocation('monthForward', 6)" title="6 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.months"/>"/>
+                    <input type="button" value="2${e:forHtmlAttribute(weekLetter)}" class="quick-btn" onclick="getLocation('weekForward', 2)" title="2 ${e:forHtmlAttribute(weeksLabel)}"/>
+                    <input type="button" value="4${e:forHtmlAttribute(weekLetter)}" class="quick-btn" onclick="getLocation('weekForward', 4)" title="4 ${e:forHtmlAttribute(weeksLabel)}"/>
+                    <input type="button" value="3${e:forHtmlAttribute(msgM)}" class="quick-btn" onclick="getLocation('monthForward', 3)" title="3 ${e:forHtmlAttribute(monthsLabel)}"/>
+                    <input type="button" value="6${e:forHtmlAttribute(msgM)}" class="quick-btn" onclick="getLocation('monthForward', 6)" title="6 ${e:forHtmlAttribute(monthsLabel)}"/>
                 </span>
 
                 <!-- Toggle Cancelled Appointments -->
@@ -1365,7 +1363,7 @@
                               target="apptReception"
                               action="receptionistfindprovider.jsp">
                             <INPUT TYPE="text" NAME="providername" VALUE=""
-                                   maxlength="10" class="noprint" title="Find a Provider" placeholder="Enter Lastname">
+                                   maxlength="10" class="noprint" title="${e:forHtmlAttribute(findProviderTitle)}" placeholder="${e:forHtmlAttribute(enterLastnameLabel)}">
                             <INPUT TYPE="SUBMIT" NAME="Go"
                                    VALUE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.btnGo"/>'
                                    class="noprint" onClick="findProvider(<%=year%>,<%=month%>,<%=day%>);return false;">
@@ -2046,7 +2044,7 @@
                                                         <% if (tickler_no.compareTo("") != 0) {%>
                                                             <a href="#"
                                                                onClick="popupPage(700,1024, '<%= request.getContextPath() %>/tickler/ticklerMain.jsp?demoview=0');return false;"
-                                                               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.ticklerMsg"/>: <%=Encode.forHtmlContent(tickler_note)%>">
+                                                               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.ticklerMsg"/>: <%=Encode.forHtmlAttribute(tickler_note)%>">
                                                                 <span color="red">!</span></a>
                                                         <%} %>
 
@@ -2162,7 +2160,7 @@
                                                             <img src="${pageContext.servletContext.contextPath}/images/stop_sign.png"
                                                                  width="14px" height="14px"
                                                                  style="margin-bottom: 3px;margin-left: 3px;"
-                                                                 title="<%=Encode.forHtmlContent(warning)%>"/>&nbsp;
+                                                                 title="<%=Encode.forHtmlAttribute(warning)%>"/>&nbsp;
                                                             <% } %>
                                                         </c:if>
                                                         <%
@@ -2215,7 +2213,7 @@
                                                                 + "&curProviderNo="
                                                                 + curProvider_no[nProvider]
                                                                 + "&reason="
-                                                                + URLEncoder.encode(Encode.forHtmlContent(reason), StandardCharsets.UTF_8)
+                                                                + URLEncoder.encode(reason != null ? reason : "", StandardCharsets.UTF_8)
                                                                 + "&reasonCode=" + (appointment.getReasonCode() != null ? appointment.getReasonCode() : "")
                                                                 + "&encType="
                                                                 + URLEncoder.encode("face to face encounter with client", "UTF-8")
@@ -2425,9 +2423,6 @@
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.adminShortcut"/> :
                         newWindow("<%= request.getContextPath() %>/administration/", "admin");
                         return false;  //run code for 'A'dmin
-                    case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.billingShortcut"/> :
-                        popupOscarRx(600, 1024, '<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=loggedInInfo1.getLoggedInProviderNo()%>');
-                        return false;  //code for 'B'illing
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.calendarShortcut"/> :
                         popupOscarRx(425, 430, '<%= request.getContextPath() %>/share/CalendarPopup.jsp?urlfrom=<%= request.getContextPath() %>/provider/providercontrol.jsp&year=<%=strYear%>&month=<%=strMonth%>&param=<%=URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday","UTF-8")%>');
                         return false;  //run code for 'C'alendar
@@ -2503,9 +2498,9 @@
             jQuery('.ds-btn').click(function () {
                 //var provider_no = '<%=loggedInInfo1.getLoggedInProviderNo()%>';
                 var provider_no = jQuery(this).attr('data-provider_no');
-                var y = '<%=request.getParameter("year")%>';
-                var m = '<%=request.getParameter("month")%>';
-                var d = '<%=request.getParameter("day")%>';
+                var y = '<%= Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("year"))) %>';
+                var m = '<%= Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("month"))) %>';
+                var d = '<%= Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("day"))) %>';
                 var sTime = 8;
                 var eTime = 20;
                 var dateStr = y + '-' + m + '-' + d;

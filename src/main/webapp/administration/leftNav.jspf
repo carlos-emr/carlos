@@ -394,25 +394,6 @@ String curProvider_no = (String)session.getAttribute("user");
 
 
 
-				<!-- <li>
-					<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/ckd_screening_report.jsp">CKD Screening Report</a>
-					</li>	
--->
-					<li>
-					<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/ckdScreeningReportSubmit.jsp"><fmt:message key="admin.admin.ckdScreeningReport"/></a>
-					</li>	
-					
-					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/preImplementationSubmit.jsp">
-							<fmt:message key="admin.admin.preImplementationReport"/>
-						</a>
-					</li>
-					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/patientLetterManager.jsp">
-							<fmt:message key="admin.renal.managePatientLetter"/>
-						</a>
-					</li>
-					
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fieldnote" rights="r" reverse="<%=false%>">
 					<li><a href='javascript:void(0);' 
 						class="xlink" rel="${ctx}/eform/fieldNoteReport/fieldnotereport.jsp">
@@ -561,7 +542,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					<security:oscarSec roleName="<%=roleName$%>"
 						objectName="_admin.lookupFieldEditor" rights="r">
 						<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/Lookup/LookupTableList.do"> <fmt:message key="admin.admin.LookupFieldEditor"/></a></li>
+						class="xlink" rel="${ctx}/lookupListManagerAction"> <fmt:message key="admin.admin.LookupFieldEditor"/></a></li>
 					</security:oscarSec>
 					<security:oscarSec roleName="<%=roleName$%>"
 						objectName="_admin.issueEditor" rights="r">
@@ -820,7 +801,6 @@ String curProvider_no = (String)session.getAttribute("user");
 						<li>&nbsp;<a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/api/clients.jsp"><fmt:message key="admin.admin.restClients"/></a></li>
 						</ul>
 					</li>
-<%--					<li><a href='javascript:void(0);' class="xlink" rel='${ctx}/lab/CA/ALL/sendOruR01.jsp'><fmt:message key="admin.admin.sendOruR01"/></a></li>--%>
 					
 					<caisi:isModuleLoad moduleName="HRM">
 						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hospitalReportManager.jsp"><fmt:message key="admin.admin.hrmStatus"/></a></li>
@@ -882,8 +862,6 @@ String curProvider_no = (String)session.getAttribute("user");
 						class="xlink" rel="${ctx}/admin/demographicmergerecord.jsp"><fmt:message key="admin.admin.mergeRec"/></a></li>
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/admin/updatedemographicprovider.jsp"><fmt:message key="admin.admin.btnUpdatePatientProvider"/></a></li>
-				   <li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/productDispensing/products.jsp"><fmt:message key="admin.admin.btnInventory"/></a></li>
 						<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/admin/fixRolesOnNotes.jsp"><fmt:message key="admin.admin.btnFixNotes"/></a></li>
 						
@@ -898,29 +876,6 @@ String curProvider_no = (String)session.getAttribute("user");
 
 
 
-<!-- #Hamilton Public Health -->
-<oscar:oscarPropertiesCheck property="admin.hph" value="true">
-	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
-			<div class="accordion-item">
-			<h2 class="accordion-header">
-			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThirteen" aria-expanded="false" aria-controls="collapseThirteen">
-			<fmt:message key="admin.admin.hamiltonPublicHealth"/>
-			</button>
-			</h2>
-			<div id="collapseThirteen" class="accordion-collapse collapse" data-bs-parent="#adminNav">
-			<div class="accordion-body">
-			<ul>
-				<li><a href='javascript:void(0);'
-					class="xlink" rel="${ctx}/admin/hamiltonPublicHealth/setProviderAvailability.jsp">
-					<fmt:message key="admin.admin.setProviderAvailabilities"/>
-				</a></li>
-			</ul>
-			</div>
-			</div>
-			</div>
-	</security:oscarSec>
-</oscar:oscarPropertiesCheck>
-<!-- #Hamilton Public Health END-->
 
 	</div> <!-- ACCORDION END -->
 	

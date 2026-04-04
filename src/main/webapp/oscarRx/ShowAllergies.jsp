@@ -442,7 +442,7 @@
                                                         %>
                                                         <form method="post" action="<%= request.getContextPath() %>/oscarRx/deleteAllergy.do" style="display:inline;">
                                                             <input type="hidden" name="ID" value="<%= String.valueOf(displayAllergy.getId()) %>"/>
-                                                            <input type="hidden" name="demographicNo" value="<%=demoNo %>"/>
+                                                            <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demoNo) %>"/>
                                                             <input type="hidden" name="action" value="<%=actionPath %>"/>
                                                             <a href="javascript:void(0);"
                                                                onclick="if(confirm('Are you sure you want to set the allergy <%=Encode.forJavaScript(displayAllergy.getDescription()) %> to <%=Encode.forJavaScript(labelConfirmAction)%>?')){this.closest('form').submit();}"><%=labelAction%>

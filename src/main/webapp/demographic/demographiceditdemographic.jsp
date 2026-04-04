@@ -626,7 +626,7 @@
 
             <security:oscarSec roleName="<%= roleName$ %>" objectName="_eChart" rights="r" reverse="<%= false %>" >
             var numMenus = 1;
-            var encURL = "<c:out value="${ctx}"/>/encounter/IncomingEncounter.do?providerNo=<%=curProvider_no%>&appointmentNo=&demographicNo=<%=demographic_no%>&curProviderNo=&reason=<%=URLEncoder.encode(noteReason, StandardCharsets.UTF_8)%>&encType=<%=URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8)%>&userName=<%=URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8) %>&curDate=<%=dateString%>&appointmentDate=&startTime=&status=";
+            var encURL = "<c:out value="${ctx}"/>/encounter/IncomingEncounter.do?providerNo=<%= Encode.forJavaScript(curProvider_no) %>&appointmentNo=&demographicNo=<%=demographic_no%>&curProviderNo=&reason=<%=URLEncoder.encode(noteReason, StandardCharsets.UTF_8)%>&encType=<%=URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8)%>&userName=<%=URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8) %>&curDate=<%=dateString%>&appointmentDate=&startTime=&status=";
 
             function showMenu(menuNumber, eventObj) {
                 var menuId = 'menu' + menuNumber;
@@ -735,7 +735,7 @@
 
             </security:oscarSec>
 
-            var demographicNo = '<%=demographic_no%>';
+            var demographicNo = '<%= Encode.forJavaScript(demographic_no) %>';
 
 
             function checkRosterStatus2() {
@@ -875,8 +875,9 @@
                 const hcType = jQuery("#hcTypeBox").val();
 
                 jQuery.ajax({
-                    type: "GET",
-                    url: '<%=request.getContextPath() %>/ws/rs/patientDetailStatusService/validateHC?hin=' + hin + '&ver=' + ver,
+                    type: "POST",
+                    url: '<%=request.getContextPath() %>/ws/rs/patientDetailStatusService/validateHC',
+                    data: JSON.stringify({hin: hin, ver: ver}),
                     dataType: 'json',
                     contentType: 'application/json',
                     success: function (data) {
@@ -1030,7 +1031,7 @@
                         %>
                         <tr>
                             <td><a
-                                    href="<%= request.getContextPath() %>/oscarWaitingList/SetupDisplayPatientWaitingList.do?demographic_no=<%=demographic.getDemographicNo()%>">
+                                    href="<%= request.getContextPath() %>/waitinglist/SetupDisplayPatientWaitingList.do?demographic_no=<%=demographic.getDemographicNo()%>">
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgWaitList"/></a>
                             </td>
                         </tr>
@@ -1044,13 +1045,7 @@
                             <tr>
                                 <td>
                                     <%
-                                        if ("CLINICAID".equals(prov)) {
-                                    %>
-                                    <a href="<%= request.getContextPath() %>/billing.do?billRegion=CLINICAID&action=invoice_reports" target="_blank">
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/>
-                                    </a>
-                                    <%
-                                    } else if ("ON".equals(prov)) {
+                                        if ("ON".equals(prov)) {
                                     %>
                                     <a href="javascript: function myFunction() {return false; }"
                                        onClick="popupPage(500,800,'<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/billing/CA/ON/billingONHistory.jsp?demographic_no=" + Encode.forUriComponent(String.valueOf(demographic.getDemographicNo()))) %>')">
@@ -1100,7 +1095,7 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupOscarRx(700,1027,'<%= request.getContextPath() %>/oscarRx/choosePatient.do?providerNo=<%=curProvider_no%>&demographicNo=<%=demographic_no%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.prescriptions"/></a>
+                                    onClick="popupOscarRx(700,1027,'<%= request.getContextPath() %>/oscarRx/choosePatient.do?providerNo=<%= Encode.forJavaScriptAttribute(curProvider_no) %>&demographicNo=<%= Encode.forJavaScriptAttribute(demographic_no) %>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.prescriptions"/></a>
                             </td>
                         </tr>
 
@@ -1118,7 +1113,7 @@
                                 <td><a
                                         href="javascript: function myFunction() {return false; }"
                                         onClick="popupPage(700,960,'<c:out
-                                                value="${ctx}"/>/oscarPrevention/index.jsp?demographic_no=<%=demographic_no%>');return false;">
+                                                value="${ctx}"/>/oscarPrevention/index.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>');return false;">
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.LeftNavBar.Prevent"/></a></td>
                             </tr>
                         </security:oscarSec>
@@ -1126,7 +1121,7 @@
                             <td>
                                 <a
                                         href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700,1000,'<%= request.getContextPath() %>/tickler/ticklerMain.jsp?demoview=<%=demographic_no%>');return false;">
+                                        onClick="popupPage(700,1000,'<%= request.getContextPath() %>/tickler/ticklerMain.jsp?demoview=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>');return false;">
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/></a>
                             </td>
                         </tr>
@@ -1137,13 +1132,13 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname.do?formname=AR1&demographic_no=<%=request.getParameter("demographic_no")%>');">AR1</a>
+                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname.do?formname=AR1&demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>');">AR1</a>
                             </td>
                         </tr>
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname.do?formname=AR2&demographic_no=<%=request.getParameter("demographic_no")%>');">AR2</a>
+                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname.do?formname=AR2&demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>');">AR2</a>
                             </td>
                         </tr>
                         <% } %>
@@ -1155,7 +1150,7 @@
                                 <td>
 
                                     <a href="#"
-                                       onClick="window.open('<%=request.getContextPath()%>/mod/docmgmtComp/DocList.do?method=list&&demographic_no=<%=demographic_no %>','_blank','resizable=yes,status=yes,scrollbars=yes');return false;">Inbox
+                                       onClick="window.open('<%=request.getContextPath()%>/mod/docmgmtComp/DocList.do?method=list&&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>','_blank','resizable=yes,status=yes,scrollbars=yes');return false;">Inbox
                                         Manager</a><br>
                                 </td>
                             </tr>
@@ -1178,7 +1173,7 @@
                         </special:SpecialPlugin>
                         <tr>
                             <td><a
-                                    href="<%= request.getContextPath() %>/eform/efmpatientformlist.jsp?demographic_no=<%=demographic_no%>&apptProvider=<%=apptProvider%>&appointment=<%=appointment%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
+                                    href="<%= request.getContextPath() %>/eform/efmpatientformlist.jsp?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&apptProvider=<%= Encode.forUriComponent(apptProvider != null ? apptProvider : "") %>&appointment=<%= Encode.forUriComponent(appointment != null ? appointment : "") %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
                         </tr>
 
                     </table>
@@ -1433,14 +1428,13 @@
                                                                         <span class="info"><%=Encode.forHtmlContent(demographic.getFirstName())%></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formMiddleNames"/>:</span>
-                                                                        <span class="info"> <c:out
-                                                                                value="<%=Encode.forHtmlContent(demographic.getMiddleNames())%>"/></span>
+                                                                        <span class="info"> <%=Encode.forHtmlContent(demographic.getMiddleNames())%></span>
                                                                     </li>
                                                                     <li>
 														<span class="label" style="color:red;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:
 														</span>
                                                                         <span class="info" style="color:red;">
-															<c:out value="<%=Encode.forHtml(demographic.getAlias())%>"/>
+															<%= Encode.forHtml(demographic.getAlias()) %>
 														</span>
                                                                     </li>
 
@@ -1512,7 +1506,7 @@
                                                                     %>
                                                                     <jsp:include page="<%=fieldJSP%>">
                                                                         <jsp:param name="demo"
-                                                                                   value="<%=demographic_no%>"/>
+                                                                                   value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                     </jsp:include>
                                                                     <%}%>
 
@@ -2006,7 +2000,7 @@
                                                                     <jsp:include page="./displayFirstNationsModule.jsp"
                                                                                  flush="false">
                                                                         <jsp:param name="demo"
-                                                                                   value="<%= demographic_no %>"/>
+                                                                                   value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                         <jsp:param name="fncommunity"
                                                                                    value="${fncommunity}"/>
                                                                     </jsp:include>
@@ -2399,7 +2393,7 @@
                                                                     value="true">
                                                                 <jsp:include page="displayHealthCareTeam.jsp">
                                                                     <jsp:param name="demographicNo"
-                                                                               value="<%= demographic_no %>"/>
+                                                                               value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                 </jsp:include>
                                                             </oscar:oscarPropertiesCheck>
                                                                 <%-- TOGGLE OFF PATIENT CLINIC STATUS --%>
@@ -2454,7 +2448,7 @@
                                                                 <%if (hasImportExtra) { %>
                                                                 <a href="javascript:void(0);"
                                                                    title="Extra data from Import"
-                                                                   onclick="window.open('<%= request.getContextPath() %>/annotation/importExtra.jsp?display=<%=annotation_display %>&amp;table_id=<%=demographic_no %>&amp;demo=<%=demographic_no %>','anwin','width=400,height=250');">
+                                                                   onclick="window.open('<%= request.getContextPath() %>/annotation/importExtra.jsp?display=<%=Encode.forJavaScriptAttribute(annotation_display)%>&amp;table_id=<%=Encode.forJavaScriptAttribute(demographic_no)%>&amp;demo=<%=Encode.forJavaScriptAttribute(demographic_no)%>','anwin','width=400,height=250');">
                                                                     <img src="<%= request.getContextPath() %>/images/notes.gif" align="right"
                                                                          alt="Extra data from Import" height="16"
                                                                          width="13" border="0"> </a>
@@ -2596,7 +2590,7 @@
                                                         <td align="left"><input type="text"
                                                                                 name="nameUsed" <%=getDisabled("nameUsed")%>
                                                                                 size="30"
-                                                                                value="<c:out value="<%=Encode.forHtmlAttribute(demographic.getAlias())%>" />"
+                                                                                value="<%= Encode.forHtmlAttribute(demographic.getAlias()) %>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td style="text-align: right;">
                                                             <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></strong>
@@ -3723,7 +3717,7 @@
                                                             <td colspan="8">
                                                                 <jsp:include page="manageFirstNationsModule.jsp">
                                                                     <jsp:param name="demo"
-                                                                               value="<%= demographic_no %>"/>
+                                                                               value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                 </jsp:include>
                                                             </td>
                                                         </tr>
@@ -4562,7 +4556,7 @@
                                                     <tr>
                                                         <td colspan="4">
                                                             <jsp:include page="<%=fieldJSP%>">
-                                                                <jsp:param name="demo" value="<%=demographic_no%>"/>
+                                                                <jsp:param name="demo" value="<%= demographic_no %>"/>
                                                             </jsp:include>
                                                         </td>
                                                     </tr>
@@ -4668,7 +4662,7 @@
                                                             <td colspan="4">
                                                                 <jsp:include page="manageHealthCareTeam.jsp">
                                                                     <jsp:param name="demographicNo"
-                                                                               value="<%= demographic_no %>"/>
+                                                                               value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                                                 </jsp:include>
                                                             </td>
                                                         </tr>
@@ -4854,19 +4848,6 @@
                                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgExport"/>"
                                                                    onclick="window.open('<%= request.getContextPath() %>/demographic/demographicExport.jsp?demographicNo=<%=demographic.getDemographicNo()%>');"/>
                                                         </security:oscarSec>
-                                                        <oscar:oscarPropertiesCheck value="BC" property="billregion">
-                                                            <security:oscarSec roleName="<%=roleName$%>" objectName="_careconnect" rights="r">
-                                                                <c:set value="${ CarlosProperties.getInstance()['BC_CARECONNECT_URL'] }" var="url" scope="page"/>
-                                                                <c:if test="${ not empty url }">
-                                                                    <script type="text/javascript" src="${ctx}/careconnect/careconnect.js"></script>
-                                                                    <input type="button" class="btn-toolbar-secondary"
-                                                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCareConnect"/>"
-                                                                           onclick="callCareConnect('<%= Encode.forJavaScriptAttribute((String) pageContext.getAttribute("url")) %>', '<%= Encode.forJavaScriptAttribute(demographic.getHin()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getFirstName()) %>',
-                                                                                   '<%= Encode.forJavaScriptAttribute(demographic.getLastName()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getFormattedDob()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getSex()) %>',
-                                                                                   '<%= Encode.forJavaScriptAttribute(CarlosProperties.getInstance().getProperty("BC_CARECONNECT_REGION", "")) %>' )"/>
-                                                                </c:if>
-                                                            </security:oscarSec>
-                                                        </oscar:oscarPropertiesCheck>
                                                         <input type="button" class="btn-toolbar-secondary"
                                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnAuditInfo"/>"
                                                                onclick="window.open('<%= Encode.forJavaScriptAttribute(request.getContextPath()) %>/demographic/demographicAudit.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic.getDemographicNo().toString())) %>');"/>
@@ -4946,7 +4927,7 @@
 
         function callEligibilityWebService(url, id) {
             var ran_number = Math.round(Math.random() * 1000000);
-            var params = "demographic=<%=demographic_no%>&method=checkElig&rand=" + ran_number;  //hack to get around ie caching the page
+            var params = "demographic=<%= Encode.forJavaScript(Encode.forUriComponent(demographic_no)) %>&method=checkElig&rand=" + ran_number;  //hack to get around ie caching the page
             fetch(url + '?' + params, {
                 method: 'GET',
                 credentials: 'same-origin',
@@ -4963,7 +4944,7 @@
         
         function checkInsuranceEligibility() {
             let params = {};
-            params.demographic =<%=demographic_no%>;
+            params.demographic = '<%= Encode.forJavaScript(demographic_no) %>';
             params.method = 'checkElig';
             params.rand = Math.round(Math.random()*1000000);  //hack to get around ie caching the page
             let url = '${ctx}/billing/CA/BC/ManageTeleplan.do';

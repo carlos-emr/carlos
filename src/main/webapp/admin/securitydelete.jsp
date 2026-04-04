@@ -49,6 +49,8 @@
 %>
 
 <%@ page import="java.sql.*, java.util.*" errorPage="/errorpage.jsp" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
@@ -87,12 +89,12 @@
         %>
         <p>
         <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitydelete.msgDeletionSuccess"/>:
-            <%= request.getParameter("keyword") %>.</h2>
+            <%= Encode.forHtml(StringUtils.noNull(request.getParameter("keyword"))) %>.</h2>
         <%
         } else {
         %>
         <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitydelete.msgDeletionFailure"/>:
-            <%= request.getParameter("keyword") %>.</h1>
+            <%= Encode.forHtml(StringUtils.noNull(request.getParameter("keyword"))) %>.</h1>
         <%
             }
         %>

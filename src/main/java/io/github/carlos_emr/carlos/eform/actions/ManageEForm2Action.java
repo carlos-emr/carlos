@@ -89,6 +89,12 @@ public class ManageEForm2Action extends ActionSupport implements UploadedFilesAw
             throw new SecurityException("missing required sec object (_eform)");
         }
 
+        if (zippedForm == null) {
+            MiscUtils.getLogger().error("importEForm() called with no uploaded file; returning fail.");
+            request.setAttribute("importErrors", Collections.singletonList("No file was uploaded."));
+            return "fail";
+        }
+
         List<String> errors = Collections.emptyList();
         try (InputStream zippedFormStream = Files.newInputStream(zippedForm.toPath())) {
             request.setAttribute("input", "import");

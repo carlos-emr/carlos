@@ -32,6 +32,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.service.FieldNoteManager" %>
 <%@ page import="java.util.*, java.text.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -181,11 +182,11 @@
             <tr style="background-color: #F2F2F2;">
                 <td>
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.startDate"/>:<input type="text" name="date_start" size="8"
-                                                                           value="<%=dateStart%>" id="startDate"><a
+                                                                           value="<%= Encode.forHtmlAttribute(dateStart) %>" id="startDate"><a
                         id="SCal"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                     &nbsp;
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.endDate"/>:<input type="text" name="date_end" size="8"
-                                                                         value="<%=dateEnd%>" id="endDate"><a id="ECal"><img
+                                                                         value="<%= Encode.forHtmlAttribute(dateEnd) %>" id="endDate"><a id="ECal"><img
                         title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                     &nbsp;
                     <input type="submit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.getFieldNotes"/>"

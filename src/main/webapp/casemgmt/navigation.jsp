@@ -299,13 +299,6 @@
                 <caisirole:SecurityAccess accessName="oscarcomm" accessType="access" providerNo="<%=bean.providerNo%>"
                                           demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
 
-                    <% if (CarlosProperties.getInstance().getProperty("oscarcomm", "").equals("on")) { %>
-                    <tr>
-                        <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/encounter/RemoteAttachments.jsp');return false;">CARLOS Messenger</a>
-                        </td>
-                    </tr>
-                    <% } %>
                 </caisirole:SecurityAccess>
 
                 <!-- Disease Registry -->

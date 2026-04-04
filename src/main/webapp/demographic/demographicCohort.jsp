@@ -49,6 +49,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets, io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="java.util.ArrayList" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 
 <%
@@ -126,7 +127,7 @@
                 arrCurDemoSets.add(setName);
     %>
     <p style="font-size:small; font-variant:small-caps"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiccohort.saved"/> <%=demoData.getDemographic(loggedInInfo, demoNo).getFirstName() + " " + demoData.getDemographic(loggedInInfo, demoNo).getLastName()%>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiccohort.to"/> <%=setName%>
+        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiccohort.to"/> <%=Encode.forHtml(setName)%>
     </p>
     <%
             }
@@ -143,13 +144,13 @@
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiccohort.addtopatientset"/></h3>
     <ul>
         <c:forEach var="set" items="${arrDemoSets}">
-            <li><a href="<%= request.getContextPath() %>/demographic/demographicCohort.jsp?demographic_no=<%=demoNo%>&setName=<c:out value="${set}"/>"><c:out
+            <li><a href="<%= request.getContextPath() %>/demographic/demographicCohort.jsp?demographic_no=<%= Encode.forUriComponent(demoNo) %>&setName=<c:out value="${set}"/>"><c:out
                     value="${set}"/></a></li>
         </c:forEach>
     </ul>
     <br>
     <form method="get" action="demographicCohort.jsp">
-        <input type="hidden" name="demographic_no" value="<%=demoNo%>">
+        <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demoNo) %>">
         <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiccohort.newpatientset"/></h3>
         <input type="text" name="setName">&nbsp;<input type="submit"
                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiccohort.save"/>">

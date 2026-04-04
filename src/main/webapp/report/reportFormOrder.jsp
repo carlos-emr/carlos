@@ -18,6 +18,7 @@
 <%@ page import="org.apache.commons.lang3.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportConfigData" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
     String tableName = request.getParameter("tableName") != null ? request.getParameter("tableName") : "";
@@ -103,7 +104,7 @@
         <tr BGCOLOR="#CCCCFF">
             <td><%=reportName%> Order</td>
             <td width="10%" align="right" nowrap><a
-                    href="reportFormConfig.jsp?id=<%=reportId%>&tableName=<%=tableName%>">Back
+                    href="reportFormConfig.jsp?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%=Encode.forUriComponent(tableName)%>">Back
                 to the Configuration</a></td>
         </tr>
     </table>
@@ -136,12 +137,12 @@
                         </tr>
                         <% } %>
                         <input type="hidden" name="position"/>
-                        <input type="hidden" name="id" value="<%=reportId%>"/>
-                        <input type="hidden" name="save" value="<%=SAVE_AS%>">
-                        <input type="hidden" name="tableName" value="<%=tableName%>"/>
-                        <input type="hidden" name="formTableName" value="<%=formTableName%>"/>
+                        <input type="hidden" name="id" value="<%= Encode.forHtmlAttribute(reportId) %>"/>
+                        <input type="hidden" name="save" value="<%= Encode.forHtmlAttribute(SAVE_AS) %>">
+                        <input type="hidden" name="tableName" value="<%= Encode.forHtmlAttribute(tableName) %>"/>
+                        <input type="hidden" name="formTableName" value="<%= Encode.forHtmlAttribute(formTableName) %>"/>
                         <input type="hidden" name="configTableName"
-                               value="<%=configTableName%>"/>
+                               value="<%= Encode.forHtmlAttribute(configTableName) %>"/>
                     </form>
                 </table>
             </td>

@@ -41,7 +41,7 @@
             <result name="mfaHandler">/mfa/mfa_handler.jsp</result>
         </action>
         <action name="securityRecord/mfa" class="io.github.carlos_emr.carlos.security.MfaActions2Action"/>
-        <action name="login/recordLogin" class="io.github.carlos_emr.carlos.login.LoginAgreement2Action"/>
+
         <action name="admin/uploadEntryText" class="io.github.carlos_emr.carlos.login.UploadLoginText2Action">
             <result name="success">/admin/uploadEntryText.jsp</result>
         </action>

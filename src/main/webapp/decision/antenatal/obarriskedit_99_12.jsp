@@ -34,8 +34,8 @@
     String user_no = (String) session.getAttribute("user");
 %>
 <%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
@@ -64,6 +64,7 @@
             //FileWriter inf = new FileWriter(".."+sep+"webapps"+sep+oscarVariables.getProperty("project_home")+sep+"decision"+sep+"antenatal"+sep+"desantenatalplannerrisks_99_12.xml");
             FileWriter inf = new FileWriter(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml");
             str = request.getParameter("checklist");
+            if (str == null) str = "";
             str = SxmlMisc.replaceString(str, " & ", " &amp; ");
             str = SxmlMisc.replaceString(str, " > ", " &gt; ");
             str = SxmlMisc.replaceString(str, " < ", " &lt; ");
