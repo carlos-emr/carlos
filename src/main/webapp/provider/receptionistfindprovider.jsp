@@ -30,6 +30,8 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
@@ -132,12 +134,8 @@
         }
 
         function selectProviderCustom(p, pn) {
-            opener.document
-        .<%=form%>.
-            elements['<%=elementName%>'].value = pn;
-            opener.document
-        .<%=form%>.
-            elements['<%=elementId%>'].value = p;
+            opener.document["<%= Encode.forJavaScript(StringUtils.noNull(form)) %>"].elements["<%= Encode.forJavaScript(StringUtils.noNull(elementName)) %>"].value = pn;
+            opener.document["<%= Encode.forJavaScript(StringUtils.noNull(form)) %>"].elements["<%= Encode.forJavaScript(StringUtils.noNull(elementId)) %>"].value = p;
             self.close();
         }
     </SCRIPT>
@@ -153,7 +151,7 @@
 
 <table width="100%" border="0">
     <tr>
-        <td align="left"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="receptionist.receptionistfindprovider.keywords"/></i> <%=providername%>
+        <td align="left"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="receptionist.receptionistfindprovider.keywords"/></i> <%= Encode.forHtml(StringUtils.noNull(providername)) %>
         </td>
         <td align="right"><INPUT TYPE="SUBMIT" NAME="displaymode"
                                  VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="receptionist.receptionistfindprovider.btnExit"/>"

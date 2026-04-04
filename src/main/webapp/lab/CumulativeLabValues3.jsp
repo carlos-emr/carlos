@@ -150,6 +150,7 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <html>
 
     <head>
@@ -205,7 +206,7 @@
                 alert("calling addLabToProfile");
                 var url = "<%= request.getContextPath() %>/lab/DisplayLabValue.jsp";
                 var ran_number = Math.round(Math.random() * 1000000);
-                var params = "demographicNo=<%=demographic_no%>&rand=" + ran_number + "&labType=" + labType + "&testName=" + testName;  //hack to get around ie caching the page
+                var params = "demographicNo=<%= Encode.forJavaScript(StringUtils.noNull(demographic_no)) %>&rand=" + ran_number + "&labType=" + labType + "&testName=" + testName;  //hack to get around ie caching the page
                 alert(params);
                 CarlosAjax.updater('dd', url + '?' + params, {
                     method: 'GET',
@@ -228,7 +229,7 @@
 
                 var url = "<%= request.getContextPath() %>/lab/DisplayLabValue.jsp";
                 var ran_number = Math.round(Math.random() * 1000000);
-                var params = "demographicNo=<%=demographic_no%>&rand=" + ran_number + "&labType=" + labType + "&testName=" + testName;  //hack to get around ie caching the page
+                var params = "demographicNo=<%= Encode.forJavaScript(StringUtils.noNull(demographic_no)) %>&rand=" + ran_number + "&labType=" + labType + "&testName=" + testName;  //hack to get around ie caching the page
                 CarlosAjax.updater(newNode, url + '?' + params, {
                     method: 'GET',
                     evalScripts: true

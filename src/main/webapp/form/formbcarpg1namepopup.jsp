@@ -21,6 +21,8 @@
 %>
 
 <%@ page import="java.sql.*" errorPage="/errorpage.jsp" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <jsp:useBean id="providerNameBean" class="java.util.Properties" scope="page"/>
 
@@ -45,9 +47,7 @@
                 <% if(fieldName.equals("pg1_priCare") ) {%>
                 opener.document.forms[0].pg1_priCare.value = v;
                 <% } else {%>
-                opener.document.forms[0]
-            .<%=fieldName%>.
-                value = v;
+                opener.document.forms[0]["<%= Encode.forJavaScript(StringUtils.noNull(fieldName)) %>"].value = v;
                 <% }%>
                 opener.recheckForm();
             }
