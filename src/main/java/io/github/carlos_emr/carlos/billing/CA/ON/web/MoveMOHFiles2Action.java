@@ -147,7 +147,7 @@ public class MoveMOHFiles2Action extends ActionSupport {
                 if (!isValidFileLocation) {
                     logger.warn("Invalid file location {}", LogSanitizer.sanitize(fileName));
 
-                    errors.append("Unable to find file ").append(Encode.forHtml(fileName)).append(".<br/>");
+                    errors.append("File is not in a valid location: ").append(Encode.forHtml(fileName)).append(".<br/>");
                     continue;
                 }
 

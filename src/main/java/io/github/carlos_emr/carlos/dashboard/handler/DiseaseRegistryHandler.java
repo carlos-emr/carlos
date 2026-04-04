@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 public class DiseaseRegistryHandler {
@@ -59,7 +60,7 @@ public class DiseaseRegistryHandler {
     public Integer addToDiseaseRegistry(int demographicNo, String icd9code, String providerNo) {
         boolean activeEntryExists = dao.activeEntryExists(demographicNo, ICD9_CODING_SYSTEM, icd9code);
         if (activeEntryExists) {
-            logger.info("Patient already has active entry for disease registry (demographicNo=present, codingSystem={})", ICD9_CODING_SYSTEM);
+            logger.info("Patient already has active entry for code {} in disease registry", LogSanitizer.sanitize(icd9code));
             return null;
         }
 

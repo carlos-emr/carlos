@@ -133,10 +133,10 @@ public final class LogSanitizer {
      * Sanitizes an arbitrary {@code Object} value for safe inclusion in a log statement.
      *
      * <p>Converts the object to its {@link Object#toString()} representation and delegates
-     * to {@link #sanitize(String)}. If {@code toString()} throws a runtime exception, returns
-     * a safe fallback string containing the class name and exception type. Catches
-     * {@code Throwable} (including {@code Error} subclasses like {@code StackOverflowError})
-     * to ensure a sanitize call never crashes the calling thread.</p>
+     * to {@link #sanitize(String)}. If {@code toString()} throws an exception, returns
+     * a safe fallback string containing the class name and exception type. Also catches
+     * {@code StackOverflowError} specifically (for recursive {@code toString()} implementations),
+     * but lets other {@code Error} subclasses propagate.</p>
      *
      * @param input Object the value to sanitize; may be {@code null}
      * @return String the sanitized string; never {@code null}
@@ -147,7 +147,9 @@ public final class LogSanitizer {
         }
         try {
             return sanitize(input.toString());
-        } catch (Throwable e) {
+        } catch (StackOverflowError e) {
+            return "[toString() failed: " + input.getClass().getName() + " (StackOverflowError)]";
+        } catch (Exception e) {
             return "[toString() failed: " + input.getClass().getName() + " (" + e.getClass().getSimpleName() + ")]";
         }
     }

@@ -102,7 +102,7 @@ public class ImportLogDownload2Action extends ActionSupport {
             try {
                 importLogFile = PathValidationUtils.validateExistingPath(importLogFile, tempDir);
             } catch (SecurityException e) {
-                logger.error("Path is not in the correct directory: {}", LogSanitizer.sanitize(importLogParam));
+                logger.error("Path is not in the correct directory: {}", LogSanitizer.sanitize(importLogParam), e);
                 return "error";
             }
 
