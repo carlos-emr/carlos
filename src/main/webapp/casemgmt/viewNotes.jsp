@@ -77,14 +77,13 @@
 <div class="nav-menu-add-button">
 <h3>
 <%
-	LoggedInInfo loggedInInfo=LoggedInInfo.getLoggedInInfoFromSession(request);
-	SecurityManager securityManager = new SecurityManager();
-	if(securityManager.hasWriteAccess("_" + request.getParameter("issue_code"),roleName$)) {
-%>
-<%
     String paramTitle = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("title"));
     String paramCmd = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("cmd"));
     String paramDemoNo = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographicNo"));
+
+	LoggedInInfo loggedInInfo=LoggedInInfo.getLoggedInInfoFromSession(request);
+	SecurityManager securityManager = new SecurityManager();
+	if(securityManager.hasWriteAccess("_" + request.getParameter("issue_code"),roleName$)) {
 %>
 <a href="javascript:void(0)" title='Add Item' onclick="return showEdit(event,'<fmt:setBundle basename="oscarResources"/><fmt:message key="<%= Encode.forHtmlAttribute(paramTitle) %>" />','',0,'','','','<%= Encode.forJavaScriptAttribute((String) request.getAttribute("addUrl")) %>0', '<%= Encode.forJavaScriptAttribute(paramCmd) %>','<%= Encode.forJavaScriptAttribute((String) request.getAttribute("identUrl")) %>','<%= Encode.forJavaScriptAttribute((String) request.getAttribute("cppIssue")) %>','','<%= Encode.forJavaScriptAttribute(paramDemoNo) %>');">+</a>
 <% } else { %>

@@ -326,7 +326,7 @@
     <tr>
         <td id="ptName">Patient: <%=(bCh1 != null) ? Encode.forHtml(bCh1.getDemographicName()) : "N/A" %>
         </td>
-        <td id="ptDemoNo"> (<%=(bCh1 != null) ? Encode.forHtml(bCh1.getDemographicNo()) : "N/A" %>)</td>
+        <td id="ptDemoNo"> (<%=(bCh1 != null) ? Encode.forHtml(String.valueOf(bCh1.getDemographicNo())) : "N/A" %>)</td>
         <td id="ptGender"><%=(bCh1 != null) ? Encode.forHtml(bCh1.getSex().equals("1") ? "Male" : "Female") : "N/A" %>
         </td>
         <td id="ptDOB"> DOB: <%=(bCh1 != null) ? Encode.forHtml(bCh1.getDob()) : "N/A" %>
