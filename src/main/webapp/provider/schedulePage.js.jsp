@@ -30,6 +30,8 @@
 --%>
 <%@ page contentType="application/javascript; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -209,7 +211,8 @@ function getLocation(id, multiplier) {
     // Parse and validate multiplier
     multiplier = parseInt(multiplier, 10);
     if (isNaN(multiplier) || multiplier < 1 || multiplier > 99) {
-        alert('Please enter a valid number between 1 and 99');
+        <fmt:message var="multiplierErrorMsg" key="provider.appointmentProviderAdminDay.multiplierError"/>
+        alert('${e:forJavaScript(multiplierErrorMsg)}');
         return;
     }
 
@@ -390,7 +393,8 @@ popupPage2(queryString, 'appointment', height, width);
 }
 else if( doConfirm == "Onc" ) {
 if( allowDay == "No" ) {
-if( confirm("This is an On Call Urgent appointment. Are you sure you want to book?") ) {
+<fmt:message var="confirmOnCallMsg" key="provider.appointmentProviderAdminDay.confirmOnCall"/>
+if( confirm('${e:forJavaScript(confirmOnCallMsg)}') ) {
 popupPage(height, width, queryString);
 }
 }
@@ -564,7 +568,8 @@ alert(cbi);
 
 if ("<%=newticklerwarningwindow%>"=="enabled") {
 if (IsPopupBlocker()) {
-alert("You have a popup blocker, so you can not see the new tickler warning window. Please disable the pop blocker in your google bar, yahoo bar or IE ...");
+<fmt:message var="popupBlockerMsg" key="provider.appointmentProviderAdminDay.popupBlockerAlert"/>
+alert('${e:forJavaScript(popupBlockerMsg)}');
 } else{
 var pu=window.open("<%=request.getContextPath()%>/UnreadTickler.do",'viewUnreadTickler',"height=120,width=250,location=no,scrollbars=no,menubars=no,toolbars=no,resizable=yes,top=500,left=700");
 if(window.focus)
