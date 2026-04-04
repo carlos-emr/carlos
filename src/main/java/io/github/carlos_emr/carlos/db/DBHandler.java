@@ -39,6 +39,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * @deprecated Use JPA instead, no new code should be written against this class.
@@ -67,9 +68,8 @@ public final class DBHandler {
      */
     @Deprecated
 	public static ResultSet GetSQL(String SQLStatement, boolean updatable) throws SQLException {
-		// Log warning about deprecated usage
-		logger.warn("Deprecated GetSQL method called. SQL injection risk. Consider migrating to GetPreSQL or JPA. SQL: {}", 
-		    SQLStatement != null && SQLStatement.length() > 100 ? SQLStatement.substring(0, 100) + "..." : SQLStatement);
+		// Log warning about deprecated usage — sanitize and allow longer output for SQL migration diagnostics
+		logger.warn("Deprecated GetSQL method called. SQL injection risk. Consider migrating to GetPreSQL or JPA. SQL: {}", LogSanitizer.sanitize(SQLStatement, 1000));
 		
 		Statement stmt;
 

@@ -73,6 +73,7 @@ import org.openpdf.text.pdf.PdfContentByte;
 import org.openpdf.text.pdf.PdfImportedPage;
 import org.openpdf.text.pdf.PdfReader;
 import org.openpdf.text.pdf.PdfWriter;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Servlet that generates PDF renditions of standard medical forms (Rourke growth charts,
@@ -467,11 +468,11 @@ public class FrmPDFServlet extends HttpServlet {
             int n;
             try {
                 reader = new PdfReader(propFilename);
-                log.info("Found template at " + propFilename);
+                log.info("Found template at {}", LogSanitizer.sanitize(propFilename));
             } catch (Exception dex) {
-                log.debug("change path to inside oscar from :" + propFilename);
+                log.debug("change path to inside oscar from: {}", LogSanitizer.sanitize(propFilename));
                 reader = new PdfReader("/oscar/form/prop/" + template);
-                log.debug("Found template at /oscar/form/prop/" + template);
+                log.debug("Found template at /oscar/form/prop/{}", LogSanitizer.sanitize(template));
             }
 
             // retrieve the total number of pages
@@ -866,7 +867,7 @@ public class FrmPDFServlet extends HttpServlet {
         // Step 1: Extract just the filename, removing any directory paths
         String baseFilename = org.apache.commons.io.FilenameUtils.getName(cfgFilename);
         if (baseFilename == null || baseFilename.isEmpty()) {
-            log.warn("Invalid config filename after sanitization: " + cfgFilename);
+            log.warn("Invalid config filename after sanitization: {}", LogSanitizer.sanitize(cfgFilename));
             return ret;
         }
         
