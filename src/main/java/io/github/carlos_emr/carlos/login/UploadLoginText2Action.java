@@ -77,7 +77,7 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
         String validForever = request.getParameter("validForever");
         String foreverFrom = request.getParameter("foreverFrom");
 
-        _logger.debug("validDurationNumber " + validDurationNumber + " validDurationPeriod " + " validForever " + validForever + " foreverFrom " + foreverFrom);
+        _logger.debug("validDurationNumber={} validDurationPeriod={} validForever={} foreverFrom={}", LogSanitizer.sanitize(validDurationNumber), LogSanitizer.sanitize(validDurationPeriod), LogSanitizer.sanitize(validForever), LogSanitizer.sanitize(foreverFrom));
 
         PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
         Property prop = null;

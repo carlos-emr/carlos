@@ -443,7 +443,7 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
             
             return filePath;
         } catch (Exception e) {
-            logger.error("Error validating document path for file: " + fileName, e);
+            logger.error("Error validating document path for file: {}", LogSanitizer.sanitize(fileName), e);
             return null;
         }
     }

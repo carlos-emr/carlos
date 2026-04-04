@@ -95,7 +95,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             try {
                 docFile = PathValidationUtils.validateUpload(docFile);
             } catch (SecurityException e) {
-                logger.error("Invalid upload source - potential path traversal: " + docFile.getPath());
+                logger.error("Invalid upload source - potential path traversal: {}", LogSanitizer.sanitize(docFile.getPath()));
                 map.put("error", "Invalid file upload");
                 docFile = null; // Treat as if no file was uploaded
             }
@@ -287,7 +287,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         try {
             PathValidationUtils.validateExistingPath(destinationFile.getParentFile(), baseDir);
         } catch (SecurityException e) {
-            logger.error("Destination file is outside allowed directory: " + savePath);
+            logger.error("Destination file is outside allowed directory: {}", LogSanitizer.sanitize(savePath));
             return false;
         }
 

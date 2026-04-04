@@ -179,9 +179,12 @@ public class SubmitLabByForm2Action extends ActionSupport {
         // Log HL7 metadata at INFO (MSH segment contains system metadata, not PHI).
         // Full HL7 content is NOT logged to avoid PHI exposure from PID/OBX segments.
         if (hl7 != null) {
-            int firstCr = hl7.indexOf('\r');
-            String mshSegment = firstCr > 0 ? hl7.substring(0, firstCr) : hl7;
-            logger.info("HL7 generated (length={}, MSH={})", hl7.length(), LogSanitizer.sanitize(mshSegment));
+            int firstSep = hl7.indexOf('\r');
+            if (firstSep <= 0) {
+                firstSep = hl7.indexOf('\n');
+            }
+            String mshSegment = firstSep > 0 ? hl7.substring(0, firstSep) : "[MSH extraction failed]";
+            logger.info("HL7 generated (length={}, MSH={})", hl7.length(), LogSanitizer.sanitize(mshSegment, 400));
         } else {
             logger.error("HL7 generation returned null for lab submission");
             addActionError("Failed to generate lab result. Please verify all required fields and try again.");

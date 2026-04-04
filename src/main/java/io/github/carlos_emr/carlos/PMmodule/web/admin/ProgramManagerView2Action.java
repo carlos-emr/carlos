@@ -503,7 +503,7 @@ public class ProgramManagerView2Action extends ActionSupport {
 
         List<Integer> dependents = clientManager.getDependentsList(Integer.valueOf(clientId));
 
-        logger.debug("rejecting from queue: program_id=" + programId + ",clientId=" + clientId);
+        logger.debug("rejecting from queue: program_id={},clientId={}", LogSanitizer.sanitize(programId), LogSanitizer.sanitize(clientId));
 
         ProgramQueue queue = this.programQueueManager.getActiveProgramQueue(programId, clientId);
 
@@ -524,7 +524,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         }
         if (dependents != null) {
             for (Integer l : dependents) {
-                logger.debug("rejecting from queue: program_id=" + programId + ",clientId=" + l.intValue());
+                logger.debug("rejecting from queue: program_id={},clientId={}", LogSanitizer.sanitize(programId), l.intValue());
                 programQueueManager.rejectQueue(programId, l.toString(), notes, rejectionReason);
             }
         }

@@ -199,7 +199,7 @@ public class Util {
         try {
             f = PathValidationUtils.validateExistingPath(f, baseDir);
         } catch (SecurityException e) {
-            logger.error("Error! Attempted path traversal attack detected for file: " + filename);
+            logger.error("Error! Attempted path traversal attack detected for file: {}", LogSanitizer.sanitize(filename));
             return false;
         }
 
@@ -279,7 +279,7 @@ public class Util {
             try {
                 requestedFile = PathValidationUtils.validateExistingPath(requestedFile, documentDir);
             } catch (SecurityException e) {
-                logger.error("Path traversal attempt detected for file: " + fileName);
+                logger.error("Path traversal attempt detected for file: {}", LogSanitizer.sanitize(fileName));
                 return;
             }
 
@@ -883,7 +883,7 @@ public class Util {
         
         // Final validation - ensure no path traversal characters remain
         if (sanitized.contains("..") || sanitized.contains("/") || sanitized.contains("\\")) {
-            logger.error("Invalid filename after sanitization: " + fileName);
+            logger.error("Invalid filename after sanitization: {}", LogSanitizer.sanitize(fileName));
             return "";
         }
         

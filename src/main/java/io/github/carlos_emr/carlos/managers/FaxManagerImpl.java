@@ -835,7 +835,7 @@ public class FaxManagerImpl implements FaxManager {
         } catch (SecurityException e) {
             // File not in document dir, check if it's in allowed temp directories
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
-                logger.error("Path containment check failed - file path outside allowed directories: {}", filePath);
+                logger.error("Path containment check failed - file path outside allowed directories: {}", LogSanitizer.sanitize(filePath));
                 throw new SecurityException("File path must be within allowed directories");
             }
         }
