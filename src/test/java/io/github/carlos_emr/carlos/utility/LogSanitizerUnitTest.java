@@ -265,5 +265,21 @@ class LogSanitizerUnitTest {
             assertThat(sanitized).doesNotContain("\r");
             assertThat(sanitized).doesNotContain("\n");
         }
+
+        @Test
+        @DisplayName("should return safe fallback when toString() causes StackOverflowError")
+        void shouldReturnSafeFallback_whenToStringCausesStackOverflow() {
+            Object recursive = new Object() {
+                @Override
+                public String toString() {
+                    return toString();
+                }
+            };
+
+            String sanitized = LogSanitizer.sanitize(recursive);
+
+            assertThat(sanitized).startsWith("[toString() failed:");
+            assertThat(sanitized).contains("StackOverflowError");
+        }
     }
 }

@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="/struts-tags" prefix="s" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -214,7 +215,6 @@
 <div class="card card-body bg-body-tertiary">
 
     <%-- Display Struts action errors (e.g., failed HL7 generation) --%>
-    <%@ taglib uri="/struts-tags" prefix="s" %>
     <s:if test="hasActionErrors()">
         <div class="alert alert-danger" role="alert">
             <s:actionerror/>
