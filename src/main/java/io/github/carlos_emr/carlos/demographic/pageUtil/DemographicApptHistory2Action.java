@@ -31,7 +31,7 @@ import org.apache.struts2.ServletActionContext;
 
 /**
  * Struts2 action for demographic appointment history. Replaces the
- * {@code DemographicApptHistory.do} {@code } route.
+ * {@code demographiccontrol.jsp} {@code displaymode=appt_history} route.
  * The target JSP handles its own data loading via DAOs.
  *
  * @since 2026-04-04
@@ -45,7 +45,11 @@ public class DemographicApptHistory2Action extends ActionSupport {
 
     @Override
     public String execute() {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing required session");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
         return SUCCESS;

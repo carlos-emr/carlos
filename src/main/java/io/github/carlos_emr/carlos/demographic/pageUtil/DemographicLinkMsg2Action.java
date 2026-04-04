@@ -31,7 +31,7 @@ import org.apache.struts2.ServletActionContext;
 
 /**
  * Struts2 action for linking a message to a demographic record. Replaces the
- * {@code DemographicLinkMsg.do} {@code } route.
+ * {@code demographiccontrol.jsp} {@code displaymode=linkMsg2Demo} route.
  *
  * @since 2026-04-04
  */
@@ -44,7 +44,11 @@ public class DemographicLinkMsg2Action extends ActionSupport {
 
     @Override
     public String execute() {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing required session");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
         return SUCCESS;

@@ -195,7 +195,7 @@
         </svg>
         Search Patient
     </h2>
-    <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/demographic/DemographicUpdate.do"
+    <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/demographic/DemographicSearch.do"
           onSubmit="return checkTypeIn()">
         <div id="demographicSearch" class="searchBox input-group select-group" style="margin-bottom:10px;">
             <%--    <ul style="display: flex;">--%>
@@ -594,7 +594,7 @@
         <a href="#" onclick="showHideItem('demographicSearch');" id="searchPopUpButton"
            class="rightButton top">Search</a>
         <div class="bottomBar" style="margin-bottom:10px; margin-top:10px;">
-            <form method="post" name="nextform" action="<%= request.getContextPath() %>/demographic/DemographicUpdate.do">
+            <form method="post" name="nextform" action="<%= request.getContextPath() %>/demographic/DemographicSearch.do">
                 <%
                     if (nLastPage >= 0) {
                 %>

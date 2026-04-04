@@ -45,7 +45,11 @@ public class DemographicUpdate2Action extends ActionSupport {
 
     @Override
     public String execute() {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing required session");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
         return SUCCESS;

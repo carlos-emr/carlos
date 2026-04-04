@@ -49,7 +49,11 @@ public class DemographicSearch2Action extends ActionSupport {
 
     @Override
     public String execute() {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing required session");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 

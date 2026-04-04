@@ -275,7 +275,7 @@
             </h4>
         </div>
     </div>
-    <form method="get" name="titlesearch" action="<%=request.getContextPath()%>/demographic/DemographicUpdate.do"
+    <form method="get" name="titlesearch" action="<%=request.getContextPath()%>/demographic/DemographicSearch.do"
           onsubmit="return checkTypeIn()">
 
         <% String searchMode = request.getParameter("search_mode");

@@ -1340,13 +1340,13 @@
                                             <td>
                                                 <div class="demo-toolbar">
                                                     <span class="demo-toolbar-id">
-                                                        <a href="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(head) %>&displaymode=edit&dboperation=<%= Encode.forUriComponent(dboperation) %>">#<%= Encode.forHtml(head) %></a>
+                                                        <a href="<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(head) %>">#<%= Encode.forHtml(head) %></a>
                                                         <%
                                                             for (int i = 0; i < records.size(); i++) {
                                                                 if (((String) records.get(i)).equals(demographic_no)) {
                                                         %>, #<%= Encode.forHtml(demographic_no) %><%
                                                                 } else {
-                                                        %>, <a href="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(String.valueOf(records.get(i))) %>&displaymode=edit&dboperation=<%= Encode.forUriComponent(dboperation) %>">#<%= Encode.forHtml(String.valueOf(records.get(i))) %></a><%
+                                                        %>, <a href="<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(String.valueOf(records.get(i))) %>">#<%= Encode.forHtml(String.valueOf(records.get(i))) %></a><%
                                                                 }
                                                             }
                                                         %>
