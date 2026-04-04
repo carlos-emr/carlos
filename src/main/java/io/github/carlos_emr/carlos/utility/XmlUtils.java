@@ -45,7 +45,6 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.Logger;
-import org.jdom2.JDOMException;
 import org.jdom2.input.SAXBuilder;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -81,22 +80,15 @@ public final class XmlUtils {
      * codebase to ensure consistent XML parser hardening in CARLOS EMR.</p>
      *
      * @return SAXBuilder with XXE protection features enabled
-     * @throws IllegalStateException if the underlying parser does not support the required
-     *         security features
      * @since 2026-04-02
      */
     public static SAXBuilder createSecureSAXBuilder() {
         SAXBuilder parser = new SAXBuilder();
-        try {
-            parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            parser.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            parser.setExpandEntities(false);
-        } catch (JDOMException e) {
-            logger.error("Failed to configure secure SAXBuilder — underlying XML parser does not support required security features", e);
-            throw new IllegalStateException("Unable to create secure SAXBuilder: parser does not support required XXE protection features", e);
-        }
+        parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        parser.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        parser.setExpandEntities(false);
         return parser;
     }
 
