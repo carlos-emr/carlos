@@ -15,15 +15,11 @@
   </context-param>
 
     <!-- ==================== WAF Layer (runs before all application filters) ====================
-         WAF components (except rate limiting) are disabled by default. Enable via carlos.properties:
+         Rate limiting and security headers are always active. WAF inspection and GeoIP
+         filtering are disabled by default — enable via carlos.properties:
            WAF_GEOIP_ENABLED=true         (GeoIP country filtering)
            WAF_DROP_LIST_ENABLED=true      (Spamhaus DROP list, requires WAF_GEOIP_ENABLED)
            WAF_ENABLED=true               (request inspection: SQLi, XSS, traversal, bots)
-           WAF_HSTS_ENABLED=true          (Strict-Transport-Security header)
-           WAF_CSP_ENABLED=true           (Content-Security-Policy-Report-Only header)
-           WAF_REFERRER_POLICY_ENABLED=true (Referrer-Policy header)
-           WAF_COOP_ENABLED=true          (Cross-Origin-Opener-Policy header)
-           WAF_CORP_ENABLED=true          (Cross-Origin-Resource-Policy header)
     -->
 
     <!-- Tomcat 11 built-in rate limiter: 100 requests/minute per IP (global).
