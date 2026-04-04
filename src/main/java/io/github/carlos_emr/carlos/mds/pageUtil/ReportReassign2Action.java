@@ -203,15 +203,24 @@ public class ReportReassign2Action extends ActionSupport {
 
             newURL = request.getRequestURI();
 
+            // Encode all query parameters — defense-in-depth for session-derived values,
+            // required for user-controlled searchProviderNo and status
+            String encodedProviderNo = Encode.forUriComponent(providerNo);
+            String encodedSearchProviderNo = Encode.forUriComponent(searchProviderNo != null ? searchProviderNo : "");
+            String encodedStatus = Encode.forUriComponent(status != null ? status : "");
+
             if (newURL.contains("labDisplay.jsp")) {
-                newURL = newURL + "?providerNo=" + providerNo + "&searchProviderNo=" + searchProviderNo + "&status=" + status;
+                newURL = newURL + "?providerNo=" + encodedProviderNo + "&searchProviderNo=" + encodedSearchProviderNo + "&status=" + encodedStatus;
                 // the segmentID is needed when being called from a lab display
             } else {
-                newURL = newURL + "&providerNo=" + providerNo + "&searchProviderNo=" + searchProviderNo + "&status=" + status;
+                newURL = newURL + "&providerNo=" + encodedProviderNo + "&searchProviderNo=" + encodedSearchProviderNo + "&status=" + encodedStatus;
             }
 
             if (!flaggedLabsList.isEmpty()) {
-                newURL = newURL + "&segmentID=" + flaggedLabsList.get(0);
+                // flaggedLabsList entries are String[] from split(":")  e.g. ["labId","type"]
+                // join them back to reconstruct "labId:type" before encoding
+                String segmentId = String.join(":", flaggedLabsList.get(0));
+                newURL = newURL + "&segmentID=" + Encode.forUriComponent(segmentId);
             }
             
             if (request.getParameter("lname") != null) {
