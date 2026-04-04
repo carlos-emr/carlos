@@ -60,7 +60,6 @@ import jakarta.servlet.http.HttpServletResponse;
  *   <li>{@code Permissions-Policy: camera=(), microphone=(), geolocation=()} — restricts unused browser APIs</li>
  *   <li>{@code X-Content-Type-Options: nosniff} — prevents MIME type sniffing attacks</li>
  *   <li>{@code Referrer-Policy: strict-origin-when-cross-origin} — prevents PHI leakage in referrer headers</li>
- *   <li>{@code Cross-Origin-Opener-Policy: same-origin} — isolates browsing context</li>
  *   <li>{@code Cross-Origin-Resource-Policy: same-origin} — prevents cross-origin resource reads</li>
  *   <li>{@code Content-Security-Policy-Report-Only} — XSS defense-in-depth (report-only until tuned)</li>
  *   <li>{@code Strict-Transport-Security} — HTTPS enforcement (only on secure connections)</li>
@@ -229,25 +228,28 @@ public final class ResponseDefaultsFilter implements Filter {
         // Prevent PHI leakage in referrer headers — full URL for same-origin, origin-only for cross-origin
         response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
 
-        // Isolate browsing context from cross-origin windows (prevents Spectre-class attacks)
-        response.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-
         // Prevent cross-origin reads of application resources
         response.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+
+        // Note: Cross-Origin-Opener-Policy (COOP) is intentionally NOT set. The application
+        // relies on window.opener for popup-to-parent communication in 40+ JSP files (date
+        // pickers, drug selectors, form dialogs, encounter windows, ticklers, billing).
+        // COOP: same-origin would break all of these. Revisit after migrating to postMessage().
 
         // Content-Security-Policy in Report-Only mode — logs violations without breaking pages.
         // The 'unsafe-inline' and 'unsafe-eval' directives are required for legacy JSP inline
         // scripts and jQuery; tighten these as inline scripts are migrated to external files.
-        // Bootstrap 5.3 and fonts are loaded from cdn.jsdelivr.net.
+        // CDN allowlist: cdn.jsdelivr.net (Bootstrap 5.3), code.jquery.com (jQuery UI fallback),
+        // cdnjs.cloudflare.com (serializeJSON plugin). OntarioMD for external auth redirect.
         response.setHeader("Content-Security-Policy-Report-Only",
                 "default-src 'self'; "
-                + "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-                + "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-                + "img-src 'self' data:; "
+                + "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.jquery.com https://cdnjs.cloudflare.com; "
+                + "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com; "
+                + "img-src 'self' data: https://www.gnu.org; "
                 + "font-src 'self' https://cdn.jsdelivr.net; "
                 + "frame-ancestors 'self'; "
                 + "base-uri 'self'; "
-                + "form-action 'self'");
+                + "form-action 'self' https://www.ontariomd.ca");
 
         // HSTS — only set on secure (HTTPS) connections to avoid breaking HTTP dev environments.
         // 2-year max-age per OWASP recommendation; includeSubDomains for comprehensive coverage.
