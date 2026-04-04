@@ -1925,7 +1925,9 @@ function updateStatus(formid) {//acknowledge
                     // which nulls window.opener on popups opened from Inboxhub. BroadcastChannel provides
                     // reliable same-origin cross-window messaging that is unaffected by COOP.
                     try {
-                        new BroadcastChannel('inboxhub-refresh').postMessage('refresh');
+                        const bc = new BroadcastChannel('inboxhub-refresh');
+                        bc.postMessage('refresh');
+                        bc.close();
                     } catch (e) {
                         // BroadcastChannel unsupported — user must manually refresh the inbox
                     }

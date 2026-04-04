@@ -568,7 +568,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      * Channel: 'inboxhub-refresh'
      */
     try {
-        new BroadcastChannel('inboxhub-refresh').onmessage = function() { fetchInboxhubData(); };
+        const inboxhubRefreshChannel = new BroadcastChannel('inboxhub-refresh');
+        inboxhubRefreshChannel.onmessage = function() { fetchInboxhubData(); };
     } catch (e) {
         // BroadcastChannel unsupported — user must manually refresh the inbox
     }
