@@ -29,7 +29,6 @@
 package io.github.carlos_emr.carlos.util;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,22 +43,17 @@ public class OscarDownload extends GenericDownload {
 
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         try {
-            HttpSession session = req.getSession(true);
-            String filename = req.getParameter("filename") != null ? req.getParameter("filename") : "null";
-            String homepath = req.getParameter("homepath") != null ? req.getParameter("homepath") : "null";
+            HttpSession session = req.getSession(false);
+            String filename = req.getParameter("filename");
+            String homepath = req.getParameter("homepath");
 
-            String backupfilepath = ((String) session.getAttribute(homepath)) != null ? ((String) session.getAttribute(homepath)) : "null";
-            if (filename != null && backupfilepath != null && ((String) session.getAttribute("user")) != null) {
+            String backupfilepath = (session != null && homepath != null) ? (String) session.getAttribute(homepath) : null;
+            if (session != null && filename != null && !filename.isEmpty() && backupfilepath != null && session.getAttribute("user") != null) {
                 ServletOutputStream stream = res.getOutputStream();
                 transferFile(res, stream, backupfilepath, filename);
                 stream.close();
             } else {
-                res.setContentType("text/html");
-                PrintWriter out = res.getWriter();
-                out.println("<html>");
-                out.println("<head><body>You have no right to download the file(s).");
-                out.println("</body>");
-                out.println("</html>");
+                res.sendError(HttpServletResponse.SC_FORBIDDEN);
             }
         } catch (Exception e) {
             logger.error("Error processing download request for {}", req.getRequestURI(), e);

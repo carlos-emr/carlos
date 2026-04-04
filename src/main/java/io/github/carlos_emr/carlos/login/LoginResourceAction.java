@@ -97,24 +97,30 @@ public class LoginResourceAction extends HttpServlet {
                     File imagesDir = new File(images);
                     image = PathValidationUtils.validatePath(sanitizedFilename, imagesDir);
                 } catch (SecurityException e) {
-                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid resource path");
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid resource path");
                     return;
                 }
             }
 
-            // Get content type by filename.        
-            if (image != null && image.exists()) {
-                contentType = getServletContext().getMimeType(image.getName());
+            if (image == null || !image.exists()) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return;
             }
 
-            if (contentType != null && contentType.startsWith("image")) {
-                response.reset();
-                response.setContentType(contentType);
-                response.setHeader("Content-Length", String.valueOf(image.length()));
+            // Get content type by filename.
+            contentType = getServletContext().getMimeType(image.getName());
 
-                // Write image content to response.
-                Files.copy(image.toPath(), response.getOutputStream());
+            if (contentType == null || !contentType.startsWith("image")) {
+                response.sendError(HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE);
+                return;
             }
+
+            response.reset();
+            response.setContentType(contentType);
+            response.setHeader("Content-Length", String.valueOf(image.length()));
+
+            // Write image content to response.
+            Files.copy(image.toPath(), response.getOutputStream());
         } catch (Exception e) {
             logger.error("Error processing login resource request for {}", request.getRequestURI(), e);
             if (!response.isCommitted()) {

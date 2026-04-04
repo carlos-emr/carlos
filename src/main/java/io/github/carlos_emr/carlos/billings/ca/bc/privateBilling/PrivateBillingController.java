@@ -110,10 +110,8 @@ public class PrivateBillingController extends HttpServlet {
             RequestDispatcher view = request.getRequestDispatcher(forward);
             view.forward(request, response);
         } catch (ServletException e) {
-            logger.error("Error listing private bills", e);
             throw e;
         } catch (IOException e) {
-            logger.error("Error listing private bills", e);
             throw e;
         }
     }
@@ -225,10 +223,8 @@ public class PrivateBillingController extends HttpServlet {
             RequestDispatcher view = request.getRequestDispatcher(forward);
             view.forward(request, response);
         } catch (ServletException e) {
-            logger.error("Error generating print preview for private bills", e);
             throw e;
         } catch (IOException e) {
-            logger.error("Error generating print preview for private bills", e);
             throw e;
         }
     }

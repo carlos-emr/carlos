@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.Set;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServlet;
@@ -53,23 +54,41 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 public class GenericDownload extends HttpServlet {
     private static final Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Allowlist of CarlosProperties keys that are permitted as download directory roots.
+     * Adding a key here allows clients to use it as a dir_property parameter.
+     * Do not add keys that point to sensitive system directories.
+     */
+    private static final Set<String> ALLOWED_DIR_PROPERTIES = Set.of(
+        "oscar_document_dir",
+        "DOCUMENT_DIR",
+        "BASE_DOCUMENT_DIR",
+        "eform_image_dir",
+        "fax_document_dir"
+    );
+
     public GenericDownload() {
     }
 
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         try {
-            HttpSession session = req.getSession(true);
+            HttpSession session = req.getSession(false);
 
             CarlosProperties oscarProps = CarlosProperties.getInstance();
 
             String filename = req.getParameter("filename");
             String dir_property = req.getParameter("dir_property");
             String contentType = req.getParameter("contentType");
-            String dir = oscarProps.getProperty(dir_property);
-            String user = (String) session.getAttribute("user");
+            String user = session != null ? (String) session.getAttribute("user") : null;
+
+            // Validate dir_property against allowlist to prevent arbitrary filesystem root selection
+            String dir = null;
+            if (dir_property != null && ALLOWED_DIR_PROPERTIES.contains(dir_property)) {
+                dir = oscarProps.getProperty(dir_property);
+            }
 
             boolean bDo = false;
-            if (filename != null && dir_property != null && dir != null && user != null) {
+            if (filename != null && dir != null && user != null) {
                 bDo = true;
             }
             download(bDo, res, dir, filename, contentType);

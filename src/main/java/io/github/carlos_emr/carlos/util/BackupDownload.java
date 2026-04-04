@@ -55,7 +55,7 @@ public class BackupDownload extends GenericDownload {
 
             // check the rights - sanitize filename to prevent XSS and path traversal
             String rawFilename = req.getParameter("filename");
-            String filename = (rawFilename == null) ? "null" : MiscUtils.sanitizeFileName(rawFilename);
+            String filename = (rawFilename == null || rawFilename.isBlank()) ? null : MiscUtils.sanitizeFileName(rawFilename);
             String dir = (String) session.getAttribute("backupfilepath") == null ? "/home/mysql/" : (String) session.getAttribute("backupfilepath");
 
             boolean adminPrivs = false;
@@ -67,7 +67,7 @@ public class BackupDownload extends GenericDownload {
             }
 
             boolean bDownload = false;
-            if (filename != null && adminPrivs) {
+            if (filename != null && !filename.isBlank() && adminPrivs) {
                 bDownload = true;
             }
             download(bDownload, res, dir, filename, null);

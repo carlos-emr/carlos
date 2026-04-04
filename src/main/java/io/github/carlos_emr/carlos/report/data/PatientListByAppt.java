@@ -61,7 +61,7 @@ public class PatientListByAppt extends HttpServlet {
      */
     protected void processRequest(HttpServletRequest request, HttpServletResponse response) {
         try {
-            response.setContentType("plain/text");
+            response.setContentType("text/plain; charset=UTF-8");
             response.setHeader("Content-disposition", "attachment; filename=patientlist.txt");
 
             String drNo = request.getParameter("provider_no");
@@ -77,26 +77,26 @@ public class PatientListByAppt extends HttpServlet {
 
             OscarAppointmentDao dao = SpringUtils.getBean(OscarAppointmentDao.class);
 
-            PrintStream ps = new PrintStream(response.getOutputStream());
+            try (PrintStream ps = new PrintStream(response.getOutputStream())) {
+                for (Object[] o : dao.findPatientAppointments(drNo, from, to)) {
+                    Demographic d = (Demographic) o[0];
+                    Appointment a = (Appointment) o[1];
+                    Provider p = (Provider) o[2];
 
-            for (Object[] o : dao.findPatientAppointments(drNo, from, to)) {
-                Demographic d = (Demographic) o[0];
-                Appointment a = (Appointment) o[1];
-                Provider p = (Provider) o[2];
-
-                ps.print(d.getLastName() + ",");
-                ps.print(d.getFirstName() + ",");
-                ps.print(d.getPhone() + ",");
-                ps.print(d.getPhone2() + ",");
-                ps.print(ConversionUtils.toTimeString(a.getStartTime()) + ",");
-                ps.print(ConversionUtils.toDateString(a.getAppointmentDate()) + ",");
-                ps.print(a.getType().replaceAll("\r\n", "") + ",");
-                ps.print(p.getFirstName() + " ");
-                ps.print(p.getLastName() + ",");
-                ps.print(a.getLocation());
-                ps.print("\n");
+                    ps.print(d.getLastName() + ",");
+                    ps.print(d.getFirstName() + ",");
+                    ps.print(d.getPhone() + ",");
+                    ps.print(d.getPhone2() + ",");
+                    ps.print(ConversionUtils.toTimeString(a.getStartTime()) + ",");
+                    ps.print(ConversionUtils.toDateString(a.getAppointmentDate()) + ",");
+                    ps.print(a.getType().replaceAll("\r\n", "") + ",");
+                    ps.print(p.getFirstName() + " ");
+                    ps.print(p.getLastName() + ",");
+                    ps.print(a.getLocation());
+                    ps.print("\n");
+                }
+                ps.println("");
             }
-            ps.println("");
         } catch (Exception e) {
             logger.error("Error processing patient list by appointment request for {}", request.getRequestURI(), e);
             if (!response.isCommitted()) {
