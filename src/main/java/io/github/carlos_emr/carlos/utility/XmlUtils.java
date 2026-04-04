@@ -57,6 +57,15 @@ import org.w3c.dom.ls.LSOutput;
 import org.w3c.dom.ls.LSSerializer;
 import org.xml.sax.SAXException;
 
+/**
+ * Static utility methods for XML parsing, serialization, and DOM manipulation.
+ *
+ * <p>Provides secure XML parser construction via {@link #createSecureSAXBuilder()},
+ * DOM document building, node-to-string conversion, and element helper methods
+ * used across CARLOS EMR for clinical data exchange (HL7, FHIR, e-forms).</p>
+ *
+ * @since 2012-01-12
+ */
 public final class XmlUtils {
     private static Logger logger = MiscUtils.getLogger();
 
