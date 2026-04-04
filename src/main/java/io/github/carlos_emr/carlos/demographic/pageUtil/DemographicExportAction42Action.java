@@ -227,6 +227,9 @@ public class DemographicExportAction42Action extends ActionSupport {
     public static final int CMS4 = 0;
     public static final int E2E = 1;
 
+    /** Characters unsafe in filenames across common filesystems; used to sanitize patient name components. */
+    private static final String UNSAFE_FILENAME_CHARS = "[/\\\\:*?\"<>|]";
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     Integer exportNo = 0;
@@ -2552,8 +2555,8 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                             //Standard format for xml exported file : PatientFN_PatientLN_PatientUniqueID_DOB (DOB: ddmmyyyy)
                             // Sanitize name components to remove path separators and other unsafe characters
-                            String firstName = demographic.getFirstName() != null ? demographic.getFirstName().replaceAll("[/\\\\:*?\"<>|]", "") : "";
-                            String lastName = demographic.getLastName() != null ? demographic.getLastName().replaceAll("[/\\\\:*?\"<>|]", "") : "";
+                            String firstName = demographic.getFirstName() != null ? demographic.getFirstName().replaceAll(UNSAFE_FILENAME_CHARS, "") : "";
+                            String lastName = demographic.getLastName() != null ? demographic.getLastName().replaceAll(UNSAFE_FILENAME_CHARS, "") : "";
                             String expFile = firstName + "_" + lastName;
                             expFile += "_" + demoNo;
                             expFile += "_" + demographic.getDateOfBirth() + demographic.getMonthOfBirth() + demographic.getYearOfBirth();

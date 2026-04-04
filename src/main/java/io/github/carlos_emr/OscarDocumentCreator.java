@@ -102,7 +102,7 @@ public class OscarDocumentCreator {
         }
         // Reject path traversal sequences and null bytes regardless of encoding
         String normalizedPath = path.replace("\\", "/");
-        if (normalizedPath.contains("..") || normalizedPath.contains("//") || path.contains("\0")) {
+        if (normalizedPath.contains("..") || normalizedPath.contains("//") || normalizedPath.contains("\0")) {
             MiscUtils.getLogger().error("Invalid classpath resource path rejected: " + Encode.forJava(path));
             return null;
         }
