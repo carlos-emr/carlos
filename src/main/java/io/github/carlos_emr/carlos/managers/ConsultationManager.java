@@ -31,25 +31,14 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
-import java.io.IOException;
 import java.nio.file.Path;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.SignatureException;
-import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
-import org.openpdf.text.DocumentException;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
@@ -68,7 +57,6 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestSear
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationResponseSearchResult;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.OtnEconsult;
 
-import ca.uhn.hl7v2.HL7Exception;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 
 /**

@@ -120,7 +120,6 @@ public class Startup implements ServletContextListener {
 
                 sc.getServletContext().setAttribute("CaseMgmtUsers", listUsers);
 
-
                 logger.info("BILLING REGION : " + p.getProperty("billregion", "NOTSET"));
                 logger.info("DB PROPS: Username :" + p.getProperty("db_username", "NOTSET") + " db name: " + p.getProperty("db_name", "NOTSET"));
                 p.setProperty("OSCAR_START_TIME", "" + System.currentTimeMillis());
