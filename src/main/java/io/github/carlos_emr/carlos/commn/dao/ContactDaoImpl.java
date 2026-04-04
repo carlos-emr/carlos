@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.persistence.Query;
 
@@ -42,6 +43,55 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class ContactDaoImpl extends AbstractDaoImpl<Contact> implements ContactDao {
+
+    /**
+     * Allowlist of valid search-mode values. Most entries map directly to HQL property
+     * names on the Contact entity; {@code search_name} is a logical mode that triggers
+     * a composite lastName/firstName search and is not used as an HQL property.
+     */
+    private static final Map<String, String> VALID_SEARCH_MODES = Map.ofEntries(
+            Map.entry("search_name", "search_name"),
+            Map.entry("updateDate", "updateDate"),
+            Map.entry("id", "id"),
+            Map.entry("lastName", "lastName"),
+            Map.entry("firstName", "firstName"),
+            Map.entry("address", "address"),
+            Map.entry("address2", "address2"),
+            Map.entry("city", "city"),
+            Map.entry("province", "province"),
+            Map.entry("country", "country"),
+            Map.entry("postal", "postal"),
+            Map.entry("residencePhone", "residencePhone"),
+            Map.entry("cellPhone", "cellPhone"),
+            Map.entry("workPhone", "workPhone"),
+            Map.entry("workPhoneExtension", "workPhoneExtension"),
+            Map.entry("email", "email"),
+            Map.entry("fax", "fax"),
+            Map.entry("note", "note"),
+            Map.entry("deleted", "deleted")
+    );
+
+    /** Allowlist mapping valid ORDER BY column names to safe HQL property names. */
+    private static final Map<String, String> VALID_ORDER_BY_COLUMNS = Map.ofEntries(
+            Map.entry("updateDate", "updateDate"),
+            Map.entry("id", "id"),
+            Map.entry("lastName", "lastName"),
+            Map.entry("firstName", "firstName"),
+            Map.entry("address", "address"),
+            Map.entry("address2", "address2"),
+            Map.entry("city", "city"),
+            Map.entry("province", "province"),
+            Map.entry("country", "country"),
+            Map.entry("postal", "postal"),
+            Map.entry("residencePhone", "residencePhone"),
+            Map.entry("cellPhone", "cellPhone"),
+            Map.entry("workPhone", "workPhone"),
+            Map.entry("workPhoneExtension", "workPhoneExtension"),
+            Map.entry("email", "email"),
+            Map.entry("fax", "fax"),
+            Map.entry("note", "note"),
+            Map.entry("deleted", "deleted")
+    );
 
     public ContactDaoImpl() {
         super(Contact.class);
@@ -86,93 +136,74 @@ public class ContactDaoImpl extends AbstractDaoImpl<Contact> implements ContactD
     }
     
     /**
-     * Validates the searchMode parameter to ensure it only contains valid column names
+     * Validates the searchMode parameter against the allowlist.
+     *
      * @param searchMode the search mode to validate
-     * @return the validated search mode
-     * @throws IllegalArgumentException if searchMode is invalid
+     * @return the validated search mode from the allowlist, defaulting to {@code "lastName"}
+     *         if the input is null or empty
+     * @throws IllegalArgumentException if searchMode is not in the allowlist
      */
     private String validateSearchMode(String searchMode) {
         if (searchMode == null || searchMode.trim().isEmpty()) {
-            return "lastName"; // default to lastName
+            return "lastName";
         }
-        
-        // Valid searchable fields from Contact entity
-        String[] validSearchModes = {
-            "search_name", "updateDate", "id", "lastName", "firstName", "address", "address2", 
-            "city", "province", "country", "postal", "residencePhone", 
-            "cellPhone", "workPhone", "workPhoneExtension", "email", "fax", "note", "deleted"
-        };
-        
-        for (String validMode : validSearchModes) {
-            if (validMode.equals(searchMode)) {
-                return searchMode;
-            }
+
+        String safeMode = VALID_SEARCH_MODES.get(searchMode);
+        if (safeMode != null) {
+            return safeMode;
         }
-        
-        throw new IllegalArgumentException("Invalid search mode: " + searchMode);
+
+        throw new IllegalArgumentException("Invalid search mode: "
+                + searchMode.substring(0, Math.min(searchMode.length(), 50)));
     }
-    
+
     /**
-     * Validates the orderBy parameter to ensure it only contains valid column names and sort orders
+     * Validates the orderBy parameter against the allowlist.
+     *
      * @param orderBy the order by clause to validate
-     * @return the validated order by clause
+     * @return the validated order by clause built from allowlisted constants, defaulting to
+     *         {@code "c.lastName, c.firstName"} if the input is null or empty
      * @throws IllegalArgumentException if orderBy contains invalid column names
      */
     private String validateOrderBy(String orderBy) {
         if (orderBy == null || orderBy.trim().isEmpty()) {
-            return "c.lastName, c.firstName"; // default ordering
+            return "c.lastName, c.firstName";
         }
-        
-        // Valid sortable fields from Contact entity
-        String[] validColumns = {
-            "updateDate", "id", "lastName", "firstName", "address", "address2", "city", 
-            "province", "country", "postal", "residencePhone", "cellPhone", 
-            "workPhone", "workPhoneExtension", "email", "fax", "note", "deleted"
-        };
-        
+
         StringBuilder validatedOrderBy = new StringBuilder();
         String[] orderByParts = orderBy.split(",");
-        
+
         for (int i = 0; i < orderByParts.length; i++) {
             String part = orderByParts[i].trim();
             if (part.isEmpty()) continue;
-            
-            // Remove any "c." prefix if present
+
             if (part.startsWith("c.")) {
                 part = part.substring(2);
             }
-            
-            // Split column and sort order (ASC/DESC)
+
             String[] columnAndOrder = part.split("\\s+");
             String column = columnAndOrder[0];
             String sortOrder = "";
-            
+
             if (columnAndOrder.length > 1) {
                 String order = columnAndOrder[1].toUpperCase();
                 if ("ASC".equals(order) || "DESC".equals(order)) {
                     sortOrder = " " + order;
                 }
             }
-            
-            // Validate column name
-            boolean isValid = false;
-            for (String validColumn : validColumns) {
-                if (validColumn.equals(column)) {
-                    isValid = true;
-                    break;
-                }
+
+            String safeColumn = VALID_ORDER_BY_COLUMNS.get(column);
+            if (safeColumn == null) {
+                String truncated = column.length() > 50 ? column.substring(0, 50) : column;
+                throw new IllegalArgumentException("Invalid sort column: " + truncated);
             }
-            
-            if (!isValid) {
-                throw new IllegalArgumentException("Invalid order by column: " + column);
-            }
-            
+
             if (i > 0) {
                 validatedOrderBy.append(", ");
             }
-            validatedOrderBy.append("c.").append(column).append(sortOrder);
+            validatedOrderBy.append("c.").append(safeColumn).append(sortOrder);
         }
-        
+
         return validatedOrderBy.length() > 0 ? validatedOrderBy.toString() : "c.lastName, c.firstName";
     }
 

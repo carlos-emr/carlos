@@ -38,8 +38,8 @@ import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.PrescriptionDao;
-import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OmpO09;
-import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OscarToOscarUtils;
+import io.github.carlos_emr.carlos.commn.hl7.v2.Hl7ParserUtils;
+import io.github.carlos_emr.carlos.commn.hl7.v2.OmpO09Builder;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Drug;
@@ -82,8 +82,8 @@ public final class PrescriptionQrCodeUIBean {
             Demographic demographic = demographicDao.getDemographicById(prescription.getDemographicId());
             List<Drug> drugs = drugDao.findByPrescriptionId(prescription.getId().intValue());
 
-            OMP_O09 hl7PrescriptionMessage = OmpO09.makeOmpO09(clinic, provider, demographic, prescription, drugs);
-            String hl7PrescriptionString = OscarToOscarUtils.pipeParser.encode(hl7PrescriptionMessage);
+            OMP_O09 hl7PrescriptionMessage = OmpO09Builder.makeOmpO09(clinic, provider, demographic, prescription, drugs);
+            String hl7PrescriptionString = Hl7ParserUtils.pipeParser.encode(hl7PrescriptionMessage);
             logger.debug(hl7PrescriptionString);
 
             int qrCodeScale = Integer.valueOf(CarlosProperties.getInstance().getProperty("QR_CODE_IMAGE_SCALE_FACTOR"));

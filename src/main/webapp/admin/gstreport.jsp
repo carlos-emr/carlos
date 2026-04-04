@@ -29,6 +29,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
@@ -126,7 +127,7 @@
             <div class="col-md-2">
                 Start:
                 <div class="input-group">
-                    <input type="text" name="xml_vdate" id="xml_vdate" value="<%=startDate%>"
+                    <input type="text" name="xml_vdate" id="xml_vdate" value="<%= Encode.forHtmlAttribute(startDate) %>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" style="width:90px"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -134,7 +135,7 @@
             <div class="col-md-2">
                 End:
                 <div class="input-group">
-                    <input type="text" name="xml_appointment_date" id="xml_appointment_date" value="<%=endDate%>"
+                    <input type="text" name="xml_appointment_date" id="xml_appointment_date" value="<%= Encode.forHtmlAttribute(endDate) %>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" style="width:90px"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>

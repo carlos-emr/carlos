@@ -58,6 +58,7 @@ import io.github.carlos_emr.carlos.commn.model.FlowSheetUserCreated;
 import io.github.carlos_emr.carlos.commn.model.Flowsheet;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.springframework.beans.factory.InitializingBean;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler;
@@ -911,7 +912,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
         MeasurementFlowSheet d = new MeasurementFlowSheet();
 
         try {
-            SAXBuilder parser = new SAXBuilder();
+            SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
             Document doc = parser.build(is);
             Element root = doc.getRootElement();
 
@@ -1015,7 +1016,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
         MeasurementFlowSheet d = new MeasurementFlowSheet();
 
         try {
-            SAXBuilder parser = new SAXBuilder();
+            SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
             Document doc = parser.build(is);
             Element root = doc.getRootElement();
 
@@ -1478,7 +1479,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
         log.debug("->>>" + s);
         FlowSheetItem item = null;
         try {
-            SAXBuilder parser = new SAXBuilder();
+            SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
             Document doc = parser.build(new StringReader(s));
             Element root = doc.getRootElement();
 

@@ -524,7 +524,7 @@ public class RxUtil {
             }
         }
 
-        String[] routes = {"\\s(?i)PO$", "\\s(?i)SL$", "\\s(?i)IM$", "\\s(?i)SC$", "\\s(?i)PATCH$", "\\s(?i)TOP\\.$", "\\s(?i)INH$", "\\s(?i)SUPP$", "\\s(?i)O.D.$", "\\s(?i)O.S.$", "\\s(?i)O.U.$", "\\s(?i)OD$", "\\s(?i)OS$", "\\s(?i)OU$", "\\s(?i)PO\\s", "\\s(?i)SL\\s", "\\s(?i)IM\\s", "\\s(?i)SC\\s", "\\s(?i)PATCH\\s", "\\s(?i)TOP\\.\\s", "\\s(?i)INH\\s", "\\s(?i)SUPP\\s", "\\s(?i)O.D.\\s", "\\s(?i)O.S.\\s", "\\s(?i)O.U.\\s", "\\s(?i)OD\\s", "\\s(?i)OS\\s", "\\s(?i)OU\\s"};
+        String[] routes = {"\\s(?i)PO$", "\\s(?i)SL$", "\\s(?i)IM$", "\\s(?i)SC$", "\\s(?i)PATCH$", "\\s(?i)TOP\\.$", "\\s(?i)INH$", "\\s(?i)SUPP$", "\\s(?i)O\\.D\\.$", "\\s(?i)O\\.S\\.$", "\\s(?i)O\\.U\\.$", "\\s(?i)OD$", "\\s(?i)OS$", "\\s(?i)OU$", "\\s(?i)PO\\s", "\\s(?i)SL\\s", "\\s(?i)IM\\s", "\\s(?i)SC\\s", "\\s(?i)PATCH\\s", "\\s(?i)TOP\\.\\s", "\\s(?i)INH\\s", "\\s(?i)SUPP\\s", "\\s(?i)O\\.D\\.\\s", "\\s(?i)O\\.S\\.\\s", "\\s(?i)O\\.U\\.\\s", "\\s(?i)OD\\s", "\\s(?i)OS\\s", "\\s(?i)OU\\s"};
         String[] frequences = {"\\s(?i)OD\\s", "\\s(?i)BID\\s", "\\s(?i)TID\\s", "\\s(?i)QID\\s", "\\s(?i)Q1H\\s", "\\s(?i)Q2H\\s", "\\s(?i)Q1-2H\\s", "\\s(?i)Q3-4H\\s", "\\s(?i)Q4H\\s", "\\s(?i)Q4-6H\\s", "\\s(?i)Q6H\\s", "\\s(?i)Q8H\\s", "\\s(?i)Q12H\\s", "\\s(?i)QAM\\s", "\\s(?i)QPM\\s", "\\s(?i)QHS\\s", "\\s(?i)Q1Week\\s", "\\s(?i)weekly\\s", "\\s(?i)Q2Week\\s", "\\s(?i)Q1Month\\s", "\\s(?i)Q3Month\\s", "\\s(?i)monthly\\s", "\\s(?i)once daily\\s", "\\s(?i)twice daily\\s", "\\s(?i)3x day\\s",
                 "\\s(?i)4x day\\s", "\\s(?i)3x daily\\s", "\\s(?i)4x daily\\s", "\\s(?i)OD$", "\\s(?i)BID$", "\\s(?i)TID$", "\\s(?i)QID$", "\\s(?i)Q1H$", "\\s(?i)Q2H$", "\\s(?i)Q1-2H$", "\\s(?i)Q3-4H$", "\\s(?i)Q4H$", "\\s(?i)Q4-6H$", "\\s(?i)Q6H$", "\\s(?i)Q8H$", "\\s(?i)Q12H$", "\\s(?i)QAM$", "\\s(?i)QPM$", "\\s(?i)QHS$", "\\s(?i)Q1Week$", "\\s(?i)weekly$", "\\s(?i)Q2Week$", "\\s(?i)Q1Month$", "\\s(?i)Q3Month$", "\\s(?i)monthly$", "\\s(?i)once daily$", "\\s(?i)twice daily$", "\\s(?i)3x day$",
                 "\\s(?i)4x day$", "\\s(?i)3x daily$", "\\s(?i)4x daily$", "\\s(?i)daily\\s", "\\s(?i)daily$", // put at last because if frequency is 'twice daily', it will first be detected as 'daily'
@@ -582,16 +582,16 @@ public class RxUtil {
                 frequency = changeToStandardFrequencyCode(frequency);
                 String origFrequency = (instructions.substring(matcher.start(), matcher.end())).trim();
 
-                Pattern p2 = Pattern.compile("\\s*\\d*\\.*\\d+\\s+" + Pattern.quote(origFrequency)); //allow to detect decimal number.
+                Pattern p2 = Pattern.compile("\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)\\s+" + Pattern.quote(origFrequency)); //allow to detect decimal number.
                 Matcher m2 = p2.matcher(instructions);
 
-                Pattern p4 = Pattern.compile("\\s*\\d*\\.*\\d+-\\s*\\d*\\.*\\d+\\s+" + Pattern.quote(frequency)); //use * after the first \s because "1 OD", 1 doesn't have a space in front.
+                Pattern p4 = Pattern.compile("\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)\\s+" + Pattern.quote(frequency)); //use * after the first \s because "1 OD", 1 doesn't have a space in front.
                 Matcher m4 = p4.matcher(instructions);
                 //     p("here11", instructions);
                 //since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
                 if (m4.find()) {
                     String str2 = instructions.substring(m4.start(), m4.end());
-                    Pattern p5 = Pattern.compile("\\d*\\.*\\d+-\\s*\\d*\\.*\\d+");
+                    Pattern p5 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
                     Matcher m5 = p5.matcher(str2);
                     if (m5.find()) {
                         String str3 = str2.substring(m5.start(), m5.end());
@@ -601,7 +601,7 @@ public class RxUtil {
                     }
                 } else if (m2.find()) {
                     String str = instructions.substring(m2.start(), m2.end());
-                    Pattern p3 = Pattern.compile("\\d*\\.*\\d+");
+                    Pattern p3 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
                     Matcher m3 = p3.matcher(str);
                     //     p("here22", str);
                     if (m3.find()) {
@@ -610,8 +610,8 @@ public class RxUtil {
                 } else {
                     p("word amount");
                     for (String word : zeroToTen) {
-                        String r1 = "\\s" + word + "\\s*" + frequency;
-                        String r2 = "^" + word + "\\s*" + frequency; //start at the begin of instructions
+                        String r1 = "\\s" + word + "\\s*" + Pattern.quote(frequency);
+                        String r2 = "^" + word + "\\s*" + Pattern.quote(frequency); //start at the begin of instructions
                         Pattern p5 = Pattern.compile(r1);
                         Matcher m5 = p5.matcher(instructions);
                         p("pattern word =" + r1);
@@ -904,7 +904,7 @@ public class RxUtil {
 
     public static boolean isStringToNumber(String s) {//see if string contains decimal or integer
         boolean retBool = false;
-        Pattern p1 = Pattern.compile("\\d*\\.*\\d+");
+        Pattern p1 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
         Matcher m1 = p1.matcher(s);
         if (m1.find()) {
             String numStr = s.substring(m1.start(), m1.end());
@@ -950,20 +950,20 @@ public class RxUtil {
 		String amountMethod = null;
 		String amountFrequency = null;
 
-		Pattern p2 = Pattern.compile(Pattern.quote(method) + "\\s*\\d*\\.*\\d+\\s+");
+		Pattern p2 = Pattern.compile(Pattern.quote(method) + "\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)\\s+");
 		Matcher m2 = p2.matcher(instructions);
 
-		Pattern pF1 = Pattern.compile(Pattern.quote(method) + "\\s*\\d*\\/*\\d+\\s+");
+		Pattern pF1 = Pattern.compile(Pattern.quote(method) + "\\s*[0-9]+(?:\\/[0-9]+)?\\s+");
 		Matcher mF1 = pF1.matcher(instructions);
 
-		Pattern p4 = Pattern.compile(Pattern.quote(method) + "\\s*\\d*\\.*\\d+-\\s*\\d*\\.*\\d+\\s+");
+		Pattern p4 = Pattern.compile(Pattern.quote(method) + "\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)\\s+");
 		Matcher m4 = p4.matcher(instructions);
 
 		//since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
 		if (m4.find()) {
 			p("else if 1");
 			String str2 = instructions.substring(m4.start(), m4.end());
-			Pattern p5 = Pattern.compile("\\d*\\.*\\d+-\\s*\\d*\\.*\\d+");
+			Pattern p5 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
 			Matcher m5 = p5.matcher(str2);
 			if (m5.find()) {
 				String str3 = str2.substring(m5.start(), m5.end());
@@ -975,7 +975,7 @@ public class RxUtil {
 			p("if 1");
 			String str = instructions.substring(m2.start(), m2.end());
 			p("str1 ", str);
-			Pattern p3 = Pattern.compile("\\d*\\.*\\d+");
+			Pattern p3 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
 			Matcher m3 = p3.matcher(str);
 			if (m3.find()) {
 				p("found1");
@@ -984,7 +984,7 @@ public class RxUtil {
 			}
 		} else if (mF1.find()) {
 			String partInstructions = instructions.substring(mF1.start(), mF1.end());
-			Pattern pF2 = Pattern.compile("\\d*\\/*\\d+");
+			Pattern pF2 = Pattern.compile("[0-9]+(?:\\/[0-9]+)?");
 			Matcher mF2 = pF2.matcher(partInstructions);
 
 			if (mF2.find()) {

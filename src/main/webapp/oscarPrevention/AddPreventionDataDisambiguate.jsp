@@ -50,6 +50,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -301,7 +302,7 @@
                     %>
 
                     <li>
-                        <a href="<%=request.getContextPath()%>/oscarPrevention/AddPreventionData.jsp?snomedId=<%=mapping.getCvcSnomedId() %>&prevention=<%=prevention %>&demographic_no=<%=demographicNo %>&prevResultDesc=<%=prevResultDesc%>"><%=i.getPicklistName()%>
+                        <a href="<%=request.getContextPath()%>/oscarPrevention/AddPreventionData.jsp?snomedId=<%=Encode.forUriComponent(String.valueOf(mapping.getCvcSnomedId()))%>&prevention=<%= Encode.forUriComponent(prevention) %>&demographic_no=<%=Encode.forUriComponent(demographicNo)%>&prevResultDesc=<%=Encode.forUriComponent(prevResultDesc)%>"><%=i.getPicklistName()%>
                         </a></li>
                     <% }
                     } %>

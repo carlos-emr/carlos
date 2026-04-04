@@ -64,8 +64,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -379,7 +377,7 @@ public final class Login2Action extends ActionSupport {
             }
             nextPage = (String) request.getSession().getAttribute("nextPage");
             // Validate nextPage retrieved from session to prevent open redirect (CWE-601 defense in depth)
-            if (!isValidNextPage(nextPage)) {
+            if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
                 if (nextPage != null) {
                     logger.warn("Rejected invalid nextPage from session: " + Encode.forJava(nextPage));
                 }
@@ -440,20 +438,20 @@ public final class Login2Action extends ActionSupport {
 
             logger.debug("nextPage: " + Encode.forJava(nextPage));
             if (nextPage != null) {
-                if (!isValidNextPage(nextPage)) {
+                if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
                     logger.warn("Rejected redirect URL: " + Encode.forJava(nextPage));
                     response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
                     return NONE;
+                } else {
+                    // set current facility
+                    String facilityIdString = request.getParameter(SELECTED_FACILITY_ID);
+                    Facility facility = facilityDao.find(Integer.parseInt(facilityIdString));
+                    request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility);
+                    String username = (String) request.getSession().getAttribute("user");
+                    LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIdString, ip);
+                    response.sendRedirect(nextPage);
+                    return NONE;
                 }
-
-                // set current facility
-                String facilityIdString = request.getParameter(SELECTED_FACILITY_ID);
-                Facility facility = facilityDao.find(Integer.parseInt(facilityIdString));
-                request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility);
-                String username = (String) request.getSession().getAttribute("user");
-                LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIdString, ip);
-                response.sendRedirect(nextPage);
-                return NONE;
             }
 
             if (cl.isBlock(ip, userName)) {
@@ -690,7 +688,8 @@ public final class Login2Action extends ActionSupport {
 
             List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
             if (facilityIds.size() > 1) {
-                String newURL = request.getContextPath() + "/select_facility.jsp?nextPage=" + where;
+                String facilityPath = "/select_facility.jsp?nextPage=";
+                String newURL = request.getContextPath() + facilityPath + Encode.forUriComponent(where);
 
                 response.sendRedirect(newURL);
                 return NONE;
@@ -892,7 +891,7 @@ public final class Login2Action extends ActionSupport {
      * @throws Exception if password encoding fails
      * @see #encodePassword for password encoding algorithm
      * @see #removeAttributesFromSession for cleanup after password reset
-     * @see #isValidNextPage for redirect URL validation logic
+     * @see RedirectValidationUtils#isValidRelativeRedirect for redirect URL validation logic
      */
     private void setUserInfoToSession(HttpServletRequest request, String userName, String password, String pin,
                                       String nextPage) throws Exception {
@@ -900,7 +899,7 @@ public final class Login2Action extends ActionSupport {
         request.getSession().setAttribute("password", encodePassword(password));
         request.getSession().setAttribute("pin", pin);
         // Validate nextPage before session storage to prevent open redirect via session (CWE-601 defense in depth)
-        if (!isValidNextPage(nextPage)) {
+        if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
             if (nextPage != null) {
                 logger.warn("Rejected invalid nextPage before session storage: " + Encode.forJava(nextPage));
             }
@@ -908,35 +907,6 @@ public final class Login2Action extends ActionSupport {
         }
         request.getSession().setAttribute("nextPage", nextPage);
 
-    }
-
-    /**
-     * Validates a {@code nextPage} URL to prevent open redirect attacks (CWE-601).
-     *
-     * <p>A safe nextPage value must be a non-empty relative URI with no scheme (not absolute),
-     * no host authority (rejects protocol-relative URLs like {@code //evil.com}),
-     * and no backslash characters (rejects {@code /\evil.com} browser normalization bypasses).
-     *
-     * @param nextPage String the URL candidate to validate
-     * @return boolean {@code true} if the URL is a safe relative URL, {@code false} otherwise
-     */
-    private boolean isValidNextPage(String nextPage) {
-        if (nextPage == null || nextPage.isEmpty()) {
-            return false;
-        }
-        // Reject literal backslash and percent-encoded variants (%5c / %5C) before URI parsing.
-        // Browsers normalize /\evil.com to //evil.com, so both the literal and encoded forms
-        // must be blocked to prevent open redirect bypasses.
-        if (nextPage.contains("\\") || nextPage.toLowerCase(java.util.Locale.ROOT).contains("%5c")) {
-            return false;
-        }
-        try {
-            URI url = new URI(nextPage);
-            // Reject absolute URIs (http://...) and protocol-relative URIs (//evil.com)
-            return !url.isAbsolute() && url.getAuthority() == null;
-        } catch (URISyntaxException e) {
-            return false;
-        }
     }
 
     /**

@@ -38,6 +38,7 @@ import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctValidationsBean;
@@ -58,7 +59,7 @@ public class ImportMeasurementTypes {
 
 
     public void importMeasurements(InputStream is) throws Exception {
-        SAXBuilder parser = new SAXBuilder();
+        SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
         Document doc = parser.build(is);
         Element root = doc.getRootElement();
         importMeasurements(root);

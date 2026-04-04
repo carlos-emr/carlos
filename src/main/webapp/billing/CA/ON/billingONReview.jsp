@@ -41,6 +41,7 @@
 <%@ page errorPage="/errorpage.jsp"
          import="java.util.*,java.math.*,java.net.*,java.sql.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.appt.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.administration.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*, java.util.Properties" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
@@ -162,7 +163,8 @@
     String apptProvider_no = request.getParameter("apptProvider_no");
     String ctlBillForm = request.getParameter("billForm");
     String assgProvider_no = request.getParameter("assgProvider_no");
-    String billType = request.getParameter("xml_billtype").substring(0, ((String) request.getParameter("xml_billtype")).indexOf("|")).trim();
+    String xmlBilltypeRaw = request.getParameter("xml_billtype");
+    String billType = (xmlBilltypeRaw != null && xmlBilltypeRaw.contains("|")) ? xmlBilltypeRaw.substring(0, xmlBilltypeRaw.indexOf("|")).trim() : "";
     String demoSex = request.getParameter("DemoSex");
     GregorianCalendar now = new GregorianCalendar();
     int curYear = now.get(Calendar.YEAR);
@@ -569,10 +571,10 @@
 <body onload="showtotal(),calculatePayment()">
 
 <form method="post" name="titlesearch" action="billingONSave.jsp" onsubmit="return onSave();">
-    <input type="hidden" name="url_back" value="<%=request.getParameter("url_back")%>">
-    <input type="hidden" name="billNo_old" id="billNo_old" value="<%=request.getParameter("billNo_old")%>"/>
-    <input type="hidden" name="billStatus_old" id="billStatus_old" value="<%=request.getParameter("billStatus_old")%>"/>
-    <input type="hidden" name="billForm" id="billForm" value="<%=request.getParameter("billForm")%>"/>
+    <input type="hidden" name="url_back" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("url_back"))) %>">
+    <input type="hidden" name="billNo_old" id="billNo_old" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billNo_old"))) %>"/>
+    <input type="hidden" name="billStatus_old" id="billStatus_old" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billStatus_old"))) %>"/>
+    <input type="hidden" name="billForm" id="billForm" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billForm"))) %>"/>
     <input type="hidden" name="payeename" id="payeename" value=""/>
     <table style="width:100%" class="myIvory">
         <tr>
@@ -589,7 +591,7 @@
             <td>
                 <table style="width:100%" class="myYellow">
                     <tr>
-                        <td style="white-space:nowrap; width:10%; text-align:center"><%=demoname%>
+                        <td style="white-space:nowrap; width:10%; text-align:center"><%=Encode.forHtml(demoname)%>
                             &nbsp;&nbsp; <%=demoSex.equals("1") ? "Male" : "Female"%> &nbsp;&nbsp;
                             <%=" DOB: " + demoDOBYY + "/" + demoDOBMM + "/" + demoDOBDD + " &nbsp;&nbsp; HIN: " + demoHIN + "" + demoVer%>
                         </td>
@@ -604,18 +606,18 @@
 
                             <table style="width:100%">
                                 <tr>
-                                    <!--<input type="text" name="checkFlag" id="checkFlag" value="<%=request.getParameter("checkFlag") %>" />  -->
+                                    <!--<input type="text" name="checkFlag" id="checkFlag" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("checkFlag"))) %>" />  -->
                                     <td style="white-space:nowrap; width:30%; text-align:center"><b>Service Date</b><br>
-                                        <%=request.getParameter("service_date").replaceAll("\\n", "<br>")%>
+                                        <%= request.getParameter("service_date") != null ? String.join("<br>", java.util.Arrays.stream(request.getParameter("service_date").split("\\n")).map(Encode::forHtml).toArray(String[]::new)) : "" %>
                                     </td>
                                     <td style="text-align:center; width:33%"><b>Diagnostic Code</b><br>
-                                        <%=dxCode%><br>
-                                        <%=dxDesc%>
+                                        <%=Encode.forHtml(dxCode)%><br>
+                                        <%=Encode.forHtml(dxDesc)%>
                                     </td>
                                     <td style="vertical-align:top"><b>Refer. Doctor</b><br>
-                                        <%=request.getParameter("referralDocName")%><br>
+                                        <%= Encode.forHtml(StringUtils.noNull(request.getParameter("referralDocName"))) %><br>
                                         <b>Refer. Doctor #</b><br>
-                                        <%=request.getParameter("referralCode")%>
+                                        <%= Encode.forHtml(StringUtils.noNull(request.getParameter("referralCode"))) %>
                                     </td>
                                 </tr>
                             </table>
@@ -636,19 +638,16 @@
                                 <tr>
 
                                     <td style="width:30%"><b>Visit Type</b></td>
-                                    <td style="width:20%"><%=request.getParameter("xml_visittype").substring(
-                                            request.getParameter("xml_visittype").indexOf("|") + 1)%>
+                                    <td style="width:20%"><%= Encode.forHtml(request.getParameter("xml_visittype") != null && request.getParameter("xml_visittype").contains("|") ? request.getParameter("xml_visittype").substring(request.getParameter("xml_visittype").indexOf("|") + 1) : "") %>
                                     </td>
 
                                     <td style="width:30%"><b>Billing Type</b></td>
-                                    <td style="width:20%"><%=request.getParameter("xml_billtype").substring(
-                                            request.getParameter("xml_billtype").indexOf("|") + 1)%>
+                                    <td style="width:20%"><%= Encode.forHtml(request.getParameter("xml_billtype") != null && request.getParameter("xml_billtype").contains("|") ? request.getParameter("xml_billtype").substring(request.getParameter("xml_billtype").indexOf("|") + 1) : "") %>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td><b>Visit Location</b></td>
-                                    <td><%=request.getParameter("xml_location").substring(
-                                            request.getParameter("xml_location").indexOf("|") + 1)%> &nbsp;
+                                    <td><%= Encode.forHtml(request.getParameter("xml_location") != null && request.getParameter("xml_location").contains("|") ? request.getParameter("xml_location").substring(request.getParameter("xml_location").indexOf("|") + 1) : "") %> &nbsp;
                                         <% if (request.getParameter("m_review") != null) {
                                             out.println("<b>Manual: Y</b>");
                                         } %>
@@ -656,13 +655,13 @@
 
                                     <% if (bMultisites) { %>
                                     <td style="width:30%"><b>Billing Clinic</b></td>
-                                    <td style="width:20%; white-space:nowrap;"><%=request.getParameter("site")%>
+                                    <td style="width:20%; white-space:nowrap;"><%= Encode.forHtml(StringUtils.noNull(request.getParameter("site"))) %>
                                     </td>
                                     <% } %>
                                 </tr>
                                 <tr>
                                     <td><b>SLI Code</b></td>
-                                    <td><%=request.getParameter("xml_slicode").substring(request.getParameter("xml_slicode").indexOf("|") + 1)%>
+                                    <td><%= Encode.forHtml(request.getParameter("xml_slicode") != null && request.getParameter("xml_slicode").contains("|") ? request.getParameter("xml_slicode").substring(request.getParameter("xml_slicode").indexOf("|") + 1) : "") %>
                                         &nbsp;
                                     </td>
                                     <% if (bMultisites) { %>
@@ -672,7 +671,7 @@
                                 </tr>
                                 <tr>
                                     <td><b>Admission Date</b></td>
-                                    <td><%=request.getParameter("xml_vdate")%>
+                                    <td><%= Encode.forHtml(StringUtils.noNull(request.getParameter("xml_vdate"))) %>
                                     </td>
                                     <td colspan="2"></td>
                                     <% if (bMultisites) { %>
@@ -773,7 +772,7 @@
                     <tr class="alert alert-danger">
                         <td align=center>
                             &nbsp;<br>
-                            Diagnostic code "<%=dxCodeValue%>" is invalid. Please go back to correct it.
+                            Diagnostic code "<%=Encode.forHtml(dxCodeValue)%>" is invalid. Please go back to correct it.
                         </td>
                     </tr>
                         <%
@@ -1055,7 +1054,7 @@
                     CarlosProperties props = CarlosProperties.getInstance();
                     boolean bMoreAddr = props.getProperty("scheduleSiteID", "").equals("") ? false : true;
                     if (bMoreAddr) {
-                        tempLoc = request.getParameter("siteId").trim();
+                        tempLoc = request.getParameter("siteId") != null ? request.getParameter("siteId").trim() : "";
                     } else {
                         tempLoc = props.getProperty("BILLING_NOTE", "");
                     }
@@ -1195,7 +1194,7 @@
                     </td>
                     <td style="text-align:right">
                         <input type="hidden" name="provider_no"
-                               value="<%=request.getParameter("xml_provider").substring(0,request.getParameter("xml_provider").indexOf("|"))%>"/>
+                               value="<%= Encode.forHtmlAttribute(request.getParameter("xml_provider") != null && request.getParameter("xml_provider").contains("|") ? request.getParameter("xml_provider").substring(0, request.getParameter("xml_provider").indexOf("|")) : "") %>"/>
                         GST Billed:<input type="text" id="gst" name="gst" value="<%=gstTotal%>"><br>
                         <input type="hidden" id="gstBilledTotal" name="gstBilledTotal" value="<%=gstbilledtotal%>">
                         Total:<input type="text" id="stotal" disabled name="stotal" value="0.00"><br>
@@ -1344,7 +1343,7 @@
         //alert("calling get NEW current Dx Code List");
         var url = "<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/currentCodeList.jsp";
         var ran_number = Math.round(Math.random() * 1000000);
-        var params = "demographicNo=<%=demo_no%>&rand=" + ran_number;  //hack to get around ie caching the page
+        var params = "demographicNo=<%= Encode.forJavaScript(demo_no) %>&rand=" + ran_number;  //hack to get around ie caching the page
         //alert(params);
         //new Ajax.Updater('dxFullListing',url, {method:'get',parameters:params,asynchronous:true});
 
@@ -1371,7 +1370,7 @@
                                                    style="font-size:small;">show/hide</a></h3>
         <div class="wrapper" id="dxFullListing">
             <jsp:include page="/oscarResearch/oscarDxResearch/currentCodeList.jsp">
-                <jsp:param name="demographicNo" value="<%=demo_no%>"/>
+                <jsp:param name="demographicNo" value="<%= demo_no %>"/>
             </jsp:include>
         </div>
     </div>
@@ -1381,13 +1380,13 @@
         <h3>&nbsp;Dx Quick Pick Add Lists &nbsp;<a href="#" onclick="toggle('dxForm'); return false;"
                                                    style="font-size:small;">show/hide</a></h3>
         <form id="dxForm">
-            <input type="hidden" name="demographicNo" value="<%=demo_no%>"/>
+            <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demo_no) %>"/>
             <input type="hidden" name="providerNo" value="<%=session.getAttribute("user")%>"/>
             <input type="hidden" name="forward" value=""/>
             <input type="hidden" name="forwardTo" value="codeList"/>
             <div class="wrapper" id="dxListing">
                 <jsp:include page="/oscarResearch/oscarDxResearch/quickCodeList.jsp">
-                    <jsp:param name="demographicNo" value="<%=demo_no%>"/>
+                    <jsp:param name="demographicNo" value="<%= demo_no %>"/>
                 </jsp:include>
             </div>
             <input type="button" value="Add To Disease Registry" class="btn btn-secondary" onclick="addToDiseaseRegistry()"/>

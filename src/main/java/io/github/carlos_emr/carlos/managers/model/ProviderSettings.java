@@ -63,7 +63,6 @@ public class ProviderSettings {
     private String defaultDxCode;
     private boolean defaultDoNotDeleteBilling;
 
-    private boolean useRx3 = true;
     private boolean showPatientDob;
     private boolean printQrCodeOnPrescription;
 
@@ -310,14 +309,6 @@ public class ProviderSettings {
 
     public void setDefaultDoNotDeleteBilling(boolean defaultDoNotDeleteBilling) {
         this.defaultDoNotDeleteBilling = defaultDoNotDeleteBilling;
-    }
-
-    public boolean isUseRx3() {
-        return useRx3;
-    }
-
-    public void setUseRx3(boolean useRx3) {
-        this.useRx3 = useRx3;
     }
 
     public boolean isShowPatientDob() {

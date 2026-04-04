@@ -99,6 +99,8 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CML.CMLLabTest" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
@@ -146,13 +148,13 @@
 <!-- form forwarding of the lab -->
 <form name="reassignForm" method="post" action="<%= request.getContextPath() %>/lab/CA/ON/Forward.do"><input
         type="hidden" name="flaggedLabs"
-        value="<%= segmentID %>"/> <input
+        value="<%= Encode.forHtmlAttribute(segmentID) %>"/> <input
         type="hidden" name="selectedProviders" value=""/>
     <input type="hidden" name="favorites" value=""/>
     <input type="hidden" name="labType" value="CML"/> <input type="hidden"
-                                                             name="labType<%= segmentID %>CML"
+                                                             name="labType<%= Encode.forHtmlAttribute(segmentID) %>CML"
                                                              value="imNotNull"/> <input type="hidden" name="providerNo"
-                                                                                        value="<%= request.getParameter("providerNo") %>"/>
+                                                                                        value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>"/>
 </form>
 <form name="acknowledgeForm" method="post"
       action="<%=request.getContextPath()%>/oscarMDS/UpdateStatus.do">
@@ -165,9 +167,9 @@
                     <tr>
                         <td align="left" class="MainTableTopRowRightColumn" width="100%">
                             <input type="hidden" name="segmentID"
-                                   value="<%= segmentID %>"/> <input
+                                   value="<%= Encode.forHtmlAttribute(segmentID) %>"/> <input
                                 type="hidden" name="providerNo"
-                                value="<%= request.getParameter("providerNo") %>"/> <input
+                                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>"/> <input
                                 type="hidden" name="status" value="A"/> <input type="hidden"
                                                                                name="comment" value=""/> <input
                                 type="hidden" name="labType"
@@ -189,10 +191,10 @@
                             <% } %> <% if (request.getParameter("searchProviderNo") != null) { // we were called from e-chart %>
                             <input type="button"
                                    value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-                                   onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=CML&segmentID=<%= segmentID %>&name=<%=java.net.URLEncoder.encode(lab.pLastName+", "+lab.pFirstName )%>', 'searchPatientWindow')">
+                                   onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=CML&segmentID=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID)) %>&name=<%=java.net.URLEncoder.encode(lab.pLastName+", "+lab.pFirstName )%>', 'searchPatientWindow')">
                             <% } %>
                             <input type="button" value="Req# <%=reqTableID%>" title="Link to Requisition"
-                                   onclick="linkreq('<%=segmentID%>','<%=reqID%>');"/>
+                                   onclick="linkreq('<%= Encode.forJavaScriptAttribute(segmentID) %>','<%=reqID%>');"/>
                             <span class="Field2"><i>Next Appointment: <oscar:nextAppt
                                     demographicNo="<%=lab.getDemographicNo()%>"/></i></span></td>
                     </tr>
@@ -215,11 +217,11 @@
                             } else {
                                 if (request.getParameter("searchProviderNo") != null) { // null if we were called from e-chart
                             %><a
-                                    href="CMLDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=lab.multiLabId%>&providerNo=<%=request.getParameter("providerNo")%>&searchProviderNo=<%=request.getParameter("searchProviderNo")%>">v<%= i + 1 %>
+                                    href="CMLDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=lab.multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>&searchProviderNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("searchProviderNo"))) %>">v<%= i + 1 %>
                             </a>&#160;<%
                             } else {
                             %><a
-                                    href="CMLDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=lab.multiLabId%>&providerNo=<%=request.getParameter("providerNo")%>">v<%= i + 1 %>
+                                    href="CMLDisplay.jsp?segmentID=<%=multiID[i]%>&multiID=<%=lab.multiLabId%>&providerNo=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerNo"))) %>">v<%= i + 1 %>
                             </a>&#160;<%
                                         }
                                     }
@@ -260,13 +262,13 @@
                                                             <td colspan="2" nowrap>
                                                                 <div class="FieldData" nowrap="nowrap">
                                                                     <% if (request.getParameter("searchProviderNo") == null) { // we were called from e-chart %>
-                                                                    <a href="javascript:window.close()"><%=lab.pLastName%>
-                                                                        , <%=lab.pFirstName%>
+                                                                    <a href="javascript:window.close()"><%=Encode.forHtml(lab.pLastName)%>
+                                                                        , <%=Encode.forHtml(lab.pFirstName)%>
                                                                     </a>
                                                                     <% } else { // we were called from lab module %>
                                                                     <a
-                                                                            href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=CML&segmentID=<%= segmentID %>&name=<%=java.net.URLEncoder.encode(lab.pLastName+", "+lab.pFirstName )%>', 'searchPatientWindow')">
-                                                                        <%=lab.pLastName%>, <%=lab.pFirstName%>
+                                                                            href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=CML&segmentID=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID)) %>&name=<%=java.net.URLEncoder.encode(lab.pLastName+", "+lab.pFirstName )%>', 'searchPatientWindow')">
+                                                                        <%=Encode.forHtml(lab.pLastName)%>, <%=Encode.forHtml(lab.pFirstName)%>
                                                                     </a> <% } %></div>
                                                             </td>
                                                         </tr>
@@ -586,7 +588,7 @@
                         </td>
                         <td align="center" valign="top">
                             <a href="javascript:void(0);" title="Annotation"
-                               onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=segmentID%>&amp;demo=<%=lab.getDemographicNo()%>&amp;other_id=<%=String.valueOf(i) + "-" + String.valueOf(l) %>','anwin','width=400,height=500');">
+                               onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=Encode.forJavaScriptAttribute(annotation_display)%>&amp;table_id=<%=Encode.forJavaScriptAttribute(segmentID)%>&amp;demo=<%=Encode.forJavaScriptAttribute(lab.getDemographicNo())%>&amp;other_id=<%=Encode.forJavaScriptAttribute(String.valueOf(i) + "-" + String.valueOf(l))%>','anwin','width=400,height=500');">
                                 <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation"
                                                                   height="16" width="13" border="0"/><%} else { %><img
                                     src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
@@ -642,7 +644,7 @@
                             <% } %> <% if (request.getParameter("searchProviderNo") != null) { // we were called from e-chart %>
                             <input type="button"
                                    value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-                                   onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=CML&segmentID=<%= segmentID %>&name=<%=java.net.URLEncoder.encode(lab.pLastName+", "+lab.pFirstName )%>', 'searchPatientWindow')">
+                                   onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=CML&segmentID=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID)) %>&name=<%=java.net.URLEncoder.encode(lab.pLastName+", "+lab.pFirstName )%>', 'searchPatientWindow')">
                             <% } %>
                         </td>
                         <td width="50%" valign="center" align="left"><span

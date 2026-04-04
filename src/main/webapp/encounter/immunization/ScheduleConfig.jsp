@@ -52,6 +52,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.immunization.data.EctImmConfigData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
@@ -127,7 +128,7 @@
             Vector cfgId = new EctImmConfigData().getImmunizationConfigId();
         %>
             <form action="${pageContext.request.contextPath}/encounter/immunization/saveConfig.do" method="post">
-                <input type="hidden" name="demographic_no" value="<%=demoNo%>">
+                <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demoNo) %>">
                 <input type="hidden" name="xmlDoc" value="<%--= UtilMisc.encode64(UtilXML.toXML(cfgDoc)) --%>"/>
 
                 <%
@@ -149,7 +150,7 @@
                             <input type="submit" name="submit"
                                     value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.immunization.ScheduleConfig.addTemplate"/>" />
                             <input type="button" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>'
-                                   onclick="javascript:location.href='loadSchedule.do?demographic_no=<%=demoNo%>';"/>
+                                   onclick="javascript:location.href='loadSchedule.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demoNo))%>';"/>
                         </td>
                         <td align="right">
                             <input type="button"

@@ -70,6 +70,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingPaymentType" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     List<String> errors = new ArrayList<String>();
@@ -277,7 +278,7 @@
 <c:if test="${not empty paymentTypeList}">
     <form name="editPayment" id="editPayment" method="POST" action="">
         <input type="hidden" name="method" value="savePayment"/>
-        <input type="hidden" name="billingNo" value="<%= billingNo %>"/>
+        <input type="hidden" name="billingNo" value="<%= Encode.forHtmlAttribute(billingNo) %>"/>
         <input type="hidden" name="id" id="paymentId" value=""/>
         <table border=0 cellspacing=0 cellpadding=0 width="100%">
             <tr bgcolor="#CCCCFF">

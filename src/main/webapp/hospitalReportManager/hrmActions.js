@@ -37,7 +37,22 @@ function doSignOff(reportId, view, isSign) {
         data: data,
         success: function (data) {
             if (view) {
-                self.opener.removeReport(reportId);
+                // Remove the signed-off report from the opener's table if accessible.
+                // window.opener is null when Inboxhub is the opener due to Struts 7's
+                // CoopInterceptor setting Cross-Origin-Opener-Policy: same-origin.
+                if (self.opener && typeof self.opener.removeReport === 'function') {
+                    self.opener.removeReport(reportId);
+                }
+                // Notify the Inboxhub to refresh its data after sign-off.
+                // BroadcastChannel provides reliable same-origin cross-window messaging
+                // that is unaffected by COOP headers.
+                try {
+                    const bc = new BroadcastChannel('inboxhub-refresh');
+                    bc.postMessage('refresh');
+                    bc.close();
+                } catch (e) {
+                    // BroadcastChannel unsupported — user must manually refresh the inbox
+                }
                 window.close();
             } else {
                 var signOffButton = document.getElementById('signoff' + reportId);

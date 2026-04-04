@@ -86,7 +86,7 @@
             </c:if>
 
             <c:if test="${bean.stashIndex == -1}">
-                <c:redirect url="SearchDrug.jsp"/>
+                <c:redirect url="SearchDrug3.jsp"/>
             </c:if>
         </c:if>
 
@@ -1018,7 +1018,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                     <tr>
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs">
-                                <a href="<%= request.getContextPath() %>/oscarRx/SearchDrug.jsp"> <fmt:message key="SearchDrug.title"/></a> >
+                                <a href="<%= request.getContextPath() %>/oscarRx/SearchDrug3.jsp"> <fmt:message key="SearchDrug.title"/></a> >
                                 <fmt:message key="ChooseDrug.title"/> >
                                 <b><fmt:message key="WriteScript.title"/></b>
                             </div>
@@ -1326,8 +1326,6 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                     <td colspan=4>
                                         <fmt:message key="WriteScript.msgLongTermMedication"/>:
                                         <input type="checkbox" name="longTerm" onchange="javascript:writeScriptDisplay();"/>&nbsp;&nbsp;
-                                        <fmt:message key="WriteScript.msgDispenseInternal"/>:
-                                        <input type="checkbox" name="dispenseInternal" onchange="javascript:writeScriptDisplay();"/>&nbsp;&nbsp;
                                         <fmt:message key="WriteScript.msgPastMedication"/>:
                                         <input type="checkbox" name="pastMed" onchange="javascript:writeScriptDisplay();"/>&nbsp;&nbsp;
                                         <fmt:message key="WriteScript.msgPatientCompliance"/>:
