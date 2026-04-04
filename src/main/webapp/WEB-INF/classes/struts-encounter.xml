@@ -31,7 +31,6 @@
 
         <action name="encounter/IncomingEncounter" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctIncomingEncounter2Action">
             <result name="failure">/errorpage.jsp</result>
-            <result name="success">/encounter/Index.jsp</result>
             <result name="success2">/encounter/Index2.jsp</result>
             <result name="domain-error">/casemgmt/domain-error.jsp</result>
         </action>

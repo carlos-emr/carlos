@@ -132,8 +132,7 @@
 <%
     ArrayList<String> users = (ArrayList<String>) session.getServletContext().getAttribute("CaseMgmtUsers");
     String userNo = (String) request.getSession().getAttribute("user");
-    Boolean useNewEchart = (Boolean) request.getSession().getServletContext().getAttribute("useNewEchart");
-    if (userNo != null && (useNewEchart != null && useNewEchart.equals(Boolean.TRUE))) {
+    if (userNo != null) {
         session.setAttribute("newCaseManagement", "true");
 %>
 <caisi:isModuleLoad moduleName="caisi" reverse="true">
@@ -166,9 +165,7 @@
     %>
 </caisi:isModuleLoad>
 
-<% } else
-    session.setAttribute("newCaseManagement", "false");
-%>
+<% } %>
 
 <%-- CAISI module redirect --%>
 <caisi:isModuleLoad moduleName="caisi">
