@@ -58,6 +58,8 @@ import java.util.*;
 import java.util.Optional;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import org.owasp.encoder.Encode;
 
 
 public class FlowSheetCustom2Action extends ActionSupport {
@@ -175,9 +177,9 @@ public class FlowSheetCustom2Action extends ActionSupport {
         if (!result.isBlocked()) {
             return false;
         }
-        logger.warn("Cannot {} measurement {} - blocked at {} level", action, measurement, result.getBlockingLevel());
+        logger.warn("Cannot {} measurement {} - blocked at {} level", LogSanitizer.sanitize(action), LogSanitizer.sanitize(measurement), result.getBlockingLevel());
         request.setAttribute("errorMessage",
-            "Cannot " + action + " measurement: blocked at " + result.getBlockingLevel() + " level");
+            "Cannot " + Encode.forHtml(action) + " measurement: blocked at " + Encode.forHtml(result.getBlockingLevel()) + " level");
         setResponseAttributes(ctx);
         return true;
     }
@@ -262,9 +264,9 @@ public class FlowSheetCustom2Action extends ActionSupport {
 
                 if (cascadeResult.isBlocked()) {
                     logger.warn("Cannot add measurement {} - blocked at {} level",
-                        measurementType, cascadeResult.getBlockingLevel());
+                        LogSanitizer.sanitize(measurementType), cascadeResult.getBlockingLevel());
                     request.setAttribute("errorMessage",
-                        "Cannot add measurement: blocked at " + cascadeResult.getBlockingLevel() + " level");
+                        "Cannot add measurement: blocked at " + Encode.forHtml(cascadeResult.getBlockingLevel()) + " level");
                     request.setAttribute("demographic", demographicNo);
                     request.setAttribute("flowsheet", flowsheet);
                     return ERROR;
@@ -547,9 +549,9 @@ public class FlowSheetCustom2Action extends ActionSupport {
 
             if (canArchive.isBlocked()) {
                 logger.warn("Cannot archive customization {} - created at {} level",
-                    id, canArchive.getBlockingLevel());
+                    LogSanitizer.sanitize(id), canArchive.getBlockingLevel());
                 request.setAttribute("errorMessage",
-                    "Cannot remove customization: created at " + canArchive.getBlockingLevel() + " level");
+                    "Cannot remove customization: created at " + Encode.forHtml(canArchive.getBlockingLevel()) + " level");
                 request.setAttribute("demographic", demographicNo);
                 request.setAttribute("flowsheet", flowsheet);
                 return ERROR;

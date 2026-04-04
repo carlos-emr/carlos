@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class SubmitLabByForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -133,7 +134,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
         for (int x = 1; x <= maxTest; x++) {
             String id = request.getParameter("test_" + x + ".id");
             if (id != null) {
-                logger.info("test #" + x);
+                logger.info("test #{}", x);
                 String otherId = request.getParameter("test_" + x + ".id");
                 if (otherId.length() == 0 || otherId.equals("0")) {
                     continue;
@@ -175,7 +176,20 @@ public class SubmitLabByForm2Action extends ActionSupport {
 
         //generate the HL7 from the Lab object.
         String hl7 = generateHL7(lab);
-        logger.info(hl7);
+        // Log HL7 metadata at INFO (MSH segment contains system metadata, not PHI).
+        // Full HL7 content is NOT logged to avoid PHI exposure from PID/OBX segments.
+        if (hl7 != null) {
+            int firstSep = hl7.indexOf('\r');
+            if (firstSep <= 0) {
+                firstSep = hl7.indexOf('\n');
+            }
+            String mshSegment = firstSep > 0 ? hl7.substring(0, firstSep) : "[MSH extraction failed]";
+            logger.info("HL7 generated (length={}, MSH={})", hl7.length(), LogSanitizer.sanitize(mshSegment, 400));
+        } else {
+            logger.error("HL7 generation returned null for lab submission");
+            addActionError("Failed to generate lab result. Please verify all required fields and try again.");
+            return manage();
+        }
 
         //save file
         String filename = "Lab" + providerNo + ((int) (Math.random() * 1000)) + ".hl7";
@@ -191,11 +205,11 @@ public class SubmitLabByForm2Action extends ActionSupport {
         String outcome = null;
 
         if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-            logger.info("filePath" + filePath);
-            logger.info("Type :" + labName);
+            logger.info("filePath {}", LogSanitizer.sanitize(filePath));
+            logger.info("Type :{}", LogSanitizer.sanitize(labName));
             MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
             if (msgHandler != null) {
-                logger.info("MESSAGE HANDLER " + msgHandler.getClass().getName());
+                logger.info("MESSAGE HANDLER {}", msgHandler.getClass().getName());
             }
             if ((msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, ipAddr)) != null)
                 outcome = "success";
@@ -204,7 +218,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
             outcome = "uploaded previously";
         }
 
-        logger.info("outcome=" + outcome);
+        logger.info("outcome={}", outcome);
 
 
         return manage();
@@ -222,7 +236,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
 		// Generate appropriate HL7 format based on lab type
 		String labType = lab.getLabName();
 		labType = labType == null ? "" : labType.trim().toUpperCase();
-		logger.info("Generating HL7 for lab type: [" + labType + "]");
+		logger.info("Generating HL7 for lab type: [{}]", LogSanitizer.sanitize(labType));
 
 		switch (labType) {
 			case "MDS":
@@ -232,7 +246,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
 			case "CML":
 				return CMLLabHL7Generator.generate(lab);
 			default:
-				logger.error("Unsupported lab type: [" + labType + "]; defaulting to CML.");
+				logger.error("Unsupported lab type: [{}]; defaulting to CML.", LogSanitizer.sanitize(labType));
 				return CMLLabHL7Generator.generate(lab);
 		}
 	}
