@@ -30,12 +30,7 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
-import org.apache.commons.text.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
-import io.github.carlos_emr.carlos.utility.WebUtils;
-
-import jakarta.servlet.http.HttpServletRequest;
-import java.util.HashMap;
 
 public final class EctConsultationFormRequest2Form {
 

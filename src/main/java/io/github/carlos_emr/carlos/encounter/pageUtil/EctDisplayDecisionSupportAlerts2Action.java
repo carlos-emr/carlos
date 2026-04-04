@@ -48,7 +48,6 @@ import io.github.carlos_emr.carlos.decisionSupport.model.DSGuideline;
 import io.github.carlos_emr.carlos.decisionSupport.service.DSService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
