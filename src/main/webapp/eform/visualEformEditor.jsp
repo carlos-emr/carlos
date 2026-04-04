@@ -1619,7 +1619,7 @@ var EFORM_I18N = {
 
         /** HTML-encodes a string for safe insertion into HTML content (e.g. title tags) */
         function escapeHtmlText(value) {
-            var htmlEntities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+            var htmlEntities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
             return String(value).replace(/[&<>"']/g, function(match) { return htmlEntities[match]; });
         }
 
