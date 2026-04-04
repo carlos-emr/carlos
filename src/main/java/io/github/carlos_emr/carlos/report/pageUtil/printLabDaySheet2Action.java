@@ -40,7 +40,9 @@ import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -86,25 +88,21 @@ public class printLabDaySheet2Action extends ActionSupport {
 
         if (ins == null) {
             try {
-                // Validate xmlStyleFile parameter to prevent path injection
-                if (xmlStyleFile == null || xmlStyleFile.isEmpty()) {
-                    // Use default file if parameter is not provided
-                    xmlStyleFile = "labDaySheet.xml";
-                } else {
-                    // Remove any path traversal sequences
-                    xmlStyleFile = xmlStyleFile.replaceAll("\\.\\.", "");
-                    xmlStyleFile = xmlStyleFile.replaceAll("[\\\\/]", "");
-                    
-                    // Validate against whitelist pattern
-                    if (!ALLOWED_XML_STYLE_PATTERN.matcher(xmlStyleFile).matches()) {
-                        logger.error("Invalid xmlStyle parameter: " + xmlStyleFile);
-                        // Fall back to default file for security
-                        xmlStyleFile = "labDaySheet.xml";
+                // Validate xmlStyleFile parameter to prevent path injection.
+                // Use FilenameUtils.getName() to strip any path components, then
+                // validate against an alphanumeric-only whitelist pattern.
+                String safeXmlStyleFile = "labDaySheet.xml";
+                if (xmlStyleFile != null && !xmlStyleFile.isEmpty()) {
+                    String baseName = FilenameUtils.getName(xmlStyleFile);
+                    if (ALLOWED_XML_STYLE_PATTERN.matcher(baseName).matches()) {
+                        safeXmlStyleFile = baseName;
+                    } else {
+                        logger.error("Invalid xmlStyle parameter rejected: " + Encode.forJava(baseName));
                     }
                 }
                 
-                ins = getClass().getResourceAsStream("/oscar/oscarReport/pageUtil/" + xmlStyleFile);
-                logger.debug("loading from : /oscar/oscarReport/pageUtil/" + xmlStyleFile + " " + ins);
+                ins = getClass().getResourceAsStream("/oscar/oscarReport/pageUtil/" + safeXmlStyleFile);
+                logger.debug("loading from : /oscar/oscarReport/pageUtil/" + safeXmlStyleFile + " " + ins);
             } catch (Exception ex1) {
                 MiscUtils.getLogger().error("Error", ex1);
             }

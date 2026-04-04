@@ -34,6 +34,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -158,7 +159,10 @@ public class Update2Action extends ActionSupport {
         UpdateRequest result = new UpdateRequest();
         result.setResourceID(BigInteger.valueOf(ConversionUtils.fromIntString(resourceId)));
         try {
+            PathValidationUtils.validateUpload(content);
             result.setContent(Files.readAllBytes(content.toPath()));
+        } catch (SecurityException e) {
+            throw new SecurityException("Invalid upload file path", e);
         } catch (Exception e) {
             throw new RuntimeException("Unable to read upload data", e);
         }

@@ -29,6 +29,8 @@ import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import net.sf.jasperreports.engine.export.JRCsvExporter;
 import net.sf.jasperreports.engine.export.ooxml.JRXlsxExporter;
 import net.sf.jasperreports.export.*;
+import org.apache.commons.io.FilenameUtils;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import java.io.ByteArrayInputStream;
@@ -87,10 +89,31 @@ public class OscarDocumentCreator {
     /**
      * Loads a report template from the classpath.
      * 
+     * <p>The path must not contain path traversal sequences ({@code ..}) or null bytes,
+     * and the filename component must consist of safe characters only.</p>
+     *
      * @param path the classpath path to the report template file
-     * @return InputStream for the report template, or null if not found
+     * @return InputStream for the report template, or null if not found or path is invalid
      */
     public InputStream getDocumentStream(String path) {
+        if (path == null) {
+            MiscUtils.getLogger().error("Classpath resource path must not be null");
+            return null;
+        }
+        // Reject path traversal sequences and null bytes regardless of encoding
+        String normalizedPath = path.replace("\\", "/");
+        if (normalizedPath.contains("..") || normalizedPath.contains("//") || path.contains("\0")) {
+            MiscUtils.getLogger().error("Invalid classpath resource path rejected: " + Encode.forJava(path));
+            return null;
+        }
+        // Validate the filename component (last segment) using FilenameUtils
+        int lastSlash = normalizedPath.lastIndexOf('/');
+        String filename = (lastSlash >= 0) ? normalizedPath.substring(lastSlash + 1) : normalizedPath;
+        String safeFilename = FilenameUtils.getName(filename);
+        if (!safeFilename.equals(filename)) {
+            MiscUtils.getLogger().error("Invalid filename component in classpath path: " + Encode.forJava(path));
+            return null;
+        }
         InputStream reportInstream = null;
         reportInstream = getClass().getClassLoader().getResourceAsStream(path);
         return reportInstream;

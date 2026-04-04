@@ -54,6 +54,8 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import org.owasp.encoder.Encode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -397,19 +399,25 @@ public class DocumentManagerImpl implements DocumentManager {
      */
     public String getFullPathToDocument(String filename) {
 
-        String path = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-
-        if (!path.endsWith(File.separator)) {
-            path += File.separator;
+        if (filename == null || filename.isEmpty()) {
+            return null;
         }
 
-        path += filename;
+        String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
-        if (!FileSystems.getDefault().getPath(path).toFile().exists()) {
-            path = null;
+        File validatedFile;
+        try {
+            validatedFile = PathValidationUtils.validatePath(filename, new File(documentDir));
+        } catch (SecurityException e) {
+            logger.error("Invalid document filename rejected: {}", Encode.forJava(filename));
+            return null;
         }
 
-        return path;
+        if (!validatedFile.exists()) {
+            return null;
+        }
+
+        return validatedFile.getAbsolutePath();
     }
 
     /**
