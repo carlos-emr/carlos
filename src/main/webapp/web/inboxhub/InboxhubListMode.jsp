@@ -115,8 +115,8 @@
         ],
         order: [[5, 'desc']],
         language: {
-            url: '${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
-            }
+            url: '${e:forJavaScript(pageContext.request.contextPath)}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
+        }
     });
 
     //Opens a popup window to a given inbox item.

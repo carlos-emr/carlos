@@ -543,9 +543,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         fetchInboxhubData();
     }
 
-    var listModeLabel = '<fmt:message key="inboxhub.form.listMode"/>';
-    var previewModeLabel = '<fmt:message key="inboxhub.form.previewMode"/>';
-    var percentCompleteLabel = '<fmt:message key="inboxhub.form.percentComplete"/>';
+    <fmt:message key="inboxhub.form.listMode" var="listModeLabelVar"/>
+    <fmt:message key="inboxhub.form.previewMode" var="previewModeLabelVar"/>
+    <fmt:message key="inboxhub.form.percentComplete" var="percentCompleteLabelVar"/>
+    var listModeLabel = '${e:forJavaScript(listModeLabelVar)}';
+    var previewModeLabel = '${e:forJavaScript(previewModeLabelVar)}';
+    var percentCompleteLabel = '${e:forJavaScript(percentCompleteLabelVar)}';
 
     function fetchInboxhubDataByMode(btnViewMode2) {
         jQuery('#btnViewMode').val(btnViewMode2.checked ? 'true' : 'false');
