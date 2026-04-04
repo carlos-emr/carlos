@@ -39,9 +39,10 @@ import org.owasp.encoder.Encode;
  *
  * <p>Internally truncates the raw input to {@value #DEFAULT_MAX_LENGTH} characters, then
  * uses the OWASP Java Encoder ({@code Encode.forJava()}) to escape control characters
- * (including CR/LF). A post-encoding safety bound of {@value #MAX_ENCODED_LENGTH} characters
- * caps the final output to prevent log flooding from adversarial inputs containing many
- * control characters (which expand during encoding).</p>
+ * (including CR/LF), quotes, backslashes, and non-ASCII characters (accented characters
+ * common in French-Canadian names will appear as octal/Unicode escape sequences in logs).
+ * A post-encoding safety bound of {@value #MAX_ENCODED_LENGTH} characters caps the final
+ * output to prevent log flooding from adversarial inputs that expand during encoding.</p>
  *
  * <p>Usage:</p>
  * <pre>
@@ -55,6 +56,10 @@ import org.owasp.encoder.Encode;
  * logger.warn("SQL: {}", LogSanitizer.sanitize(sqlStatement, 1000));
  * </pre>
  *
+ * <p><strong>Note:</strong> SLF4J/Log4j2 parameterized logging ({@code {}}) alone does NOT
+ * prevent log injection — CRLF characters in parameter values are written to logs verbatim.
+ * {@code LogSanitizer.sanitize()} is required to neutralize control characters.</p>
+ *
  * @since 2026-04-02
  */
 public final class LogSanitizer {
@@ -64,8 +69,8 @@ public final class LogSanitizer {
 
     /**
      * Post-encoding expansion factor. {@code Encode.forJava()} expands control characters
-     * (e.g. {@code \n} → {@code \\n}), with a worst-case expansion of 6x for characters
-     * encoded as Unicode escape sequences ({@code \\u####}).
+     * (e.g. {@code \n} → {@code \\n}), with a worst-case expansion of 6x for non-ASCII
+     * characters encoded as Unicode escape sequences (one character → six output characters).
      */
     private static final int ENCODING_EXPANSION_FACTOR = 6;
 
@@ -83,13 +88,13 @@ public final class LogSanitizer {
      * Sanitizes a {@code String} value for safe inclusion in a log statement.
      *
      * <p>Truncates the raw input to {@value #DEFAULT_MAX_LENGTH} characters, then applies
-     * OWASP Java Encoder escaping (converts CR, LF, and other control characters to their
-     * Java escape sequences, e.g. {@code \n} becomes {@code \\n}). Appends {@code "..."}
-     * when truncation occurs. A post-encoding safety bound prevents adversarial inputs
-     * from producing excessively long encoded output.</p>
+     * OWASP Java Encoder escaping (converts CR, LF, other control characters, quotes,
+     * backslashes, and non-ASCII characters to their Java escape sequences). Appends
+     * {@code "..."} when truncation occurs. A post-encoding safety bound prevents
+     * adversarial inputs from producing excessively long encoded output.</p>
      *
      * @param input String the value to sanitize; may be {@code null}
-     * @return String the sanitized string; never {@code null}
+     * @return String the sanitized string, or the literal {@code "null"} if input is null; never returns {@code null}
      */
     public static String sanitize(String input) {
         return sanitize(input, DEFAULT_MAX_LENGTH);

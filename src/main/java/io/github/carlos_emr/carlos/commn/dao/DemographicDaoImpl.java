@@ -2667,7 +2667,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             NativeQuery sqlQuery = session.createNativeQuery(demographicQuery);
             for (String key : params.keySet()) {
                 sqlQuery.setParameter(key, params.get(key));
-                MiscUtils.getLogger().debug("query param: {} (value present)", LogSanitizer.sanitize(key));
+                MiscUtils.getLogger().warn("query param: {} (value present)", LogSanitizer.sanitize(key));
             }
             Integer result = ((Number) sqlQuery.uniqueResult()).intValue();
             return result;
