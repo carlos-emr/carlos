@@ -542,7 +542,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					<security:oscarSec roleName="<%=roleName$%>"
 						objectName="_admin.lookupFieldEditor" rights="r">
 						<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/Lookup/LookupTableList.do"> <fmt:message key="admin.admin.LookupFieldEditor"/></a></li>
+						class="xlink" rel="${ctx}/lookupListManagerAction"> <fmt:message key="admin.admin.LookupFieldEditor"/></a></li>
 					</security:oscarSec>
 					<security:oscarSec roleName="<%=roleName$%>"
 						objectName="_admin.issueEditor" rights="r">

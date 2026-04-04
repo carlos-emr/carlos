@@ -52,7 +52,6 @@
         <action name="messenger/ViewMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessage2Action">
             <result name="noRights">/messenger/DisplayMessages.jsp</result>
             <result name="success">/messenger/ViewMessage.jsp</result>
-            <result name="viewFromEncounter">/messenger/ViewMessageFromEncounter.jsp</result>
         </action>
         <!-- DEPRECATED: This action is used by the legacy encounter page (encounter/Index.jsp) -->
         <action name="messenger/ViewMessageByPosition" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessageByPosition2Action">
