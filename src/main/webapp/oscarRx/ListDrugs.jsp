@@ -44,7 +44,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo,io.github.carlos_emr.carlos.commn.dao.DrugReasonDao,io.github.carlos_emr.carlos.commn.model.DrugReason" %>
 <%@page import="io.github.carlos_emr.carlos.util.*,java.util.*,io.github.carlos_emr.carlos.commn.model.Drug,io.github.carlos_emr.carlos.commn.dao.*" %>
-<%@page import="io.github.carlos_emr.carlos.managers.DrugDispensingManager" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
@@ -217,9 +216,6 @@
             <% } %>
             <th ><fmt:message key="SearchDrug.msgLocationPrescribed"/></th>
             <th title="<fmt:message key="SearchDrug.msgHideCPP_help"/>"><fmt:message key="SearchDrug.msgHideCPP"/></th>
-            <%if(CarlosProperties.getInstance().getProperty("rx.enable_internal_dispensing","false").equals("true")) {%>
-             <th ><fmt:message key="SearchDrug.msgDispense"/></th>
-             <%} %>
              <th ></th>
 
         </tr>
@@ -236,7 +232,6 @@
 
             DrugReasonDao drugReasonDao = (DrugReasonDao) SpringUtils.getBean(DrugReasonDao.class);
 
-            DrugDispensingManager drugDispensingManager = SpringUtils.getBean(DrugDispensingManager.class);
             List<String> reRxDrugList = bean.getReRxDrugIdList();
             Collections.sort(prescriptDrugs, Drug.START_DATE_COMPARATOR);
 
@@ -440,21 +435,6 @@
 				%>
 				<input type="checkbox" id="hidecpp_<%=prescriptIdInt%>" <%=checked%>/>
 			</td>
-			
-			<%if(CarlosProperties.getInstance().getProperty("rx.enable_internal_dispensing","false").equals("true")) {%>
-			<td >
-				<%
-					if(prescriptDrug.getDispenseInternal() != null && prescriptDrug.getDispenseInternal() == true ) {
-						if(securityManager.hasWriteAccess("_dispensing",roleName$,true)) {	
-							String dispensingStatus = drugDispensingManager.getStatus(prescriptDrug.getId());
-				               
-				%>
-					<a href="javascript:void(0)" onclick="popupWindow(720,700,'<%=request.getContextPath()%>/oscarRx/Dispense.do?method=view&id=<%=prescriptDrug.getId()%>','Dispense<%=prescriptIdInt %>'); return false;">Dispense (<%=dispensingStatus%>)</a>
-				<% 
-					} }
-				%>
-			</td>
-			<% } %>
 			
 			<td nowrap="nowrap" >
 				<%if(!(prescriptDrugs.get(prescriptDrugs.size()-1) == prescriptDrug)) {%>

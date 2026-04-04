@@ -36,9 +36,11 @@
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean"%>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
@@ -193,7 +195,7 @@
                 XMLHttpRequestObject.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
 
                 var demographicNo = '<c:out value="${param.demographicNo}"/>';
-                var noteId = '<%=request.getParameter("noteId") != null ? request.getParameter("noteId") : request.getAttribute("noteId") != null ? request.getAttribute("noteId") : ""%>';
+                var noteId = '<%=Encode.forJavaScript(request.getParameter("noteId") != null ? request.getParameter("noteId") : request.getAttribute("noteId") != null ? (String) request.getAttribute("noteId") : "")%>';
                 var programId = '<c:out value="${case_program_id}"/>';
                 XMLHttpRequestObject.send("method=autosave&demographicNo=" + demographicNo + "&programId=" + programId + "&note_id=" + noteId + "&note=" + escape(obj.value));
             }
@@ -432,15 +434,15 @@
                 <c:if test="${param.from=='casemgmt' || requestScope.from=='casemgmt'}">
                     <c:url value="${sessionScope.billing_url}" var="url"/>
                     <caisirole:SecurityAccess accessName="billing" accessType="access"
-                                              providerNo='<%=request.getParameter("providerNo")%>'
-                                              demoNo='<%=request.getParameter("demographicNo")%>' programId="<%=pId%>">
+                                              providerNo='<%= StringUtils.noNull(request.getParameter("providerNo")) %>'
+                                              demoNo='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>' programId="<%=pId%>">
                         <tr>
                             <td class="fieldTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.billing"/></td>
 
                             <td class="fieldValue">
                                 ${caseNote.billing_code}
                                 <input type="button" value="add billing"
-                                       onclick="self.open('<%=(String)session.getAttribute("billing_url")%>','','scrollbars=yes,menubars=no,toolbars=no,resizable=yes');return false;">
+                                       onclick="self.open('<%=Encode.forJavaScriptAttribute((String)session.getAttribute("billing_url"))%>','','scrollbars=yes,menubars=no,toolbars=no,resizable=yes');return false;">
                             </td>
                         </tr>
                     </caisirole:SecurityAccess>

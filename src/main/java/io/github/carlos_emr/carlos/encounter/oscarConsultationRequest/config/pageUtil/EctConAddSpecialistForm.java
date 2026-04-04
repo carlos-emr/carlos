@@ -43,10 +43,6 @@ public final class EctConAddSpecialistForm {
     String transType;
     String specId;
     int whichType;
-    String eDataUrl;
-    String eDataOscarKey;
-    String eDataServiceKey;
-    String eDataServiceName;
     String annotation;
     String institution;
     String department;
@@ -182,38 +178,6 @@ public final class EctConAddSpecialistForm {
      */
     public void setWhichType(int whichType) {
         this.whichType = whichType;
-    }
-
-    public String geteDataUrl() {
-        return eDataUrl;
-    }
-
-    public void seteDataUrl(String eDataUrl) {
-        this.eDataUrl = eDataUrl;
-    }
-
-    public String geteDataOscarKey() {
-        return eDataOscarKey;
-    }
-
-    public void seteDataOscarKey(String eDataOscarKey) {
-        this.eDataOscarKey = eDataOscarKey;
-    }
-
-    public String geteDataServiceKey() {
-        return eDataServiceKey;
-    }
-
-    public void seteDataServiceKey(String eDataServiceKey) {
-        this.eDataServiceKey = eDataServiceKey;
-    }
-
-    public String geteDataServiceName() {
-        return eDataServiceName;
-    }
-
-    public void seteDataServiceName(String eDataServiceName) {
-        this.eDataServiceName = eDataServiceName;
     }
 
     public String getAnnotation() {

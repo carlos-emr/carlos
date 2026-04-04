@@ -156,10 +156,6 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         professionalSpecialist.setWebSite(this.getWebsite());
         professionalSpecialist.setEmailAddress(this.getEmail());
         professionalSpecialist.setSpecialtyType(this.getSpecType());
-        professionalSpecialist.seteDataUrl(this.geteDataUrl());
-        professionalSpecialist.seteDataOscarKey(this.geteDataOscarKey());
-        professionalSpecialist.seteDataServiceKey(this.geteDataServiceKey());
-        professionalSpecialist.seteDataServiceName(this.geteDataServiceName());
         professionalSpecialist.setAnnotation(this.getAnnotation());
         professionalSpecialist.setReferralNo(this.getReferralNo());
         professionalSpecialist.setInstitutionId(Integer.parseInt(this.getInstitution()));
@@ -184,10 +180,6 @@ public class EctConAddSpecialist2Action extends ActionSupport {
     String transType;
     String specId;
     int whichType;
-    String eDataUrl;
-    String eDataOscarKey;
-    String eDataServiceKey;
-    String eDataServiceName;
     String annotation;
     String institution;
     String department;
@@ -330,9 +322,6 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         specType = null;
         transType = null;
         specId = null;
-        eDataUrl = null;
-        eDataOscarKey = null;
-        eDataServiceKey = null;
         annotation = null;
         referralNo = null;
         privatePhoneNumber = null;
@@ -359,42 +348,6 @@ public class EctConAddSpecialist2Action extends ActionSupport {
     @StrutsParameter
     public void setWhichType(int whichType) {
         this.whichType = whichType;
-    }
-
-    public String geteDataUrl() {
-        return eDataUrl;
-    }
-
-    @StrutsParameter
-    public void seteDataUrl(String eDataUrl) {
-        this.eDataUrl = eDataUrl;
-    }
-
-    public String geteDataOscarKey() {
-        return eDataOscarKey;
-    }
-
-    @StrutsParameter
-    public void seteDataOscarKey(String eDataOscarKey) {
-        this.eDataOscarKey = eDataOscarKey;
-    }
-
-    public String geteDataServiceKey() {
-        return eDataServiceKey;
-    }
-
-    @StrutsParameter
-    public void seteDataServiceKey(String eDataServiceKey) {
-        this.eDataServiceKey = eDataServiceKey;
-    }
-
-    public String geteDataServiceName() {
-        return eDataServiceName;
-    }
-
-    @StrutsParameter
-    public void seteDataServiceName(String eDataServiceName) {
-        this.eDataServiceName = eDataServiceName;
     }
 
     public String getAnnotation() {

@@ -53,6 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
 
@@ -223,7 +224,7 @@
         </td>
         <td class="MainTableRightColumn">
             <form action="${pageContext.request.contextPath}/encounter/immunization/saveSchedule.do" method="post">
-                <input type="hidden" name="demographic_no" value="<%=demoNo%>">
+                <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demoNo) %>">
                 <table name="encounterTableRightCol" width="100%">
                     <tr>
                         <td>
@@ -287,7 +288,7 @@
                                 <form id="scheduleForm_<%=i%>" method="post" action="deleteSchedule.do" style="display:none">
                                     <input type="hidden" name="method" value="delete"/>
                                     <input type="hidden" name="tblSet" value="<%=i%>"/>
-                                    <input type="hidden" name="demoNo" value="<%=demoNo%>"/>
+                                    <input type="hidden" name="demoNo" value="<%= Encode.forHtmlAttribute(demoNo) %>"/>
                                 </form>
                                 <%} else {%>
                                 <a href="javascript:void(0)"
@@ -295,7 +296,7 @@
                                 <form id="restoreForm_<%=i%>" method="post" action="deleteSchedule.do" style="display:none">
                                     <input type="hidden" name="method" value="restore"/>
                                     <input type="hidden" name="tblSet" value="<%=i%>"/>
-                                    <input type="hidden" name="demoNo" value="<%=demoNo%>"/>
+                                    <input type="hidden" name="demoNo" value="<%= Encode.forHtmlAttribute(demoNo) %>"/>
                                 </form>
                                 <%}%>
 
@@ -405,7 +406,7 @@
                             String genText(String id, String value) {
                                 String s = "\n<span style='width:100%'>"
                                         + "<input type=text style='width:100%;' name='"
-                                        + id + "_text' value='" + value + "'></input>"
+                                        + Encode.forHtmlAttribute(id) + "_text' value='" + Encode.forHtmlAttribute(value) + "'></input>"
                                         + "</span>\n";
 
                                 return s;
@@ -420,11 +421,11 @@
                                 String provider = cell.getAttribute("providers");
                                 String comments = cell.getAttribute("comments");
 
-                                s += "<input type=hidden name='" + id + "_givenDate' value='" + givenDate + "' />"
-                                        + "<input type=hidden name='" + id + "_refusedDate' value='" + refusedDate + "' />"
-                                        + "<input type=hidden name='" + id + "_lot' value='" + lot + "' />"
-                                        + "<input type=hidden name='" + id + "_provider' value='" + provider + "' />"
-                                        + "<input type=hidden name='" + id + "_comments' value='" + comments + "' />";
+                                s += "<input type=hidden name='" + id + "_givenDate' value='" + Encode.forHtmlAttribute(givenDate) + "' />"
+                                        + "<input type=hidden name='" + id + "_refusedDate' value='" + Encode.forHtmlAttribute(refusedDate) + "' />"
+                                        + "<input type=hidden name='" + id + "_lot' value='" + Encode.forHtmlAttribute(lot) + "' />"
+                                        + "<input type=hidden name='" + id + "_provider' value='" + Encode.forHtmlAttribute(provider) + "' />"
+                                        + "<input type=hidden name='" + id + "_comments' value='" + Encode.forHtmlAttribute(comments) + "' />";
 
                                 s += "<span id='" + id + "_label' style='font-size:8pt;width:75px'>";
                                 if (givenDate.length() > 0) {
@@ -438,7 +439,7 @@
                                 }
                                 s += "</span>";
 
-                                s += "<span style='text-align:right;width:15px'><a href=\"javascript:edit('" + id + "', '" + colName + "');\"><img border=0 src='img/edit.gif' /></a></span>";
+                                s += "<span style='text-align:right;width:15px'><a href=\"javascript:edit('" + Encode.forJavaScript(id) + "', '" + Encode.forJavaScript(colName) + "');\"><img border=0 src='img/edit.gif' /></a></span>";
                                 s += "</span>\n";
 
                                 return s;

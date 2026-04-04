@@ -1643,8 +1643,6 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         sb.append("<div class='label'>");
         sb.append("<a href=\"" + contextPath + "/demographic/demographiccontrol.jsp?demographic_no=")
         .append(Encode.forHtml(getDemographicNo() + ""))
-                .append("&amp;last_name=").append(Encode.forUriComponent(getLastName())).append("&amp;first_name=")
-                .append(Encode.forUriComponent(getFirstName()))
                 .append("&amp;orderby=appointment_date&amp;displaymode=appt_history&amp;dboperation=appt_history&amp;limit1=0&amp;limit2=25\" title='View Appointment History' target='_blank'>");
         sb.append("Next Appt.");
         sb.append("</a>");

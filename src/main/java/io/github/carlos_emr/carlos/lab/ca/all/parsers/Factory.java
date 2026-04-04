@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -143,7 +144,7 @@ public final class Factory {
                 type = type.trim();
             }
 
-            SAXBuilder parser = new SAXBuilder();
+            SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
             doc = parser.build(is);
 
             Element root = doc.getRootElement();

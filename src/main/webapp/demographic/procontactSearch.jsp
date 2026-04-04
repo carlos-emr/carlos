@@ -49,6 +49,8 @@
 */
 -->
 <%@ page import="java.util.*,java.sql.*, java.net.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalContact" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
@@ -72,6 +74,7 @@
     String elementName = request.getParameter("elementName") == null ? "" : request.getParameter("elementName");
     String elementId = request.getParameter("elementId") == null ? "" : request.getParameter("elementId");
     String keyword = request.getParameter("keyword");
+    String contactRole = request.getParameter("contactRole") == null ? "" : request.getParameter("contactRole");
 
     if (request.getParameter("submit") != null
             && (request.getParameter("submit").equals("Search")
@@ -130,11 +133,11 @@
                     // split contact type [0] from contact id [1]
                     data1 = data1.split("_")[1].trim();
                     opener.document
-                .<%=form%>.
-                    elements['<%=elementId%>'].value = data1;
+                ['<%= Encode.forJavaScript(form) %>'].
+                    elements['<%= Encode.forJavaScript(elementId) %>'].value = data1;
                     opener.document
-                .<%=form%>.
-                    elements['<%=elementName%>'].value = data2;
+                ['<%= Encode.forJavaScript(form) %>'].
+                    elements['<%= Encode.forJavaScript(elementName) %>'].value = data2;
                     self.close();
                 }
 
@@ -142,8 +145,8 @@
 
             function serializePopupData(data1, data2) {
 
-                var id1 = '<%= elementId %>';
-                var id2 = '<%= elementName %>';
+                var id1 = '<%= Encode.forJavaScript(elementId) %>';
+                var id2 = '<%= Encode.forJavaScript(elementName) %>';
                 var contactType = data1.split("_")[0].trim();
                 var contactId = data1.split("_")[1].trim();
 
@@ -221,7 +224,7 @@
 
         <tr style="background-color:white;border:white;">
             <td colspan="3">
-                <strong>Results based on keyword(s):</strong> <%=keyword == null ? "" : keyword%>
+                <strong>Results based on keyword(s):</strong> <%= Encode.forHtml(keyword == null ? "" : keyword) %>
             </td>
         </tr>
 
@@ -288,7 +291,7 @@
 
         <tr>
             <td>
-                <a href="<%= request.getContextPath() %>/demographic/Contact.do?method=addProContact&keyword=<%= keyword %>&contactRole=${ param.contactRole }&contactType=3"
+                <a href="<%= request.getContextPath() %>/demographic/Contact.do?method=addProContact&keyword=<%= Encode.forUriComponent(keyword) %>&contactRole=<%= Encode.forUriComponent(contactRole) %>&contactType=3"
                    style="font:inherit;display:block;margin:10px;">
                     Add/Edit Professional Contact
                 </a>
@@ -300,12 +303,12 @@
     <script type="text/javascript">
         //<!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
             document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
             document.nextform.submit();
         }
 

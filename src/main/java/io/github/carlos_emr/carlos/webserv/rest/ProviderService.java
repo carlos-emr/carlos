@@ -71,6 +71,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.ProviderTo1;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.ProviderTransfer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 
 /**
@@ -182,15 +183,15 @@ public class ProviderService extends AbstractServiceImpl {
         @Path("/provider/{id}")
         @Produces({"application/xml", "application/json"})
         public ProviderTransfer getProvider(@PathParam("id") String id) {
-            logger.debug("Retrieving provider {}", id);
+            logger.debug("Retrieving provider {}", LogSanitizer.sanitize(id));
 
             Provider provider = providerDao.getProvider(id);
             if (provider == null) {
-                logger.warn("Provider not found: {}", id);
+                logger.warn("Provider not found: {}", LogSanitizer.sanitize(id));
                 throw new WebApplicationException(Response.Status.NOT_FOUND);
             }
 
-            logger.info("Successfully retrieved provider: {}", id);
+            logger.info("Successfully retrieved provider: {}", LogSanitizer.sanitize(id));
             return ProviderTransfer.toTransfer(provider);
         }
 
@@ -243,15 +244,15 @@ public class ProviderService extends AbstractServiceImpl {
     @Path("/providerjson/{id}")
     @Produces("application/json")
     public String getProviderAsJSON(@PathParam("id") String id) {
-        logger.debug("Retrieving provider {} as JSON", id);
+        logger.debug("Retrieving provider {} as JSON", LogSanitizer.sanitize(id));
 
         Provider provider = providerDao.getProvider(id);
         if (provider == null) {
-            logger.warn("Provider not found: {}", id);
+            logger.warn("Provider not found: {}", LogSanitizer.sanitize(id));
             throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
 
-        logger.info("Successfully retrieved provider {} as JSON", id);
+        logger.info("Successfully retrieved provider {} as JSON", LogSanitizer.sanitize(id));
         return objectMapper.valueToTree(provider).toString();
     }
 

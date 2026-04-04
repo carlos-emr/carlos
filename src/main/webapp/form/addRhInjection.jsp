@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
@@ -221,8 +222,8 @@
 
     <form action="${pageContext.request.contextPath}/oscarPrevention/AddPrevention.do" method="post" onsubmit="return process(this);" id="injectForm">
         <input type="hidden" name="prevention" value="RH"/>
-        <input type="hidden" name="demographic_no" value="<%=demographicNo%>"/>
-        <input type="hidden" name="workflowId" value="<%=workflowId%>"/>
+        <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
+        <input type="hidden" name="workflowId" value="<%= Encode.forHtmlAttribute(workflowId) %>"/>
         <input type="hidden" name="formId" value="<%=formIdStr%>"/>
         <input type="hidden" name="reason" value=""/>
 

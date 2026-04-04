@@ -39,6 +39,7 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ProviderData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -216,16 +217,16 @@
                 <table width="100%">
                     <tr>
                         <td align="left" valign="center" width="30%"><input
-                                type="hidden" name="providerNo" value="<%= providerNo %>">
+                                type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo) %>">
                             <input type="hidden" name="searchProviderNo"
-                                   value="<%= searchProviderNo %>"> <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + request.getParameter("lname") + "\">") %>
-                            <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + request.getParameter("fname") + "\">") %>
-                            <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + request.getParameter("hnum") + "\">") %>
-                            <input type="hidden" name="status" value="<%= ackStatus %>">
+                                   value="<%= Encode.forHtmlAttribute(searchProviderNo) %>"> <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>
+                            <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
+                            <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + Encode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
+                            <input type="hidden" name="status" value="<%= Encode.forHtmlAttribute(ackStatus) %>">
                             <input type="hidden" name="selectedProviders"> <% if (demographicNo == null) { %>
                             <input type="button" class="smallButton"
                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnSearch"/>"
-                                   onClick="window.location='Search.jsp?providerNo=<%= providerNo %>'">
+                                   onClick="window.location='Search.jsp?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
                             <% } %> <input type="button" class="smallButton"
                                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnClose"/>"
                                            onClick="window.close()">
@@ -233,7 +234,7 @@
                             <% if (demographicNo == null && request.getParameter("fname") != null) { %>
                             <input type="button" class="smallButton"
                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnDefaultView"/>"
-                                   onClick="window.location='lab/DemographicLab.jsp?providerNo=<%= providerNo %>'">
+                                   onClick="window.location='lab/DemographicLab.jsp?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
                             <% } %> <% if (demographicNo == null && labs.size() > 0) { %>
                             <!-- <input type="button" class="smallButton" value="Reassign" onClick="popupStart(300, 400, 'SelectProvider.jsp', 'providerselect')"> -->
                             <input type="button" class="smallButton"
@@ -314,23 +315,23 @@
             <td>
                 <%
                     if (result.isMDS()) { %> <a
-                    href="javascript:reportWindow('<%= request.getContextPath() %>/oscarMDS/SegmentDisplay.jsp?demographicId=<%=demographicNo%>&segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%= result.getDiscipline()%>
+                    href="javascript:reportWindow('<%= request.getContextPath() %>/oscarMDS/SegmentDisplay.jsp?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')"><%= result.getDiscipline()%>
             </a>
                 <% } else if (result.isCML()) { %> <a
-                    href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/CMLDisplay.jsp?demographicId=<%=demographicNo%>&segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=(String) result.getDiscipline()%>
+                    href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/CMLDisplay.jsp?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')"><%=(String) result.getDiscipline()%>
             </a>
                 <% } else if (result.isHL7TEXT()) {%>
-                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/labDisplay.jsp?demographicId=<%=demographicNo%>&segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')">
-                    <%=StringUtils.trimToEmpty(result.getLabel())%>
+                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/labDisplay.jsp?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')">
+                    <%=Encode.forHtml(StringUtils.trimToEmpty(result.getLabel()))%>
                 </a>
                 <% } else {%>
-                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/labDisplay.jsp?demographicId=<%=demographicNo%>&segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')">
-                    <%=StringUtils.trimToEmpty(result.getLabel())%>
+                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/labDisplay.jsp?demographicId=<%= Encode.forJavaScriptAttribute(demographicNo) %>&segmentID=<%= Encode.forJavaScriptAttribute(segmentID) %>&providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(searchProviderNo) %>&status=<%= Encode.forJavaScriptAttribute(status) %>')">
+                    <%=Encode.forHtml(StringUtils.trimToEmpty(result.getLabel()))%>
                 </a>
                 <% }%>
             </td>
 
-            <td><%= StringUtils.trimToEmpty(result.getRequestingClient())%>
+            <td><%= Encode.forHtml(StringUtils.trimToEmpty(result.getRequestingClient()))%>
             </td>
             <td><%= (result.isAbnormal() ? "Abnormal" : "") %>
             </td>
@@ -361,13 +362,13 @@
                             <% if (demographicNo == null) { %> <input type="button"
                                                                       class="smallButton"
                                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnSearch"/>"
-                                                                      onClick="window.location='Search.jsp?providerNo=<%= providerNo %>'">
+                                                                      onClick="window.location='Search.jsp?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
                             <% } %> <input type="button" class="smallButton"
                                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnClose"/>"
                                            onClick="window.close()"> <% if (request.getParameter("fname") != null) { %>
                             <input type="button" class="smallButton"
                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnDefaultView"/>"
-                                   onClick="window.location='lab/DemographicLab.jsp?providerNo=<%= providerNo %>'">
+                                   onClick="window.location='lab/DemographicLab.jsp?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'">
                             <% } %> <% if (demographicNo == null && labs.size() > 0) { %>
                             <!-- <input type="button" class="smallButton" value="Reassign" onClick="popupStart(300, 400, 'SelectProvider.jsp', 'providerselect')"> -->
                             <input type="button" class="smallButton"
@@ -380,7 +381,7 @@
                             <div class="Nav">
                                 <% if (pageNum > 1 || labs.size() > endIndex) {
                                     if (pageNum > 1) { %> <a class="visLink"
-                                                             href="lab/DemographicLab.jsp?providerNo=<%=providerNo%><%= (demographicNo == null ? "" : "&demographicNo="+demographicNo ) %>&searchProviderNo=<%=searchProviderNo%>&status=<%=ackStatus%><%= (request.getParameter("lname") == null ? "" : "&lname="+request.getParameter("lname")) %><%= (request.getParameter("fname") == null ? "" : "&fname="+request.getParameter("fname")) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+request.getParameter("hnum")) %>&pageNum=<%=pageNum-1%>&startIndex=<%=startIndex-20%>"><
+                                                             href="lab/DemographicLab.jsp?providerNo=<%= Encode.forUriComponent(providerNo) %><%= (demographicNo == null ? "" : "&demographicNo="+Encode.forUriComponent(demographicNo)) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>&status=<%= Encode.forUriComponent(ackStatus) %><%= (request.getParameter("lname") == null ? "" : "&lname="+Encode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+Encode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+Encode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=pageNum-1%>&startIndex=<%=startIndex-20%>"><
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgPrevious"/></a> <% } else { %>
                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                 <% } %> <%
@@ -388,7 +389,7 @@
                                 for (int i = 0; i < labs.size(); i = i + 20) {
                             %>
                                 <a style="text-decoration: none;" class="visLink"
-                                   href="lab/DemographicLab.jsp?providerNo=<%=providerNo%><%= (demographicNo == null ? "" : "&demographicNo="+demographicNo ) %>&searchProviderNo=<%=searchProviderNo%>&status=<%=ackStatus%><%= (request.getParameter("lname") == null ? "" : "&lname="+request.getParameter("lname")) %><%= (request.getParameter("fname") == null ? "" : "&fname="+request.getParameter("fname")) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+request.getParameter("hnum")) %>&pageNum=<%=count%>&startIndex=<%=i%>">[<%=count%>
+                                   href="lab/DemographicLab.jsp?providerNo=<%= Encode.forUriComponent(providerNo) %><%= (demographicNo == null ? "" : "&demographicNo="+Encode.forUriComponent(demographicNo)) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>&status=<%= Encode.forUriComponent(ackStatus) %><%= (request.getParameter("lname") == null ? "" : "&lname="+Encode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+Encode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+Encode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=count%>&startIndex=<%=i%>">[<%=count%>
                                     ]</a>
                                 <%
                                         count++;
@@ -396,7 +397,7 @@
                                 %> <% if (labs.size() > endIndex) { %>
                                 <a
                                         class="visLink"
-                                        href="lab/DemographicLab.jsp?providerNo=<%=providerNo%><%= (demographicNo == null ? "" : "&demographicNo="+demographicNo ) %>&searchProviderNo=<%=searchProviderNo%>&status=<%=ackStatus%><%= (request.getParameter("lname") == null ? "" : "&lname="+request.getParameter("lname")) %><%= (request.getParameter("fname") == null ? "" : "&fname="+request.getParameter("fname")) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+request.getParameter("hnum")) %>&pageNum=<%=pageNum+1%>&startIndex=<%=startIndex+20%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgNext"/> ></a> <% } else { %>
+                                        href="lab/DemographicLab.jsp?providerNo=<%= Encode.forUriComponent(providerNo) %><%= (demographicNo == null ? "" : "&demographicNo="+Encode.forUriComponent(demographicNo)) %>&searchProviderNo=<%= Encode.forUriComponent(searchProviderNo) %>&status=<%= Encode.forUriComponent(ackStatus) %><%= (request.getParameter("lname") == null ? "" : "&lname="+Encode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+Encode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+Encode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=pageNum+1%>&startIndex=<%=startIndex+20%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgNext"/> ></a> <% } else { %>
                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                 <% }
                                 } %>

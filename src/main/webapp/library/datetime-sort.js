@@ -28,7 +28,12 @@
         }
 
         if (d.replace) {
-            d = d.replace(/(<.*?>)|(\r?\n|\r)/g, '');
+            var prev;
+            do {
+                prev = d;
+                d = d.replace(/<[^>]*>/g, '');
+            } while (d !== prev);
+            d = d.replace(/(\r?\n|\r)/g, '');
         }
         d = $.trim(d);
 
@@ -55,7 +60,12 @@
             return true; // null/empty is accepted by the type
         }
         if (d.replace) {
-            d = d.replace(/(<.*?>)|(\r?\n|\r)/g, '');
+            var prev;
+            do {
+                prev = d;
+                d = d.replace(/<[^>]*>/g, '');
+            } while (d !== prev);
+            d = d.replace(/(\r?\n|\r)/g, '');
         }
         d = $.trim(d);
         return d === '' || d === '0' || d === '-' || dateRegex.test(d);

@@ -331,11 +331,6 @@
                             <a href="javascript:parent.popupConsultation('<%=segmentID%>')"><%=labRead%><%=StringEscapeUtils.escapeHtml4(result.getPatientName())%>
                             </a>
                             <%
-                            } else if (categoryType != null && categoryType.startsWith("ORU_R01:")) {
-                            %>
-                            <a href="<%=request.getContextPath()%>/lab/CA/ALL/viewOruR01.jsp?segmentId=<%=segmentID%>"><%=labRead%><%=StringEscapeUtils.escapeHtml4(result.getPatientName())%>
-                            </a>
-                            <%
                             } else {
                             %>
                             <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ALL/labDisplay.jsp?inWindow=true&segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>&showLatest=true')"><%=labRead%><%=StringEscapeUtils.escapeHtml4(result.getPatientName())%>

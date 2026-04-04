@@ -28,9 +28,7 @@
 <struts>
     <package name="pmmodule" namespace="/" extends="struts-default">
 
-        <action name="Home" class="io.github.carlos_emr.carlos.PMmodule.web.Home2Action">
-            <result name="home">/PMmodule/layout_quatro.jsp</result>
-        </action>
+
         <action name="EnterSignature" class="io.github.carlos_emr.carlos.providers.pageUtil.ProEditSignature2Action">
             <result name="success">/provider/providerSignature.jsp</result>
         </action>
@@ -59,31 +57,20 @@
         <action name="PMmodule/ProgramManager" class="io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramManager2Action" method="execute">
             <result name="list">page.pmm.admin.list</result>
             <result name="edit">page.pmm.admin.edit</result>
-            <result name="timeout">/PMmodule/Timeout.jsp</result>
             <result name="programSignatures">/PMmodule/Admin/ProgramSignatures.jsp</result>
         </action>
-        <action name="PMmodule/AllVacancies" class="io.github.carlos_emr.carlos.PMmodule.web.AllWaitingList2Action" method="execute">
-            <result name="waitList">page.pmm.allWatingList</result>
-        </action>
-        <action name="PMmodule/VacancyClientMatch" class="io.github.carlos_emr.carlos.PMmodule.web.VacancyClientMatch2Action" method="execute">
-            <result name="success">page.pmm.vacancyClientMatch</result>
-        </action>
+
         <action name="PMmodule/ProgramManagerView" class="io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramManagerView2Action" method="execute">
             <result name="view">page.pmm.admin.view</result>
             <result name="service_restriction_error">page.pmm.program.service_restriction_error</result>
         </action>
-        <action name="PMmodule/AgencyManager" class="io.github.carlos_emr.carlos.PMmodule.web.admin.AgencyManager2Action" method="execute">
-            <result name="view">page.pmm.admin.agency.view</result>
-            <result name="edit">page.pmm.admin.agency.edit</result>
-        </action>
+
         <action name="PMmodule/FacilityManager" class="io.github.carlos_emr.carlos.PMmodule.web.admin.FacilityManager2Action" method="execute">
             <result name="list">page.pmm.admin.facility.list</result>
             <result name="edit">page.pmm.admin.facility.edit</result>
             <result name="view">page.pmm.admin.facility.view</result>
         </action>
-        <action name="PMmodule/ProviderSearch" class="io.github.carlos_emr.carlos.PMmodule.web.ProviderSearch2Action" method="execute">
-            <result name="results">/PMmodule/ProviderSearch.jsp</result>
-        </action>
+
         <action name="PMmodule/ClientSearch2" class="io.github.carlos_emr.carlos.PMmodule.web.ClientSearchAction22Action" method="execute">
             <result name="form">page.pmm.client.searchform</result>
             <result name="search">page.pmm.client.searchresults</result>
@@ -93,14 +80,8 @@
             <result name="edit">page.pmm.client</result>
             <result name="refer_vacancy">page.pmm.client.vacancy</result>
             <result name="edit-redirect">page.pmm.client</result>
-            <result name="search_programs">/PMmodule/ClientManager/ProgramSearch.jsp</result>
-            <result name="vaccine-report">/VaccineProviderReport.do</result>
             <result name="search">/PMmodule/ClientSearch2.do</result>
-            <result name="links">/PMmodule/ClientManager/links.jsp</result>
-            <result name="view_referral">/PMmodule/ClientManager/view_referral.jsp</result>
-            <result name="view_admission">/PMmodule/ClientManager/view_admission.jsp</result>
             <result name="service_restriction_error">page.pmm.client.service_restriction_error</result>
-            <result name="generalFormsReport">/PMmodule/GeneralFormsReport.jsp</result>
         </action>
         <action name="PMmodule/ProviderInfo" class="io.github.carlos_emr.carlos.PMmodule.web.ProviderInfo2Action" method="execute">
             <result name="view">page.pmm.provider.view</result>
@@ -109,25 +90,8 @@
             <result name="list">page.pmm.staff.list</result>
             <result name="edit">page.pmm.staff.edit</result>
         </action>
-        <action name="PMmodule/Admin/DefaultRoleAccess" class="io.github.carlos_emr.carlos.PMmodule.web.admin.DefaultRoleAccess2Action" method="execute">
-            <result name="list">page.pmm.admin.defaultroleaccess.list</result>
-            <result name="form">page.pmm.admin.defaultroleaccess.form</result>
-            <result name="rlist">/PMmodule/Admin/DefaultRoleAccess.do?method=list</result>
-        </action>
-        <action name="PMmodule/Reports/ProgramActivityReport" class="io.github.carlos_emr.carlos.PMmodule.web.reports.ActivityReport2Action" method="execute">
-            <result name="form">/PMmodule/reports/ActivityReportForm.jsp</result>
-            <result name="report">/PMmodule/reports/ActivityReport.jsp</result>
-        </action>
-        <action name="PMmodule/Reports/BasicReport" class="io.github.carlos_emr.carlos.PMmodule.web.reports.BasicReport2Action" method="execute">
-            <result name="form">/PMmodule/reports/BasicReport.jsp</result>
-        </action>
-        <action name="PMmodule/Reports/ClientListsReport" class="io.github.carlos_emr.carlos.PMmodule.web.reports.ClientListsReport2Action" method="execute">
-            <result name="form">/PMmodule/reports/ClientListsReportForm.jsp</result>
-            <result name="report">/PMmodule/reports/ClientListsReport.jsp</result>
-        </action>
-        <action name="PMmodule/Admin/SysAdmin" class="io.github.carlos_emr.carlos.PMmodule.web.admin.AdminHome2Action" method="execute">
-            <result name="admin">page.admin.home</result>
-        </action>
+
+
 
     </package>
 </struts>

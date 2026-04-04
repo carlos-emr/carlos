@@ -29,7 +29,6 @@
     <package name="eform" namespace="/" extends="struts-default">
 
         <action name="eform/attachDoc" class="io.github.carlos_emr.carlos.eform.EFormAttachDocs2Action">
-            <result name="success">/encounter/oscarConsultationRequest/attachSuccessfull.jsp</result>
         </action>
         <action name="eform/logEformError" class="io.github.carlos_emr.carlos.eform.EformLogError2Action"/>
         <action name="eform/uploadHtml" class="io.github.carlos_emr.carlos.eform.upload.HtmlUpload2Action">
@@ -73,7 +72,6 @@
             <result name="independent">/eform/efmmanageindependentdeleted.jsp</result>
         </action>
         <action name="eform/eFormAttachmentForm" class="io.github.carlos_emr.carlos.eform.upload.UploadEFormAttachment2Action">
-            <result name="success">/eform/eformupload.jsp</result>
         </action>
         <action name="eform/deleteImage" class="io.github.carlos_emr.carlos.eform.actions.DelImage2Action">
             <result name="success">/eform/efmimagemanager.jsp</result>

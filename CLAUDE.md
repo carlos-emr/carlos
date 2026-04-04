@@ -225,7 +225,7 @@ The deprecated `com.opensymphony.xwork2.*` packages from Struts 6.x were migrate
 
 ## Modern Test Framework (JUnit 5)
 **Key Features**:
-- **Parallel Structure**: `src/test-modern/` separate from legacy `src/test/`
+- **Dual Structure**: `src/test-modern/` (primary for new tests) and `src/test/` (legacy + permitted for new unit tests using `CarlosUnitTestBase`)
 - **Zero Impact**: Legacy tests unchanged, both suites run automatically
 - **Modern Stack**: JUnit 5, AssertJ, H2 in-memory database, BDD naming
 - **Spring Integration**: Full Spring context with transaction support
@@ -1063,15 +1063,15 @@ database/mysql/SnomedCore/snomedinit.sql         # Medical terminology integrati
 ### Testing Patterns
 ```bash
 # Modern Test Framework (JUnit 5) - ACTIVE AND RECOMMENDED
-src/test-modern/java/io/github/carlos_emr/carlos/            # Modern JUnit 5 tests
+src/test-modern/java/io/github/carlos_emr/carlos/            # Primary location for new JUnit 5 tests
 src/test-modern/java/io/github/carlos_emr/carlos/managers/   # Manager unit tests (DemographicManagerUnitTest)
 src/test-modern/java/io/github/carlos_emr/carlos/test/unit/  # Unit test base classes (CarlosUnitTestBase)
 src/test-modern/resources/                        # Modern test configurations
 docs/test/modern-test-framework-complete.md       # Complete test framework documentation
 docs/test/test-writing-guide.md                   # Test writing patterns and static mocking
 
-# Legacy Test Examples (JUnit 4) - for reference only
-src/test/java/io/github/carlos_emr/carlos/                   # Legacy test structure
+# src/test/ — acceptable for both legacy (JUnit 4) and new unit tests using CarlosUnitTestBase
+src/test/java/io/github/carlos_emr/carlos/                   # Legacy + permitted for new unit tests
 src/test/resources/over_ride_config.properties    # Test configuration template
 ```
 
@@ -1080,9 +1080,9 @@ src/test/resources/over_ride_config.properties    # Test configuration template
 1. **Examine the actual code first** - Read the DAO/Manager interfaces to see what methods actually exist
 2. **Test real methods only** - Never make up methods that don't exist in the codebase
 3. **Use actual method signatures** - Match the exact parameters and return types
-4. **Choose the right base class**:
-   - Integration tests: Extend `CarlosTestBase` (Spring context + database)
-   - Unit tests: Extend `CarlosUnitTestBase` (mocked SpringUtils, no database)
+4. **Choose the right base class and directory**:
+   - Integration tests: Extend `CarlosTestBase` → place in `src/test-modern/`
+   - Unit tests: Extend `CarlosUnitTestBase` (mocked SpringUtils, no database) → either `src/test-modern/` or `src/test/` is acceptable
    - Domain unit tests: Extend domain-specific bases like `DemographicUnitTestBase`
 5. **Follow BDD naming strictly**: `should<Action>_<preposition><Condition>` (camelCase, ONE underscore, e.g. `_when`, `_by`, `_for`, `_with`)
 6. **Check DAO interfaces** - Look at `*Dao.java` files to see available methods before writing tests

@@ -56,6 +56,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.PGPEncrypt" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -421,8 +422,8 @@
             <form id="DemographicExportForm" name="DemographicExportForm" action="${pageContext.request.contextPath}/demographic/DemographicExport.do" method="post" target="exportDownloadFrame" onsubmit="return handleExportSubmit();">
 
                 <% if (demographicNo != null) { %>
-                <input type="hidden" name="demographicNo" id="demographicNo" value="<%=demographicNo%>"/>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.exportingdemographicno"/><%=demographicNo%>
+                <input type="hidden" name="demographicNo" id="demographicNo" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.exportingdemographicno"/><%=Encode.forHtml(demographicNo)%>
                 <%} else {%>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.patientset"/><br>
                 <select style="width: 189px" name="patientSet" id="patientSet">

@@ -40,8 +40,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@page import="org.owasp.encoder.Encode" %>
 <%@page import="java.util.List, java.util.Random" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
@@ -151,18 +149,6 @@
 <script type="text/javascript" src="${pageContext.request.contextPath}/js/validateTextInputs.js"></script>
 <!--js code for newCaseManagementView.jsp -->
 <script type="text/javascript" src="<c:out value="${ctx}/js/newCaseManagementView.js.jsp"/>"></script>
-
-            <%-- Javascripts for the BC Care Connect Button --%>
-        <oscar:oscarPropertiesCheck value="BC" property="billregion">
-            <security:oscarSec roleName="<%=roleName%>" objectName="_careconnect" rights="r">
-                <c:set value="${ CarlosProperties.getInstance()['BC_CARECONNECT_URL'] }" var="careconnecturl"
-                       scope="application"/>
-                <c:if test="${ not empty careconnecturl }">
-                    <script type="text/javascript"
-                            src="${pageContext.servletContext.contextPath}/careconnect/careconnect.js"></script>
-                </c:if>
-            </security:oscarSec>
-        </oscar:oscarPropertiesCheck>
 
         <script type="text/javascript">
 
@@ -893,82 +879,6 @@
         </form>
     </div>
     <div id="encounterModal"></div>
-    <%
-        String apptNo = request.getParameter("appointmentNo");
-        if (CarlosProperties.getInstance().getProperty("resident_review", "false").equalsIgnoreCase("true") &&
-                loggedInInfo.getLoggedInProvider().getProviderType().equals("resident") && !"null".equalsIgnoreCase(apptNo) && !"".equalsIgnoreCase(apptNo)) {
-            ProviderDataDao providerDao = SpringUtils.getBean(ProviderDataDao.class);
-            List<ProviderData> providerList = providerDao.findAllBilling("1");
-    %>
-    <div id="showResident" class="showResident">
-
-        <div class="showResidentBorder residentText">
-            Resident Check List
-
-            <form action="" id="resident" name="resident" onsubmit="return false;">
-                <input type="hidden" name="residentMethod" id="residentMethod" value="">
-                <input type="hidden" name="residentChain" id="residentChain" value="">
-                <table class="showResidentContent">
-                    <tr>
-                        <td>
-                            Was this encounter reviewed?
-                        </td>
-                        <td>
-                            Yes <input type="radio" value="true" name="reviewed">&nbsp;No <input type="radio"
-                                                                                                 value="false"
-                                                                                                 name="reviewed">
-                        </td>
-                    </tr>
-                    <tr class="reviewer" style="display:none">
-                        <td class="residentText">
-                            Who did you review the encounter with?
-                        </td>
-                        <td>
-                            <select id="reviewer" name="reviewer">
-                                <option value="">Choose Reviewer</option>
-                                <%
-                                    for (ProviderData p : providerList) {
-                                %>
-                                <option value="<%=p.getId()%>"><%=p.getLastName() + ", " + p.getFirstName()%>
-                                </option>
-                                <%
-                                    }
-                                %>
-                            </select>
-                        </td>
-                    </tr>
-                    <tr class="supervisor" style="display:none">
-                        <td class="residentText">
-                            Who is your Supervisor/Monitor for this encounter?
-                        </td>
-                        <td>
-                            <select id="supervisor" name="supervisor">
-                                <option value="">Choose Supervisor</option>
-                                <%
-                                    for (ProviderData p : providerList) {
-                                %>
-                                <option value="<%=p.getId()%>"><%=p.getLastName() + ", " + p.getFirstName()%>
-                                </option>
-                                <%
-                                    }
-                                %>
-                            </select>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td colspan="2">
-                            <input id="submitResident" value="Continue" name="submitResident" type="submit"
-                                   onclick="return subResident();"/>
-                            <input id="submitResidentReturn" value="Return to Chart" name="submitResident" type="submit"
-                                   onclick="return cancelResident();"/>
-                        </td>
-                    </tr>
-                </table>
-            </form>
-        </div>
-
-    </div>
-    <%}%>
 
     </body>
 </html>
