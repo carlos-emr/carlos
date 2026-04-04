@@ -208,7 +208,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
 
         String atcCode = request.getParameter("atcCode");
         String id = request.getParameter("id");
-        String disabled = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("rx3.disable_allergy_warnings", "false");
+        String disabled = CarlosProperties.getInstance().getProperty("rx3.disable_allergy_warnings", "false");
         if (disabled.equals("false")) {
 
             ObjectMapper objectMapper = new ObjectMapper();
