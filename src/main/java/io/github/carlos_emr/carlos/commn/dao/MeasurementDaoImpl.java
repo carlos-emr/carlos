@@ -362,9 +362,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
     @Override
     public List<Measurement> findByIdTypeAndInstruction(Integer demographicId, String type, String instructions) {
-        Query query = entityManager.createQuery("FROM Measurement m WHERE m.demographicId = ?1"
-                + "AND m.type = ?2"
-                + "AND m.measuringInstruction = ?3 ORDER BY m.createDate DESC");
+        Query query = entityManager.createQuery(
+                "FROM Measurement m WHERE m.demographicId = ?1 AND m.type = ?2 AND m.measuringInstruction = ?3 ORDER BY m.createDate DESC");
         query.setParameter(1, demographicId);
         query.setParameter(2, type);
         query.setParameter(3, instructions);
