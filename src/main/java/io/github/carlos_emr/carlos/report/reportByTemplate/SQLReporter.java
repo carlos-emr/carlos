@@ -36,6 +36,7 @@ import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.db.DBHandler;
@@ -51,9 +52,6 @@ import org.apache.commons.csv.CSVPrinter;
  */
 public class SQLReporter implements Reporter {
 
-    /**
-     * Creates a new instance of SQLReporter
-     */
     public SQLReporter() {
     }
 
@@ -66,42 +64,36 @@ public class SQLReporter implements Reporter {
             return generateSequencedReport(request);
         }
 
-        String sql = curReport.getPreparedSQL(parameterMap);
-        if (sql == null || sql.trim().isEmpty()) {
-            request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
-            request.setAttribute("templateid", templateId);
-            return false;
-        }
+        String sql;
+        Object[] sqlParams;
 
-        String rsHtml = "An SQL query error has occured ";
-        String csv = "";
-        try (StringWriter swr = new StringWriter();
-             ResultSet rs = DBHandler.GetSQL(sql) ) {
-            if (!rs.isBeforeFirst()) {
-                rsHtml = "The query returned no results.";
-            } else {
-                rsHtml = RptResultStruct.getStructure2(rs);  //makes html from the result set
-                CSVPrinter csvp = new CSVPrinter(swr, CSVFormat.DEFAULT);
-                String[][] data = UtilMisc.getArrayFromResultSet(rs);
-                for (String[] row : data) {
-                    csvp.printRecord((Object[]) row);
-                }
-                csvp.flush();
-                csv = swr.toString();
+        if (curReport instanceof ReportObjectGeneric) {
+            String[] parameterizedResult = ((ReportObjectGeneric) curReport).getParameterizedSQL(parameterMap);
+            if (parameterizedResult == null || parameterizedResult[0] == null || parameterizedResult[0].trim().isEmpty()) {
+                request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
+                request.setAttribute("templateid", templateId);
+                return false;
             }
-        } catch (SQLException sqe) {
-            rsHtml += sqe.getCause() != null ? sqe.getCause() : sqe.getMessage();
-            MiscUtils.getLogger().error("Error", sqe);
-        } catch (IOException e) {
-            rsHtml = "Error: during creation of CSV : " + (e.getCause() != null ? e.getCause() : e.getMessage());
-            MiscUtils.getLogger().error("Error", e);
+            sql = parameterizedResult[0];
+            sqlParams = extractParams(parameterizedResult);
+        } else {
+            MiscUtils.getLogger().warn("Report template {} uses legacy non-parameterized SQL path", templateId);
+            sql = curReport.getPreparedSQL(parameterMap);
+            if (sql == null || sql.trim().isEmpty()) {
+                request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
+                request.setAttribute("templateid", templateId);
+                return false;
+            }
+            sqlParams = null;
         }
 
-        request.getSession().setAttribute("csv", csv);
-        request.setAttribute("csv", csv);
+        String[] result = executeQuery(sql, sqlParams, false);
+
+        request.getSession().setAttribute("csv", result[1]);
+        request.setAttribute("csv", result[1]);
         request.setAttribute("sql", sql);
         request.setAttribute("reportobject", curReport);
-        request.setAttribute("resultsethtml", rsHtml);
+        request.setAttribute("resultsethtml", result[0]);
 
         return true;
     }
@@ -112,48 +104,92 @@ public class SQLReporter implements Reporter {
         Map parameterMap = request.getParameterMap();
 
         int x = 0;
-        String sql = null;
-        while ((sql = curReport.getPreparedSQL(x, parameterMap)) != null) {
-            if (sql == "") {
-                request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
-                request.setAttribute("templateid", templateId);
-                return false;
-            }
-
-            String rsHtml = "An SQL query error has occured ";
-            String csv = "";
-            try (StringWriter swr = new StringWriter();
-                ResultSet rs = DBHandler.GetSQL(sql) ) {
-                if (!rs.isBeforeFirst()) {
-                    rsHtml = sql + "<br/>The query returned no results.";
-                } else {
-                    rsHtml = RptResultStruct.getStructure2(rs);  //makes html from the result set
-                    CSVPrinter csvp = new CSVPrinter(swr, CSVFormat.DEFAULT);
-                    String[][] data = UtilMisc.getArrayFromResultSet(rs);
-                    for (String[] row : data) {
-                        csvp.printRecord((Object[]) row);
-                    }
-                    csvp.flush();
-                    csv = swr.toString();
+        if (curReport instanceof ReportObjectGeneric) {
+            ReportObjectGeneric genericReport = (ReportObjectGeneric) curReport;
+            String[] parameterizedResult;
+            while ((parameterizedResult = genericReport.getParameterizedSQL(x, parameterMap)) != null) {
+                String sql = parameterizedResult[0];
+                if (sql.isEmpty()) {
+                    request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
+                    request.setAttribute("templateid", templateId);
+                    return false;
                 }
-            } catch (SQLException sqe) {
-                rsHtml += sqe.getCause() != null ? sqe.getCause() : sqe.getMessage();
-                MiscUtils.getLogger().error("Error", sqe);
-            } catch (IOException e) {
-                rsHtml = "Error: during creation of CSV : " + (e.getCause() != null ? e.getCause() : e.getMessage());
-                MiscUtils.getLogger().error("Error", e);
+                Object[] sqlParams = extractParams(parameterizedResult);
+                String[] result = executeQuery(sql, sqlParams, true);
+                request.setAttribute("csv-" + x, result[1]);
+                request.setAttribute("sql-" + x, sql);
+                request.setAttribute("resultsethtml-" + x, result[0]);
+                x++;
             }
-
-            request.setAttribute("csv-" + x, csv);
-            request.setAttribute("sql-" + x, sql);
-            request.setAttribute("resultsethtml-" + x, rsHtml);
-            x++;
+        } else {
+            MiscUtils.getLogger().warn("Report template {} uses legacy non-parameterized SQL path (sequenced)", templateId);
+            String sql = null;
+            while ((sql = curReport.getPreparedSQL(x, parameterMap)) != null) {
+                if (sql.isEmpty()) {
+                    request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
+                    request.setAttribute("templateid", templateId);
+                    return false;
+                }
+                String[] result = executeQuery(sql, null, true);
+                request.setAttribute("csv-" + x, result[1]);
+                request.setAttribute("sql-" + x, sql);
+                request.setAttribute("resultsethtml-" + x, result[0]);
+                x++;
+            }
         }
 
         request.setAttribute("sequenceLength", x);
         request.setAttribute("reportobject", curReport);
 
         return true;
+    }
+
+    /**
+     * Executes a SQL query and returns the HTML and CSV representations.
+     *
+     * @param sql         the SQL query to execute
+     * @param sqlParams   JDBC parameters (null to use the legacy non-parameterized path)
+     * @param showSqlOnEmpty if true, prefix the "no results" message with the SQL text
+     * @return {@code String[2]} where {@code [0]} is the HTML result and {@code [1]} is the CSV
+     */
+    private String[] executeQuery(String sql, Object[] sqlParams, boolean showSqlOnEmpty) {
+        String rsHtml = "An SQL query error has occured ";
+        String csv = "";
+        try (StringWriter swr = new StringWriter();
+             ResultSet rs = (sqlParams != null)
+                     ? DBHandler.GetPreSQL(sql, sqlParams)
+                     : DBHandler.GetSQL(sql)) {
+            if (!rs.isBeforeFirst()) {
+                rsHtml = showSqlOnEmpty
+                        ? (Encode.forHtml(sql) + "<br/>The query returned no results.")
+                        : "The query returned no results.";
+            } else {
+                rsHtml = RptResultStruct.getStructure2(rs);
+                CSVPrinter csvp = new CSVPrinter(swr, CSVFormat.DEFAULT);
+                String[][] data = UtilMisc.getArrayFromResultSet(rs);
+                for (String[] row : data) {
+                    csvp.printRecord((Object[]) row);
+                }
+                csvp.flush();
+                csv = swr.toString();
+            }
+        } catch (SQLException sqe) {
+            String detail = sqe.getCause() != null ? sqe.getCause().toString() : sqe.getMessage();
+            rsHtml += Encode.forHtml(detail);
+            MiscUtils.getLogger().error("Error", sqe);
+        } catch (IOException e) {
+            String detail = e.getCause() != null ? e.getCause().toString() : e.getMessage();
+            rsHtml = "Error: during creation of CSV : " + Encode.forHtml(detail);
+            MiscUtils.getLogger().error("Error", e);
+        }
+        return new String[]{rsHtml, csv};
+    }
+
+    /** Extracts parameter values from a parameterized SQL result array (index 1..n). */
+    private Object[] extractParams(String[] parameterizedResult) {
+        Object[] sqlParams = new Object[parameterizedResult.length - 1];
+        System.arraycopy(parameterizedResult, 1, sqlParams, 0, sqlParams.length);
+        return sqlParams;
     }
 
 }

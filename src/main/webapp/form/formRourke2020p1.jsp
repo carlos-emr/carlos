@@ -104,7 +104,7 @@
 
 <input type="hidden" name="demographic_no" value="<%= props.getProperty("demographic_no", "0") %>"/>
 <input type="hidden" name="ID" value="<%= props.getProperty("ID", "0") %>"/>
-<input type="hidden" name="provider_no" value=<%=request.getParameter("provNo")%>/>
+<input type="hidden" name="provider_no" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provNo"))) %>"/>
 <input type="hidden" name="formCreated" value="<%= props.getProperty("formCreated", "") %>"/>
 <input type="hidden" name="form_class" value="<%=formClass%>"/>
 <input type="hidden" name="form_link" value="<%=formLink%>"/>
@@ -201,12 +201,12 @@
                            value="<%= props.getProperty("c_headCirc", "") %>"/>
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgHeadCircUnit"/>
                     &nbsp;&nbsp; <a href="javascript:void(0)"
-                                    onclick="displayDemographicMeasurements('c_birthWeight', 'WT', '<%=demographic.getDemographicNo()%>', '<%=demographic.getFormattedDob()%>', '<%=appointmentNo%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBirthWt"/>:</a>
+                                    onclick="displayDemographicMeasurements('c_birthWeight', 'WT', '<%=demographic.getDemographicNo()%>', '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBirthWt"/>:</a>
                     <input type="text" ondblclick="wtEnglish2Metric(this);" name="c_birthWeight" id="c_birthWeight"
                            size="6" maxlength="7" value="<%= props.getProperty("c_birthWeight", "") %>"/>
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBirthWtUnit"/>
                     &nbsp;&nbsp; <a href="javascript:void(0)"
-                                    onclick="displayDemographicMeasurements('c_dischargeWeight', 'WT', '<%=demographic.getDemographicNo()%>', '<%=demographic.getFormattedDob()%>', '<%=appointmentNo%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgDischargeWt"/>:</a>
+                                    onclick="displayDemographicMeasurements('c_dischargeWeight', 'WT', '<%=demographic.getDemographicNo()%>', '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgDischargeWt"/>:</a>
                     <input type="text" ondblclick="wtEnglish2Metric(this);" name="c_dischargeWeight"
                            id="c_dischargeWeight" size="6" maxlength="7"
                            value="<%= props.getProperty("c_dischargeWeight", "") %>">
@@ -318,14 +318,14 @@
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p1_ht1w', 'HT', '<%=demographic.getDemographicNo()%>',
-                       '<%=demographic.getFormattedDob()%>', '<%=appointmentNo%>')">
+                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHt"/>
             </a>
         </td>
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p1_wt1w', 'WT', '<%=demographic.getDemographicNo()%>',
-                       '<%=demographic.getFormattedDob()%>', '<%=appointmentNo%>')">
+                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formWt"/>
             </a>
         </td>
@@ -333,14 +333,14 @@
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p1_ht2w', 'HT', '<%=demographic.getDemographicNo()%>',
-                       '<%=demographic.getFormattedDob()%>', '<%=appointmentNo%>')">
+                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHt"/>
             </a>
         </td>
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p1_wt2w', 'WT', '<%=demographic.getDemographicNo()%>',
-                       '<%=demographic.getFormattedDob()%>', '<%=appointmentNo%>')">
+                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formWt"/>
             </a>
         </td>
@@ -348,14 +348,14 @@
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p1_ht1m', 'HT', '<%=demographic.getDemographicNo()%>',
-                       '<%=demographic.getFormattedDob()%>', '<%=appointmentNo%>')">
+                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHt"/>
             </a>
         </td>
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p1_wt1m', 'WT', '<%=demographic.getDemographicNo()%>',
-                       '<%=demographic.getFormattedDob()%>', '<%=appointmentNo%>')">
+                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formWt"/>
             </a>
         </td>

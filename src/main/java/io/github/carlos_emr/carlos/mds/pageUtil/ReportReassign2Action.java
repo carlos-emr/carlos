@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class ReportReassign2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -109,7 +110,7 @@ public class ReportReassign2Action extends ActionSupport {
          * process.
          */
         String selectedProviders = request.getParameter("selectedProviders");
-        logger.info("selected providers to forward labs to " + selectedProviders);
+        logger.info("selected providers to forward labs to {}", LogSanitizer.sanitize(selectedProviders));
 
         if (selectedProviders != null && !selectedProviders.isEmpty()) {
             try {

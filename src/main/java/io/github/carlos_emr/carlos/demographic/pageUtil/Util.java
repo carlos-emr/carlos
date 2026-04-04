@@ -72,6 +72,7 @@ import io.github.carlos_emr.carlos.providers.data.ProviderData;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * @author Ronnie
@@ -198,7 +199,7 @@ public class Util {
         try {
             f = PathValidationUtils.validateExistingPath(f, baseDir);
         } catch (SecurityException e) {
-            logger.error("Error! Attempted path traversal attack detected for file: " + filename);
+            logger.error("Error! Attempted path traversal attack detected for file: {}", LogSanitizer.sanitize(filename));
             return false;
         }
 
@@ -266,7 +267,7 @@ public class Util {
             
             // If the filename is empty or null after sanitization, reject the request
             if (safeFileName == null || safeFileName.trim().isEmpty()) {
-                logger.error("Invalid filename provided: " + fileName);
+                logger.error("Invalid filename provided: {}", LogSanitizer.sanitize(fileName));
                 return;
             }
             
@@ -278,13 +279,13 @@ public class Util {
             try {
                 requestedFile = PathValidationUtils.validateExistingPath(requestedFile, documentDir);
             } catch (SecurityException e) {
-                logger.error("Path traversal attempt detected for file: " + fileName);
+                logger.error("Path traversal attempt detected for file: {}", LogSanitizer.sanitize(fileName));
                 return;
             }
 
             // Verify the file exists and is readable
             if (!requestedFile.exists() || !requestedFile.isFile() || !requestedFile.canRead()) {
-                logger.error("Error during file download: file does not exist or is not accessible - {}", fileName);
+                logger.error("Error during file download: file does not exist or is not accessible - {}", LogSanitizer.sanitize(fileName));
                 rsp.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
@@ -302,7 +303,7 @@ public class Util {
                 }
             }
         } catch (IOException ex) {
-            logger.error("Error during file download: {}", fileName, ex);
+            logger.error("Error during file download: {}", LogSanitizer.sanitize(fileName), ex);
         }
     }
     
@@ -882,7 +883,7 @@ public class Util {
         
         // Final validation - ensure no path traversal characters remain
         if (sanitized.contains("..") || sanitized.contains("/") || sanitized.contains("\\")) {
-            logger.error("Invalid filename after sanitization: " + fileName);
+            logger.error("Invalid filename after sanitization: {}", LogSanitizer.sanitize(fileName));
             return "";
         }
         

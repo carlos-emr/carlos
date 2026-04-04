@@ -66,6 +66,7 @@
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.WaitingListName" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <html>
@@ -221,10 +222,10 @@
                 type="hidden" name="listId"
                 value="<%=wl1.getListId()%>"/><input
                 type="hidden" name="demographicNo"
-                value="<%=request.getParameter("demographic_no")%>"/>
+                value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>"/>
             <script
                     LANGUAGE="JavaScript">
-                var removeList = confirm("Click OK to remove patient from the waiting list: <%=wln.getName()%>");
+                var removeList = confirm("Click OK to remove patient from the waiting list: <%=Encode.forJavaScript(wln.getName())%>");
                 if (removeList) {
                     document.forms[0].action = "<%= request.getContextPath() %>/waitinglist/RemoveFromWaitingList.jsp";
                     document.forms[0].submit();

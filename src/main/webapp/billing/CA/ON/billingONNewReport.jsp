@@ -477,7 +477,7 @@
             <% if (request.getParameter("providerview") != null) { %>
             <script>
                 changeSite(document.getElementById("site"));
-                document.getElementById("providerview").value = '<%=Encode.forJavaScript(request.getParameter("providerview"))%>';
+                document.getElementById("providerview").value = '<%=Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("providerview")))%>';
             </script>
             <% } // multisite end ==========================================
             } else {
