@@ -43,8 +43,4 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 <a href="javascript:reportWindow('${e:forHtml(contextPath)}/documentManager/inboxManage.do?method=getDocumentsInQueues',700,1100)" class="nav-link"><fmt:message key="inboxmanager.document.pendingDocs"/></a>
 <a href="javascript:reportWindow('${e:forHtml(contextPath)}/documentManager/incomingDocs.jsp',800,1200)" class="nav-link"><fmt:message key="inboxmanager.document.incomingDocs"/></a>
-
-<c:if test="${!CarlosProperties.getInstance().isBritishColumbiaBillingRegion()}">
-    <a href="javascript:reportWindow('${e:forHtml(contextPath)}/oscarMDS/CreateLab.jsp',800,1000)" class="nav-link"><fmt:message key="global.createLab" /></a>
-    <a href="javascript:reportWindow('${hospitalReportUrl}',400, 400)" class="nav-link">HRM Status/Upload</a>
-</c:if>
+<a href="javascript:reportWindow('${e:forHtml(contextPath)}/oscarMDS/CreateLab.jsp',800,1000)" class="nav-link"><fmt:message key="global.createLab" /></a>
