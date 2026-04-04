@@ -556,6 +556,23 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         }
     }
 
+    /**
+     * Listens for refresh requests from lab/HRM popup windows after acknowledge or sign-off.
+     *
+     * Popup windows cannot call fetchInboxhubData() directly via window.opener because
+     * Struts 7's CoopInterceptor sets Cross-Origin-Opener-Policy: same-origin on all .do
+     * responses, which nulls window.opener on popups opened from this page. BroadcastChannel
+     * provides reliable same-origin cross-window messaging that is unaffected by COOP.
+     *
+     * Senders: oscarMDSIndex.js updateStatus(), hrmActions.js doSignOff()
+     * Channel: 'inboxhub-refresh'
+     */
+    try {
+        new BroadcastChannel('inboxhub-refresh').onmessage = function() { fetchInboxhubData(); };
+    } catch (e) {
+        // BroadcastChannel unsupported — user must manually refresh the inbox
+    }
+
     function fetchInboxhubListData() {
         if (!hasMoreData || isFetchingData) { return; }
         isFetchingData = true; 

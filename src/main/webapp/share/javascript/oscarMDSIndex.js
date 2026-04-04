@@ -1920,6 +1920,15 @@ function updateStatus(formid) {//acknowledge
 							if (id === doclabid) break;
 						}
                     }
+                    // Notify the Inboxhub to refresh its data after acknowledge.
+                    // Struts 7's CoopInterceptor sets Cross-Origin-Opener-Policy: same-origin on .do responses,
+                    // which nulls window.opener on popups opened from Inboxhub. BroadcastChannel provides
+                    // reliable same-origin cross-window messaging that is unaffected by COOP.
+                    try {
+                        new BroadcastChannel('inboxhub-refresh').postMessage('refresh');
+                    } catch (e) {
+                        // BroadcastChannel unsupported — user must manually refresh the inbox
+                    }
                     window.close();
                 } else {
                     //Hide document
