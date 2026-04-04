@@ -145,7 +145,13 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
             String configuredTimezone = m.group(2);
             logger.warn("Configured timezone: " + configuredTimezone);
         } else {
-            url += (url.contains("?") ? "&" : "?") + "serverTimezone=" + TimeZone.getDefault().getID();
+            // Sanitize the timezone ID to only allow safe characters before appending it to
+            // the JDBC URL.  TimeZone.getDefault().getID() returns values like "America/Toronto"
+            // which contain only letters, digits, underscores, hyphens, and forward slashes.
+            // The replacement ensures that even an unusual JVM timezone setting cannot inject
+            // additional JDBC URL parameters.
+            String safeTimezoneId = TimeZone.getDefault().getID().replaceAll("[^a-zA-Z0-9/_.+-]", "");
+            url += (url.contains("?") ? "&" : "?") + "serverTimezone=" + safeTimezoneId;
         }
         super.setUrl(url);
     }

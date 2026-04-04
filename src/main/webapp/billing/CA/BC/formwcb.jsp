@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.WCBCodes" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.WcbHelper" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
@@ -443,7 +444,7 @@
         <input type="hidden" name="apptProvider_no"
                value="<%=form.getProviderNo()%>"/>
         <input type="hidden" name="bNewForm" value="1"/>
-        <input type="hidden" name="fromBilling" value="<%=fromBilling%>"/>
+        <input type="hidden" name="fromBilling" value="<%= Encode.forHtmlAttribute(fromBilling) %>"/>
         <input type="hidden" name="wcbFormId" id="wcbFormId"/>
 
         <%

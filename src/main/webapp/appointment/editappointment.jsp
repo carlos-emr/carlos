@@ -968,7 +968,7 @@
                     </td>
                     <td>
                 <input type="time" name="start_time" class="form-control"
-                               value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getStartTime()):request.getParameter("start_time")%>"
+                               value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getStartTime()):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))%>"
                                onChange="checkTimeTypeIn(this);updateTime();">
                     </td>
                 </tr>
@@ -1000,11 +1000,11 @@
                                 }
                             }
                         %> <input type="hidden" name="end_time"
-                                  value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getEndTime()):request.getParameter("end_time")%>"
+                                  value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getEndTime()):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("end_time")))%>"
                     >
 
 				<input type="number" name="duration" id="duration" class="form-control"
-                               value="<%=request.getParameter("duration")!=null?(request.getParameter("duration").equals(" ")||request.getParameter("duration").equals("")||request.getParameter("duration").equals("null")?(""+everyMin) :request.getParameter("duration")):(""+everyMin)%>"
+                               value="<%=request.getParameter("duration")!=null?(request.getParameter("duration").equals(" ")||request.getParameter("duration").equals("")||request.getParameter("duration").equals("null")?(""+everyMin) :Encode.forHtmlAttribute(request.getParameter("duration"))):(""+everyMin)%>"
                                onblur="calculateEndTime();">
                     </td>
                 </tr>
@@ -1017,7 +1017,7 @@
                             }
                         %>
                         <input type="hidden" name="orderby" value="last_name, first_name">
-                        <input type="hidden" name="search_mode" id="search_mode" value="<%=searchMode%>">
+                        <input type="hidden" name="search_mode" id="search_mode" value="<%= Encode.forHtmlAttribute(searchMode) %>">
                         <input type="hidden" name="originalpage"
                                value="<%=request.getContextPath() %>/appointment/editappointment.jsp">
                         <input type="hidden" name="limit1" value="0">
@@ -1210,9 +1210,9 @@
                         </select> <%
                     } else {
                         if (importedStatus == null || importedStatus.trim().equals("")) { %>
-              	<input type="text" class="form-control" name="status" value="<%=statusCode%>" > <%
+              	<input type="text" class="form-control" name="status" value="<%= Encode.forHtmlAttribute(statusCode) %>" > <%
                     } else { %>
-                <input type="text" class="form-control" name="status" value="<%=statusCode%>" >
+                <input type="text" class="form-control" name="status" value="<%= Encode.forHtmlAttribute(statusCode) %>" >
                 <input type="text"  class="form-control" TITLE="Imported Status" value="<%=importedStatus%>" readonly> <%
                             }
                         }
@@ -1263,7 +1263,7 @@
                     <td>
                 <input type="text" name="demographic_no" id="demographic_no" class="form-control"
                                ONFOCUS="onBlockFieldFocus(this)" readonly
-                               value="<%=bFirstDisp?( (appt.getDemographicNo())==0?"":(""+appt.getDemographicNo()) ):request.getParameter("demographic_no")%>">
+                               value="<%=bFirstDisp?( (appt.getDemographicNo())==0?"":(""+appt.getDemographicNo()) ):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))%>">
                     </td>
                 </tr>
                 <tr>
@@ -1272,7 +1272,7 @@
                     </td>
                     <td>
                 <input type="text" name="chart_no" class="form-control"
-                    readonly value="<%=bFirstDisp?StringUtils.trimToEmpty(chartno):request.getParameter("chart_no")%>"
+                    readonly value="<%=bFirstDisp?StringUtils.trimToEmpty(chartno):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("chart_no")))%>"
                         >
                     </td>
                 </tr>
@@ -1310,7 +1310,7 @@
                                 }
                             }
                         %>
-                <input type="text" readonly class="form-control" value="<%=lastCreatorNo%>" >
+                <input type="text" readonly class="form-control" value="<%= Encode.forHtmlAttribute(lastCreatorNo) %>" >
                     </td>
                 </tr>
                 <tr>

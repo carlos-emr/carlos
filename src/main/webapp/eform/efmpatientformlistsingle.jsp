@@ -32,6 +32,7 @@
 <%@page import="java.util.*,io.github.carlos_emr.carlos.eform.*" %>
 <%@page import="io.github.carlos_emr.carlos.web.eform.EfmPatientFormList" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String demographic_no = request.getParameter("demographic_no");
@@ -80,7 +81,7 @@
 					"order": [],
 					"bPaginate": false,
 					"language": {
-						"url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>.json"
+						"url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18n.datatablescode"/>.json"
 					}
 				});
 			});
@@ -124,7 +125,7 @@
             }
 
             function updateAjax() {
-                var parentAjaxId = "<%=parentAjaxId%>";
+                var parentAjaxId = "<%= Encode.forJavaScript(parentAjaxId) %>";
                 if (parentAjaxId != "null") {
                     window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
                     window.opener.updateNeeded = true;
@@ -160,9 +161,9 @@
                         <tr bgcolor=<%=deepColor%>>
                             <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.btnFormName"/></th>
                             <th><a
-                                    href="efmpatientformlistsingle.jsp?fdid=<%=fdid%>&demographic_no=<%=demographic_no%>&orderby=form_subject&parentAjaxId=<%=parentAjaxId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.btnSubject"/></a></th>
+                                    href="efmpatientformlistsingle.jsp?fdid=<%= Encode.forUriComponent(fdid) %>&demographic_no=<%= Encode.forUriComponent(demographic_no) %>&orderby=form_subject&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId) %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.btnSubject"/></a></th>
                             <th><a
-                                    href="efmpatientformlistsingle.jsp?fdid=<%=fdid%>&demographic_no=<%=demographic_no%>&parentAjaxId=<%=parentAjaxId%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.formDate"/></a></th>
+                                    href="efmpatientformlistsingle.jsp?fdid=<%= Encode.forUriComponent(fdid) %>&demographic_no=<%= Encode.forUriComponent(demographic_no) %>&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId) %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.formDate"/></a></th>
                             <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgAction"/></th>
                         </tr>
                         <%
@@ -175,7 +176,7 @@
                         <tr bgcolor="<%=((i % 2) == 1)?"#F2F2F2":"white"%>">
                             <td>
                                 <a href="#"
-                                   ONCLICK="popupPage('efmshowform_data.jsp?fdid=<%=curform.get("fdid")%>&appointment=<%=appointment%>', '<%="FormP" + i%>'); return false;"
+                                   ONCLICK="popupPage('efmshowform_data.jsp?fdid=<%=curform.get("fdid")%>&appointment=<%= Encode.forUriComponent(appointment) %>', '<%="FormP" + i%>'); return false;"
                                    TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgViewFrm"/>"
                                    onmouseover="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=curform.get("formName")%>
                                 </a>
@@ -187,9 +188,9 @@
                             <td align='center'>
                                 <form method="post" action="<%= request.getContextPath() %>/eform/removeEForm.do" style="display:inline;">
                                     <input type="hidden" name="fdid" value="<%=curform.get("fdid")%>"/>
-                                    <input type="hidden" name="demographic_no" value="<%=demographic_no%>"/>
+                                    <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                                     <input type="hidden" name="callpage" value="single"/>
-                                    <input type="hidden" name="parentAjaxId" value="<%=parentAjaxId%>"/>
+                                    <input type="hidden" name="parentAjaxId" value="<%= Encode.forHtmlAttribute(parentAjaxId) %>"/>
                                     <a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){this.closest('form').submit();}"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.btnDelete"/></a>
                                 </form>
                             </td>

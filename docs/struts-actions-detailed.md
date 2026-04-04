@@ -625,7 +625,6 @@ Clinical encounter management and workflow.
 | encounter/oscarMeasurements/TrackerUpdate | io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.FormUpdate2Action | Updates tracker forms |
 | encounter/RequestConsultation | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action | Requests consultations |
 | encounter/SaveEncounter2 | io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action | Saves clinical encounters |
-| encounter/SaveEncounter | io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action | Saves encounter data |
 | encounter/ShowAllInstitutions | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllInstitutions2Action | Shows all consultation institutions |
 | encounter/ShowAllServices | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllServices2Action | Shows all consultation services |
 | encounter/UpdateInstitutionDepartment | io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDisplayInstitution2Action | Updates institution departments |
@@ -796,9 +795,9 @@ Patient waiting list management.
 
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
-| oscarWaitingList/SetupDisplayPatientWaitingList | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action | Sets up patient waiting list display |
-| oscarWaitingList/SetupDisplayWaitingList | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action | Sets up waiting list display |
-| oscarWaitingList/WLEditWaitingListNameAction | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action | Edits waiting list names |
+| waitinglist/SetupDisplayPatientWaitingList | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action | Sets up patient waiting list display |
+| waitinglist/SetupDisplayWaitingList | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action | Sets up waiting list display |
+| waitinglist/WLEditWaitingListNameAction | io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action | Edits waiting list names |
 
 ## Page Monitoring Module
 

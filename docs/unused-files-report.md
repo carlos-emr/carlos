@@ -410,7 +410,7 @@ oscarReport/mis_report_results.jsp          # MIS report results
 oscarRx/InteractionDisplay2.jsp             # Drug interaction display
 oscarRx/displayInstructions.jsp             # Rx instructions display (SearchDrug3.jsp ref lacks .jsp and no struts mapping)
 oscarRx/search2.jsp                         # Rx search
-oscarWaitingList/EditWaitingList.jsp         # Waiting list editor (EditWaitingListName.jsp IS used — different file)
+waitinglist/EditWaitingList.jsp              # Waiting list editor (EditWaitingListName.jsp IS used — different file)
 provider/formALPHA.jsp                      # ALPHA form (not in encounterForm DB table)
 provider/formar1_99_08.jsp                  # AR1 form 1999-08 (not in encounterForm DB table)
 provider/formar1_99_08print.jsp             # AR1 form print

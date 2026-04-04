@@ -39,6 +39,7 @@ import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 /**
  * Parses xml file, creating DosingRecomendation Objects storing them in a hashtable with the ATC code as the key
@@ -72,7 +73,7 @@ public class RenalDosingFactory {
             InputStream is = rdf.getClass().getClassLoader().getResourceAsStream(dosing);
 
             try {
-                SAXBuilder parser = new SAXBuilder();
+                SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
                 Document doc = parser.build(is);
                 Element root = doc.getRootElement();
 

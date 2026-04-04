@@ -32,7 +32,6 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.commn.model.OscarMsgType;
 import io.github.carlos_emr.carlos.managers.MessagingManager;
 import io.github.carlos_emr.carlos.managers.MessengerDemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -49,9 +48,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.sql.Date;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -67,7 +64,6 @@ import java.util.Map;
  *   <li>Retrieves and displays complete message content with metadata</li>
  *   <li>Marks messages as read (except for sent items)</li>
  *   <li>Manages demographic-message associations</li>
- *   <li>Processes special message types (e.g., OSCAR_REVIEW_TYPE)</li>
  *   <li>Manages attachment indicators for regular and PDF attachments</li>
  * </ul>
  *
@@ -80,7 +76,6 @@ import java.util.Map;
  * @see MessagingManager
  * @see MessengerDemographicManager
  * @see MsgDisplayMessage
- * @see OscarMsgType
  */
 public class MsgViewMessage2Action extends ActionSupport {
     /**
@@ -181,9 +176,6 @@ public class MsgViewMessage2Action extends ActionSupport {
             return NONE;
         }
 
-        int messageType = msgDisplayMessage.getType();
-        String msgType_link = msgDisplayMessage.getTypeLink();
-
         // Get demographics already attached to this message
         Integer msgId = ConversionUtils.fromIntString(msgDisplayMessage.getMessageId());
         Map<Integer, String> attachedDemographics = (msgId > 0)
@@ -208,36 +200,6 @@ public class MsgViewMessage2Action extends ActionSupport {
 
         if (orderBy != null) {
             request.getSession().setAttribute("orderBy", orderBy);
-        }
-
-        // Store message type if present
-        if (messageType > 0) {
-            request.getSession().setAttribute("msgType", messageType + "");
-        }
-
-        // Process OSCAR review type messages with special link handling
-        if (messageType == OscarMsgType.OSCAR_REVIEW_TYPE && msgType_link != null) {
-            // Parse the type link into a structured format
-            HashMap<String, List<String>> hashMap = new HashMap<String, List<String>>();
-            String[] keyValues = msgType_link.split(",");
-
-            for (String s : keyValues) {
-                String[] keyValue = s.split(":");
-                if (keyValue.length == 4) {
-                    // Group related links by their primary key
-                    if (hashMap.containsKey(keyValue[0])) {
-                        hashMap.get(keyValue[0]).add(keyValue[1] + ":" + keyValue[2] + ":" + keyValue[3]);
-                    } else {
-                        List<String> list = new ArrayList<String>();
-                        list.add(keyValue[1] + ":" + keyValue[2] + ":" + keyValue[3]);
-                        hashMap.put(keyValue[0], list);
-                    }
-                } else {
-                    MiscUtils.getLogger().debug("Skipping malformed msgType_link segment (expected 4 colon-separated parts): " + s);
-                }
-            }
-
-            request.getSession().setAttribute("msgTypeLink", hashMap);
         }
 
         MiscUtils.getLogger().debug("viewMessagePosition: " + messagePosition + "IsLastMsg: " + request.getAttribute("viewMessageIsLastMsg"));

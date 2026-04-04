@@ -150,39 +150,6 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     /**
-     * Updates the provider's message-received notification preference.
-     *
-     * <p>Saves the {@code value} request parameter as the provider's
-     * {@link UserProperty#OSCAR_MSG_RECVD} property. The provider identity is
-     * derived from the current session to prevent one provider from modifying
-     * another's preferences.</p>
-     *
-     * @return {@code null} (no Struts result navigation)
-     * @throws SecurityException if no valid session is found
-     */
-    public String OscarMsgRecvd() {
-        // Derive provider identity from session to prevent one provider from modifying another's preferences
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
-            throw new SecurityException("No valid session found");
-        }
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-        String value = request.getParameter("value");
-        if (value != null) {
-            // OSCAR_MSG_RECVD expects "H:m" format (e.g., "9:0", "14:30")
-            if (value.matches("^\\d{1,2}:\\d{1,2}$")) {
-                userPropertyDAO.saveProp(providerNo, UserProperty.OSCAR_MSG_RECVD, value);
-            } else {
-                logger.warn("OscarMsgRecvd called with invalid value format: expected H:m");
-            }
-        } else {
-            logger.debug("OscarMsgRecvd called with null value parameter; no preference saved");
-        }
-
-        return null;
-    }
-
-    /**
      * Removes the stale-note-date and stale-format user properties for the logged-in provider.
      *
      * @return {@link #SUCCESS} after deletion, with {@code status} request attribute set to {@code "success"}
@@ -2744,7 +2711,6 @@ public class ProviderProperty2Action extends ActionSupport {
 
     @PostConstruct
     public void init() {
-        methodMap.put("OscarMsgRecvd", this::OscarMsgRecvd);
         methodMap.put("remove", this::remove);
         methodMap.put("save", this::save);
         methodMap.put("viewDefaultSex", this::viewDefaultSex);

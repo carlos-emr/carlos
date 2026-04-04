@@ -78,6 +78,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrectionPrep" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     GregorianCalendar now = new GregorianCalendar();
@@ -321,7 +322,7 @@
     <form name="serviceform" method="post"
           action=""
           onsubmit="return validateAllItems()"><input type="hidden"
-                                                      name="xml_billing_no" value="<%=billNo%>"/> <input type="hidden"
+                                                      name="xml_billing_no" value="<%= Encode.forHtmlAttribute(billNo) %>"/> <input type="hidden"
                                                                                                          name="update_date"
                                                                                                          value="<%=UpdateDate%>"/>
 

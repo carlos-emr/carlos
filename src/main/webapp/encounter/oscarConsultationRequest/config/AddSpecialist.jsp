@@ -384,10 +384,6 @@
                             thisForm.setEmail((String) request.getAttribute("email"));
                             thisForm.setSpecType((String) request.getAttribute("specType"));
                             thisForm.setSpecId((String) request.getAttribute("specId"));
-                            thisForm.seteDataUrl((String) request.getAttribute("eDataUrl"));
-                            thisForm.seteDataOscarKey((String) request.getAttribute("eDataOscarKey"));
-                            thisForm.seteDataServiceKey((String) request.getAttribute("eDataServiceKey"));
-                            thisForm.seteDataServiceName((String) request.getAttribute("eDataServiceName"));
                             thisForm.setAnnotation((String) request.getAttribute("annotation"));
                             thisForm.setReferralNo((String) request.getAttribute("referralNo"));
                             thisForm.setInstitution((String) request.getAttribute("institution"));
@@ -570,24 +566,6 @@
                         </div>
                     </div>
 
-                    <hr/>
-
-                    <div class="mb-2">
-                        <label for="eDataUrl" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.eDataUrl"/></label>
-                        <input type="text" name="eDataUrl" id="eDataUrl" class="form-control" value="<e:forHtmlAttribute value='${EctConAddSpecialistForm.eDataUrl}'/>"/>
-                    </div>
-                    <div class="mb-2">
-                        <label for="eDataOscarKey" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.eDataOscarKey"/></label>
-                        <input type="text" name="eDataOscarKey" id="eDataOscarKey" class="form-control" value="<e:forHtmlAttribute value='${EctConAddSpecialistForm.eDataOscarKey}'/>"/>
-                    </div>
-                    <div class="mb-2">
-                        <label for="eDataServiceKey" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.eDataServiceKey"/></label>
-                        <input type="text" name="eDataServiceKey" id="eDataServiceKey" class="form-control" value="<e:forHtmlAttribute value='${EctConAddSpecialistForm.eDataServiceKey}'/>"/>
-                    </div>
-                    <div class="mb-2">
-                        <label for="eDataServiceName" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.eDataServiceName"/></label>
-                        <input type="text" name="eDataServiceName" id="eDataServiceName" class="form-control" value="<e:forHtmlAttribute value='${EctConAddSpecialistForm.eDataServiceName}'/>"/>
-                    </div>
                     <div class="row mb-2">
                         <div class="col-md-3">
                             <label for="hideFromView" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.hideFromView"/></label>

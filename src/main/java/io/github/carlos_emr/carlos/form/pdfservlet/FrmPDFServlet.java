@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 import jakarta.servlet.ServletContext;
@@ -46,6 +47,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -71,6 +73,7 @@ import org.openpdf.text.pdf.PdfContentByte;
 import org.openpdf.text.pdf.PdfImportedPage;
 import org.openpdf.text.pdf.PdfReader;
 import org.openpdf.text.pdf.PdfWriter;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Servlet that generates PDF renditions of standard medical forms (Rourke growth charts,
@@ -341,13 +344,17 @@ public class FrmPDFServlet extends HttpServlet {
                 props.setProperty(temp.toString(), req.getParameter(temp.toString()));
             }
 
-            if (req.getParameter("postProcessor" + suffix) != null) {
-                String className = "io.github.carlos_emr.carlos.form.pdfservlet." + req.getParameter("postProcessor" + suffix);
-                try {
-                    FrmPDFPostValueProcessor pp = (FrmPDFPostValueProcessor) Class.forName(className).newInstance();
-                    props = pp.process(props);
-                } catch (Exception e) {
-                    log.warn("Post-processor {} could not be loaded or failed during execution - form rendered without post-processing", className, e);
+            String postProcessorName = req.getParameter("postProcessor" + suffix);
+            if (postProcessorName != null) {
+                Optional<FrmPDFPostValueProcessor> pp = PostProcessorRegistry.resolve(postProcessorName);
+                if (pp.isPresent()) {
+                    try {
+                        props = pp.get().process(props);
+                    } catch (Exception e) {
+                        log.warn("Post-processor {} failed during execution - form rendered without post-processing", Encode.forJava(postProcessorName), e);
+                    }
+                } else {
+                    log.warn("Post-processor '{}' is not on the allowlist and will not be applied", Encode.forJava(postProcessorName));
                 }
             }
 
@@ -461,11 +468,11 @@ public class FrmPDFServlet extends HttpServlet {
             int n;
             try {
                 reader = new PdfReader(propFilename);
-                log.info("Found template at " + propFilename);
+                log.info("Found template at {}", LogSanitizer.sanitize(propFilename));
             } catch (Exception dex) {
-                log.debug("change path to inside oscar from :" + propFilename);
+                log.debug("change path to inside oscar from: {}", LogSanitizer.sanitize(propFilename));
                 reader = new PdfReader("/oscar/form/prop/" + template);
-                log.debug("Found template at /oscar/form/prop/" + template);
+                log.debug("Found template at /oscar/form/prop/{}", LogSanitizer.sanitize(template));
             }
 
             // retrieve the total number of pages
@@ -860,7 +867,7 @@ public class FrmPDFServlet extends HttpServlet {
         // Step 1: Extract just the filename, removing any directory paths
         String baseFilename = org.apache.commons.io.FilenameUtils.getName(cfgFilename);
         if (baseFilename == null || baseFilename.isEmpty()) {
-            log.warn("Invalid config filename after sanitization: " + cfgFilename);
+            log.warn("Invalid config filename after sanitization: {}", LogSanitizer.sanitize(cfgFilename));
             return ret;
         }
         

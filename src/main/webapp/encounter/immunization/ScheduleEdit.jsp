@@ -47,6 +47,7 @@
 <%@ page
         import="io.github.carlos_emr.carlos.encounter.immunization.data.EctImmImmunizationData" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
@@ -233,7 +234,7 @@
         }
 
         function saveClose() {
-            var node = '<%= node %>';
+            var node = '<%= Encode.forJavaScript(node) %>';
             var frm = document.forms[0];
             var vGivenDate = '';
             var vRefusedDate = '';

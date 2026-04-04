@@ -226,15 +226,15 @@
 
     <body bgcolor="#EEEEFF" onload="document.forms[0].note.focus();">
     <form action="annotation.jsp" method="post">
-        <input type="hidden" name="atbname" value="<%=attrib_name%>"/>
-        <input type="hidden" name="demo" value="<%=demo%>"/>
-        <input type="hidden" name="display" value="<%=display%>"/>
-        <input type="hidden" name="table_id" value="<%=tid%>"/>
-        <input type="hidden" name="other_id" value="<%=oid%>"/>
+        <input type="hidden" name="atbname" value="<%= Encode.forHtmlAttribute(attrib_name) %>"/>
+        <input type="hidden" name="demo" value="<%= Encode.forHtmlAttribute(demo) %>"/>
+        <input type="hidden" name="display" value="<%= Encode.forHtmlAttribute(display) %>"/>
+        <input type="hidden" name="table_id" value="<%= Encode.forHtmlAttribute(tid) %>"/>
+        <input type="hidden" name="other_id" value="<%= Encode.forHtmlAttribute(oid) %>"/>
         <input type="hidden" name="saved"/>
         <div class="header"></div>
         <div class="card">
-            <%=display%> Annotation:
+            <%=Encode.forHtml(display)%> Annotation:
             <%if (lastCmn != null) {%>
             <div class="label">Documentation Date: <%=lastCmn.getCreate_date()%>
             </div>
@@ -248,11 +248,11 @@
             <p>&nbsp;</p>
             <p>
                 Extra data from Import:<br>
-                <textarea rows="10" name="dump" readonly="readonly"><%=dump%></textarea>
+                <textarea rows="10" name="dump" readonly="readonly"><%=Encode.forHtml(dump)%></textarea>
             </p>
             <% if (rev > 0) { %>
             <div class="revision" style="float: right;">
-                rev<a href="#" onclick="showHistory('<%=uuid%>','<%=display%>');"><%=rev%>
+                rev<a href="#" onclick="showHistory('<%=uuid%>','<%= Encode.forJavaScriptAttribute(display) %>');"><%=rev%>
             </a>
             </div>
             <% } %>

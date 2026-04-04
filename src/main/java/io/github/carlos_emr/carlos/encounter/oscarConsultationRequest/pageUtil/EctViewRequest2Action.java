@@ -31,10 +31,8 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 
@@ -44,22 +42,14 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
-import org.apache.xml.security.exceptions.Base64DecodingException;
-import org.apache.xml.security.utils.Base64;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao;
-import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
-import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.DataTypeUtils;
-import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OscarToOscarUtils;
-import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.RefI12;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt.DemographicProperty;
-import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
-import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ConsultationRequestExtKey;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
@@ -68,12 +58,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-import ca.uhn.hl7v2.HL7Exception;
-import ca.uhn.hl7v2.model.v26.message.REF_I12;
-import ca.uhn.hl7v2.model.v26.segment.PID;
-import ca.uhn.hl7v2.model.v26.segment.PRD;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -269,78 +253,6 @@ public class EctViewRequest2Action extends ActionSupport {
         thisForm.setFdid(consultUtil.fdid);
 
     }
-
-    public static void fillFormValues(EctConsultationFormRequest2Form thisForm, String segmentId) throws HL7Exception, UnsupportedEncodingException, Base64DecodingException {
-        Hl7TextMessageDao hl7TextMessageDao = (Hl7TextMessageDao) SpringUtils.getBean(Hl7TextMessageDao.class);
-        Hl7TextMessage hl7TextMessage = hl7TextMessageDao.find(Integer.parseInt(segmentId));
-
-        String encodedMessage = hl7TextMessage.getBase64EncodedeMessage();
-        byte[] decodedMessage = Base64.decode(encodedMessage);
-        String decodedMessageString = new String(decodedMessage, MiscUtils.DEFAULT_UTF8_ENCODING);
-
-        REF_I12 refI12 = (REF_I12) OscarToOscarUtils.pipeParserParse(decodedMessageString);
-
-        thisForm.setHl7TextMessageId(hl7TextMessage.getId());
-
-        thisForm.setAllergies(RefI12.getNteValue(refI12, RefI12.REF_NTE_TYPE.ALLERGIES));
-        thisForm.setReasonForConsultation(RefI12.getNteValue(refI12, RefI12.REF_NTE_TYPE.REASON_FOR_CONSULTATION));
-        thisForm.setClinicalInformation(RefI12.getNteValue(refI12, RefI12.REF_NTE_TYPE.CLINICAL_INFORMATION));
-        thisForm.setCurrentMedications(RefI12.getNteValue(refI12, RefI12.REF_NTE_TYPE.CURRENT_MEDICATIONS));
-
-        GregorianCalendar referralDate = DataTypeUtils.getCalendarFromDTM(refI12.getRF1().getEffectiveDate());
-        thisForm.setReferalDate(DateFormatUtils.ISO_DATE_FORMAT.format(referralDate));
-
-        thisForm.setConcurrentProblems(RefI12.getNteValue(refI12, RefI12.REF_NTE_TYPE.CONCURRENT_PROBLEMS));
-
-        // spoecifically told that this field should not be sent electronically (so it shouldn't be received either).
-        // thisForm.setAppointmentNotes(RefI12.getNteValue(refI12, RefI12.REF_NTE_TYPE.APPOINTMENT_NOTES));
-
-        //---
-
-
-        PID pid = refI12.getPID();
-        Demographic demographic = DataTypeUtils.parsePid(pid);
-
-        StringBuilder address = new StringBuilder();
-        if (demographic.getAddress() != null) address.append(Encode.forHtml(demographic.getAddress())).append("<br />");
-        if (demographic.getCity() != null) address.append(Encode.forHtml(demographic.getCity())).append(", ");
-        if (demographic.getProvince() != null) address.append(Encode.forHtml(demographic.getProvince()));
-        if (demographic.getPostal() != null) address.append("<br />").append(Encode.forHtml(demographic.getPostal()));
-        thisForm.setPatientAddress(address.toString());
-
-        if (demographic.getBirthDay() != null) {
-            thisForm.setPatientDOB(DateFormatUtils.ISO_DATE_FORMAT.format(demographic.getBirthDay()));
-            String ageString = UtilDateUtilities.calcAgeAtDate(demographic.getBirthDay().getTime(), new Date());
-            thisForm.setPatientAge(ageString);
-        }
-
-        thisForm.setPatientHealthNum(demographic.getHin());
-        thisForm.setPatientHealthCardType(demographic.getHcType());
-        thisForm.setPatientHealthCardVersionCode(demographic.getVer());
-
-        thisForm.setPatientFirstName(demographic.getFirstName());
-        thisForm.setPatientLastName(demographic.getLastName());
-        thisForm.setPatientPhone(demographic.getPhone());
-        thisForm.setPatientSex(demographic.getSex());
-//        thisForm.setPatientWPhone(patientAddress);
-        thisForm.setPatientEmail(demographic.getEmail());
-
-        // referring providers
-        PRD referringPrd = RefI12.getPrdByRoleId(refI12, "RP");
-        Provider provider = DataTypeUtils.parsePrdAsProvider(referringPrd);
-        thisForm.setProviderName(provider.getLastName() + ", " + provider.getFirstName());
-
-        thisForm.seteReferral(true);
-
-        // referredTo specialist
-        PRD referredToPrd = RefI12.getPrdByRoleId(refI12, "RT");
-        ProfessionalSpecialist professionalSpecialist = DataTypeUtils.parsePrdAsProfessionalSpecialist(referredToPrd);
-        thisForm.setProfessionalSpecialistName(professionalSpecialist.getLastName() + ", " + professionalSpecialist.getFirstName());
-        thisForm.setProfessionalSpecialistAddress(professionalSpecialist.getStreetAddress());
-        thisForm.setProfessionalSpecialistPhone(professionalSpecialist.getPhoneNumber());
-
-    }
-
 
     private static void checkPrivilege(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", null)) {

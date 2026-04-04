@@ -54,6 +54,7 @@ import io.github.carlos_emr.OscarDocumentCreator;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Struts2 action for generating and printing patient demographic chart labels in PDF format.
@@ -185,7 +186,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
         }
 
         if (labelFile == null) {
-            logger.warn("requested invalid label : " + request.getParameter("labelName"));
+            logger.warn("requested invalid label : {}", LogSanitizer.sanitize(request.getParameter("labelName")));
             return SUCCESS;
         }
 

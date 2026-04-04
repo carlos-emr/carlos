@@ -417,9 +417,9 @@
                     <input type="hidden" name="numType" value="<%=measurements.length%>"/>
                     <input type="hidden" name="groupName" value=""/>
                     <input type="hidden" name="css" value=""/>
-                    <input type="hidden" name="demographicNo" value="<%=demographic_no%>"/>
+                    <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
                     <input type="hidden" name="inputFrom" value="AddMeasurementData"/>
-                    <input type="hidden" name="template" value="<%=temp%>"/>
+                    <input type="hidden" name="template" value="<%= Encode.forHtmlAttribute(temp) %>"/>
 
                     <%
                         int ctr = 0;
@@ -448,7 +448,7 @@
                     %>
 
 
-                    <input type="hidden" name="measurement" value="<%=measurement%>"/>
+                    <input type="hidden" name="measurement" value="<%= Encode.forHtmlAttribute(measurement) %>"/>
 
                     <input type="hidden" name="<%= "inputType-" + ctr %>" value="<%=mtypeBean.getType()%>"/>
                     <input type="hidden" name="<%= "inputTypeDisplayName-" + ctr %>"
@@ -457,8 +457,8 @@
                            value="<%=mtypeBean.getValidation()%>"/>
 
                     <% if (id != null) { %>
-                    <input type="hidden" name="id" value="<%=id%>"/>
-                    <input type="hidden" name="deleteCheckbox" id="deleteCheck" value="<%=id%>"/>
+                    <input type="hidden" name="id" value="<%= Encode.forHtmlAttribute(id) %>"/>
+                    <input type="hidden" name="deleteCheckbox" id="deleteCheck" value="<%= Encode.forHtmlAttribute(id) %>"/>
                     <% } %>
 
                     <div class="prevention">

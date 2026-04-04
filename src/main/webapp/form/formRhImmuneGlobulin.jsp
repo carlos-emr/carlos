@@ -136,6 +136,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -264,7 +265,7 @@
             <input type="hidden" name="form_link" value="<%=formLink%>"/>
             <input type="hidden" name="formId" value="<%=formId%>"/>
             <input type="hidden" name="submit" value="exit"/>
-            <input type="hidden" name="demographic_no" value="<%=demographicNo%>"/>
+            <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
 
             <%if (h != null) { %>
             <input type="hidden" name="workflowId" value="<%=h.get("ID")%>"/>
@@ -579,7 +580,7 @@
         <input type="submit" value="Save"/> <%
                 if ( h != null && h.get("ID") != null){ %> <input
             type="button"
-            onClick="javascript: popup(700,600,'addRhInjection.jsp?demographic_no=<%=demographicNo%>&amp;workflowId=<%=h.get("ID")%>&amp;formId=<%=formId%>','addInjection');"
+            onClick="javascript: popup(700,600,'addRhInjection.jsp?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicNo))%>&amp;workflowId=<%=Encode.forJavaScriptAttribute(String.valueOf(h.get("ID")))%>&amp;formId=<%=Encode.forJavaScriptAttribute(String.valueOf(formId))%>','addInjection');"
             value="Add Injection"/> <%-- a style="color:blue; " href="javascript: function myFunction() {return false; }" onClick="popup(700,600,'addRhInjection.jsp?demographic_no=<%=demographicNo%>&amp;workflowId=<%=h.get("ID")%>&amp;formId=<%=formId%>','addInjection')">Add Injection</a --%>
                 <%}%>
         </form>
@@ -590,7 +591,7 @@
                 method="post" target="_blank">
 
         <input type="hidden" name="id" id="deleteId"/>
-        <input type="hidden" name="demographic_no" value="<%=demographicNo%>"/>
+        <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
 
         <input type="hidden" name="delete" value="delete"/>
         </form>
@@ -622,7 +623,7 @@
                 //console.log("calling get renal dosing information");
                 var url = "<%= request.getContextPath() %>/form/RhInjectionDisplay.jsp";
                 var ran_number = Math.round(Math.random() * 1000000);
-                var params = "demographicNo=<%=demographicNo%>&id=<%=h.get("ID")%>&date=<%=(Date) h.get("completion_date")%>&rand=" + ran_number;  //hack to get around ie caching the page
+                var params = "demographicNo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicNo))%>&id=<%=Encode.forJavaScript(String.valueOf(h.get("ID")))%>&date=<%=Encode.forJavaScript(String.valueOf((Date) h.get("completion_date")))%>&rand=" + ran_number;  //hack to get around ie caching the page
                 //console.log("params" + params);
                 CarlosAjax.updater('injectionInfo', url, {method: 'get', parameters: params});
                 //alert(origRequest.responseText);

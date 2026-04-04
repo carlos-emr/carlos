@@ -260,6 +260,9 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
 
     @Override
     public List GetCodeFieldValues(LookupTableDefValue tableDef, String code) {
+        // tableName and field SQL come from LookupTableDef/FieldDefValue database config,
+        // not from direct user input, so second-order injection risk is low.  The user-supplied
+        // code value is parameterized below.
         String tableName = tableDef.getTableName();
         List fs = LoadFieldDefList(tableDef.getTableId());
         String idFieldName = "";
@@ -276,10 +279,12 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
             }
         }
         sql += " from " + tableName + " s";
-        sql += " where " + idFieldName + "='" + code + "'";
+        // Use a parameterized placeholder for the code value to prevent SQL injection.
+        sql += " where " + idFieldName + "=?";
         DBPreparedHandler db = new DBPreparedHandler();
         try {
-            ResultSet rs = db.queryResults(sql);
+            DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[]{ new DBPreparedHandlerParam(code) };
+            ResultSet rs = db.queryResults(sql, params);
             if (rs.next()) {
                 for (int i = 0; i < fs.size(); i++) {
                     FieldDefValue fdv = (FieldDefValue) fs.get(i);
@@ -724,27 +729,47 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
 
     @Override
     public int getCountOfActiveClient(String orgCd) throws SQLException {
-        String sql = "select count(*) from admission where admission_status='" + KeyConstants.INTAKE_STATUS_ADMITTED
-                + "' and  'P' || program_id in (" + " select code from lst_orgcd  where codecsv like '%' || '" + orgCd
-                + ",' || '%')";
-        String sql1 = "select count(*) from program_queue where  'P' || program_id in ("
-                + " select code from lst_orgcd  where codecsv like '%' || '" + orgCd + ",' || '%')";
+        // Parameterized queries eliminate the SQL injection risk from orgCd.
+        // CONCAT() is the correct MySQL/MariaDB string concatenation function;
+        // the original code used '||' which is Oracle-style and acts as logical OR in MySQL.
+        String sql = "select count(*) from admission where admission_status=? and CONCAT('P', program_id) in ("
+                + " select code from lst_orgcd where codecsv like ?)";
+        String sql1 = "select count(*) from program_queue where CONCAT('P', program_id) in ("
+                + " select code from lst_orgcd where codecsv like ?)";
+
+        // Escape LIKE special characters in orgCd to prevent unexpected wildcard expansion.
+        String escapedOrgCd = orgCd.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        String likePattern = "%" + escapedOrgCd + ",%";
+        DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[]{
+            new DBPreparedHandlerParam(KeyConstants.INTAKE_STATUS_ADMITTED),
+            new DBPreparedHandlerParam(likePattern)
+        };
+        DBPreparedHandlerParam[] params1 = new DBPreparedHandlerParam[]{
+            new DBPreparedHandlerParam(likePattern)
+        };
 
         DBPreparedHandler db = new DBPreparedHandler();
 
-        ResultSet rs = db.queryResults(sql);
-        int id = 0;
-        if (rs.next())
-            id = rs.getInt(1);
-        if (id > 0)
-            return id;
+        ResultSet rs = db.queryResults(sql, params);
+        try {
+            int id = 0;
+            if (rs.next())
+                id = rs.getInt(1);
+            if (id > 0)
+                return id;
+        } finally {
+            rs.close();
+        }
 
-        rs.close();
-        rs = db.queryResults(sql1);
-        if (rs.next())
-            id = rs.getInt(1);
-        rs.close();
-        return id;
+        rs = db.queryResults(sql1, params1);
+        try {
+            int id = 0;
+            if (rs.next())
+                id = rs.getInt(1);
+            return id;
+        } finally {
+            rs.close();
+        }
     }
 
     @Override

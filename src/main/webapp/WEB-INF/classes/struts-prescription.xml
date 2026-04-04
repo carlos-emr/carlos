@@ -66,9 +66,8 @@
         <action name="oscarRx/addFavoriteStaticScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action">
             <result name="success">/oscarRx/StaticScript2.jsp</result>
         </action>
-        <action name="oscarRx/addFavoriteViewScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action">
-            <result name="success">/oscarRx/ViewScript2.jsp</result>
-        </action>
+
+
         <action name="oscarRx/addFavoriteWriteScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action">
             <result name="success">/oscarRx/WriteScript.jsp</result>
         </action>

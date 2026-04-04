@@ -87,6 +87,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
@@ -362,9 +363,9 @@
 
             function setup() {
 
-                var parentId = "<%=parentAjaxId%>";
+                var parentId = "<%=Encode.forJavaScript(parentAjaxId)%>";
                 var Url = window.opener.URLs;
-                var update = "<%=updateParent%>";
+                var update = "<%=Encode.forJavaScript(updateParent)%>";
 
                 if (update == "true" && parentId != "" && !window.opener.closed) {
                     window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentId;
@@ -373,19 +374,6 @@
                     window.opener.location.reload();
             }
 
-
-            function generateRenalLabReq(demographicNo) {
-                var url = '<%=request.getContextPath()%>/form/formlabreq<%=labReqVer%>.jsp?demographic_no=' + demographicNo + '&formId=0&provNo=<%=session.getAttribute("user")%>&fromSession=true';
-                jQuery.ajax({
-                    type: 'POST',
-                    url: '<%=request.getContextPath()%>/renal/Renal.do',
-                    data: {method: 'createLabReq', demographicNo: demographicNo},
-                    async: false,
-                    success: function (data) {
-                        popupPage(900, 850, url);
-                    }
-                });
-            }
 
             function reportWindow(page) {
                 windowprops = "height=660, width=960, location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
@@ -769,22 +757,22 @@
                 </td>
                 <td width="30%">
                     <div align="center"><input type="text" name="xml_vdate"
-                                               value="<%=xml_vdate%>"> <font size="1"
+                                               value="<%= Encode.forHtmlAttribute(xml_vdate) %>"> <font size="1"
                                                                              face="Arial, Helvetica, sans-serif"> <a
                             href="#"
                             onClick="openBrWindow('<%= request.getContextPath() %>/billing/billingCalendarPopup.jsp?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerDemoMain.btnBegin"/>:</a></font></div>
                 </td>
                 <td width="30%"><input type="text" name="xml_appointment_date"
-                                       value="<%=xml_appointment_date%>"> <font size="1"
+                                       value="<%= Encode.forHtmlAttribute(xml_appointment_date) %>"> <font size="1"
                                                                                 face="Arial, Helvetica, sans-serif"><a
                         href="#"
                         onClick="openBrWindow('<%= request.getContextPath() %>/billing/billingCalendarPopup.jsp?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerDemoMain.btnEnd"/>:</a></font></td>
                 <td width="20%">
                     <div align="right"><input type="hidden" name="demoview"
-                                              value="<%=demoview%>"> <input type="hidden" name="Submit"
+                                              value="<%= Encode.forHtmlAttribute(demoview) %>"> <input type="hidden" name="Submit"
                                                                             value=""> <input type="hidden"
                                                                                              name="parentAjaxId"
-                                                                                             value="<%=parentAjaxId%>">
+                                                                                             value="<%=Encode.forHtmlAttribute(parentAjaxId)%>">
                         <input type="submit"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerDemoMain.btnCreateReport"/>"
                                class="mbttn"
@@ -799,8 +787,8 @@
         <table bgcolor=#666699 border=0 cellspacing=0 width=100%>
 
             <tr>
-                <td><input type="hidden" name="demoview" value="<%=demoview%>">
-                    <input type="hidden" name="parentAjaxId" value="<%=parentAjaxId%>">
+                <td><input type="hidden" name="demoview" value="<%= Encode.forHtmlAttribute(demoview) %>">
+                    <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>">
                     <input type="hidden" name="updateParent" value="true">
                     <table border="0" cellpadding="0" cellspacing="0" width="100%">
                         <TR bgcolor=#666699>
@@ -1033,7 +1021,7 @@
                                     href="javascript:ClearAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerDemoMain.btnClearAll"/></a> &nbsp; &nbsp; &nbsp;
                                 &nbsp; &nbsp; <input type="button" name="button"
                                                      value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerDemoMain.btnAddTickler"/>"
-                                                     onClick="popupPage('400','600', 'ticklerAdd.jsp?updateParent=true&parentAjaxId=<%=parentAjaxId%>&bFirstDisp=false&messageID=null&demographic_no=<%=d.getDemographicNo()%>&chart_no=<%=d.getChartNo()%>&name=<%=d.getDisplayName()%>')"
+                                                     onClick="popupPage('400','600', 'ticklerAdd.jsp?updateParent=true&parentAjaxId=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(parentAjaxId))%>&bFirstDisp=false&messageID=null&demographic_no=<%=Encode.forJavaScriptAttribute(String.valueOf(d.getDemographicNo()))%>&chart_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(d.getChartNo()))%>&name=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(d.getDisplayName()))%>')"
                                                      class="sbttn"> <input type="hidden" name="submit_form"
                                                                            value=""> <% if (ticklerview.compareTo("D") == 0) {%>
                                 <input

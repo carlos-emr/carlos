@@ -91,7 +91,6 @@
             <result name="failed">/documentManager/addedithtmldocument.jsp</result>
         </action>
         <action name="documentManager/ManageDocument" class="io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action">
-            <result name="success">/documentManager/undocument.jsp</result>
             <result name="displaySingleDoc">/documentManager/MultiPageDocDisplay.jsp</result>
             <result name="nextIncomingDoc">/documentManager/incomingDocs.jsp</result>
             <result name="error">/failure.jsp</result>
