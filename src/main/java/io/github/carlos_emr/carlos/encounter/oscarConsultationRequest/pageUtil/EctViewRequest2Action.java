@@ -31,10 +31,8 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 
@@ -44,19 +42,14 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
-import org.apache.xml.security.exceptions.Base64DecodingException;
-import org.apache.xml.security.utils.Base64;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao;
-import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt.DemographicProperty;
-import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
-import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ConsultationRequestExtKey;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
@@ -65,12 +58,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-import ca.uhn.hl7v2.HL7Exception;
-import ca.uhn.hl7v2.model.v26.message.REF_I12;
-import ca.uhn.hl7v2.model.v26.segment.PID;
-import ca.uhn.hl7v2.model.v26.segment.PRD;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

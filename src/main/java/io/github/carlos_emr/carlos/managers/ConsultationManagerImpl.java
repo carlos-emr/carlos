@@ -35,10 +35,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.SignatureException;
-import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -47,10 +43,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -72,7 +64,6 @@ import io.github.carlos_emr.carlos.commn.dao.DocumentDao.Module;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
-import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
@@ -88,7 +79,6 @@ import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EReferAttachment;
 import io.github.carlos_emr.carlos.commn.model.EReferAttachmentData;
-import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -107,20 +97,11 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.OtnEconsult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import ca.uhn.hl7v2.HL7Exception;
-import ca.uhn.hl7v2.model.v26.message.ORU_R01;
-import ca.uhn.hl7v2.model.v26.message.REF_I12;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
-import io.github.carlos_emr.carlos.documentManager.EDoc;
-import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationPDFCreator;
-import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
-import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
-import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
-
 /**
  * Spring-managed implementation of the {@link ConsultationManager} interface.
  *

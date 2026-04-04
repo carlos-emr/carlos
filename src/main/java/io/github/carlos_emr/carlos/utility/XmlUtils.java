@@ -45,7 +45,6 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.Logger;
-import org.jdom2.JDOMException;
 import org.jdom2.input.SAXBuilder;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -58,6 +57,15 @@ import org.w3c.dom.ls.LSOutput;
 import org.w3c.dom.ls.LSSerializer;
 import org.xml.sax.SAXException;
 
+/**
+ * Static utility methods for XML parsing, serialization, and DOM manipulation.
+ *
+ * <p>Provides secure XML parser construction via {@link #createSecureSAXBuilder()},
+ * DOM document building, node-to-string conversion, and element helper methods
+ * used across CARLOS EMR for clinical data exchange (HL7, FHIR, e-forms).</p>
+ *
+ * @since 2012-01-12
+ */
 public final class XmlUtils {
     private static Logger logger = MiscUtils.getLogger();
 
@@ -81,22 +89,15 @@ public final class XmlUtils {
      * codebase to ensure consistent XML parser hardening in CARLOS EMR.</p>
      *
      * @return SAXBuilder with XXE protection features enabled
-     * @throws IllegalStateException if the underlying parser does not support the required
-     *         security features
      * @since 2026-04-02
      */
     public static SAXBuilder createSecureSAXBuilder() {
         SAXBuilder parser = new SAXBuilder();
-        try {
-            parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            parser.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            parser.setExpandEntities(false);
-        } catch (JDOMException e) {
-            logger.error("Failed to configure secure SAXBuilder — underlying XML parser does not support required security features", e);
-            throw new IllegalStateException("Unable to create secure SAXBuilder: parser does not support required XXE protection features", e);
-        }
+        parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        parser.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        parser.setExpandEntities(false);
         return parser;
     }
 
