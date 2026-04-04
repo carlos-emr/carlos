@@ -184,7 +184,9 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
             // Use the pre-validated safe HQL property from the allowlist map, not the raw user input
             String safeOrderColumn = ORDER_COLUMN_HQL.get(orderColumn);
             String safeOrderDirection = orderDirection.equalsIgnoreCase("ASC") ? "ASC" : "DESC";
-            sql = sql + " ORDER BY " + safeOrderColumn + " " + safeOrderDirection;
+            if (safeOrderColumn != null) {
+                sql = sql + " ORDER BY " + safeOrderColumn + " " + safeOrderDirection;
+            }
         }
 
 
@@ -247,7 +249,9 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
             // Use the pre-validated safe HQL property from the allowlist map, not the raw user input
             String safeOrderColumn = ORDER_COLUMN_HQL.get(orderColumn);
             String safeOrderDirection = orderDirection.equalsIgnoreCase("ASC") ? "ASC" : "DESC";
-            sql = sql + " ORDER BY " + safeOrderColumn + " " + safeOrderDirection;
+            if (safeOrderColumn != null) {
+                sql = sql + " ORDER BY " + safeOrderColumn + " " + safeOrderDirection;
+            }
         }
 
 

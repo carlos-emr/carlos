@@ -734,7 +734,10 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         String sql1 = "select count(*) from program_queue where  'P' || program_id in ("
                 + " select code from lst_orgcd  where codecsv like ?)";
 
-        String likePattern = "%" + orgCd + ",%";
+        // Escape any LIKE special characters in orgCd before embedding it in the pattern.
+        // This prevents unexpected wildcard expansion if orgCd itself contains '%' or '_'.
+        String escapedOrgCd = orgCd.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        String likePattern = "%" + escapedOrgCd + ",%";
         DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[]{
             new DBPreparedHandlerParam(KeyConstants.INTAKE_STATUS_ADMITTED),
             new DBPreparedHandlerParam(likePattern)

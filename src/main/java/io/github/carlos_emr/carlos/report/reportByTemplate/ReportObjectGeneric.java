@@ -243,8 +243,10 @@ public class ReportObjectGeneric implements ReportObject {
             int replEnd   = hasTrailingQuote ? cursor2 + 2 : cursor2 + 1;
 
             if (substValues.length == 0) {
-                // Checkboxes with no selection – replace with empty string placeholder
-                sql = sql.substring(0, replStart) + "''" + sql.substring(replEnd);
+                // Checkboxes with no selection – use a parameterized ? with an empty string
+                // for consistency (avoids injecting literal '' into the SQL text)
+                sql = sql.substring(0, replStart) + "?" + sql.substring(replEnd);
+                params.add("");
             } else if (substValues.length == 1) {
                 sql = sql.substring(0, replStart) + "?" + sql.substring(replEnd);
                 params.add(substValues[0]);
@@ -315,7 +317,9 @@ public class ReportObjectGeneric implements ReportObject {
             int replEnd   = hasTrailingQuote ? cursor2 + 2 : cursor2 + 1;
 
             if (substValues.length == 0) {
-                sql = sql.substring(0, replStart) + "''" + sql.substring(replEnd);
+                // Checkboxes with no selection – use a parameterized ? with an empty string
+                sql = sql.substring(0, replStart) + "?" + sql.substring(replEnd);
+                params.add("");
             } else if (substValues.length == 1) {
                 sql = sql.substring(0, replStart) + "?" + sql.substring(replEnd);
                 params.add(substValues[0]);
