@@ -897,7 +897,7 @@
                                         %>
                                     </select></td>
                                     <td nowrap width="30%" align="center"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.hospitalBilling.frmAssgnPhysician"/></b></td>
-                                    <td width="20%"><%=providerBean.getProperty(assgProvider_no, "")%>
+                                    <td width="20%"><%= Encode.forHtml(providerBean.getProperty(assgProvider_no, "")) %>
                                     </td>
                                 </tr>
                                 <tr>

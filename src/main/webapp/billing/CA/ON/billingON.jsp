@@ -1575,7 +1575,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 
 
                                     %> <input type="checkbox" name="rfcheck" value="checked"
-                                            <%=checkRefBox%> onclick="onClickRefDoc()"/><br/>
+                                            <%= "checked".equals(checkRefBox) ? "checked" : "" %> onclick="onClickRefDoc()"/><br/>
                                         <input
                                                 type="text" name="referralCode" class="form-control form-control-sm d-inline-block w-auto" maxlength="6"
                                                 placeholder="<fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"

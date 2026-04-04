@@ -31,6 +31,7 @@
 <%@ page errorPage="/errorpage.jsp" import="java.util.*,java.sql.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCodeImpl" %>
 <%
@@ -339,10 +340,10 @@
                 <br>
 
                 Description<br>
-                <input type="text" name="description" value="<%=prop.getProperty("description", "")%>" size='50'><br>
+                <input type="text" name="description" value="<%= Encode.forHtmlAttribute(prop.getProperty("description", "")) %>" size='50'><br>
 
                 Fee <small>(format: xx.xx, e.g. 18.20)</small><br>
-                <input type="text" name="value" value="<%=prop.getProperty("value", "")%>" size='8' maxlength='8'> <br>
+                <input type="text" name="value" value="<%= Encode.forHtmlAttribute(prop.getProperty("value", "")) %>" size='8' maxlength='8'> <br>
 
                 <input type="checkbox" name="gstCheck" id="gstCheck" onclick="setFlag()"/> Add GST <br>
 

@@ -751,7 +751,7 @@
                     <tr class="alert alert-danger">
                         <td align=center>
                             &nbsp;<br>
-                            Service code "<%=serviceCodeValue%>" is invalid. Please go back to correct it.
+                            Service code "<%= Encode.forHtml(StringUtils.noNull(serviceCodeValue)) %>" is invalid. Please go back to correct it.
                         </td>
                     </tr>
                         <%
@@ -1062,7 +1062,7 @@
                     tempLoc = request.getParameter("site");
                 }
             %>
-            <textarea name="comment" style="width:600px;"><%=tempLoc %></textarea>
+            <textarea name="comment" style="width:600px;"><%= Encode.forHtml(StringUtils.noNull(tempLoc)) %></textarea>
         </td>
     </tr>
     <tr>
@@ -1190,7 +1190,7 @@
                 <tr>
                     <td>
                         Billing Notes:<br>
-                        <textarea name="comment" cols=100 rows=6><%=tempLoc %></textarea>
+                        <textarea name="comment" cols=100 rows=6><%= Encode.forHtml(StringUtils.noNull(tempLoc)) %></textarea>
                     </td>
                     <td style="text-align:right">
                         <input type="hidden" name="provider_no"
@@ -1370,7 +1370,7 @@
                                                    style="font-size:small;">show/hide</a></h3>
         <div class="wrapper" id="dxFullListing">
             <jsp:include page="/oscarResearch/oscarDxResearch/currentCodeList.jsp">
-                <jsp:param name="demographicNo" value="<%= demo_no %>"/>
+                <jsp:param name="demographicNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(demo_no)) %>"/>
             </jsp:include>
         </div>
     </div>
@@ -1386,7 +1386,7 @@
             <input type="hidden" name="forwardTo" value="codeList"/>
             <div class="wrapper" id="dxListing">
                 <jsp:include page="/oscarResearch/oscarDxResearch/quickCodeList.jsp">
-                    <jsp:param name="demographicNo" value="<%= demo_no %>"/>
+                    <jsp:param name="demographicNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(demo_no)) %>"/>
                 </jsp:include>
             </div>
             <input type="button" value="Add To Disease Registry" class="btn btn-secondary" onclick="addToDiseaseRegistry()"/>
