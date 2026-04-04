@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.regex.Pattern;
 
 /**
  * Utility class for validating redirect URLs to prevent open redirect attacks.
@@ -58,34 +59,35 @@ public final class RedirectValidationUtils {
         // Utility class — prevent instantiation
     }
 
+    /** Pre-compiled pattern matching a {@code ..} path segment (any position). */
+    private static final Pattern DOT_SEGMENT_PATTERN = Pattern.compile("(^|/)\\.\\.($|/)");
+
     /**
      * Returns {@code true} when {@code url} is a safe relative redirect target.
      *
      * <p>A URL is considered safe when it:</p>
      * <ol>
-     *   <li>is not {@code null}</li>
+     *   <li>is not {@code null} or empty</li>
      *   <li>does not contain a backslash ({@code \})</li>
      *   <li>is parseable as a {@link URI}</li>
      *   <li>has no scheme (not absolute)</li>
      *   <li>has no authority component (no {@code //host} prefix)</li>
-     *   <li>does not contain path-traversal sequences ({@code /../})</li>
+     *   <li>does not contain path-traversal {@code ..} segments in the decoded path
+     *       (catches both literal {@code /../} and percent-encoded forms such as
+     *       {@code /%2e%2e/})</li>
      * </ol>
      *
      * @param url String the redirect target URL to validate (may be {@code null})
      * @return boolean {@code true} if the URL is a safe relative redirect; {@code false} otherwise
      */
+
     public static boolean isValidRelativeRedirect(String url) {
-        if (url == null) {
+        if (url == null || url.isEmpty()) {
             return false;
         }
 
         // Block backslash-based bypasses: /\evil.com normalises to //evil.com in browsers
         if (url.contains("\\")) {
-            return false;
-        }
-
-        // Block path-traversal sequences that could escape the application root
-        if (url.contains("/../")) {
             return false;
         }
 
@@ -99,6 +101,14 @@ public final class RedirectValidationUtils {
 
             // Block protocol-relative URLs: //evil.com (authority without scheme)
             if (uri.getAuthority() != null) {
+                return false;
+            }
+
+            // Block path-traversal sequences on the *decoded* path so that
+            // percent-encoded variants (e.g. /%2e%2e/) are caught as well.
+            // Matches: "../evil", "provider/..", "/..", "..", "/../evil", etc.
+            String path = uri.getPath();
+            if (path != null && DOT_SEGMENT_PATTERN.matcher(path).find()) {
                 return false;
             }
 

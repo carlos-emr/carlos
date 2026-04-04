@@ -58,6 +58,12 @@ class RedirectValidationUtilsUnitTest {
         }
 
         @Test
+        @DisplayName("empty string")
+        void shouldRejectRedirect_whenEmpty() {
+            assertThat(RedirectValidationUtils.isValidRelativeRedirect("")).isFalse();
+        }
+
+        @Test
         @DisplayName("protocol-relative URL (//evil.com)")
         void shouldRejectRedirect_whenProtocolRelativeUrl() {
             assertThat(RedirectValidationUtils.isValidRelativeRedirect("//evil.com")).isFalse();
@@ -115,9 +121,17 @@ class RedirectValidationUtilsUnitTest {
 
         @ParameterizedTest(name = "path traversal: {0}")
         @ValueSource(strings = {
+            // Slash-delimited forms (caught by original code)
             "/../evil",
             "/foo/../../../evil",
-            "/carlos/module/../../etc/passwd"
+            "/carlos/module/../../etc/passwd",
+            // Relative dot-segment forms (were NOT caught by original inline code)
+            "../evil",
+            "provider/..",
+            "/..",
+            "..",
+            // Percent-encoded dot-segment (decoded by URI.getPath() before check)
+            "/%2e%2e/evil"
         })
         @DisplayName("path-traversal sequences")
         void shouldRejectRedirect_whenPathTraversal(String url) {
@@ -165,7 +179,7 @@ class RedirectValidationUtilsUnitTest {
         @Test
         @DisplayName("path with .. in filename (not a traversal sequence)")
         void shouldAcceptRedirect_whenDoubleDotInFilenameOnly() {
-            // /foo..bar is NOT a traversal; only /../ sequences are blocked
+            // /foo..bar is NOT a traversal — the regex only matches .. as a complete path segment
             assertThat(RedirectValidationUtils.isValidRelativeRedirect("/provider/report..jsp")).isTrue();
         }
     }

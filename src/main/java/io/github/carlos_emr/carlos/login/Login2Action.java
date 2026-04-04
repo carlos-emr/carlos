@@ -681,7 +681,8 @@ public final class Login2Action extends ActionSupport {
 
             List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
             if (facilityIds.size() > 1) {
-                String newURL = request.getContextPath() + "/select_facility.jsp?nextPage=" + where;
+                String facilityPath = "/select_facility.jsp?nextPage=";
+                String newURL = request.getContextPath() + facilityPath + Encode.forUriComponent(where);
 
                 response.sendRedirect(newURL);
                 return NONE;
