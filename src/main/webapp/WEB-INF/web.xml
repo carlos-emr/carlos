@@ -14,11 +14,24 @@
     </param-value>
   </context-param>
 
-    <!-- ==================== WAF Layer (runs before all application filters) ==================== -->
+    <!-- ==================== WAF Layer (runs before all application filters) ====================
+         All WAF components are disabled by default. Enable individually via carlos.properties:
+           WAF_RATE_LIMIT_ENABLED=true    (uncomment RateLimitFilter entries below)
+           WAF_GEOIP_ENABLED=true         (GeoIP country filtering + Spamhaus DROP list)
+           WAF_DROP_LIST_ENABLED=true      (Spamhaus DROP list, requires WAF_GEOIP_ENABLED)
+           WAF_ENABLED=true               (request inspection: SQLi, XSS, traversal, bots)
+           WAF_HSTS_ENABLED=true          (Strict-Transport-Security header)
+           WAF_CSP_ENABLED=true           (Content-Security-Policy-Report-Only header)
+           WAF_REFERRER_POLICY_ENABLED=true (Referrer-Policy header)
+           WAF_COOP_ENABLED=true          (Cross-Origin-Opener-Policy header)
+           WAF_CORP_ENABLED=true          (Cross-Origin-Resource-Policy header)
+    -->
 
     <!-- Tomcat 11 built-in rate limiter: 100 requests/minute per IP (global).
-         When behind a reverse proxy, ensure RemoteIpFilter (or XforwardHeaderFilter) is
-         mapped before this filter so rate limiting uses the real client IP. -->
+         Unlike other WAF components, rate limiting is a Tomcat built-in filter that cannot
+         be toggled via carlos.properties. Uncomment to enable. When behind a reverse proxy,
+         ensure RemoteIpFilter is mapped before this filter so rate limiting uses the real
+         client IP.
     <filter>
         <filter-name>RateLimitFilter</filter-name>
         <filter-class>org.apache.catalina.filters.RateLimitFilter</filter-class>
@@ -43,8 +56,10 @@
         <filter-name>RateLimitFilter</filter-name>
         <url-pattern>/*</url-pattern>
     </filter-mapping>
+    -->
 
-    <!-- Login-specific rate limit: 10 attempts/minute per IP (brute force protection) -->
+    <!-- Login-specific rate limit: 10 attempts/minute per IP (brute force protection).
+         Uncomment to enable.
     <filter>
         <filter-name>LoginRateLimitFilter</filter-name>
         <filter-class>org.apache.catalina.filters.RateLimitFilter</filter-class>
@@ -65,8 +80,10 @@
         <filter-name>LoginRateLimitFilter</filter-name>
         <url-pattern>/login.do</url-pattern>
     </filter-mapping>
+    -->
 
     <!-- GeoIP filter: restricts access to Canadian IPs only + Spamhaus DROP list blocking.
+         Controlled by WAF_GEOIP_ENABLED and WAF_DROP_LIST_ENABLED in carlos.properties.
          Requires GeoLite2-Country.mmdb at /opt/geoip/ (disabled gracefully if not present).
          In detect mode by default — set mode=enforce in production after verifying logs. -->
     <filter>
@@ -91,7 +108,8 @@
     </filter-mapping>
 
     <!-- WAF filter: request inspection for SQLi, XSS, path traversal, command injection,
-         scanner detection, and request limits. Configuration in /WEB-INF/waf-rules.properties.
+         scanner detection, and request limits. Controlled by WAF_ENABLED in carlos.properties.
+         Configuration details in /WEB-INF/waf-rules.properties.
          Starts in detect mode — review waf.filter logs before switching to enforce. -->
     <filter>
         <filter-name>WafFilter</filter-name>

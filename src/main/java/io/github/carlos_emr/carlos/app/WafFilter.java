@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.app;
 
+import io.github.carlos_emr.CarlosProperties;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,6 +75,12 @@ import java.util.stream.Collectors;
  *   <li>{@code detect} — logs violations but allows the request to proceed</li>
  * </ul>
  *
+ * <h3>Activation</h3>
+ * <p>This filter is controlled by the {@code WAF_ENABLED} property in {@code carlos.properties}.
+ * When the property is absent or set to any value other than {@code true}, {@code yes}, or
+ * {@code on}, the filter passes all requests through without inspection. This allows the WAF
+ * to be deployed in web.xml but remain inactive until explicitly enabled.</p>
+ *
  * <h3>Configuration</h3>
  * <p>Rules are loaded from {@code /WEB-INF/waf-rules.properties}. Individual modules can be
  * enabled/disabled, paths can be allowlisted or relaxed, and scanner signatures are configurable.</p>
@@ -89,6 +97,9 @@ public final class WafFilter implements Filter {
     private static final Logger logger = LoggerFactory.getLogger("waf.filter");
 
     private static final String PROPERTIES_PATH = "/WEB-INF/waf-rules.properties";
+
+    /** Master switch — when false, all requests pass through without inspection. */
+    private boolean enabled = false;
 
     private boolean enforcing = true;
 
@@ -190,6 +201,12 @@ public final class WafFilter implements Filter {
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
+        enabled = CarlosProperties.getInstance().isPropertyActive("WAF_ENABLED");
+        if (!enabled) {
+            logger.info("WAF: disabled (WAF_ENABLED is not set to true/yes/on in carlos.properties)");
+            return;
+        }
+
         Properties props = new Properties();
         try (InputStream is = filterConfig.getServletContext().getResourceAsStream(PROPERTIES_PATH)) {
             if (is != null) {
@@ -233,6 +250,11 @@ public final class WafFilter implements Filter {
     @Override
     public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain chain)
             throws IOException, ServletException {
+
+        if (!enabled) {
+            chain.doFilter(servletRequest, servletResponse);
+            return;
+        }
 
         HttpServletRequest request = (HttpServletRequest) servletRequest;
         HttpServletResponse response = (HttpServletResponse) servletResponse;

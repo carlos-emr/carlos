@@ -25,6 +25,7 @@ import com.maxmind.geoip2.DatabaseReader;
 import com.maxmind.geoip2.exception.AddressNotFoundException;
 import com.maxmind.geoip2.exception.GeoIp2Exception;
 import com.maxmind.geoip2.model.CountryResponse;
+import io.github.carlos_emr.CarlosProperties;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,13 +80,19 @@ import java.util.stream.Collectors;
  *   <li>{@code detect} — logs violations but allows the request through</li>
  * </ul>
  *
+ * <h3>Activation</h3>
+ * <p>This filter is controlled by the {@code WAF_GEOIP_ENABLED} property in {@code carlos.properties}.
+ * When the property is absent or set to any value other than {@code true}, {@code yes}, or
+ * {@code on}, the filter passes all requests through without inspection.</p>
+ *
+ * <p>The Spamhaus DROP list is independently controlled by the {@code WAF_DROP_LIST_ENABLED}
+ * property (also defaults to {@code false}).</p>
+ *
  * <h3>Configuration (init-params)</h3>
  * <ul>
  *   <li>{@code geoipDatabase} — path to GeoLite2-Country.mmdb (default: {@code /opt/geoip/GeoLite2-Country.mmdb})</li>
  *   <li>{@code allowedCountries} — comma-separated ISO country codes (default: {@code CA})</li>
  *   <li>{@code mode} — {@code enforce} or {@code detect} (default: {@code enforce})</li>
- *   <li>{@code enabled} — {@code true} or {@code false} (default: {@code true})</li>
- *   <li>{@code dropListEnabled} — enable Spamhaus DROP list checking (default: {@code true})</li>
  * </ul>
  *
  * <p><strong>Note:</strong> If the GeoIP database file is not found, the filter disables GeoIP
@@ -118,10 +125,10 @@ public final class GeoIpFilter implements Filter {
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
-        String enabledParam = filterConfig.getInitParameter("enabled");
-        if ("false".equalsIgnoreCase(enabledParam)) {
-            enabled = false;
-            logger.info("GeoIP filter: disabled via configuration");
+        CarlosProperties carlosProps = CarlosProperties.getInstance();
+        enabled = carlosProps.isPropertyActive("WAF_GEOIP_ENABLED");
+        if (!enabled) {
+            logger.info("GeoIP filter: disabled (WAF_GEOIP_ENABLED is not set to true/yes/on in carlos.properties)");
             return;
         }
 
@@ -137,8 +144,7 @@ public final class GeoIpFilter implements Filter {
                     .collect(Collectors.toUnmodifiableSet());
         }
 
-        String dropParam = filterConfig.getInitParameter("dropListEnabled");
-        dropListEnabled = !"false".equalsIgnoreCase(dropParam);
+        dropListEnabled = carlosProps.isPropertyActive("WAF_DROP_LIST_ENABLED");
 
         // Initialize GeoIP database
         String dbPath = filterConfig.getInitParameter("geoipDatabase");

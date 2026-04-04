@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import io.github.carlos_emr.CarlosProperties;
+
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
@@ -59,11 +61,11 @@ import jakarta.servlet.http.HttpServletResponse;
  *   <li>{@code X-Permitted-Cross-Domain-Policies: none} — blocks Flash/Acrobat cross-domain data loading</li>
  *   <li>{@code Permissions-Policy: camera=(), microphone=(), geolocation=()} — restricts unused browser APIs</li>
  *   <li>{@code X-Content-Type-Options: nosniff} — prevents MIME type sniffing attacks</li>
- *   <li>{@code Referrer-Policy: strict-origin-when-cross-origin} — prevents PHI leakage in referrer headers</li>
- *   <li>{@code Cross-Origin-Opener-Policy: same-origin} — isolates browsing context</li>
- *   <li>{@code Cross-Origin-Resource-Policy: same-origin} — prevents cross-origin resource reads</li>
- *   <li>{@code Content-Security-Policy-Report-Only} — XSS defense-in-depth (report-only until tuned)</li>
- *   <li>{@code Strict-Transport-Security} — HTTPS enforcement (only on secure connections)</li>
+ *   <li>{@code Referrer-Policy: strict-origin-when-cross-origin} — prevents PHI leakage (requires {@code WAF_REFERRER_POLICY_ENABLED=true})</li>
+ *   <li>{@code Cross-Origin-Opener-Policy: same-origin} — isolates browsing context (requires {@code WAF_COOP_ENABLED=true})</li>
+ *   <li>{@code Cross-Origin-Resource-Policy: same-origin} — prevents cross-origin resource reads (requires {@code WAF_CORP_ENABLED=true})</li>
+ *   <li>{@code Content-Security-Policy-Report-Only} — XSS defense-in-depth (requires {@code WAF_CSP_ENABLED=true})</li>
+ *   <li>{@code Strict-Transport-Security} — HTTPS enforcement (requires {@code WAF_HSTS_ENABLED=true}, only on secure connections)</li>
  * </ul>
  *
  * @since 2012 (OSCAR McMaster heritage; security headers added 2026-02-26)
@@ -77,6 +79,13 @@ public final class ResponseDefaultsFilter implements Filter {
     private String[] noCacheEndings = new String[]{".jsp", ".json", ".jsf"};
     private boolean forceStrongETag = true;
     private boolean warnCharsetCacheChange = false;
+
+    // WAF security header flags — all default to false, enabled via carlos.properties
+    private boolean hstsEnabled = false;
+    private boolean cspEnabled = false;
+    private boolean referrerPolicyEnabled = false;
+    private boolean coopEnabled = false;
+    private boolean corpEnabled = false;
 
     public ResponseDefaultsFilter() {
     }
@@ -120,7 +129,17 @@ public final class ResponseDefaultsFilter implements Filter {
             this.warnCharsetCacheChange = Boolean.parseBoolean(temp);
         }
 
-        logger.info("warnCharsetCacheChange=" + this.warnCharsetCacheChange);
+        logger.info("warnCharsetCacheChange={}", this.warnCharsetCacheChange);
+
+        // Read WAF security header flags from carlos.properties (all default to false)
+        CarlosProperties carlosProps = CarlosProperties.getInstance();
+        hstsEnabled = carlosProps.isPropertyActive("WAF_HSTS_ENABLED");
+        cspEnabled = carlosProps.isPropertyActive("WAF_CSP_ENABLED");
+        referrerPolicyEnabled = carlosProps.isPropertyActive("WAF_REFERRER_POLICY_ENABLED");
+        coopEnabled = carlosProps.isPropertyActive("WAF_COOP_ENABLED");
+        corpEnabled = carlosProps.isPropertyActive("WAF_CORP_ENABLED");
+        logger.info("WAF security headers: HSTS={}, CSP={}, Referrer-Policy={}, COOP={}, CORP={}",
+                hstsEnabled, cspEnabled, referrerPolicyEnabled, coopEnabled, corpEnabled);
     }
 
     /** {@inheritDoc} */
@@ -226,32 +245,42 @@ public final class ResponseDefaultsFilter implements Filter {
         // Prevent MIME type sniffing (defense-in-depth for content-type handling)
         response.setHeader("X-Content-Type-Options", "nosniff");
 
+        // WAF-controlled headers below — each requires explicit opt-in via carlos.properties
+
         // Prevent PHI leakage in referrer headers — full URL for same-origin, origin-only for cross-origin
-        response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+        if (referrerPolicyEnabled) {
+            response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+        }
 
         // Isolate browsing context from cross-origin windows (prevents Spectre-class attacks)
-        response.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+        if (coopEnabled) {
+            response.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+        }
 
         // Prevent cross-origin reads of application resources
-        response.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+        if (corpEnabled) {
+            response.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+        }
 
         // Content-Security-Policy in Report-Only mode — logs violations without breaking pages.
         // The 'unsafe-inline' and 'unsafe-eval' directives are required for legacy JSP inline
         // scripts and jQuery; tighten these as inline scripts are migrated to external files.
         // Bootstrap 5.3 and fonts are loaded from cdn.jsdelivr.net.
-        response.setHeader("Content-Security-Policy-Report-Only",
-                "default-src 'self'; "
-                + "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-                + "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-                + "img-src 'self' data:; "
-                + "font-src 'self' https://cdn.jsdelivr.net; "
-                + "frame-ancestors 'self'; "
-                + "base-uri 'self'; "
-                + "form-action 'self'");
+        if (cspEnabled) {
+            response.setHeader("Content-Security-Policy-Report-Only",
+                    "default-src 'self'; "
+                    + "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+                    + "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                    + "img-src 'self' data:; "
+                    + "font-src 'self' https://cdn.jsdelivr.net; "
+                    + "frame-ancestors 'self'; "
+                    + "base-uri 'self'; "
+                    + "form-action 'self'");
+        }
 
         // HSTS — only set on secure (HTTPS) connections to avoid breaking HTTP dev environments.
         // 2-year max-age per OWASP recommendation; includeSubDomains for comprehensive coverage.
-        if (request.isSecure()) {
+        if (hstsEnabled && request.isSecure()) {
             response.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
         }
     }
