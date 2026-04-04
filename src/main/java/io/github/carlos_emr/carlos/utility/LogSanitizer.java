@@ -31,6 +31,12 @@ import org.owasp.encoder.Encode;
  * values that appear in log statements should be passed through {@link #sanitize(String)}
  * before being included.</p>
  *
+ * <p><strong>Important:</strong> Sanitizing a value does NOT make it appropriate to log.
+ * Patient Health Information (PHI) — including patient names, health insurance numbers (HIN),
+ * dates of birth, and clinical data — must NEVER appear in log output regardless of
+ * sanitization. This utility prevents log injection attacks on values that are
+ * <em>already appropriate</em> to log (IDs, form names, file paths, operation types).</p>
+ *
  * <p>Internally truncates the raw input to {@value #DEFAULT_MAX_LENGTH} characters, then
  * uses the OWASP Java Encoder ({@code Encode.forJava()}) to escape control characters
  * (including CR/LF). A post-encoding safety bound of {@value #MAX_ENCODED_LENGTH} characters
@@ -58,8 +64,8 @@ public final class LogSanitizer {
 
     /**
      * Post-encoding expansion factor. {@code Encode.forJava()} expands control characters
-     * (e.g. {@code \n} → {@code \\n}, {@code \0} → {@code \\u0000}), with a worst-case
-     * expansion of 6x for Unicode escapes.
+     * (e.g. {@code \n} → {@code \\n}), with a worst-case expansion of 6x for characters
+     * encoded as Unicode escape sequences ({@code \\u####}).
      */
     private static final int ENCODING_EXPANSION_FACTOR = 6;
 
