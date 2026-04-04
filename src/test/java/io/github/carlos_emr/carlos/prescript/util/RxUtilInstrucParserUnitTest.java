@@ -56,7 +56,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
     // -------------------------------------------------------------------------
 
     private static RxPrescriptionData.Prescription prescriptionWithSpecial(String special) {
-        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription();
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "000000", 0);
         rx.setSpecial(special);
         return rx;
     }
@@ -78,7 +78,7 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should not throw when special is null")
         void shouldNotThrow_whenSpecialIsNull() {
-            RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription();
+            RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "000000", 0);
             assertThatCode(() -> RxUtil.instrucParser(rx)).doesNotThrowAnyException();
         }
     }
