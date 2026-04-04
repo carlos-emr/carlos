@@ -15,6 +15,7 @@
 --%>
 <%@page import="java.nio.charset.Charset" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page language="java" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -68,7 +69,7 @@
 
             function displayReport() {
                 var cpath = "<%=request.getContextPath()%>";
-                var fname = "<%=filename%>";
+                var fname = "<%= Encode.forJavaScript(StringUtils.noNull(filename)) %>";
                 sname = cpath + "/billing/CA/ON/ES.xsl";
                 if (fname.substring(2, 4) == "OU") {
                     sname = cpath + "/billing/CA/ON/OU.xsl";

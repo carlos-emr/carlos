@@ -32,6 +32,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
 %>
@@ -63,7 +64,7 @@
                 if (self.opener.callChangeCodeDesc) self.opener.callChangeCodeDesc();
 
                 <%if(name2 != null) {%>
-                self.opener.<%=name2%> = File2.substring(0, 3);
+                self.opener["<%= Encode.forJavaScript(StringUtils.noNull(name2)) %>"] = File2.substring(0, 3);
                 <%} else {%>
                 self.opener.document.forms[1].xml_diagnostic_detail.value = File2;
                 <%}%>

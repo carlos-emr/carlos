@@ -103,6 +103,7 @@
 <%@ page import="java.util.List" %>
 <%@ page import="java.util.Properties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -125,14 +126,14 @@
 
             function typeInData1(data) {
                 self.close();
-                opener.<%=param%> = data;
+                opener["<%= Encode.forJavaScript(StringUtils.noNull(param)) %>"] = data;
             }
 
             <%if(param2.length()>0) {%>
 
             function typeInData2(data1, data2) {
-                opener.<%=param%> = data1;
-                opener.<%=param2%> = data2;
+                opener["<%= Encode.forJavaScript(StringUtils.noNull(param)) %>"] = data1;
+                opener["<%= Encode.forJavaScript(StringUtils.noNull(param2)) %>"] = data2;
                 self.close();
             }
 
@@ -141,19 +142,19 @@
             function typeInData3(billno, toname, toaddress, tophone, tofax) {
                 self.close();
                 <%if( param.length() > 0 ) {%>
-                opener.<%=param%> = billno;
+                opener["<%= Encode.forJavaScript(StringUtils.noNull(param)) %>"] = billno;
                 <%}
                   if( toname.length() > 0 ) {%>
-                opener.<%=toname%> = toname;
+                opener["<%= Encode.forJavaScript(StringUtils.noNull(toname)) %>"] = toname;
                 <%}
                   if( toaddress1.length() > 0 ) {%>
-                opener.<%=toaddress1%> = toaddress;
+                opener["<%= Encode.forJavaScript(StringUtils.noNull(toaddress1)) %>"] = toaddress;
                 <%}
                   if( tophone.length() > 0 ) {%>
-                opener.<%=tophone%> = tophone;
+                opener["<%= Encode.forJavaScript(StringUtils.noNull(tophone)) %>"] = tophone;
                 <%}
                   if( tofax.length() > 0 ) {%>
-                opener.<%=tofax%> = tofax;
+                opener["<%= Encode.forJavaScript(StringUtils.noNull(tofax)) %>"] = tofax;
                 <%}%>
             }
         </script>
