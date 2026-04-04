@@ -57,11 +57,17 @@ public final class LogSanitizer {
     static final int DEFAULT_MAX_LENGTH = 200;
 
     /**
-     * Hard ceiling on encoded output length. Encoding can expand characters (e.g. {@code \n}
-     * becomes {@code \\n}, {@code \0} becomes {@code \\u0000}), so the post-encoding output
-     * may exceed {@link #DEFAULT_MAX_LENGTH}. This bound caps the worst-case expansion.
+     * Post-encoding expansion factor. {@code Encode.forJava()} expands control characters
+     * (e.g. {@code \n} → {@code \\n}, {@code \0} → {@code \\u0000}), with a worst-case
+     * expansion of 6x for Unicode escapes.
      */
-    static final int MAX_ENCODED_LENGTH = DEFAULT_MAX_LENGTH * 6;
+    private static final int ENCODING_EXPANSION_FACTOR = 6;
+
+    /**
+     * Post-encoding output bound for the default max length. When using the custom-length
+     * overload, the bound is {@code maxLength * ENCODING_EXPANSION_FACTOR} instead.
+     */
+    static final int MAX_ENCODED_LENGTH = DEFAULT_MAX_LENGTH * ENCODING_EXPANSION_FACTOR;
 
     private LogSanitizer() {
         // utility class — no instances
@@ -87,22 +93,29 @@ public final class LogSanitizer {
      * Sanitizes a {@code String} value with a custom maximum length.
      *
      * <p>Use this overload when the default {@value #DEFAULT_MAX_LENGTH}-character limit
-     * would lose critical diagnostic information (e.g. SQL statements, file paths).</p>
+     * would lose critical diagnostic information (e.g. SQL statements, file paths).
+     * A post-encoding safety bound of {@code maxLength * 6} characters caps the output
+     * to prevent log flooding when control-character-heavy inputs expand during encoding.
+     * If {@code maxLength} is less than 1, defaults to {@value #DEFAULT_MAX_LENGTH}.</p>
      *
      * @param input String the value to sanitize; may be {@code null}
-     * @param maxLength int the maximum number of raw characters to keep before encoding
+     * @param maxLength int the maximum number of raw characters to keep before encoding;
+     *                  values less than 1 are treated as {@value #DEFAULT_MAX_LENGTH}
      * @return String the sanitized string; never {@code null}
      */
     public static String sanitize(String input, int maxLength) {
         if (input == null) {
             return "null";
         }
+        if (maxLength < 1) {
+            maxLength = DEFAULT_MAX_LENGTH;
+        }
         boolean truncated = input.length() > maxLength;
         if (truncated) {
             input = input.substring(0, maxLength);
         }
         String encoded = Encode.forJava(input);
-        int encodedLimit = maxLength * 6;
+        int encodedLimit = maxLength * ENCODING_EXPANSION_FACTOR;
         if (encoded.length() > encodedLimit) {
             encoded = encoded.substring(0, encodedLimit);
             truncated = true;

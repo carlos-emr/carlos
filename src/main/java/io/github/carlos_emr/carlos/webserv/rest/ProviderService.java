@@ -183,7 +183,7 @@ public class ProviderService extends AbstractServiceImpl {
         @Path("/provider/{id}")
         @Produces({"application/xml", "application/json"})
         public ProviderTransfer getProvider(@PathParam("id") String id) {
-            logger.debug("Retrieving provider {}", id);
+            logger.debug("Retrieving provider {}", LogSanitizer.sanitize(id));
 
             Provider provider = providerDao.getProvider(id);
             if (provider == null) {
@@ -244,7 +244,7 @@ public class ProviderService extends AbstractServiceImpl {
     @Path("/providerjson/{id}")
     @Produces("application/json")
     public String getProviderAsJSON(@PathParam("id") String id) {
-        logger.debug("Retrieving provider {} as JSON", id);
+        logger.debug("Retrieving provider {} as JSON", LogSanitizer.sanitize(id));
 
         Provider provider = providerDao.getProvider(id);
         if (provider == null) {

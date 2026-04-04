@@ -51,15 +51,15 @@ public final class WebUtils {
     }
 
     public static void dumpParameters(HttpServletRequest request) {
-        logger.error("--- Dump Request Parameters Start for {} Start ---", LogSanitizer.sanitize(request.getRequestURI()));
+        logger.debug("--- Dump Request Parameters Start for {} Start ---", LogSanitizer.sanitize(request.getRequestURI()));
         Enumeration e = request.getParameterNames();
 
         while (e.hasMoreElements()) {
             String key = (String) e.nextElement();
-            logger.error("{}={}", LogSanitizer.sanitize(key), LogSanitizer.sanitize(request.getParameter(key)));
+            logger.debug("{}={}", LogSanitizer.sanitize(key), LogSanitizer.sanitize(request.getParameter(key)));
         }
 
-        logger.error("--- Dump Request Parameters End ---");
+        logger.debug("--- Dump Request Parameters End ---");
     }
 
     public static boolean isChecked(HttpServletRequest request, String parameter) {

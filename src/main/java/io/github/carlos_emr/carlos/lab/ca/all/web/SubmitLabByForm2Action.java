@@ -183,7 +183,8 @@ public class SubmitLabByForm2Action extends ActionSupport {
             String mshSegment = firstCr > 0 ? hl7.substring(0, firstCr) : hl7;
             logger.info("HL7 generated (length={}, MSH={})", hl7.length(), LogSanitizer.sanitize(mshSegment));
         } else {
-            logger.warn("HL7 generation returned null");
+            logger.error("HL7 generation returned null for lab submission");
+            addActionError("Failed to generate lab result. Please verify all required fields and try again.");
             return manage();
         }
 

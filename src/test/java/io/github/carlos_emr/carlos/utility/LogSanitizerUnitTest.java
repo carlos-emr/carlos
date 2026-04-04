@@ -120,17 +120,26 @@ class LogSanitizerUnitTest {
         }
 
         @Test
-        @DisplayName("should truncate post-encoding when custom limit triggers bound")
-        void shouldTruncatePostEncoding_whenCustomLimitTriggersBound() {
-            // Use sanitize(String, int) with a small limit: 10 newlines, each encodes to 2 chars = 20
-            // Post-encoding bound is 10 * 6 = 60, so 20 < 60 — no truncation
-            // But with a very long input of control chars that exceeds the bound:
+        @DisplayName("should stay within encoded bound when control chars expand input")
+        void shouldStayWithinEncodedBound_whenControlCharsExpandInput() {
+            // 100 newlines: each \n encodes to \\n (2 chars) = 200 encoded chars
+            // Post-encoding bound is 100 * 6 = 600, so 200 < 600 — no post-encoding truncation
             String manyNewlines = "\n".repeat(100);
             String sanitized = LogSanitizer.sanitize(manyNewlines, 100);
 
-            // 100 newlines → each encodes to 2 chars = 200, bound is 100*6=600
-            // No post-encoding truncation (200 < 600), but verify it's bounded
-            assertThat(sanitized.length()).isLessThanOrEqualTo(600 + 3);
+            assertThat(sanitized.length()).isEqualTo(200);
+            assertThat(sanitized).doesNotEndWith("...");
+        }
+
+        @Test
+        @DisplayName("should encode accented characters used in bilingual Canadian names")
+        void shouldEncodeAccentedCharacters_whenInputContainsFrenchNames() {
+            String french = "Ren\u00e9 B\u00e9langer";
+            String sanitized = LogSanitizer.sanitize(french);
+
+            // Encode.forJava() encodes Latin-1 non-ASCII chars to octal escapes (e.g. \351)
+            assertThat(sanitized).doesNotContain("\u00e9");
+            assertThat(sanitized).contains("\\351");
         }
     }
 
@@ -168,6 +177,28 @@ class LogSanitizerUnitTest {
 
             assertThat(sanitized).endsWith("...");
             assertThat(sanitized).hasSize(1003); // 1000 + "..."
+        }
+
+        @Test
+        @DisplayName("should fall back to default max length when maxLength is zero")
+        void shouldFallBackToDefault_whenMaxLengthIsZero() {
+            String input = "a".repeat(LogSanitizer.DEFAULT_MAX_LENGTH + 50);
+            String sanitized = LogSanitizer.sanitize(input, 0);
+
+            // Should use DEFAULT_MAX_LENGTH as fallback
+            assertThat(sanitized).endsWith("...");
+            assertThat(sanitized).hasSize(LogSanitizer.DEFAULT_MAX_LENGTH + 3);
+        }
+
+        @Test
+        @DisplayName("should fall back to default max length when maxLength is negative")
+        void shouldFallBackToDefault_whenMaxLengthIsNegative() {
+            String input = "a".repeat(LogSanitizer.DEFAULT_MAX_LENGTH + 50);
+            String sanitized = LogSanitizer.sanitize(input, -1);
+
+            // Should use DEFAULT_MAX_LENGTH as fallback, not throw
+            assertThat(sanitized).endsWith("...");
+            assertThat(sanitized).hasSize(LogSanitizer.DEFAULT_MAX_LENGTH + 3);
         }
     }
 

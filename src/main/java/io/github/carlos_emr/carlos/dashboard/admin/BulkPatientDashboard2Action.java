@@ -106,7 +106,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         try {
             indicatorId = Integer.parseInt(indicatorIdString);
         } catch (NumberFormatException exception) {
-            logger.error("Could not parse indicator id from: {}", LogSanitizer.sanitize(indicatorIdString));
+            logger.error("Could not parse indicator id from: {}", LogSanitizer.sanitize(indicatorIdString), exception);
             return null;
         }
 
@@ -263,7 +263,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             ArrayNode jsonArray = (ArrayNode) objectMapper.readTree(jsonString);
             return jsonArray;
         } catch (Exception e) {
-            logger.error("Error parsing JSON array: " + jsonString, e);
+            logger.error("Error parsing JSON array: {}", LogSanitizer.sanitize(jsonString), e);
             return objectMapper.createArrayNode();
         }
     }
