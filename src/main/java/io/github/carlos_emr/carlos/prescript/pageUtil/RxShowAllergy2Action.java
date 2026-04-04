@@ -177,10 +177,6 @@ public final class RxShowAllergy2Action extends ActionSupport {
 
         request.getSession().setAttribute("RxSessionBean", bean);
 
-        if (request.getParameter("method") != null && request.getParameter("method").equals("reorder")) {
-            reorder(request);
-        }
-
         RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, bean.getDemographicNo());
 
         String forward = request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + demo_no;
@@ -208,7 +204,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
 
         String atcCode = request.getParameter("atcCode");
         String id = request.getParameter("id");
-        String disabled = CarlosProperties.getInstance().getProperty("rx3.disable_allergy_warnings", "false");
+        String disabled = CarlosProperties.getInstance().getProperty("rx.disable_allergy_warnings", "false");
         if (disabled.equals("false")) {
 
             ObjectMapper objectMapper = new ObjectMapper();
