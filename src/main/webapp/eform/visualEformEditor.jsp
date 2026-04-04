@@ -2040,12 +2040,21 @@ var EFORM_I18N = {
             // with DOM-sourced HTML (CodeQL: DOM text reinterpreted as HTML).
             var blob = new Blob([source], {type: 'text/html'});
             var url = URL.createObjectURL(blob);
+            // Revoke the blob URL after 60 s as a safety fallback (handles popup-blocked case too)
+            var revokeTimer = setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
             var sourceWindow = window.open(url, 'Source of page', 'height=800,width=800,scrollbars=1,resizable=1');
-            // Revoke the object URL once the window has loaded to free memory
             if (sourceWindow) {
-                sourceWindow.addEventListener('load', function() { URL.revokeObjectURL(url); });
+                // Revoke as soon as the page has loaded to free memory earlier
+                sourceWindow.addEventListener('load', function() {
+                    clearTimeout(revokeTimer);
+                    URL.revokeObjectURL(url);
+                });
+            } else {
+                // Popup was blocked — revoke immediately
+                clearTimeout(revokeTimer);
+                URL.revokeObjectURL(url);
             }
-            if (window.focus) sourceWindow.focus();
+            if (sourceWindow && window.focus) sourceWindow.focus();
         }
 
         function download(text, name, type) {
@@ -4612,9 +4621,18 @@ var EFORM_I18N = {
                 // Use a Blob URL instead of document.write to avoid DOM text reinterpreted as HTML
                 var blob = new Blob([htmlPrint], {type: 'text/html'});
                 var url = URL.createObjectURL(blob);
+                // Revoke after 60 s as a safety fallback (handles popup-blocked case too)
+                var revokeTimer = setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
                 var newWin = window.open(url, 'Print-Window');
                 if (newWin) {
-                    newWin.addEventListener('load', function() { URL.revokeObjectURL(url); });
+                    newWin.addEventListener('load', function() {
+                        clearTimeout(revokeTimer);
+                        URL.revokeObjectURL(url);
+                    });
+                } else {
+                    // Popup was blocked — revoke immediately
+                    clearTimeout(revokeTimer);
+                    URL.revokeObjectURL(url);
                 }
             };
             onEformPrintSubmit = function() {

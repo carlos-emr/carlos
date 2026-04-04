@@ -975,7 +975,8 @@
                         .replace(/</g, '&lt;')
                         .replace(/>/g, '&gt;')
                         .replace(/"/g, '&quot;')
-                        .replace(/'/g, '&#x27;');
+                        .replace(/'/g, '&#x27;')
+                        .replace(/\//g, '&#x2F;');
                 }
                 acWidget._renderItem = function(ul, item) {
                     var serviceBadges = (item.serviceNames || []).map(function(sn) {
