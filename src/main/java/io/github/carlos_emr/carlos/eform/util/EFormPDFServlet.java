@@ -56,6 +56,7 @@ import org.openpdf.text.*;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.printing.FontSettings;
 import io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -502,18 +503,18 @@ public class EFormPDFServlet extends HttpServlet {
             props.setProperty(temp.toString(), req.getParameter(temp.toString()));
         }
 
-        if (req.getParameter("postProcessor" + suffix) != null) {
-            String processorName = req.getParameter("postProcessor" + suffix);
+        String processorName = req.getParameter("postProcessor" + suffix);
+        if (processorName != null) {
             Class<? extends FrmPDFPostValueProcessor> clazz = ALLOWED_PROCESSORS.get(processorName);
             if (clazz != null) {
                 try {
                     FrmPDFPostValueProcessor pp = clazz.getConstructor().newInstance();
                     props = pp.process(props);
                 } catch (Exception e) {
-                    log.warn("Post-processor '{}' failed during execution - form rendered without post-processing", processorName, e);
+                    log.warn("Post-processor '{}' failed during execution - form rendered without post-processing", Encode.forJava(processorName), e);
                 }
             } else {
-                log.warn("Post-processor '{}' is not in the allowlist and will not be executed", processorName);
+                log.warn("Post-processor '{}' is not in the allowlist and will not be executed", Encode.forJava(processorName));
             }
         }
 
