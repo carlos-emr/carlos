@@ -130,7 +130,6 @@
 
 <%-- New case management redirect check --%>
 <%
-    ArrayList<String> users = (ArrayList<String>) session.getServletContext().getAttribute("CaseMgmtUsers");
     String userNo = (String) request.getSession().getAttribute("user");
     if (userNo != null) {
         session.setAttribute("newCaseManagement", "true");
