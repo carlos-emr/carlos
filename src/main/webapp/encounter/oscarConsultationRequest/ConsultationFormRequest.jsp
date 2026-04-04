@@ -968,7 +968,8 @@
             }).data('ui-autocomplete');
 
             if (acWidget) {
-                // HTML encoding helper — pure-string implementation avoids DOM text/innerHTML round-trip
+                // HTML encoding helper — pure-string implementation avoids DOM text/innerHTML round-trip.
+                // IMPORTANT: & must be replaced first to prevent double-encoding of other entity references.
                 function escapeHtml(text) {
                     return String(text)
                         .replace(/&/g, '&amp;')

@@ -1439,6 +1439,8 @@ var EFORM_I18N = {
         var inChrome = (navigator.userAgent.search("Chrome") >= 0);
         var eFormViewMinWidth = 375; //px
         var eFormViewPadding = 25; //px
+        // Fallback delay (ms) for revoking Blob URLs opened in a new window
+        var BLOB_URL_REVOKE_TIMEOUT_MS = 60000;
 
         var defaultIncludeFaxControl = true;
         var defaultEnableSnapGuides = true;
@@ -2040,8 +2042,8 @@ var EFORM_I18N = {
             // with DOM-sourced HTML (CodeQL: DOM text reinterpreted as HTML).
             var blob = new Blob([source], {type: 'text/html'});
             var url = URL.createObjectURL(blob);
-            // Revoke the blob URL after 60 s as a safety fallback (handles popup-blocked case too)
-            var revokeTimer = setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+            // Revoke the blob URL after BLOB_URL_REVOKE_TIMEOUT_MS as a safety fallback (handles popup-blocked case too)
+            var revokeTimer = setTimeout(function() { URL.revokeObjectURL(url); }, BLOB_URL_REVOKE_TIMEOUT_MS);
             var sourceWindow = window.open(url, 'Source of page', 'height=800,width=800,scrollbars=1,resizable=1');
             if (sourceWindow) {
                 // Revoke as soon as the page has loaded to free memory earlier
@@ -2673,7 +2675,8 @@ var EFORM_I18N = {
             if (ferengi) {
                 $inputForm.html(loadPages($div));
             } else {
-                // Move child nodes directly to avoid the DOM-text-to-HTML roundtrip (.html() read → .html() write)
+                // Move child nodes directly to avoid the DOM-text-to-HTML roundtrip (.html() read → .html() write).
+                // jQuery .append() moves (not copies) nodes, automatically detaching them from $importedInputForm.
                 $inputForm.empty().append($importedInputForm.contents());
             }
 
@@ -4621,8 +4624,8 @@ var EFORM_I18N = {
                 // Use a Blob URL instead of document.write to avoid DOM text reinterpreted as HTML
                 var blob = new Blob([htmlPrint], {type: 'text/html'});
                 var url = URL.createObjectURL(blob);
-                // Revoke after 60 s as a safety fallback (handles popup-blocked case too)
-                var revokeTimer = setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+                // Revoke after BLOB_URL_REVOKE_TIMEOUT_MS as a safety fallback (handles popup-blocked case too)
+                var revokeTimer = setTimeout(function() { URL.revokeObjectURL(url); }, BLOB_URL_REVOKE_TIMEOUT_MS);
                 var newWin = window.open(url, 'Print-Window');
                 if (newWin) {
                     newWin.addEventListener('load', function() {
