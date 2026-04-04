@@ -242,7 +242,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             messageHandler.notifyProvider(subject, message, mrp);
         }
 
-        logger.info("Bulk patient status change notification sent to provider(s)");
+        logger.info("Bulk patient status change (inactive) notification sent to provider(s), {} patients affected", patientIdList.size());
 
         return null;
     }

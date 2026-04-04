@@ -95,6 +95,11 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
     private static final int MAX_SELECT_SIZE = 500;
 
+    /** Parameter keys whose values contain PHI and must not appear in logs. */
+    private static final Set<String> PHI_PARAM_KEYS = Set.of(
+        "fnLike", "lnLike", "fnSoundex", "lnSoundex", "hin", "ver", "dob", "yob", "mob", "dayob"
+    );
+
     static Logger log = MiscUtils.getLogger();
 
     private ApplicationEventPublisher publisher;
@@ -2661,13 +2666,14 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
         String demographicQuery = generateDemographicSearchQuery(loggedInInfo, searchRequest, params, "count(*)");
 
-        MiscUtils.getLogger().warn("demographicQuery: {}", LogSanitizer.sanitize(demographicQuery, 1000));
+        MiscUtils.getLogger().debug("demographicQuery: {}", LogSanitizer.sanitize(demographicQuery, 1000));
 
         Session session = currentSession();
             NativeQuery sqlQuery = session.createNativeQuery(demographicQuery);
             for (String key : params.keySet()) {
                 sqlQuery.setParameter(key, params.get(key));
-                MiscUtils.getLogger().warn("query param: {} (value present)", LogSanitizer.sanitize(key));
+                MiscUtils.getLogger().debug("query param: {}={}", LogSanitizer.sanitize(key),
+                    PHI_PARAM_KEYS.contains(key) ? "[REDACTED]" : LogSanitizer.sanitize(String.valueOf(params.get(key))));
             }
             Integer result = ((Number) sqlQuery.uniqueResult()).intValue();
             return result;
