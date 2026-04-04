@@ -1007,8 +1007,8 @@
                             %>
                             <li id="econ">
                                 <a href="#" onclick="popupOscarRx(625, 1024, '<%=request.getContextPath()%>/encounter/econsult.do')"
-                                   title="eConsult">
-                                    <span>eConsult</span></a>
+                                   title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.eConsult"/>">
+                                    <span><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.eConsult"/></span></a>
                             </li>
                             <% } %>
 
@@ -1055,7 +1055,8 @@
                                                    rights="r">
 
                                     <li id="admin2">
-                                        <a href="javascript:void(0)" id="admin-panel" title="Administration Panel"
+                                        <a href="javascript:void(0)" id="admin-panel"
+                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.page.title"/>"
                                            onclick="newWindow('<%=request.getContextPath()%>/administration/','admin')">Administration</a>
                                     </li>
 
@@ -1120,7 +1121,7 @@
             <td id="userSettings">
                 <ul id="userSettingsMenu" style="display: flex; gap:5px;">
                     <li>
-                        <a title="Scratch Pad" href="javascript: function myFunction() {return false; }"
+                        <a title="<fmt:setBundle basename="oscarResources"/><fmt:message key="ScratchPad.title"/>" href="javascript: function myFunction() {return false; }"
                            onClick="popup(700,1024,'<%= request.getContextPath() %>/scratch/index.jsp','scratch')">
                             		<span>
 							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
@@ -2199,7 +2200,7 @@
                                                                 property="eform_in_appointment" value="yes">
                                                             &#124; <b><a href="#"
                                                                          onclick="popupPage(500,1024,'<%= request.getContextPath() %>/eform/efmformslistadd.jsp?parentAjaxId=eforms&demographic_no=<%=demographic_no%>&appointment=<%=appointment.getId()%>'); return false;"
-                                                                         title="eForm Library">F</a></b>
+                                                                         title="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.myform.title"/>">F</a></b>
                                                         </oscar:oscarPropertiesCheck>
 
                                                         <!-- doctor code block 3 -->
@@ -2311,7 +2312,7 @@
                                                         <!-- add one link to caisi Program Management Module -->
                                                         <caisi:isModuleLoad moduleName="caisi">
                                                             <a href=${pageContext.servletContext.contextPath}'/PMmodule/ClientManager.do?id=<%=demographic_no%>'
-                                                               title="Program Management">|P</a>
+                                                               title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.programManagement"/>">|P</a>
                                                         </caisi:isModuleLoad>
 
                                                         <span class="birthday-cake" data-month="<%= monthDay %>"
