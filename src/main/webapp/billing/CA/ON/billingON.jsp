@@ -1313,7 +1313,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
     </script>
 </head>
 
-<body onload="prepareBack();changeCodeDesc();getDays();toggleDiv('<%=Encode.forJavaScriptAttribute(ctlBillForm)%>', '<%=Encode.forJavaScriptAttribute(defaultBillFormName)%>', '<%=Encode.forJavaScriptAttribute(defaultBillType)%>');">
+<body onload="prepareBack();changeCodeDesc();getDays();toggleDiv('<%=Encode.forJavaScriptAttribute(ctlBillForm)%>', '<%=Encode.forJavaScriptAttribute(defaultBillFormName)%>', document.forms[0].xml_billtype.value.substring(0, 3));">
 <div id="Instrdiv" class="demo1">
 
     <table style="width: 99%;">
