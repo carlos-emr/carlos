@@ -971,7 +971,7 @@
                 // HTML encoding helper — pure-string implementation avoids DOM text/innerHTML round-trip.
                 // IMPORTANT: & must be replaced first to prevent double-encoding of other entity references.
                 function escapeHtml(text) {
-                    return String(text)
+                    return String(text == null ? '' : text)
                         .replace(/&/g, '&amp;')
                         .replace(/</g, '&lt;')
                         .replace(/>/g, '&gt;')
@@ -1156,7 +1156,7 @@
                     var $a = jQuery('<a>').addClass('dropdown-item').addClass(item.cls)
                         .attr('id', item.prefix + '_' + target)
                         .attr('href', 'javascript:void(0);')
-                        .html(item.label);
+                        .text(item.label);
                     $menu.append(jQuery('<li>').append($a));
                 }
             });
@@ -1168,7 +1168,7 @@
                     var $a = jQuery('<a>').addClass('dropdown-item').addClass(item.cls)
                         .attr('id', item.prefix + '_' + target)
                         .attr('href', 'javascript:void(0);')
-                        .html(item.label);
+                        .text(item.label);
                     $menu.append(jQuery('<li>').append($a));
                 }
             });

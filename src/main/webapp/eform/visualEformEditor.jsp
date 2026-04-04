@@ -2040,12 +2040,13 @@ var EFORM_I18N = {
             var source = generate_eform_source_html(true, include_fax);
             // Use a Blob URL to load the content into a new window, avoiding document.write
             // with DOM-sourced HTML (CodeQL: DOM text reinterpreted as HTML).
-            var blob = new Blob([source], {type: 'text/html'});
+            var blob = new Blob([source], {type: 'text/html;charset=UTF-8'});
             var url = URL.createObjectURL(blob);
             // Revoke the blob URL after BLOB_URL_REVOKE_TIMEOUT_MS as a safety fallback (handles popup-blocked case too)
             var revokeTimer = setTimeout(function() { URL.revokeObjectURL(url); }, BLOB_URL_REVOKE_TIMEOUT_MS);
             var sourceWindow = window.open(url, 'Source of page', 'height=800,width=800,scrollbars=1,resizable=1');
             if (sourceWindow) {
+                sourceWindow.opener = null;
                 // Revoke as soon as the page has loaded to free memory earlier
                 sourceWindow.addEventListener('load', function() {
                     clearTimeout(revokeTimer);
@@ -4622,12 +4623,13 @@ var EFORM_I18N = {
                 var htmlPrint = '<html><head><title>' + escapeHtmlText(eformName) + '</title><style>' + style1 + style2 + style3 +
                     '</style></'+'head><body onload="window.print();setTimeout(function(){window.close();},1000);">' + divToPrint.innerHTML + '</body></html>';
                 // Use a Blob URL instead of document.write to avoid DOM text reinterpreted as HTML
-                var blob = new Blob([htmlPrint], {type: 'text/html'});
+                var blob = new Blob([htmlPrint], {type: 'text/html;charset=UTF-8'});
                 var url = URL.createObjectURL(blob);
                 // Revoke after BLOB_URL_REVOKE_TIMEOUT_MS as a safety fallback (handles popup-blocked case too)
                 var revokeTimer = setTimeout(function() { URL.revokeObjectURL(url); }, BLOB_URL_REVOKE_TIMEOUT_MS);
                 var newWin = window.open(url, 'Print-Window');
                 if (newWin) {
+                    newWin.opener = null;
                     newWin.addEventListener('load', function() {
                         clearTimeout(revokeTimer);
                         URL.revokeObjectURL(url);
