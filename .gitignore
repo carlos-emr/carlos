@@ -45,3 +45,4 @@ __pycache__/
 /node_modules/
 /build/
 /.docusaurus/
+/local_repo/
