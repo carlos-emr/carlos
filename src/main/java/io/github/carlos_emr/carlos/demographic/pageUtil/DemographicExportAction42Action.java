@@ -2546,6 +2546,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
 
                         //export file to temp directory
+                        int fileCountBefore = files.size();
                         try {
                             File directory = new File(tmpDir);
                             if (!directory.exists()) {
@@ -2555,16 +2556,25 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                             //Standard format for xml exported file : PatientFN_PatientLN_PatientUniqueID_DOB (DOB: ddmmyyyy)
                             // Sanitize name components to remove path separators and other unsafe characters
-                            String firstName = demographic.getFirstName() != null ? demographic.getFirstName().replaceAll(UNSAFE_FILENAME_CHARS, "") : "";
-                            String lastName = demographic.getLastName() != null ? demographic.getLastName().replaceAll(UNSAFE_FILENAME_CHARS, "") : "";
-                            String expFile = firstName + "_" + lastName;
+                            String safeFirst = demographic.getFirstName() != null ? demographic.getFirstName().replaceAll(UNSAFE_FILENAME_CHARS, "") : "";
+                            String safeLast = demographic.getLastName() != null ? demographic.getLastName().replaceAll(UNSAFE_FILENAME_CHARS, "") : "";
+                            String expFile = safeFirst + "_" + safeLast;
                             expFile += "_" + demoNo;
                             expFile += "_" + demographic.getDateOfBirth() + demographic.getMonthOfBirth() + demographic.getYearOfBirth();
-                            // Use PathValidationUtils to sanitize the filename and ensure it stays within the export directory
-                            files.add(PathValidationUtils.validatePath(expFile + ".xml", directory));
-                            dirs.add(getProviderName(demographic.getProviderNo()));
+                            // Compute both values before adding to either list so that if
+                            // getProviderName() throws, neither list is modified (atomic add).
+                            File validatedFile = PathValidationUtils.validatePath(expFile + ".xml", directory);
+                            String providerName = getProviderName(demographic.getProviderNo());
+                            files.add(validatedFile);
+                            dirs.add(providerName);
                         } catch (Exception e) {
                             logger.error("Error", e);
+                        }
+                        // Guard: only write if a new file entry was successfully added above.
+                        // Without this check, a validation failure would cause us to write
+                        // this patient's data into the previous patient's export file (PHI leak).
+                        if (files.size() <= fileCountBefore) {
+                            continue;
                         }
                         try {
                             FileWriter fw = new FileWriter(files.get(files.size() - 1));
