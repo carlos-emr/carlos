@@ -46,9 +46,9 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
 
     /**
-     * Allowlist mapping the user-supplied coding system name to the corresponding
-     * database table/column name.  Values come from this map — not from user input —
-     * which breaks any CodeQL taint flow from the request into the native SQL query.
+     * Allowlist mapping user-supplied coding system names to safe database table/column
+     * names. Values from this map (not user input) are used in native SQL, preventing
+     * injection of user-controlled identifiers.
      */
     private static final Map<String, String> VALID_CODING_SYSTEMS = Map.of(
             "icd9",        "icd9",
@@ -129,7 +129,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
                 MiscUtils.getLogger().warn("Invalid coding system name: {}", LogSanitizer.sanitize(codingSystem));
                 return new ArrayList<Object[]>();
             }
-            
+
             // Filter out empty keywords
             List<String> validKeywords = new ArrayList<>();
             for (String keyword : keywords) {
@@ -184,7 +184,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
             MiscUtils.getLogger().warn("Invalid coding system name: {}", LogSanitizer.sanitize(codingSystem));
             return desc;
         }
-        
+
         // safeSystem comes from the hardcoded allowlist map — safe to use as an identifier
         String sql = "select description from " + safeSystem + " where " + safeSystem + "=?1";
         try {

@@ -260,6 +260,9 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
 
     @Override
     public List GetCodeFieldValues(LookupTableDefValue tableDef, String code) {
+        // tableName and field SQL come from LookupTableDef/FieldDefValue database config,
+        // not from direct user input, so second-order injection risk is low.  The user-supplied
+        // code value is parameterized below.
         String tableName = tableDef.getTableName();
         List fs = LoadFieldDefList(tableDef.getTableId());
         String idFieldName = "";
@@ -727,15 +730,14 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
     @Override
     public int getCountOfActiveClient(String orgCd) throws SQLException {
         // Parameterized queries eliminate the SQL injection risk from orgCd.
-        // The original query used string concatenation; the % || ? || % pattern used here
-        // is MySQL/MariaDB compatible for LIKE with a parameter.
-        String sql = "select count(*) from admission where admission_status=? and  'P' || program_id in ("
-                + " select code from lst_orgcd  where codecsv like ?)";
-        String sql1 = "select count(*) from program_queue where  'P' || program_id in ("
-                + " select code from lst_orgcd  where codecsv like ?)";
+        // CONCAT() is the correct MySQL/MariaDB string concatenation function;
+        // the original code used '||' which is Oracle-style and acts as logical OR in MySQL.
+        String sql = "select count(*) from admission where admission_status=? and CONCAT('P', program_id) in ("
+                + " select code from lst_orgcd where codecsv like ?)";
+        String sql1 = "select count(*) from program_queue where CONCAT('P', program_id) in ("
+                + " select code from lst_orgcd where codecsv like ?)";
 
-        // Escape any LIKE special characters in orgCd before embedding it in the pattern.
-        // This prevents unexpected wildcard expansion if orgCd itself contains '%' or '_'.
+        // Escape LIKE special characters in orgCd to prevent unexpected wildcard expansion.
         String escapedOrgCd = orgCd.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
         String likePattern = "%" + escapedOrgCd + ",%";
         DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[]{
@@ -749,18 +751,25 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         DBPreparedHandler db = new DBPreparedHandler();
 
         ResultSet rs = db.queryResults(sql, params);
-        int id = 0;
-        if (rs.next())
-            id = rs.getInt(1);
-        if (id > 0)
-            return id;
+        try {
+            int id = 0;
+            if (rs.next())
+                id = rs.getInt(1);
+            if (id > 0)
+                return id;
+        } finally {
+            rs.close();
+        }
 
-        rs.close();
         rs = db.queryResults(sql1, params1);
-        if (rs.next())
-            id = rs.getInt(1);
-        rs.close();
-        return id;
+        try {
+            int id = 0;
+            if (rs.next())
+                id = rs.getInt(1);
+            return id;
+        } finally {
+            rs.close();
+        }
     }
 
     @Override

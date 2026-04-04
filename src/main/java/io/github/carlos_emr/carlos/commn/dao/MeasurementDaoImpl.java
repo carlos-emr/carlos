@@ -74,6 +74,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
      */
     @Override
     public List<Measurement> findByCreateDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
+        // Entity name hardcoded to break CodeQL taint flow from modelClass.getSimpleName().
+        // Update this literal if the Measurement entity is ever renamed.
         String sqlCommand = "select x from Measurement x where x.createDate>?1 order by x.createDate";
 
         Query query = entityManager.createQuery(sqlCommand);

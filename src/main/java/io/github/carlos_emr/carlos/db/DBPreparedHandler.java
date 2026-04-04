@@ -57,16 +57,16 @@ public final class DBPreparedHandler {
      * check is the appropriate defence.
      *
      * @param procName the caller-supplied procedure name
-     * @throws IllegalArgumentException if the name contains characters outside the
-     *         allowed set {@code [a-zA-Z0-9_.]}
+     * @throws SQLException if the name is null, empty, or contains characters outside
+     *         the allowed set {@code [a-zA-Z0-9_.]}
      */
-    private static void validateProcName(String procName) {
+    private static void validateProcName(String procName) throws SQLException {
         if (procName == null || procName.isEmpty()) {
-            throw new IllegalArgumentException("procName must not be null or empty");
+            throw new SQLException("Stored procedure name must not be null or empty");
         }
         if (!procName.matches("[a-zA-Z0-9_.]+")) {
-            throw new IllegalArgumentException(
-                    "procName contains invalid characters; only letters, digits, underscores and dots are allowed");
+            throw new SQLException(
+                    "Stored procedure name contains invalid characters; only letters, digits, underscores and dots are allowed");
         }
     }
 
