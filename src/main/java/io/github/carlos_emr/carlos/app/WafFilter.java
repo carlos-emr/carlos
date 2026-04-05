@@ -251,8 +251,7 @@ public class WafFilter implements Filter {
     private static final Pattern SCANNER_UA = Pattern.compile(
         "(?i)(sqlmap|nikto|nmap|masscan|zgrab|nuclei|dirbuster|gobuster|wfuzz|hydra"
         + "|burpsuite|burp\\s*suite|zaproxy|zap\\s*proxy|w3af|arachni"
-        + "|skipfish|vega\\b|grabber|fimap|commix)",
-        Pattern.CASE_INSENSITIVE
+        + "|skipfish|vega\\b|grabber|fimap|commix)"
     );
 
     // -----------------------------------------------------------------------
