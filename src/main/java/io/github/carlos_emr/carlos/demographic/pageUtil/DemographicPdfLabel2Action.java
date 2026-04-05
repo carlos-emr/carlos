@@ -23,32 +23,50 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Struts2 action for demographic PDF label generation. Replaces the
+ * Struts2 action for demographic label generation. Replaces the
  * {@code demographiccontrol.jsp} {@code displaymode=pdflabel} route.
+ * Forwards to {@code demographicpdflabel.jsp} which renders a print-oriented
+ * HTML page displaying the patient demographic record. Despite the legacy
+ * name, no PDF is generated — the page is designed for browser printing.
  *
  * @since 2026-04-04
  */
 public class DemographicPdfLabel2Action extends ActionSupport {
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Validates session and demographic read privileges, then forwards to the
+     * PDF label generation JSP.
+     *
+     * @return {@link #SUCCESS} on successful authorization
+     * @throws SecurityException if the session is missing or the user lacks
+     *         {@code _demographic} read privilege
+     */
     @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
+            logger.warn("DemographicPdfLabel2Action: missing session");
             throw new SecurityException("missing required session");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            logger.warn("DemographicPdfLabel2Action: provider {} lacks _demographic read privilege",
+                    loggedInInfo.getLoggedInProviderNo());
             throw new SecurityException("missing required sec object (_demographic)");
         }
         return SUCCESS;

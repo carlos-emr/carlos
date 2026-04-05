@@ -371,7 +371,7 @@
             if (!d) {
                 d = document.getElementById('demofind' + docId + 'hrm').value;
             }
-            urlNew = url + d;
+            urlNew = url + encodeURIComponent(d);
             return popup2(height, width, 0, 0, urlNew, windowName);
         }
 
@@ -379,7 +379,7 @@
             if (!d) {
                 d = document.getElementById('demofind' + docId + 'hrm').value;
             }
-            urlNew = url + "method=edit&tickler.demographic_webName=" + n + "&tickler.demographicNo=" + d + "&docType=HRM&docId=" + docId;
+            urlNew = url + "method=edit&tickler.demographic_webName=" + encodeURIComponent(n) + "&tickler.demographicNo=" + encodeURIComponent(d) + "&docType=HRM&docId=" + encodeURIComponent(docId);
             return popup2(height, width, 0, 0, urlNew, windowName);
         }
 

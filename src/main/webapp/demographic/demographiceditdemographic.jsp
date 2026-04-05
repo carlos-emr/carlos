@@ -1128,7 +1128,7 @@
                         </tr>
                         <tr id="appt_hx">
                             <td><a
-                                    href='<%= request.getContextPath() %>/demographic/DemographicApptHistory.do?demographic_no=<%=demographic.getDemographicNo()%>&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnApptHist"/></a>
+                                    href='<%= request.getContextPath() %>/demographic/DemographicApptHistory.do?demographic_no=<%=Encode.forUriComponent(String.valueOf(demographic.getDemographicNo()))%>&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnApptHist"/></a>
                             </td>
                         </tr>
 
@@ -1325,7 +1325,7 @@
                         <tr>
                             <td>
                                 <form method="post" name="updatedelete" id="updatedelete"
-                                      action="demographic/DemographicUpdate.do"
+                                      action="<%=request.getContextPath()%>/demographic/DemographicUpdate.do"
                                       onSubmit="return checkTypeInEdit();" autocomplete="off">
                                     <input type="hidden" name="demographic_no"
                                            value="<%=demographic.getDemographicNo()%>">

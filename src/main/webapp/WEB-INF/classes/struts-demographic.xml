@@ -28,6 +28,14 @@
 <struts>
     <package name="demographic" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/securityError.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+        </global-exception-mappings>
+
         <action name="admin/MergeRecords" class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action">
             <result name="success">/admin/demographicmergerecord.jsp?outcome=success</result>
             <result name="failure">/admin/demographicmergerecord.jsp?outcome=failure</result>

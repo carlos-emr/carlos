@@ -660,7 +660,7 @@
             if (demo == "-1") {
                 alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.selectDemographicFirst"/>");
             } else {
-                popupPage(710, 1024, '<c:out value="${ctx}"/>/demographic/DemographicApptHistory.do?demographic_no=' + demo + '&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25');
+                popupPage(710, 1024, '<c:out value="${ctx}"/>/demographic/DemographicApptHistory.do?demographic_no=' + encodeURIComponent(demo) + '&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25');
             }
         }
 

@@ -31,6 +31,7 @@
 
 <%@ page import="java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDict" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -72,10 +73,21 @@
 
     // redirect to a file associated with operation
     String target = opToFileDict.getDef(operation, "");
+    if (target.isEmpty()) {
+        MiscUtils.getLogger().warn("appointmentcontrol.jsp: unrecognized displaymode: {}",
+                org.owasp.encoder.Encode.forJava(operation));
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                "Unrecognized appointment operation");
+        return;
+    }
     out.clearBuffer();
     // Struts2 actions (.do) require FORWARD dispatch — the Struts2 filter
     // does not intercept INCLUDE dispatches (only REQUEST and FORWARD).
     if (target.endsWith(".do")) {
+        if (response.isCommitted()) {
+            MiscUtils.getLogger().error("appointmentcontrol.jsp: cannot forward to {} — response already committed", target);
+            return;
+        }
         request.getRequestDispatcher(target).forward(request, response);
     } else {
         request.getRequestDispatcher(target).include(request, response);

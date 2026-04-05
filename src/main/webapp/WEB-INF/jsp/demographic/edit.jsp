@@ -1214,7 +1214,7 @@
                         <tr>
                             <td>
                                 <form method="post" name="updatedelete" id="updatedelete"
-                                      action="demographic/DemographicUpdate.do"
+                                      action="<%=request.getContextPath()%>/demographic/DemographicUpdate.do"
                                       onSubmit="return checkTypeInEdit();" autocomplete="off">
                                     <input type="hidden" name="demographic_no"
                                            value="<%=demographic.getDemographicNo()%>">

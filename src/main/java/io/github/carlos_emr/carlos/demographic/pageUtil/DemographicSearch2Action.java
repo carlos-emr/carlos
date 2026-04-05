@@ -23,16 +23,19 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
  * Struts2 action for demographic search. Replaces the {@code demographiccontrol.jsp}
- * {@code displaymode=Search} route. Performs security validation and routes to the
- * appropriate result JSP. The target JSPs handle their own data loading via DAOs.
+ * {@code displaymode=Search} and {@code displaymode=Search } (trailing space) routes.
+ * Performs security validation and routes to the appropriate result JSP. The target
+ * JSPs handle their own data loading via DAOs.
  *
  * <p>Routes to {@code demographicsearchresults.jsp} for general search, or
  * {@code demographicsearch2apptresults.jsp} for appointment-context search
@@ -43,27 +46,44 @@ import org.apache.struts2.ServletActionContext;
  */
 public class DemographicSearch2Action extends ActionSupport {
 
+    private static final Logger logger = MiscUtils.getLogger();
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Validates session and demographic read privileges, then routes to the
+     * appropriate search results JSP based on the {@code displaymode} parameter.
+     *
+     * @return {@link #SUCCESS} for general search results, or {@code "apptResults"}
+     *         for appointment-context search (when {@code displaymode} is {@code "Search "})
+     * @throws SecurityException if the session is missing or the user lacks
+     *         {@code _demographic} read privilege
+     */
     @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
+            logger.warn("DemographicSearch2Action: missing session");
             throw new SecurityException("missing required session");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            logger.warn("DemographicSearch2Action: provider {} lacks _demographic read privilege",
+                    loggedInInfo.getLoggedInProviderNo());
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
-        // "Search " (with trailing space) is passed by appointment-context callers
-        // (appointmentcontrol.jsp, ticklerAdd.jsp, PatientSearch.jsp, etc.)
-        // to distinguish appointment search from general demographic search.
+        // "Search " (with trailing space) is set by appointment-context forms
+        // (addappointment.jsp, editappointment.jsp, ticklerAdd.jsp, PatientSearch.jsp, etc.)
+        // and routed here via appointmentcontrol.jsp.
         String displaymode = request.getParameter("displaymode");
         if ("Search ".equals(displaymode)) {
             return "apptResults";
+        }
+        if (displaymode != null && !"Search".equals(displaymode)) {
+            logger.debug("DemographicSearch2Action: unexpected displaymode='{}', falling through to general search", displaymode);
         }
         return SUCCESS;
     }

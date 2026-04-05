@@ -1527,8 +1527,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
         sb.append("<div id='patient-label'>");
         sb.append("<div id='patient-full-name'>");
-        sb.append("<h1><a href='"+ contextPath + "/demographic/DemographicEdit.do?demographic_no=");
-        sb.append(Encode.forHtml(getDemographicNo() + ""));
+        String editHref = contextPath + "/demographic/DemographicEdit.do?demographic_no="
+                + Encode.forUriComponent(String.valueOf(getDemographicNo()));
+        sb.append("<h1><a href='").append(Encode.forHtmlAttribute(editHref));
         sb.append("' target='_blank'>");
 
         if (getTitle() != null && getTitle().length() > 0) {
@@ -1641,9 +1642,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         //--> next appointment date
         sb.append("<div id='patient-next-appointment'>");
         sb.append("<div class='label'>");
-        sb.append("<a href=\"" + contextPath + "/demographic/DemographicApptHistory.do?demographic_no=")
-        .append(Encode.forHtml(getDemographicNo() + ""))
-                .append("&amp;orderby=appointment_date&amp;dboperation=appt_history&amp;limit1=0&amp;limit2=25\" title='View Appointment History' target='_blank'>");
+        String apptHref = contextPath + "/demographic/DemographicApptHistory.do?demographic_no="
+                + Encode.forUriComponent(String.valueOf(getDemographicNo()))
+                + "&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25";
+        sb.append("<a href=\"").append(Encode.forHtmlAttribute(apptHref))
+                .append("\" title='View Appointment History' target='_blank'>");
         sb.append("Next Appt.");
         sb.append("</a>");
         sb.append("</div>");
