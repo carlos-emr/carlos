@@ -192,13 +192,13 @@
                             + StringEscapeUtils.escapeEcmaScript(prop.getProperty("telephone", "").equals("") ? "" : (prop.getProperty("telephone") + "\n"))
                             + StringEscapeUtils.escapeEcmaScript(prop.getProperty("fax", "").equals("") ? "" : (prop.getProperty("fax") + "\n"))
                             + "')" : "typeInData1('"
-                            + prop.getProperty("city", "") + "')";
+                            + StringEscapeUtils.escapeEcmaScript(prop.getProperty("city", "")) + "')";
 
             %>
             <tr align="center" bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.cursor='pointer';this.style.backgroundColor='pink';"
                 onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                onClick="<%=Encode.forJavaScriptAttribute(strOnClick)%>">
+                onClick="<%=Encode.forHtmlAttribute(strOnClick)%>">
                 <td><%=Encode.forHtml(prop.getProperty("attention", ""))%>
                 </td>
                 <td><%=Encode.forHtml(WordUtils.capitalize(prop.getProperty("company_name", "").toLowerCase()))%>
