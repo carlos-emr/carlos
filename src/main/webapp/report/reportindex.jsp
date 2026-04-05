@@ -279,7 +279,7 @@
                 </td>
                 <td width="1"></td>
                 <td width="300"><a
-                        href="<%= request.getContextPath() %>/oscarPrevention/PreventionReporting.jsp" target="_blank"><fmt:message key="report.reportindex.btnReport18n"/></a></td>
+                        href="<%= request.getContextPath() %>/oscarPrevention/PreventionReport.do" target="_blank"><fmt:message key="report.reportindex.btnReport18n"/></a></td>
                 <td></td>
                 <td></td>
                 <td></td>

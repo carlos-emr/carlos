@@ -28,6 +28,15 @@
 <struts>
     <package name="encounter" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/securityError.jsp</result>
+            <result name="error">/errorpage.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+            <exception-mapping exception="java.lang.Exception" result="error"/>
+        </global-exception-mappings>
 
         <action name="encounter/IncomingEncounter" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctIncomingEncounter2Action">
             <result name="failure">/errorpage.jsp</result>
@@ -394,11 +403,11 @@
         </action>
         <action name="econsult" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EConsult2Action"/>
         <action name="encounter/IncomingConsultation" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctIncomingConsultation2Action">
-            <result name="success">/encounter/oscarConsultationRequest/ViewConsultationRequests.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ViewConsultationRequests.jsp</result>
         </action>
 
         <action name="encounter/ViewConsultation" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequests2Action">
-            <result name="success">/encounter/oscarConsultationRequest/ViewConsultationRequests.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ViewConsultationRequests.jsp</result>
         </action>
         <action name="encounter/ViewRequest" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewRequest2Action">
             <result name="failESend">/encounter/ViewRequest.do</result>
@@ -497,18 +506,19 @@
             <result name="success">/encounter/immunization/Schedule.jsp</result>
         </action>
         <action name="encounter/immunization/config/initConfig" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfig2Action">
-            <result name="success">/encounter/immunization/config/AdministrateImmunizationSets.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/immunization/config/AdministrateImmunizationSets.jsp</result>
         </action>
         <action name="encounter/immunization/config/deleteImmunizationSet" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfigDeleteImmuSet2Action">
-            <result name="success">/encounter/immunization/config/AdministrateImmunizationSets.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/immunization/config/AdministrateImmunizationSets.jsp</result>
         </action>
         <action name="encounter/immunization/config/CreateInitImmunization" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetInit2Action">
-            <result name="success">/encounter/immunization/config/CreateImmunizationSetConfig.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/immunization/config/CreateImmunizationSetConfig.jsp</result>
         </action>
         <action name="encounter/immunization/config/CreateImmunizationSetConfig" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action">
-            <result name="success">/encounter/immunization/config/AdministrateImmunizationSets.jsp</result>
-            <result name="goBack">/encounter/immunization/config/CreateImmunizationSetConfig.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/immunization/config/AdministrateImmunizationSets.jsp</result>
+            <result name="goBack">/WEB-INF/jsp/encounter/immunization/config/CreateImmunizationSetConfig.jsp</result>
         </action>
+
 
         <action name="encounter/immunization/config/ImmunizationSetDisplay" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmImmunizationSetDisplay2Action">
             <result name="success">/encounter/immunization/config/ImmunizationSetDisplay.jsp</result>
@@ -526,11 +536,11 @@
             <result name="failure">/encounter/oscarMeasurements/AddMeasurementData.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupAddMeasurementType" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasurementType2Action">
-            <result name="continue">/encounter/oscarMeasurements/AddMeasurementType.jsp</result>
+            <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementType.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/AddMeasurementType" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementType2Action">
-            <result name="success">/encounter/oscarMeasurements/AddMeasurementType.jsp</result>
-            <result name="failure">/encounter/oscarMeasurements/AddMeasurementType.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementType.jsp</result>
+            <result name="failure">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementType.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupDisplayMeasurementTypes" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayMeasurementTypes2Action">
             <result name="continue">/encounter/oscarMeasurements/DisplayMeasurementTypes.jsp</result>
@@ -555,11 +565,11 @@
             <result name="success">/encounter/oscarMeasurements/close.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupAddMeasuringInstruction" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasuringInstruction2Action">
-            <result name="continue">/encounter/oscarMeasurements/AddMeasuringInstruction.jsp</result>
+            <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasuringInstruction.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/AddMeasuringInstruction" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasuringInstruction2Action">
-            <result name="success">/encounter/oscarMeasurements/AddMeasuringInstruction.jsp</result>
-            <result name="failure">/encounter/oscarMeasurements/AddMeasuringInstruction.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasuringInstruction.jsp</result>
+            <result name="failure">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasuringInstruction.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/SetupStyleSheetList" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupStyleSheetList2Action">
             <result name="continue">/encounter/oscarMeasurements/DefineNewMeasurementGroup.jsp</result>
@@ -568,7 +578,7 @@
             <result name="continue">/encounter/oscarMeasurements/SelectMeasurementGroup.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/SelectMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSelectMeasurementGroup2Action">
-            <result name="type">/encounter/oscarMeasurements/ProcessEditMeasurementGroupAction.jsp</result>
+            <result name="type">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessEditMeasurementGroupAction.jsp</result>
             <result name="style">/encounter/oscarMeasurements/EditMeasurementGroupStyle.jsp</result>
             <result name="delete">/encounter/oscarMeasurements/SetupGroupList.do</result>
             <result name="addDSHTML">/encounter/oscarMeasurements/MeasurementGroupDSadd.jsp</result>
@@ -578,7 +588,7 @@
             <result name="continue">/encounter/oscarMeasurements/EditMeasurementGroup.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/EditMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctEditMeasurementGroup2Action">
-            <result name="success">/encounter/oscarMeasurements/ProcessEditMeasurementGroupAction.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessEditMeasurementGroupAction.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/DefineNewMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDefineNewMeasurementGroup2Action">
             <result name="continue">/encounter/oscarMeasurements/ProcessAddMeasurementGroupAction.jsp</result>
@@ -590,7 +600,7 @@
             <result name="continue">/encounter/oscarMeasurements/SetupGroupList.do</result>
         </action>
         <action name="encounter/oscarMeasurements/AddMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementGroup2Action">
-            <result name="success">/encounter/oscarMeasurements/ProcessEditMeasurementGroupAction.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessEditMeasurementGroupAction.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/DeleteMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementStyleSheet2Action">
             <result name="success">/encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet.do</result>
@@ -598,9 +608,13 @@
         <action name="encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayMeasurementStyleSheet2Action">
             <result name="continue">/encounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp</result>
         </action>
+        <action name="encounter/oscarMeasurements/SetupAddMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasurementStyleSheet2Action">
+            <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
+        </action>
         <action name="encounter/oscarMeasurements/AddMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementStyleSheet2Action">
             <interceptor-ref name="defaultStack"/>
-            <result name="success">/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
+            <result name="input">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/AddMeasurementMap" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementMap2Action">
             <result name="continue">/encounter/oscarMeasurements/addMeasurementMap.jsp</result>
@@ -624,9 +638,8 @@
             <result name="failure">/encounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=failure</result>
             <result name="failedcheck">/encounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=failedcheck</result>
         </action>
-        <action name="oscarMeasurement/AddShortMeasurement" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddShortMeasurement2Action">
-            <result name="success">/oscarPrevention/PreventionReporting.jsp</result>
-        </action>
+        <action name="oscarMeasurement/AddShortMeasurement" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddShortMeasurement2Action"/>
+
         <action name="encounter/displayEpisodes" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEpisode2Action">
             <result name="labs">/encounter/displayLabs.do</result>
             <result name="forms">/encounter/displayForms.do</result>

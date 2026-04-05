@@ -1,6 +1,6 @@
 <%--
     Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
-    This softwar is published under the GPL GNU General Public License.
+    This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
     as published by the Free Software Foundation; either version 2
@@ -46,7 +46,7 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
-    <title>Facility Messages</title>
+    <title>System Messages</title>
 </head>
 
 <body>
@@ -56,28 +56,25 @@
         <th colspan="4">CAISI</th>
     </tr>
     <tr>
-        <td class="searchTitle" colspan="4">Facility Messages</td>
+        <td class="searchTitle" colspan="4">System Messages</td>
     </tr>
 </table>
 
 <br/>
 
-<%@ include file="messages.jsp" %>
+<%@ include file="/caisicore/messages.jsp" %>
 
 <br/>
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">
     <tr class="title">
         <td></td>
-        <td>Facility Name</td>
-        <td>Program Name</td>
         <td>Creation Date</td>
         <td>Expiry Date</td>
         <td>Message</td>
     </tr>
 
-    <c:forEach var="msg" items="${ActiveFacilityMessages}"
-               varStatus="status">
+    <c:forEach var="msg" items="${ActiveMessages}" varStatus="status">
         <%
             String style = "color:black;";
             String bgcolor = "white";
@@ -93,10 +90,8 @@
 
         <tr style="<%=style %>" bgcolor="<%=bgcolor %>">
             <td valign="middle"><a
-                    href="FacilityMessage.do?method=edit&id=<c:out value="${msg.id}"/>"><img
+                    href="SystemMessage.do?method=edit&id=<c:out value="${msg.id}"/>"><img
                     border="0" src="images/edit.jpg"/></a></td>
-            <td><c:out value="${msg.facilityName}"/></td>
-            <td><c:out value="${msg.programName}"/></td>
             <td><c:out value="${msg.formattedCreationDate}"/></td>
             <td><c:out value="${msg.formattedExpiryDate}"/></td>
             <td><c:out value="${msg.message}"/></td>
@@ -111,7 +106,7 @@
         <td><input type="button" value="Back"
                    onclick="location.href='<%=request.getContextPath()%>/admin/admin.jsp'"/></td>
         <td><input type="button" value="Create New Message"
-                   onclick="location.href='FacilityMessage.do?method=edit'"/></td>
+                   onclick="location.href='SystemMessage.do?method=edit'"/></td>
     </tr>
 </table>
 

@@ -32,30 +32,33 @@
             <result name="success">/admin/lookUpLists/</result>
         </action>
         <action name="SystemMessage" class="io.github.carlos_emr.carlos.www.SystemMessage2Action" method="execute">
-            <result name="view">/caisicore/SystemMessage.jsp</result>
-            <result name="list">/caisicore/SystemMessageList.jsp</result>
-            <result name="edit">/caisicore/SystemMessageForm.jsp</result>
+            <result name="view">/WEB-INF/jsp/caisicore/SystemMessage.jsp</result>
+            <result name="list">/WEB-INF/jsp/caisicore/SystemMessageList.jsp</result>
+            <result name="edit">/WEB-INF/jsp/caisicore/SystemMessageForm.jsp</result>
         </action>
         <action name="DefaultEncounterIssue" class="io.github.carlos_emr.carlos.www.DefaultEncounterIssue2Action" method="execute">
-            <result name="list">/caisicore/DefaultEncounterIssueList.jsp</result>
-            <result name="edit">/caisicore/DefaultEncounterIssueForm.jsp</result>
-            <result name="editRemove">/caisicore/DefaultEncounterIssueFormRemove.jsp</result>
+            <result name="list">/WEB-INF/jsp/caisicore/DefaultEncounterIssueList.jsp</result>
+            <result name="edit">/WEB-INF/jsp/caisicore/DefaultEncounterIssueForm.jsp</result>
+            <result name="editRemove">/WEB-INF/jsp/caisicore/DefaultEncounterIssueFormRemove.jsp</result>
         </action>
         <action name="FacilityMessage" class="io.github.carlos_emr.carlos.www.OrganizationMessage2Action" method="execute">
-            <result name="view">/caisicore/FacilityMessage.jsp</result>
-            <result name="list">/caisicore/FacilityMessageList.jsp</result>
-            <result name="edit">/caisicore/FacilityMessageForm.jsp</result>
+            <result name="view">/WEB-INF/jsp/caisicore/FacilityMessage.jsp</result>
+            <result name="list">/WEB-INF/jsp/caisicore/FacilityMessageList.jsp</result>
+            <result name="edit">/WEB-INF/jsp/caisicore/FacilityMessageForm.jsp</result>
         </action>
         <action name="issueAdmin" class="io.github.carlos_emr.carlos.www.IssueAdmin2Action">
-            <result name="list">/caisicore/issueAdminList.jsp</result>
-            <result name="edit">/caisicore/issueAdminForm.jsp</result>
+            <result name="list">/WEB-INF/jsp/caisicore/issueAdminList.jsp</result>
+            <result name="edit">/WEB-INF/jsp/caisicore/issueAdminForm.jsp</result>
         </action>
         <action name="admin/GenerateTraceAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTrace2Action"/>
         <action name="admin/GenerateTraceabilityReportAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTraceabilityReport2Action">
             <interceptor-ref name="defaultStack"/>
         </action>
         <action name="admin/AuditLogPurge" class="io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action">
-            <result name="success">/admin/auditLogPurge.jsp</result>
+            <result name="success">/WEB-INF/jsp/admin/auditLogPurge.jsp</result>
+        </action>
+        <action name="admin/FixRolesOnNotes" class="io.github.carlos_emr.carlos.admin.web.FixRolesOnNotes2Action">
+            <result name="success">/WEB-INF/jsp/admin/fixRolesOnNotes.jsp</result>
         </action>
 
     </package>

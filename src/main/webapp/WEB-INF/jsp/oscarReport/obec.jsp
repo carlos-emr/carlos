@@ -29,6 +29,7 @@
 
 --%>
 
+<%@ taglib uri="/struts-tags" prefix="s" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -106,6 +107,12 @@
     </h4>
 </div>
 
+
+<s:if test="hasActionErrors()">
+<div class="alert alert-danger">
+    <s:actionerror/>
+</div>
+</s:if>
 
 <form action="${ctx}/oscarReport/obec.do" class="card card-body bg-body-tertiary"
       id="obecForm">

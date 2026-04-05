@@ -30,7 +30,7 @@
 
 
         <action name="EnterSignature" class="io.github.carlos_emr.carlos.providers.pageUtil.ProEditSignature2Action">
-            <result name="success">/provider/providerSignature.jsp</result>
+            <result name="success">/WEB-INF/jsp/provider/providerSignature.jsp</result>
         </action>
         <action name="EditPhoneNum" class="io.github.carlos_emr.carlos.providers.pageUtil.ProEditPhoneNum2Action">
             <result name="success">/provider/providerPhone.jsp</result>

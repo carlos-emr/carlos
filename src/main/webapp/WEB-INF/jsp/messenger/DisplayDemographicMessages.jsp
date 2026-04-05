@@ -242,40 +242,40 @@
                                         <th bgcolor="#DDDDFF" width="75">&nbsp;</th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.jsp?orderby=from&moreMessages=true">
+                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.do?orderby=from&moreMessages=true">
                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgFrom"/>
                                         </a> <%} else {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.jsp?orderby=from&moreMessages=false">
+                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.do?orderby=from&moreMessages=false">
                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgFrom"/>
                                         </a> <%}%>
                                         </th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.jsp?orderby=subject&moreMessages=true">
+                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.do?orderby=subject&moreMessages=true">
                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgSubject"/>
                                         </a> <%} else {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.jsp?orderby=subject&moreMessages=false">
+                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.do?orderby=subject&moreMessages=false">
                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgSubject"/>
                                         </a> <%}%>
                                         </th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.jsp?orderby=date&moreMessages=true">
+                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.do?orderby=date&moreMessages=true">
                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgDate"/>
                                         </a> <%} else {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.jsp?orderby=date&moreMessages=false">
+                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.do?orderby=date&moreMessages=false">
                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgDate"/>
                                         </a> <%}%>
                                         </th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%>
                                             <a
-                                                    href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.jsp?orderby=linked&moreMessages=true">
+                                                    href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.do?orderby=linked&moreMessages=true">
                                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgLinked"/>
                                             </a>
                                             <%} else {%>
                                             <a
-                                                    href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.jsp?orderby=linked&moreMessages=false">
+                                                    href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages.do?orderby=linked&moreMessages=false">
                                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgLinked"/>
                                             </a>
                                             <%}%>
