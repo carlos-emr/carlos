@@ -409,6 +409,7 @@
             }
 
             function checkDob() {
+                syncDobParts();  // ensure hidden part-fields reflect current visible input
                 var yyyy = document.updatedelete.year_of_birth.value;
                 var mm = document.updatedelete.month_of_birth.value;
                 var dd = document.updatedelete.date_of_birth.value;
@@ -1402,7 +1403,6 @@
 
     <script type="text/javascript">
 
-
         Calendar.setup({
             inputField: "paper_chart_archived_date",
             ifFormat: "%Y-%m-%d",
@@ -1411,6 +1411,38 @@
             singleClick: true,
             step: 1
         });
+
+        /* -------------------------------------------------------
+         * DOB single-input: calendar picker + hidden-field sync
+         * The server expects separate year_of_birth / month_of_birth /
+         * date_of_birth parameters; we derive them from the one visible
+         * yyyy-mm-dd field every time it changes or the calendar selects.
+         * ------------------------------------------------------- */
+        Calendar.setup({
+            inputField: "dob",
+            ifFormat: "%Y-%m-%d",
+            showsTime: false,
+            button: "dob_cal",
+            singleClick: true,
+            step: 1,
+            onSelect: function() { syncDobParts(); }
+        });
+
+        function syncDobParts() {
+            var val = document.getElementById('dob') ? document.getElementById('dob').value : '';
+            var parts = val.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (parts) {
+                document.getElementById('year_of_birth').value  = parts[1];
+                document.getElementById('month_of_birth').value = parts[2];
+                document.getElementById('date_of_birth').value  = parts[3];
+            }
+        }
+
+        var dobEl = document.getElementById('dob');
+        if (dobEl) {
+            dobEl.addEventListener('change', syncDobParts);
+            dobEl.addEventListener('blur',   syncDobParts);
+        }
 
         function callEligibilityWebService(url, id) {
             var ran_number = Math.round(Math.random() * 1000000);

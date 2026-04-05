@@ -226,6 +226,9 @@
     String birthYear = (String) request.getAttribute("birthYear");
     String birthMonth = (String) request.getAttribute("birthMonth");
     String birthDate = (String) request.getAttribute("birthDate");
+    // Build the single DOB display value; treat the "0000-00-00" default as blank
+    String dobDisplay = ("0000".equals(birthYear) || birthYear == null) ? ""
+            : (birthYear + "-" + birthMonth + "-" + birthDate);
     DemographicCust demographicCust = (DemographicCust) request.getAttribute("demographicCust");
     
     // providerBean is session-scoped, populated during login
@@ -1057,31 +1060,19 @@
                                                         <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formDOB"/>
                                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formDOBDetais"/>:</b>
                                                         </td>
-                                                        <td align="left" nowrap><input type="text" placeholder="yyyy"
-                                                                                       name="year_of_birth" <%=getDisabled("year_of_birth")%>
-                                                                                       value="<%=birthYear%>"
-                                                                                       size="3" maxlength="4">
-
-                                                            <%
-                                                                String sbMonth;
-                                                                String sbDay;
-                                                                DecimalFormat dFormat = new DecimalFormat("00");
-                                                            %>
-                                                            <select name="month_of_birth" id="month_of_birth">
-                                                                <% for (int i = 1; i <= 12; i++) {
-                                                                    sbMonth = dFormat.format(i); %>
-                                                                <option value="<%=sbMonth%>"<%=birthMonth.equals(sbMonth) ? " selected" : ""%>><%=sbMonth%>
-                                                                </option>
-                                                                <%} %>
-                                                            </select>
-
-                                                            <select name="date_of_birth" id="date_of_birth">
-                                                                <% for (int i = 1; i <= 31; i++) {
-                                                                    sbDay = dFormat.format(i); %>
-                                                                <option value="<%=sbDay%>"<%=birthDate.equals(sbDay) ? " selected" : ""%>><%=sbDay%>
-                                                                </option>
-                                                                <%} %>
-                                                            </select>
+                                                        <td align="left" nowrap>
+                                                            <%-- Single yyyy-mm-dd text input with calendar picker; hidden fields carry the parts the server expects. --%>
+                                                            <input type="text" id="dob"
+                                                                   name="dob"
+                                                                   placeholder="yyyy-mm-dd"
+                                                                   autocomplete="off"
+                                                                   value="<%=Encode.forHtmlAttribute(dobDisplay)%>"
+                                                                   <%=getDisabled("year_of_birth")%>>
+                                                            <img src="<%= request.getContextPath() %>/images/cal.gif" id="dob_cal" alt="calendar">
+                                                            <%-- Hidden part-fields consumed by the server --%>
+                                                            <input type="hidden" name="year_of_birth"  id="year_of_birth"  value="<%=birthYear%>">
+                                                            <input type="hidden" name="month_of_birth" id="month_of_birth" value="<%=birthMonth%>">
+                                                            <input type="hidden" name="date_of_birth"  id="date_of_birth"  value="<%=birthDate%>">
 
                                                             <label for="age"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgDemoAge"/>:</label>
                                                             <input type="text" name="age" id="age"

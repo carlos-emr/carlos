@@ -475,16 +475,16 @@ table#editDemographic tr:nth-of-type(even) { background-color: #f8f9fa; }
 /* ============================================================
    12b. INLINE DATE-PART INPUTS
    Year/month/day components inside a single td must stay on one
-   line. Bootstrap sets display:block + width:100% on all inputs
-   by default; override those here so the parts don't stack.
+   line. The base rule `table#editDemographic tr td input[type="text"]`
+   has specificity (1 ID + 1 attr + 4 elements). We match that level
+   here by including `tr td` so these later-defined rules take
+   precedence via cascade order (equal specificity, later wins).
    ============================================================ */
-table#editDemographic input[name="year_of_birth"],
-table#editDemographic input[name="month_of_birth"],
-table#editDemographic input[name="date_of_birth"],
-table#editDemographic input[name$="_year"],
-table#editDemographic input[name$="_month"],
-table#editDemographic input[name$="_day"],
-table#editDemographic input[name$="_date"][maxlength="2"] {
+table#editDemographic tr td input[name$="_year"],
+table#editDemographic tr td input[name$="_month"],
+table#editDemographic tr td input[name$="_day"],
+table#editDemographic tr td input[name$="_date"][maxlength="2"],
+table#editDemographic tr td input[name="year_of_birth"] {
     display: inline-block;
     width: auto;
     min-width: 3em;
@@ -492,8 +492,18 @@ table#editDemographic input[name$="_date"][maxlength="2"] {
     vertical-align: middle;
 }
 
-table#editDemographic select#month_of_birth,
-table#editDemographic select#date_of_birth {
+/* DOB single-date input — wider than the hidden year/month/day parts */
+table#editDemographic tr td input#dob {
+    display: inline-block;
+    width: auto;
+    min-width: 9em;
+    max-width: 12em;
+    padding: 4px 6px;
+    vertical-align: middle;
+}
+
+table#editDemographic tr td select#month_of_birth,
+table#editDemographic tr td select#date_of_birth {
     display: inline-block;
     width: auto;
     padding: 4px 6px;
@@ -501,8 +511,8 @@ table#editDemographic select#date_of_birth {
 }
 
 /* Keep calendar-picker date input and cal.gif icon on the same line */
-table#editDemographic input#paper_chart_archived_date,
-table#editDemographic input#waiting_list_referral_date {
+table#editDemographic tr td input#paper_chart_archived_date,
+table#editDemographic tr td input#waiting_list_referral_date {
     display: inline-block;
     width: auto;
     max-width: 180px;
@@ -513,6 +523,23 @@ table#editDemographic img[id$="_cal"] {
     display: inline-block;
     vertical-align: middle;
     cursor: pointer;
+}
+
+/* ============================================================
+   12c. FIELD-LEVEL VALIDATION — highlight invalid fields
+   :user-invalid (Chrome 119+, Firefox 88+, Safari 16.5+) fires only
+   after the user has actually interacted with the field.
+   Fallback: :invalid:not(:placeholder-shown) approximates the same
+   behaviour in older browsers by suppressing the red border while
+   the placeholder is still visible (field untouched/empty).
+   ============================================================ */
+table#editDemographic tr td input:user-invalid,
+table#editDemographic tr td select:user-invalid,
+table#editDemographic tr td textarea:user-invalid,
+table#editDemographic tr td input:invalid:not(:placeholder-shown),
+table#editDemographic tr td textarea:invalid:not(:placeholder-shown) {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
 }
 
 /* ============================================================
