@@ -161,7 +161,7 @@
                        onclick="onCheck(this,'p1_birthRemarksr')" <%=Encode.forHtml(props.getProperty("p1_birthRemarksr2", ""))%>>
                 <label for="p1_birthRemarksr2"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formHighRisk"/></label>&nbsp;<br>
                 <input type="radio" id="p1_birthRemarksr3" name="p1_birthRemarksr3"
-                       onclick="onCheck(this,'p1_birthRemarksr')"<%=Encode.forHtml(props.getProperty("p1_birthRemarksr3", ""))%>>
+                       onclick="onCheck(this,'p1_birthRemarksr')" <%=Encode.forHtml(props.getProperty("p1_birthRemarksr3", ""))%>>
                 <label for="p1_birthRemarksr3"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNoConcerns"/></label>&nbsp;
             </td>
             <td width="65%" nowrap align="center">
