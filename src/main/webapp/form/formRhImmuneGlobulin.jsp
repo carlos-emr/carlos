@@ -251,24 +251,24 @@
                         gestAge = "" + UtilDateUtilities.calculateGestationAge(new Date(), (Date) h.get("completion_date"));
                     } catch (Exception gestAgeEx) {
                     }
-            %> <span style="margin-right: 20px;">EDD: <%=h.get("completion_date")%></span>
+            %> <span style="margin-right: 20px;">EDD: <%=Encode.forHtml(String.valueOf(h.get("completion_date")))%></span>
             <!-- span style="margin-right:20px;">Start date: <%=h.get("create_date_time")%> </span -->
-            <span style="margin-right: 20px;">Current State:<%=flow.getState("" + h.get("current_state"))%>
-</span> <span style="margin-right: 20px;">Weeks: <%=gestAge%></span> <%} else {%> <span
+            <span style="margin-right: 20px;">Current State:<%=Encode.forHtml(flow.getState("" + h.get("current_state")))%>
+</span> <span style="margin-right: 20px;">Weeks: <%=Encode.forHtml(gestAge)%></span> <%} else {%> <span
                 style="margin-right: 20px;">No Current Pregnancy</span> <%}%> <br/>
             <form action="${pageContext.request.contextPath}/form/RHPrevention.do" method="post">
 
-                <%-- input type="hidden" name="demographic_no" value="<%= props.getProperty("demographic_no", "0") %>" / --%>
+                <%-- input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>" / --%>
             <input type="hidden" name="formCreated"
-                   value="<%= props.getProperty("formCreated", "") %>"/>
-            <input type="hidden" name="form_class" value="<%=formClass%>"/>
-            <input type="hidden" name="form_link" value="<%=formLink%>"/>
-            <input type="hidden" name="formId" value="<%=formId%>"/>
+                   value="<%= Encode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
+            <input type="hidden" name="form_class" value="<%=Encode.forHtmlAttribute(formClass)%>"/>
+            <input type="hidden" name="form_link" value="<%=Encode.forHtmlAttribute(formLink)%>"/>
+            <input type="hidden" name="formId" value="<%=Encode.forHtmlAttribute(formId)%>"/>
             <input type="hidden" name="submit" value="exit"/>
             <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
 
             <%if (h != null) { %>
-            <input type="hidden" name="workflowId" value="<%=h.get("ID")%>"/>
+            <input type="hidden" name="workflowId" value="<%=Encode.forHtmlAttribute(String.valueOf(h.get("ID")))%>"/>
 
 
             <label>Change State:</label>
@@ -278,8 +278,8 @@
                     for (int i = 0; i < states.size(); i++) {
                         WFState state = (WFState) states.get(i);
                 %>
-                <option value="<%=state.getKey()%>"
-                        <%= (state.getKey().equals(h.get("current_state")) ? " selected" : "")%>><%=state.getName()%>
+                <option value="<%=Encode.forHtmlAttribute(state.getKey())%>"
+                        <%= (state.getKey().equals(h.get("current_state")) ? " selected" : "")%>><%=Encode.forHtml(state.getName())%>
                 </option>
 
                 <%}%>
@@ -293,39 +293,39 @@
             <label>Date
                 of Referral:</label> <input type="text" name="dateOfReferral"
                                             id="dateOfReferral" size="9"
-                                            value="<%=props.getProperty("dateOfReferral","")%>"/> <a
+                                            value="<%=Encode.forHtmlAttribute(props.getProperty("dateOfReferral",""))%>"/> <a
                 id="dateOfRefButton"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif"
                                           alt="Calendar" border="0"/></a> <label>EDD:</label> <input type="text"
                                                                                                      name="edd"
                                                                                                      id="end_date"
                                                                                                      size="9"
-                                                                                                     value="<%=props.getProperty("edd","")%>">
+                                                                                                     value="<%=Encode.forHtmlAttribute(props.getProperty("edd",""))%>">
             <a id="date"><img
                     title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
             <br/>
 
             <label>Last Name:</label> <input type="text" name="motherSurname"
-                                             value="<%=props.getProperty("motherSurname","")%>"/> <label>First
+                                             value="<%=Encode.forHtmlAttribute(props.getProperty("motherSurname",""))%>"/> <label>First
             Name:</label> <input type="text" name="motherFirstname"
-                                 value="<%=props.getProperty("motherFirstname","")%>"/> <br/>
+                                 value="<%=Encode.forHtmlAttribute(props.getProperty("motherFirstname",""))%>"/> <br/>
             <label>Date of Birth:</label> <input type="text" name="dob" size="9"
-                                                 id="dob" value="<%=props.getProperty("dob","")%>"/> <a id="dateOB"><img
+                                                 id="dob" value="<%=Encode.forHtmlAttribute(props.getProperty("dob",""))%>"/> <a id="dateOB"><img
                 title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
             <br/>
 
             <label>Health Card #:</label> <input type="text" name="motherHIN"
-                                                 value="<%=props.getProperty("motherHIN","")%>"/> <label>VC:</label>
+                                                 value="<%=Encode.forHtmlAttribute(props.getProperty("motherHIN",""))%>"/> <label>VC:</label>
             <input
                     type="text" name="motherVC" size="3"
-                    value="<%=props.getProperty("motherVC","")%>"/> <br/>
+                    value="<%=Encode.forHtmlAttribute(props.getProperty("motherVC",""))%>"/> <br/>
             <label>Address:</label> <input type="text" name="motherAddress"
-                                           value="<%=props.getProperty("motherAddress","")%>"/> <label>City:</label>
+                                           value="<%=Encode.forHtmlAttribute(props.getProperty("motherAddress",""))%>"/> <label>City:</label>
             <input type="text" name="motherCity"
-                   value="<%=props.getProperty("motherCity","")%>"/> <br/>
+                   value="<%=Encode.forHtmlAttribute(props.getProperty("motherCity",""))%>"/> <br/>
             <label>Province:</label> <input type="text" name="motherProvince"
-                                            value="<%=props.getProperty("motherProvince","")%>"/> <label>Postal
+                                            value="<%=Encode.forHtmlAttribute(props.getProperty("motherProvince",""))%>"/> <label>Postal
             Code:</label> <input type="text" name="motherPostalCode"
-                                 value="<%=props.getProperty("motherPostalCode","")%>"/> <br/>
+                                 value="<%=Encode.forHtmlAttribute(props.getProperty("motherPostalCode",""))%>"/> <br/>
             <label>ABO:</label> <select name="motherABO">
             <option>Not Set</option>
             <option value="A"
@@ -360,7 +360,7 @@
         </select> <br/>
             <label>Hospital for Delivery:</label> <input type="text"
                                                          name="hospitalForDelivery"
-                                                         value="<%=props.getProperty("hospitalForDelivery","")%>"/>
+                                                         value="<%=Encode.forHtmlAttribute(props.getProperty("hospitalForDelivery",""))%>"/>
         </fieldset>
 
 
@@ -368,22 +368,22 @@
             <legend>Physician (OB) / Midwife</legend>
             <label>Last
                 Name:</label> <input type="text" name="refPhySurname"
-                                     value="<%=props.getProperty("refPhySurname","")%>"/> <label>First
+                                     value="<%=Encode.forHtmlAttribute(props.getProperty("refPhySurname",""))%>"/> <label>First
             Name:</label> <input type="text" name="refPhyFirstname"
-                                 value="<%=props.getProperty("refPhyFirstname","")%>"/> <br/>
+                                 value="<%=Encode.forHtmlAttribute(props.getProperty("refPhyFirstname",""))%>"/> <br/>
             <label>Address:</label> <input type="text" name="refPhyAddress"
-                                           size="20" value="<%=props.getProperty("refPhyAddress","")%>"/>
+                                           size="20" value="<%=Encode.forHtmlAttribute(props.getProperty("refPhyAddress",""))%>"/>
             <label>City:</label>
             <input type="text" name="refPhyCity"
-                   value="<%=props.getProperty("refPhyCity","")%>"/> <br/>
+                   value="<%=Encode.forHtmlAttribute(props.getProperty("refPhyCity",""))%>"/> <br/>
             <label>Province:</label> <input type="text" name="refPhyProvince"
-                                            value="<%=props.getProperty("refPhyProvince","")%>"/> <label>Postal
+                                            value="<%=Encode.forHtmlAttribute(props.getProperty("refPhyProvince",""))%>"/> <label>Postal
             Code:</label> <input type="text" name="refPhyPostalCode"
-                                 value="<%=props.getProperty("refPhyPostalCode","")%>"/> <br/>
+                                 value="<%=Encode.forHtmlAttribute(props.getProperty("refPhyPostalCode",""))%>"/> <br/>
             <label>Telephone:</label> <input type="text" name="refPhyPhone"
-                                             value="<%=props.getProperty("refPhyPhone","")%>"/> <label>Fax:</label>
+                                             value="<%=Encode.forHtmlAttribute(props.getProperty("refPhyPhone",""))%>"/> <label>Fax:</label>
             <input type="text" name="refPhyFax"
-                   value="<%=props.getProperty("refPhyFax","")%>"/> <br/>
+                   value="<%=Encode.forHtmlAttribute(props.getProperty("refPhyFax",""))%>"/> <br/>
         </fieldset>
 
 
@@ -391,22 +391,22 @@
             <legend>Family Doctor</legend>
             <label>Last
                 Name:</label> <input type="text" name="famPhySurname"
-                                     value="<%=props.getProperty("famPhySurname","")%>"/> <label>First
+                                     value="<%=Encode.forHtmlAttribute(props.getProperty("famPhySurname",""))%>"/> <label>First
             Name:</label> <input type="text" name="famPhyFirstname"
-                                 value="<%=props.getProperty("famPhyFirstname","")%>"/> <br/>
+                                 value="<%=Encode.forHtmlAttribute(props.getProperty("famPhyFirstname",""))%>"/> <br/>
             <label>Address:</label> <input type="text" name="famPhyAddress"
-                                           size="20" value="<%=props.getProperty("famPhyAddress","")%>"/>
+                                           size="20" value="<%=Encode.forHtmlAttribute(props.getProperty("famPhyAddress",""))%>"/>
             <label>City:</label>
             <input type="text" name="famPhyCity"
-                   value="<%=props.getProperty("famPhyCity","")%>"/> <br/>
+                   value="<%=Encode.forHtmlAttribute(props.getProperty("famPhyCity",""))%>"/> <br/>
             <label>Province:</label> <input type="text" name="famPhyProvince"
-                                            value="<%=props.getProperty("famPhyProvince","")%>"/> <label>Postal
+                                            value="<%=Encode.forHtmlAttribute(props.getProperty("famPhyProvince",""))%>"/> <label>Postal
             Code:</label> <input type="text" name="famPhyPostalCode"
-                                 value="<%=props.getProperty("famPhyPostalCode","")%>"/> <br/>
+                                 value="<%=Encode.forHtmlAttribute(props.getProperty("famPhyPostalCode",""))%>"/> <br/>
             <label>Telephone:</label> <input type="text" name="famPhyPhone"
-                                             value="<%=props.getProperty("famPhyPhone","")%>"/> <label>Fax:</label>
+                                             value="<%=Encode.forHtmlAttribute(props.getProperty("famPhyPhone",""))%>"/> <label>Fax:</label>
             <input type="text" name="famPhyFax"
-                   value="<%=props.getProperty("famPhyFax","")%>"/> <br/>
+                   value="<%=Encode.forHtmlAttribute(props.getProperty("famPhyFax",""))%>"/> <br/>
         </fieldset>
 
 
@@ -415,31 +415,31 @@
                 History
             </legend>
             <label>G</label> <input type="text" name="obsHisG" size="2"
-                                    value="<%=props.getProperty("obsHisG","")%>"/> <label>P</label> <input
+                                    value="<%=Encode.forHtmlAttribute(props.getProperty("obsHisG",""))%>"/> <label>P</label> <input
                 type="text" name="obsHisP" size="2"
-                value="<%=props.getProperty("obsHisP","")%>"/> <label>T</label> <input
+                value="<%=Encode.forHtmlAttribute(props.getProperty("obsHisP",""))%>"/> <label>T</label> <input
                 type="text" name="obsHisT" size="2"
-                value="<%=props.getProperty("obsHisT","")%>"/> <label>A</label> <input
+                value="<%=Encode.forHtmlAttribute(props.getProperty("obsHisT",""))%>"/> <label>A</label> <input
                 type="text" name="obsHisA" size="2"
-                value="<%=props.getProperty("obsHisA","")%>"/> <label>L</label> <input
+                value="<%=Encode.forHtmlAttribute(props.getProperty("obsHisA",""))%>"/> <label>L</label> <input
                 type="text" name="obsHisL" size="2"
-                value="<%=props.getProperty("obsHisL","")%>"/> <br/>
+                value="<%=Encode.forHtmlAttribute(props.getProperty("obsHisL",""))%>"/> <br/>
 
             <input type="checkbox" name="obsHisTubMolPregYes"
-                    <%=props.getProperty("obsHisTubMolPregYes","")%>>Yes</input> <input
+                    <%=Encode.forHtml(props.getProperty("obsHisTubMolPregYes",""))%>>Yes</input> <input
                 type="checkbox" name="obsHisTubMolPregNo"
-                <%=props.getProperty("obsHisTubMolPregNo","")%>>No</input> <label>Any
+                <%=Encode.forHtml(props.getProperty("obsHisTubMolPregNo",""))%>>No</input> <label>Any
             previous tubal or molar pregnancy?</label> <br/>
             <input type="checkbox" name="obsHisMisAbortionYes"
-                    <%=props.getProperty("obsHisMisAbortionYes","")%>>Yes</input> <input
+                    <%=Encode.forHtml(props.getProperty("obsHisMisAbortionYes",""))%>>Yes</input> <input
                 type="checkbox" name="obsHisMisAbortionNo"
-                <%=props.getProperty("obsHisMisAbortionNo","")%>>No</input> <label
+                <%=Encode.forHtml(props.getProperty("obsHisMisAbortionNo",""))%>>No</input> <label
                 style="float: none;">Any previous miscarriage, pregnancy loss,
             or therapeutic abortions?</label> <br/>
             <input type="checkbox" name="obsHisReceiveAntiDYes"
-                    <%=props.getProperty("obsHisReceiveAntiDYes","")%>>Yes</input> <input
+                    <%=Encode.forHtml(props.getProperty("obsHisReceiveAntiDYes",""))%>>Yes</input> <input
                 type="checkbox" name="obsHisReceiveAntiDNo"
-                <%=props.getProperty("obsHisReceiveAntiDNo","")%>>No</input> <label>Did
+                <%=Encode.forHtml(props.getProperty("obsHisReceiveAntiDNo",""))%>>No</input> <label>Did
             you receive Anti-D during each of these pregnancies or following the
             pregnancy loss?</label> <br/>
 
@@ -452,31 +452,31 @@
                 History
             </legend>
             <input type="checkbox" name="pmHisBlClDisordersYes"
-                    <%=props.getProperty("pmHisBlClDisordersYes","")%>>Yes</input> <input
+                    <%=Encode.forHtml(props.getProperty("pmHisBlClDisordersYes",""))%>>Yes</input> <input
                 type="checkbox" name="pmHisBlClDisordersNo"
-                <%=props.getProperty("pmHisBlClDisordersNo","")%>>No</input> <label>Do
+                <%=Encode.forHtml(props.getProperty("pmHisBlClDisordersNo",""))%>>No</input> <label>Do
             you have any bleeding or clotting disorders?</label> If yes, describe<input
                 type="text" name="pmHisBlClDisordersComment"
-                value="<%=props.getProperty("pmHisBlClDisordersComment","")%>"/> <br/>
+                value="<%=Encode.forHtmlAttribute(props.getProperty("pmHisBlClDisordersComment",""))%>"/> <br/>
             <input type="checkbox" name="pmHisBlPlTransfusYes"
-                    <%=props.getProperty("pmHisBlPlTransfusYes","")%>>Yes</input> <input
+                    <%=Encode.forHtml(props.getProperty("pmHisBlPlTransfusYes",""))%>>Yes</input> <input
                 type="checkbox" name="pmHisBlPlTransfusNo"
-                <%=props.getProperty("pmHisBlPlTransfusNo","")%>>No</input> <label>Have
+                <%=Encode.forHtml(props.getProperty("pmHisBlPlTransfusNo",""))%>>No</input> <label>Have
             you had any blood or platelet transfusions?</label> If yes, when<input
                 type="text" name="pmHisBlPlTransfusComment"
-                value="<%=props.getProperty("pmHisBlPlTransfusComment","")%>"/></fieldset>
+                value="<%=Encode.forHtmlAttribute(props.getProperty("pmHisBlPlTransfusComment",""))%>"/></fieldset>
 
 
         <fieldset class="obsHist">
             <legend>Allergies</legend>
             <input
                     type="checkbox" name="allReactionsYes"
-                    <%=props.getProperty("allReactionsYes","")%>>Yes</input> <input
+                    <%=Encode.forHtml(props.getProperty("allReactionsYes",""))%>>Yes</input> <input
                 type="checkbox" name="allReactionsNo"
-                <%=props.getProperty("allReactionsNo","")%>>No</input> <label>Any
+                <%=Encode.forHtml(props.getProperty("allReactionsNo",""))%>>No</input> <label>Any
             adverse reactions to previous immune globulin or other blood products?</label>
             If yes, describe<input type="text" name="allReactionsComment"
-                                   value="<%=props.getProperty("allReactionsComment","")%>"/> <br/>
+                                   value="<%=Encode.forHtmlAttribute(props.getProperty("allReactionsComment",""))%>"/> <br/>
         </fieldset>
 
 
@@ -513,69 +513,69 @@
         </select> <br/>
 
             <input type="checkbox" name="curPregDueDateChangeYes"
-                    <%=props.getProperty("curPregDueDateChangeYes","")%>>Yes</input> <input
+                    <%=Encode.forHtml(props.getProperty("curPregDueDateChangeYes",""))%>>Yes</input> <input
                 type="checkbox" name="curPregDueDateChangeNo"
-                <%=props.getProperty("curPregDueDateChangeNo","")%>>No</input> <label>Has
+                <%=Encode.forHtml(props.getProperty("curPregDueDateChangeNo",""))%>>No</input> <label>Has
             your due date changed during this pregnancy?</label> Comment<input type="text"
                                                                                name="curPregDueDateChangeComment"
-                                                                               value="<%=props.getProperty("curPregDueDateChangeComment","")%>"/>
+                                                                               value="<%=Encode.forHtmlAttribute(props.getProperty("curPregDueDateChangeComment",""))%>"/>
             <br/>
 
             <input type="checkbox" name="curPregProceduresYes"
-                    <%=props.getProperty("curPregProceduresYes","")%>>Yes</input> <input
+                    <%=Encode.forHtml(props.getProperty("curPregProceduresYes",""))%>>Yes</input> <input
                 type="checkbox" name="curPregProceduresNo"
-                <%=props.getProperty("curPregProceduresNo","")%>>No</input> <label>Any
+                <%=Encode.forHtml(props.getProperty("curPregProceduresNo",""))%>>No</input> <label>Any
             procedures during this pregnancy such as amniocentesis, chorionic
             villous sampling, cordocentesis, or external cephalic version?</label> If yes,
             when<input type="text" name="curPregProceduresComment"
-                       value="<%=props.getProperty("curPregProceduresComment","")%>"/> <br/>
+                       value="<%=Encode.forHtmlAttribute(props.getProperty("curPregProceduresComment",""))%>"/> <br/>
 
             <input type="checkbox" name="curPregBleedingYes"
-                    <%=props.getProperty("curPregBleedingYes","")%>>Yes</input> <input
+                    <%=Encode.forHtml(props.getProperty("curPregBleedingYes",""))%>>Yes</input> <input
                 type="checkbox" name="curPregBleedingNo"
-                <%=props.getProperty("curPregBleedingNo","")%>>No</input> <label>Any
+                <%=Encode.forHtml(props.getProperty("curPregBleedingNo",""))%>>No</input> <label>Any
             bleeding or threatened miscarriage during this pregnancy?</label> <br/>
             If yes, when<input type="text" name="curPregBleedingComment"
-                               value="<%=props.getProperty("curPregBleedingComment","")%>"/> <br/>
+                               value="<%=Encode.forHtmlAttribute(props.getProperty("curPregBleedingComment",""))%>"/> <br/>
 
             <input type="checkbox" name="curPregBleedingContYes"
-                    <%=props.getProperty("curPregBleedingContYes","")%>>Yes</input> <input
+                    <%=Encode.forHtml(props.getProperty("curPregBleedingContYes",""))%>>Yes</input> <input
                 type="checkbox" name="curPregBleedingContNo"
-                <%=props.getProperty("curPregBleedingContNo","")%>>No</input> <label>Has
+                <%=Encode.forHtml(props.getProperty("curPregBleedingContNo",""))%>>No</input> <label>Has
             the bleeding continued?</label> <br/>
 
 
             <input type="checkbox" name="curPregTraumaYes"
-                    <%=props.getProperty("curPregTraumaYes","")%>>Yes</input> <input
+                    <%=Encode.forHtml(props.getProperty("curPregTraumaYes",""))%>>Yes</input> <input
                 type="checkbox" name="curPregTraumaNo"
-                <%=props.getProperty("curPregTraumaNo","")%>>No</input> <label>Any
+                <%=Encode.forHtml(props.getProperty("curPregTraumaNo",""))%>>No</input> <label>Any
             abdominal trauma, serious fall or car accident?</label> <br/>
 
             <input type="checkbox" name="curPregAntiDYes"
-                    <%=props.getProperty("curPregAntiDYes","")%>>Yes</input> <input
+                    <%=Encode.forHtml(props.getProperty("curPregAntiDYes",""))%>>Yes</input> <input
                 type="checkbox" name="curPregAntiDNo"
-                <%=props.getProperty("curPregAntiDNo","")%>>No</input> <label>Have
+                <%=Encode.forHtml(props.getProperty("curPregAntiDNo",""))%>>No</input> <label>Have
             you received any Anti-D during this pregnancy?</label> If yes, when<input
                 type="text" name="curPregAntiDComment"
-                value="<%=props.getProperty("curPregAntiDComment","")%>"/> <br/>
+                value="<%=Encode.forHtmlAttribute(props.getProperty("curPregAntiDComment",""))%>"/> <br/>
 
             <input type="checkbox" name="curPregAntiDReactionYes"
-                    <%=props.getProperty("curPregAntiDReactionYes","")%>>Yes</input> <input
+                    <%=Encode.forHtml(props.getProperty("curPregAntiDReactionYes",""))%>>Yes</input> <input
                 type="checkbox" name="curPregAntiDReactionNo"
-                <%=props.getProperty("curPregAntiDReactionNo","")%>>No</input> <label>Any
+                <%=Encode.forHtml(props.getProperty("curPregAntiDReactionNo",""))%>>No</input> <label>Any
             adverse reaction?</label> <br/>
 
             <input type="checkbox" name="curPregBloodDrawnYes"
-                    <%=props.getProperty("curPregBloodDrawnYes","")%>>Yes</input> <input
+                    <%=Encode.forHtml(props.getProperty("curPregBloodDrawnYes",""))%>>Yes</input> <input
                 type="checkbox" name="curPregBloodDrawnNo"
-                <%=props.getProperty("curPregBloodDrawnNo","")%>>No</input> <label>Blood
+                <%=Encode.forHtml(props.getProperty("curPregBloodDrawnNo",""))%>>No</input> <label>Blood
             sample drawn?</label></fieldset>
 
 
         <fieldset>
             <legend>Comments</legend>
             <textarea name="comments"
-                      style="width: 45em;"><%=props.getProperty("comments", "")%></textarea></fieldset>
+                      style="width: 45em;"><%=Encode.forHtml(props.getProperty("comments", ""))%></textarea></fieldset>
 
         <input type="submit" value="Save"/> <%
                 if ( h != null && h.get("ID") != null){ %> <input

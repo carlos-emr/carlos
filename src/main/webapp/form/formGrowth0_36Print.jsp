@@ -107,7 +107,7 @@
                 continue;
             }
     %>
-    <input type="hidden" name="<%= temp %>"
+    <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
            value="<%=StringEscapeUtils.escapeHtml4(request.getParameter(temp))%>"/>
     <%
         }
@@ -133,7 +133,7 @@
         for (Enumeration e = prop.propertyNames(); e.hasMoreElements(); ) {
             String temp = e.nextElement().toString();
     %>
-    <input type="hidden" name="<%= temp %>"
+    <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
            value="<%=StringEscapeUtils.escapeHtml4(prop.getProperty(temp, ""))%>"/>
     <%
         }

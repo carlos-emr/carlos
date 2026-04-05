@@ -297,25 +297,25 @@
     <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
 
         <input type="hidden" name="demographic_no"
-               value="<%= props.getProperty("demographic_no", "0") %>"/>
+               value="<%= Encode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
         <input type="hidden" name="patientLastName"
-               value="<%=patientNames[0].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientNames[0].trim())%>"/>
         <input type="hidden" name="patientFirstName"
-               value="<%=patientNames[1].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientNames[1].trim())%>"/>
         <input type="hidden" name="patientBirthYear"
-               value="<%=patientDOB[0].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientDOB[0].trim())%>"/>
         <input type="hidden" name="patientBirthMth"
-               value="<%=patientDOB[1].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientDOB[1].trim())%>"/>
         <input type="hidden" name="patientBirthDay"
-               value="<%=patientDOB[2].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientDOB[2].trim())%>"/>
         <input type="hidden" name="ID"
-               value="<%= props.getProperty("ID", "0") %>"/>
+               value="<%= Encode.forHtmlAttribute(props.getProperty("ID", "0")) %>"/>
         <input type="hidden" name="provider_no"
                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provNo"))) %>"/>
         <input type="hidden" name="formCreated"
-               value="<%= props.getProperty("formCreated", "") %>"/>
-        <input type="hidden" name="form_class" value="<%=formClass%>"/>
-        <input type="hidden" name="form_link" value="<%=formLink%>"/>
+               value="<%= Encode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
+        <input type="hidden" name="form_class" value="<%=Encode.forHtmlAttribute(formClass)%>"/>
+        <input type="hidden" name="form_link" value="<%=Encode.forHtmlAttribute(formLink)%>"/>
         <input type="hidden" name="provNo"
                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provNo"))) %>"/>
         <input type="hidden" name="submit" value="exit"/>
@@ -361,7 +361,7 @@
                 <td height="40">To:
                     <label>
                         <input name="name" type="text" id="name" size="60" maxlength="60"
-                               value="<%= props.getProperty("name", "") %>"/>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("name", "")) %>"/>
                     </label>(name of person)
                 </td>
             </tr>
@@ -369,7 +369,7 @@
                 <td height="40">Of&nbsp;
                     <label>
                         <input name="homeAddress" type="text" id="homeAddress" size="150" maxlength="250"
-                               value="<%= props.getProperty("homeAddress", "") %>"/>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("homeAddress", "")) %>"/>
                     </label>(home address)
                 </td>
             </tr>
@@ -377,7 +377,7 @@
                 <td height="40">This is to inform you that
                     <label>
                         <input name="physician" type="text" id="physician" size="60" maxlength="60"
-                               value="<%= props.getProperty("physician", "") %>"/>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("physician", "")) %>"/>
                     </label>(name of physician)
                 </td>
             </tr>
@@ -385,7 +385,7 @@
                 <td height="40">examined you on
                     <label>
                         <input name="dateOfExamination" type="text" id="dateOfExamination" size="10" maxlength="10"
-                               value="<%= props.getProperty("dateOfExamination", "") %>"/>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("dateOfExamination", "")) %>"/>
                     </label>(date of examination)(day/month/year) and has made an application for you to have a
                     psychiatric assessment.
                 </td>
@@ -406,7 +406,7 @@
                 <td height="40">
                     <label>
                         <input type="checkbox" name="chkThreatenedA"
-                               id="chkThreatenedA" <%=props.getProperty("chkThreatenedA", "")%> />
+                               id="chkThreatenedA" <%=Encode.forHtml(props.getProperty("chkThreatenedA", ""))%> />
                     </label>
                     threatened or attempted or are threatening or attempting to cause bodily harm to yourself;
                 </td>
@@ -415,7 +415,7 @@
                 <td height="40">
                     <label>
                         <input type="checkbox" name="chkBehavedA"
-                               id="chkBehavedA" <%=props.getProperty("chkBehavedA", "")%> />
+                               id="chkBehavedA" <%=Encode.forHtml(props.getProperty("chkBehavedA", ""))%> />
                     </label>
                     behaved or are behaving violently towards another person or have caused or are causing another
                     person to fear bodily harm from you; or
@@ -425,7 +425,7 @@
                 <td height="40">
                     <label>
                         <input type="checkbox" name="chkCompetenceA"
-                               id="chkCompetenceA" <%=props.getProperty("chkCompetenceA", "")%> />
+                               id="chkCompetenceA" <%=Encode.forHtml(props.getProperty("chkCompetenceA", ""))%> />
                     </label>
                     shown or are showing a lack of competence to care for yourself.
                 </td>
@@ -439,7 +439,7 @@
                 <td height="40">
                     <label>
                         <input type="checkbox" name="chkHarmYourselfA"
-                               id="chkHarmYourselfA" <%=props.getProperty("chkHarmYourselfA", "")%> />
+                               id="chkHarmYourselfA" <%=Encode.forHtml(props.getProperty("chkHarmYourselfA", ""))%> />
                     </label>
                     serious bodily harm to yourself;
                 </td>
@@ -448,7 +448,7 @@
                 <td height="40">
                     <label>
                         <input type="checkbox" name="chkHarmAnotherA"
-                               id="chkHarmAnotherA" <%=props.getProperty("chkHarmAnotherA", "")%> />
+                               id="chkHarmAnotherA" <%=Encode.forHtml(props.getProperty("chkHarmAnotherA", ""))%> />
                     </label>
                     serious bodily harm to another person; or
                 </td>
@@ -457,7 +457,7 @@
                 <td height="40">
                     <label>
                         <input type="checkbox" name="chkImpairmentA"
-                               id="chkImpairmentA" <%=props.getProperty("chkImpairmentA", "")%> />
+                               id="chkImpairmentA" <%=Encode.forHtml(props.getProperty("chkImpairmentA", ""))%> />
                     </label>
                     serious physical impairment of you.
                 </td>
@@ -482,7 +482,7 @@
                 <td height="40">
                     <label>
                         <input type="checkbox" name="chkHarmYourselfB"
-                               id="chkHarmYourselfB" <%=props.getProperty("chkHarmYourselfB", "")%> />
+                               id="chkHarmYourselfB" <%=Encode.forHtml(props.getProperty("chkHarmYourselfB", ""))%> />
                     </label>
                     serious bodily harm to yourself,
                 </td>
@@ -491,7 +491,7 @@
                 <td height="40">
                     <label>
                         <input type="checkbox" name="chkHarmAnotherB"
-                               id="chkHarmAnotherB" <%=props.getProperty("chkHarmAnotherB", "")%> />
+                               id="chkHarmAnotherB" <%=Encode.forHtml(props.getProperty("chkHarmAnotherB", ""))%> />
                     </label>
                     serious bodily harm to another person,
                 </td>
@@ -500,7 +500,7 @@
                 <td height="40">
                     <label>
                         <input type="checkbox" name="chkDeteriorationB"
-                               id="chkDeteriorationB" <%=props.getProperty("chkDeteriorationB", "")%> />
+                               id="chkDeteriorationB" <%=Encode.forHtml(props.getProperty("chkDeteriorationB", ""))%> />
                     </label>
                     substantial mental or physical deterioration of you, or
                 </td>
@@ -509,7 +509,7 @@
                 <td height="40">
                     <label>
                         <input type="checkbox" name="chkImpairmentB"
-                               id="chkImpairmentB" <%=props.getProperty("chkImpairmentB", "")%> />
+                               id="chkImpairmentB" <%=Encode.forHtml(props.getProperty("chkImpairmentB", ""))%> />
                     </label>
                     serious physical impairment of you;
                 </td>
@@ -535,7 +535,7 @@
                 <td height="40">
                     <label>
                         <input type="checkbox" name="chkHarmYourselfB2"
-                               id="chkHarmYourselfB2" <%=props.getProperty("chkHarmYourselfB2", "")%> />
+                               id="chkHarmYourselfB2" <%=Encode.forHtml(props.getProperty("chkHarmYourselfB2", ""))%> />
                     </label>
                     cause serious bodily harm to yourself,
                 </td>
@@ -544,7 +544,7 @@
                 <td height="40">
                     <label>
                         <input type="checkbox" name="chkHarmAnotherB2"
-                               id="chkHarmAnotherB2" <%=props.getProperty("chkHarmAnotherB2", "")%> />
+                               id="chkHarmAnotherB2" <%=Encode.forHtml(props.getProperty("chkHarmAnotherB2", ""))%> />
                     </label>
                     cause serious bodily harm to another person,
                 </td>
@@ -553,7 +553,7 @@
                 <td height="40">
                     <label>
                         <input type="checkbox" name="chkDeteriorationB2"
-                               id="chkDeteriorationB2" <%=props.getProperty("chkDeteriorationB2", "")%> />
+                               id="chkDeteriorationB2" <%=Encode.forHtml(props.getProperty("chkDeteriorationB2", ""))%> />
                     </label>
                     suffer substantial mental or physical deterioration, or
                 </td>
@@ -562,7 +562,7 @@
                 <td height="40">
                     <label>
                         <input type="checkbox" name="chkImpairmentB2"
-                               id="chkImpairmentB2" <%=props.getProperty("chkImpairmentB2", "")%> />
+                               id="chkImpairmentB2" <%=Encode.forHtml(props.getProperty("chkImpairmentB2", ""))%> />
                     </label>
                     suffer serious physical impairment;
                 </td>
@@ -593,11 +593,11 @@
                 <td height="40">
                     <label>
                         <input name="dateOfSign" type="text" id="dateOfSign" size="10" maxlength="10"
-                               value="<%= props.getProperty("dateOfSign", "") %>"/>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("dateOfSign", "")) %>"/>
                     </label>(date)&nbsp;&nbsp;&nbsp;&nbsp;
                     <label>
                         <input name="signPhysician" type="text" id="signPhysician" size="60" maxlength="60"
-                               value="<%= props.getProperty("signPhysician", "") %>"/>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("signPhysician", "")) %>"/>
                     </label>(signature of attending physician)
                 </td>
             </tr>
@@ -610,7 +610,7 @@
                 <td height="40">To:
                     <label>
                         <input name="name2" type="text" id="name2" size="60" maxlength="60"
-                               value="<%= props.getProperty("name2", "") %>"/>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("name2", "")) %>"/>
                     </label>(name of person)
                 </td>
             </tr>
@@ -618,7 +618,7 @@
                 <td height="40">Of&nbsp;&nbsp;
                     <label>
                         <input name="homeAddress2" type="text" id="homeAddress2" size="150" maxlength="250"
-                               value="<%= props.getProperty("homeAddress2", "") %>"/>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("homeAddress2", "")) %>"/>
                     </label>(home address)
                 </td>
             </tr>
@@ -626,7 +626,7 @@
                 <td height="40">This is to inform you that
                     <label>
                         <input name="nameOfMinisterHealth" type="text" id="nameOfMinisterHealth" size="150"
-                               maxlength="250" value="<%= props.getProperty("nameOfMinisterHealth", "") %>"/>
+                               maxlength="250" value="<%= Encode.forHtmlAttribute(props.getProperty("nameOfMinisterHealth", "")) %>"/>
                     </label>(name of Minister of Health and Long-Term Care)
                 </td>
             </tr>
@@ -640,7 +640,7 @@
                 <td height="40">
                     <label>
                         <input type="checkbox" name="chkHarmYourself2"
-                               id="chkHarmYourself2" <%=props.getProperty("chkHarmYourself2", "")%> />
+                               id="chkHarmYourself2" <%=Encode.forHtml(props.getProperty("chkHarmYourself2", ""))%> />
                     </label>
                     serious bodily harm to yourself; or
                 </td>
@@ -649,7 +649,7 @@
                 <td height="40">
                     <label>
                         <input type="checkbox" name="chkHarmAnother2"
-                               id="chkHarmAnother2" <%=props.getProperty("chkHarmAnother2", "")%> />
+                               id="chkHarmAnother2" <%=Encode.forHtml(props.getProperty("chkHarmAnother2", ""))%> />
                     </label>
                     serious bodily harm to another person.
                 </td>
@@ -663,7 +663,7 @@
                 <td height="40">
                     <label>
                         <input name="dateOfOrder" type="text" id="dateOfOrder" size="10" maxlength="10"
-                               value="<%= props.getProperty("dateOfOrder", "") %>"/>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("dateOfOrder", "")) %>"/>
                     </label>(date of order)(day/month/year), authorized your custody in a psychiatric facility for up to
                     72 hours.
                 </td>
@@ -677,11 +677,11 @@
                 <td height="40">
                     <label>
                         <input name="dateOfSign2" type="text" id="dateOfSign2" size="10" maxlength="10"
-                               value="<%= props.getProperty("dateOfSign2", "") %>"/>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("dateOfSign2", "")) %>"/>
                     </label>(date)&nbsp;&nbsp;&nbsp;&nbsp;
                     <label>
                         <input name="signPhysician2" type="text" id="signPhysician2" size="60" maxlength="60"
-                               value="<%= props.getProperty("signPhysician2", "") %>"/>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("signPhysician2", "")) %>"/>
                     </label>(signature of attending physician)
                 </td>
             </tr>
