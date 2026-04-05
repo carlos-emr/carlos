@@ -139,12 +139,12 @@
     %>
     <tr bgcolor="<%=bgcolor%>">
         <td align="center"><a
-                href="<%= request.getContextPath() %>/encounter/echarthistoryprint.jsp?echartid=<%=eChart.getId()%>&demographic_no=<%= Encode.forUriComponent(demographic_no) %>"><%=datetime%>
+                href="<%= request.getContextPath() %>/encounter/echarthistoryprint.jsp?echartid=<%=eChart.getId()%>&demographic_no=<%= Encode.forUriComponent(demographic_no) %>"><%=Encode.forHtml(datetime)%>
         </a></td>
-        <td><%=eChart.getSubject() != null ? eChart.getSubject() : ""%>
+        <td><%=Encode.forHtml(eChart.getSubject() != null ? eChart.getSubject() : "")%>
         </td>
         <!--td align="center"><%--=ectsize + "KB" --%></td-->
-        <td><%=ProviderData.getProviderName(eChart.getProviderNo())%>
+        <td><%=Encode.forHtml(ProviderData.getProviderName(eChart.getProviderNo()))%>
         </td>
     </tr>
     <%
@@ -165,7 +165,7 @@
     }
     if (nItems == Integer.parseInt(strLimit2)) {
 %> <a
-        href="reportecharthistory.jsp?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>&splitectsize=<%=splitectsize%>">
+        href="reportecharthistory.jsp?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>&splitectsize=<%= Encode.forUriComponent(splitectsize) %>">
     Next Page</a> <%
     }
 %>

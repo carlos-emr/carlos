@@ -161,7 +161,7 @@
                 <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.formBaseUrl"/><br>-->
                 <input type="text" name="resource_baseurl" style="width:100%;margin-bottom:10px"
                        placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.formBaseUrlExample"/>"
-                       value="<%if(resource_baseurl_value!=null){ out.print(resource_baseurl_value);}%>">
+                       value="<%if(resource_baseurl_value!=null){ out.print(Encode.forHtmlAttribute(resource_baseurl_value));}%>">
                 <div class="col-md-8">
                     <input type="submit" class="btn float-end" name="websiteSave" id="websiteSave"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>">
