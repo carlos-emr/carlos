@@ -71,9 +71,8 @@ The reference template is `docs/CARLOS_bootstrap_layout_Example.html`.
 <html lang="en">
   <head>
     Bootstrap CSS (CDN or local)
-    Bootstrap Icons (optional)
     CARLOS extractedFromPages.css
-    global.jspf include (JSP) OR global.js (static HTML)
+    global-head.jspf include (JSP) OR the needed components individually
   <body>
     <div class="container">           ← outermost wrapper
       jsAlertBanner                   ← hidden alert area
@@ -141,8 +140,8 @@ document.getElementById('jsAlertBanner').style.display = '';
 <div class="page-header-bar d-flex align-items-center justify-content-between
             py-2 mb-3 border-bottom" id="header">
     <div class="d-flex align-items-center gap-2">
-        <!-- Optional Bootstrap Icon — remove <i> if not needed -->
-        <i class="bi bi-file-earmark-text fs-5 text-secondary" aria-hidden="true"></i>
+        <!-- Optional FontAwesome Icon — remove <i> if not needed -->
+        <i class="fa-regular fa-file" aria-hidden="true"></i>
         <span class="fw-semibold">Short Title</span>
     </div>
     <div class="text-muted small">Long Title / Patient Name / Context Info</div>
