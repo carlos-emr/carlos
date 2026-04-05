@@ -547,7 +547,7 @@
                     function changeSite(sel) {
                         sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
                         var siteName = sel.options[sel.selectedIndex].value;
-                        var newGroupNo = "<%=(mygroupno == null ? "all" : mygroupno)%>";
+                        var newGroupNo = "<%=Encode.forJavaScript(mygroupno == null ? "all" : mygroupno)%>";
                         var providerview = "<%= Encode.forJavaScript(providerview) %>";
                         if (providerview.indexOf("_grp_") != -1) {
 
@@ -559,15 +559,15 @@
                 </script>
 
                 <select id="site" name="site" onchange="changeSite(this)"
-                        style="background-color: <%=( selectedSite == null || siteBgColor.get(selectedSite) == null ? "#FFFFFF" : siteBgColor.get(selectedSite))%>">
+                        style="background-color: <%=Encode.forCssString( selectedSite == null || siteBgColor.get(selectedSite) == null ? "#FFFFFF" : siteBgColor.get(selectedSite))%>">
                     <option value="none" style="background-color:white">---all clinic---</option>
                     <%
                         for (int i = 0; i < curUserSites.size(); i++) {
                     %>
-                    <option value="<%= curUserSites.get(i).getName() %>"
-                            style="background-color:<%= curUserSites.get(i).getBgColor() %>"
+                    <option value="<%= Encode.forHtmlAttribute(curUserSites.get(i).getName()) %>"
+                            style="background-color:<%= Encode.forCssString(curUserSites.get(i).getBgColor()) %>"
                             <%=(curUserSites.get(i).getName().equals(selectedSite)) ? " selected " : "" %> >
-                        <%= curUserSites.get(i).getName() %>
+                        <%= Encode.forHtml(curUserSites.get(i).getName()) %>
                     </option>
                     <% } %>
                 </select>
@@ -998,10 +998,10 @@
                         popupOscarRx('700', '1024', '<%= request.getContextPath() %>/documentManager/documentReport.jsp?function=providers&functionid=<%=curUser_no%>&curUser=<%=curUser_no%>', 'edocView');
                         return false;  //run code for e'D'oc
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.resourcesShortcut"/> :
-                        popupOscarRx(550, 687, '<%=resourcebaseurl%>');
+                        popupOscarRx(550, 687, '<%=Encode.forJavaScript(resourcebaseurl)%>');
                         return false; // code for R'e'sources
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.helpShortcut"/> :
-                        popupOscarRx(600, 750, '<%=resourcebaseurl%>');
+                        popupOscarRx(600, 750, '<%=Encode.forJavaScript(resourcebaseurl)%>');
                         return false;  //run code for 'H'elp
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.ticklerShortcut"/> : {
                         popupOscarRx(700, 1024, '<%= request.getContextPath() %>/tickler/ticklerMain.jsp', '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/>') //run code for t'I'ckler
@@ -1023,7 +1023,7 @@
                         popupOscarRx(650, 1024, '<%= request.getContextPath() %>/report/reportindex.jsp', 'reportPage');
                         return false;  //run code for 'R'eports
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.prefShortcut"/> : {
-                        popupOscarRx(715, 680, 'providerpreference.jsp?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<%=mygroupno%>'); //run code for 'P'references
+                        popupOscarRx(715, 680, 'providerpreference.jsp?provider_no=<%=Encode.forUriComponent(curUser_no)%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<%=Encode.forUriComponent(mygroupno)%>'); //run code for 'P'references
                         return false;
                     }
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.searchShortcut"/> :

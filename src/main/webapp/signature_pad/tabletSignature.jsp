@@ -51,7 +51,7 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
     if (requestIdKey == null) {
         requestIdKey = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
     }
-    String imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + requestIdKey;
+    String imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + Encode.forUriComponent(requestIdKey);
     String storedImageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_stored.name() + "&digitalSignatureId=";
     boolean saveToDB = "true".equals(request.getParameter("saveToDB"));
 %>
@@ -64,7 +64,7 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
 
     var storedImageUrl = "<%= Encode.forJavaScript(storedImageUrl) %>";
 
-    var contextPath = "<%=request.getContextPath() %>";
+    var contextPath = "<%= Encode.forJavaScript(request.getContextPath()) %>";
 
 </script>
 

@@ -990,17 +990,17 @@ public class ManageDocument2Action extends ActionSupport {
         if (viewDocumentDescriptionFlag) {
             EDoc curDoc = EDocUtil.getDoc(doc_no);
             ResourceBundle props = ResourceBundle.getBundle("oscarResources", locale);
-            out.println("<br>" + props.getString("dms.documentBrowser.DocumentUpdated") + ": " + curDoc.getDateTimeStamp());
-            out.println("<br>" + props.getString("dms.documentBrowser.ContentUpdated") + ": " + curDoc.getContentDateTime());
-            out.println("<br>" + props.getString("dms.documentBrowser.ObservationDate") + ": " + curDoc.getObservationDate());
-            out.println("<br>" + props.getString("dms.documentBrowser.Type") + ": " + curDoc.getType());
-            out.println("<br>" + props.getString("dms.documentBrowser.Class") + ": " + curDoc.getDocClass());
-            out.println("<br>" + props.getString("dms.documentBrowser.Subclass") + ": " + curDoc.getDocSubClass());
-            out.println("<br>" + props.getString("dms.documentBrowser.Description") + ": " + curDoc.getDescription());
-            out.println("<br>" + props.getString("dms.documentBrowser.Creator") + ": " + curDoc.getCreatorName());
-            out.println("<br>" + props.getString("dms.documentBrowser.Responsible") + ": " + curDoc.getResponsibleName());
-            out.println("<br>" + props.getString("dms.documentBrowser.Reviewer") + ": " + curDoc.getReviewerName());
-            out.println("<br>" + props.getString("dms.documentBrowser.Source") + ": " + curDoc.getSource());
+            out.println("<br>" + props.getString("dms.documentBrowser.DocumentUpdated") + ": " + Encode.forHtml(curDoc.getDateTimeStamp()));
+            out.println("<br>" + props.getString("dms.documentBrowser.ContentUpdated") + ": " + Encode.forHtml(String.valueOf(curDoc.getContentDateTime())));
+            out.println("<br>" + props.getString("dms.documentBrowser.ObservationDate") + ": " + Encode.forHtml(curDoc.getObservationDate()));
+            out.println("<br>" + props.getString("dms.documentBrowser.Type") + ": " + Encode.forHtml(curDoc.getType()));
+            out.println("<br>" + props.getString("dms.documentBrowser.Class") + ": " + Encode.forHtml(curDoc.getDocClass()));
+            out.println("<br>" + props.getString("dms.documentBrowser.Subclass") + ": " + Encode.forHtml(curDoc.getDocSubClass()));
+            out.println("<br>" + props.getString("dms.documentBrowser.Description") + ": " + Encode.forHtml(curDoc.getDescription()));
+            out.println("<br>" + props.getString("dms.documentBrowser.Creator") + ": " + Encode.forHtml(curDoc.getCreatorName()));
+            out.println("<br>" + props.getString("dms.documentBrowser.Responsible") + ": " + Encode.forHtml(curDoc.getResponsibleName()));
+            out.println("<br>" + props.getString("dms.documentBrowser.Reviewer") + ": " + Encode.forHtml(curDoc.getReviewerName()));
+            out.println("<br>" + props.getString("dms.documentBrowser.Source") + ": " + Encode.forHtml(curDoc.getSource()));
         }
 
         out.println("</body></html>");

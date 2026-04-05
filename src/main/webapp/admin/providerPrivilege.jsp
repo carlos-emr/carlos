@@ -179,9 +179,9 @@
                 secExceptionMsg = divEx.getMostSpecificCause().getLocalizedMessage();
             }
             if (secExceptionMsg.length() > 0)
-                msg += secExceptionMsg;
+                msg += Encode.forHtml(secExceptionMsg);
             else {
-                msg += "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + privilege + " is added. ";
+                msg += "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + Encode.forHtml(privilege) + " is added. ";
                 LogAction.addLog(curUser_no, LogConst.ADD, LogConst.CON_PRIVILEGE, roleUserGroup + "|" + encodedObjectName + "|" + privilege, ip);
             }
         }
@@ -262,7 +262,7 @@
             priority = String.valueOf(sop.getPriority());
             provider_no = sop.getProviderNo();
             secObjPrivilegeDao.remove(sop.getId());
-            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + privilege + " is deleted. ";
+            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + Encode.forHtml(privilege) + " is deleted. ";
 
             RecycleBin recycleBin = new RecycleBin();
             recycleBin.setProviderNo(curUser_no);
@@ -276,7 +276,7 @@
             recycleBinDao.persist(recycleBin);
             LogAction.addLog(curUser_no, LogConst.DELETE, LogConst.CON_PRIVILEGE, roleUserGroup + "|" + objectName, ip);
         } else {
-            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + privilege + " is <span style='color:red'>NOT</span> deleted!!! ";
+            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + Encode.forHtml(privilege) + " is <span style='color:red'>NOT</span> deleted!!! ";
         }
     }
 
@@ -470,9 +470,9 @@
                                 out.print("</br>");
                                 bSet = false;
                             }
-                    %> <input type="checkbox" name="privilege<%=vecRightsName.get(j)%>"
+                    %> <input type="checkbox" name="privilege<%=Encode.forHtmlAttribute(vecRightsName.get(j).toString())%>"
                     <%=priv.indexOf(((String)vecRightsName.get(j)))>=0?"checked":""%> >
-                    <%=((String) vecRightsDesc.get(j)).replaceAll("Only", "O")%>
+                    <%=Encode.forHtml(((String) vecRightsDesc.get(j)).replaceAll("Only", "O"))%>
                     <% }%> <!--input type="text" name="privilege" value="<%--= priv--%>" /-->
                 </td>
                 <td><select name="priority" class="input-min" style="width:50px">
@@ -486,8 +486,8 @@
                 <td style="text-align:center">
                     <% if (!roleUser.equals("admin") && !obj.equals("_admin")) { %> <input
                         type="hidden" name="keyword" value="<%=Encode.forHtmlAttribute(keyword)%>"> <input
-                        type="hidden" name="objectName" value="<%=obj %>"> <input
-                        type="hidden" name="roleUserGroup" value="<%=roleUser %>"> <input
+                        type="hidden" name="objectName" value="<%=Encode.forHtmlAttribute(obj) %>"> <input
+                        type="hidden" name="roleUserGroup" value="<%=Encode.forHtmlAttribute(roleUser) %>"> <input
                         type="submit" name="buttonUpdate" value="Update" class="btn btn-secondary"> <input
                         type="submit" name="submit" value="Delete" class="btn btn-secondary"> <% } %>
                 </td>
@@ -513,7 +513,7 @@
         </select> or <select name="roleUserGroup1">
         <option value="">-</option>
         <% for (int j = 0; j < vecProviderNo.size(); j++) {%>
-        <option value="<%=vecProviderNo.get(j)%>"><%= Encode.forHtmlContent((String) vecProviderName.get(j)) %>
+        <option value="<%=Encode.forHtmlAttribute(vecProviderNo.get(j).toString())%>"><%= Encode.forHtmlContent((String) vecProviderName.get(j)) %>
         </option>
         <% }%>
         <option value="_principal">_principal</option>
@@ -546,10 +546,10 @@
                         String objName = "";
                         if (i == vecObjectId.size()) {
                             objName = "Name1";
-                    %> <input type="text" name="object$<%=objName%>" value=""> <% } else {
+                    %> <input type="text" name="object$<%=Encode.forHtmlAttribute(objName)%>" value=""> <% } else {
 
                     objName = (String) vecObjectId.get(i);
-                %> <input type="checkbox" name="object$<%=objName%>"> <%= vecObjectId.get(i) %>
+                %> <input type="checkbox" name="object$<%=Encode.forHtmlAttribute(objName)%>"> <%= Encode.forHtml(vecObjectId.get(i).toString()) %>
                     <% if (objName.startsWith("_queue.")) {
                         String d = null;
                         SecObjectName son = secObjectNameDao.find(objName);
@@ -564,7 +564,7 @@
                         }
                     %>
 
-                    <%=d%>
+                    <%=Encode.forHtml(d)%>
                     <%
                             }
                         }
@@ -579,10 +579,10 @@
                                 bSet = false;
                             }
                     %> <input type="checkbox"
-                              name="privilege$<%=objName%>$<%=vecRightsName.get(j)%>"/> <%=vecRightsDesc.get(j)%>
+                              name="privilege$<%=Encode.forHtmlAttribute(objName)%>$<%=Encode.forHtmlAttribute(vecRightsName.get(j).toString())%>"/> <%=Encode.forHtml(vecRightsDesc.get(j).toString())%>
                     <% }%>
                 </td>
-                <td><select name="priority$<%=objName%>" style="width:50px;">
+                <td><select name="priority$<%=Encode.forHtmlAttribute(objName)%>" style="width:50px;">
                     <option value="">-</option>
                     <% for (int j = 10; j >= 0; j--) { %>
                     <option value="<%=j%>" <%= ("" + j).equals("0") ? "selected" : "" %>>
@@ -618,7 +618,7 @@
                                 bSet = false;
                             }
                     %> <input type="checkbox"
-                              name="privilege$Name1$<%=vecRightsName.get(j)%>"> <%=vecRightsDesc.get(j)%>
+                              name="privilege$Name1$<%=Encode.forHtmlAttribute(vecRightsName.get(j).toString())%>"> <%=Encode.forHtml(vecRightsDesc.get(j).toString())%>
                     <% }%>
                 </td>
                 <td>Priority <select name="priority$Name1" style="width:50px;">

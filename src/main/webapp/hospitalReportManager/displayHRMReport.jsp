@@ -445,9 +445,9 @@
     <div id="reportViewer">
         <div id="hrmReportContent">
             <div id="hrmHeader"><b>Demographic Info:</b><br/>
-                <%=hrmReport.getLegalName() %> <br/>
-                <%=hrmReport.getHCN() %> &nbsp; <%=hrmReport.getHCNVersion() %> &nbsp; <%=hrmReport.getGender() %><br/>
-                <b>DOB:</b><%=hrmReport.getDateOfBirthAsString() %>
+                <%=Encode.forHtml(hrmReport.getLegalName()) %> <br/>
+                <%=Encode.forHtml(hrmReport.getHCN()) %> &nbsp; <%=Encode.forHtml(hrmReport.getHCNVersion()) %> &nbsp; <%=Encode.forHtml(hrmReport.getGender()) %><br/>
+                <b>DOB:</b><%=Encode.forHtml(hrmReport.getDateOfBirthAsString()) %>
             </div>
 
 
@@ -526,7 +526,7 @@
                 if (confidentialityStatement != null && confidentialityStatement.trim().length() > 0) {
             %>
             <hr/>
-            <em><strong>Provider Confidentiality Statement</strong><br/><%=confidentialityStatement %>
+            <em><strong>Provider Confidentiality Statement</strong><br/><%=Encode.forHtml(confidentialityStatement) %>
             </em>
             <% } %>
         </div>
@@ -542,10 +542,10 @@
                 <tr>
                     <th>Demographic Info:</th>
                     <td>
-                        <%=hrmReport.getLegalName() %><br/>
-                        <%=hrmReport.getAddressLine1() %><br/>
-                        <%=hrmReport.getAddressLine2() != null ? hrmReport.getAddressLine2() : "" %><br/>
-                        <%=hrmReport.getAddressCity() %>
+                        <%=Encode.forHtml(hrmReport.getLegalName()) %><br/>
+                        <%=Encode.forHtml(hrmReport.getAddressLine1()) %><br/>
+                        <%=Encode.forHtml(hrmReport.getAddressLine2() != null ? hrmReport.getAddressLine2() : "") %><br/>
+                        <%=Encode.forHtml(hrmReport.getAddressCity()) %>
                     </td>
                 </tr>
 
@@ -651,7 +651,7 @@
                         <% if (providerLinkList != null && providerLinkList.size() > 0) {
                             for (HRMDocumentToProvider p : providerLinkList) {
                                 if (!p.getProviderNo().equalsIgnoreCase("-1")) { %>
-                        <%=Encode.forHtml(providerDao.getProviderName(p.getProviderNo()))%> <%=p.getSignedOff() != null && p.getSignedOff() == 1 ? "<abbr title='" + p.getSignedOffTimestamp() + "'>(Signed-Off " + p.getSignedOffTimestamp() + ")</abbr>" : "" %>
+                        <%=Encode.forHtml(providerDao.getProviderName(p.getProviderNo()))%> <%=p.getSignedOff() != null && p.getSignedOff() == 1 ? "<abbr title='" + Encode.forHtmlAttribute(String.valueOf(p.getSignedOffTimestamp())) + "'>(Signed-Off " + Encode.forHtml(String.valueOf(p.getSignedOffTimestamp())) + ")</abbr>" : "" %>
                         <a href="#"
                            onclick="removeProvFromHrm('<%=p.getId() %>', '<%=hrmReportId %>')">(remove)</a><br/>
                         <% }
@@ -662,7 +662,7 @@
                         <% if (document.getUnmatchedProviders() != null && document.getUnmatchedProviders().trim().length() >= 1) {
                             String[] unmatchedProviders = document.getUnmatchedProviders().substring(1).split("\\|");
                             for (String unmatchedProvider : unmatchedProviders) { %>
-                        <i><abbr title="From the HRM document"><%=unmatchedProvider %>
+                        <i><abbr title="From the HRM document"><%=Encode.forHtml(unmatchedProvider) %>
                         </abbr></i><br/>
                         <% }
                         } %>

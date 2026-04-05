@@ -173,7 +173,7 @@
             <td align="center"><%=nItems%>
             </td>
             <td align="center"
-                nowrap><%=ConversionUtils.toDateString(rt.getId().getEdb()).replace('-', '/')%>
+                nowrap><%=Encode.forHtml(ConversionUtils.toDateString(rt.getId().getEdb()).replace('-', '/'))%>
             </td>
             <td><%=Encode.forHtml(rt.getDemoName())%>
             </td>
@@ -199,16 +199,17 @@
     <CENTER><br>
             <%
     int nLastPage=0,nNextPage=0;
-    nNextPage=Integer.parseInt(strLimit2)+Integer.parseInt(strLimit1);
-    nLastPage=Integer.parseInt(strLimit1)-Integer.parseInt(strLimit2);
+    int intLimit2=Integer.parseInt(strLimit2);
+    nNextPage=intLimit2+Integer.parseInt(strLimit1);
+    nLastPage=Integer.parseInt(strLimit1)-intLimit2;
     if(nLastPage>=0) {
 %> <a
-                href="reportedblist.jsp?startDate=<%=Encode.forUriComponent(request.getParameter("startDate") != null ? request.getParameter("startDate") : "")%>&endDate=<%=Encode.forUriComponent(request.getParameter("endDate") != null ? request.getParameter("endDate") : "")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>">Last
+                href="reportedblist.jsp?startDate=<%=Encode.forUriComponent(request.getParameter("startDate") != null ? request.getParameter("startDate") : "")%>&endDate=<%=Encode.forUriComponent(request.getParameter("endDate") != null ? request.getParameter("endDate") : "")%>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>">Last
             Page</a> | <%
   }
-  if(nItems==Integer.parseInt(strLimit2)) {
+  if(nItems==intLimit2) {
 %> <a
-                href="reportedblist.jsp?startDate=<%=Encode.forUriComponent(request.getParameter("startDate") != null ? request.getParameter("startDate") : "")%>&endDate=<%=Encode.forUriComponent(request.getParameter("endDate") != null ? request.getParameter("endDate") : "")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>">
+                href="reportedblist.jsp?startDate=<%=Encode.forUriComponent(request.getParameter("startDate") != null ? request.getParameter("startDate") : "")%>&endDate=<%=Encode.forUriComponent(request.getParameter("endDate") != null ? request.getParameter("endDate") : "")%>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>">
             Next Page</a> <%}%>
 
 </body>
