@@ -401,7 +401,7 @@ public class CihiExportPHC_VRS2Action extends ActionSupport {
         StringBuilder strHash = new StringBuilder();
 
         try {
-            digest = MessageDigest.getInstance("MD5");
+            digest = MessageDigest.getInstance("SHA-256");
             digest.update(seed.getBytes());
             hash = digest.digest();
             for (int i = 0; i < hash.length; ++i) {
@@ -410,7 +410,7 @@ public class CihiExportPHC_VRS2Action extends ActionSupport {
             }
 
         } catch (NoSuchAlgorithmException e) {
-            log.error("Cannot use md5 for providers", e);
+            log.error("Cannot compute SHA-256 hash for provider/patient anonymization", e);
         }
 
         return strHash.toString();

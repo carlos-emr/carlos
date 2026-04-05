@@ -202,7 +202,10 @@ public class ReportReassign2Action extends ActionSupport {
 
             }
 
-            newURL = request.getRequestURI();
+            // Use only the path portion of the request URI (never includes scheme/host);
+            // strip any CR/LF to prevent response-splitting via the Location header.
+            String rawUri = request.getRequestURI();
+            newURL = rawUri.replaceAll("[\r\n]", "");
 
             // Encode all query parameters — defense-in-depth for session-derived values,
             // required for user-controlled searchProviderNo and status

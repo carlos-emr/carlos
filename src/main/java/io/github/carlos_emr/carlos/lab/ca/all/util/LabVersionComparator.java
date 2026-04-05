@@ -50,7 +50,7 @@ public class LabVersionComparator {
     public String isLabDuplicate(String currentSegmentID) {
         // Get the HL7 body for the current lab and remove the first line
         String currentLabBody = ((ExcellerisOntarioHandler) handlerMap.get(currentSegmentID)).getHl7Body();
-        String currentLabHash = DigestUtils.md5Hex(removeFirstLine(currentLabBody));
+        String currentLabHash = DigestUtils.sha256Hex(removeFirstLine(currentLabBody));
 
         int currentLabIndex = labVersionIds.indexOf(currentSegmentID);
 
@@ -59,7 +59,7 @@ public class LabVersionComparator {
                 .filter(i -> {
                     // Get the HL7 body for the previous lab version and remove the first line
                     String labBody = ((ExcellerisOntarioHandler) handlerMap.get(labVersionIds.get(i))).getHl7Body();
-                    String labHash = DigestUtils.md5Hex(removeFirstLine(labBody));
+                    String labHash = DigestUtils.sha256Hex(removeFirstLine(labBody));
                     return labHash.equals(currentLabHash);
                 })
                 .findFirst();

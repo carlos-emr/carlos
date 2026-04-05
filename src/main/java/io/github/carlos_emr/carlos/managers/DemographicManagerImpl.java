@@ -368,6 +368,15 @@ public class DemographicManagerImpl implements DemographicManager {
             return new ArrayList<>(); // Return an empty list if providers or regex is null
         }
 
+        // Prevent regex injection / ReDoS: validate regex against a safe allowlist pattern.
+        // The expected format (produced by updatedemographicprovider.jsp) is:
+        //   "^[A-Z]-[A-Z].*$"  e.g. "^[A-M].*$" or "^[A-F].*$"
+        // Any other pattern is rejected to prevent catastrophic backtracking.
+        if (!regex.matches("\\^\\[[A-Za-z]-[A-Za-z]\\].*") && !regex.matches("\\^\\[[A-Za-z]\\].*")) {
+            logger.warn("Rejected potentially unsafe regex pattern from client: (pattern omitted for security)");
+            return new ArrayList<>();
+        }
+
         List<Demographic> demographicList = demographicDao.getDemographicByProvider(provider.getProviderNo());
         /*
          * A reluctant method to sort the results due to the lack of REGEX functions

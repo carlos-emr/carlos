@@ -2698,9 +2698,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                     String noTransactionInfoFileData = reportFileData.replaceAll("<TransactionInformation>.*?</TransactionInformation>", "<TransactionInformation></TransactionInformation>");
                     String noDemograhpicInfoFileData = reportFileData.replaceAll("<Demographics>.*?</Demographics>", "<Demographics></Demographics").replaceAll("<MessageUniqueID>.*?</MessageUniqueID>", "<MessageUniqueID></MessageUniqueID>");
 
-                    String noMessageIdHash = DigestUtils.md5Hex(noMessageIdFileData);
-                    String noTransactionInfoHash = DigestUtils.md5Hex(noTransactionInfoFileData);
-                    String noDemographicInfoHash = DigestUtils.md5Hex(noDemograhpicInfoFileData);
+                    String noMessageIdHash = DigestUtils.sha256Hex(noMessageIdFileData);
+                    String noTransactionInfoHash = DigestUtils.sha256Hex(noTransactionInfoFileData);
+                    String noDemographicInfoHash = DigestUtils.sha256Hex(noDemograhpicInfoFileData);
 
                     hrmDoc.setReportHash(noMessageIdHash);
                     hrmDoc.setReportLessTransactionInfoHash(noTransactionInfoHash);

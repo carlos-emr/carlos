@@ -219,6 +219,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             byte[] newSecretKey = cipher.doFinal(Base64.decodeBase64(skey));
 
             // Decrypt the message using the secret key
+            // NOTE: AES without mode (defaults to ECB) is specified by the external lab
+            // system's protocol and cannot be changed without breaking interoperability.
             SecretKeySpec skeySpec = new SecretKeySpec(newSecretKey, "AES");
             Cipher msgCipher = Cipher.getInstance("AES");
             msgCipher.init(Cipher.DECRYPT_MODE, skeySpec);

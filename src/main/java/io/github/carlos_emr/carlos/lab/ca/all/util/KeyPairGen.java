@@ -65,7 +65,7 @@ public final class KeyPairGen {
         // Generate an RSA key
         try {
             KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
-            keyGen.initialize(1024);
+            keyGen.initialize(2048);
             KeyPair key = keyGen.generateKeyPair();
 
             pubKey = base64.encode(key.getPublic().getEncoded());
