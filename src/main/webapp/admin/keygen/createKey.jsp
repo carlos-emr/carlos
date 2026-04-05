@@ -73,7 +73,7 @@
             }
         } else {
             if (KeyPairGen.checkName(name)) {
-                message = "Failed: Key pair has already been created for the service '" + Encode.forHtml(name) + "'";
+                message = "Failed: Key pair has already been created for the service '" + name + "'";
                 error = "true";
             } else {
                 String clientKey = KeyPairGen.createKeys(name, type);
