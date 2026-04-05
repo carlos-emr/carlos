@@ -60,50 +60,29 @@
     // Allows dots in element names (e.g. "pref.default_dx_code" from UserPreferences.jsp)
     java.util.regex.Pattern pathPattern = java.util.regex.Pattern.compile(
         "^document\\.forms\\[(\\d+)\\]\\.elements\\['([a-zA-Z0-9_.]+)'\\]\\.value$");
-    java.util.regex.Matcher pathMatcher;
+    String[] paramParts = extractJsPath(pathPattern, param, "param");
+    String paramFormIdx = paramParts != null ? paramParts[0] : null;
+    String paramField = paramParts != null ? paramParts[1] : null;
 
-    String paramFormIdx = null;
-    String paramField = null;
-    if (!param.isEmpty()) {
-        pathMatcher = pathPattern.matcher(param);
-        if (pathMatcher.matches()) { paramFormIdx = pathMatcher.group(1); paramField = pathMatcher.group(2); }
-        else { MiscUtils.getLogger().warn("searchRefDoc.jsp: 'param' did not match expected JS path format"); }
-    }
-    String param2FormIdx = null;
-    String param2Field = null;
-    if (!param2.isEmpty()) {
-        pathMatcher = pathPattern.matcher(param2);
-        if (pathMatcher.matches()) { param2FormIdx = pathMatcher.group(1); param2Field = pathMatcher.group(2); }
-        else { MiscUtils.getLogger().warn("searchRefDoc.jsp: 'param2' did not match expected JS path format"); }
-    }
-    String tonameFormIdx = null;
-    String tonameField = null;
-    if (!toname.isEmpty()) {
-        pathMatcher = pathPattern.matcher(toname);
-        if (pathMatcher.matches()) { tonameFormIdx = pathMatcher.group(1); tonameField = pathMatcher.group(2); }
-        else { MiscUtils.getLogger().warn("searchRefDoc.jsp: 'toname' did not match expected JS path format"); }
-    }
-    String toaddress1FormIdx = null;
-    String toaddress1Field = null;
-    if (!toaddress1.isEmpty()) {
-        pathMatcher = pathPattern.matcher(toaddress1);
-        if (pathMatcher.matches()) { toaddress1FormIdx = pathMatcher.group(1); toaddress1Field = pathMatcher.group(2); }
-        else { MiscUtils.getLogger().warn("searchRefDoc.jsp: 'toaddress1' did not match expected JS path format"); }
-    }
-    String tophoneFormIdx = null;
-    String tophoneField = null;
-    if (!tophone.isEmpty()) {
-        pathMatcher = pathPattern.matcher(tophone);
-        if (pathMatcher.matches()) { tophoneFormIdx = pathMatcher.group(1); tophoneField = pathMatcher.group(2); }
-        else { MiscUtils.getLogger().warn("searchRefDoc.jsp: 'tophone' did not match expected JS path format"); }
-    }
-    String tofaxFormIdx = null;
-    String tofaxField = null;
-    if (!tofax.isEmpty()) {
-        pathMatcher = pathPattern.matcher(tofax);
-        if (pathMatcher.matches()) { tofaxFormIdx = pathMatcher.group(1); tofaxField = pathMatcher.group(2); }
-        else { MiscUtils.getLogger().warn("searchRefDoc.jsp: 'tofax' did not match expected JS path format"); }
-    }
+    String[] param2Parts = extractJsPath(pathPattern, param2, "param2");
+    String param2FormIdx = param2Parts != null ? param2Parts[0] : null;
+    String param2Field = param2Parts != null ? param2Parts[1] : null;
+
+    String[] tonameParts = extractJsPath(pathPattern, toname, "toname");
+    String tonameFormIdx = tonameParts != null ? tonameParts[0] : null;
+    String tonameField = tonameParts != null ? tonameParts[1] : null;
+
+    String[] toaddress1Parts = extractJsPath(pathPattern, toaddress1, "toaddress1");
+    String toaddress1FormIdx = toaddress1Parts != null ? toaddress1Parts[0] : null;
+    String toaddress1Field = toaddress1Parts != null ? toaddress1Parts[1] : null;
+
+    String[] tophoneParts = extractJsPath(pathPattern, tophone, "tophone");
+    String tophoneFormIdx = tophoneParts != null ? tophoneParts[0] : null;
+    String tophoneField = tophoneParts != null ? tophoneParts[1] : null;
+
+    String[] tofaxParts = extractJsPath(pathPattern, tofax, "tofax");
+    String tofaxFormIdx = tofaxParts != null ? tofaxParts[0] : null;
+    String tofaxField = tofaxParts != null ? tofaxParts[1] : null;
     List<ProfessionalSpecialist> professionalSpecialists = null;
 
     if (request.getParameter("submit") != null && (request.getParameter("submit").equals("Search")
@@ -157,6 +136,23 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.MiscUtils" %>
 
+<%!
+    /**
+     * Extracts form index and element name from a JS path expression like
+     * "document.forms[0].elements['fieldname'].value".
+     * @return String[]{formIdx, elementName} or null if value is empty or doesn't match
+     */
+    private String[] extractJsPath(java.util.regex.Pattern pattern, String value, String paramName) {
+        if (value == null || value.isEmpty()) return null;
+        java.util.regex.Matcher m = pattern.matcher(value);
+        if (m.matches()) return new String[]{m.group(1), m.group(2)};
+        io.github.carlos_emr.carlos.util.MiscUtils.getLogger().warn(
+            "searchRefDoc.jsp: '" + paramName + "' did not match expected JS path format: "
+            + value.substring(0, Math.min(value.length(), 80)));
+        return null;
+    }
+%>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
@@ -185,22 +181,32 @@
             <%}%>
 
             function typeInData3(billno, toname, toaddress, tophone, tofax) {
-                self.close();
+                var fieldsSet = false;
                 <%if(paramField != null) {%>
                 opener.document.forms[<%= paramFormIdx %>].elements["<%= Encode.forJavaScript(paramField) %>"].value = billno;
+                fieldsSet = true;
                 <%}
                   if(tonameField != null) {%>
                 opener.document.forms[<%= tonameFormIdx %>].elements["<%= Encode.forJavaScript(tonameField) %>"].value = toname;
+                fieldsSet = true;
                 <%}
                   if(toaddress1Field != null) {%>
                 opener.document.forms[<%= toaddress1FormIdx %>].elements["<%= Encode.forJavaScript(toaddress1Field) %>"].value = toaddress;
+                fieldsSet = true;
                 <%}
                   if(tophoneField != null) {%>
                 opener.document.forms[<%= tophoneFormIdx %>].elements["<%= Encode.forJavaScript(tophoneField) %>"].value = tophone;
+                fieldsSet = true;
                 <%}
                   if(tofaxField != null) {%>
                 opener.document.forms[<%= tofaxFormIdx %>].elements["<%= Encode.forJavaScript(tofaxField) %>"].value = tofax;
+                fieldsSet = true;
                 <%}%>
+                if (!fieldsSet) {
+                    alert("Error: Unable to transfer referral doctor data to the billing form. Please close this window and try again.");
+                    return;
+                }
+                self.close();
             }
         </script>
         <script>

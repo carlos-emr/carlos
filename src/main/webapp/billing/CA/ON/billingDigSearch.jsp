@@ -52,6 +52,7 @@
     String name2 = request.getParameter("name2");
     String targetFormIdx = null;
     String targetElement = null;
+    boolean name2ParseError = false;
     if (name2 != null) {
         java.util.regex.Matcher m2 = java.util.regex.Pattern
             .compile("^document\\.forms\\[(\\d+)\\]\\.elements\\['([a-zA-Z0-9_.]+)'\\]\\.value$")
@@ -60,7 +61,9 @@
             targetFormIdx = m2.group(1);
             targetElement = m2.group(2);
         } else if (!name2.isEmpty()) {
-            MiscUtils.getLogger().warn("billingDigSearch.jsp: 'name2' did not match expected JS path format");
+            MiscUtils.getLogger().warn("billingDigSearch.jsp: 'name2' did not match expected JS path format: "
+                + name2.substring(0, Math.min(name2.length(), 80)));
+            name2ParseError = true;
         }
     }
 %>
@@ -78,6 +81,9 @@
 
                 <%if(targetElement != null) {%>
                 self.opener.document.forms[<%= targetFormIdx %>].elements["<%= Encode.forJavaScript(StringUtils.noNull(targetElement)) %>"].value = File2.substring(0, 3);
+                <%} else if(name2ParseError) {%>
+                alert("Error: Unable to transfer diagnostic code to the billing form. Please close this window and try again.");
+                return;
                 <%} else {%>
                 self.opener.document.forms[1].xml_diagnostic_detail.value = File2;
                 <%}%>
@@ -230,7 +236,7 @@
 
             <tr>
                 <td style="width:12%"><a
-                        href="javascript:CodeAttach('<%= Encode.forJavaScript(Dcode) %>|<%= Encode.forJavaScript(DcodeDesc) %>')"><%= Encode.forHtml(Dcode) %>
+                        href="javascript:CodeAttach('<%= Encode.forJavaScriptAttribute(Dcode) %>|<%= Encode.forJavaScriptAttribute(DcodeDesc) %>')"><%= Encode.forHtml(Dcode) %>
                 </a></td>
                 <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
                                              name="<%= Encode.forHtmlAttribute(Dcode) %>"
@@ -258,7 +264,7 @@
 
             <tr>
                 <td style="width:12%"><a
-                        href="javascript:CodeAttach('<%= Encode.forJavaScript(Dcode) %>|<%= Encode.forJavaScript(DcodeDesc) %>')"><%= Encode.forHtml(Dcode) %>
+                        href="javascript:CodeAttach('<%= Encode.forJavaScriptAttribute(Dcode) %>|<%= Encode.forJavaScriptAttribute(DcodeDesc) %>')"><%= Encode.forHtml(Dcode) %>
                 </a></td>
                 <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
                                              name="<%= Encode.forHtmlAttribute(Dcode) %>"
@@ -285,7 +291,7 @@
 
             <tr>
                 <td style="width:12%"><a
-                        href="javascript:CodeAttach('<%= Encode.forJavaScript(Dcode2) %>|<%= Encode.forJavaScript(DcodeDesc2) %>')"><%= Encode.forHtml(Dcode2) %>
+                        href="javascript:CodeAttach('<%= Encode.forJavaScriptAttribute(Dcode2) %>|<%= Encode.forJavaScriptAttribute(DcodeDesc2) %>')"><%= Encode.forHtml(Dcode2) %>
                 </a></td>
                 <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
                                              name="<%= Encode.forHtmlAttribute(Dcode2) %>"

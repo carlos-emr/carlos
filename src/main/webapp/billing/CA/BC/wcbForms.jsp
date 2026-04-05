@@ -59,12 +59,18 @@
     String demographicNo = request.getParameter("demographicNo");
     String wcbid = request.getParameter("wcbid");
     String billingcode = request.getParameter("billingcode");
+
+    // Pre-compute commonly used encoded values
+    String encodedDemoNo = Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demographicNo)));
+    String encodedDemoNoJs = Encode.forJavaScriptAttribute(StringUtils.noNull(demographicNo));
+    String encodedProvNo = Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull((String) session.getAttribute("user"))));
+    String encodedBillingCode = Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(billingcode)));
 %>
 
 <div>
     <div>
         <label> WCB Forms available to attach.</label> <a
-            onclick="popup(700,960,'viewformwcb.do?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demographicNo))) %>&formId=0&provNo=999998&parentAjaxId=forms&hideToBill=true','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(demographicNo)) %>NEWWCB'); return false;"
+            onclick="popup(700,960,'viewformwcb.do?demographic_no=<%= encodedDemoNo %>&formId=0&provNo=999998&parentAjaxId=forms&hideToBill=true','<%= encodedDemoNoJs %>NEWWCB'); return false;"
             href="javascript:void(0);">New WCB Form</a> <br>
     </div>
     <table class="table table-striped table-sm">
@@ -89,7 +95,7 @@
                    onclick="checkifSet('<%= Encode.forJavaScriptAttribute(StringUtils.noNull(wcb.getW_icd9())) %>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(wcb.getW_feeitem())) %>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(wcb.getW_extrafeeitem())) %>');">Populate</a>
             </td>
             <td align="middle">
-                <a onclick="popup(700,960,'viewformwcb.do?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demographicNo))) %>&formId=<%=wcb.getId()%>&provNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull((String) session.getAttribute("user")))) %>&parentAjaxId=forms&billingcode=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(billingcode))) %>&hideToBill=true','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(demographicNo)) %>NEWWCB'); return false;"
+                <a onclick="popup(700,960,'viewformwcb.do?demographic_no=<%= encodedDemoNo %>&formId=<%=wcb.getId()%>&provNo=<%= encodedProvNo %>&parentAjaxId=forms&billingcode=<%= encodedBillingCode %>&hideToBill=true','<%= encodedDemoNoJs %>NEWWCB'); return false;"
                    href="javascript:void(0);"><fmt:formatDate pattern="yyyy-MM-dd" value="${wcb.w_doi}"/></a>
 
             </td>
