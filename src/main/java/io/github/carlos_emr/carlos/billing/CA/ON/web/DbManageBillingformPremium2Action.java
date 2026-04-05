@@ -38,7 +38,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import java.util.Objects;
 
 import java.util.Date;
 

@@ -45,7 +45,7 @@
         </tr>
     </table>
     <%
-        String action = (String) request.getAttribute("reportAction");
+        String action = (String) request.getAttribute("action");
         if (action == null) action = "";
     %>
     <script type="text/javascript">

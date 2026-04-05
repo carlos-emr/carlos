@@ -40,7 +40,6 @@ import io.github.carlos_emr.carlos.billing.CA.dao.BillingInrDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingInr;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
