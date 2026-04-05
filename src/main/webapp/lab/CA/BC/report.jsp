@@ -317,7 +317,7 @@
         </tr>
         <tr>
             <td colspan="7"><textarea name="notes" rows="7"
-                                      style="width: 100%;"><%=Misc.check(hl7_message.getNotes(), "")%></textarea>
+                                      style="width: 100%;"><%=Encode.forHtml(Misc.check(hl7_message.getNotes(), ""))%></textarea>
             </td>
         </tr>
         <tr class="LightBG">

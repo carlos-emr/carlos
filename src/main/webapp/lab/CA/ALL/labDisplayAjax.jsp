@@ -411,8 +411,8 @@
                                 <input type="hidden" name="segmentID" value="<%= Encode.forHtmlAttribute(segmentID) %>"/>
                                 <input type="hidden" name="multiID" value="<%= Encode.forHtmlAttribute(multiLabId) %>"/>
                                 <input type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo) %>"/>
-                                <input type="hidden" name="status" value="<%=Encode.forHtmlAttribute(labStatus)%>"/ id="status_<%=Encode.forHtmlAttribute(segmentID)%>">
-                                <input type="hidden" name="comment" value=""/ id="comment_<%=Encode.forHtmlAttribute(segmentID)%>">
+                                <input type="hidden" name="status" value="<%=Encode.forHtmlAttribute(labStatus)%>" id="status_<%=Encode.forHtmlAttribute(segmentID)%>"/>
+                                <input type="hidden" name="comment" value="" id="comment_<%=Encode.forHtmlAttribute(segmentID)%>"/>
                                 <input type="hidden" name="labType" value="HL7"/>
                                 <input type="hidden" name="ajaxcall" value="yes"/>
                                 <input type="hidden" id="demoName<%=Encode.forHtmlAttribute(segmentID)%>"
