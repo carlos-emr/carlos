@@ -3037,6 +3037,136 @@
     })();
     </script>
 
+    <!-- ============================================================ -->
+    <!-- Keyboard Shortcuts Help Modal                               -->
+    <!-- Press ? to open/close; Esc, X, or backdrop click to close. -->
+    <!-- @since 2026-04-05                                           -->
+    <!-- ============================================================ -->
+    <div id="carlosSchedKbBackdrop" aria-hidden="true"
+         onclick="carlosSchedKbModal.close()"
+         style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:none;"></div>
+
+    <div id="carlosSchedKbModal" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts"
+         style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+                background:#fff;border-radius:8px;padding:24px 28px 20px;
+                z-index:9999;min-width:340px;max-width:520px;width:90%;
+                box-shadow:0 8px 32px rgba(0,0,0,.28);font-family:inherit;display:none;">
+        <button onclick="carlosSchedKbModal.close()" aria-label="Close shortcuts" title="Close (Esc)"
+                style="position:absolute;top:12px;right:14px;background:none;border:none;
+                       font-size:1.3rem;line-height:1;cursor:pointer;color:#6b7280;
+                       padding:4px 6px;border-radius:4px;"
+                onmouseover="this.style.background='#f3f4f6';this.style.color='#111';"
+                onmouseout="this.style.background='none';this.style.color='#6b7280';">&#215;</button>
+        <h2 style="margin:0 0 16px;font-size:1.1rem;color:#333;
+                   padding-right:28px;border-bottom:1px solid #e5e7eb;padding-bottom:10px;">
+            &#9000; Scheduler Keyboard Shortcuts
+        </h2>
+        <table style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr>
+                    <th style="text-align:left;font-size:.78rem;color:#6b7280;
+                               text-transform:uppercase;letter-spacing:.05em;padding-bottom:6px;">Key</th>
+                    <th style="text-align:left;font-size:.78rem;color:#6b7280;
+                               text-transform:uppercase;letter-spacing:.05em;padding-bottom:6px;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding:5px 0;white-space:nowrap;padding-right:16px;font-size:.9rem;color:#374151;">
+                        <kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">Alt</kbd>+<kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">&#8592;</kbd>
+                    </td>
+                    <td style="padding:5px 0;font-size:.9rem;color:#374151;">Previous day</td>
+                </tr>
+                <tr>
+                    <td style="padding:5px 0;white-space:nowrap;padding-right:16px;font-size:.9rem;color:#374151;">
+                        <kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">Alt</kbd>+<kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">&#8594;</kbd>
+                    </td>
+                    <td style="padding:5px 0;font-size:.9rem;color:#374151;">Next day</td>
+                </tr>
+                <tr>
+                    <td style="padding:5px 0;white-space:nowrap;padding-right:16px;font-size:.9rem;color:#374151;">
+                        <kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">Alt</kbd>+<kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">1</kbd>
+                    </td>
+                    <td style="padding:5px 0;font-size:.9rem;color:#374151;">Forward 1 month</td>
+                </tr>
+                <tr>
+                    <td style="padding:5px 0;white-space:nowrap;padding-right:16px;font-size:.9rem;color:#374151;">
+                        <kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">Alt</kbd>+<kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">2</kbd>
+                    </td>
+                    <td style="padding:5px 0;font-size:.9rem;color:#374151;">Forward 2 months</td>
+                </tr>
+                <tr>
+                    <td style="padding:5px 0;white-space:nowrap;padding-right:16px;font-size:.9rem;color:#374151;">
+                        <kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">Alt</kbd>+<kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">3</kbd>
+                    </td>
+                    <td style="padding:5px 0;font-size:.9rem;color:#374151;">Forward 3 months</td>
+                </tr>
+                <tr>
+                    <td style="padding:5px 0;white-space:nowrap;padding-right:16px;font-size:.9rem;color:#374151;">
+                        <kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">Alt</kbd>+<kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">4</kbd>
+                    </td>
+                    <td style="padding:5px 0;font-size:.9rem;color:#374151;">Forward 4 months</td>
+                </tr>
+                <tr>
+                    <td style="padding:5px 0;white-space:nowrap;padding-right:16px;font-size:.9rem;color:#374151;">
+                        <kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">Alt</kbd>+<kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">5</kbd>
+                    </td>
+                    <td style="padding:5px 0;font-size:.9rem;color:#374151;">Forward 5 months</td>
+                </tr>
+                <tr>
+                    <td style="padding:5px 0;white-space:nowrap;padding-right:16px;font-size:.9rem;color:#374151;">
+                        <kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">Alt</kbd>+<kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">6</kbd>
+                    </td>
+                    <td style="padding:5px 0;font-size:.9rem;color:#374151;">Forward 6 months</td>
+                </tr>
+            </tbody>
+        </table>
+        <div style="margin-top:14px;padding-top:10px;border-top:1px solid #e5e7eb;
+                    font-size:.8rem;color:#9ca3af;text-align:center;">
+            <kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">?</kbd>
+            to show/hide &nbsp;&bull;&nbsp;
+            <kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">Esc</kbd>
+            or click outside to close
+        </div>
+    </div>
+
+    <script>
+        var carlosSchedKbModal = {
+            open: function () {
+                document.getElementById('carlosSchedKbBackdrop').style.display = 'block';
+                document.getElementById('carlosSchedKbModal').style.display    = 'block';
+                document.getElementById('carlosSchedKbModal')
+                    .querySelector('button[aria-label="Close shortcuts"]').focus();
+            },
+            close: function () {
+                document.getElementById('carlosSchedKbBackdrop').style.display = 'none';
+                document.getElementById('carlosSchedKbModal').style.display    = 'none';
+            },
+            isOpen: function () {
+                var m = document.getElementById('carlosSchedKbModal');
+                return m && m.style.display !== 'none';
+            }
+        };
+
+        document.addEventListener('keydown', function (e) {
+            // Ignore modifier combos — only plain keystrokes
+            if (e.ctrlKey || e.altKey || e.metaKey) return;
+            if (e.key === '?') {
+                var tag = e.target.tagName;
+                // Don't intercept ? when typing in form fields
+                if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+                if (carlosSchedKbModal.isOpen()) {
+                    carlosSchedKbModal.close();
+                } else {
+                    carlosSchedKbModal.open();
+                }
+                e.preventDefault();
+            } else if (e.key === 'Escape') {
+                carlosSchedKbModal.close();
+            }
+        });
+    </script>
+
     </body>
 </html>
 

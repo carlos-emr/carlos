@@ -775,3 +775,129 @@
             event.stopPropagation();  // Prevent other keydown listeners from reacting
         }
     });
+
+    /* ------------------------------------------------------------------ *
+     * EChart Keyboard Shortcuts Help Modal                                *
+     * Press ? to open/close. Also closes on Esc, X button, or backdrop.  *
+     * @since 2026-04-05                                                   *
+     * ------------------------------------------------------------------ */
+    (function () {
+        var MODAL_ID    = 'carlosEncounterKbModal';
+        var BACKDROP_ID = 'carlosEncounterKbBackdrop';
+
+        function buildModal() {
+            if (document.getElementById(MODAL_ID)) return;
+
+            var style = document.createElement('style');
+            style.textContent =
+                '#' + BACKDROP_ID + '{' +
+                '  position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;' +
+                '  display:none;' +
+                '}' +
+                '#' + MODAL_ID + '{' +
+                '  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);' +
+                '  background:#fff;border-radius:8px;padding:24px 28px 20px;' +
+                '  z-index:9999;min-width:340px;max-width:480px;width:90%;' +
+                '  box-shadow:0 8px 32px rgba(0,0,0,.28);font-family:inherit;' +
+                '  display:none;' +
+                '}' +
+                '#' + MODAL_ID + ' h2{' +
+                '  margin:0 0 16px;font-size:1.1rem;color:#333;' +
+                '  padding-right:28px;border-bottom:1px solid #e5e7eb;padding-bottom:10px;' +
+                '}' +
+                '#' + MODAL_ID + ' table{width:100%;border-collapse:collapse;}' +
+                '#' + MODAL_ID + ' th{text-align:left;font-size:.78rem;color:#6b7280;' +
+                '  text-transform:uppercase;letter-spacing:.05em;padding-bottom:6px;}' +
+                '#' + MODAL_ID + ' td{padding:5px 0;font-size:.9rem;color:#374151;}' +
+                '#' + MODAL_ID + ' td:first-child{white-space:nowrap;padding-right:16px;}' +
+                '#' + MODAL_ID + ' kbd{' +
+                '  display:inline-block;padding:2px 6px;background:#f3f4f6;' +
+                '  border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;' +
+                '  font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;' +
+                '}' +
+                '#' + MODAL_ID + ' .carlos-kb-close{' +
+                '  position:absolute;top:12px;right:14px;background:none;border:none;' +
+                '  font-size:1.3rem;line-height:1;cursor:pointer;color:#6b7280;' +
+                '  padding:4px 6px;border-radius:4px;' +
+                '}' +
+                '#' + MODAL_ID + ' .carlos-kb-close:hover{background:#f3f4f6;color:#111;}' +
+                '#' + MODAL_ID + ' .carlos-kb-footer{' +
+                '  margin-top:14px;padding-top:10px;border-top:1px solid #e5e7eb;' +
+                '  font-size:.8rem;color:#9ca3af;text-align:center;' +
+                '}';
+            document.head.appendChild(style);
+
+            var backdrop = document.createElement('div');
+            backdrop.id = BACKDROP_ID;
+            backdrop.setAttribute('aria-hidden', 'true');
+            backdrop.addEventListener('click', closeModal);
+            document.body.appendChild(backdrop);
+
+            var modal = document.createElement('div');
+            modal.id = MODAL_ID;
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            modal.setAttribute('aria-label', 'Keyboard shortcuts');
+            modal.innerHTML =
+                '<button class="carlos-kb-close" aria-label="Close shortcuts" title="Close (Esc)">' +
+                '\u00d7</button>' +
+                '<h2>&#9000; EChart Keyboard Shortcuts</h2>' +
+                '<table>' +
+                '<thead><tr>' +
+                '<th>Key</th>' +
+                '<th>Action</th>' +
+                '</tr></thead>' +
+                '<tbody>' +
+                '<tr><td><kbd>Alt</kbd>+<kbd>1</kbd></td><td>Sign, Save &amp; Bill</td></tr>' +
+                '<tr><td><kbd>Alt</kbd>+<kbd>2</kbd></td><td>Save</td></tr>' +
+                '<tr><td><kbd>Alt</kbd>+<kbd>3</kbd></td><td>Sign &amp; Save</td></tr>' +
+                '<tr><td><kbd>Alt</kbd>+<kbd>4</kbd></td><td>Exit encounter</td></tr>' +
+                '<tr><td><kbd>Alt</kbd>+<kbd>T</kbd></td><td>New Tickler</td></tr>' +
+                '<tr><td><kbd>Alt</kbd>+<kbd>C</kbd></td><td>New Consult Request</td></tr>' +
+                '<tr><td><kbd>Alt</kbd>+<kbd>P</kbd></td><td>Open Prescriptions (Rx)</td></tr>' +
+                '</tbody>' +
+                '</table>' +
+                '<div class="carlos-kb-footer">' +
+                '<kbd>?</kbd> to show/hide &nbsp;&bull;&nbsp; <kbd>Esc</kbd> or click outside to close' +
+                '</div>';
+            modal.querySelector('.carlos-kb-close').addEventListener('click', closeModal);
+            document.body.appendChild(modal);
+        }
+
+        function openModal() {
+            buildModal();
+            document.getElementById(BACKDROP_ID).style.display = 'block';
+            document.getElementById(MODAL_ID).style.display    = 'block';
+            document.getElementById(MODAL_ID).querySelector('.carlos-kb-close').focus();
+        }
+
+        function closeModal() {
+            var m = document.getElementById(MODAL_ID);
+            var b = document.getElementById(BACKDROP_ID);
+            if (m) m.style.display = 'none';
+            if (b) b.style.display = 'none';
+        }
+
+        function isOpen() {
+            var m = document.getElementById(MODAL_ID);
+            return m && m.style.display !== 'none';
+        }
+
+        document.addEventListener('keydown', function (e) {
+            // Ignore modifier combos — only plain keystrokes
+            if (e.ctrlKey || e.altKey || e.metaKey) return;
+            if (e.key === '?') {
+                var tag = e.target.tagName;
+                // Don't intercept ? when typing in form fields
+                if (tag === 'INPUT' || tag === 'SELECT') return;
+                if (isOpen()) {
+                    closeModal();
+                } else {
+                    openModal();
+                }
+                e.preventDefault();
+            } else if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+    }());
