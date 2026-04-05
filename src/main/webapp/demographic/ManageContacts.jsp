@@ -344,7 +344,7 @@
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td><oscar:nameage demographicNo="<%=demographic_no%>"/></td>
+                        <td><oscar:nameage demographicNo="<%=Encode.forHtmlAttribute(demographic_no != null ? demographic_no : "")%>"/></td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
                                 href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
