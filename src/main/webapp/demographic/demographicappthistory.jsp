@@ -185,10 +185,10 @@
                 if (value) {
                     //show deleted
                     //appt_history_w_deleted
-                    location.href = '<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographic_no))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(orderby))%>&displaymode=appt_history&dboperation=appt_history_w_deleted&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>&deleted=true';
+                    location.href = '<%=request.getContextPath()%>/demographic/DemographicApptHistory.do?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographic_no))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(orderby))%>&dboperation=appt_history_w_deleted&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>&deleted=true';
                 } else {
                     //don't show deleted
-                    location.href = '<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographic_no))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(orderby))%>&displaymode=appt_history&dboperation=appt_history&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>';
+                    location.href = '<%=request.getContextPath()%>/demographic/DemographicApptHistory.do?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographic_no))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(orderby))%>&dboperation=appt_history&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>';
                 }
             }
 
@@ -267,10 +267,14 @@
                         int iRSOffSet = 0;
                         int iPageSize = 10;
                         int iRow = 0;
-                        if (request.getParameter("limit1") != null)
-                            iRSOffSet = Integer.parseInt(request.getParameter("limit1"));
-                        if (request.getParameter("limit2") != null)
-                            iPageSize = Integer.parseInt(request.getParameter("limit2"));
+                        if (request.getParameter("limit1") != null) {
+                            try { iRSOffSet = Integer.parseInt(request.getParameter("limit1")); }
+                            catch (NumberFormatException ignored) { /* keep default */ }
+                        }
+                        if (request.getParameter("limit2") != null) {
+                            try { iPageSize = Integer.parseInt(request.getParameter("limit2")); }
+                            catch (NumberFormatException ignored) { /* keep default */ }
+                        }
                         List<Object> appointmentList;
                         AppointmentManager appointmentManager = SpringUtils.getBean(AppointmentManager.class);
 
@@ -402,14 +406,14 @@
                     nPrevPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
                     if (nPrevPage >= 0) {
                 %>
-                <a href="demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&displaymode=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("displaymode"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nPrevPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
+                <a href="DemographicApptHistory.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nPrevPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.btnPrevPage"/></a>
                 <%
                     }
 
                     if (nItems >= Integer.parseInt(strLimit2)) {
                 %>
-                <a href="demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&displaymode=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("displaymode"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
+                <a href="DemographicApptHistory.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.btnNextPage"/></a>
                 <%
                     }

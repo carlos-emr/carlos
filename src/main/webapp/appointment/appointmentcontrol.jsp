@@ -31,6 +31,7 @@
 
 <%@ page import="java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDict" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -50,7 +51,7 @@
             {"Add Appt & PrintCard", "appointmentaddrecordcard.jsp"},
             {"PrintCard", "appointmentviewrecordcard.jsp"},
             {"TicklerSearch", "/tickler/ticklerAdd.jsp"},
-            {"Search ", "/demographic/demographiccontrol.jsp"},
+            {"Search ", "/demographic/DemographicSearch.do"},
             {"Search", "appointmentsearchrecords.jsp"},
             {"edit", "editappointment.jsp"},
             {"Update Appt", "appointmentupdatearecord.jsp"},
@@ -71,6 +72,25 @@
     String operation = requestParamDict.getDef("displaymode", "");
 
     // redirect to a file associated with operation
+    String target = opToFileDict.getDef(operation, "");
+    if (target.isEmpty()) {
+        MiscUtils.getLogger().warn("appointmentcontrol.jsp: unrecognized displaymode: {}",
+                org.owasp.encoder.Encode.forJava(operation));
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                "Unrecognized appointment operation");
+        return;
+    }
     out.clearBuffer();
-    request.getRequestDispatcher(opToFileDict.getDef(operation, "")).include(request, response);
+    // Struts2 actions (.do) require FORWARD dispatch — the Struts2 filter
+    // does not intercept INCLUDE dispatches (only REQUEST and FORWARD per
+    // the web.xml filter-mapping), so .do targets must use forward() instead of include().
+    if (target.endsWith(".do")) {
+        if (response.isCommitted()) {
+            MiscUtils.getLogger().error("appointmentcontrol.jsp: cannot forward to {} — response already committed", target);
+            return;
+        }
+        request.getRequestDispatcher(target).forward(request, response);
+    } else {
+        request.getRequestDispatcher(target).include(request, response);
+    }
 %>

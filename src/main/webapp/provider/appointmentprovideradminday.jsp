@@ -2722,9 +2722,8 @@
             badgesDiv.className = 'qs-badges';
             badgesDiv.appendChild(makeBadge('M', 'qs-badge-m', msgs.badgeMasterFile, function(e) {
                 e.stopPropagation();
-                popupPage(700, 1024, ctx + '/demographic/demographiccontrol.jsp?demographic_no='
-                    + encodeURIComponent(item.demographicNo)
-                    + '&displaymode=edit&dboperation=search_detail');
+                popupPage(700, 1024, ctx + '/demographic/DemographicEdit.do?demographic_no='
+                    + encodeURIComponent(item.demographicNo));
                 hideDropdown();
             }));
             badgesDiv.appendChild(makeBadge('E', 'qs-badge-e', msgs.badgeEChart, function(e) {

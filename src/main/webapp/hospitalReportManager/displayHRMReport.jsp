@@ -371,7 +371,7 @@
             if (!d) {
                 d = document.getElementById('demofind' + docId + 'hrm').value;
             }
-            urlNew = url + d;
+            urlNew = url + encodeURIComponent(d);
             return popup2(height, width, 0, 0, urlNew, windowName);
         }
 
@@ -379,7 +379,7 @@
             if (!d) {
                 d = document.getElementById('demofind' + docId + 'hrm').value;
             }
-            urlNew = url + "method=edit&tickler.demographic_webName=" + n + "&tickler.demographicNo=" + d + "&docType=HRM&docId=" + docId;
+            urlNew = url + "method=edit&tickler.demographic_webName=" + encodeURIComponent(n) + "&tickler.demographicNo=" + encodeURIComponent(d) + "&docType=HRM&docId=" + encodeURIComponent(docId);
             return popup2(height, width, 0, 0, urlNew, windowName);
         }
 
@@ -425,7 +425,7 @@
                onClick="popupPatient(710,1024,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=','master','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
         <input type="button" id="mainApptHistory_<%=hrmReportId%>"
                value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnApptHist"/>"
-               onClick="popupPatient(710,1024,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?orderby=appttime&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25&demographic_no=','ApptHist','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
+               onClick="popupPatient(710,1024,'<%= request.getContextPath() %>/demographic/DemographicApptHistory.do?orderby=appttime&dboperation=appt_history&limit1=0&limit2=25&demographic_no=','ApptHist','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
         <%-- formONAREnhancedRecord deprecated and removed - ONAR shortcut buttons disabled
         <% if (obgynShortcuts && demographicLink != null) {%>
         <input type="button" value="AR1-ILI"

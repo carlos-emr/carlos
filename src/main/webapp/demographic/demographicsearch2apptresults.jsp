@@ -195,7 +195,7 @@
         </svg>
         Search Patient
     </h2>
-    <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp"
+    <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/demographic/DemographicSearch.do"
           onSubmit="return checkTypeIn()">
         <div id="demographicSearch" class="searchBox input-group select-group" style="margin-bottom:10px;">
             <%--    <ul style="display: flex;">--%>
@@ -580,12 +580,12 @@
         <script language="JavaScript">
 
             function last() {
-                document.nextform.action = "<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/demographic/DemographicSearch.do?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
                 //document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/demographic/DemographicSearch.do?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
                 //document.nextform.submit();
             }
 
@@ -594,7 +594,7 @@
         <a href="#" onclick="showHideItem('demographicSearch');" id="searchPopUpButton"
            class="rightButton top">Search</a>
         <div class="bottomBar" style="margin-bottom:10px; margin-top:10px;">
-            <form method="post" name="nextform" action="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp">
+            <form method="post" name="nextform" action="<%= request.getContextPath() %>/demographic/DemographicSearch.do">
                 <%
                     if (nLastPage >= 0) {
                 %>
