@@ -125,7 +125,8 @@ public class CxfClientUtils {
         tslClientParameters.setDisableCNCheck(true);
         CxfClientUtils.TrustAllManager[] tam = new CxfClientUtils.TrustAllManager[]{new CxfClientUtils.TrustAllManager()};
         tslClientParameters.setTrustManagers(tam);
-        tslClientParameters.setSecureSocketProtocol("SSLv3");
+        // Use TLS (resolves to TLS 1.2/1.3 on modern JVMs) instead of the obsolete SSLv3 protocol
+        tslClientParameters.setSecureSocketProtocol("TLS");
         httpConduit.setTlsClientParameters(tslClientParameters);
     }
 

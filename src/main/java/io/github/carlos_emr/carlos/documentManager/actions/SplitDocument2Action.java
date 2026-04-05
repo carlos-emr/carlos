@@ -332,12 +332,15 @@ public class SplitDocument2Action extends ActionSupport {
 
     /**
      * Sets file permissions for the file that is being modified.
+     * Permissions are restricted to owner-only to prevent world-writable files.
      *
      * @param file A file
      */
     private void setFilePermissions(File file) {
-        file.setWritable(true, false);
-        file.setExecutable(true, false);
-        file.setReadable(true, false);
+        // owner-only permissions: second arg "true" = ownerOnly
+        file.setWritable(true, true);
+        file.setReadable(true, true);
+        // Document files do not need execute permission
+        file.setExecutable(false);
     }
 }

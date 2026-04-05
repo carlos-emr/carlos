@@ -52,7 +52,7 @@ public final class EncryptionUtils {
     private static final MessageDigest messageDigest = initMessageDigest();
     private static final QueueCache<String, byte[]> sha1Cache;
     private static final int MAX_SHA_KEY_CACHE_SIZE = 2048;
-    public static final String SECRET_KEY_ENV_VAR = "encryption.util.secret.key";
+    public static final String ENCRYPTION_KEY_CONFIG_PROPERTY = "encryption.util.secret.key";
     private static SecretKeySpec SECRET_KEY_SPEC;
     private static final String ENCRYPTION_PREFIX = "{ENC}";
 
@@ -129,31 +129,47 @@ public final class EncryptionUtils {
     /**
      * Use only to store encrypted data.
      * Do NOT use for authentication.
-     * Considered a weak encryption.
+     * Uses AES/GCM/NoPadding with a random 12-byte IV prepended to the ciphertext.
+     *
+     * @deprecated Prefer {@link #encrypt(byte[])} which uses the application's configured secret key.
      */
-    public static byte[] encrypt(SecretKey secretKey, byte[] plainData) throws IllegalBlockSizeException, BadPaddingException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException {
+    @Deprecated
+    public static byte[] encrypt(SecretKey secretKey, byte[] plainData)
+            throws IllegalBlockSizeException, BadPaddingException, NoSuchAlgorithmException,
+            NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException {
         if (secretKey == null) {
             return plainData;
-        } else {
-            Cipher cipher = Cipher.getInstance("AES");
-            cipher.init(1, secretKey);
-            return cipher.doFinal(plainData);
         }
+        byte[] iv = new byte[12];
+        new SecureRandom().nextBytes(iv);
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(128, iv));
+        byte[] ciphertext = cipher.doFinal(plainData);
+        return ByteBuffer.allocate(iv.length + ciphertext.length).put(iv).put(ciphertext).array();
     }
 
     /**
      * Use only to store encrypted data.
      * Do NOT use for authentication.
-     * Considered a weak encryption.
+     * Expects AES/GCM/NoPadding ciphertext with a 12-byte IV prepended.
+     *
+     * @deprecated Prefer {@link #decrypt(byte[])} which uses the application's configured secret key.
      */
-    public static byte[] decrypt(SecretKey secretKey, byte[] encryptedData) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+    @Deprecated
+    public static byte[] decrypt(SecretKey secretKey, byte[] encryptedData)
+            throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException,
+            IllegalBlockSizeException, BadPaddingException, InvalidAlgorithmParameterException {
         if (secretKey == null) {
             return encryptedData;
-        } else {
-            Cipher cipher = Cipher.getInstance("AES");
-            cipher.init(2, secretKey);
-            return cipher.doFinal(encryptedData);
         }
+        ByteBuffer buf = ByteBuffer.wrap(encryptedData);
+        byte[] iv = new byte[12];
+        buf.get(iv);
+        byte[] ciphertext = new byte[buf.remaining()];
+        buf.get(ciphertext);
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(128, iv));
+        return cipher.doFinal(ciphertext);
     }
 
     /**
@@ -318,7 +334,7 @@ public final class EncryptionUtils {
      * If the secret key is not found in the properties, an error is logged.
      */
     public static void prepareSecretKeySpec() {
-        String key = CarlosProperties.getInstance().getProperty(SECRET_KEY_ENV_VAR);
+        String key = CarlosProperties.getInstance().getProperty(ENCRYPTION_KEY_CONFIG_PROPERTY);
         if (Objects.isNull(key)) {
             logger.error("Secret key not found in environment variables.");
             return;

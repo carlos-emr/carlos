@@ -132,11 +132,11 @@ public class Startup implements ServletContextListener {
 
 			// 	Ensure that a secret key for encryption is available when OSCAR starts, either by retrieving a
 			// 	previously saved key or generating a new one and storing it for future use.
-			String secretKey = p.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
+			String secretKey = p.getProperty(EncryptionUtils.ENCRYPTION_KEY_CONFIG_PROPERTY);
 			if (Objects.isNull(secretKey)) {
 				try {
 					secretKey = EncryptionUtils.generateSecretKey();
-					p.saveProperty(propFileName, EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
+					p.saveProperty(propFileName, EncryptionUtils.ENCRYPTION_KEY_CONFIG_PROPERTY, secretKey);
 					EncryptionUtils.prepareSecretKeySpec();
 					logger.info("New Secret Key generated...");
 				} catch (IOException | NoSuchAlgorithmException e) {

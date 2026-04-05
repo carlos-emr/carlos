@@ -72,6 +72,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
 
 
         String filename = reportName + ".csv"; // request.getParameter("filename");
+        // Sanitize filename to prevent HTTP response splitting
+        filename = filename.replaceAll("[\r\n\u0000-\u001F\u007F-\u009F]", "");
         OutputStream out = null;
         try {
             if (in != null) {

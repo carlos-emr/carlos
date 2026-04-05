@@ -47,7 +47,8 @@
 
     if ("download".equals(method)) {
         response.setContentType("application/msword");
-        String filename = residentName.replace(", ", "").replace(" ", "") + ".doc";
+        // Sanitize filename to prevent HTTP response splitting
+        String filename = residentName.replace(", ", "").replace(" ", "").replaceAll("[\r\n\u0000-\u001F\u007F-\u009F]", "") + ".doc";
         response.setHeader("Content-Disposition", "attachment; filename=" + filename);
     }
 

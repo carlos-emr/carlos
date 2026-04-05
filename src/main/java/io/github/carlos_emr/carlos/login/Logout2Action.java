@@ -205,12 +205,24 @@ public class Logout2Action extends ActionSupport {
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
             for (Cookie cookie : cookies) {
+                // Sanitize cookie name to prevent HTTP response splitting:
+                // create a new cookie with a sanitized name rather than reusing the
+                // request cookie object, which may carry attacker-controlled header chars.
+                String safeName = cookie.getName() != null
+                        ? cookie.getName().replaceAll("[\r\n\u0000-\u001F\u007F-\u009F]", "")
+                        : "";
+                if (safeName.isEmpty()) {
+                    continue;
+                }
+                Cookie expiredCookie = new Cookie(safeName, "");
                 // Set maxAge to 0 to delete cookie immediately
-                cookie.setMaxAge(0);
+                expiredCookie.setMaxAge(0);
                 // Set path to "/" to ensure cookie is deleted across entire application
-                cookie.setPath("/");
+                expiredCookie.setPath("/");
+                // Mark as HttpOnly to prevent client-side script access
+                expiredCookie.setHttpOnly(true);
                 // Add expired cookie to response to overwrite browser's stored cookie
-                response.addCookie(cookie);
+                response.addCookie(expiredCookie);
             }
         }
         return SUCCESS;

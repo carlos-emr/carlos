@@ -3946,6 +3946,10 @@ public class DemographicExportAction42Action extends ActionSupport {
         cookie.setPath("/");
         cookie.setMaxAge(60);
         cookie.setSecure(request.isSecure());
+        // HttpOnly is intentionally NOT set: client-side JavaScript must read this cookie
+        // to detect when the file download (export) has completed. The cookie contains
+        // only non-sensitive status values ("success" or "error").
+        cookie.setHttpOnly(false);
         response.addCookie(cookie);
     }
 }

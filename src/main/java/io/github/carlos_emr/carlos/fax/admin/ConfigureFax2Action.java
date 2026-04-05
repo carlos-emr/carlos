@@ -62,7 +62,7 @@ public class ConfigureFax2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
-    private static final String PASSWORD_BLANKET = "**********";
+    private static final String MASKED_CREDENTIAL = "**********";
     private static final String DEFAULT_ERROR_MESSAGE = "There was a problem saving your configuration. Check the logs for details.";
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -181,13 +181,13 @@ public class ConfigureFax2Action extends ActionSupport {
                         savedFaxConfig.setUrl(resolvedFaxUrl);
                         savedFaxConfig.setSiteUser(siteUser);
 
-                        if (sitePasswd != null && !PASSWORD_BLANKET.equals(sitePasswd)) {
+                        if (sitePasswd != null && !MASKED_CREDENTIAL.equals(sitePasswd)) {
                             savedFaxConfig.setPasswd(sitePasswd.trim());
                         }
 
                         savedFaxConfig.setFaxUser(faxUsers[idx]);
 
-                        if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !PASSWORD_BLANKET.equals(faxPasswds[idx])) {
+                        if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !MASKED_CREDENTIAL.equals(faxPasswds[idx])) {
                             savedFaxConfig.setFaxPasswd(faxPasswds[idx].trim());
                         }
 
@@ -207,14 +207,14 @@ public class ConfigureFax2Action extends ActionSupport {
                         faxConfig.setId(null);
                         faxConfig.setSiteUser(siteUser);
 
-                        if (sitePasswd != null && !PASSWORD_BLANKET.equals(sitePasswd)) {
+                        if (sitePasswd != null && !MASKED_CREDENTIAL.equals(sitePasswd)) {
                             faxConfig.setPasswd(sitePasswd.trim());
                         }
 
                         faxConfig.setUrl(resolvedFaxUrl);
                         faxConfig.setFaxUser(faxUsers[idx]);
 
-                        if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !PASSWORD_BLANKET.equals(faxPasswds[idx])) {
+                        if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !MASKED_CREDENTIAL.equals(faxPasswds[idx])) {
                             faxConfig.setFaxPasswd(faxPasswds[idx].trim());
                         }
 
@@ -254,7 +254,7 @@ public class ConfigureFax2Action extends ActionSupport {
                 faxConfig.setUrl(faxUrl);
                 faxConfig.setSiteUser(siteUser);
 
-                if (sitePasswd != null && !PASSWORD_BLANKET.equals(sitePasswd)) {
+                if (sitePasswd != null && !MASKED_CREDENTIAL.equals(sitePasswd)) {
                     faxConfig.setPasswd(sitePasswd.trim());
                 }
                 faxConfig.setProviderType(FaxConfig.ProviderType.MIDDLEWARE);

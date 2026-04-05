@@ -44,6 +44,9 @@ import java.util.TimeZone;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+import java.nio.ByteBuffer;
+import java.security.SecureRandom;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
@@ -620,23 +623,30 @@ public class SearchConfig {
 
     public String encrypt(String toEncyrpt) throws Exception {
         if (secretKey == null) return toEncyrpt;
-        Cipher cipher = Cipher.getInstance("AES");
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+        byte[] iv = new byte[12];
+        new SecureRandom().nextBytes(iv);
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(128, iv));
 
         byte[] unencryptedByteArray = toEncyrpt.getBytes("UTF8");
         byte[] encryptedBytes = cipher.doFinal(unencryptedByteArray);
-        byte[] encodedBytes = Base64.encodeBase64(encryptedBytes);
+        byte[] combined = ByteBuffer.allocate(iv.length + encryptedBytes.length).put(iv).put(encryptedBytes).array();
 
-        return new String(encodedBytes);
+        return new String(Base64.encodeBase64(combined));
     }
 
     public String decrypt(String toDecrypt) throws Exception {
         if (secretKey == null) return (toDecrypt);
 
-        byte[] encryptedData = Base64.decodeBase64(toDecrypt.getBytes());
-        Cipher cipher = Cipher.getInstance("AES");
-        cipher.init(Cipher.DECRYPT_MODE, secretKey);
-        byte[] unencryptedByteArray = cipher.doFinal(encryptedData);
+        byte[] combined = Base64.decodeBase64(toDecrypt.getBytes());
+        ByteBuffer buf = ByteBuffer.wrap(combined);
+        byte[] iv = new byte[12];
+        buf.get(iv);
+        byte[] ciphertext = new byte[buf.remaining()];
+        buf.get(ciphertext);
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(128, iv));
+        byte[] unencryptedByteArray = cipher.doFinal(ciphertext);
         return new String(unencryptedByteArray, "UTF8");
     }
 
