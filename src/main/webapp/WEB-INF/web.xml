@@ -65,6 +65,21 @@
               (e.g. Inboxhub.do, DisplayMessages.do)
          Filter declarations remain in their respective sections below;
          only filter-mapping order determines chain position. -->
+    <!-- WafFilter: application-layer request inspection (SQLi, XSS, path traversal,
+          command injection, CRLF, scanner detection, request limits, protocol enforcement).
+          Runs before CSRFGuard so malformed/malicious requests are rejected before token
+          validation. Disabled by default; activate via WAF_ENABLED=true in carlos.properties.
+          PHI-safe: logs IP + URI + rule category only — never logs parameter values.
+          See WAF_* properties in carlos.properties and waf-rules.properties for OWASP CRS mapping. -->
+    <filter>
+        <filter-name>WafFilter</filter-name>
+        <filter-class>io.github.carlos_emr.carlos.app.WafFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>WafFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
     <filter-mapping>
         <filter-name>CSRFGuard</filter-name>
         <url-pattern>/*</url-pattern>
