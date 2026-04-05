@@ -127,12 +127,12 @@
         <script language="JavaScript">
             <!--
             function changePro(providerno) {
-                a = "scheduleflipview.jsp?originalpage=<%=Encode.forJavaScript(originalPage)%>&provider_no=" + providerno +<%=request.getParameter("startDate")!=null?("\"&startDate="+Encode.forJavaScript(request.getParameter("startDate"))+"\""):"\""%>;
+                a = "schedule/FlipView.do?originalpage=<%=Encode.forJavaScript(originalPage)%>&provider_no=" + providerno +<%=request.getParameter("startDate")!=null?("\"&startDate="+Encode.forJavaScript(request.getParameter("startDate"))+"\""):"\""%>;
                 self.location.href = a;
             }
 
             function selectprovider(s) {
-                a = "scheduleflipview.jsp?originalpage=<%=Encode.forJavaScript(originalPage)%>&provider_no=" + s.options[s.selectedIndex].value +<%=request.getParameter("startDate")!=null?("\"&startDate="+Encode.forJavaScript(request.getParameter("startDate"))+"\""):"\""%>;
+                a = "schedule/FlipView.do?originalpage=<%=Encode.forJavaScript(originalPage)%>&provider_no=" + s.options[s.selectedIndex].value +<%=request.getParameter("startDate")!=null?("\"&startDate="+Encode.forJavaScript(request.getParameter("startDate"))+"\""):"\""%>;
                 self.location.href = a;
             }//-->
 
@@ -203,7 +203,7 @@
         <tr align="center" bgcolor="#CCCCFF">
             <% if (bMultisites) out.print("<td>Site</td>"); %>
             <td width="15%" nowrap><a
-                    href="scheduleflipview.jsp?originalpage=<%=Encode.forUriComponent(originalPage)%>&provider_no=<%=Encode.forUriComponent(curProvider_no)%>&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"
+                    href="schedule/FlipView.do?originalpage=<%=Encode.forUriComponent(originalPage)%>&provider_no=<%=Encode.forUriComponent(curProvider_no)%>&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"
                     title="<fmt:message key="schedule.scheduleflipview.msgLastMonth"/>"
                     border='0'><img src="<%= request.getContextPath() %>/images/previous.gif"></a> <select
                     name="provider_no" onChange="selectprovider(this)">
@@ -229,7 +229,7 @@
                     }
                 %>
             </select><a
-                    href="scheduleflipview.jsp?originalpage=<%=Encode.forUriComponent(originalPage)%>&provider_no=<%=Encode.forUriComponent(curProvider_no)%>&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%>"
+                    href="schedule/FlipView.do?originalpage=<%=Encode.forUriComponent(originalPage)%>&provider_no=<%=Encode.forUriComponent(curProvider_no)%>&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%>"
                     title="<fmt:message key="schedule.scheduleflipview.msgNextmonth"/>"
                     border='0'><img src="<%= request.getContextPath() %>/images/next.gif"></a></td>
             <% for (int j = 0; j < colscode; j++) { %>
@@ -425,9 +425,9 @@
 
     </table>
     <a
-            href="scheduleflipview.jsp?originalpage=<%=Encode.forUriComponent(originalPage)%>&provider_no=<%=Encode.forUriComponent(curProvider_no)%>&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"><fmt:message key="schedule.scheduleflipview.btnLastMonth"/> </a>
+            href="schedule/FlipView.do?originalpage=<%=Encode.forUriComponent(originalPage)%>&provider_no=<%=Encode.forUriComponent(curProvider_no)%>&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"><fmt:message key="schedule.scheduleflipview.btnLastMonth"/> </a>
     |
     <a
-            href="scheduleflipview.jsp?originalpage=<%=Encode.forUriComponent(originalPage)%>&provider_no=<%=Encode.forUriComponent(curProvider_no)%>&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%>"><fmt:message key="schedule.scheduleflipview.btnNextMonth"/></a>
+            href="schedule/FlipView.do?originalpage=<%=Encode.forUriComponent(originalPage)%>&provider_no=<%=Encode.forUriComponent(curProvider_no)%>&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%>"><fmt:message key="schedule.scheduleflipview.btnNextMonth"/></a>
     </body>
 </html>

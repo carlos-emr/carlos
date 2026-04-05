@@ -79,7 +79,7 @@
     </head>
     <body bgcolor="ivory" bgproperties="fixed" onLoad="setfocus()"
           topmargin="0" leftmargin="0" rightmargin="0">
-    <form method="post" name="schedule" action="schedulecreatedate.jsp">
+    <form method="post" name="schedule" action="schedule/CreateDate.do">
 
         <table border="0" width="100%">
             <tr>
@@ -128,7 +128,7 @@
                                 <td bgcolor="#CCFFCC">
                                     <div align="right"><input type="button" name="Button"
                                                               value='<fmt:message key="schedule.scheduledatefinal.btnDoAgain"/>'
-                                                              onclick="self.location.href='scheduletemplatesetting.jsp'">
+                                                              onclick="self.location.href='schedule/TemplateSetting.do'">
                                     </div>
                                 </td>
                             </tr>
