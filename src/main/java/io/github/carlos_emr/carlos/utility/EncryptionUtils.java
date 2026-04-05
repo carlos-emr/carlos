@@ -172,7 +172,7 @@ public final class EncryptionUtils {
      **/
     public static byte[] encrypt(byte[] input) throws Exception {
         if (Objects.isNull(SECRET_KEY_SPEC)) {
-            throw new Exception("Secret key not found in environment variables.");
+            throw new Exception("Secret key not found in CarlosProperties. Ensure property " + SECRET_KEY_ENV_VAR + " is configured.");
         }
 
         byte[] iv = new byte[12];
@@ -210,7 +210,7 @@ public final class EncryptionUtils {
      **/
     public static byte[] decrypt(byte[] cipherBytes) throws Exception {
         if (Objects.isNull(SECRET_KEY_SPEC)) {
-            throw new Exception("Secret key not found in environment variables.");
+            throw new Exception("Secret key not found in CarlosProperties. Ensure property " + SECRET_KEY_ENV_VAR + " is configured.");
         }
 
         ByteBuffer byteBuffer = ByteBuffer.wrap(cipherBytes);
@@ -320,7 +320,7 @@ public final class EncryptionUtils {
     public static void prepareSecretKeySpec() {
         String key = CarlosProperties.getInstance().getProperty(SECRET_KEY_ENV_VAR);
         if (Objects.isNull(key)) {
-            logger.error("Secret key not found in environment variables.");
+            logger.error("Secret key not found in CarlosProperties. Ensure property {} is configured.", SECRET_KEY_ENV_VAR);
             return;
         }
 

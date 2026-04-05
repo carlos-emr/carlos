@@ -914,6 +914,10 @@ public class DemographicManagerImpl implements DemographicManager {
             final String midwifeNumber,
             final String lastNameRegex) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        if (!isSafeLastNameRegex(lastNameRegex)) {
+            logger.warn("Rejected potentially unsafe regex pattern from client: (pattern omitted for security)");
+            return new ArrayList<>();
+        }
         return demographicExtDao.getDemographicNumbersByDemographicExtKeyAndProviderNumberAndDemographicLastNameRegex(
                 DemographicExtKey.MIDWIFE,
                 midwifeNumber,
@@ -926,6 +930,10 @@ public class DemographicManagerImpl implements DemographicManager {
             final String nurseNumber,
             final String lastNameRegex) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        if (!isSafeLastNameRegex(lastNameRegex)) {
+            logger.warn("Rejected potentially unsafe regex pattern from client: (pattern omitted for security)");
+            return new ArrayList<>();
+        }
         return demographicExtDao.getDemographicNumbersByDemographicExtKeyAndProviderNumberAndDemographicLastNameRegex(
                 DemographicExtKey.NURSE,
                 nurseNumber,
@@ -938,10 +946,29 @@ public class DemographicManagerImpl implements DemographicManager {
             final String residentNumber,
             final String lastNameRegex) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        if (!isSafeLastNameRegex(lastNameRegex)) {
+            logger.warn("Rejected potentially unsafe regex pattern from client: (pattern omitted for security)");
+            return new ArrayList<>();
+        }
         return demographicExtDao.getDemographicNumbersByDemographicExtKeyAndProviderNumberAndDemographicLastNameRegex(
                 DemographicExtKey.RESIDENT,
                 residentNumber,
                 lastNameRegex);
+    }
+
+    /**
+     * Validates a last-name regex pattern against the expected allowlist format.
+     * Only patterns matching {@code ^[A-Za-z]-[A-Za-z]} or {@code ^[A-Za-z]} are accepted
+     * to prevent ReDoS attacks through catastrophic-backtracking constructs.
+     *
+     * @param regex the regex pattern to validate
+     * @return true if the pattern is safe to forward to the database, false otherwise
+     */
+    private boolean isSafeLastNameRegex(String regex) {
+        if (regex == null) {
+            return false;
+        }
+        return regex.matches("\\^\\[[A-Za-z]-[A-Za-z]\\].*") || regex.matches("\\^\\[[A-Za-z]\\].*");
     }
 
     @Override

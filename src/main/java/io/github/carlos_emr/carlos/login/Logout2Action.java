@@ -209,6 +209,9 @@ public class Logout2Action extends ActionSupport {
                 cookie.setMaxAge(0);
                 // Set path to "/" to ensure cookie is deleted across entire application
                 cookie.setPath("/");
+                // Match the transport security of the original request so deletion
+                // cookies override Secure-flagged cookies in HTTPS deployments
+                cookie.setSecure(request.isSecure());
                 // Add expired cookie to response to overwrite browser's stored cookie
                 response.addCookie(cookie);
             }

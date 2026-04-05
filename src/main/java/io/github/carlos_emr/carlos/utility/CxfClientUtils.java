@@ -79,12 +79,17 @@ public class CxfClientUtils {
         } catch (Throwable var3) {
         }
 
-        boolean allowAllSsl = Boolean.parseBoolean(ConfigXmlUtils.getPropertyString("misc", "allow_all_ssl_certificates"));
+        boolean allowAllSsl = false;
+        try {
+            allowAllSsl = Boolean.parseBoolean(ConfigXmlUtils.getPropertyString("misc", "allow_all_ssl_certificates"));
+        } catch (Throwable var2) {
+            logger.warn("Unable to read misc.allow_all_ssl_certificates; keeping SSL certificate validation enabled.", var2);
+        }
         if (allowAllSsl) {
             try {
                 MiscUtils.setJvmDefaultSSLSocketFactoryAllowAllCertificates();
-            } catch (Exception var2) {
-                logger.error("Unexpected error", var2);
+            } catch (Exception var1) {
+                logger.error("Unexpected error", var1);
             }
         }
 
