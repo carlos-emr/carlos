@@ -38,6 +38,8 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplate" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
     ScheduleTemplateDao scheduleTemplateDao = SpringUtils.getBean(ScheduleTemplateDao.class);
     ScheduleTemplateCodeDao scheduleTemplateCodeDao = SpringUtils.getBean(ScheduleTemplateCodeDao.class);
@@ -111,9 +113,9 @@
         </td>
         </td>
         <td style="font-size: xx-small" width='1%'
-            <%=dateTimeCodeBean.get("color"+hourmin.toString())!=null?("bgcolor="+dateTimeCodeBean.get("color"+hourmin.toString()) ):""%>
-            title='<%=dateTimeCodeBean.get("description"+hourmin.toString())%>'><font
-                color='<%=(dateTimeCodeBean.get("color"+hourmin.toString())!=null && !dateTimeCodeBean.get("color"+hourmin.toString()).equals(bgcolordef) )?"black":"white" %>'><%=hourmin.toString() %>
+            <%=dateTimeCodeBean.get("color"+hourmin.toString())!=null?("bgcolor=\""+Encode.forHtmlAttribute(String.valueOf(dateTimeCodeBean.get("color"+hourmin.toString())))+"\"" ):""%>
+            title='<%=Encode.forHtmlAttribute(StringUtils.noNull(String.valueOf(dateTimeCodeBean.get("description"+hourmin.toString()))))%>'><font
+                color='<%=(dateTimeCodeBean.get("color"+hourmin.toString())!=null && !dateTimeCodeBean.get("color"+hourmin.toString()).equals(bgcolordef) )?"black":"white" %>'><%=Encode.forHtml(hourmin.toString()) %>
         </font>
     </tr>
         <%  }%>

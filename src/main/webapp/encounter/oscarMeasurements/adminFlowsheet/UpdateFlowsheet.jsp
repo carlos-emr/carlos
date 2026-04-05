@@ -185,8 +185,8 @@ display:inline-block;
                 <%} %>
                 <fieldset width="300px">
                     <input type="hidden" name="updater" value="yes"/>
-                    <input type="hidden" name="prevention_type" value="<%=h2.get("prevention_type")%>"/>
-                    <input type="hidden" name="measurement_type" value="<%=h2.get("measurement_type")%>"/>
+                    <input type="hidden" name="prevention_type" value="<%=Encode.forHtmlAttribute(String.valueOf(h2.get("prevention_type")))%>"/>
+                    <input type="hidden" name="measurement_type" value="<%=Encode.forHtmlAttribute(String.valueOf(h2.get("measurement_type")))%>"/>
 
                     <div class="card card-body bg-body-tertiary">
                         <h4>Measurement Details</h4>
@@ -239,7 +239,7 @@ display:inline-block;
 
                                     <div class="mtype-details">
                                         Text: <br/><input type="text" name="text<%=count%>" length="100"
-                                                          value="<%=e.getText()%>"/>
+                                                          value="<%=Encode.forHtmlAttribute(e.getText())%>"/>
                                     </div>
 
                                <%
@@ -424,9 +424,9 @@ display:inline-block;
                                                 String colour = (String) en.nextElement();
                                         %>
 
-                                        <li style="display:inline;background-color:<%=colourHash.get(colour)%>;">
+                                        <li style="display:inline;background-color:<%=Encode.forCssString((String)colourHash.get(colour))%>;">
                                             <input type="radio" name="col<%=targetCount%>"
-                                                   value="<%=colour%>" <%=s(colour, tc.getIndicationColor())%> ><%=colour%>
+                                                   value="<%=Encode.forHtmlAttribute(colour)%>" <%=s(colour, tc.getIndicationColor())%> ><%=Encode.forHtml(colour)%>
                                             </input>
                                         </li>
                                         <%}%>
@@ -474,9 +474,9 @@ display:inline-block;
                                             while (en.hasMoreElements()) {
                                                 String colour = (String) en.nextElement();
                                         %>
-                                        <li style="display:inline;background-color:<%=colourHash.get(colour)%>;">
+                                        <li style="display:inline;background-color:<%=Encode.forCssString((String)colourHash.get(colour))%>;">
                                             <input type="radio" name="col<%=targetCount%>"
-                                                   value="<%=colour%>"><%=colour%>
+                                                   value="<%=Encode.forHtmlAttribute(colour)%>"><%=Encode.forHtml(colour)%>
                                             </input>
                                         </li>
                                         <%}%>

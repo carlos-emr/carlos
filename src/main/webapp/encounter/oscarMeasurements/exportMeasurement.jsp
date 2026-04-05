@@ -37,10 +37,11 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.ExportMeasurementType" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
-    String mstring = request.getParameter("mType");
-    String export = "<ERROR>";
-    if (mstring != null) {
+    String mstring = StringUtils.noNull(request.getParameter("mType"));
+    String export = "<ERROR/>";
+    if (!mstring.isEmpty()) {
         EctMeasurementTypeBeanHandler mType = new EctMeasurementTypeBeanHandler();
         EctMeasurementTypesBean measurementTypesBean = mType.getMeasurementType(mstring);
 

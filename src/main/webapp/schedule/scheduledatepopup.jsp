@@ -127,15 +127,15 @@
                                     for (ScheduleTemplate st : scheduleTemplateDao.findByProviderNo("Public")) {
 
                                 %>
-                                <option value="<%=st.getId().getName()%>"
-                                        <%=strHour.equals(st.getId().getName()) ? "selected" : ""%>><%=st.getId().getName() + " |" + st.getSummary()%>
+                                <option value="<%=Encode.forHtmlAttribute(st.getId().getName())%>"
+                                        <%=strHour.equals(st.getId().getName()) ? "selected" : ""%>><%=Encode.forHtml(st.getId().getName() + " |" + st.getSummary())%>
                                 </option>
                                 <% }
                                     for (ScheduleTemplate st : scheduleTemplateDao.findByProviderNo(request.getParameter("provider_no"))) {
 
                                 %>
-                                <option value="<%=st.getId().getName()%>"
-                                        <%=st.getId().getName().equals(strHour) ? "selected" : ""%>><%=st.getId().getName() + " |" + st.getSummary()%>
+                                <option value="<%=Encode.forHtmlAttribute(st.getId().getName())%>"
+                                        <%=st.getId().getName().equals(strHour) ? "selected" : ""%>><%=Encode.forHtml(st.getId().getName() + " |" + st.getSummary())%>
                                 </option>
                                 <% } %>
                             </select></td>
@@ -172,8 +172,8 @@
                             <td><select id="reason" name="reason"
                                         onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                 <% for (int i = 0; i < siteList.length; i++) { %>
-                                <option value="<%=siteList[i]%>" <%=(bMultisites ? " style='background-color:" + bgColors[i] + "'" : "")%>
-                                        <%=strReason.equals(siteList[i]) ? "selected" : ""%>><b><%=siteList[i]%>
+                                <option value="<%=Encode.forHtmlAttribute(siteList[i])%>" <%=(bMultisites ? " style='background-color:" + Encode.forHtmlAttribute(bgColors[i]) + "'" : "")%>
+                                        <%=strReason.equals(siteList[i]) ? "selected" : ""%>><b><%=Encode.forHtml(siteList[i])%>
                                 </b></option>
                                 <% } %>
                             </select></td>

@@ -51,6 +51,7 @@
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay,io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayLocal" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="org.owasp.encoder.Encode" %>
+<%@page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
@@ -139,7 +140,7 @@
 <html>
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.title"/> - <oscar:nameage
-            demographicNo="<%=demographicID%>"/></title>
+            demographicNo="<%=Encode.forHtmlAttribute(demographicID)%>"/></title>
     <script type="text/javascript">
 
         function popup(vheight, vwidth, varpage) { //open a new popup window
@@ -478,10 +479,10 @@
         <%}%>
         <tr>
             <td align="left" valign="top" width="50%">
-                <oscar:nameage demographicNo="<%=demographicID%>"/><br>
+                <oscar:nameage demographicNo="<%=Encode.forHtmlAttribute(demographicID)%>"/><br>
 
                 <input type="hidden" name="viewstatus" value="<%= Encode.forHtmlAttribute(viewstatus) %>">
-                <input type="hidden" name="sortorder" value="<%=sortorder%>">
+                <input type="hidden" name="sortorder" value="<%=Encode.forHtmlAttribute(sortorder)%>">
 
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgViewStatus"/> <select id="selviewstatus"
                                                                                        name="selviewstatus"

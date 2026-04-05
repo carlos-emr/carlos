@@ -16,6 +16,7 @@
 
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -76,7 +77,7 @@
     <title>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.title"/>
     </title>
-    <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+    <base href="<%= Encode.forHtmlAttribute(request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/") %>">
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
@@ -149,7 +150,7 @@
                                 <% if (demographicNo == null) { %>
                                 <input type="button" class="smallButton"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnSearch"/>"
-                                       onClick="window.location='${pageContext.servletContext.contextPath}/oscarMDS/Search.jsp?providerNo=<%= providerNo %>'"/>
+                                       onClick="window.location='${pageContext.servletContext.contextPath}/oscarMDS/Search.jsp?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'"/>
                                 <% } %>
                                 <input type="button" class="smallButton"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnLoadAll"/>"
@@ -159,7 +160,7 @@
                             </td>
 
                             <td align="right" valign="top">
-                                <a href="javascript:parent.reportWindow('${pageContext.servletContext.contextPath}/oscarMDS/ForwardingRules.jsp?providerNo=<%= providerNo %>');"
+                                <a href="javascript:parent.reportWindow('${pageContext.servletContext.contextPath}/oscarMDS/ForwardingRules.jsp?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>');"
                                    style="color: #FFFFFF;">Forwarding Rules</a>
                                 <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/lab/CA/ALL/testUploader.jsp')"
                                    style="color: #FFFFFF; "><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.hl7LabUpload"/></a>
@@ -430,23 +431,23 @@
 
         var page = 1;
         var pageSize = 20;
-        var selected_category = <%=(selectedCategory == null ? "1" : selectedCategory)%>;
-        let selected_category_patient = "${requestScope.selectedCategoryPatient}";
-        var selected_category_type = <%=(selectedCategoryType == null ? "\"\"" : selectedCategoryType)%>;
-        var searchProviderNo = "<%=(searchProviderNo == null ? "" : searchProviderNo)%>";
-        var firstName = "<%=(patientFirstName == null ? "" : patientFirstName)%>";
-        var lastName = "<%=(patientLastName == null ? "" : patientLastName)%>";
-        var hin = "<%=(patientHealthNumber == null ? "" : patientHealthNumber)%>";
-        var providerNo = "<%=(providerNo == null ? "" : providerNo)%>";
-        var searchStatus = "<%=(ackStatus == null ? "": ackStatus)%>";
+        var selected_category = <%=(selectedCategory == null ? "1" : Encode.forJavaScript(selectedCategory))%>;
+        let selected_category_patient = "<c:out value='${requestScope.selectedCategoryPatient}'/>";
+        var selected_category_type = "<%=Encode.forJavaScript(selectedCategoryType == null ? "" : selectedCategoryType)%>";
+        var searchProviderNo = "<%=Encode.forJavaScript(searchProviderNo == null ? "" : searchProviderNo)%>";
+        var firstName = "<%=Encode.forJavaScript(patientFirstName == null ? "" : patientFirstName)%>";
+        var lastName = "<%=Encode.forJavaScript(patientLastName == null ? "" : patientLastName)%>";
+        var hin = "<%=Encode.forJavaScript(patientHealthNumber == null ? "" : patientHealthNumber)%>";
+        var providerNo = "<%=Encode.forJavaScript(providerNo == null ? "" : providerNo)%>";
+        var searchStatus = "<%=Encode.forJavaScript(ackStatus == null ? "": ackStatus)%>";
         var abnormalStatus = "<%=abnormalStatus == null || "all".equals(abnormalStatus) ? "L" : (abnormalStatus.equals("normalOnly") ? "N" : "A")%>"
         var url = ctx + "/documentManager/inboxManage.do?";
-        const startDate = "${requestScope.startDate}";
-        const endDate = "${requestScope.endDate}";
+        const startDate = "<c:out value='${requestScope.startDate}'/>";
+        const endDate = "<c:out value='${requestScope.endDate}'/>";
         var abortController = null;
         var canLoad = true;
         console.log("<%= isListView == null %>");
-        var isListView = <%= isListView %>;
+        var isListView = <%= Encode.forJavaScript(StringUtils.noNull(isListView)) %>;
         var loadingDocs = false;
         var currentBold = false;
         var oldestDate = null;

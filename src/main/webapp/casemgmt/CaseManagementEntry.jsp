@@ -59,7 +59,7 @@
     <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
     <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/casemgmt.css" type="text/css">
     <script type="text/javascript">
-        var flag =<%=request.getAttribute("change_flag")%>;
+        var flag =<%=Encode.forJavaScript(StringUtils.noNull((String)request.getAttribute("change_flag")))%>;
 
         <%
 
@@ -442,7 +442,7 @@
                             <td class="fieldValue">
                                 ${caseNote.billing_code}
                                 <input type="button" value="add billing"
-                                       onclick="self.open('<%=Encode.forJavaScriptAttribute((String)session.getAttribute("billing_url"))%>','','scrollbars=yes,menubars=no,toolbars=no,resizable=yes');return false;">
+                                       onclick="self.open('<%=Encode.forJavaScriptAttribute(StringUtils.noNull((String)session.getAttribute("billing_url")))%>','','scrollbars=yes,menubars=no,toolbars=no,resizable=yes');return false;">
                             </td>
                         </tr>
                     </caisirole:SecurityAccess>
