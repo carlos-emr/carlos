@@ -530,7 +530,7 @@
                             <td><b><a href="javascript:showNotes()"
                                       onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
                                       onMouseOut="hideLayer()"
-                                      onclick="popPage('<%=Encode.forHtmlAttribute(resource)%>n_breastFeeding');return false"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.btnBreastFeeding"/><br/>
+                                      onclick="popPage('<%=Encode.forJavaScriptAttribute((resource == null ? "" : resource) + "n_breastFeeding")%>');return false"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.btnBreastFeeding"/><br/>
                             </a><span
                                     onMouseOver="popLayer('<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006.footnote1"/>')"
                                     onMouseOut="hideLayer()"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_1.msgBreastFeedingDescr"/></span></b></td>
