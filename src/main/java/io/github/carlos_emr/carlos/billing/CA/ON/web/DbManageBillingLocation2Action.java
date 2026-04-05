@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
 import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -55,7 +55,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * <p>Single-quote characters do not require manual sanitization because the
  * DAO layer uses JPA/Hibernate parameterized queries, which handle quoting safely.
  *
- * @since 2026-01-01
+ * @since 2026-04-05
  */
 public class DbManageBillingLocation2Action extends ActionSupport {
 
@@ -80,31 +80,36 @@ public class DbManageBillingLocation2Action extends ActionSupport {
             return NONE;
         }
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.billing", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
-        for (int i = 1; i < 6; i++) {
-            String location = request.getParameter("location" + i);
-            String locationDesc = request.getParameter("location" + i + "desc");
+        try {
+            for (int i = 1; i < 6; i++) {
+                String location = request.getParameter("location" + i);
+                String locationDesc = request.getParameter("location" + i + "desc");
 
-            // Null-safe default for description
-            if (locationDesc == null) {
-                locationDesc = "";
-            }
+                if (locationDesc == null) {
+                    locationDesc = "";
+                }
 
-            // Bug fix: use isEmpty() instead of != "" (reference comparison)
-            if (location == null || location.isEmpty()) {
-                continue;
-            }
+                if (location == null || location.isEmpty()) {
+                    continue;
+                }
 
-            if (!locationDesc.isEmpty()) {
-                ClinicLocation clinicLocation = new ClinicLocation();
-                clinicLocation.setClinicLocationNo(location);
-                clinicLocation.setClinicNo(1);
-                clinicLocation.setClinicLocationName(locationDesc);
-                clinicLocationDao.persist(clinicLocation);
+                if (!locationDesc.isEmpty()) {
+                    ClinicLocation clinicLocation = new ClinicLocation();
+                    clinicLocation.setClinicLocationNo(location);
+                    clinicLocation.setClinicNo(1);
+                    clinicLocation.setClinicLocationName(locationDesc);
+                    clinicLocationDao.persist(clinicLocation);
+                }
             }
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to update billing locations", e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to update billing locations");
+            return NONE;
         }
 
         response.sendRedirect(request.getContextPath() + "/billing/CA/ON/manageBillingLocation.jsp");

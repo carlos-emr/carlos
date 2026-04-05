@@ -50,7 +50,7 @@ import java.util.Objects;
  * persisting a new row for each non-empty {@code group{j}_service{i}} parameter.
  * Redirects to {@code manageBillingform.jsp} on success.
  *
- * @since 2026-01-01
+ * @since 2026-04-05
  */
 public class DbManageBillingformService2Action extends ActionSupport {
 
@@ -83,41 +83,52 @@ public class DbManageBillingformService2Action extends ActionSupport {
         String typeid = Objects.toString(request.getParameter("typeid"), "");
         String type = Objects.toString(request.getParameter("type"), "");
 
-        // Delete all existing service entries for this service type
-        for (CtlBillingService b : ctlBillingServiceDao.findByServiceType(typeid)) {
-            ctlBillingServiceDao.remove(b.getId());
+        if (typeid.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing typeid parameter");
+            return NONE;
         }
 
-        // Persist non-empty service entries across the three groups (j=1..3, i=0..19)
-        for (int j = 1; j < 4; j++) {
-            String groupName = Objects.toString(request.getParameter("group" + j), "");
-
-            for (int i = 0; i < 20; i++) {
-                String serviceCode = request.getParameter("group" + j + "_service" + i);
-                if (serviceCode == null || serviceCode.isEmpty()) {
-                    continue;
-                }
-                String orderStr = request.getParameter("group" + j + "_service" + i + "_order");
-                int serviceOrder = 0;
-                if (orderStr != null && !orderStr.isEmpty()) {
-                    try {
-                        serviceOrder = Integer.parseInt(orderStr);
-                    } catch (NumberFormatException e) {
-                        MiscUtils.getLogger().warn("Invalid serviceOrder value '{}' for group{}_service{} — defaulting to 0", orderStr, j, i);
-                        serviceOrder = 0;
-                    }
-                }
-
-                CtlBillingService cbs = new CtlBillingService();
-                cbs.setServiceTypeName(type);
-                cbs.setServiceType(typeid);
-                cbs.setServiceCode(serviceCode);
-                cbs.setServiceGroupName(groupName);
-                cbs.setServiceGroup("Group" + j);
-                cbs.setStatus("A");
-                cbs.setServiceOrder(serviceOrder);
-                ctlBillingServiceDao.persist(cbs);
+        try {
+            // Delete all existing service entries for this service type
+            for (CtlBillingService b : ctlBillingServiceDao.findByServiceType(typeid)) {
+                ctlBillingServiceDao.remove(b.getId());
             }
+
+            // Persist non-empty service entries across the three groups (j=1..3, i=0..19)
+            for (int j = 1; j < 4; j++) {
+                String groupName = Objects.toString(request.getParameter("group" + j), "");
+
+                for (int i = 0; i < 20; i++) {
+                    String serviceCode = request.getParameter("group" + j + "_service" + i);
+                    if (serviceCode == null || serviceCode.isEmpty()) {
+                        continue;
+                    }
+                    String orderStr = request.getParameter("group" + j + "_service" + i + "_order");
+                    int serviceOrder = 0;
+                    if (orderStr != null && !orderStr.isEmpty()) {
+                        try {
+                            serviceOrder = Integer.parseInt(orderStr);
+                        } catch (NumberFormatException e) {
+                            MiscUtils.getLogger().warn("Invalid serviceOrder value '{}' for group{}_service{} — defaulting to 0", orderStr, j, i);
+                            serviceOrder = 0;
+                        }
+                    }
+
+                    CtlBillingService cbs = new CtlBillingService();
+                    cbs.setServiceTypeName(type);
+                    cbs.setServiceType(typeid);
+                    cbs.setServiceCode(serviceCode);
+                    cbs.setServiceGroupName(groupName);
+                    cbs.setServiceGroup("Group" + j);
+                    cbs.setStatus("A");
+                    cbs.setServiceOrder(serviceOrder);
+                    ctlBillingServiceDao.persist(cbs);
+                }
+            }
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to replace service codes for typeid={} — data may be inconsistent", typeid, e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to update service codes");
+            return NONE;
         }
 
         response.sendRedirect(request.getContextPath() + "/billing/manageBillingform.jsp");

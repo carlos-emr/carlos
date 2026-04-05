@@ -49,7 +49,7 @@ import java.util.Enumeration;
  * {@link CtlBillingServicePremium} entry whose service code matches the parameter
  * value.
  *
- * @since 2026-01-01
+ * @since 2026-04-05
  */
 public class DbManageBillingformPremiumDelete2Action extends ActionSupport {
 
@@ -74,7 +74,8 @@ public class DbManageBillingformPremiumDelete2Action extends ActionSupport {
             return NONE;
         }
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.billing", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 

@@ -59,9 +59,11 @@ import org.owasp.encoder.Encode;
  *
  * <p>Security: requires {@code _tickler} update privilege and POST method.
  *
- * @since 2026-01-01
+ * @since 2026-04-05
  */
 public final class DbTicklerMain2Action extends ActionSupport {
+
+    private static final long serialVersionUID = 1L;
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -74,7 +76,7 @@ public final class DbTicklerMain2Action extends ActionSupport {
      * main tickler listing.
      *
      * @return {@link #NONE} after redirecting
-     * @throws SecurityException if the user lacks {@code _tickler} write privilege
+     * @throws SecurityException if the user lacks {@code _tickler} update privilege
      */
     @Override
     public String execute() throws Exception {
@@ -130,7 +132,9 @@ public final class DbTicklerMain2Action extends ActionSupport {
                             loggedInInfo.getLoggedInProviderNo(), status);
                 }
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().error("Invalid tickler checkbox value: " + ticklerIdStr, e);
+                MiscUtils.getLogger().error("Invalid tickler checkbox value: {}", ticklerIdStr, e);
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Failed to update tickler status for ID: {}", ticklerIdStr, e);
             }
         }
 

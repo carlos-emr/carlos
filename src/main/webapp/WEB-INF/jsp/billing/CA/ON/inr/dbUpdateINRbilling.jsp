@@ -29,6 +29,8 @@
     - errorCode (String): validation error messages (empty = no error)
     - inraction (String): the action performed ("update" or "delete")
     - billinginr_no (String): the billing record number
+
+    @since 2026-04-05
 --%>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="org.owasp.encoder.Encode" %>

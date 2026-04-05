@@ -52,7 +52,7 @@ import java.util.Objects;
  * </ul>
  * Returns {@code success} to forward to the confirmation view JSP.
  *
- * @since 2026-01-01
+ * @since 2026-04-05
  */
 public class DbManageBillingformBilltype2Action extends ActionSupport {
 
@@ -78,7 +78,8 @@ public class DbManageBillingformBilltype2Action extends ActionSupport {
             return NONE;
         }
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.billing", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
@@ -86,28 +87,34 @@ public class DbManageBillingformBilltype2Action extends ActionSupport {
         String billtype = Objects.toString(request.getParameter("billtype"), "");
         String billtypeOld = Objects.toString(request.getParameter("billtype_old"), "");
 
-        if (billtype.equals("no")) {
-            // Remove the existing billing type entry by its String ID
-            ctlBillingTypeDao.remove(servicetype);
+        try {
+            if (billtype.equals("no")) {
+                // Remove the existing billing type entry by its String ID
+                ctlBillingTypeDao.remove(servicetype);
 
-        } else if (billtypeOld.equals("no")) {
-            // No prior entry existed; create a new one
-            CtlBillingType cbt = new CtlBillingType();
-            cbt.setId(servicetype);
-            cbt.setBillType(billtype);
-            ctlBillingTypeDao.persist(cbt);
-
-        } else {
-            // Update the existing entry
-            CtlBillingType cbt = ctlBillingTypeDao.find(servicetype);
-            if (cbt != null) {
+            } else if (billtypeOld.equals("no")) {
+                // No prior entry existed; create a new one
+                CtlBillingType cbt = new CtlBillingType();
+                cbt.setId(servicetype);
                 cbt.setBillType(billtype);
-                ctlBillingTypeDao.merge(cbt);
+                ctlBillingTypeDao.persist(cbt);
+
             } else {
-                MiscUtils.getLogger().warn(
-                        "DbManageBillingformBilltype2Action: no CtlBillingType found for servicetype={} — update skipped",
-                        servicetype);
+                // Update the existing entry
+                CtlBillingType cbt = ctlBillingTypeDao.find(servicetype);
+                if (cbt != null) {
+                    cbt.setBillType(billtype);
+                    ctlBillingTypeDao.merge(cbt);
+                } else {
+                    MiscUtils.getLogger().warn(
+                            "DbManageBillingformBilltype2Action: no CtlBillingType found for servicetype={} — update skipped",
+                            servicetype);
+                }
             }
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to update bill type for servicetype={}", servicetype, e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to update bill type");
+            return NONE;
         }
 
         return SUCCESS;

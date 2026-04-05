@@ -24,6 +24,8 @@
 
     View fragment for DbManageBillingformDelete2Action (root billing).
     Closes the popup and triggers a refresh on the opener.
+
+    @since 2026-04-05
 --%>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <script language="JavaScript">

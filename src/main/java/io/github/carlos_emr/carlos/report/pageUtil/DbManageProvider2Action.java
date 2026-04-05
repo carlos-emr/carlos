@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.dao.ReportProviderDao;
 import io.github.carlos_emr.carlos.commn.model.ReportProvider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -88,38 +89,49 @@ public class DbManageProvider2Action extends ActionSupport {
 
         String action = request.getParameter("action");
 
-        // Remove all existing providers for this action
-        List<ReportProvider> existing = reportProviderDao.findByAction(action);
-        for (ReportProvider rp : existing) {
-            reportProviderDao.remove(rp.getId());
+        if (action == null || action.trim().isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required 'action' parameter");
+            return NONE;
         }
 
-        // Recreate from submitted provider parameters (name must contain "provider")
-        Enumeration<String> paramNames = request.getParameterNames();
-        while (paramNames.hasMoreElements()) {
-            String paramName = paramNames.nextElement();
-            if (!paramName.contains("provider")) {
-                continue;
+        try {
+            // Remove all existing providers for this action
+            List<ReportProvider> existing = reportProviderDao.findByAction(action);
+            for (ReportProvider rp : existing) {
+                reportProviderDao.remove(rp.getId());
             }
 
-            String paramValue = request.getParameter(paramName);
-            if (paramValue == null) {
-                continue;
-            }
-            int sepIdx = paramValue.indexOf("|");
-            if (sepIdx < 0) {
-                continue;
-            }
+            // Recreate from submitted provider parameters (name must contain "provider")
+            Enumeration<String> paramNames = request.getParameterNames();
+            while (paramNames.hasMoreElements()) {
+                String paramName = paramNames.nextElement();
+                if (!paramName.contains("provider")) {
+                    continue;
+                }
 
-            String providerNo = paramValue.substring(0, sepIdx);
-            String myGroup = paramValue.substring(sepIdx + 1);
+                String paramValue = request.getParameter(paramName);
+                if (paramValue == null) {
+                    continue;
+                }
+                int sepIdx = paramValue.indexOf("|");
+                if (sepIdx < 0) {
+                    continue;
+                }
 
-            ReportProvider rp = new ReportProvider();
-            rp.setAction(action);
-            rp.setProviderNo(providerNo);
-            rp.setStatus("A");
-            rp.setTeam(myGroup);
-            reportProviderDao.persist(rp);
+                String providerNo = paramValue.substring(0, sepIdx);
+                String myGroup = paramValue.substring(sepIdx + 1);
+
+                ReportProvider rp = new ReportProvider();
+                rp.setAction(action);
+                rp.setProviderNo(providerNo);
+                rp.setStatus("A");
+                rp.setTeam(myGroup);
+                reportProviderDao.persist(rp);
+            }
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to replace report providers for action={} — data may be inconsistent", action, e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to update report providers");
+            return NONE;
         }
 
         request.setAttribute("action", action);

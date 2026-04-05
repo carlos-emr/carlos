@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.commn.model.CtlDiagCode;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingType;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.util.Objects;
 
@@ -56,7 +56,7 @@ import java.nio.charset.StandardCharsets;
  * and optionally a {@link CtlBillingType}. On validation failure the browser is
  * redirected back to {@code manageBillingform.jsp} with error parameters in the URL.
  *
- * @since 2026-01-01
+ * @since 2026-04-05
  */
 public class DbManageBillingformAdd2Action extends ActionSupport {
 
@@ -84,7 +84,8 @@ public class DbManageBillingformAdd2Action extends ActionSupport {
             return NONE;
         }
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.billing", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
@@ -109,50 +110,39 @@ public class DbManageBillingformAdd2Action extends ActionSupport {
             return NONE;
         }
 
-        // Persist three CtlBillingService entries, one per group
-        CtlBillingService cbs = new CtlBillingService();
-        cbs.setServiceTypeName(type);
-        cbs.setServiceType(typeid);
-        cbs.setServiceCode("A007A");
-        cbs.setServiceGroupName(group1);
-        cbs.setServiceGroup("Group1");
-        cbs.setStatus("A");
-        cbs.setServiceOrder(1);
-        ctlBillingServiceDao.persist(cbs);
+        try {
+            // Persist three CtlBillingService entries, one per group
+            String[] groupNames = { group1, group2, group3 };
+            for (int i = 0; i < groupNames.length; i++) {
+                CtlBillingService cbs = new CtlBillingService();
+                cbs.setServiceTypeName(type);
+                cbs.setServiceType(typeid);
+                cbs.setServiceCode("A007A");
+                cbs.setServiceGroupName(groupNames[i]);
+                cbs.setServiceGroup("Group" + (i + 1));
+                cbs.setStatus("A");
+                cbs.setServiceOrder(1);
+                ctlBillingServiceDao.persist(cbs);
+            }
 
-        cbs = new CtlBillingService();
-        cbs.setServiceTypeName(type);
-        cbs.setServiceType(typeid);
-        cbs.setServiceCode("A007A");
-        cbs.setServiceGroupName(group2);
-        cbs.setServiceGroup("Group2");
-        cbs.setStatus("A");
-        cbs.setServiceOrder(1);
-        ctlBillingServiceDao.persist(cbs);
+            // Persist seed diagnostic code entry
+            CtlDiagCode cdc = new CtlDiagCode();
+            cdc.setServiceType(typeid);
+            cdc.setDiagnosticCode("000");
+            cdc.setStatus("A");
+            ctlDiagCodeDao.persist(cdc);
 
-        cbs = new CtlBillingService();
-        cbs.setServiceTypeName(type);
-        cbs.setServiceType(typeid);
-        cbs.setServiceCode("A007A");
-        cbs.setServiceGroupName(group3);
-        cbs.setServiceGroup("Group3");
-        cbs.setStatus("A");
-        cbs.setServiceOrder(1);
-        ctlBillingServiceDao.persist(cbs);
-
-        // Persist seed diagnostic code entry
-        CtlDiagCode cdc = new CtlDiagCode();
-        cdc.setServiceType(typeid);
-        cdc.setDiagnosticCode("000");
-        cdc.setStatus("A");
-        ctlDiagCodeDao.persist(cdc);
-
-        // Optionally persist a billing type
-        if (!billtype.equals("no")) {
-            CtlBillingType cbt = new CtlBillingType();
-            cbt.setId(typeid);
-            cbt.setBillType(billtype);
-            ctlBillingTypeDao.persist(cbt);
+            // Optionally persist a billing type
+            if (!billtype.equals("no")) {
+                CtlBillingType cbt = new CtlBillingType();
+                cbt.setId(typeid);
+                cbt.setBillType(billtype);
+                ctlBillingTypeDao.persist(cbt);
+            }
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to add billing form for typeid={}", typeid, e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to add billing form");
+            return NONE;
         }
 
         response.sendRedirect(request.getContextPath() + "/billing/CA/ON/manageBillingform.jsp");

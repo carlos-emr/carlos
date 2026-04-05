@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.commn.dao.CtlDiagCodeDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDiagCode;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.util.Objects;
 
@@ -48,7 +48,7 @@ import java.util.Objects;
  * {@code diagcode0}–{@code diagcode44} request parameters and persists a new entry
  * for each non-empty value.
  *
- * @since 2026-01-01
+ * @since 2026-04-05
  */
 public class DbManageBillingformDx2Action extends ActionSupport {
 
@@ -73,27 +73,39 @@ public class DbManageBillingformDx2Action extends ActionSupport {
             return NONE;
         }
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.billing", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
         String typeid = Objects.toString(request.getParameter("typeid"), "");
 
-        // Delete all existing diagnostic codes for this service type
-        for (CtlDiagCode d : ctlDiagCodeDao.findByServiceType(typeid)) {
-            ctlDiagCodeDao.remove(d.getId());
+        if (typeid.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing typeid parameter");
+            return NONE;
         }
 
-        // Persist each non-empty diagcode parameter (indices 0–44)
-        for (int i = 0; i < 45; i++) {
-            String diagcode = request.getParameter("diagcode" + i);
-            if (diagcode != null && !diagcode.isEmpty()) {
-                CtlDiagCode cdc = new CtlDiagCode();
-                cdc.setServiceType(typeid);
-                cdc.setDiagnosticCode(diagcode);
-                cdc.setStatus("A");
-                ctlDiagCodeDao.persist(cdc);
+        try {
+            // Delete all existing diagnostic codes for this service type
+            for (CtlDiagCode d : ctlDiagCodeDao.findByServiceType(typeid)) {
+                ctlDiagCodeDao.remove(d.getId());
             }
+
+            // Persist each non-empty diagcode parameter (indices 0–44)
+            for (int i = 0; i < 45; i++) {
+                String diagcode = request.getParameter("diagcode" + i);
+                if (diagcode != null && !diagcode.isEmpty()) {
+                    CtlDiagCode cdc = new CtlDiagCode();
+                    cdc.setServiceType(typeid);
+                    cdc.setDiagnosticCode(diagcode);
+                    cdc.setStatus("A");
+                    ctlDiagCodeDao.persist(cdc);
+                }
+            }
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to replace diagnostic codes for typeid={} — data may be inconsistent", typeid, e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to update diagnostic codes");
+            return NONE;
         }
 
         response.sendRedirect(request.getContextPath() + "/billing/CA/ON/manageBillingform.jsp");

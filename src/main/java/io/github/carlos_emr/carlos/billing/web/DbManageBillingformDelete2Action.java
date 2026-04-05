@@ -52,7 +52,7 @@ import java.util.Objects;
  * view at {@code /WEB-INF/jsp/billing/dbManageBillingform_delete.jsp}, which renders
  * the JavaScript close/refresh snippet.
  *
- * @since 2026-01-01
+ * @since 2026-04-05
  */
 public class DbManageBillingformDelete2Action extends ActionSupport {
 

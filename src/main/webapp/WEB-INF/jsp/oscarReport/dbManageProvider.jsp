@@ -27,6 +27,8 @@
 
     Request Attributes (set by DbManageProvider2Action):
     - action (String): the report action type (e.g. "visitreport")
+
+    @since 2026-04-05
 --%>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="org.owasp.encoder.Encode" %>

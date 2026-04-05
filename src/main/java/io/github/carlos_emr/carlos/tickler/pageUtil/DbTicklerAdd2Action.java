@@ -77,9 +77,11 @@ import java.util.ResourceBundle;
  *
  * <p>Security: requires {@code _tickler} write privilege. POST method enforced.
  *
- * @since 2026-01-01
+ * @since 2026-04-05
  */
 public final class DbTicklerAdd2Action extends ActionSupport {
+
+    private static final long serialVersionUID = 1L;
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

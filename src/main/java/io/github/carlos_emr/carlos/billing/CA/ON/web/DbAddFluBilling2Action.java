@@ -137,7 +137,12 @@ public class DbAddFluBilling2Action extends ActionSupport {
         String providers = request.getParameter("providers");
         String providerOhipNo = "";
         String providerNo = "";
-        if (providers != null && providers.length() >= 7) {
+        if (providers == null || !providers.contains("#")) {
+            MiscUtils.getLogger().error("DbAddFluBilling2Action: invalid providers format: {}", providers);
+            addActionError("Invalid provider selection. Expected format: OHIP##providerNo.");
+            return ERROR;
+        }
+        if (providers.length() >= 7) {
             providerOhipNo = providers.substring(0, 6);
             providerNo = providers.substring(7);
         }

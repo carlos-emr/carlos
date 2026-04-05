@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.billing.CA.ON.web;
 
 import java.util.Calendar;
+import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 
@@ -151,7 +152,11 @@ public class DbUpdateINRbilling2Action extends ActionSupport {
                 String demoDob = request.getParameter("demo_dob");
 
                 BillingInr b = billingInrDao.find(Integer.parseInt(billinginrNo));
-                if (b != null && !"D".equals(b.getStatus())) {
+                if (b == null) {
+                    errorCode += "Billing INR record was not found.<br>";
+                } else if ("D".equals(b.getStatus())) {
+                    errorCode += "Billing INR record has already been deleted.<br>";
+                } else {
                     b.setHin(demoHin);
                     b.setDob(demoDob);
                     b.setServiceCode(serviceCode);
@@ -162,18 +167,19 @@ public class DbUpdateINRbilling2Action extends ActionSupport {
                 }
 
             } else if ("delete".equals(inraction)) {
-                GregorianCalendar now = new GregorianCalendar();
-                int curYear = now.get(Calendar.YEAR);
-                int curMonth = now.get(Calendar.MONTH) + 1;
-                int curDay = now.get(Calendar.DAY_OF_MONTH);
-                String nowDate = curYear + "/" + curMonth + "/" + curDay;
-
                 BillingInr bi = billingInrDao.find(Integer.parseInt(billinginrNo));
-                if (bi != null && !"D".equals(bi.getStatus())) {
+                if (bi == null) {
+                    errorCode += "Billing INR record was not found.<br>";
+                } else if ("D".equals(bi.getStatus())) {
+                    errorCode += "Billing INR record has already been deleted.<br>";
+                } else {
                     bi.setStatus("D");
-                    bi.setCreateDateTime(ConversionUtils.fromDateString(nowDate));
+                    bi.setCreateDateTime(new Date());
                     billingInrDao.merge(bi);
                 }
+
+            } else {
+                errorCode += "Unknown action: expected 'update' or 'delete'.<br>";
             }
         }
 

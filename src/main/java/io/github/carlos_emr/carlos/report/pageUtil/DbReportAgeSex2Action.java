@@ -45,8 +45,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * <p>Migrated from {@code oscarReport/dbReportAgeSex.jsp}. Accepts GET or POST and
  * enforces {@code _report} or {@code _admin.reporting} read privilege (matching the
- * original JSP security check). Deletes stale age/sex records, repopulates them from
- * the given year of birth floor, then forwards to the report view.
+ * original JSP security check). Deletes stale age/sex records, repopulates them using
+ * a hardcoded year-of-birth floor of 1800, then forwards to the report view.
  *
  * @since 2026-04-05
  */
