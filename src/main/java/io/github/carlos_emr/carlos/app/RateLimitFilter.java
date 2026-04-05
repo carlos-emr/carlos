@@ -293,12 +293,13 @@ public final class RateLimitFilter implements Filter {
     // --- Package-visible for testing ---
 
     /**
-     * Returns the current counter map (for testing).
+     * Returns a snapshot copy of the current counter map (for testing).
+     * Returns a copy to avoid exposing the mutable internal map.
      *
-     * @return the concurrent counter map
+     * @return snapshot copy of the counter map
      */
-    ConcurrentHashMap<String, FixedWindowCounter> getCounters() {
-        return counters;
+    Map<String, FixedWindowCounter> getCounters() {
+        return new HashMap<>(counters);
     }
 
     /**
@@ -469,14 +470,17 @@ public final class RateLimitFilter implements Filter {
 
     /**
      * Immutable configuration for a single rate tier (requests per window).
-     *
-     * @param requests      maximum allowed requests within the window
-     * @param windowSeconds duration of the window in seconds
      */
     static final class RateConfig {
         final int requests;
         final int windowSeconds;
 
+        /**
+         * Creates a new rate configuration.
+         *
+         * @param requests      maximum allowed requests within the window
+         * @param windowSeconds duration of the window in seconds
+         */
         RateConfig(int requests, int windowSeconds) {
             this.requests = requests;
             this.windowSeconds = windowSeconds;

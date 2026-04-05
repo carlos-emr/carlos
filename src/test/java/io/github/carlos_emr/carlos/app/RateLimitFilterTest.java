@@ -447,23 +447,28 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should evict stale counters on cleanup run")
         void shouldEvictStaleCounters_onCleanupRun() throws Exception {
-            initFilter(true, 100, 60);
+            // Use a very short global window so counters go stale quickly
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("enforce");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("100");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("1"); // 1s
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            filter.init(mock(FilterConfig.class));
 
-            // Create a request so a counter is registered
+            // Register a counter via a real request
             filter.doFilter(request, response, chain);
             assertThat(filter.getCounters()).isNotEmpty();
+            int sizeWithActive = filter.getCounters().size();
 
-            // Manually inject a stale counter (window expired > 2x ago)
-            FixedWindowCounter staleCounter = new FixedWindowCounter(100, 50L); // 50ms window
-            Thread.sleep(150L); // wait > 2 * 50ms for reliable stale detection
-            filter.getCounters().put("stale-ip", staleCounter);
+            // Wait for the counters' window to expire (> 2 * windowMillis = 2s)
+            Thread.sleep(2100L);
 
-            int sizeBefore = filter.getCounters().size();
+            // Run eviction — all counters should be removed (window = 1s, stale after 2s)
             filter.evictStaleCounters();
-            int sizeAfter = filter.getCounters().size();
 
-            assertThat(sizeAfter).isLessThan(sizeBefore);
-            assertThat(filter.getCounters()).doesNotContainKey("stale-ip");
+            assertThat(filter.getCounters().size()).isLessThan(sizeWithActive);
         }
     }
 
