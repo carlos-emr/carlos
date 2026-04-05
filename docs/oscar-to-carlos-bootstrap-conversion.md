@@ -98,7 +98,7 @@ The reference template is `docs/CARLOS_bootstrap_layout_Example.html`.
 | `<td class="MainTableRightColumn">` | `<div class="col-12 col-md-10">` |
 | `<td class="MainTableBottomRowLeftColumn">` | _(omit or use `<div class="mt-3">`)_ |
 | `<font size="2" face="Tahoma">` | `class="small"` or `class="form-label form-label-sm"` |
-| `<input type="button" value="Primary Button">` | `<button type="submit" class="btn btn-primary btn-sm">` |
+| `<input type="button" value="Primary Button">` | `<button type="button" class="btn btn-primary btn-sm">` |
 | `<input type="button" value="Secondary">` | `<button type="button" class="btn btn-outline-secondary btn-sm">` |
 | `<select style="width:660">` | `<select class="form-select form-select-sm flex-grow-1">` |
 | `<textarea cols="80" rows="4">` | `<textarea class="form-control form-control-sm" rows="4">` |
