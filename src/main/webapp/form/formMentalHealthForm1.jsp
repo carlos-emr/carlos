@@ -297,25 +297,25 @@
     <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
 
         <input type="hidden" name="demographic_no"
-               value="<%= props.getProperty("demographic_no", "0") %>"/>
+               value="<%= Encode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
         <input type="hidden" name="patientLastName"
-               value="<%=patientNames[0].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientNames[0].trim())%>"/>
         <input type="hidden" name="patientFirstName"
-               value="<%=patientNames[1].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientNames[1].trim())%>"/>
         <input type="hidden" name="patientBirthYear"
-               value="<%=patientDOB[0].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientDOB[0].trim())%>"/>
         <input type="hidden" name="patientBirthMth"
-               value="<%=patientDOB[1].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientDOB[1].trim())%>"/>
         <input type="hidden" name="patientBirthDay"
-               value="<%=patientDOB[2].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientDOB[2].trim())%>"/>
         <input type="hidden" name="ID"
-               value="<%= props.getProperty("ID", "0") %>"/>
+               value="<%= Encode.forHtmlAttribute(props.getProperty("ID", "0")) %>"/>
         <input type="hidden" name="provider_no"
                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provNo"))) %>"/>
         <input type="hidden" name="formCreated"
-               value="<%= props.getProperty("formCreated", "") %>"/>
-        <input type="hidden" name="form_class" value="<%=formClass%>"/>
-        <input type="hidden" name="form_link" value="<%=formLink%>"/>
+               value="<%= Encode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
+        <input type="hidden" name="form_class" value="<%=Encode.forHtmlAttribute(formClass)%>"/>
+        <input type="hidden" name="form_link" value="<%=Encode.forHtmlAttribute(formLink)%>"/>
         <input type="hidden" name="provNo"
                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provNo"))) %>"/>
         <input type="hidden" name="submit" value="exit"/>
@@ -357,7 +357,7 @@
                 <td width="403" scope="col">
                     <label>
                         <input name="physicianName" type="text" id="physicianName" size="60" maxlength="60"
-                               value="<%= props.getProperty("physicianName", "") %>"/>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("physicianName", "")) %>"/>
                     </label>
                 </td>
             </tr>
@@ -368,7 +368,7 @@
                 <td>
                     <label>
                         <input name="physicianAddress" type="text" id="physicianAddress" size="60" maxlength="260"
-                               value="<%= props.getProperty("physicianAddress", "") %>"/>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("physicianAddress", "")) %>"/>
                     </label>
                 </td>
             </tr>
@@ -379,7 +379,7 @@
                 <td>
                     <label>
                         <input name="telephoneNumber" type="text" id="telephoneNumber" size="60" maxlength="20"
-                               value="<%= props.getProperty("telephoneNumber", "") %>"/>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("telephoneNumber", "")) %>"/>
                     </label>
                 </td>
             </tr>
@@ -390,7 +390,7 @@
                 <td>
                     <label>
                         <input name="faxNumber" type="text" id="faxNumber" size="60" maxlength="20"
-                               value="<%= props.getProperty("faxNumber", "") %>"/>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("faxNumber", "")) %>"/>
                     </label>
                 </td>
             </tr>
@@ -399,7 +399,7 @@
                 <td>
                     <label>
                         <input name="onDate" type="text" id="onDate" size="60" maxlength="10"
-                               value="<%= props.getProperty("onDate", "") %>"/>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("onDate", "")) %>"/>
                     </label>
                 </td>
             </tr>
@@ -408,7 +408,7 @@
                 <td>
                     <label>
                         <input name="clientName" type="hidden" id="clientName" size="60" maxlength="60" readonly
-                               value="<%= props.getProperty("clientName", "") %>"/><%= props.getProperty("clientName", "") %>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("clientName", "")) %>"/><%=Encode.forHtml(props.getProperty("clientName", ""))%>
                     </label>
                 </td>
             </tr>
@@ -417,7 +417,7 @@
                 <td>
                     <label>
                         <input name="clientAddress" type="hidden" id="clientAddress" size="60" maxlength="250" readonly
-                               value="<%= props.getProperty("clientAddress", "") %>"/><%= props.getProperty("clientAddress", "") %>
+                               value="<%= Encode.forHtmlAttribute(props.getProperty("clientAddress", "")) %>"/><%=Encode.forHtml(props.getProperty("clientAddress", ""))%>
                     </label>
                 </td>
             </tr>
@@ -497,13 +497,13 @@
                 <td><p>My own observations:</p>
                     <label>
                         <textarea name="observation" id="observation" cols="118"
-                                  rows="5"><%=props.getProperty("observation", "")%></textarea>
+                                  rows="5"><%=Encode.forHtml(props.getProperty("observation", ""))%></textarea>
                     </label>
                     <p>&nbsp;</p></td>
             </tr>
             <tr>
                 <td><p>Facts communicated to me by others:</p>
-                    <textarea name="facts" id="facts" cols="118" rows="5"><%=props.getProperty("facts", "")%></textarea>
+                    <textarea name="facts" id="facts" cols="118" rows="5"><%=Encode.forHtml(props.getProperty("facts", ""))%></textarea>
                     <p>&nbsp;</p></td>
             </tr>
             <tr>
@@ -550,7 +550,7 @@
                 <td><p>My own observastions:</p>
                     <label>
                         <textarea name="observation2" id="observation2" cols="118"
-                                  rows="5"> <%=props.getProperty("observation2", "")%></textarea>
+                                  rows="5"> <%=Encode.forHtml(props.getProperty("observation2", ""))%></textarea>
                     </label>
                     <p>&nbsp;</p></td>
             </tr>
@@ -558,7 +558,7 @@
                 <td><p>Facts communicated by others:</p>
                     <label>
                         <textarea name="facts2" id="facts2" cols="118"
-                                  rows="5"><%=props.getProperty("facts2", "")%></textarea>
+                                  rows="5"><%=Encode.forHtml(props.getProperty("facts2", ""))%></textarea>
                     </label>
                     <p>&nbsp;</p></td>
             </tr>
@@ -695,7 +695,7 @@
                 <td><p>My own observations:</p>
                     <label>
                         <textarea name="observationB" id="observationB" cols="118"
-                                  rows="5"><%=props.getProperty("observationB", "")%></textarea>
+                                  rows="5"><%=Encode.forHtml(props.getProperty("observationB", ""))%></textarea>
                     </label>
                     <p>&nbsp;</p></td>
             </tr>
@@ -703,7 +703,7 @@
                 <td><p>Facts communicated by others:</p>
                     <label>
                         <textarea name="factsB" id="factsB" cols="118"
-                                  rows="5"><%=props.getProperty("factsB", "")%></textarea>
+                                  rows="5"><%=Encode.forHtml(props.getProperty("factsB", ""))%></textarea>
                     </label>
                     <p>&nbsp;</p></td>
             </tr>
@@ -719,18 +719,18 @@
             <tr>
                 <td width="40%">Today's date<label>
                     <input name="todayDate" type="text" id="todayDate" size="20" maxlength="10"
-                           value="<%=props.getProperty("todayDate","")%>"/>
+                           value="<%=Encode.forHtmlAttribute(props.getProperty("todayDate",""))%>"/>
                 </label>
                 </td>
                 <td width="60%"><p>Today's time
                     <input name="todayTime" type="text" id="todayTime" size="20" maxlength="8"
-                           value="<%=props.getProperty("todayTime","")%>"/>
+                           value="<%=Encode.forHtmlAttribute(props.getProperty("todayTime",""))%>"/>
                 </p></td>
             </tr>
             <tr>
                 <td colspan="2">Examining physician's signature (signature of physician)<label>
                     <input name="signature" type="text" id="signature" size="60" maxlength="60"
-                           value="<%=props.getProperty("signature","")%>"/>
+                           value="<%=Encode.forHtmlAttribute(props.getProperty("signature",""))%>"/>
                 </label>
                 </td>
             </tr>
@@ -752,12 +752,12 @@
             <tr>
                 <td height="42">Date and time detention commences
                     <input name="datetimeOfDetention" type="text" id="datetimeOfDetention" size="20" maxlength="20"
-                           value="<%=props.getProperty("datetimeOfDetention","")%>"/>
+                           value="<%=Encode.forHtmlAttribute(props.getProperty("datetimeOfDetention",""))%>"/>
 
                 </td>
                 <td height="42">Signature of physician
                     <input name="signature1" type="text" id="signature1" size="60" maxlength="60"
-                           value="<%=props.getProperty("signature1","")%>"/>
+                           value="<%=Encode.forHtmlAttribute(props.getProperty("signature1",""))%>"/>
 
                 </td>
             </tr>
@@ -765,12 +765,12 @@
             <tr>
                 <td height="42">Date and time Form42 Delivered &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<label>
                     <input name="datetimeOfDelivered" type="text" id="datetimeOfDelivered" size="20" maxlength="20"
-                           value="<%=props.getProperty("datetimeOfDelivered","")%>"/>
+                           value="<%=Encode.forHtmlAttribute(props.getProperty("datetimeOfDelivered",""))%>"/>
                 </label>
                 </td>
                 <td>Signature of physician<label>
                     <input name="signature2" type="text" id="signature2" size="60" maxlength="60"
-                           value="<%=props.getProperty("signature2","")%>"/>
+                           value="<%=Encode.forHtmlAttribute(props.getProperty("signature2",""))%>"/>
                 </label>
                 </td>
             </tr>
