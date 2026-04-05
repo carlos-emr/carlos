@@ -47,16 +47,16 @@ if(bs==null) {
 %>
 	<tr bgcolor="<%=bodd?"#EEEEFF":"white"%>" align="center">
 		<TD width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=apptDate%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><%=Encode.forHtml(apptDate)%></font></b></TD>
 		<TD width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=apptTime%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><%=Encode.forHtml(apptTime)%></font></b></TD>
 		<TD width="10%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><%=Encode.forHtml(demoName)%></font></b></TD>
 		<TD width="20%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><%=Encode.forHtml(reason)%></font></b></TD>
 		<TD width="10%"><b> <font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
-			onClick='popupPage(700,1000, "billingOB.jsp?billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"))%>&hotclick=&appointment_no=<%=Encode.forJavaScriptAttribute(apptNo)%>&demographic_name=<%=URLEncoder.encode(demoName)%>&demographic_no=<%=Encode.forJavaScriptAttribute(demoNo)%>&user_no=<%=Encode.forJavaScriptAttribute(userno)%>&apptProvider_no=<%=Encode.forJavaScriptAttribute(providerview)%>&appointment_date=<%=Encode.forJavaScriptAttribute(apptDate)%>&start_time=<%=Encode.forJavaScriptAttribute(apptTime)%>&bNewForm=1")'
+			onClick='popupPage(700,1000, "billingOB.jsp?billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"))%>&hotclick=&appointment_no=<%=Encode.forJavaScriptAttribute(apptNo)%>&demographic_name=<%=Encode.forJavaScriptAttribute(URLEncoder.encode(demoName, "UTF-8"))%>&demographic_no=<%=Encode.forJavaScriptAttribute(demoNo)%>&user_no=<%=Encode.forJavaScriptAttribute(userno)%>&apptProvider_no=<%=Encode.forJavaScriptAttribute(providerview)%>&appointment_date=<%=Encode.forJavaScriptAttribute(apptDate)%>&start_time=<%=Encode.forJavaScriptAttribute(apptTime)%>&bNewForm=1")'
 			title="<%=Encode.forHtmlAttribute(reason)%>">Bill |$|</a></font></b></TD>
 	</tr>
 	<%
