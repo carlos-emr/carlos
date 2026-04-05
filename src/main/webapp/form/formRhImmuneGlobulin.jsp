@@ -263,7 +263,7 @@
                    value="<%= Encode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
             <input type="hidden" name="form_class" value="<%=Encode.forHtmlAttribute(formClass)%>"/>
             <input type="hidden" name="form_link" value="<%=Encode.forHtmlAttribute(formLink)%>"/>
-            <input type="hidden" name="formId" value="<%=Encode.forHtmlAttribute(formId)%>"/>
+            <input type="hidden" name="formId" value="<%=Encode.forHtmlAttribute(String.valueOf(formId))%>"/>
             <input type="hidden" name="submit" value="exit"/>
             <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
 
@@ -426,20 +426,20 @@
                 value="<%=Encode.forHtmlAttribute(props.getProperty("obsHisL",""))%>"/> <br/>
 
             <input type="checkbox" name="obsHisTubMolPregYes"
-                    <%=Encode.forHtml(props.getProperty("obsHisTubMolPregYes",""))%>>Yes</input> <input
+                    <%=props.getProperty("obsHisTubMolPregYes","")%>>Yes</input> <input
                 type="checkbox" name="obsHisTubMolPregNo"
-                <%=Encode.forHtml(props.getProperty("obsHisTubMolPregNo",""))%>>No</input> <label>Any
+                <%=props.getProperty("obsHisTubMolPregNo","")%>>No</input> <label>Any
             previous tubal or molar pregnancy?</label> <br/>
             <input type="checkbox" name="obsHisMisAbortionYes"
-                    <%=Encode.forHtml(props.getProperty("obsHisMisAbortionYes",""))%>>Yes</input> <input
+                    <%=props.getProperty("obsHisMisAbortionYes","")%>>Yes</input> <input
                 type="checkbox" name="obsHisMisAbortionNo"
-                <%=Encode.forHtml(props.getProperty("obsHisMisAbortionNo",""))%>>No</input> <label
+                <%=props.getProperty("obsHisMisAbortionNo","")%>>No</input> <label
                 style="float: none;">Any previous miscarriage, pregnancy loss,
             or therapeutic abortions?</label> <br/>
             <input type="checkbox" name="obsHisReceiveAntiDYes"
-                    <%=Encode.forHtml(props.getProperty("obsHisReceiveAntiDYes",""))%>>Yes</input> <input
+                    <%=props.getProperty("obsHisReceiveAntiDYes","")%>>Yes</input> <input
                 type="checkbox" name="obsHisReceiveAntiDNo"
-                <%=Encode.forHtml(props.getProperty("obsHisReceiveAntiDNo",""))%>>No</input> <label>Did
+                <%=props.getProperty("obsHisReceiveAntiDNo","")%>>No</input> <label>Did
             you receive Anti-D during each of these pregnancies or following the
             pregnancy loss?</label> <br/>
 
@@ -452,16 +452,16 @@
                 History
             </legend>
             <input type="checkbox" name="pmHisBlClDisordersYes"
-                    <%=Encode.forHtml(props.getProperty("pmHisBlClDisordersYes",""))%>>Yes</input> <input
+                    <%=props.getProperty("pmHisBlClDisordersYes","")%>>Yes</input> <input
                 type="checkbox" name="pmHisBlClDisordersNo"
-                <%=Encode.forHtml(props.getProperty("pmHisBlClDisordersNo",""))%>>No</input> <label>Do
+                <%=props.getProperty("pmHisBlClDisordersNo","")%>>No</input> <label>Do
             you have any bleeding or clotting disorders?</label> If yes, describe<input
                 type="text" name="pmHisBlClDisordersComment"
                 value="<%=Encode.forHtmlAttribute(props.getProperty("pmHisBlClDisordersComment",""))%>"/> <br/>
             <input type="checkbox" name="pmHisBlPlTransfusYes"
-                    <%=Encode.forHtml(props.getProperty("pmHisBlPlTransfusYes",""))%>>Yes</input> <input
+                    <%=props.getProperty("pmHisBlPlTransfusYes","")%>>Yes</input> <input
                 type="checkbox" name="pmHisBlPlTransfusNo"
-                <%=Encode.forHtml(props.getProperty("pmHisBlPlTransfusNo",""))%>>No</input> <label>Have
+                <%=props.getProperty("pmHisBlPlTransfusNo","")%>>No</input> <label>Have
             you had any blood or platelet transfusions?</label> If yes, when<input
                 type="text" name="pmHisBlPlTransfusComment"
                 value="<%=Encode.forHtmlAttribute(props.getProperty("pmHisBlPlTransfusComment",""))%>"/></fieldset>
@@ -471,9 +471,9 @@
             <legend>Allergies</legend>
             <input
                     type="checkbox" name="allReactionsYes"
-                    <%=Encode.forHtml(props.getProperty("allReactionsYes",""))%>>Yes</input> <input
+                    <%=props.getProperty("allReactionsYes","")%>>Yes</input> <input
                 type="checkbox" name="allReactionsNo"
-                <%=Encode.forHtml(props.getProperty("allReactionsNo",""))%>>No</input> <label>Any
+                <%=props.getProperty("allReactionsNo","")%>>No</input> <label>Any
             adverse reactions to previous immune globulin or other blood products?</label>
             If yes, describe<input type="text" name="allReactionsComment"
                                    value="<%=Encode.forHtmlAttribute(props.getProperty("allReactionsComment",""))%>"/> <br/>
@@ -513,62 +513,62 @@
         </select> <br/>
 
             <input type="checkbox" name="curPregDueDateChangeYes"
-                    <%=Encode.forHtml(props.getProperty("curPregDueDateChangeYes",""))%>>Yes</input> <input
+                    <%=props.getProperty("curPregDueDateChangeYes","")%>>Yes</input> <input
                 type="checkbox" name="curPregDueDateChangeNo"
-                <%=Encode.forHtml(props.getProperty("curPregDueDateChangeNo",""))%>>No</input> <label>Has
+                <%=props.getProperty("curPregDueDateChangeNo","")%>>No</input> <label>Has
             your due date changed during this pregnancy?</label> Comment<input type="text"
                                                                                name="curPregDueDateChangeComment"
                                                                                value="<%=Encode.forHtmlAttribute(props.getProperty("curPregDueDateChangeComment",""))%>"/>
             <br/>
 
             <input type="checkbox" name="curPregProceduresYes"
-                    <%=Encode.forHtml(props.getProperty("curPregProceduresYes",""))%>>Yes</input> <input
+                    <%=props.getProperty("curPregProceduresYes","")%>>Yes</input> <input
                 type="checkbox" name="curPregProceduresNo"
-                <%=Encode.forHtml(props.getProperty("curPregProceduresNo",""))%>>No</input> <label>Any
+                <%=props.getProperty("curPregProceduresNo","")%>>No</input> <label>Any
             procedures during this pregnancy such as amniocentesis, chorionic
             villous sampling, cordocentesis, or external cephalic version?</label> If yes,
             when<input type="text" name="curPregProceduresComment"
                        value="<%=Encode.forHtmlAttribute(props.getProperty("curPregProceduresComment",""))%>"/> <br/>
 
             <input type="checkbox" name="curPregBleedingYes"
-                    <%=Encode.forHtml(props.getProperty("curPregBleedingYes",""))%>>Yes</input> <input
+                    <%=props.getProperty("curPregBleedingYes","")%>>Yes</input> <input
                 type="checkbox" name="curPregBleedingNo"
-                <%=Encode.forHtml(props.getProperty("curPregBleedingNo",""))%>>No</input> <label>Any
+                <%=props.getProperty("curPregBleedingNo","")%>>No</input> <label>Any
             bleeding or threatened miscarriage during this pregnancy?</label> <br/>
             If yes, when<input type="text" name="curPregBleedingComment"
                                value="<%=Encode.forHtmlAttribute(props.getProperty("curPregBleedingComment",""))%>"/> <br/>
 
             <input type="checkbox" name="curPregBleedingContYes"
-                    <%=Encode.forHtml(props.getProperty("curPregBleedingContYes",""))%>>Yes</input> <input
+                    <%=props.getProperty("curPregBleedingContYes","")%>>Yes</input> <input
                 type="checkbox" name="curPregBleedingContNo"
-                <%=Encode.forHtml(props.getProperty("curPregBleedingContNo",""))%>>No</input> <label>Has
+                <%=props.getProperty("curPregBleedingContNo","")%>>No</input> <label>Has
             the bleeding continued?</label> <br/>
 
 
             <input type="checkbox" name="curPregTraumaYes"
-                    <%=Encode.forHtml(props.getProperty("curPregTraumaYes",""))%>>Yes</input> <input
+                    <%=props.getProperty("curPregTraumaYes","")%>>Yes</input> <input
                 type="checkbox" name="curPregTraumaNo"
-                <%=Encode.forHtml(props.getProperty("curPregTraumaNo",""))%>>No</input> <label>Any
+                <%=props.getProperty("curPregTraumaNo","")%>>No</input> <label>Any
             abdominal trauma, serious fall or car accident?</label> <br/>
 
             <input type="checkbox" name="curPregAntiDYes"
-                    <%=Encode.forHtml(props.getProperty("curPregAntiDYes",""))%>>Yes</input> <input
+                    <%=props.getProperty("curPregAntiDYes","")%>>Yes</input> <input
                 type="checkbox" name="curPregAntiDNo"
-                <%=Encode.forHtml(props.getProperty("curPregAntiDNo",""))%>>No</input> <label>Have
+                <%=props.getProperty("curPregAntiDNo","")%>>No</input> <label>Have
             you received any Anti-D during this pregnancy?</label> If yes, when<input
                 type="text" name="curPregAntiDComment"
                 value="<%=Encode.forHtmlAttribute(props.getProperty("curPregAntiDComment",""))%>"/> <br/>
 
             <input type="checkbox" name="curPregAntiDReactionYes"
-                    <%=Encode.forHtml(props.getProperty("curPregAntiDReactionYes",""))%>>Yes</input> <input
+                    <%=props.getProperty("curPregAntiDReactionYes","")%>>Yes</input> <input
                 type="checkbox" name="curPregAntiDReactionNo"
-                <%=Encode.forHtml(props.getProperty("curPregAntiDReactionNo",""))%>>No</input> <label>Any
+                <%=props.getProperty("curPregAntiDReactionNo","")%>>No</input> <label>Any
             adverse reaction?</label> <br/>
 
             <input type="checkbox" name="curPregBloodDrawnYes"
-                    <%=Encode.forHtml(props.getProperty("curPregBloodDrawnYes",""))%>>Yes</input> <input
+                    <%=props.getProperty("curPregBloodDrawnYes","")%>>Yes</input> <input
                 type="checkbox" name="curPregBloodDrawnNo"
-                <%=Encode.forHtml(props.getProperty("curPregBloodDrawnNo",""))%>>No</input> <label>Blood
+                <%=props.getProperty("curPregBloodDrawnNo","")%>>No</input> <label>Blood
             sample drawn?</label></fieldset>
 
 

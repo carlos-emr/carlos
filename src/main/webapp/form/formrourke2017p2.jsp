@@ -862,78 +862,78 @@
                 <tr>
                     <td valign="top"><input type="radio" id="p2_eyesMoveOk"
                                             name="p2_eyesOk" onclick="onCheck(this,'p2_eyesMove')"
-                        <%=Encode.forHtml(props.getProperty("p2_eyesOk", ""))%>></td>
+                        <%=props.getProperty("p2_eyesOk", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_eyesMoveOkConcerns"
                                             name="p2_eyesOkConcerns" onclick="onCheck(this,'p2_eyesMove')"
-                        <%=Encode.forHtml(props.getProperty("p2_eyesOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_eyesOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_eyesMoveNotDiscussed"
                                             name="p2_eyesNotDiscussed" onclick="onCheck(this,'p2_eyesMove')"
-                        <%=Encode.forHtml(props.getProperty("p2_eyesNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_eyesNotDiscussed", "")%>></td>
                     <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_2.formEyesMove"/></td>
                 </tr>
 
                 <tr>
                     <td valign="top"><input type="radio" id="p2_coosOk"
                                             name="p2_coosOk" onclick="onCheck(this,'p2_coos')"
-                        <%=Encode.forHtml(props.getProperty("p2_coosOk", ""))%>></td>
+                        <%=props.getProperty("p2_coosOk", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_coosOkConcerns"
                                             name="p2_coosOkConcerns" onclick="onCheck(this,'p2_coos')"
-                        <%=Encode.forHtml(props.getProperty("p2_coosOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_coosOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_coosNotDiscussed"
                                             name="p2_coosNotDiscussed" onclick="onCheck(this,'p2_coos')"
-                        <%=Encode.forHtml(props.getProperty("p2_coosNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_coosNotDiscussed", "")%>></td>
                     <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_2.formCoos"/></td>
                 </tr>
 
                 <tr>
                     <td valign="top"><input type="radio" id="p2_headUpTummyOk"
                                             name="p2_headUpTummyOk" onclick="onCheck(this,'p2_headUpTummy')"
-                        <%=Encode.forHtml(props.getProperty("p2_headUpTummyOk", ""))%>></td>
+                        <%=props.getProperty("p2_headUpTummyOk", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_headUpTummyOkConcerns"
                                             name="p2_headUpTummyOkConcerns" onclick="onCheck(this,'p2_headUpTummy')"
-                        <%=Encode.forHtml(props.getProperty("p2_headUpTummyOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_headUpTummyOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_headUpTummyNotDiscussed"
                                             name="p2_headUpTummyNotDiscussed" onclick="onCheck(this,'p2_headUpTummy')"
-                        <%=Encode.forHtml(props.getProperty("p2_headUpTummyNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_headUpTummyNotDiscussed", "")%>></td>
                     <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_2.formHeadUp"/></td>
                 </tr>
 
                 <tr>
                     <td valign="top"><input type="radio" id="p2_cuddledOk"
                                             name="p2_cuddledOk" onclick="onCheck(this,'p2_cuddled')"
-                        <%=Encode.forHtml(props.getProperty("p2_cuddledOk", ""))%>></td>
+                        <%=props.getProperty("p2_cuddledOk", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_cuddledOkConcerns"
                                             name="p2_cuddledOkConcerns" onclick="onCheck(this,'p2_cuddled')"
-                        <%=Encode.forHtml(props.getProperty("p2_cuddledOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_cuddledOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_cuddledNotDiscussed"
                                             name="p2_cuddledNotDiscussed" onclick="onCheck(this,'p2_cuddled')"
-                        <%=Encode.forHtml(props.getProperty("p2_cuddledNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_cuddledNotDiscussed", "")%>></td>
                     <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_2.formCuddled"/></td>
                 </tr>
 
                 <tr>
                     <td valign="top"><input type="radio" id="p2_2sucksOk"
                                             name="p2_2sucksOk" onclick="onCheck(this,'p2_2sucks')"
-                        <%=Encode.forHtml(props.getProperty("p2_2sucksOk", ""))%>></td>
+                        <%=props.getProperty("p2_2sucksOk", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_2sucksOkConcerns"
                                             name="p2_2sucksOkConcerns" onclick="onCheck(this,'p2_2sucks')"
-                        <%=Encode.forHtml(props.getProperty("p2_2sucksOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_2sucksOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_2sucksNotDiscussed"
                                             name="p2_2sucksNotDiscussed" onclick="onCheck(this,'p2_2sucks')"
-                        <%=Encode.forHtml(props.getProperty("p2_2sucksNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_2sucksNotDiscussed", "")%>></td>
                     <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_2.form2sucks"/></td>
                 </tr>
 
                 <tr>
                     <td valign="top"><input type="radio" id="p2_smilesOk"
                                             name="p2_smilesOk" onclick="onCheck(this,'p2_smiles')"
-                        <%=Encode.forHtml(props.getProperty("p2_smilesOk", ""))%>></td>
+                        <%=props.getProperty("p2_smilesOk", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_smilesOkConcerns"
                                             name="p2_smilesOkConcerns" onclick="onCheck(this,'p2_smiles')"
-                        <%=Encode.forHtml(props.getProperty("p2_smilesOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_smilesOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_smilesNotDiscussed"
                                             name="p2_smilesNotDiscussed" onclick="onCheck(this,'p2_smiles')"
-                        <%=Encode.forHtml(props.getProperty("p2_smilesNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_smilesNotDiscussed", "")%>></td>
                     <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_2.formSmiles"/></td>
                 </tr>
 
@@ -941,17 +941,17 @@
                     <td valign="top"><input type="radio"
                                             id="p2_noParentsConcerns2mOk" name="p2_noParentsConcerns2mOk"
                                             onclick="onCheck(this,'p2_noParentsConcerns2m')"
-                        <%=Encode.forHtml(props.getProperty("p2_noParentsConcerns2mOk", ""))%>></td>
+                        <%=props.getProperty("p2_noParentsConcerns2mOk", "")%>></td>
                     <td valign="top"><input type="radio"
                                             id="p2_noParentsConcerns2mOkConcerns"
                                             name="p2_noParentsConcerns2mOkConcerns"
                                             onclick="onCheck(this,'p2_noParentsConcerns2m')"
-                        <%=Encode.forHtml(props.getProperty("p2_noParentsConcerns2mOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_noParentsConcerns2mOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio"
                                             id="p2_noParentsConcerns2mNotDiscussed"
                                             name="p2_noParentsConcerns2mNotDiscussed"
                                             onclick="onCheck(this,'p2_noParentsConcerns2m')"
-                        <%=Encode.forHtml(props.getProperty("p2_noParentsConcerns2mNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_noParentsConcerns2mNotDiscussed", "")%>></td>
                     <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNoparentConcerns"/></td>
                 </tr>
 
@@ -974,65 +974,65 @@
                 <tr>
                     <td valign="top"><input type="radio" id="p2_movingObjOk"
                                             name="p2_movingObjOk" onclick="onCheck(this,'p2_movingObj')"
-                        <%=Encode.forHtml(props.getProperty("p2_movingObjOk", ""))%>></td>
+                        <%=props.getProperty("p2_movingObjOk", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_movingObjOkConcerns"
                                             name="p2_movingObjOkConcerns" onclick="onCheck(this,'p2_movingObj')"
-                        <%=Encode.forHtml(props.getProperty("p2_movingObjOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_movingObjOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_movingObjNotDiscussed"
                                             name="p2_movingObjNotDiscussed" onclick="onCheck(this,'p2_movingObj')"
-                        <%=Encode.forHtml(props.getProperty("p2_movingObjNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_movingObjNotDiscussed", "")%>></td>
                     <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_2.formMovingObj"/></td>
                 </tr>
 
                 <tr>
                     <td valign="top"><input type="radio" id="p2_respondsOk"
                                             name="p2_respondsOk" onclick="onCheck(this,'p2_responds')"
-                        <%=Encode.forHtml(props.getProperty("p2_respondsOk", ""))%>></td>
+                        <%=props.getProperty("p2_respondsOk", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_respondsOkConcerns"
                                             name="p2_respondsOkConcerns" onclick="onCheck(this,'p2_responds')"
-                        <%=Encode.forHtml(props.getProperty("p2_respondsOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_respondsOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_respondsNotDiscussed"
                                             name="p2_respondsNotDiscussed" onclick="onCheck(this,'p2_responds')"
-                        <%=Encode.forHtml(props.getProperty("p2_respondsNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_respondsNotDiscussed", "")%>></td>
                     <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_2.formResponds"/></td>
                 </tr>
 
                 <tr>
                     <td valign="top"><input type="radio" id="p2_headSteadyOk"
                                             name="p2_headSteadyOk" onclick="onCheck(this,'p2_headSteady')"
-                        <%=Encode.forHtml(props.getProperty("p2_headSteadyOk", ""))%>></td>
+                        <%=props.getProperty("p2_headSteadyOk", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_headSteadyOkConcerns"
                                             name="p2_headSteadyOkConcerns" onclick="onCheck(this,'p2_headSteady')"
-                        <%=Encode.forHtml(props.getProperty("p2_headSteadyOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_headSteadyOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_headSteadyNotDiscussed"
                                             name="p2_headSteadyNotDiscussed" onclick="onCheck(this,'p2_headSteady')"
-                        <%=Encode.forHtml(props.getProperty("p2_headSteadyNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_headSteadyNotDiscussed", "")%>></td>
                     <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_2.formHeadSteady"/></td>
                 </tr>
 
                 <tr>
                     <td valign="top"><input type="radio" id="p2_holdsObjOk"
                                             name="p2_holdsObjOk" onclick="onCheck(this,'p2_holdsObj')"
-                        <%=Encode.forHtml(props.getProperty("p2_holdsObjOk", ""))%>></td>
+                        <%=props.getProperty("p2_holdsObjOk", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_holdsObjOkConcerns"
                                             name="p2_holdsObjOkConcerns" onclick="onCheck(this,'p2_holdsObj')"
-                        <%=Encode.forHtml(props.getProperty("p2_holdsObjOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_holdsObjOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_holdsObjNotDiscussed"
                                             name="p2_holdsObjNotDiscussed" onclick="onCheck(this,'p2_holdsObj')"
-                        <%=Encode.forHtml(props.getProperty("p2_holdsObjNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_holdsObjNotDiscussed", "")%>></td>
                     <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_2.formholdsObj"/></td>
                 </tr>
 
                 <tr>
                     <td valign="top"><input type="radio" id="p2_laughsOk"
                                             name="p2_laughsOk" onclick="onCheck(this,'p2_laughs')"
-                        <%=Encode.forHtml(props.getProperty("p2_laughsOk", ""))%>></td>
+                        <%=props.getProperty("p2_laughsOk", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_laughsOkConcerns"
                                             name="p2_laughsOkConcerns" onclick="onCheck(this,'p2_laughs')"
-                        <%=Encode.forHtml(props.getProperty("p2_laughsOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_laughsOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_laughsNotDiscussed"
                                             name="p2_laughsNotDiscussed" onclick="onCheck(this,'p2_laughs')"
-                        <%=Encode.forHtml(props.getProperty("p2_laughsNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_laughsNotDiscussed", "")%>></td>
                     <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_2.formLaughs"/></td>
                 </tr>
 
@@ -1040,17 +1040,17 @@
                     <td valign="top"><input type="radio"
                                             id="p2_noParentsConcerns4mOk" name="p2_noParentsConcerns4mOk"
                                             onclick="onCheck(this,'p2_noParentsConcerns4m')"
-                        <%=Encode.forHtml(props.getProperty("p2_noParentsConcerns4mOk", ""))%>></td>
+                        <%=props.getProperty("p2_noParentsConcerns4mOk", "")%>></td>
                     <td valign="top"><input type="radio"
                                             id="p2_noParentsConcerns4mOkConcerns"
                                             name="p2_noParentsConcerns4mOkConcerns"
                                             onclick="onCheck(this,'p2_noParentsConcerns4m')"
-                        <%=Encode.forHtml(props.getProperty("p2_noParentsConcerns4mOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_noParentsConcerns4mOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio"
                                             id="p2_noParentsConcerns4mNotDiscussed"
                                             name="p2_noParentsConcerns4mNotDiscussed"
                                             onclick="onCheck(this,'p2_noParentsConcerns4m')"
-                        <%=Encode.forHtml(props.getProperty("p2_noParentsConcerns4mNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_noParentsConcerns4mNotDiscussed", "")%>></td>
                     <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNoparentConcerns"/></td>
                 </tr>
 
@@ -1073,79 +1073,79 @@
                 <tr>
                     <td valign="top"><input type="radio" id="p2_turnsHeadOk"
                                             name="p2_turnsHeadOk" onclick="onCheck(this,'p2_turnsHead')"
-                        <%=Encode.forHtml(props.getProperty("p2_turnsHeadOk", ""))%>></td>
+                        <%=props.getProperty("p2_turnsHeadOk", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_turnsHeadOkConcerns"
                                             name="p2_turnsHeadOkConcerns" onclick="onCheck(this,'p2_turnsHead')"
-                        <%=Encode.forHtml(props.getProperty("p2_turnsHeadOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_turnsHeadOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_turnsHeadNotDiscussed"
                                             name="p2_turnsHeadNotDiscussed" onclick="onCheck(this,'p2_turnsHead')"
-                        <%=Encode.forHtml(props.getProperty("p2_turnsHeadNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_turnsHeadNotDiscussed", "")%>></td>
                     <td valign="top"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_2.formTurnsHead"/></td>
                 </tr>
 
                 <tr>
                     <td valign="top"><input type="radio" id="p2_makesSoundOk"
                                             name="p2_makesSoundOk" onclick="onCheck(this,'p2_makesSound')"
-                        <%=Encode.forHtml(props.getProperty("p2_makesSoundOk", ""))%>></td>
+                        <%=props.getProperty("p2_makesSoundOk", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_makesSoundOkConcerns"
                                             name="p2_makesSoundOkConcerns" onclick="onCheck(this,'p2_makesSound')"
-                        <%=Encode.forHtml(props.getProperty("p2_makesSoundOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_makesSoundOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_makesSoundNotDiscussed"
                                             name="p2_makesSoundNotDiscussed" onclick="onCheck(this,'p2_makesSound')"
-                        <%=Encode.forHtml(props.getProperty("p2_makesSoundNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_makesSoundNotDiscussed", "")%>></td>
                     <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_2.formmakesSound"/></td>
                 </tr>
 
                 <tr>
                     <td valign="top"><input type="radio" id="p2_vocalizesOk"
                                             name="p2_vocalizesOk" onclick="onCheck(this,'p2_vocalizes')"
-                        <%=Encode.forHtml(props.getProperty("p2_vocalizesOk", ""))%>></td>
+                        <%=props.getProperty("p2_vocalizesOk", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_vocalizesOkConcerns"
                                             name="p2_vocalizesOkConcerns" onclick="onCheck(this,'p2_vocalizes')"
-                        <%=Encode.forHtml(props.getProperty("p2_vocalizesOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_vocalizesOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_vocalizesNotDiscussed"
                                             name="p2_vocalizesNotDiscussed" onclick="onCheck(this,'p2_vocalizes')"
-                        <%=Encode.forHtml(props.getProperty("p2_vocalizesNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_vocalizesNotDiscussed", "")%>></td>
                     <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_2.formVocalizes"/></td>
                 </tr>
 
                 <tr>
                     <td valign="top"><input type="radio" id="p2_rollsOk"
                                             name="p2_rollsOk" onclick="onCheck(this,'p2_rolls')"
-                        <%=Encode.forHtml(props.getProperty("p2_rollsOk", ""))%>></td>
+                        <%=props.getProperty("p2_rollsOk", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_rollsOkConcerns"
                                             name="p2_rollsOkConcerns" onclick="onCheck(this,'p2_rolls')"
-                        <%=Encode.forHtml(props.getProperty("p2_rollsOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_rollsOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_rollsNotDiscussed"
                                             name="p2_rollsNotDiscussed" onclick="onCheck(this,'p2_rolls')"
-                        <%=Encode.forHtml(props.getProperty("p2_rollsNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_rollsNotDiscussed", "")%>></td>
                     <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_2.formRolls"/></td>
                 </tr>
 
                 <tr>
                     <td valign="top"><input type="radio" id="p2_sitsOk"
                                             name="p2_sitsOk" onclick="onCheck(this,'p2_sits')"
-                        <%=Encode.forHtml(props.getProperty("p2_sitsOk", ""))%>></td>
+                        <%=props.getProperty("p2_sitsOk", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_sitsOkConcerns"
                                             name="p2_sitsOkConcerns" onclick="onCheck(this,'p2_sits')"
-                        <%=Encode.forHtml(props.getProperty("p2_sitsOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_sitsOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_sitsNotDiscussed"
                                             name="p2_sitsNotDiscussed" onclick="onCheck(this,'p2_sits')"
-                        <%=Encode.forHtml(props.getProperty("p2_sitsNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_sitsNotDiscussed", "")%>></td>
                     <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_2.formSits"/></td>
                 </tr>
 
                 <tr>
                     <td valign="top"><input type="radio" id="p2_reachesGraspsOk"
                                             name="p2_reachesGraspsOk" onclick="onCheck(this,'p2_reachesGrasps')"
-                        <%=Encode.forHtml(props.getProperty("p2_reachesGraspsOk", ""))%>></td>
+                        <%=props.getProperty("p2_reachesGraspsOk", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_reachesGraspsOkConcerns"
                                             name="p2_reachesGraspsOkConcerns" onclick="onCheck(this,'p2_reachesGrasps')"
-                        <%=Encode.forHtml(props.getProperty("p2_reachesGraspsOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_reachesGraspsOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio" id="p2_reachesGraspsNotDiscussed"
                                             name="p2_reachesGraspsNotDiscussed"
                                             onclick="onCheck(this,'p2_reachesGrasps')"
-                        <%=Encode.forHtml(props.getProperty("p2_reachesGraspsNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_reachesGraspsNotDiscussed", "")%>></td>
                     <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009_2.formreachesGrasps"/></td>
                 </tr>
 
@@ -1153,17 +1153,17 @@
                     <td valign="top"><input type="radio"
                                             id="p2_noParentsConcerns6mOk" name="p2_noParentsConcerns6mOk"
                                             onclick="onCheck(this,'p2_noParentsConcerns6m')"
-                        <%=Encode.forHtml(props.getProperty("p2_noParentsConcerns6mOk", ""))%>></td>
+                        <%=props.getProperty("p2_noParentsConcerns6mOk", "")%>></td>
                     <td valign="top"><input type="radio"
                                             id="p2_noParentsConcerns6mOkConcerns"
                                             name="p2_noParentsConcerns6mOkConcerns"
                                             onclick="onCheck(this,'p2_noParentsConcerns6m')"
-                        <%=Encode.forHtml(props.getProperty("p2_noParentsConcerns6mOkConcerns", ""))%>></td>
+                        <%=props.getProperty("p2_noParentsConcerns6mOkConcerns", "")%>></td>
                     <td valign="top"><input type="radio"
                                             id="p2_noParentsConcerns6mNotDiscussed"
                                             name="p2_noParentsConcerns6mNotDiscussed"
                                             onclick="onCheck(this,'p2_noParentsConcerns6m')"
-                        <%=Encode.forHtml(props.getProperty("p2_noParentsConcerns6mNotDiscussed", ""))%>></td>
+                        <%=props.getProperty("p2_noParentsConcerns6mNotDiscussed", "")%>></td>
                     <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNoparentConcerns"/></td>
                 </tr>
 

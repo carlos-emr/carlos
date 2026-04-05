@@ -265,9 +265,9 @@
                value="<%= Encode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
         <input type="hidden" name="form_class" value="<%=Encode.forHtmlAttribute(formClass)%>"/>
         <input type="hidden" name="form_link" value="<%=Encode.forHtmlAttribute(formLink)%>"/>
-        <input type="hidden" name="formId" value="<%=Encode.forHtmlAttribute(formId)%>"/>
+        <input type="hidden" name="formId" value="<%=Encode.forHtmlAttribute(String.valueOf(formId))%>"/>
         <input type="hidden" name="c_lastVisited"
-               value=<%=Encode.forHtml(props.getProperty("c_lastVisited", "3"))%>/>
+               value="<%=Encode.forHtmlAttribute(props.getProperty("c_lastVisited", "3"))%>"/>
         <input type="hidden" name="submit" value="exit"/>
 
         <table class="Header" class="hidePrint">
@@ -413,7 +413,7 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_bottle18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_bottle18m", ""))%> /></td>
+                                    <%=props.getProperty("p3_bottle18m", "")%> /></td>
                             <td width="100%">No bottles</td>
                         </tr>
                     </table>
@@ -427,12 +427,12 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_milk2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_milk2y", ""))%>></td>
+                                    <%=props.getProperty("p3_milk2y", "")%>></td>
                             <td width="100%">Homogenized or 2% milk</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_food2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_food2y", ""))%>></td>
+                                    <%=props.getProperty("p3_food2y", "")%>></td>
                             <td>Canada's Food Guide</td>
                         </tr>
                     </table>
@@ -446,12 +446,12 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_milk4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_milk4y", ""))%>></td>
+                                    <%=props.getProperty("p3_milk4y", "")%>></td>
                             <td width="100%">2% milk</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_food4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_food4y", ""))%>></td>
+                                    <%=props.getProperty("p3_food4y", "")%>></td>
                             <td>Canada's Food Guide</td>
                         </tr>
                     </table>
@@ -504,13 +504,13 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_bath18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_bath18m", ""))%>></td>
+                                    <%=props.getProperty("p3_bath18m", "")%>></td>
                             <td width="100%"><i><a href="<%=resource%>s_drowning">Bath
                                 safety</a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_choking18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_choking18m", ""))%>></td>
+                                    <%=props.getProperty("p3_choking18m", "")%>></td>
                             <td><a href="<%=resource%>s_choking">Choking/safe toys</a>*</td>
                         </tr>
                         <tr>
@@ -519,7 +519,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p3_temperment18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_temperment18m", ""))%>></td>
+                                    <%=props.getProperty("p3_temperment18m", "")%>></td>
                             <td>Temperment</td>
                         </tr>
                         <tr>
@@ -527,12 +527,12 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_limit18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_limit18m", ""))%>></td>
+                                    <%=props.getProperty("p3_limit18m", "")%>></td>
                             <td>Limit setting</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_social18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_social18m", ""))%>></td>
+                                    <%=props.getProperty("p3_social18m", "")%>></td>
                             <td>Socializing opportunities</td>
                         </tr>
                         <tr>
@@ -540,12 +540,12 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_dental18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_dental18m", ""))%>></td>
+                                    <%=props.getProperty("p3_dental18m", "")%>></td>
                             <td><b><a href="<%=resource%>o_dentalCare">Dental Care</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_toilet18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_toilet18m", ""))%>></td>
+                                    <%=props.getProperty("p3_toilet18m", "")%>></td>
                             <td>Toilet training</td>
                         </tr>
                     </table>
@@ -559,18 +559,18 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_bike2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_bike2y", ""))%>></td>
+                                    <%=props.getProperty("p3_bike2y", "")%>></td>
                             <td width="100%"><i><a href="<%=resource%>s_falls">Bike
                                 Helmets</a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_matches2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_matches2y", ""))%>></td>
+                                    <%=props.getProperty("p3_matches2y", "")%>></td>
                             <td>Matches</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_carbon2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_carbon2y", ""))%>></td>
+                                    <%=props.getProperty("p3_carbon2y", "")%>></td>
                             <td>Carbon monoxide/ <i><a href="<%=resource%>s_burns">Smoke
                                 detectors</a>*</i></td>
                         </tr>
@@ -582,29 +582,29 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_parent2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_parent2y", ""))%>></td>
+                                    <%=props.getProperty("p3_parent2y", "")%>></td>
                             <td>Parent/child interaction</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_social2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_social2y", ""))%>></td>
+                                    <%=props.getProperty("p3_social2y", "")%>></td>
                             <td>Socializing opportunities</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_dayCare2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_dayCare2y", ""))%>></td>
+                                    <%=props.getProperty("p3_dayCare2y", "")%>></td>
                             <td><b><a href="<%=resource%>hri_dayCare">Assess day
                                 care & preschool needs</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_dental2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_dental2y", ""))%>></td>
+                                    <%=props.getProperty("p3_dental2y", "")%>></td>
                             <td><b><a href="<%=resource%>o_dentalCare">Dental
                                 Care/check up</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_toilet2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_toilet2y", ""))%>></td>
+                                    <%=props.getProperty("p3_toilet2y", "")%>></td>
                             <td>Toilet training</td>
                         </tr>
                     </table>
@@ -618,24 +618,24 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_bike4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_bike4y", ""))%>></td>
+                                    <%=props.getProperty("p3_bike4y", "")%>></td>
                             <td width="100%"><i><a href="<%=resource%>s_falls">Bike
                                 Helmets</a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_matches4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_matches4y", ""))%>></td>
+                                    <%=props.getProperty("p3_matches4y", "")%>></td>
                             <td>Matches</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_carbon4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_carbon4y", ""))%>></td>
+                                    <%=props.getProperty("p3_carbon4y", "")%>></td>
                             <td>Carbon monoxide/ <i><a href="<%=resource%>s_burns">Smoke
                                 detectors</a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_water4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_water4y", ""))%>></td>
+                                    <%=props.getProperty("p3_water4y", "")%>></td>
                             <td><a href="<%=resource%>s_drowning">Water Safety</a></td>
                         </tr>
                         <tr>
@@ -646,7 +646,7 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_social4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_social4y", ""))%>></td>
+                                    <%=props.getProperty("p3_social4y", "")%>></td>
                             <td>Socializing opportunities</td>
                         </tr>
                         <tr>
@@ -654,13 +654,13 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_dental4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_dental4y", ""))%>></td>
+                                    <%=props.getProperty("p3_dental4y", "")%>></td>
                             <td><b><a href="<%=resource%>o_dentalCare">Dental
                                 Care/check up</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_school4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_school4y", ""))%>></td>
+                                    <%=props.getProperty("p3_school4y", "")%>></td>
                             <td>School readiness</td>
                         </tr>
                     </table>
@@ -684,51 +684,51 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_points18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_points18m", ""))%>></td>
+                                    <%=props.getProperty("p3_points18m", "")%>></td>
                             <td width="100%">Points to pictures (eg. show me the ...) and
                                 to 3 different body parts
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_words18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_words18m", ""))%>></td>
+                                    <%=props.getProperty("p3_words18m", "")%>></td>
                             <td>At least 5 words</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_picks18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_picks18m", ""))%>></td>
+                                    <%=props.getProperty("p3_picks18m", "")%>></td>
                             <td>Picks up and eats finger food</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_walks18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_walks18m", ""))%>></td>
+                                    <%=props.getProperty("p3_walks18m", "")%>></td>
                             <td>Walks alone</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_stacks18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_stacks18m", ""))%>></td>
+                                    <%=props.getProperty("p3_stacks18m", "")%>></td>
                             <td>Stacks at least 3 blocks</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_affection18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_affection18m", ""))%>></td>
+                                    <%=props.getProperty("p3_affection18m", "")%>></td>
                             <td>Shows affection</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p3_showParents18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_showParents18m", ""))%>></td>
+                                    <%=props.getProperty("p3_showParents18m", "")%>></td>
                             <td>Points to show parent something</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_looks18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_looks18m", ""))%>></td>
+                                    <%=props.getProperty("p3_looks18m", "")%>></td>
                             <td>Looks at you when talking/playing together</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p3_noParentsConcerns18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_noParentsConcerns18m", ""))%>></td>
+                                    <%=props.getProperty("p3_noParentsConcerns18m", "")%>></td>
                             <td>No parent concerns</td>
                         </tr>
                     </table>
@@ -745,38 +745,38 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_word2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_word2y", ""))%>></td>
+                                    <%=props.getProperty("p3_word2y", "")%>></td>
                             <td width="100%">At least 1 new word/week</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_sentence2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_sentence2y", ""))%>></td>
+                                    <%=props.getProperty("p3_sentence2y", "")%>></td>
                             <td>2-word sentences</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_run2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_run2y", ""))%>></td>
+                                    <%=props.getProperty("p3_run2y", "")%>></td>
                             <td>Tries to run</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_container2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_container2y", ""))%>></td>
+                                    <%=props.getProperty("p3_container2y", "")%>></td>
                             <td>Puts objects into small container</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_copies2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_copies2y", ""))%>></td>
+                                    <%=props.getProperty("p3_copies2y", "")%>></td>
                             <td>Copies adult's actions</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_skills2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_skills2y", ""))%>></td>
+                                    <%=props.getProperty("p3_skills2y", "")%>></td>
                             <td>Continues to develop new skills</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p3_noParentsConcerns2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_noParentsConcerns2y", ""))%>></td>
+                                    <%=props.getProperty("p3_noParentsConcerns2y", "")%>></td>
                             <td>No parent concerns</td>
                         </tr>
                     </table>
@@ -793,33 +793,33 @@
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p3_understands3y"
-                                    <%=Encode.forHtml(props.getProperty("p3_understands3y", ""))%>></td>
+                                    <%=props.getProperty("p3_understands3y", "")%>></td>
                             <td width="100%">Understands 2 step direction</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_twists3y"
-                                    <%=Encode.forHtml(props.getProperty("p3_twists3y", ""))%>></td>
+                                    <%=props.getProperty("p3_twists3y", "")%>></td>
                             <td>Twists lids off jars or turns knobs</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_turnPages3y"
-                                    <%=Encode.forHtml(props.getProperty("p3_turnPages3y", ""))%>></td>
+                                    <%=props.getProperty("p3_turnPages3y", "")%>></td>
                             <td>Turns pages one at a time</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_share3y"
-                                    <%=Encode.forHtml(props.getProperty("p3_share3y", ""))%>></td>
+                                    <%=props.getProperty("p3_share3y", "")%>></td>
                             <td>Share some of the time</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_listens3y"
-                                    <%=Encode.forHtml(props.getProperty("p3_listens3y", ""))%>></td>
+                                    <%=props.getProperty("p3_listens3y", "")%>></td>
                             <td>Listens to music or stories for 5-10 minutes with adults</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p3_noParentsConcerns3y"
-                                    <%=Encode.forHtml(props.getProperty("p3_noParentsConcerns3y", ""))%>></td>
+                                    <%=props.getProperty("p3_noParentsConcerns3y", "")%>></td>
                             <td>No parent concerns</td>
                         </tr>
                     </table>
@@ -837,38 +837,38 @@
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p3_understands4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_understands4y", ""))%>></td>
+                                    <%=props.getProperty("p3_understands4y", "")%>></td>
                             <td width="100%">Understands related 3 part direction</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_questions4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_questions4y", ""))%>></td>
+                                    <%=props.getProperty("p3_questions4y", "")%>></td>
                             <td>Asks a lot of questions</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_oneFoot4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_oneFoot4y", ""))%>></td>
+                                    <%=props.getProperty("p3_oneFoot4y", "")%>></td>
                             <td>Stands on 1 foot for 1-3 seconds</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_draws4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_draws4y", ""))%>></td>
+                                    <%=props.getProperty("p3_draws4y", "")%>></td>
                             <td>Draws a person with at least 3 body parts</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_toilet4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_toilet4y", ""))%>></td>
+                                    <%=props.getProperty("p3_toilet4y", "")%>></td>
                             <td>Toilet trained during the day</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_comfort4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_comfort4y", ""))%>></td>
+                                    <%=props.getProperty("p3_comfort4y", "")%>></td>
                             <td>Tries to comfort someone who is upset</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p3_noParentsConcerns4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_noParentsConcerns4y", ""))%>></td>
+                                    <%=props.getProperty("p3_noParentsConcerns4y", "")%>></td>
                             <td>No parent concerns</td>
                         </tr>
                     </table>
@@ -884,46 +884,46 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_counts5y"
-                                    <%=Encode.forHtml(props.getProperty("p3_counts5y", ""))%>></td>
+                                    <%=props.getProperty("p3_counts5y", "")%>></td>
                             <td width="100%">Counts to 10 and knows common colours &
                                 shapes
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_speaks5y"
-                                    <%=Encode.forHtml(props.getProperty("p3_speaks5y", ""))%>></td>
+                                    <%=props.getProperty("p3_speaks5y", "")%>></td>
                             <td>Speaks clearly in sentences</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_ball5y"
-                                    <%=Encode.forHtml(props.getProperty("p3_ball5y", ""))%>></td>
+                                    <%=props.getProperty("p3_ball5y", "")%>></td>
                             <td>Throws & catches a ball</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_hops5y"
-                                    <%=Encode.forHtml(props.getProperty("p3_hops5y", ""))%>></td>
+                                    <%=props.getProperty("p3_hops5y", "")%>></td>
                             <td>Hops on 1 foot</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_shares5y"
-                                    <%=Encode.forHtml(props.getProperty("p3_shares5y", ""))%>></td>
+                                    <%=props.getProperty("p3_shares5y", "")%>></td>
                             <td>Shares willingly</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_alone5y"
-                                    <%=Encode.forHtml(props.getProperty("p3_alone5y", ""))%>></td>
+                                    <%=props.getProperty("p3_alone5y", "")%>></td>
                             <td>Works alone at an activity for 20-30 minutes</td>
                         </tr>
 
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_separate5y"
-                                    <%=Encode.forHtml(props.getProperty("p3_separate5y", ""))%>></td>
+                                    <%=props.getProperty("p3_separate5y", "")%>></td>
                             <td>Separates easily from parents</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p3_noParentsConcerns5y"
-                                    <%=Encode.forHtml(props.getProperty("p3_noParentsConcerns5y", ""))%>></td>
+                                    <%=props.getProperty("p3_noParentsConcerns5y", "")%>></td>
                             <td>No parent concerns</td>
                         </tr>
                     </table>
@@ -944,18 +944,18 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_eyes18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_eyes18m", ""))%>></td>
+                                    <%=props.getProperty("p3_eyes18m", "")%>></td>
                             <td width="100%"><i>Eyes (red reflex)</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_cover18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_cover18m", ""))%>></td>
+                                    <%=props.getProperty("p3_cover18m", "")%>></td>
                             <td><b><a href="<%=resource%>pe_cover">Cover/uncover
                                 test & inquiry</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_hearing18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_hearing18m", ""))%>></td>
+                                    <%=props.getProperty("p3_hearing18m", "")%>></td>
                             <td><b>Hearing inquiry</b></td>
                         </tr>
                     </table>
@@ -969,18 +969,18 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_visual2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_visual2y", ""))%>></td>
+                                    <%=props.getProperty("p3_visual2y", "")%>></td>
                             <td width="100%"><i>Visual acuity</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_cover2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_cover2y", ""))%>></td>
+                                    <%=props.getProperty("p3_cover2y", "")%>></td>
                             <td><b><a href="<%=resource%>pe_cover">Cover/uncover
                                 test & inquiry</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_hearing2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_hearing2y", ""))%>></td>
+                                    <%=props.getProperty("p3_hearing2y", "")%>></td>
                             <td><b>Hearing inquiry</b></td>
                         </tr>
                     </table>
@@ -994,23 +994,23 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_visual4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_visual4y", ""))%>></td>
+                                    <%=props.getProperty("p3_visual4y", "")%>></td>
                             <td width="100%"><i>Visual acuity</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_cover4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_cover4y", ""))%>></td>
+                                    <%=props.getProperty("p3_cover4y", "")%>></td>
                             <td><b><a href="<%=resource%>pe_cover">Cover/uncover
                                 test &amp; inquiry</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_hearing4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_hearing4y", ""))%>></td>
+                                    <%=props.getProperty("p3_hearing4y", "")%>></td>
                             <td><b>Hearing inquiry</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_blood4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_blood4y", ""))%>></td>
+                                    <%=props.getProperty("p3_blood4y", "")%>></td>
                             <td><i>Blood pressure</i></td>
                         </tr>
                     </table>
@@ -1038,7 +1038,7 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_serum2y"
-                                    <%=Encode.forHtml(props.getProperty("p3_serum2y", ""))%>></td>
+                                    <%=props.getProperty("p3_serum2y", "")%>></td>
                             <td width="100%"><i><a
                                     href="<%=resource%>pp_leadScreening">Serum lead (If at risk)</a>*</i></td>
                         </tr>
@@ -1069,12 +1069,12 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_hib18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_hib18m", ""))%>></td>
+                                    <%=props.getProperty("p3_hib18m", "")%>></td>
                             <td width="100%"><b>HIB</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_polio18m"
-                                    <%=Encode.forHtml(props.getProperty("p3_polio18m", ""))%>></td>
+                                    <%=props.getProperty("p3_polio18m", "")%>></td>
                             <td><b>aPDT polio</b></td>
                         </tr>
                     </table>
@@ -1096,12 +1096,12 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_mmr4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_mmr4y", ""))%>></td>
+                                    <%=props.getProperty("p3_mmr4y", "")%>></td>
                             <td width="100%"><b>MMR</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p3_polio4y"
-                                    <%=Encode.forHtml(props.getProperty("p3_polio4y", ""))%>></td>
+                                    <%=props.getProperty("p3_polio4y", "")%>></td>
                             <td><b>aPDT polio</b></td>
                         </tr>
                     </table>

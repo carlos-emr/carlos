@@ -266,9 +266,9 @@
                value="<%= Encode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
         <input type="hidden" name="form_class" value="<%=Encode.forHtmlAttribute(formClass)%>"/>
         <input type="hidden" name="form_link" value="<%=Encode.forHtmlAttribute(formLink)%>"/>
-        <input type="hidden" name="formId" value="<%=Encode.forHtmlAttribute(formId)%>"/>
+        <input type="hidden" name="formId" value="<%=Encode.forHtmlAttribute(String.valueOf(formId))%>"/>
         <input type="hidden" name="c_lastVisited"
-               value=<%=Encode.forHtml(props.getProperty("c_lastVisited", "p1"))%>/>
+               value="<%=Encode.forHtmlAttribute(props.getProperty("c_lastVisited", "p1"))%>"/>
         <input type="hidden" name="submit" value="exit"/>
 
         <table cellpadding="0" cellspacing="0" class="Header" class="hidePrint">
@@ -441,20 +441,20 @@
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_breastFeeding1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_breastFeeding1w", ""))%> /></td>
+                                    <%=props.getProperty("p1_breastFeeding1w", "")%> /></td>
                             <td><b><a href="#"
                                       onclick="popup('<%=resource%>n_breastFeeding');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBreastFeedingDescr"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_formulaFeeding1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_formulaFeeding1w", ""))%> /></td>
+                                    <%=props.getProperty("p1_formulaFeeding1w", "")%> /></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgFormulaFeeding"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_stoolUrine1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_stoolUrine1w", ""))%> /></td>
+                                    <%=props.getProperty("p1_stoolUrine1w", "")%> /></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formStoolPatern"/></td>
                         </tr>
                     </table>
@@ -469,20 +469,20 @@
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_breastFeeding2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_breastFeeding2w", ""))%>></td>
+                                    <%=props.getProperty("p1_breastFeeding2w", "")%>></td>
                             <td><b><a href="#"
                                       onclick="popup('<%=resource%>n_breastFeeding');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBreastFeedingDescr"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_formulaFeeding2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_formulaFeeding2w", ""))%>></td>
+                                    <%=props.getProperty("p1_formulaFeeding2w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgFormulaFeeding"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_stoolUrine2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_stoolUrine2w", ""))%>></td>
+                                    <%=props.getProperty("p1_stoolUrine2w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formStoolPatern"/></td>
                         </tr>
                     </table>
@@ -491,26 +491,26 @@
                     <table cellpadding="0" cellspacing="0" width="100%" height="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p1_nutrition1m" cols="25"
-                                                      class="wide"><%=Encode.forHtml(props.getProperty("p1_nutrition2m", ""))%></textarea>
+                                                      class="wide"><%=Encode.forHtml(props.getProperty("p1_nutrition1m", ""))%></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_breastFeeding1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_breastFeeding1m", ""))%>></td>
+                                    <%=props.getProperty("p1_breastFeeding1m", "")%>></td>
                             <td><b><a href="#"
                                       onclick="popup('<%=resource%>n_breastFeeding');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBreastFeedingDescr"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_formulaFeeding1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_formulaFeeding1m", ""))%>></td>
+                                    <%=props.getProperty("p1_formulaFeeding1m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgFormulaFeeding"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_stoolUrine1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_stoolUrine1m", ""))%>></td>
+                                    <%=props.getProperty("p1_stoolUrine1m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formStoolPatern"/></td>
                         </tr>
                     </table>
@@ -525,14 +525,14 @@
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_breastFeeding2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_breastFeeding2m", ""))%>></td>
+                                    <%=props.getProperty("p1_breastFeeding2m", "")%>></td>
                             <td nowrap="true"><b><a href="#"
                                                     onclick="popup('<%=resource%>n_breastFeeding');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBreastFeedingDescr"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_formulaFeeding2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_formulaFeeding2m", ""))%>></td>
+                                    <%=props.getProperty("p1_formulaFeeding2m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgFormulaFeeding"/></td>
                         </tr>
                     </table>
@@ -598,7 +598,7 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_carSeat1w" <%=Encode.forHtml(props.getProperty("p1_carSeat1w", ""))%>>
+                                                    name="p1_carSeat1w" <%=props.getProperty("p1_carSeat1w", "")%>>
                             </td>
                             <td><b><a href="#"
                                       onclick="popup('<%=resource%>s_motorVehicleAccidents');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formCarSeat"/></a>*</b></td>
@@ -606,7 +606,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_cribSafety1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_cribSafety1w", ""))%>></td>
+                                    <%=props.getProperty("p1_cribSafety1w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formCribSafety"/></td>
                         </tr>
                         <tr>
@@ -614,48 +614,48 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_sleeping1w" <%=Encode.forHtml(props.getProperty("p1_sleeping1w", ""))%>>
+                                                    name="p1_sleeping1w" <%=props.getProperty("p1_sleeping1w", "")%>>
                             </td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSleeping"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_sooth1w" <%=Encode.forHtml(props.getProperty("p1_sooth1w", ""))%>></td>
+                                                    name="p1_sooth1w" <%=props.getProperty("p1_sooth1w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSoothability"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_bonding1w" <%=Encode.forHtml(props.getProperty("p1_bonding1w", ""))%>>
+                                                    name="p1_bonding1w" <%=props.getProperty("p1_bonding1w", "")%>>
                             </td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formParenting"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_fatigue1w" <%=Encode.forHtml(props.getProperty("p1_fatigue1w", ""))%>>
+                                                    name="p1_fatigue1w" <%=props.getProperty("p1_fatigue1w", "")%>>
                             </td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFatigue"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_family1w" <%=Encode.forHtml(props.getProperty("p1_family1w", ""))%>></td>
+                                                    name="p1_family1w" <%=props.getProperty("p1_family1w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFamilyConflict"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_siblings1w" <%=Encode.forHtml(props.getProperty("p1_siblings1w", ""))%>>
+                                                    name="p1_siblings1w" <%=props.getProperty("p1_siblings1w", "")%>>
                             </td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSiblings"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_homeVisit1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_homeVisit1w", ""))%>></td>
+                                    <%=props.getProperty("p1_homeVisit1w", "")%>></td>
                             <td><b><a href="#"
                                       onclick="popup('<%=resource%>hri_homeVisits');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnHomeVisit"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_sleepPos1w" <%=Encode.forHtml(props.getProperty("p1_sleepPos1w", ""))%>>
+                                                    name="p1_sleepPos1w" <%=props.getProperty("p1_sleepPos1w", "")%>>
                             </td>
                             <td><b><a href="#"
                                       onclick="popup('<%=resource%>o_sleepPosition');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnSleepPosition"/></a>*</b>
@@ -663,12 +663,12 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_temp1w" <%=Encode.forHtml(props.getProperty("p1_temp1w", ""))%>></td>
+                                                    name="p1_temp1w" <%=props.getProperty("p1_temp1w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formTemperatureControl"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_smoke1w" <%=Encode.forHtml(props.getProperty("p1_smoke1w", ""))%>></td>
+                                                    name="p1_smoke1w" <%=props.getProperty("p1_smoke1w", "")%>></td>
                             <td><b><a href="#"
                                       onclick="popup('<%=resource%>o_secondHandSmoke');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSecondHandSmoke"/></a>*</b></td>
                         </tr>
@@ -684,7 +684,7 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_carSeat2w" <%=Encode.forHtml(props.getProperty("p1_carSeat2w", ""))%>>
+                                                    name="p1_carSeat2w" <%=props.getProperty("p1_carSeat2w", "")%>>
                             </td>
                             <td><b><a href="#"
                                       onclick="popup('<%=resource%>s_motorVehicleAccidents');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formCarSeat"/></a>*</b></td>
@@ -692,7 +692,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_cribSafety2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_cribSafety2w", ""))%>></td>
+                                    <%=props.getProperty("p1_cribSafety2w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formCribSafety"/></td>
                         </tr>
                         <tr>
@@ -700,60 +700,60 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_sleeping2w" <%=Encode.forHtml(props.getProperty("p1_sleeping2w", ""))%>>
+                                                    name="p1_sleeping2w" <%=props.getProperty("p1_sleeping2w", "")%>>
                             </td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSleeping"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_sooth2w" <%=Encode.forHtml(props.getProperty("p1_sooth2w", ""))%>></td>
+                                                    name="p1_sooth2w" <%=props.getProperty("p1_sooth2w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSoothability"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_bonding2w" <%=Encode.forHtml(props.getProperty("p1_bonding2w", ""))%>>
+                                                    name="p1_bonding2w" <%=props.getProperty("p1_bonding2w", "")%>>
                             </td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formParenting"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_fatigue2w" <%=Encode.forHtml(props.getProperty("p1_fatigue2w", ""))%>>
+                                                    name="p1_fatigue2w" <%=props.getProperty("p1_fatigue2w", "")%>>
                             </td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFatigue"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_family2w" <%=Encode.forHtml(props.getProperty("p1_family2w", ""))%>></td>
+                                                    name="p1_family2w" <%=props.getProperty("p1_family2w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFamilyConflict"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_siblings2w" <%=Encode.forHtml(props.getProperty("p1_siblings2w", ""))%>>
+                                                    name="p1_siblings2w" <%=props.getProperty("p1_siblings2w", "")%>>
                             </td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSiblings"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_homeVisit2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_homeVisit2w", ""))%>></td>
+                                    <%=props.getProperty("p1_homeVisit2w", "")%>></td>
                             <td><b><a href="#"
                                       onclick="popup('<%=resource%>hri_homeVisits');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnHomeVisit"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_sleepPos2w" <%=Encode.forHtml(props.getProperty("p1_sleepPos2w", ""))%>>
+                                                    name="p1_sleepPos2w" <%=props.getProperty("p1_sleepPos2w", "")%>>
                             </td>
                             <td><b><a href="#"
                                       onclick="popup('<%=resource%>o_sleepPosition');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnSleepPosition"/>*</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_temp2w" <%=Encode.forHtml(props.getProperty("p1_temp2w", ""))%>></td>
+                                                    name="p1_temp2w" <%=props.getProperty("p1_temp2w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formTemperatureControl"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_smoke2w" <%=Encode.forHtml(props.getProperty("p1_smoke2w", ""))%>></td>
+                                                    name="p1_smoke2w" <%=props.getProperty("p1_smoke2w", "")%>></td>
                             <td><b><a href="#"
                                       onclick="popup('<%=resource%>o_secondHandSmoke'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSecondHandSmoke"/></a>* </b></td>
                         </tr>
@@ -770,7 +770,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_carbonMonoxide1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_carbonMonoxide1m", ""))%>></td>
+                                    <%=props.getProperty("p1_carbonMonoxide1m", "")%>></td>
                             <td>Carbon monoxide/ <i><a href="#"
                                                        onclick="popup('<%=resource%>s_burns');return false;">Smoke
                                 detectors</a>*</i></td>
@@ -778,43 +778,43 @@
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_sleepwear1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_sleepwear1m", ""))%>></td>
+                                    <%=props.getProperty("p1_sleepwear1m", "")%>></td>
                             <td><i><a href="#"
                                       onclick="popup('<%=resource%>s_burns');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSleepwear"/></a></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_hotWater1m" <%=Encode.forHtml(props.getProperty("p1_hotWater1m", ""))%>>
+                                                    name="p1_hotWater1m" <%=props.getProperty("p1_hotWater1m", "")%>>
                             </td>
                             <td><i><a href="#"
                                       onclick="popup('<%=resource%>s_burns');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnHotWater"/></a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_toys1m" <%=Encode.forHtml(props.getProperty("p1_toys1m", ""))%>></td>
+                                                    name="p1_toys1m" <%=props.getProperty("p1_toys1m", "")%>></td>
                             <td><a href="#"
                                    onclick="popup('<%=resource%>s_choking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnSafeToys"/></a>*
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_crying1m" <%=Encode.forHtml(props.getProperty("p1_crying1m", ""))%>></td>
+                                                    name="p1_crying1m" <%=props.getProperty("p1_crying1m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSleeping"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_sooth1m" <%=Encode.forHtml(props.getProperty("p1_sooth1m", ""))%>></td>
+                                                    name="p1_sooth1m" <%=props.getProperty("p1_sooth1m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSoothability"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_interaction1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_interaction1m", ""))%>></td>
+                                    <%=props.getProperty("p1_interaction1m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formParentChildinteraction"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_supports1m" <%=Encode.forHtml(props.getProperty("p1_supports1m", ""))%>>
+                                                    name="p1_supports1m" <%=props.getProperty("p1_supports1m", "")%>>
                             </td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formAssessSupports"/></td>
                         </tr>
@@ -830,13 +830,13 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_falls2m" <%=Encode.forHtml(props.getProperty("p1_falls2m", ""))%>></td>
+                                                    name="p1_falls2m" <%=props.getProperty("p1_falls2m", "")%>></td>
                             <td><i><a href="#"
                                       onclick="popup('<%=resource%>s_falls');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnFalls"/></a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_toys2m" <%=Encode.forHtml(props.getProperty("p1_toys2m", ""))%>></td>
+                                                    name="p1_toys2m" <%=props.getProperty("p1_toys2m", "")%>></td>
                             <td><a href="#"
                                    onclick="popup('<%=resource%>s_choking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnSafeToys"/></a>*
                             </td>
@@ -846,23 +846,23 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_crying2m" <%=Encode.forHtml(props.getProperty("p1_crying2m", ""))%>></td>
+                                                    name="p1_crying2m" <%=props.getProperty("p1_crying2m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSleeping"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_sooth2m" <%=Encode.forHtml(props.getProperty("p1_sooth2m", ""))%>></td>
+                                                    name="p1_sooth2m" <%=props.getProperty("p1_sooth2m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSoothability"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_interaction2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_interaction2m", ""))%>></td>
+                                    <%=props.getProperty("p1_interaction2m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formParentChildinteraction"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_stress2m" <%=Encode.forHtml(props.getProperty("p1_stress2m", ""))%>></td>
+                                                    name="p1_stress2m" <%=props.getProperty("p1_stress2m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formDepression"/></td>
                         </tr>
                         <tr>
@@ -879,7 +879,7 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_fever2m" <%=Encode.forHtml(props.getProperty("p1_fever2m", ""))%>></td>
+                                                    name="p1_fever2m" <%=props.getProperty("p1_fever2m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFeverControl"/></td>
                         </tr>
                     </table>
@@ -917,24 +917,24 @@
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_focusGaze1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_focusGaze1m", ""))%>></td>
+                                    <%=props.getProperty("p1_focusGaze1m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFocusesGaze"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_startles1m" <%=Encode.forHtml(props.getProperty("p1_startles1m", ""))%>>
+                                                    name="p1_startles1m" <%=props.getProperty("p1_startles1m", "")%>>
                             </td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSuddenNoise"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_sucks1m" <%=Encode.forHtml(props.getProperty("p1_sucks1m", ""))%>></td>
+                                                    name="p1_sucks1m" <%=props.getProperty("p1_sucks1m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSucksWell"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_noParentsConcerns1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_noParentsConcerns1m", ""))%>></td>
+                                    <%=props.getProperty("p1_noParentsConcerns1m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formNoparentConcerns"/></td>
                         </tr>
                     </table>
@@ -949,29 +949,29 @@
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_followMoves2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_followMoves2m", ""))%>></td>
+                                    <%=props.getProperty("p1_followMoves2m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFollowsMovement"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_sounds2m" <%=Encode.forHtml(props.getProperty("p1_sounds2m", ""))%>></td>
+                                                    name="p1_sounds2m" <%=props.getProperty("p1_sounds2m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formVarietyOfSounds"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_headUp2m" <%=Encode.forHtml(props.getProperty("p1_headUp2m", ""))%>></td>
+                                                    name="p1_headUp2m" <%=props.getProperty("p1_headUp2m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHoldHeadsUp"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_cuddled2m" <%=Encode.forHtml(props.getProperty("p1_cuddled2m", ""))%>>
+                                                    name="p1_cuddled2m" <%=props.getProperty("p1_cuddled2m", "")%>>
                             </td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.EnjoysBeingTouched"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_noParentConcerns2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_noParentConcerns2m", ""))%>></td>
+                                    <%=props.getProperty("p1_noParentConcerns2m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formNoparentConcerns"/></td>
                         </tr>
                     </table>
@@ -991,58 +991,58 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_skin1w" <%=Encode.forHtml(props.getProperty("p1_skin1w", ""))%>></td>
+                                                    name="p1_skin1w" <%=props.getProperty("p1_skin1w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formDrySkin"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_fontanelles1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_fontanelles1w", ""))%>></td>
+                                    <%=props.getProperty("p1_fontanelles1w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFontanelles"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_eyes1w" <%=Encode.forHtml(props.getProperty("p1_eyes1w", ""))%>></td>
+                                                    name="p1_eyes1w" <%=props.getProperty("p1_eyes1w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formRedReflex"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_ears1w" <%=Encode.forHtml(props.getProperty("p1_ears1w", ""))%>></td>
+                                                    name="p1_ears1w" <%=props.getProperty("p1_ears1w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formEarDrums"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_heartLungs1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_heartLungs1w", ""))%>></td>
+                                    <%=props.getProperty("p1_heartLungs1w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHeart"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_umbilicus1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_umbilicus1w", ""))%>></td>
+                                    <%=props.getProperty("p1_umbilicus1w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formUmbilicus"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_femoralPulses1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_femoralPulses1w", ""))%>></td>
+                                    <%=props.getProperty("p1_femoralPulses1w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFemoralPulses"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_hips1w" <%=Encode.forHtml(props.getProperty("p1_hips1w", ""))%>></td>
+                                                    name="p1_hips1w" <%=props.getProperty("p1_hips1w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHips"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_testicles1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_testicles1w", ""))%>></td>
+                                    <%=props.getProperty("p1_testicles1w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formTescicles"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_maleUrinary1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_maleUrinary1w", ""))%>></td>
+                                    <%=props.getProperty("p1_maleUrinary1w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formMaleUrinaryStream"/></td>
                         </tr>
                     </table>
@@ -1056,59 +1056,59 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_skin2w" <%=Encode.forHtml(props.getProperty("p1_skin2w", ""))%>></td>
+                                                    name="p1_skin2w" <%=props.getProperty("p1_skin2w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formDrySkin"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_fontanelles2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_fontanelles2w", ""))%>></td>
+                                    <%=props.getProperty("p1_fontanelles2w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFontanelles"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_eyes2w" <%=Encode.forHtml(props.getProperty("p1_eyes2w", ""))%>></td>
+                                                    name="p1_eyes2w" <%=props.getProperty("p1_eyes2w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formRedReflex"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_ears2w" <%=Encode.forHtml(props.getProperty("p1_ears2w", ""))%>></td>
+                                                    name="p1_ears2w" <%=props.getProperty("p1_ears2w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formEarDrums"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_heartLungs2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_heartLungs2w", ""))%>></td>
+                                    <%=props.getProperty("p1_heartLungs2w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHeart"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_umbilicus2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_umbilicus2w", ""))%>></td>
+                                    <%=props.getProperty("p1_umbilicus2w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formUmbilicus"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_femoralPulses2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_femoralPulses2w", ""))%>></td>
+                                    <%=props.getProperty("p1_femoralPulses2w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFemoralPulses"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_hips2w" <%=Encode.forHtml(props.getProperty("p1_hips2w", ""))%>></td>
+                                                    name="p1_hips2w" <%=props.getProperty("p1_hips2w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHips"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_testicles2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_testicles2w", ""))%>></td>
+                                    <%=props.getProperty("p1_testicles2w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formTescicles"/><br>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_maleUrinary2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_maleUrinary2w", ""))%>></td>
+                                    <%=props.getProperty("p1_maleUrinary2w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formMaleUrinaryStream"/></td>
                         </tr>
                     </table>
@@ -1123,34 +1123,34 @@
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_fontanelles1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_fontanelles1m", ""))%>></td>
+                                    <%=props.getProperty("p1_fontanelles1m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFontanelles"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_eyes1m" <%=Encode.forHtml(props.getProperty("p1_eyes1m", ""))%>></td>
+                                                    name="p1_eyes1m" <%=props.getProperty("p1_eyes1m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formRedReflex"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_cover1m" <%=Encode.forHtml(props.getProperty("p1_cover1m", ""))%>></td>
+                                                    name="p1_cover1m" <%=props.getProperty("p1_cover1m", "")%>></td>
                             <td><b><a href="#"
                                       onclick="popup('<%=resource%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnCoverTest"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_hearing1m" <%=Encode.forHtml(props.getProperty("p1_hearing1m", ""))%>>
+                                                    name="p1_hearing1m" <%=props.getProperty("p1_hearing1m", "")%>>
                             </td>
                             <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHearingInquirity"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_heart1m" <%=Encode.forHtml(props.getProperty("p1_heart1m", ""))%>></td>
+                                                    name="p1_heart1m" <%=props.getProperty("p1_heart1m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHeart1"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_hips1m" <%=Encode.forHtml(props.getProperty("p1_hips1m", ""))%>></td>
+                                                    name="p1_hips1m" <%=props.getProperty("p1_hips1m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHips"/></td>
                         </tr>
                     </table>
@@ -1165,34 +1165,34 @@
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_fontanelles2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_fontanelles2m", ""))%>></td>
+                                    <%=props.getProperty("p1_fontanelles2m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formFontanelles"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_eyes2m" <%=Encode.forHtml(props.getProperty("p1_eyes2m", ""))%>></td>
+                                                    name="p1_eyes2m" <%=props.getProperty("p1_eyes2m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formRedReflex"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_cover2m" <%=Encode.forHtml(props.getProperty("p1_cover2m", ""))%>></td>
+                                                    name="p1_cover2m" <%=props.getProperty("p1_cover2m", "")%>></td>
                             <td></i><b><a href="#"
                                           onclick="popup('<%=resource%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnCoverTest"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_hearing2m" <%=Encode.forHtml(props.getProperty("p1_hearing2m", ""))%>>
+                                                    name="p1_hearing2m" <%=props.getProperty("p1_hearing2m", "")%>>
                             </td>
                             <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHearingInquirity"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_heart2m" <%=Encode.forHtml(props.getProperty("p1_heart2m", ""))%>></td>
+                                                    name="p1_heart2m" <%=props.getProperty("p1_heart2m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHeart1"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p1_hips2m" <%=Encode.forHtml(props.getProperty("p1_hips2m", ""))%>></td>
+                                                    name="p1_hips2m" <%=props.getProperty("p1_hips2m", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHips"/></td>
                         </tr>
                     </table>
@@ -1210,13 +1210,13 @@
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_pkuThyroid1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_pkuThyroid1w", ""))%>></td>
+                                    <%=props.getProperty("p1_pkuThyroid1w", "")%>></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formThyroid"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_hemoScreen1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_hemoScreen1w", ""))%>></td>
+                                    <%=props.getProperty("p1_hemoScreen1w", "")%>></td>
                             <td><b><a href="#"
                                       onclick="popup('<%=resource%>pp_hemoglobinopathyScreening');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHemoglobinopathy"/></a> (if at
                                 risk)*</b></td>

@@ -108,7 +108,7 @@
         <input type="text" name="formCreated" value="<%=Encode.forHtmlAttribute(props.getProperty("formCreated",""))%>"/>
         <input type="hidden" name="form_class" value="<%=Encode.forHtmlAttribute(formClass)%>"/>
         <input type="hidden" name="form_link" value="<%=Encode.forHtmlAttribute(formLink)%>"/>
-        <input type="hidden" name="formId" value="<%=Encode.forHtmlAttribute(formId)%>"/>
+        <input type="hidden" name="formId" value="<%=Encode.forHtmlAttribute(String.valueOf(formId))%>"/>
         <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
         <input type="hidden" name="doc_name" value="<%=Encode.forHtmlAttribute(props.getProperty("doc_name", ""))%>"/>
         <input type="hidden" name="cl_name" value="<%= Encode.forHtmlAttribute(props.getProperty("clinicName", "")) %>"/>

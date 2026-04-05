@@ -108,8 +108,8 @@
 <input type="hidden" name="formCreated" value="<%= Encode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
 <input type="hidden" name="form_class" value="<%=Encode.forHtmlAttribute(formClass)%>"/>
 <input type="hidden" name="form_link" value="<%=Encode.forHtmlAttribute(formLink)%>"/>
-<input type="hidden" name="formId" value="<%=Encode.forHtmlAttribute(formId)%>"/>
-<input type="hidden" name="appointmentNo" value="<%=appointmentNo != null ? appointmentNo : ""%>"/>
+<input type="hidden" name="formId" value="<%=Encode.forHtmlAttribute(String.valueOf(formId))%>"/>
+<input type="hidden" name="appointmentNo" value="<%=Encode.forHtmlAttribute(appointmentNo != null ? appointmentNo : "")%>"/>
 
 <table cellpadding="0" cellspacing="0" class="Header" class="hidePrint">
     <tr>
@@ -155,13 +155,13 @@
             <td align="center">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formBirhtRemarks"/><br>
                 <input type="radio" id="p1_birthRemarksr1" name="p1_birthRemarksr1"
-                       onclick="onCheck(this,'p1_birthRemarksr')" <%=Encode.forHtml(props.getProperty("p1_birthRemarksr1", ""))%>>
+                       onclick="onCheck(this,'p1_birthRemarksr')" <%=props.getProperty("p1_birthRemarksr1", "")%>>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formPremature"/>&nbsp;
                 <input type="radio" id="p1_birthRemarksr2" name="p1_birthRemarksr2"
-                       onclick="onCheck(this,'p1_birthRemarksr')" <%=Encode.forHtml(props.getProperty("p1_birthRemarksr2", ""))%>>
+                       onclick="onCheck(this,'p1_birthRemarksr')" <%=props.getProperty("p1_birthRemarksr2", "")%>>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formHighRisk"/>&nbsp;<br>
                 <input type="radio" id="p1_birthRemarksr3" name="p1_birthRemarksr3"
-                       onclick="onCheck(this,'p1_birthRemarksr')"<%=Encode.forHtml(props.getProperty("p1_birthRemarksr3", ""))%>>
+                       onclick="onCheck(this,'p1_birthRemarksr')" <%=props.getProperty("p1_birthRemarksr3", "")%>>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formNoConcerns"/>&nbsp;
             </td>
             <td width="65%" nowrap align="center">
@@ -227,15 +227,15 @@
 
                             <br>
                             <input type="checkbox" class="chk"
-                                   name="p1_2ndhandsmoke" <%=Encode.forHtml(props.getProperty("p1_2ndhandsmoke", ""))%>>
+                                   name="p1_2ndhandsmoke" <%=props.getProperty("p1_2ndhandsmoke", "")%>>
                             <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.form2ndHandSmoke"/>
                             <p>
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formSubstanceabuse"/><br>
                                 <input type="checkbox" class="chk"
-                                       name="p1_alcohol" <%=Encode.forHtml(props.getProperty("p1_alcohol", ""))%>>
+                                       name="p1_alcohol" <%=props.getProperty("p1_alcohol", "")%>>
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formAlcohol"/><br>
                                 <input type="checkbox" class="chk"
-                                       name="p1_drugs" <%=Encode.forHtml(props.getProperty("p1_drugs", ""))%>>
+                                       name="p1_drugs" <%=props.getProperty("p1_drugs", "")%>>
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2009.formDrugs"/>
                             </p>
                         </td>

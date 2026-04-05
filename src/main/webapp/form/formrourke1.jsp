@@ -269,9 +269,9 @@
                value="<%= Encode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
         <input type="hidden" name="form_class" value="<%=Encode.forHtmlAttribute(formClass)%>"/>
         <input type="hidden" name="form_link" value="<%=Encode.forHtmlAttribute(formLink)%>"/>
-        <input type="hidden" name="formId" value="<%=Encode.forHtmlAttribute(formId)%>"/>
+        <input type="hidden" name="formId" value="<%=Encode.forHtmlAttribute(String.valueOf(formId))%>"/>
         <input type="hidden" name="c_lastVisited"
-               value=<%=Encode.forHtml(props.getProperty("c_lastVisited", "1"))%>/>
+               value="<%=Encode.forHtmlAttribute(props.getProperty("c_lastVisited", "1"))%>"/>
         <input type="hidden" name="submit" value="exit"/>
 
         <table class="Header" class="hidePrint">
@@ -430,7 +430,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_breastFeeding1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_breastFeeding1w", ""))%> /></td>
+                                    <%=props.getProperty("p1_breastFeeding1w", "")%> /></td>
                             <td><b><a href="<%=resource%>n_breastFeeding">Breast
                                 feeding</a>*<br>
                                 &nbsp;&nbsp;Vit.D 10ug=400IU/day*</b></td>
@@ -438,14 +438,14 @@
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_formulaFeeding1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_formulaFeeding1w", ""))%> /></td>
+                                    <%=props.getProperty("p1_formulaFeeding1w", "")%> /></td>
                             <td><i>Formula Feeding</i> (Fe fortified) <br>
                                 [150ml = 5oz/kg/day]
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_stoolUrine1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_stoolUrine1w", ""))%> /></td>
+                                    <%=props.getProperty("p1_stoolUrine1w", "")%> /></td>
                             <td>Stool pattern &amp; urine output</td>
                         </tr>
                     </table>
@@ -460,7 +460,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_breastFeeding2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_breastFeeding2w", ""))%>></td>
+                                    <%=props.getProperty("p1_breastFeeding2w", "")%>></td>
                             <td><b><a href="<%=resource%>n_breastFeeding">Breast
                                 feeding</a>*<br>
                                 &nbsp;&nbsp;Vit.D 10ug=400IU/day*</b></td>
@@ -468,14 +468,14 @@
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_formulaFeeding2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_formulaFeeding2w", ""))%>></td>
+                                    <%=props.getProperty("p1_formulaFeeding2w", "")%>></td>
                             <td><i>Formula Feeding</i> (Fe fortified) <br>
                                 [150ml = 5oz/kg/day]
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_stoolUrine2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_stoolUrine2w", ""))%>></td>
+                                    <%=props.getProperty("p1_stoolUrine2w", "")%>></td>
                             <td>Stool pattern &amp; urine output</td>
                         </tr>
                     </table>
@@ -490,7 +490,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_breastFeeding1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_breastFeeding1m", ""))%>></td>
+                                    <%=props.getProperty("p1_breastFeeding1m", "")%>></td>
                             <td><b><a href="<%=resource%>n_breastFeeding">Breast
                                 feeding</a>*<br>
                                 &nbsp;&nbsp;Vit.D 10ug=400IU/day*</b></td>
@@ -498,12 +498,12 @@
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_formulaFeeding1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_formulaFeeding1m", ""))%>></td>
+                                    <%=props.getProperty("p1_formulaFeeding1m", "")%>></td>
                             <td><i>Formula Feeding</i> (Fe fortified)</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_stoolUrine1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_stoolUrine1m", ""))%>></td>
+                                    <%=props.getProperty("p1_stoolUrine1m", "")%>></td>
                             <td>Stool pattern &amp; urine output</td>
                         </tr>
                     </table>
@@ -518,7 +518,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_breastFeeding2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_breastFeeding2m", ""))%>></td>
+                                    <%=props.getProperty("p1_breastFeeding2m", "")%>></td>
                             <td nowrap="true"><b><a
                                     href="<%=resource%>n_breastFeeding">Breast feeding</a>*<br>
                                 &nbsp;&nbsp;Vit.D 10ug=400IU/day*</b></td>
@@ -526,7 +526,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_formulaFeeding2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_formulaFeeding2m", ""))%>></td>
+                                    <%=props.getProperty("p1_formulaFeeding2m", "")%>></td>
                             <td><i>Formula Feeding</i> (Fe fortified)</td>
                         </tr>
                     </table>
@@ -591,13 +591,13 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_carSeat1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_carSeat1w", ""))%>></td>
+                                    <%=props.getProperty("p1_carSeat1w", "")%>></td>
                             <td><b><a href="<%=resource%>s_motorVehicleAccidents">Car
                                 seat (infant)</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_cribSafety1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_cribSafety1w", ""))%>></td>
+                                    <%=props.getProperty("p1_cribSafety1w", "")%>></td>
                             <td>Crib safety</td>
                         </tr>
                         <tr>
@@ -605,55 +605,55 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sleeping1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_sleeping1w", ""))%>></td>
+                                    <%=props.getProperty("p1_sleeping1w", "")%>></td>
                             <td>Sleeping/crying</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sooth1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_sooth1w", ""))%>></td>
+                                    <%=props.getProperty("p1_sooth1w", "")%>></td>
                             <td>Soothability/ responsiveness</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_bonding1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_bonding1w", ""))%>></td>
+                                    <%=props.getProperty("p1_bonding1w", "")%>></td>
                             <td>Parenting/bonding</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_fatigue1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_fatigue1w", ""))%>></td>
+                                    <%=props.getProperty("p1_fatigue1w", "")%>></td>
                             <td>Fatigue/depression</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_family1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_family1w", ""))%>></td>
+                                    <%=props.getProperty("p1_family1w", "")%>></td>
                             <td>Family conflict/stress</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_siblings1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_siblings1w", ""))%>></td>
+                                    <%=props.getProperty("p1_siblings1w", "")%>></td>
                             <td>Siblings</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_homeVisit1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_homeVisit1w", ""))%>></td>
+                                    <%=props.getProperty("p1_homeVisit1w", "")%>></td>
                             <td><b><a href="<%=resource%>hri_homeVisits">Assess
                                 home visit need</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sleepPos1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_sleepPos1w", ""))%>></td>
+                                    <%=props.getProperty("p1_sleepPos1w", "")%>></td>
                             <td><b><a href="<%=resource%>o_sleepPosition">Sleep
                                 position</a>*</b>
                             <td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_temp1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_temp1w", ""))%>></td>
+                                    <%=props.getProperty("p1_temp1w", "")%>></td>
                             <td><i>Temperature control &amp; overdressing</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_smoke1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_smoke1w", ""))%>></td>
+                                    <%=props.getProperty("p1_smoke1w", "")%>></td>
                             <td><b><a href="<%=resource%>o_secondHandSmoke">Second
                                 hand smoke</a>*</b></td>
                         </tr>
@@ -668,13 +668,13 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_carSeat2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_carSeat2w", ""))%>></td>
+                                    <%=props.getProperty("p1_carSeat2w", "")%>></td>
                             <td><b><a href="<%=resource%>s_motorVehicleAccidents">Car
                                 seat (infant)</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_cribSafety2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_cribSafety2w", ""))%>></td>
+                                    <%=props.getProperty("p1_cribSafety2w", "")%>></td>
                             <td>Crib safety</td>
                         </tr>
                         <tr>
@@ -682,54 +682,54 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sleeping2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_sleeping2w", ""))%>></td>
+                                    <%=props.getProperty("p1_sleeping2w", "")%>></td>
                             <td>Sleeping/crying</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sooth2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_sooth2w", ""))%>></td>
+                                    <%=props.getProperty("p1_sooth2w", "")%>></td>
                             <td>Soothability/ responsiveness</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_bonding2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_bonding2w", ""))%>></td>
+                                    <%=props.getProperty("p1_bonding2w", "")%>></td>
                             <td>Parenting/bonding</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_fatigue2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_fatigue2w", ""))%>></td>
+                                    <%=props.getProperty("p1_fatigue2w", "")%>></td>
                             <td>Fatigue/depression</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_family2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_family2w", ""))%>></td>
+                                    <%=props.getProperty("p1_family2w", "")%>></td>
                             <td>Family conflict/stress</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_siblings2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_siblings2w", ""))%>></td>
+                                    <%=props.getProperty("p1_siblings2w", "")%>></td>
                             <td>Siblings</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_homeVisit2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_homeVisit2w", ""))%>></td>
+                                    <%=props.getProperty("p1_homeVisit2w", "")%>></td>
                             <td><b><a href="<%=resource%>hri_homeVisits">Assess
                                 home visit need</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sleepPos2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_sleepPos2w", ""))%>></td>
+                                    <%=props.getProperty("p1_sleepPos2w", "")%>></td>
                             <td><b><a href="<%=resource%>o_sleepPosition">Sleep
                                 position</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_temp2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_temp2w", ""))%>></td>
+                                    <%=props.getProperty("p1_temp2w", "")%>></td>
                             <td><i>Temperature control &amp; overdressing</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_smoke2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_smoke2w", ""))%>></td>
+                                    <%=props.getProperty("p1_smoke2w", "")%>></td>
                             <td><b><a href="<%=resource%>o_secondHandSmoke">Second
                                 hand smoke</a>* </b></td>
                         </tr>
@@ -745,46 +745,46 @@
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_carbonMonoxide1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_carbonMonoxide1m", ""))%>></td>
+                                    <%=props.getProperty("p1_carbonMonoxide1m", "")%>></td>
                             <td>Carbon monoxide/ <i><a href="<%=resource%>s_burns">Smoke
                                 detectors</a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sleepwear1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_sleepwear1m", ""))%>></td>
+                                    <%=props.getProperty("p1_sleepwear1m", "")%>></td>
                             <td><i><a href="<%=resource%>s_burns">Non-inflam.
                                 sleepwear</a></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hotWater1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_hotWater1m", ""))%>></td>
+                                    <%=props.getProperty("p1_hotWater1m", "")%>></td>
                             <td><i><a href="<%=resource%>s_burns">Hot water &lt;
                                 54&deg;C</a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_toys1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_toys1m", ""))%>></td>
+                                    <%=props.getProperty("p1_toys1m", "")%>></td>
                             <td><a href="<%=resource%>s_choking">Choking/safe toys</a>*</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_crying1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_crying1m", ""))%>></td>
+                                    <%=props.getProperty("p1_crying1m", "")%>></td>
                             <td>Sleep/crying</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sooth1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_sooth1m", ""))%>></td>
+                                    <%=props.getProperty("p1_sooth1m", "")%>></td>
                             <td>Soothability/ responsiveness</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_interaction1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_interaction1m", ""))%>></td>
+                                    <%=props.getProperty("p1_interaction1m", "")%>></td>
                             <td>Parent/child interaction</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_supports1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_supports1m", ""))%>></td>
+                                    <%=props.getProperty("p1_supports1m", "")%>></td>
                             <td>Assess supports</td>
                         </tr>
                     </table>
@@ -798,12 +798,12 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_falls2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_falls2m", ""))%>></td>
+                                    <%=props.getProperty("p1_falls2m", "")%>></td>
                             <td><i><a href="<%=resource%>s_falls">Falls</a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_toys2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_toys2m", ""))%>></td>
+                                    <%=props.getProperty("p1_toys2m", "")%>></td>
                             <td><a href="<%=resource%>s_choking">Choking/safe toys</a>*</td>
                         </tr>
                         <tr>
@@ -811,23 +811,23 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_crying2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_crying2m", ""))%>></td>
+                                    <%=props.getProperty("p1_crying2m", "")%>></td>
                             <td>Sleep/crying</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sooth2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_sooth2m", ""))%>></td>
+                                    <%=props.getProperty("p1_sooth2m", "")%>></td>
                             <td>Soothability/ responsiveness</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_interaction2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_interaction2m", ""))%>></td>
+                                    <%=props.getProperty("p1_interaction2m", "")%>></td>
                             <td>Parent/child interaction</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_stress2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_stress2m", ""))%>></td>
+                                    <%=props.getProperty("p1_stress2m", "")%>></td>
                             <td>Depression/family stress</td>
                         </tr>
                         <tr>
@@ -844,7 +844,7 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_fever2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_fever2m", ""))%>></td>
+                                    <%=props.getProperty("p1_fever2m", "")%>></td>
                             <td>Fever control</td>
                         </tr>
                     </table>
@@ -884,23 +884,23 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_focusGaze1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_focusGaze1m", ""))%>></td>
+                                    <%=props.getProperty("p1_focusGaze1m", "")%>></td>
                             <td>Focuses gaze</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_startles1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_startles1m", ""))%>></td>
+                                    <%=props.getProperty("p1_startles1m", "")%>></td>
                             <td>Startles to loud or sudden noise</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sucks1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_sucks1m", ""))%>></td>
+                                    <%=props.getProperty("p1_sucks1m", "")%>></td>
                             <td>Sucks card card-body bg-body-tertiary on nipple</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_noParentsConcerns1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_noParentsConcerns1m", ""))%>></td>
+                                    <%=props.getProperty("p1_noParentsConcerns1m", "")%>></td>
                             <td>No parent concerns</td>
                         </tr>
                     </table>
@@ -915,28 +915,28 @@
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_followMoves2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_followMoves2m", ""))%>></td>
+                                    <%=props.getProperty("p1_followMoves2m", "")%>></td>
                             <td>Follows movement with eyes</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sounds2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_sounds2m", ""))%>></td>
+                                    <%=props.getProperty("p1_sounds2m", "")%>></td>
                             <td>Has a variety of sounds &amp; cries</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_headUp2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_headUp2m", ""))%>></td>
+                                    <%=props.getProperty("p1_headUp2m", "")%>></td>
                             <td>Holds head up when held at adult&#146;s shoulder</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_cuddled2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_cuddled2m", ""))%>></td>
+                                    <%=props.getProperty("p1_cuddled2m", "")%>></td>
                             <td>Enjoys being touched &amp; cuddled</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_noParentConcerns2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_noParentConcerns2m", ""))%>></td>
+                                    <%=props.getProperty("p1_noParentConcerns2m", "")%>></td>
                             <td>No parent concerns</td>
                         </tr>
                     </table>
@@ -958,55 +958,55 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_skin1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_skin1w", ""))%>></td>
+                                    <%=props.getProperty("p1_skin1w", "")%>></td>
                             <td><i>Skin (jaundice, dry)</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_fontanelles1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_fontanelles1w", ""))%>></td>
+                                    <%=props.getProperty("p1_fontanelles1w", "")%>></td>
                             <td>Fontanelles</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_eyes1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_eyes1w", ""))%>></td>
+                                    <%=props.getProperty("p1_eyes1w", "")%>></td>
                             <td><i>Eyes (red reflex)</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_ears1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_ears1w", ""))%>></td>
+                                    <%=props.getProperty("p1_ears1w", "")%>></td>
                             <td><i>Ears (drums)</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_heartLungs1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_heartLungs1w", ""))%>></td>
+                                    <%=props.getProperty("p1_heartLungs1w", "")%>></td>
                             <td>Heart/Lungs</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_umbilicus1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_umbilicus1w", ""))%>></td>
+                                    <%=props.getProperty("p1_umbilicus1w", "")%>></td>
                             <td>Umbilicus</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_femoralPulses1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_femoralPulses1w", ""))%>></td>
+                                    <%=props.getProperty("p1_femoralPulses1w", "")%>></td>
                             <td>Femoral pulses</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hips1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_hips1w", ""))%>></td>
+                                    <%=props.getProperty("p1_hips1w", "")%>></td>
                             <td><b>Hips</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_testicles1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_testicles1w", ""))%>></td>
+                                    <%=props.getProperty("p1_testicles1w", "")%>></td>
                             <td>Testicles</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_maleUrinary1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_maleUrinary1w", ""))%>></td>
+                                    <%=props.getProperty("p1_maleUrinary1w", "")%>></td>
                             <td>Male urinary stream/foreskin care</td>
                         </tr>
                     </table>
@@ -1020,56 +1020,56 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_skin2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_skin2w", ""))%>></td>
+                                    <%=props.getProperty("p1_skin2w", "")%>></td>
                             <td><i>Skin (jaundice, dry)</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_fontanelles2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_fontanelles2w", ""))%>></td>
+                                    <%=props.getProperty("p1_fontanelles2w", "")%>></td>
                             <td>Fontanelles</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_eyes2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_eyes2w", ""))%>></td>
+                                    <%=props.getProperty("p1_eyes2w", "")%>></td>
                             <td><i>Eyes (red reflex)</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_ears2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_ears2w", ""))%>></td>
+                                    <%=props.getProperty("p1_ears2w", "")%>></td>
                             <td><i>Ears (drums)</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_heartLungs2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_heartLungs2w", ""))%>></td>
+                                    <%=props.getProperty("p1_heartLungs2w", "")%>></td>
                             <td>Heart/Lungs</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_umbilicus2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_umbilicus2w", ""))%>></td>
+                                    <%=props.getProperty("p1_umbilicus2w", "")%>></td>
                             <td>Umbilicus</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_femoralPulses2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_femoralPulses2w", ""))%>></td>
+                                    <%=props.getProperty("p1_femoralPulses2w", "")%>></td>
                             <td>Femoral pulses</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hips2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_hips2w", ""))%>></td>
+                                    <%=props.getProperty("p1_hips2w", "")%>></td>
                             <td><b>Hips</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_testicles2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_testicles2w", ""))%>></td>
+                                    <%=props.getProperty("p1_testicles2w", "")%>></td>
                             <td>Testicles<br>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_maleUrinary2w"
-                                    <%=Encode.forHtml(props.getProperty("p1_maleUrinary2w", ""))%>></td>
+                                    <%=props.getProperty("p1_maleUrinary2w", "")%>></td>
                             <td>Male urinary stream/foreskin care</td>
                         </tr>
                     </table>
@@ -1084,33 +1084,33 @@
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_fontanelles1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_fontanelles1m", ""))%>></td>
+                                    <%=props.getProperty("p1_fontanelles1m", "")%>></td>
                             <td>Fontanelles</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_eyes1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_eyes1m", ""))%>></td>
+                                    <%=props.getProperty("p1_eyes1m", "")%>></td>
                             <td><i>Eyes (red reflex)</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_cover1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_cover1m", ""))%>></td>
+                                    <%=props.getProperty("p1_cover1m", "")%>></td>
                             <td><b><a href="<%=resource%>pe_cover">Cover/uncover
                                 test &amp; inquiry</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hearing1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_hearing1m", ""))%>></td>
+                                    <%=props.getProperty("p1_hearing1m", "")%>></td>
                             <td><b>Hearing inquiry</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_heart1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_heart1m", ""))%>></td>
+                                    <%=props.getProperty("p1_heart1m", "")%>></td>
                             <td>Heart</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hips1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_hips1m", ""))%>></td>
+                                    <%=props.getProperty("p1_hips1m", "")%>></td>
                             <td><b>Hips</b></td>
                         </tr>
                     </table>
@@ -1125,33 +1125,33 @@
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_fontanelles2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_fontanelles2m", ""))%>></td>
+                                    <%=props.getProperty("p1_fontanelles2m", "")%>></td>
                             <td>Fontanelles</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_eyes2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_eyes2m", ""))%>></td>
+                                    <%=props.getProperty("p1_eyes2m", "")%>></td>
                             <td><i>Eyes (red reflex)</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_cover2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_cover2m", ""))%>></td>
+                                    <%=props.getProperty("p1_cover2m", "")%>></td>
                             <td></i><b><a href="<%=resource%>pe_cover">Cover/uncover
                                 test &amp; inquiry</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hearing2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_hearing2m", ""))%>></td>
+                                    <%=props.getProperty("p1_hearing2m", "")%>></td>
                             <td><b>Hearing inquiry</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_heart2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_heart2m", ""))%>></td>
+                                    <%=props.getProperty("p1_heart2m", "")%>></td>
                             <td>Heart</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hips2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_hips2m", ""))%>></td>
+                                    <%=props.getProperty("p1_hips2m", "")%>></td>
                             <td><b>Hips</b></td>
                         </tr>
                     </table>
@@ -1168,12 +1168,12 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_pkuThyroid1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_pkuThyroid1w", ""))%>></td>
+                                    <%=props.getProperty("p1_pkuThyroid1w", "")%>></td>
                             <td><b> PKU, Thyroid</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hemoScreen1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_hemoScreen1w", ""))%>></td>
+                                    <%=props.getProperty("p1_hemoScreen1w", "")%>></td>
                             <td><b><a href="<%=resource%>pp_hemoglobinopathyScreening">Hemoglobinopathy
                                 Screen</a> (if at risk)*</b></td>
                         </tr>
@@ -1223,7 +1223,7 @@
                         </tr>
                         <tr>
                             <td><input type="checkbox" name="p1_hepB1w"
-                                    <%=Encode.forHtml(props.getProperty("p1_hepB1w", ""))%>></td>
+                                    <%=props.getProperty("p1_hepB1w", "")%>></td>
                             <td width="100%"><b><a href="<%=resource%>i_hepB">Hep.
                                 B vaccine</a>*</b></td>
                         </tr>
@@ -1251,13 +1251,13 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_immuniz1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_immuniz1m", ""))%>></td>
+                                    <%=props.getProperty("p1_immuniz1m", "")%>></td>
                             <td width="100%">Immunization</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_acetaminophen1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_acetaminophen1m", ""))%>></td>
+                                    <%=props.getProperty("p1_acetaminophen1m", "")%>></td>
                             <td>Acetaminophen</td>
                         </tr>
                         <tr>
@@ -1265,7 +1265,7 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hepB1m"
-                                    <%=Encode.forHtml(props.getProperty("p1_hepB1m", ""))%>></td>
+                                    <%=props.getProperty("p1_hepB1m", "")%>></td>
                             <td><b><a href="<%=resource%>i_hepB">Hep. B vaccine</a>*</b></td>
                         </tr>
                     </table>
@@ -1280,17 +1280,17 @@
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_acetaminophen2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_acetaminophen2m", ""))%>></td>
+                                    <%=props.getProperty("p1_acetaminophen2m", "")%>></td>
                             <td width="100%">Acetaminophen</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hib2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_hib2m", ""))%>></td>
+                                    <%=props.getProperty("p1_hib2m", "")%>></td>
                             <td><b>HIB</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_polio2m"
-                                    <%=Encode.forHtml(props.getProperty("p1_polio2m", ""))%>></td>
+                                    <%=props.getProperty("p1_polio2m", "")%>></td>
                             <td><b> aPDT polio </b></td>
                         </tr>
                     </table>
