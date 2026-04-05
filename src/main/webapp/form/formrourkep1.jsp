@@ -443,7 +443,7 @@
                                                     name="p1_breastFeeding1w"
                                     <%=Encode.forHtmlAttribute(props.getProperty("p1_breastFeeding1w", ""))%> /></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>n_breastFeeding');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBreastFeedingDescr"/></b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute((resource == null ? "" : resource) + "n_breastFeeding")%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBreastFeedingDescr"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
