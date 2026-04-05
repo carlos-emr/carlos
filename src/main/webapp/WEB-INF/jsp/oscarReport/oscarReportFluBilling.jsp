@@ -47,6 +47,7 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptFluReportData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <%@ include file="/taglibs.jsp" %>
@@ -147,19 +148,19 @@
             count = count + 1;
     %>
     <tr>
-        <td><%=demoData.demoName%>
+        <td><%=Encode.forHtml(demoData.demoName)%>
         </td>
-        <td><%=demoData.getDemoDOB()%>
+        <td><%=Encode.forHtml(demoData.getDemoDOB())%>
         </td>
-        <td><%=demoData.getDemoAge()%>
+        <td><%=Encode.forHtml(demoData.getDemoAge())%>
         </td>
-        <td><%=demoData.demoRosterStatus%>
+        <td><%=Encode.forHtml(demoData.demoRosterStatus)%>
         </td>
-        <td><%=demoData.demoPatientStatus%>
+        <td><%=Encode.forHtml(demoData.demoPatientStatus)%>
         </td>
-        <td><%=demoData.getDemoPhone()%>
+        <td><%=Encode.forHtml(demoData.getDemoPhone())%>
         </td>
-        <td><%=demoData.getBillingDate(fluData.years)%>
+        <td><%=Encode.forHtml(demoData.getBillingDate(fluData.years))%>
         </td>
     </tr>
     <%
