@@ -74,7 +74,7 @@
                     bs = billingServiceDao.find(Integer.parseInt(billingservice_no));
                 } else {
                     List<BillingService> bsList = billingServiceDao.findByServiceCode(serviceCode);
-                    if (bsList.size() >= 0) {
+                    if (!bsList.isEmpty()) {
                         bs = bsList.get(0);
                     } else {
                         msg = Encode.forHtml(serviceCode) + " is not updated. Action failed! Try edit it again.";

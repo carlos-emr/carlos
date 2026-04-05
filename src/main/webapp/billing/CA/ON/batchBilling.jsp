@@ -314,7 +314,7 @@
                            name="bill"
                            value="<%=Encode.forHtmlAttribute(service_code + ";" + diagnostic_code + ";" + batchBilling.getDemographicNo() + ";" + batchBilling.getBillingProviderNo())%>">
                 </td>
-                <td><%=Encode.forHtml(demo_name)%></a></td>
+                <td><%=Encode.forHtml(demo_name)%></td>
                 <td><%=Encode.forHtml(proName1)%>
                 </td>
                 <td><%=Encode.forHtml(service_code)%>

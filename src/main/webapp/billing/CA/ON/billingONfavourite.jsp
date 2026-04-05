@@ -71,13 +71,14 @@
                 }
 
                 boolean ni = dbObj.updateBillingFavouriteList(name, list, user_no);
+                String safeName = Encode.forHtml(name);
                 if (ni) {
-                    msg = name + " is updated.<br>"
+                    msg = safeName + " is updated.<br>"
                             + "Type in a name and search first to see if it is available.";
                     action = "search";
                     prop.setProperty("name", name);
                 } else {
-                    msg = name + " is <font color='red'>NOT</font> updated. Action failed! Try edit it again.";
+                    msg = safeName + " is <font color='red'>NOT</font> updated. Action failed! Try edit it again.";
                     action = "edit" + name;
                     prop.setProperty("name", name);
                     for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) {
@@ -90,7 +91,7 @@
                     prop.setProperty("dx2", request.getParameter("dx2"));
                 }
             } else {
-                msg = "You can <font color='red'>NOT</font> save the name - " + name
+                msg = "You can <font color='red'>NOT</font> save the name - " + safeName
                         + ". Please search the name first.";
                 action = "search";
                 prop.setProperty("name", name);
@@ -128,13 +129,14 @@
                 }
 
                 int ni = dbObj.addBillingFavouriteList(name, list, user_no);
+                String safeName = Encode.forHtml(name);
                 if (ni > 0) {
-                    msg = name + " is added.<br>"
+                    msg = safeName + " is added.<br>"
                             + "Type in a name and search first to see if it is available.";
                     action = "search";
                     prop.setProperty("name", name);
                 } else {
-                    msg = name + " is <font color='red'>NOT</font> added. Action failed! Try edit it again.";
+                    msg = safeName + " is <font color='red'>NOT</font> added. Action failed! Try edit it again.";
                     action = "add" + name;
                     prop.setProperty("name", name);
                     for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) {
@@ -147,7 +149,7 @@
                     prop.setProperty("dx2", request.getParameter("dx2"));
                 }
             } else {
-                msg = "You can <font color='red'>NOT</font> save the name - " + name
+                msg = "You can <font color='red'>NOT</font> save the name - " + safeName
                         + ". Please search the name first.";
                 action = "search";
                 prop.setProperty("name", name);
@@ -165,13 +167,14 @@
                 action = "search";
             } else {
                 boolean ni = dbObj.delBillingFavouriteList(name, user_no);
+                String safeName = Encode.forHtml(name);
                 if (ni) {
-                    msg = name + " is deleted.<br>"
+                    msg = safeName + " is deleted.<br>"
                             + "Type in a name and search first to see if it is available.";
                     action = "search";
                     prop.setProperty("name", name);
                 } else {
-                    msg = name + " is <font color='red'>NOT</font> deleted. Action failed! Try edit it again.";
+                    msg = safeName + " is <font color='red'>NOT</font> deleted. Action failed! Try edit it again.";
                     action = "edit" + name;
                     prop.setProperty("name", name);
                 }
