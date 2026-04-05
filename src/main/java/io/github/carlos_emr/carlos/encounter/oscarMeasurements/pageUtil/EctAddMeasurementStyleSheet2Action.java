@@ -75,8 +75,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
 
             if (!saveFile(file, fileName)) {
                 addActionError(getText("errors.fileNotAdded"));
-                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/SetupAddMeasurementStyleSheet.do");
-                return NONE;
+                return INPUT;
             } else {
                 write2Database(fileName);
                 String msg = getText("encounter.oscarMeasurement.msgAddedStyleSheet", fileName);
@@ -91,9 +90,11 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
     }
 
     /**
-     * Save a Jakarta FormFile to a preconfigured place.
+     * Save an uploaded file to the configured measurement CSS upload directory.
      *
-     * @param file
+     * @param file     File the uploaded temporary file from Struts2 file upload interceptor
+     * @param fileName String the original filename of the uploaded file
+     * @return boolean true if the file was saved successfully; false on failure or duplicate
      */
     public boolean saveFile(File file, String fileName) {
         boolean isAdded = true;

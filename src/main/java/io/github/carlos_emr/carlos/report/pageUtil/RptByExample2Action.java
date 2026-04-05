@@ -47,7 +47,6 @@ import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import io.github.carlos_emr.carlos.commn.dao.ReportByExamplesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportByExamples;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -73,8 +72,10 @@ public class RptByExample2Action extends ActionSupport {
             throw new SecurityException("Insufficient Privileges");
         }
 
-        if (request.getSession().getAttribute("user") == null)
+        if (request.getSession().getAttribute("user") == null) {
             response.sendRedirect(request.getContextPath() + "/logout.htm");
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -83,8 +84,7 @@ public class RptByExample2Action extends ActionSupport {
 
         List<SecUserRole> userRoles = secUserRoleDao.findByRoleNameAndProviderNo("admin", providerNo);
         if (userRoles.isEmpty()) {
-            MiscUtils.getLogger().warn("providers " + providerNo + " does not have admin privileges to run query by example");
-            return SUCCESS;
+            throw new SecurityException("missing required admin privileges to run query by example");
         }
 
         RptByExampleQueryBeanHandler hd = new RptByExampleQueryBeanHandler();

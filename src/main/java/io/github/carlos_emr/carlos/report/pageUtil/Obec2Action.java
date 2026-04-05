@@ -39,7 +39,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -71,12 +70,9 @@ public class Obec2Action extends ActionSupport {
       DateUtils dateUtils = new DateUtils();
       EctValidation validation = new EctValidation();
 
-      String startDate = this.getXml_vdate()==null?"":this.getXml_vdate();
-      if (!validation.isDate(startDate)){
-         MiscUtils.getLogger().debug("Invalid date format!");
-         addActionError("errors.invalid");
-         response.sendRedirect(request.getContextPath() + "/oscarReport/obec.do");
-         return NONE;
+      String startDate = this.getXml_vdate();
+      if (startDate == null || startDate.isEmpty() || !validation.isDate(startDate)) {
+         return SUCCESS;
       }
       
       int numDays = this.getNumDays();

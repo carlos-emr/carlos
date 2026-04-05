@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.commn.model.QuickList;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.owasp.encoder.Encode;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -75,7 +76,7 @@ public class dxResearchUpdateQuickList2Action extends ActionSupport {
         }
 
         if (!valid) {
-            response.sendRedirect(contextPath + "/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems.do");
+            response.sendRedirect(contextPath + "/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems.do?quickListName=" + Encode.forUriComponent(quickListName));
             return NONE;
         }
 

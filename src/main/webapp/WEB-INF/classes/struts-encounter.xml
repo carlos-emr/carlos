@@ -605,6 +605,7 @@
         <action name="encounter/oscarMeasurements/AddMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementStyleSheet2Action">
             <interceptor-ref name="defaultStack"/>
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
+            <result name="input">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/AddMeasurementMap" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementMap2Action">
             <result name="continue">/encounter/oscarMeasurements/addMeasurementMap.jsp</result>
