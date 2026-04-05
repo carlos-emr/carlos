@@ -768,6 +768,12 @@
                     'height=700,width=1027,scrollbars=yes,resizable=yes');
                 handled = true;
                 break;
+
+            case 's': // Alt+S: Patient Search
+                window.open(ctx + '/demographic/search.jsp', '',
+                    'height=550,width=687,scrollbars=yes,resizable=yes');
+                handled = true;
+                break;
         }
 
         if (handled) {
@@ -855,6 +861,7 @@
                 '<tr><td><kbd>Alt</kbd>+<kbd>T</kbd></td><td>New Tickler</td></tr>' +
                 '<tr><td><kbd>Alt</kbd>+<kbd>C</kbd></td><td>New Consult Request</td></tr>' +
                 '<tr><td><kbd>Alt</kbd>+<kbd>P</kbd></td><td>Open Prescriptions (Rx)</td></tr>' +
+                '<tr><td><kbd>Alt</kbd>+<kbd>S</kbd></td><td>Patient Search</td></tr>' +
                 '</tbody>' +
                 '</table>' +
                 '<div class="carlos-kb-footer">' +

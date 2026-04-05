@@ -3119,6 +3119,12 @@
                     </td>
                     <td style="padding:5px 0;font-size:.9rem;color:#374151;">Forward 6 months</td>
                 </tr>
+                <tr>
+                    <td style="padding:5px 0;white-space:nowrap;padding-right:16px;font-size:.9rem;color:#374151;">
+                        <kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">Alt</kbd>+<kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">S</kbd>
+                    </td>
+                    <td style="padding:5px 0;font-size:.9rem;color:#374151;">Patient Search</td>
+                </tr>
             </tbody>
         </table>
         <div style="margin-top:14px;padding-top:10px;border-top:1px solid #e5e7eb;
