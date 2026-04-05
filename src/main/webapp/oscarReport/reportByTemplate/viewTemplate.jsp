@@ -34,7 +34,7 @@
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
-<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.*, org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.*, org.apache.commons.text.StringEscapeUtils, org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -92,7 +92,7 @@
         <input type="button" class="btn btn-secondary" value="Back" onclick="javascript: window.history.back();return false;"/>
         <input type="button" class="btn btn-secondary" value="Print" onclick="javascript: window.print();"/>
         <input type="button" class="btn btn-primary" value="Edit"
-               onclick="document.location='addEditTemplate.jsp?templateid=<%=templateid%>&opentext=1'"/>
+               onclick="document.location='addEditTemplate.jsp?templateid=<%=Encode.forJavaScriptAttribute(templateid)%>&opentext=1'"/>
     </div>
 
 </html>

@@ -109,7 +109,7 @@
     <center>
         <table BORDER="1" CELLPADDING="0" CELLSPACING="0" WIDTH="80%">
             <tr BGCOLOR="#CCFFFF">
-                <th><%=reportName%>
+                <th><%=Encode.forHtml(reportName)%>
                 </th>
             </tr>
         </table>
@@ -138,7 +138,7 @@
                 <td align="right" width="20%"><b><input type="checkbox"
                                                         name="<%="filter_" + itemId%>" <%="1".equals(itemId)?"checked":""%>></b>
                 </td>
-                <td><%=strElt[0]%>
+                <td><%=Encode.forHtml(strElt[0])%>
                 </td>
                 <td width="5%" align="right"><input type="hidden"
                                                     name="<%="value_" + itemId%>" value="<%=strElt[1]%>"> <input

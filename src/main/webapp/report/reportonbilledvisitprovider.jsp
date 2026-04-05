@@ -24,6 +24,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.model.security.Secuserrole" %>
 <%@ page import="io.github.carlos_emr.carlos.daos.security.SecuserroleDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     SecuserroleDao secuserroleDao = (SecuserroleDao) SpringUtils.getBean(SecuserroleDao.class);
 %>
@@ -194,11 +195,11 @@
                 }
         %>
         <tr bgcolor="<%=i%2==0?"white":color%>">
-            <td><%= ((Properties) vec.get(i)).getProperty("provider_no", "") %>
+            <td><%= Encode.forHtml(((Properties) vec.get(i)).getProperty("provider_no", "")) %>
             </td>
-            <td><%= ((Properties) vec.get(i)).getProperty("first_name", "") %>
+            <td><%= Encode.forHtml(((Properties) vec.get(i)).getProperty("first_name", "")) %>
             </td>
-            <td><%= ((Properties) vec.get(i)).getProperty("last_name", "") %>
+            <td><%= Encode.forHtml(((Properties) vec.get(i)).getProperty("last_name", "")) %>
             </td>
             <!--td>
               <%= ((Properties)vec.get(i)).getProperty("provider_type", "") %>
@@ -265,14 +266,14 @@
     <tr bgcolor="<%=k%2==0?"white":color%>">
         <form name="mySecform<%=i%>" action="reportonbilledvisitprovider.jsp"
               method="POST">
-            <td><%= oldRoleList.get(i + 3) %>
+            <td><%= Encode.forHtml(oldRoleList.get(i + 3).toString()) %>
             </td>
-            <td><%= oldRoleList.get(i) %>
+            <td><%= Encode.forHtml(oldRoleList.get(i).toString()) %>
             </td>
-            <td><%= oldRoleList.get(i + 1) %>
+            <td><%= Encode.forHtml(oldRoleList.get(i + 1).toString()) %>
             </td>
             <td align="center"><select
-                    name="<%="name" + oldRoleList.get(i + 3)%>">
+                    name="<%="name" + Encode.forHtmlAttribute(oldRoleList.get(i + 3).toString())%>">
                 <%
                     for (int j = 0; j < ROLE.length; j++) {
                 %>
@@ -285,7 +286,7 @@
                 %>
             </select></td>
             <td align="center"><input type="hidden" name="providerId"
-                                      value="<%= oldRoleList.get(i + 3) %>"> <input type="submit"
+                                      value="<%= Encode.forHtmlAttribute(oldRoleList.get(i + 3).toString()) %>"> <input type="submit"
                                                                                     name="buttonUpdate" value="Update">
             </td>
         </form>

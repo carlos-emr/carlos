@@ -176,18 +176,18 @@
             <td align="center"
                 nowrap><%=ConversionUtils.toDateString(rt.getId().getEdb()).replace('-', '/')%>
             </td>
-            <td><%=rt.getDemoName()%>
+            <td><%=Encode.forHtml(rt.getDemoName())%>
             </td>
             <!--td align="center" ><%=rt.getId().getDemographicNo()%> </td-->
-            <td><%=SxmlMisc.getXmlContent(rt.getAddress(), "age")%>
+            <td><%=Encode.forHtml(SxmlMisc.getXmlContent(rt.getAddress(), "age"))%>
             </td>
-            <td><%=SxmlMisc.getXmlContent(rt.getAddress(), "gravida")%>
+            <td><%=Encode.forHtml(SxmlMisc.getXmlContent(rt.getAddress(), "gravida"))%>
             </td>
-            <td><%=SxmlMisc.getXmlContent(rt.getAddress(), "term")%>
+            <td><%=Encode.forHtml(SxmlMisc.getXmlContent(rt.getAddress(), "term"))%>
             </td>
-            <td nowrap><%=SxmlMisc.getXmlContent(rt.getAddress(), "phone")%>
+            <td nowrap><%=Encode.forHtml(SxmlMisc.getXmlContent(rt.getAddress(), "phone"))%>
             </td>
-            <td><%=providerNameBean.getShortDef(rt.getProviderNo(), "", 11)%>
+            <td><%=Encode.forHtml(providerNameBean.getShortDef(rt.getProviderNo(), "", 11))%>
             </td>
         </tr>
         <%

@@ -102,7 +102,7 @@
     <center></center>
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#CCCCFF">
-            <td><%=reportName%> Order</td>
+            <td><%=Encode.forHtml(reportName)%> Order</td>
             <td width="10%" align="right" nowrap><a
                     href="reportFormConfig.jsp?id=<%= Encode.forUriComponent(reportId) %>&tableName=<%=Encode.forUriComponent(tableName)%>">Back
                 to the Configuration</a></td>
