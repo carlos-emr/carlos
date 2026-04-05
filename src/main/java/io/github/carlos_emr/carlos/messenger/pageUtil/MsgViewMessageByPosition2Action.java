@@ -153,7 +153,16 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
         try {
             Query query = em.createNativeQuery(sql);
             query.setParameter("demographic_no", this.demographic_no);
-            query.setFirstResult(Integer.parseInt(this.messagePosition));
+            int firstResult = 0;
+            try {
+                if (this.messagePosition != null) {
+                    firstResult = Integer.parseInt(this.messagePosition);
+                    if (firstResult < 0) firstResult = 0;
+                }
+            } catch (NumberFormatException ignored) {
+                // Invalid position value; default to first result
+            }
+            query.setFirstResult(firstResult);
             query.setMaxResults(1);
             Integer messageIdResult = (Integer) query.getSingleResult();
 

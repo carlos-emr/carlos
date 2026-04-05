@@ -56,6 +56,9 @@ public final class RptReportCreator {
         StringBuilder ret = new StringBuilder();
         String sql = "select * from reportConfig where report_id = ? order by order_no";
         ResultSet rs = DBHelp.searchDBRecord(sql, recordId);
+        if (rs == null) {
+            return ret.toString();
+        }
         while (rs.next()) {
             String caption = DBHelp.getString(rs, "caption");
             ret.append((ret.length() < 8 ? " " : ", ") + DBHelp.getString(rs, "table_name") + "." + DBHelp.getString(rs, "name"));
@@ -72,6 +75,9 @@ public final class RptReportCreator {
         String ret = "  ";
         String sql = "select distinct table_name from reportConfig where report_id = ? order by table_name desc";
         ResultSet rs = DBHelp.searchDBRecord(sql, recordId);
+        if (rs == null) {
+            return ret;
+        }
         if (rs.next()) {
             ret = DBHelp.getString(rs, "table_name");
         }
@@ -85,6 +91,9 @@ public final class RptReportCreator {
         Vector vec = new Vector();
         String sql = "select distinct table_name from reportConfig where report_id = ? order by table_name desc";
         ResultSet rs = DBHelp.searchDBRecord(sql, recordId);
+        if (rs == null) {
+            return ret;
+        }
         while (rs.next()) {
             vec.add(DBHelp.getString(rs, "table_name"));
         }

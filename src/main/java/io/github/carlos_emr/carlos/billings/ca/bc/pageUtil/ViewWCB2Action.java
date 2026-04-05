@@ -40,6 +40,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
@@ -50,8 +51,6 @@ import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
-import io.github.carlos_emr.carlos.util.SqlUtils;
-
 /**
  * <p>Title:ViewWCB2Action </p>
  *
@@ -73,8 +72,12 @@ public class ViewWCB2Action extends ActionSupport {
 
 
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "r", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
         String demoNo = request.getParameter("demographic_no");
         String providerNo = request.getParameter("provNo");
         BillingFormData data = new BillingFormData();
