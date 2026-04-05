@@ -199,7 +199,7 @@
                 <table class="TopStatusBar">
                     <tr>
                         <td>Choose Letter</td>
-                        <td>&nbsp; <a href="${pageContext.request.contextPath}/report/ManageLetters.do">manage</a></td>
+                        <td>&nbsp; <a href="${pageContext.request.contextPath}/report/ViewManageLetters.do">manage</a></td>
                         <td style="text-align: right">
                             <a
                                     href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a

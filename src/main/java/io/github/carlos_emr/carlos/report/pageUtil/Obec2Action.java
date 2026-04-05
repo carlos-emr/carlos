@@ -45,6 +45,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctValidation;
 import io.github.carlos_emr.carlos.report.data.ObecData;
 import io.github.carlos_emr.carlos.util.DateUtils;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -71,7 +72,11 @@ public class Obec2Action extends ActionSupport {
       EctValidation validation = new EctValidation();
 
       String startDate = this.getXml_vdate();
-      if (startDate == null || startDate.isEmpty() || !validation.isDate(startDate)) {
+      if (startDate == null || startDate.isEmpty()) {
+         return SUCCESS;
+      }
+      if (!validation.isDate(startDate)) {
+         MiscUtils.getLogger().debug("Invalid date format submitted to OBEC report: {}", startDate);
          return SUCCESS;
       }
       

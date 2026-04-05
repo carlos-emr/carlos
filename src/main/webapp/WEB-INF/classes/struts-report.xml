@@ -95,6 +95,9 @@
         <action name="report/GenerateLetters" class="io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientLetters2Action">
             <result name="success">/oscarReport/ReportDemographicReport.jsp</result>
         </action>
+        <action name="report/ViewManageLetters" class="io.github.carlos_emr.carlos.report.pageUtil.ViewManageLetters2Action">
+            <result name="success">/WEB-INF/jsp/report/ManageLetters.jsp</result>
+        </action>
         <action name="report/ManageLetters" class="io.github.carlos_emr.carlos.report.pageUtil.ManagePatientLetters2Action">
             <result name="success">/report/GenerateLetters.jsp</result>
             <result name="success_manage_from_prevention">/WEB-INF/jsp/oscarPrevention/PreventionReporting.jsp</result>

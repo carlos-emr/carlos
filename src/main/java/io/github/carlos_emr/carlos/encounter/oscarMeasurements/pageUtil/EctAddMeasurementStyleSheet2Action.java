@@ -145,6 +145,9 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
         } catch (SecurityException e) {
             MiscUtils.getLogger().error("Security error saving file", e);
             isAdded = false;
+        } catch (IllegalArgumentException e) {
+            MiscUtils.getLogger().error("Invalid upload configuration or filename", e);
+            isAdded = false;
         }
 
         return isAdded;

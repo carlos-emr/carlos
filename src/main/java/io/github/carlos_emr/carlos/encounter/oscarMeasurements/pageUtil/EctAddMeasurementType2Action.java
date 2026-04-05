@@ -36,7 +36,6 @@ import java.util.List;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
@@ -52,7 +51,6 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctAddMeasurementType2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
 
 
     private MeasurementTypeDao dao = SpringUtils.getBean(MeasurementTypeDao.class);
@@ -69,10 +67,8 @@ public class EctAddMeasurementType2Action extends ActionSupport {
             String typeDisplayName = this.getTypeDisplayName();
             String measuringInstrc = this.getMeasuringInstrc();
             String validation = this.getValidation();
-            String contextPath = request.getContextPath();
             if (!allInputIsValid(request, type, typeDesc, typeDisplayName, measuringInstrc)) {
-                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/SetupAddMeasurementType.do");
-                return NONE;
+                return "failure";
             }
 
             MeasurementType mt = new MeasurementType();

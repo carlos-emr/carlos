@@ -67,14 +67,14 @@ public class RptByExample2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
-        String roleName$ = request.getSession().getAttribute("userrole") + "," + (String) request.getSession().getAttribute("user");
-        if (!SecurityManager.hasPrivilege("_admin", roleName$) && !SecurityManager.hasPrivilege("_report", roleName$)) {
-            throw new SecurityException("Insufficient Privileges");
-        }
-
         if (request.getSession().getAttribute("user") == null) {
             response.sendRedirect(request.getContextPath() + "/logout.htm");
             return NONE;
+        }
+
+        String roleName$ = request.getSession().getAttribute("userrole") + "," + (String) request.getSession().getAttribute("user");
+        if (!SecurityManager.hasPrivilege("_admin", roleName$) && !SecurityManager.hasPrivilege("_report", roleName$)) {
+            throw new SecurityException("Insufficient Privileges");
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
