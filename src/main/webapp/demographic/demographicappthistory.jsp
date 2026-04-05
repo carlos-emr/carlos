@@ -267,10 +267,14 @@
                         int iRSOffSet = 0;
                         int iPageSize = 10;
                         int iRow = 0;
-                        if (request.getParameter("limit1") != null)
-                            iRSOffSet = Integer.parseInt(request.getParameter("limit1"));
-                        if (request.getParameter("limit2") != null)
-                            iPageSize = Integer.parseInt(request.getParameter("limit2"));
+                        if (request.getParameter("limit1") != null) {
+                            try { iRSOffSet = Integer.parseInt(request.getParameter("limit1")); }
+                            catch (NumberFormatException ignored) { /* keep default */ }
+                        }
+                        if (request.getParameter("limit2") != null) {
+                            try { iPageSize = Integer.parseInt(request.getParameter("limit2")); }
+                            catch (NumberFormatException ignored) { /* keep default */ }
+                        }
                         List<Object> appointmentList;
                         AppointmentManager appointmentManager = SpringUtils.getBean(AppointmentManager.class);
 

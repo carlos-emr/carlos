@@ -103,8 +103,18 @@
         strLimit = request.getParameter("limit2");
     }
 
-    int offset = Integer.parseInt(strOffset);
-    int limit = Integer.parseInt(strLimit);
+    int offset;
+    int limit;
+    try {
+        offset = Integer.parseInt(strOffset);
+    } catch (NumberFormatException e) {
+        offset = 0;
+    }
+    try {
+        limit = Integer.parseInt(strLimit);
+    } catch (NumberFormatException e) {
+        limit = 18;
+    }
 
     String displayMode = request.getParameter("displaymode");
     String dboperation = request.getParameter("dboperation");

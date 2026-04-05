@@ -35,6 +35,10 @@ import static org.mockito.Mockito.*;
 /**
  * Test suite for {@link DemographicPdfLabel2Action}.
  *
+ * <p>Covers security enforcement (null session, missing privilege) for the
+ * PDF label forwarding action, which requires read privilege on
+ * {@code _demographic}.
+ *
  * @since 2026-04-04
  */
 @DisplayName("DemographicPdfLabel2Action Tests")

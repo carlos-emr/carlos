@@ -30,10 +30,13 @@
 
         <global-results>
             <result name="securityError">/securityError.jsp</result>
+            <result name="logout" type="redirect">/logout.jsp</result>
+            <result name="error">/errorpage.jsp</result>
         </global-results>
 
         <global-exception-mappings>
             <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+            <exception-mapping exception="java.lang.Exception" result="error"/>
         </global-exception-mappings>
 
         <action name="admin/MergeRecords" class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action">

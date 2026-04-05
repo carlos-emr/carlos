@@ -35,6 +35,10 @@ import static org.mockito.Mockito.*;
 /**
  * Test suite for {@link DemographicLinkMsg2Action}.
  *
+ * <p>Covers security enforcement (null session, missing privilege) for the
+ * message link forwarding action, which requires read privilege on
+ * {@code _demographic}.
+ *
  * @since 2026-04-04
  */
 @DisplayName("DemographicLinkMsg2Action Tests")

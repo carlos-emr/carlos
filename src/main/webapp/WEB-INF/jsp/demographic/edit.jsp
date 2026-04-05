@@ -2,11 +2,12 @@
     edit.jsp - Patient Demographic Edit Form (Master Page)
 
     Served by DemographicEdit2Action which loads all data into request attributes.
-    This page includes 3 fragments via <jsp:include> to stay under the JVM's
-    64KB bytecode method limit:
+    This page includes 3 data-sharing fragments via <jsp:include> to stay under
+    the JVM's 64KB bytecode method limit (all share attributes set by the action):
       - edit-view.jsp: Read-only demographic display
       - edit-form-personal.jsp: Edit form personal info, address, HIN
       - edit-form-clinical.jsp: Roster, consent, programs, notes
+    A 4th include (zdemographicfulltitlesearch.jsp) is self-contained.
 
     @since 2026-04-04
 --%>

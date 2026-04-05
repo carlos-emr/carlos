@@ -82,7 +82,8 @@
     }
     out.clearBuffer();
     // Struts2 actions (.do) require FORWARD dispatch — the Struts2 filter
-    // does not intercept INCLUDE dispatches (only REQUEST and FORWARD).
+    // does not intercept INCLUDE dispatches (only REQUEST and FORWARD per
+    // the web.xml filter-mapping), so .do targets must use forward() instead of include().
     if (target.endsWith(".do")) {
         if (response.isCommitted()) {
             MiscUtils.getLogger().error("appointmentcontrol.jsp: cannot forward to {} — response already committed", target);
