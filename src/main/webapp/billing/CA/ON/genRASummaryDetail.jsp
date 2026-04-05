@@ -210,8 +210,7 @@
                         plast = prov.getLastName();
                         pfirst = prov.getFirstName();
                 %>
-                <option value="<%=Encode.forHtmlAttribute(pohipno)%>"
-                "selected"><%=Encode.forHtml(plast)%>,<%=Encode.forHtml(pfirst)%></option>
+                <option value="<%=Encode.forHtmlAttribute(pohipno)%>"<%= (proNo != null && proNo.equals(pohipno)) ? " selected=\"selected\"" : "" %>><%=Encode.forHtml(plast)%>,<%=Encode.forHtml(pfirst)%></option>
                 <% } %>
             </select> <input type="submit" name="submit" value="Generate"></form>
         </th>
