@@ -236,7 +236,7 @@
             sop.setPrivilege(privilege);
             sop.setPriority(Integer.parseInt(priority));
             secObjPrivilegeDao.merge(sop);
-            msg = "Role/Obj/Rights " + roleUserGroup + "/" + objectName + "/" + privilege + " is updated. ";
+            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + Encode.forHtml(privilege) + " is updated. ";
             LogAction.addLog(curUser_no, LogConst.UPDATE, LogConst.CON_PRIVILEGE, roleUserGroup + "|" + objectName + "|" + privilege, ip);
         } else {
             msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + privilege + " is <span style='color:red'>NOT</span> updated!!! ";
@@ -451,7 +451,7 @@
             for (int i = 0; i < vec.size(); i++) {
                 bgColor = bgColor.equals("#f5f5f5;") ? color : "#f5f5f5;";
                 String roleUser = (vec.get(i)).getProperty("roleUserGroup", "");
-                String roleUserName = vecProviderNo.contains(roleUser) ? "" + (String) vecProviderName.get(vecProviderNo.indexOf(roleUser)) + "" : roleUser;
+                String roleUserName = vecProviderNo.contains(roleUser) ? Encode.forHtmlContent((String) vecProviderName.get(vecProviderNo.indexOf(roleUser))) : roleUser;
                 String obj = (vec.get(i)).getProperty("objectName", "");
         %>
         <form name="myformrow<%=i%>" action="providerPrivilege.jsp"

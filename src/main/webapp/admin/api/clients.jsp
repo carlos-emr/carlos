@@ -50,6 +50,7 @@
 
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <html>
     <head>
@@ -232,15 +233,15 @@
     <table class="table table-bordered table-striped table-hover table-sm">
         <tr>
             <td>Temporary Credential Request:</td>
-            <td><%=here%>/ws/oauth/initiate</td>
+            <td><%=Encode.forHtml(here)%>/ws/oauth/initiate</td>
         </tr>
         <tr>
             <td>Resource Owner Authorization URI:</td>
-            <td><%=here%>/ws/oauth/authorize</td>
+            <td><%=Encode.forHtml(here)%>/ws/oauth/authorize</td>
         </tr>
         <tr>
             <td>Token Request URI:</td>
-            <td><%=here%>/ws/oauth/token</td>
+            <td><%=Encode.forHtml(here)%>/ws/oauth/token</td>
         </tr>
     </table>
 
