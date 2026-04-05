@@ -55,7 +55,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 
@@ -134,8 +133,8 @@
                 providername = provider.getLastName() + "," + provider.getFirstName();
             }
 
-            first_name = Misc.JSEscape(demo.getFirstName());
-            last_name = Misc.JSEscape(demo.getLastName());
+            first_name = demo.getFirstName() != null ? demo.getFirstName() : "";
+            last_name = demo.getLastName() != null ? demo.getLastName() : "";
             sex = demo.getSex();
             dob_year = Integer.parseInt(demo.getYearOfBirth());
             dob_month = Integer.parseInt(demo.getMonthOfBirth());
@@ -144,7 +143,7 @@
             dob = dob_year + "/" + demo.getMonthOfBirth() + "/" + demo.getDateOfBirth();
 
             if (demo.getChartNo() != null) chart_no = demo.getChartNo();
-            if (demo.getAddress() != null) address = Misc.JSEscape(demo.getAddress());
+            if (demo.getAddress() != null) address = demo.getAddress();
             if (demo.getCity() != null) city = demo.getCity();
             if (demo.getProvince() != null) province = demo.getProvince();
             if (demo.getPostal() != null) postal = demo.getPostal();

@@ -491,7 +491,7 @@
                     </td>
                     <td class="age"><%=Encode.forHtml(demo.getAge() == null ? "" : String.valueOf(demo.getAge()))%>
                     </td>
-                    <td class="rosterStatus"><%=Encode.forHtml(demo.getRosterStatus() == null || demo.getRosterStatus().equals("") ? "&nbsp;" : demo.getRosterStatus())%>
+                    <td class="rosterStatus"><% if (demo.getRosterStatus() == null || demo.getRosterStatus().equals("")) { %>&nbsp;<% } else { %><%=Encode.forHtml(demo.getRosterStatus())%><% } %>
                     </td>
                     <td class="sex"><%=Encode.forHtml(demo.getSex() == null ? "" : demo.getSex())%>
                     </td>

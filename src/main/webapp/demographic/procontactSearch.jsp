@@ -208,7 +208,7 @@
 
         <!-- table width="95%" border="0">
 	<tr>
-		<td align="left">Results based on keyword(s): <%=keyword==null?"":keyword%></td>
+		<td align="left">Results based on keyword(s): <%=Encode.forHtml(keyword == null ? "" : keyword)%></td>
 	</tr>
 </table  -->
 
