@@ -187,13 +187,13 @@
             <tr bgcolor="<%=color%>">
                 <td><font face="Arial, Helvetica, sans-serif"
                           size="2"><%if (Dcode.compareTo(xcodeName) == 0 || Dcode.compareTo(xcodeName1) == 0 || Dcode.compareTo(xcodeName2) == 0) { %>
-                    <input type="checkbox" name="code_<%=Dcode%>" checked> <%} else { %>
-                    <input type="checkbox" name="code_<%=Dcode%>"> <%} %> <%=Dcode%>
+                    <input type="checkbox" name="code_<%=Encode.forHtmlAttribute(Dcode)%>" checked> <%} else { %>
+                    <input type="checkbox" name="code_<%=Encode.forHtmlAttribute(Dcode)%>"> <%} %> <%=Encode.forHtml(Dcode)%>
                 </font></td>
                 <td><font face="Arial, Helvetica, sans-serif" size="2"> <input
-                        type="hidden" name="codedesc_<%=Dcode%>" value="<%=DcodeDesc%>">
-                    <input type="text" name="<%=Dcode%>" value="<%=DcodeDesc%>" size="80">
-                    <input type="submit" name="update" value="update <%=Dcode%>">
+                        type="hidden" name="codedesc_<%=Encode.forHtmlAttribute(Dcode)%>" value="<%=Encode.forHtmlAttribute(DcodeDesc)%>">
+                    <input type="text" name="<%=Encode.forHtmlAttribute(Dcode)%>" value="<%=Encode.forHtmlAttribute(DcodeDesc)%>" size="80">
+                    <input type="submit" name="update" value="update <%=Encode.forHtmlAttribute(Dcode)%>">
                 </font></td>
             </tr>
             <%} %>
@@ -207,7 +207,7 @@
             <script LANGUAGE="JavaScript">
                 <!--
 
-                CodeAttach('<%=Dcode%>', '<%=dx1%>', '<%=dx2%>', '<%=dx3%>');
+                CodeAttach('<%=Encode.forJavaScript(Dcode)%>', '<%=Encode.forJavaScript(dx1)%>', '<%=Encode.forJavaScript(dx2)%>', '<%=Encode.forJavaScript(dx3)%>');
                 -->
 
             </script>
