@@ -598,7 +598,7 @@
                 <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ScheduleManagement"/></h3>
                 <ul>
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/schedule/scheduletemplatesetting.jsp");return false;'
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/schedule/TemplateSetting.do");return false;'
                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleSetting"/></a></li>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.curprovider_only"
                                        rights="r" reverse="<%=true%>">

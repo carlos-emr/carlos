@@ -133,5 +133,51 @@
         <action name="DemographicExtService" class="io.github.carlos_emr.carlos.commn.web.DemographicExtService2Action"/>
         <action name="printReferralLabelAction" class="io.github.carlos_emr.carlos.commn.web.PrintReferralLabel2Action"/>
 
+        <!-- Schedule Management Actions -->
+        <action name="schedule/TemplateSetting"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleTemplateSetting2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduletemplatesetting.jsp</result>
+        </action>
+        <action name="schedule/EditTemplate"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleEditTemplate2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduleedittemplate.jsp</result>
+        </action>
+        <action name="schedule/TemplateCodeSetting"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleTemplateCodeSetting2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduletemplatecodesetting.jsp</result>
+        </action>
+        <action name="schedule/HolidaySetting"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleHolidaySetting2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduleholidaysetting.jsp</result>
+        </action>
+        <action name="schedule/DateSave"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleDateSave2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduledatesave.jsp</result>
+        </action>
+        <action name="schedule/CreateDate"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleCreateDate2Action">
+            <result name="success">/WEB-INF/jsp/schedule/schedulecreatedate.jsp</result>
+        </action>
+        <action name="schedule/TemplateApplying"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleTemplateApplying2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduletemplateapplying.jsp</result>
+        </action>
+        <action name="schedule/FlipView"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleFlipView2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduleflipview.jsp</result>
+        </action>
+        <action name="schedule/DisplayTemplate"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleDisplayTemplate2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduleDisplayTemplate.jsp</result>
+        </action>
+        <action name="schedule/DatePopup"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleDatePopup2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduledatepopup.jsp</result>
+        </action>
+        <action name="schedule/DateFinal"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleDateFinal2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduledatefinal.jsp</result>
+        </action>
+
     </package>
 </struts>

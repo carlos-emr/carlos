@@ -46,10 +46,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleDate" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
 <%
-    if (!"POST".equalsIgnoreCase(request.getMethod())) {
-        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-        return;
-    }
     ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
 %>
 <html>

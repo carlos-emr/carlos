@@ -538,7 +538,7 @@
             }
 
             function goFilpView(s) {
-                self.location.href = "<%= request.getContextPath() %>/schedule/scheduleflipview.jsp?originalpage=<%= request.getContextPath() %>/provider/providercontrol.jsp&startDate=<%=year+"-"+month+"-"+day%>" + "&provider_no=" + s;
+                self.location.href = "<%= request.getContextPath() %>/schedule/FlipView.do?originalpage=<%= request.getContextPath() %>/provider/providercontrol.jsp&startDate=<%=year+"-"+month+"-"+day%>" + "&provider_no=" + s;
             }
 
             function goWeekView(s) {

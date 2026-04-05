@@ -377,7 +377,7 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.schedule" rights="r"
                                    reverse="<%=false%>">
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href="javascript:void(0);" class="xlink" rel="${ctx}/schedule/scheduletemplatesetting.jsp"
+                        <a href="javascript:void(0);" class="xlink" rel="${ctx}/schedule/TemplateSetting.do"
                            title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><i
                                 class="fa-solid fa-calendar fa-4x"></i>
                             <h5><fmt:message key="admin.admin.scheduleSetting"/></h5></a>

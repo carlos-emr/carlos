@@ -67,10 +67,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleHolidayDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%
-    if (!"POST".equalsIgnoreCase(request.getMethod())) {
-        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-        return;
-    }
     ScheduleHolidayDao scheduleHolidayDao = SpringUtils.getBean(ScheduleHolidayDao.class);
 %>
 
@@ -187,7 +183,7 @@
     </head>
     <body bgcolor="ivory" bgproperties="fixed" onLoad="setfocus()"
           topmargin="0" leftmargin="0" rightmargin="0">
-    <form method="post" name="schedule" action="scheduleholidaysetting.jsp"
+    <form method="post" name="schedule" action="schedule/HolidaySetting.do"
           onSubmit="return(checkInput());">
 
         <table border="0" width="100%">
@@ -212,13 +208,13 @@
                     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="95%">
                         <tr>
                             <td width="50%" align="center"><a
-                                    href="scheduleholidaysetting.jsp?year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=-1&bFirstDisp=0">
+                                    href="schedule/HolidaySetting.do?year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=-1&bFirstDisp=0">
                                 &nbsp;&nbsp;<img src="<%= request.getContextPath() %>/images/previous.gif" WIDTH="10" HEIGHT="9"
                                                  BORDER="0"
                                                  ALT='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.btnLastMonthTip"/>'
                                                  vspace="2"> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.btnLastMonth"/>&nbsp;&nbsp; </a>
                                 <b><span CLASS=title><%=year%>-<%=month%></span></b> <a
-                                        href="scheduleholidaysetting.jsp?year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=1&bFirstDisp=0">
+                                        href="schedule/HolidaySetting.do?year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=1&bFirstDisp=0">
                                     &nbsp;&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.btnNextMonth"/> <img
                                         src="<%= request.getContextPath() %>/images/next.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                                         ALT='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleholidaysetting.btnNextMonthTip"/>'

@@ -131,7 +131,7 @@
         <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.msgBookingLimit"/><br>
     </div>
     <div style="text-align: center; background-color: #CCFFCC;">
-        <form name="deletetemplatecode" method="post" action="scheduletemplatecodesetting.jsp">
+        <form name="deletetemplatecode" method="post" action="schedule/TemplateCodeSetting.do">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.formTemplateCode"/>:
             <select name="code">
                 <%
@@ -152,7 +152,7 @@
     </div>
 
     <div class="card card-body bg-body-tertiary">
-        <form name="addtemplatecode" method="post" action="scheduletemplatecodesetting.jsp" class="">
+        <form name="addtemplatecode" method="post" action="schedule/TemplateCodeSetting.do" class="">
             <%
                 boolean bEdit = request.getParameter("dboperation") != null && request.getParameter("dboperation").equals(" Edit ");
                 if (bEdit) {
