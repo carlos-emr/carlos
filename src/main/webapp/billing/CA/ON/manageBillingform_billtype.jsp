@@ -91,7 +91,7 @@
                                  onclick="manageBillType(bill_servicetype.value, billtype_old.value, billtype_new.value);"><br>
             </p>
             <p><input type="button" value="Delete Billing Form"
-                      onclick="onUnbilled('dbManageBillingform_delete.jsp?servicetype=<%=Encode.forJavaScript(type_id)%>');"></p>
+                      onclick="onUnbilled('dbManageBillingform_delete.jsp?servicetype=<%=Encode.forJavaScriptAttribute(type_id)%>');"></p>
             <p><input type="button" value="Cancel"
                       onclick="showManageType(false);"></p>
         </td>
