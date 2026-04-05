@@ -225,9 +225,9 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
         %>
         <tr <%=sel%> >
 
-            <td><%=h.get("clcrrange")%>
+            <td><%=Encode.forHtml(String.valueOf(h.get("clcrrange")))%>
             </td>
-            <td><%=h.get("recommendation")%>
+            <td><%=Encode.forHtml(String.valueOf(h.get("recommendation")))%>
             </td>
         </tr>
         <%}%>
@@ -246,7 +246,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
                     (140 - <%=setNA(ageb, age)%>[age] ) X <%=setNA(weightb, weight)%>
                     <a href="javascript: function myFunction() {return false; }"
                        onclick="popup(500,1000,'<%= request.getContextPath() %>/encounter/oscarMeasurements/SetupMeasurements.do?groupName=Renal Dosing&amp;demographic_no=<%=Encode.forUriComponent(demographicNo)%>','dddsfds'); return false;">
-                        [kg <%=UtilDateUtilities.DateToString(wtDate, "yyyy-MMM-dd")%>]
+                        [kg <%=Encode.forHtml(UtilDateUtilities.DateToString(wtDate, "yyyy-MMM-dd"))%>]
                     </a> X 1.23
 
                 </td>
@@ -258,14 +258,14 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
                 <td align="center" style="border-top: 2px black solid;"><%=setNA(sCrb, sCr)%> sCr
                     <a href="javascript: function myFunction() {return false; }"
                        onclick="popup(500,1000,'<%= request.getContextPath() %>/encounter/oscarMeasurements/SetupMeasurements.do?groupName=Renal Dosing&amp;demographic_no=<%=Encode.forUriComponent(demographicNo)%>','dddsfds'); return false;">
-                        [umol/L <%=UtilDateUtilities.DateToString(sCrDate, "yyyy-MMM-dd")%>]
+                        [umol/L <%=Encode.forHtml(UtilDateUtilities.DateToString(sCrDate, "yyyy-MMM-dd"))%>]
                     </a>
                 </td>
             </tr>
         </table>
     </div>
 
-    <div style="clear:left"><%=rd.getMoreinfo()%>
+    <div style="clear:left"><%=Encode.forHtml(rd.getMoreinfo())%>
     </div>
     <%if (request.getParameter("divId") != null) { %>
     <div style="float:right"><a href="javascript:void(0);" onclick="jQuery('#<%=Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("divId")))%>').toggle();">hide</a>
