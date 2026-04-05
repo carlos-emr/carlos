@@ -81,9 +81,9 @@
     <tr <%=((color) ? "bgcolor=\"#F6F6F6\"" : "")%> align="left"
     valign="top">
     <td class="SmallerText"><a href=#
-    onClick="posttoText('<%=bs.getServiceCode()%>');"><%=bs.getServiceCode()%></a>
+    onClick="posttoText('<%= Encode.forJavaScript(StringUtils.noNull(bs.getServiceCode())) %>');"><%= Encode.forHtml(StringUtils.noNull(bs.getServiceCode())) %></a>
     </td>
-    <td class="SmallerText"><%=bs.getDescription()%></td>
+    <td class="SmallerText"><%= Encode.forHtml(StringUtils.noNull(bs.getDescription())) %></td>
     </tr>
     <%
             color = !(color);

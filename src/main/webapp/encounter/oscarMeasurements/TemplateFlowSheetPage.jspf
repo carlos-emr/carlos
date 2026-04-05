@@ -315,7 +315,7 @@ div.headPrevention p {
         	selectedItemsStr = "&selectedItems=" + encodeURIComponent(selectedItems.join(','));
         }
 
-        var url = 'TemplateFlowSheet.jsp?demographic_no=<%= Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no)) %>&template=<%= Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(temp)) %>';
+        var url = 'TemplateFlowSheet.jsp?demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no))) %>&template=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(temp))) %>';
         if(numEle.length > 0){
         	url = url + '&numEle='+numEle;
         }
@@ -536,10 +536,10 @@ div.recommendations ul{
     <p><a class="DoNotPrint" href="javascript: function myFunction() {return false; }"  onclick="javascript:createAddAll(<%= Encode.forJavaScriptAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no)) %>, '<%= URLEncoder.encode(temp,"UTF-8") %>', <%=Math.abs( "ADDTHEMALL".hashCode() ) %>)" TITLE="Add all measurements.">
 	    <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.addall"/>
 	</a> </p>
-    <p id="add_overdue"><a class="DoNotPrint" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'AddMeasurementData.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no)) %><%=recListBuffer.toString()%>&amp;template=<%= Encode.forJavaScriptAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(temp)) %>','addMeasurementData<%=Math.abs( "ADDTHEMALL".hashCode() ) %>')" TITLE="Add all overdue measurements.">
+    <p id="add_overdue"><a class="DoNotPrint" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'AddMeasurementData.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no))) %><%=recListBuffer.toString()%>&amp;template=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(temp))) %>','addMeasurementData<%=Math.abs( "ADDTHEMALL".hashCode() ) %>')" TITLE="Add all overdue measurements.">
         <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.addoverdue"/>
     </a></p>
-    <p id="add_custom" style="display:none"><a class="DoNotPrint" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'AddMeasurementData.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no)) %>&amp;measurement=WT&amp;measurement=HT&amp;measurement=BMI&amp;template=<%= Encode.forJavaScriptAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(temp)) %>','addMeasurementData<%=Math.abs( "ADDTHEMALL".hashCode() ) %>')" TITLE="Add HT & WT to calculate BMI.">
+    <p id="add_custom" style="display:none"><a class="DoNotPrint" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'AddMeasurementData.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no))) %>&amp;measurement=WT&amp;measurement=HT&amp;measurement=BMI&amp;template=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(temp))) %>','addMeasurementData<%=Math.abs( "ADDTHEMALL".hashCode() ) %>')" TITLE="Add HT & WT to calculate BMI.">
         Add BMI
     </a></p>
     <%}%>
@@ -755,7 +755,7 @@ div.recommendations ul{
         <input type="checkbox" name="selected_item" value="<%= h.get("name")%>"/>
             <%if(h2.get("graphable") != null && ((String) h2.get("graphable")).equals("yes")){%>
             <%if (alist != null && alist.size() > 1) { %>
-               <img class="DoNotPrint" src="img/chart.gif" alt="Plot"  onclick="window.open('${ pageContext.request.contextPath }/encounter/GraphMeasurements.do?demographic_no=<%= Encode.forJavaScriptAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no)) %>&type=<%= Encode.forJavaScriptAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(measure)) %>');"/>
+               <img class="DoNotPrint" src="img/chart.gif" alt="Plot"  onclick="window.open('${ pageContext.request.contextPath }/encounter/GraphMeasurements.do?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no))) %>&type=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(measure))) %>');"/>
             <%}else{%>
                <img class="DoNotPrint" src="img/chart.gif" alt="Plot"/>
             <%}%>

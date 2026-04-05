@@ -330,7 +330,7 @@
                 Private Code_ <small>(e.g. O001A)</small><br>
                 <div class="input-group">
                     <input type="text" name="service_code"
-                           value="<%=prop.getProperty("service_code", "?").substring(1)%>" class="col-md-2" maxlength='10'
+                           value="<%= Encode.forHtmlAttribute(prop.getProperty("service_code", "?").substring(1)) %>" class="col-md-2" maxlength='10'
                            onblur="upCaseCtrl(this)" required/>
                     <button type="submit" name="submit" class="btn btn-primary" onclick="javascript:return onSearch();"
                             value="Search">Search

@@ -64,7 +64,7 @@
 <div>
     <div>
         <label> WCB Forms available to attach.</label> <a
-            onclick="popup(700,960,'viewformwcb.do?demographic_no=<%= Encode.forJavaScriptAttribute(StringUtils.noNull(demographicNo)) %>&formId=0&provNo=999998&parentAjaxId=forms&hideToBill=true','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(demographicNo)) %>NEWWCB'); return false;"
+            onclick="popup(700,960,'viewformwcb.do?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demographicNo))) %>&formId=0&provNo=999998&parentAjaxId=forms&hideToBill=true','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(demographicNo)) %>NEWWCB'); return false;"
             href="javascript:void(0);">New WCB Form</a> <br>
     </div>
     <table class="table table-striped table-sm">
@@ -89,7 +89,7 @@
                    onclick="checkifSet('<%=wcb.getW_icd9()%>','<%= wcb.getW_feeitem()%>','<%= wcb.getW_extrafeeitem()%>');">Populate</a>
             </td>
             <td align="middle">
-                <a onclick="popup(700,960,'viewformwcb.do?demographic_no=<%= Encode.forJavaScriptAttribute(StringUtils.noNull(demographicNo)) %>&formId=<%=wcb.getId()%>&provNo=<%=session.getAttribute("user")%>&parentAjaxId=forms&billingcode=<%= Encode.forJavaScriptAttribute(StringUtils.noNull(billingcode)) %>&hideToBill=true','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(demographicNo)) %>NEWWCB'); return false;"
+                <a onclick="popup(700,960,'viewformwcb.do?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demographicNo))) %>&formId=<%=wcb.getId()%>&provNo=<%=session.getAttribute("user")%>&parentAjaxId=forms&billingcode=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(billingcode))) %>&hideToBill=true','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(demographicNo)) %>NEWWCB'); return false;"
                    href="javascript:void(0);"><fmt:formatDate pattern="yyyy-MM-dd" value="${wcb.w_doi}"/></a>
 
             </td>

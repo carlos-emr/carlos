@@ -80,7 +80,7 @@
             String cost = bss.get(0).getValue(); %>
     <script LANGUAGE="JavaScript">
         <!--
-        CodeAttach('<%=cost%>');
+        CodeAttach('<%= Encode.forJavaScript(StringUtils.noNull(cost)) %>');
         -->
     </script>
     <%} else {%>

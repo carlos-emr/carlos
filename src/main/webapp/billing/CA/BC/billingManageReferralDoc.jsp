@@ -145,59 +145,19 @@
             <tr>
                 <!--td><%=billingReferral.getBillingreferralNo()%></td-->
                 <td>
-                    <a href="<%=request.getContextPath() %>/billing/CA/BC/billingAddReferralDoc.jsp?id=<%=billingReferral.getBillingreferralNo()%>"
-                       class="contentLink"><%=billingReferral.getReferralNo()%>
+                    <a href="<%=request.getContextPath() %>/billing/CA/BC/billingAddReferralDoc.jsp?id=<%= Encode.forUriComponent(String.valueOf(billingReferral.getBillingreferralNo())) %>"
+                       class="contentLink"><%= Encode.forHtml(StringUtils.noNull(billingReferral.getReferralNo())) %>
                     </a></td>
-                <td><%
-                    if (billingReferral.getLastName() != null) {
-                        out.print(billingReferral.getLastName());
-                    }
-                %></td>
-                <td><%
-                    if (billingReferral.getFirstName() != null) {
-                        out.print(billingReferral.getFirstName());
-                    }
-                %></td>
-                <td><%
-                    if (billingReferral.getSpecialty() != null) {
-                        out.print(billingReferral.getSpecialty());
-                    }
-                %></td>
-                <td><%
-                    if (billingReferral.getAddress1() != null) {
-                        out.print(billingReferral.getAddress1());
-                    }
-                %></td>
-                <td><%
-                    if (billingReferral.getAddress2() != null) {
-                        out.print(billingReferral.getAddress2());
-                    }
-                %></td>
-                <td><%
-                    if (billingReferral.getCity() != null) {
-                        out.print(billingReferral.getCity());
-                    }
-                %></td>
-                <td><%
-                    if (billingReferral.getProvince() != null) {
-                        out.print(billingReferral.getProvince());
-                    }
-                %></td>
-                <td><%
-                    if (billingReferral.getPostal() != null) {
-                        out.print(billingReferral.getPostal());
-                    }
-                %></td>
-                <td><%
-                    if (billingReferral.getPhone() != null) {
-                        out.print(billingReferral.getPhone());
-                    }
-                %></td>
-                <td><%
-                    if (billingReferral.getFax() != null) {
-                        out.print(billingReferral.getFax());
-                    }
-                %></td>
+                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getLastName())) %></td>
+                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getFirstName())) %></td>
+                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getSpecialty())) %></td>
+                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getAddress1())) %></td>
+                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getAddress2())) %></td>
+                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getCity())) %></td>
+                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getProvince())) %></td>
+                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getPostal())) %></td>
+                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getPhone())) %></td>
+                <td><%= Encode.forHtml(StringUtils.noNull(billingReferral.getFax())) %></td>
             </tr>
             <%}%>
             </tbody>

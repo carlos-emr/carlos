@@ -1370,7 +1370,7 @@
                                                    style="font-size:small;">show/hide</a></h3>
         <div class="wrapper" id="dxFullListing">
             <jsp:include page="/oscarResearch/oscarDxResearch/currentCodeList.jsp">
-                <jsp:param name="demographicNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(demo_no)) %>"/>
+                <jsp:param name="demographicNo" value="<%= StringUtils.noNull(demo_no) %>"/>
             </jsp:include>
         </div>
     </div>
@@ -1386,7 +1386,7 @@
             <input type="hidden" name="forwardTo" value="codeList"/>
             <div class="wrapper" id="dxListing">
                 <jsp:include page="/oscarResearch/oscarDxResearch/quickCodeList.jsp">
-                    <jsp:param name="demographicNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(demo_no)) %>"/>
+                    <jsp:param name="demographicNo" value="<%= StringUtils.noNull(demo_no) %>"/>
                 </jsp:include>
             </div>
             <input type="button" value="Add To Disease Registry" class="btn btn-secondary" onclick="addToDiseaseRegistry()"/>

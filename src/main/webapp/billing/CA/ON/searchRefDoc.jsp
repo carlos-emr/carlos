@@ -53,6 +53,43 @@
     String tophone = request.getParameter("tophone") == null ? "" : request.getParameter("tophone");
     String tofax = request.getParameter("tofax") == null ? "" : request.getParameter("tofax");
     String keyword = request.getParameter("keyword");
+
+    // Safely extract element names from full JS path expressions like
+    // "document.forms[0].elements['fieldname'].value" passed by callers (e.g. billingON.jsp)
+    java.util.regex.Pattern pathPattern = java.util.regex.Pattern.compile(
+        "^document\\.forms\\[0\\]\\.elements\\['([a-zA-Z0-9_]+)'\\]\\.value$");
+    java.util.regex.Matcher pathMatcher;
+
+    String paramField = null;
+    if (!param.isEmpty()) {
+        pathMatcher = pathPattern.matcher(param);
+        if (pathMatcher.matches()) paramField = pathMatcher.group(1);
+    }
+    String param2Field = null;
+    if (!param2.isEmpty()) {
+        pathMatcher = pathPattern.matcher(param2);
+        if (pathMatcher.matches()) param2Field = pathMatcher.group(1);
+    }
+    String tonameField = null;
+    if (!toname.isEmpty()) {
+        pathMatcher = pathPattern.matcher(toname);
+        if (pathMatcher.matches()) tonameField = pathMatcher.group(1);
+    }
+    String toaddress1Field = null;
+    if (!toaddress1.isEmpty()) {
+        pathMatcher = pathPattern.matcher(toaddress1);
+        if (pathMatcher.matches()) toaddress1Field = pathMatcher.group(1);
+    }
+    String tophoneField = null;
+    if (!tophone.isEmpty()) {
+        pathMatcher = pathPattern.matcher(tophone);
+        if (pathMatcher.matches()) tophoneField = pathMatcher.group(1);
+    }
+    String tofaxField = null;
+    if (!tofax.isEmpty()) {
+        pathMatcher = pathPattern.matcher(tofax);
+        if (pathMatcher.matches()) tofaxField = pathMatcher.group(1);
+    }
     List<ProfessionalSpecialist> professionalSpecialists = null;
 
     if (request.getParameter("submit") != null && (request.getParameter("submit").equals("Search")
@@ -122,18 +159,18 @@
         <!-- DataTables 1.13.4 -->
 
         <script>
-            <%if(param.length()>0) {%>
+            <%if(paramField != null) {%>
 
             function typeInData1(data) {
                 self.close();
-                opener["<%= Encode.forJavaScript(StringUtils.noNull(param)) %>"] = data;
+                opener.document.forms[0].elements["<%= Encode.forJavaScript(paramField) %>"].value = data;
             }
 
-            <%if(param2.length()>0) {%>
+            <%if(param2Field != null) {%>
 
             function typeInData2(data1, data2) {
-                opener["<%= Encode.forJavaScript(StringUtils.noNull(param)) %>"] = data1;
-                opener["<%= Encode.forJavaScript(StringUtils.noNull(param2)) %>"] = data2;
+                opener.document.forms[0].elements["<%= Encode.forJavaScript(paramField) %>"].value = data1;
+                opener.document.forms[0].elements["<%= Encode.forJavaScript(param2Field) %>"].value = data2;
                 self.close();
             }
 
@@ -141,20 +178,20 @@
 
             function typeInData3(billno, toname, toaddress, tophone, tofax) {
                 self.close();
-                <%if( param.length() > 0 ) {%>
-                opener["<%= Encode.forJavaScript(StringUtils.noNull(param)) %>"] = billno;
+                <%if(paramField != null) {%>
+                opener.document.forms[0].elements["<%= Encode.forJavaScript(paramField) %>"].value = billno;
                 <%}
-                  if( toname.length() > 0 ) {%>
-                opener["<%= Encode.forJavaScript(StringUtils.noNull(toname)) %>"] = toname;
+                  if(tonameField != null) {%>
+                opener.document.forms[0].elements["<%= Encode.forJavaScript(tonameField) %>"].value = toname;
                 <%}
-                  if( toaddress1.length() > 0 ) {%>
-                opener["<%= Encode.forJavaScript(StringUtils.noNull(toaddress1)) %>"] = toaddress;
+                  if(toaddress1Field != null) {%>
+                opener.document.forms[0].elements["<%= Encode.forJavaScript(toaddress1Field) %>"].value = toaddress;
                 <%}
-                  if( tophone.length() > 0 ) {%>
-                opener["<%= Encode.forJavaScript(StringUtils.noNull(tophone)) %>"] = tophone;
+                  if(tophoneField != null) {%>
+                opener.document.forms[0].elements["<%= Encode.forJavaScript(tophoneField) %>"].value = tophone;
                 <%}
-                  if( tofax.length() > 0 ) {%>
-                opener["<%= Encode.forJavaScript(StringUtils.noNull(tofax)) %>"] = tofax;
+                  if(tofaxField != null) {%>
+                opener.document.forms[0].elements["<%= Encode.forJavaScript(tofaxField) %>"].value = tofax;
                 <%}%>
             }
         </script>
@@ -171,7 +208,7 @@
         </script>
     </head>
     <body>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></h3>&nbsp;<%=keyword == null ? "" : keyword %>&nbsp;<input
+    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></h3>&nbsp;<%= Encode.forHtml(keyword == null ? "" : keyword) %>&nbsp;<input
             type="button" class="btn-link" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formAllProviders"/>"
             onclick="location = location.href.replace(/(\?|\&)(keyword)([^&]*)/, '').replace(/(\?|\&)(submit)([^&]*)/, '');">
     <div class="container-fluid">

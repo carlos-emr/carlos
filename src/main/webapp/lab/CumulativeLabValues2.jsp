@@ -122,7 +122,7 @@
                 alert("calling addLabToProfile");
                 var url = "<%= request.getContextPath() %>/lab/DisplayLabValue.jsp";
                 var ran_number = Math.round(Math.random() * 1000000);
-                var params = "demographicNo=<%= Encode.forJavaScript(StringUtils.noNull(demographic_no)) %>&rand=" + ran_number + "&labType=" + labType + "&testName=" + testName;  //hack to get around ie caching the page
+                var params = "demographicNo=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(demographic_no))) %>&rand=" + ran_number + "&labType=" + encodeURIComponent(labType) + "&testName=" + encodeURIComponent(testName);  //hack to get around ie caching the page
                 alert(params);
                 CarlosAjax.updater('dd', url + '?' + params, {
                     method: 'GET',
@@ -145,7 +145,7 @@
 
                 var url = "<%= request.getContextPath() %>/lab/DisplayLabValue.jsp";
                 var ran_number = Math.round(Math.random() * 1000000);
-                var params = "demographicNo=<%= Encode.forJavaScript(StringUtils.noNull(demographic_no)) %>&rand=" + ran_number + "&labType=" + labType + "&testName=" + testName;  //hack to get around ie caching the page
+                var params = "demographicNo=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(demographic_no))) %>&rand=" + ran_number + "&labType=" + encodeURIComponent(labType) + "&testName=" + encodeURIComponent(testName);  //hack to get around ie caching the page
                 CarlosAjax.updater(newNode, url + '?' + params, {
                     method: 'GET',
                     evalScripts: true
