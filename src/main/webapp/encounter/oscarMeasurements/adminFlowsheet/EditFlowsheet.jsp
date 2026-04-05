@@ -210,6 +210,13 @@
     }
 
     String flowsheet = temp;
+    String displayNameValue = (String) request.getAttribute("displayName");
+    if (displayNameValue == null || displayNameValue.isEmpty()) {
+        displayNameValue = request.getParameter("displayName");
+    }
+    if (displayNameValue == null) displayNameValue = "";
+    String encodedDisplayNameForUri = Encode.forUriComponent(displayNameValue);
+    String encodedDisplayNameForJsUri = Encode.forJavaScript(Encode.forUriComponent(displayNameValue));
     String demographic = request.getParameter("demographic");
     String scope = request.getParameter("scope");
     MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
@@ -387,7 +394,7 @@
                     String flowsheetPath = "encounter/oscarMeasurements/TemplateFlowSheet.jsp";
             %>
 
-            <a href="<%= request.getContextPath() %>/<%=flowsheetPath%>?demographic_no=<%= Encode.forUriComponent(demographic) %>&template=<%=flowsheet%><%=tracker%>"
+            <a href="<%= request.getContextPath() %>/<%=flowsheetPath%>?demographic_no=<%= Encode.forUriComponent(demographic) %>&template=<%=Encode.forUriComponent(flowsheet)%><%=tracker%>"
                class="btn btn-sm" title="go back to <%=Encode.forHtmlAttribute(flowsheet)%> flowsheet"><i class="fa-solid fa-backward"></i></a>
 
             <%}%>
@@ -400,24 +407,24 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 							Patient
 						<security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w">
                             | <a href="EditFlowsheet.jsp?flowsheet=<%=Encode.forUriComponent(flowsheet)%>">Your Patients</a>
-							| <a href="EditFlowsheet.jsp?flowsheet=<%=flowsheet%>&scope=clinic&displayName=${requestScope.displayName ? requestScope.displayName : param.displayName}">All Patients</a>
+							| <a href="EditFlowsheet.jsp?flowsheet=<%=Encode.forUriComponent(flowsheet)%>&scope=clinic&displayName=<%=encodedDisplayNameForUri%>">All Patients</a>
                         </security:oscarSec>
 
 		            <%} else {%>
 						<security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w">
-							<a href="#" onclick="editFlowsheetByDemographic('<%=flowsheet%>')">Patient</a>
+							<a href="#" onclick="editFlowsheetByDemographic('<%=Encode.forJavaScript(flowsheet)%>')">Patient</a>
 						</security:oscarSec>
 							| Your Patients
 						<security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w">
-							| <a href="EditFlowsheet.jsp?flowsheet=<%=flowsheet%>&scope=clinic&displayName=${requestScope.displayName ? requestScope.displayName : param.displayName}">All Patients</a>
+							| <a href="EditFlowsheet.jsp?flowsheet=<%=Encode.forUriComponent(flowsheet)%>&scope=clinic&displayName=<%=encodedDisplayNameForUri%>">All Patients</a>
                         </security:oscarSec>
 		            <%
                         }
                     } else {
                     %>
 						<security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w">
-							<a href="#" onclick="editFlowsheetByDemographic('<%=flowsheet%>')">Patient</a>
-							| <a href="EditFlowsheet.jsp?flowsheet=<%=flowsheet%>&displayName=${requestScope.displayName ? requestScope.displayName : param.displayName}">Your Patients</a>
+							<a href="#" onclick="editFlowsheetByDemographic('<%=Encode.forJavaScript(flowsheet)%>')">Patient</a>
+							| <a href="EditFlowsheet.jsp?flowsheet=<%=Encode.forUriComponent(flowsheet)%>&displayName=<%=encodedDisplayNameForUri%>">Your Patients</a>
 						</security:oscarSec>
 							| All Patients
 			<% } %>
@@ -866,7 +873,7 @@ function editFlowsheetByDemographic(flowsheet) {
 	const demographicNo = prompt("Enter demographic no:");
 
 	if (demographicNo && !isNaN(demographicNo) && demographicNo.trim() !== "") {
-		window.location.href = "EditFlowsheet.jsp?flowsheet=" + flowsheet + "&demographic=" + encodeURIComponent(demographicNo) + "&displayName=${requestScope.displayName ? requestScope.displayName : param.displayName}";
+		window.location.href = "EditFlowsheet.jsp?flowsheet=" + encodeURIComponent(flowsheet) + "&demographic=" + encodeURIComponent(demographicNo) + "&displayName=<%=encodedDisplayNameForJsUri%>";
 	} else {
 		alert("Invalid demographic number. Please enter a valid number.");
 	}

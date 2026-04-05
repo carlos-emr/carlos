@@ -73,7 +73,7 @@
                     chgRefused(false);
                     setCurrent(frm.givenYear, frm.givenMonth, frm.givenDay);
                     if (frm.provider.value < 1) {
-                        frm.provider.value = <%=Encode.forJavaScript(bean.providerNo)%>;
+                        frm.provider.value = "<%=Encode.forJavaScript(bean.providerNo)%>";
                     }
 
                     frm.lot.focus();
@@ -181,31 +181,11 @@
 
         function loadPage() {
             var frm = window.opener.document.forms[0];
-            var vGivenDate = (frm
-        .<%=Encode.forJavaScript(node + "_givenDate")%>.
-            value
-        )
-            ;
-            var vLot = (frm
-        .<%=Encode.forJavaScript(node + "_lot")%>.
-            value
-        )
-            ;
-            var vProvider = (frm
-        .<%=Encode.forJavaScript(node + "_provider")%>.
-            value
-        )
-            ;
-            var vRefusedDate = (frm
-        .<%=Encode.forJavaScript(node + "_refusedDate")%>.
-            value
-        )
-            ;
-            var vComments = (frm
-        .<%=Encode.forJavaScript(node + "_comments")%>.
-            value
-        )
-            ;
+            var vGivenDate = frm['<%=Encode.forJavaScript(node + "_givenDate")%>'].value;
+            var vLot = frm['<%=Encode.forJavaScript(node + "_lot")%>'].value;
+            var vProvider = frm['<%=Encode.forJavaScript(node + "_provider")%>'].value;
+            var vRefusedDate = frm['<%=Encode.forJavaScript(node + "_refusedDate")%>'].value;
+            var vComments = frm['<%=Encode.forJavaScript(node + "_comments")%>'].value;
             var editFrm = document.forms[0];
 
             if (vGivenDate.length > 0) {

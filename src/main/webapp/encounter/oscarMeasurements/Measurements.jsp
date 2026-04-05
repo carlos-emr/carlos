@@ -157,7 +157,9 @@
                         
                         if (data.errors && data.errors.length > 0) {
                             for (let x = 0; x < data.errors.length; x++) {
-                                errorsList.insertAdjacentHTML('beforeend', data.errors[x]);
+                                const li = document.createElement('li');
+                                li.textContent = data.errors[x];
+                                errorsList.appendChild(li);
                             }
                             errorDiv.style.display = 'block';
                             // Scroll to top to show validation errors

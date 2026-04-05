@@ -484,7 +484,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
             <div class="module-block DoNotPrint">
                 <%if (!printView) {%>
                 <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>"
-                   title="go back to <%=Encode.forHtmlAttribute(temp)%>">&lt;&lt; <%=flowSheet%>
+                   title="go back to <%=Encode.forHtmlAttribute(temp)%>">&lt;&lt; <%=Encode.forHtml(flowSheet)%>
                 </a> <br/>
                 <a href="JavaScript:void(0);" class="back" title="go back to <%=Encode.forHtmlAttribute(flowSheet)%>"></a>
 
@@ -809,7 +809,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <div class="preventionProcedure" <%=hider%>
                          onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/oscarPrevention/AddPreventionData.jsp?id=<%=hdata.get("id")%>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no)) %>','addPreventionData')">
                         <p <%=r(hdata.get("refused"))%>
-                                title="fade=[on] header=[<%=hdata.get("age")%> -- Date:<%=hdata.get("prevention_date")%>] body=[<%=com%>]">
+                                title="fade=[on] header=[<%=Encode.forHtmlAttribute(String.valueOf(hdata.get("age")))%> -- Date:<%=Encode.forHtmlAttribute(String.valueOf(hdata.get("prevention_date")))%>] body=[<%=Encode.forHtmlAttribute(com)%>]">
                             Age: <%=Encode.forHtml((String)hdata.get("age"))%> <br/>
                             <!--<%=refused(hdata.get("refused"))%>-->Date: <%=Encode.forHtml((String)hdata.get("prevention_date"))%>
                             <%if (comb) {%>
@@ -844,7 +844,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                         <input type="checkbox" name="printHP" id="printHP<%=Encode.forHtmlAttribute(fsd.getAtcCode())%>" class="css-checkbox"
                                value="<%=Encode.forHtmlAttribute(fsd.getAtcCode())%>"/>
-                        <label for="printHP<%=measure%>" name="printHP<%=measure%>" class="css-label"></label>
+                        <label for="printHP<%=Encode.forHtmlAttribute(fsd.getAtcCode())%>" name="printHP<%=Encode.forHtmlAttribute(fsd.getAtcCode())%>" class="css-label"></label>
                         <!--needed for chkbox effect-->
 
 
