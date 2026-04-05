@@ -32,8 +32,8 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%
-    // Security check is handled by BillingShortcutPg2Save2Action before forwarding here.
-    // "Back to Edit" routing is also handled by the action (returns "backToEdit").
+    // Security check and "Back to Edit" routing are handled by BillingShortcutPg2Save2Action
+    // before forwarding here. This JSP should never be accessed directly.
     String user_no = (String) session.getAttribute("user");
     String providerview = request.getParameter("providerview") == null
             ? ""
@@ -69,9 +69,6 @@
     BillingDetailDao billingDetailDao = SpringUtils.getBean(BillingDetailDao.class);
 %>
 
-<%
-    // "Back to Edit" is handled by BillingShortcutPg2Save2Action before this JSP is reached.
-%>
 <%
     String clinicview = oscarVariables.getProperty("clinic_view", "");
     String clinicNo = oscarVariables.getProperty("clinic_no", "");

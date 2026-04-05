@@ -32,6 +32,7 @@ import io.github.carlos_emr.BillingDataBean;
 import io.github.carlos_emr.BillingItemBean;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
+import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingSessionUtils;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.RecycleBinDao;
@@ -80,11 +81,7 @@ public final class BillingCorrectionSubmit2Action extends ActionSupport {
 
         BillingDataBean billingDataBean = (BillingDataBean) request.getSession().getAttribute("billingDataBean");
         // Session key for BillingBean is "billing" (set by billingCorrectionValid.jsp)
-        // "billingBean" is the id used in the JSP useBean, but the actual key is "billing"
-        BillingBean billingBean = (BillingBean) request.getSession().getAttribute("billing");
-        if (billingBean == null) {
-            billingBean = (BillingBean) request.getSession().getAttribute("billingBean");
-        }
+        BillingBean billingBean = BillingSessionUtils.getBillingBean(request.getSession());
 
         if (billingDataBean == null || billingBean == null) {
             MiscUtils.getLogger().error("billingDataBean or billingBean not found in session");

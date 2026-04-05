@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.appt.ApptStatusData;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
@@ -100,7 +99,7 @@ public final class BillingDeleteWithoutNo2Action extends ActionSupport {
             } else if (billStatus != null) {
                 for (int idx = 0; idx < billStatus.size(); idx += 2) {
                     // idx = billing header ID, idx+1 = status
-                    if (!billStatus.get(idx + 1).equals("D")) {
+                    if (idx + 1 < billStatus.size() && !billStatus.get(idx + 1).equals("D")) {
                         rowsAffected = dbObj.deleteBilling(billStatus.get(idx), "D", curUserNo) ? 1 : 0;
                     }
                 }
