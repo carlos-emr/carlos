@@ -54,11 +54,12 @@ import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 
 import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 public class JDBCUtil {
     public static Document toDocument(ResultSet rs)
             throws ParserConfigurationException, SQLException {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
         DocumentBuilder builder = factory.newDocumentBuilder();
         Document doc = builder.newDocument();
 
@@ -138,12 +139,7 @@ public class JDBCUtil {
                 rs = DBHandler.GetSQL(sql, true);
                 rs.moveToInsertRow();
                 //To validate or not
-                DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-                factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-                factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-                factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-                factory.setXIncludeAware(false);
-                factory.setExpandEntityReferences(false);
+                DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
                 factory.setValidating(validation);
                 DocumentBuilder builder = factory.newDocumentBuilder();
                 doc = builder.parse(source);

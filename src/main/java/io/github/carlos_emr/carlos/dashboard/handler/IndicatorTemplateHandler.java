@@ -47,6 +47,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.IndicatorTemplate;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 
 /**
@@ -255,11 +256,10 @@ public class IndicatorTemplateHandler {
     private final Document byteToDocument(final byte[] bytearray) {
 
         Document document = null;
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.setNamespaceAware(true);
-        factory.setSchema(getSchema());
-
         try {
+            DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
+            factory.setNamespaceAware(true);
+            factory.setSchema(getSchema());
             DocumentBuilder builder = factory.newDocumentBuilder();
             document = builder.parse(new ByteArrayInputStream(bytearray));
             if (document != null) {

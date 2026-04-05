@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.commn.dao.ResourceStorageDao;
 import io.github.carlos_emr.carlos.commn.model.ResourceStorage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -179,12 +180,7 @@ public class DrugPriceLookup {
 						 * extract > formulary > pcg2 > pcg6 > genericName > pcgGroup > pcg9 > drug > individualPrice
 						 * we want the drug.id (its din) and link it to drug.individualPrice its formulary cost per unit
 						 */
-						SAXBuilder parser = new SAXBuilder();
-						/* Harden against XXE attacks per OWASP guidelines */
-						parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-						parser.setFeature("http://xml.org/sax/features/external-general-entities", false);
-						parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-						parser.setExpandEntities(false);
+						SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
 
 						Document doc = parser.build(is);
 						Element root = doc.getRootElement();

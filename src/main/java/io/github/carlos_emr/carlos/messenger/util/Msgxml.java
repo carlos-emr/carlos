@@ -40,6 +40,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -63,7 +64,7 @@ public class Msgxml {
      */
     public static Document newDocument() {
         try {
-            return DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();
+            return XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().newDocument();
         } catch (Exception e) {
             return null;
         }
@@ -151,7 +152,7 @@ public class Msgxml {
             InputSource is = new InputSource(new StringReader(xmlInput));
 
             // Parse the XML string into a Document
-            Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(is);
+            Document doc = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(is);
 
             return doc;
         } catch (Exception e) {

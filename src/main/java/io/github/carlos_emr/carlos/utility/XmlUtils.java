@@ -61,6 +61,8 @@ import org.w3c.dom.ls.LSOutput;
 import org.w3c.dom.ls.LSSerializer;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
+import org.xml.sax.SAXNotRecognizedException;
+import org.xml.sax.SAXNotSupportedException;
 import org.xml.sax.XMLReader;
 
 /**
@@ -149,6 +151,28 @@ public final class XmlUtils {
             logger.warn("Could not set TransformerFactory security attributes", ex);
         }
         return tf;
+    }
+
+    /**
+     * Creates a {@link SAXParserFactory} with XXE protections enabled.
+     *
+     * <p>Disables DOCTYPE declarations and external entity resolution. Use this factory
+     * method instead of {@code SAXParserFactory.newInstance()} throughout the codebase
+     * whenever a SAXParser (with ContentHandler) is needed.
+     *
+     * @return SAXParserFactory configured with XXE protections
+     * @throws ParserConfigurationException if the critical disallow-doctype-decl feature cannot be set
+     * @throws SAXNotRecognizedException if a feature URI is not recognized
+     * @throws SAXNotSupportedException if a feature is not supported by the parser
+     */
+    public static SAXParserFactory createSecureSAXParserFactory() throws ParserConfigurationException, SAXNotRecognizedException, SAXNotSupportedException {
+        SAXParserFactory spf = SAXParserFactory.newInstance();
+        spf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        spf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        spf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        spf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        spf.setXIncludeAware(false);
+        return spf;
     }
 
     /**

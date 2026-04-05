@@ -47,6 +47,7 @@ import java.util.ArrayList;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.w3c.dom.Document;
@@ -140,9 +141,7 @@ public class DefaultHandler implements MessageHandler {
                 file = PathValidationUtils.validateExistingPath(file, docDir);
             }
 
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setValidating(false);
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
             // Use the validated file object instead of creating a new FileInputStream with the raw path
             Document doc = factory.newDocumentBuilder().parse(file);
             return (doc);
