@@ -33,6 +33,7 @@ import java.io.IOException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -75,7 +76,17 @@ public final class AppointmentCutRecord2Action extends ActionSupport {
 
         ApptUtil.copyAppointmentIntoSession(request);
 
-        Appointment appt = appointmentDao.find(Integer.parseInt(request.getParameter("appointment_no")));
+        String apptNoParam = request.getParameter("appointment_no");
+        if (StringUtils.isEmpty(apptNoParam)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "appointment_no required");
+            return NONE;
+        }
+
+        Appointment appt = appointmentDao.find(Integer.parseInt(apptNoParam));
+        if (appt == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Appointment not found");
+            return NONE;
+        }
         appointmentArchiveDao.archiveAppointment(appt);
 
         appointmentDao.remove(appt.getId());

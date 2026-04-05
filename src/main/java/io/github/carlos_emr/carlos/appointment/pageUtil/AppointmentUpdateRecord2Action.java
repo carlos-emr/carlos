@@ -78,8 +78,16 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
 
         String updateuser = (String) request.getSession().getAttribute("user");
         String apptNoStr = request.getParameter("appointment_no");
+        if (StringUtils.isEmpty(apptNoStr)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "appointment_no required");
+            return NONE;
+        }
 
         Appointment appt = appointmentDao.find(Integer.parseInt(apptNoStr));
+        if (appt == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Appointment not found");
+            return NONE;
+        }
         appointmentArchiveDao.archiveAppointment(appt);
 
         String changedStatus = null;
@@ -89,47 +97,43 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
                 && (request.getParameter("buttoncancel").equals("Cancel Appt")
                 || request.getParameter("buttoncancel").equals("No Show"))) {
             changedStatus = request.getParameter("buttoncancel").equals("Cancel Appt") ? "C" : "N";
-            if (appt != null) {
-                appt.setStatus(changedStatus);
-                appt.setLastUpdateUser(updateuser);
-                appointmentDao.merge(appt);
-                rowsAffected = 1;
-            }
+            appt.setStatus(changedStatus);
+            appt.setLastUpdateUser(updateuser);
+            appointmentDao.merge(appt);
+            rowsAffected = 1;
         } else {
             if (!appt.getStatus().equals(request.getParameter("status"))) {
                 changedStatus = request.getParameter("status");
             }
-            if (appt != null) {
-                if (!StringUtils.isEmpty(request.getParameter("demographic_no"))) {
-                    appt.setDemographicNo(Integer.parseInt(request.getParameter("demographic_no")));
-                } else {
-                    appt.setDemographicNo(0);
-                }
-                appt.setAppointmentDate(ConversionUtils.fromDateString(request.getParameter("appointment_date")));
-                appt.setStartTime(ConversionUtils.fromTimeString(
-                        MyDateFormat.getTimeXX_XX_XX(request.getParameter("start_time"))));
-                appt.setEndTime(ConversionUtils.fromTimeString(
-                        MyDateFormat.getTimeXX_XX_XX(request.getParameter("end_time"))));
-                appt.setName(request.getParameter("keyword"));
-                appt.setNotes(request.getParameter("notes"));
-                appt.setReason(request.getParameter("reason"));
-                appt.setLocation(request.getParameter("location"));
-                appt.setResources(request.getParameter("resources"));
-                appt.setType(request.getParameter("type"));
-                appt.setStyle(request.getParameter("style"));
-                appt.setBilling(request.getParameter("billing"));
-                appt.setStatus(request.getParameter("status"));
-                appt.setLastUpdateUser(updateuser);
-                appt.setRemarks(request.getParameter("remarks"));
-                appt.setUpdateDateTime(new java.util.Date());
-                appt.setUrgency(request.getParameter("urgency") != null ? request.getParameter("urgency") : "");
-                String rc = request.getParameter("reasonCode");
-                if (!StringUtils.isEmpty(rc)) {
-                    appt.setReasonCode(Integer.parseInt(rc));
-                }
-                appointmentDao.merge(appt);
-                rowsAffected = 1;
+            if (!StringUtils.isEmpty(request.getParameter("demographic_no"))) {
+                appt.setDemographicNo(Integer.parseInt(request.getParameter("demographic_no")));
+            } else {
+                appt.setDemographicNo(0);
             }
+            appt.setAppointmentDate(ConversionUtils.fromDateString(request.getParameter("appointment_date")));
+            appt.setStartTime(ConversionUtils.fromTimeString(
+                    MyDateFormat.getTimeXX_XX_XX(request.getParameter("start_time"))));
+            appt.setEndTime(ConversionUtils.fromTimeString(
+                    MyDateFormat.getTimeXX_XX_XX(request.getParameter("end_time"))));
+            appt.setName(request.getParameter("keyword"));
+            appt.setNotes(request.getParameter("notes"));
+            appt.setReason(request.getParameter("reason"));
+            appt.setLocation(request.getParameter("location"));
+            appt.setResources(request.getParameter("resources"));
+            appt.setType(request.getParameter("type"));
+            appt.setStyle(request.getParameter("style"));
+            appt.setBilling(request.getParameter("billing"));
+            appt.setStatus(request.getParameter("status"));
+            appt.setLastUpdateUser(updateuser);
+            appt.setRemarks(request.getParameter("remarks"));
+            appt.setUpdateDateTime(new java.util.Date());
+            appt.setUrgency(request.getParameter("urgency") != null ? request.getParameter("urgency") : "");
+            String rc = request.getParameter("reasonCode");
+            if (!StringUtils.isEmpty(rc)) {
+                appt.setReasonCode(Integer.parseInt(rc));
+            }
+            appointmentDao.merge(appt);
+            rowsAffected = 1;
         }
 
         if (rowsAffected == 1) {

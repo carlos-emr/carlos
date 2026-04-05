@@ -161,8 +161,8 @@ public final class AppointmentAddRecord2Action extends ActionSupport {
         String strMWL = pros.getProperty("MANUALLY_CLEANUP_WL");
         if (strMWL == null || !strMWL.equalsIgnoreCase("yes")) {
             WaitingList wl = WaitingList.getInstance();
-            if (wl.getFound() && !StringUtils.isEmpty(request.getParameter("demographic_no"))) {
-                List<Object[]> wlEntries = waitingListDao.findByDemographic(Integer.parseInt(request.getParameter("demographic_no")));
+            if (wl.getFound() && demographicNo > 0) {
+                List<Object[]> wlEntries = waitingListDao.findByDemographic(demographicNo);
                 if (!wlEntries.isEmpty()) {
                     WaitingListName wln = (WaitingListName) wlEntries.get(0)[0];
                     io.github.carlos_emr.carlos.commn.model.WaitingList wl1 =
