@@ -35,6 +35,9 @@ import org.apache.xml.security.utils.resolver.ResourceResolver;
 
 import ca.ontario.health.ebs.idp.IdpHeader;
 
+import io.github.carlos_emr.carlos.utility.CxfClientUtils;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+
 /**
  * Client that encapsulates MCEDT service access.
  * 
@@ -344,14 +347,23 @@ public class EdtClientBuilder {
 
     /**
      * Configures SSL/TLS parameters on the HTTPConduit.
+     *
+     * <p>Certificate validation is bypassed only when {@code allow_all_ssl_certificates=true}
+     * is set in {@code config.xml} (via {@link CxfClientUtils#isAllowAllSsl()}).
+     * When certificate validation is disabled, a warning is logged.
      */
     public static void configureSsl(HTTPConduit conduit) {
         TLSClientParameters tls = conduit.getTlsClientParameters();
         if (tls == null) {
             tls = new TLSClientParameters();
         }
-        tls.setDisableCNCheck(true);
-        tls.setTrustManagers(new X509TrustManager[]{new TrustAllManager()});
+        boolean allowAllSsl = CxfClientUtils.isAllowAllSsl();
+        tls.setDisableCNCheck(allowAllSsl);
+        if (allowAllSsl) {
+            MiscUtils.getLogger().warn("EdtClientBuilder.configureSsl: TLS certificate validation disabled "
+                    + "(allow_all_ssl_certificates=true). Do not use this setting in production environments.");
+            tls.setTrustManagers(new X509TrustManager[]{new TrustAllManager()});
+        }
         tls.setSecureSocketProtocol("TLS");
         conduit.setTlsClientParameters(tls);
     }

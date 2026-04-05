@@ -30,28 +30,51 @@
 
 package io.github.carlos_emr.carlos.form.graphic;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 
 /**
- * Creates pdf graphic class passed to it with reflection
+ * Creates pdf graphic class passed to it with reflection.
+ *
+ * <p>Only classes explicitly registered in the {@link #ALLOWED_GRAPHICS} allowlist
+ * may be instantiated.  Passing an unregistered class name returns {@code null}
+ * and logs a warning, preventing unsafe reflection from config-file-controlled input.
  */
 public class FrmGraphicFactory {
 
-    public static FrmPdfGraphic create(String name) {
-        FrmPdfGraphic pdfGraph = null;
-        try {
-            Class classDefinition = Class.forName(name);
-            pdfGraph = (FrmPdfGraphic) classDefinition.newInstance();
-        } catch (InstantiationException e) {
-            MiscUtils.getLogger().debug("debug", e);
-        } catch (IllegalAccessException e) {
-            MiscUtils.getLogger().debug("debug", e);
-        } catch (ClassNotFoundException e) {
-            MiscUtils.getLogger().debug("debug", e);
-        }
+    /**
+     * Allowlist mapping fully-qualified class names to their {@link Class} objects.
+     * Only classes in this map can be created by {@link #create(String)}.
+     */
+    private static final Map<String, Class<? extends FrmPdfGraphic>> ALLOWED_GRAPHICS;
 
-        return pdfGraph;
+    static {
+        Map<String, Class<? extends FrmPdfGraphic>> m = new HashMap<>();
+        m.put("io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphicAR", FrmPdfGraphicAR.class);
+        m.put("io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphicRourke", FrmPdfGraphicRourke.class);
+        m.put("io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphicGrowthChart", FrmPdfGraphicGrowthChart.class);
+        ALLOWED_GRAPHICS = Collections.unmodifiableMap(m);
+    }
+
+    public static FrmPdfGraphic create(String name) {
+        if (name == null) {
+            return null;
+        }
+        Class<? extends FrmPdfGraphic> classDefinition = ALLOWED_GRAPHICS.get(name);
+        if (classDefinition == null) {
+            MiscUtils.getLogger().warn("FrmGraphicFactory: class '{}' is not on the allowlist — refusing to load", name);
+            return null;
+        }
+        try {
+            return classDefinition.getConstructor().newInstance();
+        } catch (Exception e) {
+            MiscUtils.getLogger().debug("Could not instantiate graphic class: " + name, e);
+            return null;
+        }
     }
 
 }

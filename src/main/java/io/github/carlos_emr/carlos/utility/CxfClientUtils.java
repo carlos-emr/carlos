@@ -48,6 +48,12 @@ public class CxfClientUtils {
     private static long receiveTimeout = 4000L;
     private static boolean useGZip = true;
     private static int gZipThreshold = 0;
+    /**
+     * Whether to bypass SSL certificate validation for CXF web service connections.
+     * Set to {@code true} only when {@code allow_all_ssl_certificates=true} is configured
+     * in {@code config.xml}. This should be {@code false} in production environments.
+     */
+    private static boolean allowAllSsl = false;
 
     public CxfClientUtils() {
     }
@@ -79,8 +85,10 @@ public class CxfClientUtils {
         } catch (Throwable var3) {
         }
 
-        boolean allowAllSsl = Boolean.parseBoolean(ConfigXmlUtils.getPropertyString("misc", "allow_all_ssl_certificates"));
+        allowAllSsl = Boolean.parseBoolean(ConfigXmlUtils.getPropertyString("misc", "allow_all_ssl_certificates"));
         if (allowAllSsl) {
+            logger.warn("CxfClientUtils: allow_all_ssl_certificates=true — SSL certificate validation is DISABLED. "
+                    + "Do not use this setting in production environments.");
             try {
                 MiscUtils.setJvmDefaultSSLSocketFactoryAllowAllCertificates();
             } catch (Exception var2) {
@@ -122,9 +130,14 @@ public class CxfClientUtils {
             tslClientParameters = new TLSClientParameters();
         }
 
-        tslClientParameters.setDisableCNCheck(true);
-        CxfClientUtils.TrustAllManager[] tam = new CxfClientUtils.TrustAllManager[]{new CxfClientUtils.TrustAllManager()};
-        tslClientParameters.setTrustManagers(tam);
+        tslClientParameters.setDisableCNCheck(allowAllSsl);
+        if (allowAllSsl) {
+            // Certificate validation is intentionally bypassed when allow_all_ssl_certificates=true
+            // is set in config.xml. Only use this setting for development or trusted private networks.
+            logger.warn("CxfClientUtils.configureSsl: TLS certificate validation disabled (allow_all_ssl_certificates=true)");
+            CxfClientUtils.TrustAllManager[] tam = new CxfClientUtils.TrustAllManager[]{new CxfClientUtils.TrustAllManager()};
+            tslClientParameters.setTrustManagers(tam);
+        }
         // Use TLS (resolves to TLS 1.2/1.3 on modern JVMs) instead of the obsolete SSLv3 protocol
         tslClientParameters.setSecureSocketProtocol("TLS");
         httpConduit.setTlsClientParameters(tslClientParameters);
@@ -133,6 +146,16 @@ public class CxfClientUtils {
     public static void addWSS4JAuthentication(Object user, String password, Object wsPort) {
         Client cxfClient = ClientProxy.getClient(wsPort);
         cxfClient.getOutInterceptors().add(new AuthenticationOutWSS4JInterceptor(user, password));
+    }
+
+    /**
+     * Returns whether SSL certificate validation is currently disabled system-wide.
+     * Reflects the {@code allow_all_ssl_certificates} setting from {@code config.xml}.
+     *
+     * @return {@code true} if certificate validation is bypassed; {@code false} otherwise
+     */
+    public static boolean isAllowAllSsl() {
+        return allowAllSsl;
     }
 
     static {

@@ -237,6 +237,10 @@ public final class MiscUtils {
     }
 
     public static void setJvmDefaultSSLSocketFactoryAllowAllCertificates() throws NoSuchAlgorithmException, KeyManagementException {
+        getLogger().warn("MiscUtils.setJvmDefaultSSLSocketFactoryAllowAllCertificates: "
+                + "Setting JVM-wide SSL socket factory to TRUST ALL CERTIFICATES. "
+                + "This disables certificate chain validation and hostname verification. "
+                + "Only intended for development or trusted private networks — do NOT use in production.");
         TrustAllManager[] tam = new TrustAllManager[]{new TrustAllManager()};
         SSLContext ctx = SSLContext.getInstance("TLS");
         ctx.init((KeyManager[]) null, tam, new SecureRandom());
