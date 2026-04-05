@@ -343,7 +343,7 @@
                 String progNo = "prog_" + p.getId();
     %>
         providerData['<%=Encode.forJavaScript(progNo) %>'] = new Object();
-        providerData['<%=Encode.forJavaScript(progNo) %>'].address = "<%=Encode.forJavaScript((p.getAddress() != null && p.getAddress().trim().length() > 0) ? p.getAddress().trim() : ((clinic.getClinicAddress() + "  " + clinic.getClinicCity() + "   " + clinic.getClinicProvince() + "  " + clinic.getClinicPostal()).trim())) %>";
+        providerData['<%=Encode.forJavaScript(progNo) %>'].address = "<%=Encode.forJavaScript((p.getAddress() != null && p.getAddress().trim().length() > 0) ? p.getAddress().trim() : ((StringUtils.noNull(clinic.getClinicAddress()) + "  " + StringUtils.noNull(clinic.getClinicCity()) + "   " + StringUtils.noNull(clinic.getClinicProvince()) + "  " + StringUtils.noNull(clinic.getClinicPostal())).trim())) %>";
         providerData['<%=Encode.forJavaScript(progNo) %>'].city = "";
         providerData['<%=Encode.forJavaScript(progNo) %>'].province = "";
         providerData['<%=Encode.forJavaScript(progNo) %>'].postal = "";
@@ -362,10 +362,10 @@
                 $("input[name='clinicCity']").val("<%=Encode.forJavaScript(StringUtils.noNull(clinic.getClinicCity()) + " " + StringUtils.noNull(clinic.getClinicProvince()))%>");
                 $("input[name='clinicPC']").val("<%=Encode.forJavaScript(StringUtils.noNull(clinic.getClinicPostal())) %>");
 
-                $("#clinicName").html("<%=Encode.forJavaScript(StringUtils.noNull(clinic.getClinicName()))%>");
-                $("#clinicAddress").html("<%=Encode.forJavaScript(StringUtils.noNull(clinic.getClinicAddress())) %>");
-                $("#clinicCity").html("<%=Encode.forJavaScript(StringUtils.noNull(clinic.getClinicCity()) + " " + StringUtils.noNull(clinic.getClinicProvince()))%>");
-                $("#clinicPC").html("<%=Encode.forJavaScript(StringUtils.noNull(clinic.getClinicPostal())) %>");
+                $("#clinicName").text("<%=Encode.forJavaScript(StringUtils.noNull(clinic.getClinicName()))%>");
+                $("#clinicAddress").text("<%=Encode.forJavaScript(StringUtils.noNull(clinic.getClinicAddress())) %>");
+                $("#clinicCity").text("<%=Encode.forJavaScript(StringUtils.noNull(clinic.getClinicCity()) + " " + StringUtils.noNull(clinic.getClinicProvince()))%>");
+                $("#clinicPC").text("<%=Encode.forJavaScript(StringUtils.noNull(clinic.getClinicPostal())) %>");
 
             } else {
 
@@ -379,10 +379,10 @@
                 $("input[name='clinicCity']").val(providerData[value]['city'] + providerData[value]['province']);
                 $("input[name='clinicPC']").val(providerData[value]['postal']);
 
-                $("#clinicName").html("");
-                $("#clinicAddress").html(providerData[value]['address']);
-                $("#clinicCity").html(providerData[value]['city'] + " " + providerData[value]['province']);
-                $("#clinicPC").html(providerData[value]['postal']);
+                $("#clinicName").text("");
+                $("#clinicAddress").text(providerData[value]['address']);
+                $("#clinicCity").text(providerData[value]['city'] + " " + providerData[value]['province']);
+                $("#clinicPC").text(providerData[value]['postal']);
             }
         }
 
