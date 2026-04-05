@@ -247,17 +247,17 @@
                 onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
                 onMouseout="this.style.backgroundColor='<%=bgColor%>';"
                 onClick="fillForm('<%= str(prop.getProperty("attention", ""))%>','<%= str(prop.getProperty("company_name", ""))%>','<%= str(prop.getProperty("address", ""))%>','<%=  str(prop.getProperty("city", ""))%>','<%=  str(prop.getProperty("province", ""))%>','<%=  str(prop.getProperty("telephone", ""))%>','<%=  str(prop.getProperty("fax", ""))%>','<%=  str(prop.getProperty("postcode", ""))%>');">
-                <td><%=prop.getProperty("attention", "")%>
+                <td><%=Encode.forHtml(prop.getProperty("attention", ""))%>
                 </td>
-                <td><%=WordUtils.capitalize(prop.getProperty("company_name", "").toLowerCase())%>
+                <td><%=Encode.forHtml(WordUtils.capitalize(prop.getProperty("company_name", "").toLowerCase()))%>
                 </td>
-                <td><%=WordUtils.capitalize(prop.getProperty("address", "").toLowerCase())%>
+                <td><%=Encode.forHtml(WordUtils.capitalize(prop.getProperty("address", "").toLowerCase()))%>
                 </td>
-                <td><%=prop.getProperty("city", "")%>
+                <td><%=Encode.forHtml(prop.getProperty("city", ""))%>
                 </td>
-                <td><%=prop.getProperty("postcode", "")%>
+                <td><%=Encode.forHtml(prop.getProperty("postcode", ""))%>
                 </td>
-                <td><%=prop.getProperty("telephone", "")%>
+                <td><%=Encode.forHtml(prop.getProperty("telephone", ""))%>
                 </td>
                 <!--td><%=prop.getProperty("fax", "")%></td-->
             </tr>
