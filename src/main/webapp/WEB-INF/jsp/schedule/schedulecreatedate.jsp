@@ -261,7 +261,7 @@
     </head>
     <body bgcolor="ivory" bgproperties="fixed" onLoad="setfocus()"
           topmargin="0" leftmargin="0" rightmargin="0">
-    <form method="post" name="schedule" action="schedule/DateFinal.do">
+    <form method="post" name="schedule" action="${pageContext.request.contextPath}/schedule/DateFinal.do">
 
         <table border="0" width="100%">
             <tr>
@@ -313,13 +313,13 @@
                             %>
                             <tr>
                                 <td BGCOLOR="#CCFFCC" width="50%" align="center"><a
-                                        href="schedule/CreateDate.do?provider_no=<%= Encode.forUriComponent(provider_no) %>&provider_name=<%=URLEncoder.encode(provider_name, StandardCharsets.UTF_8)%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=-1&bFirstDisp=0">
+                                        href="${pageContext.request.contextPath}/schedule/CreateDate.do?provider_no=<%= Encode.forUriComponent(provider_no) %>&provider_name=<%=URLEncoder.encode(provider_name, StandardCharsets.UTF_8)%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=-1&bFirstDisp=0">
                                     &nbsp;&nbsp;<img src="<%= request.getContextPath() %>/images/previous.gif" WIDTH="10" HEIGHT="9"
                                                      BORDER="0"
                                                      ALT='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.schedulecreatedate.btnLastMonthTip"/>'
                                                      vspace="2"> <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.schedulecreatedate.btnLastMonth"/>&nbsp;&nbsp; </a> <b><span
                                         CLASS=title><%=year%>-<%=month%></span></b> <a
-                                        href="schedule/CreateDate.do?provider_no=<%= Encode.forUriComponent(provider_no) %>&provider_name=<%=URLEncoder.encode(provider_name, StandardCharsets.UTF_8)%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=1&bFirstDisp=0">
+                                        href="${pageContext.request.contextPath}/schedule/CreateDate.do?provider_no=<%= Encode.forUriComponent(provider_no) %>&provider_name=<%=URLEncoder.encode(provider_name, StandardCharsets.UTF_8)%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=1&bFirstDisp=0">
                                     &nbsp;&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.schedulecreatedate.btnNextMonth"/><img
                                         src="<%= request.getContextPath() %>/images/next.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                                         ALT='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.schedulecreatedate.btnNextMonthTip"/>'
@@ -380,7 +380,7 @@
 
                             %>
                             <td bgcolor='<%=bgcolor.toString()%>'><a href="#"
-                                                                     onclick="popupPage(260,720,'schedule/DatePopup.do?provider_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(provider_no))%>&year=<%=year%>&month=<%=month%>&day=<%=dateGrid[i][j]%>&bFistDisp=1')">
+                                                                     onclick="popupPage(260,720,'${pageContext.request.contextPath}/schedule/DatePopup.do?provider_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(provider_no))%>&year=<%=year%>&month=<%=month%>&day=<%=dateGrid[i][j]%>&bFistDisp=1')">
                                 <font color="red"><%= dateGrid[i][j] %>
                                 </font> <font size="-3"
                                               color="blue"><%=strHolidayName.toString()%>

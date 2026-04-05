@@ -78,7 +78,7 @@
     </head>
     <body bgcolor="ivory" bgproperties="fixed" onLoad="setfocus()"
           topmargin="0" leftmargin="0" rightmargin="0">
-    <form method="post" name="schedule" action="schedule/CreateDate.do">
+    <form method="post" name="schedule" action="${pageContext.request.contextPath}/schedule/CreateDate.do">
 
         <table border="0" width="100%">
             <tr>
@@ -127,7 +127,7 @@
                                 <td bgcolor="#CCFFCC">
                                     <div align="right"><input type="button" name="Button"
                                                               value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduledatefinal.btnDoAgain"/>'
-                                                              onclick="self.location.href='schedule/TemplateSetting.do'">
+                                                              onclick="self.location.href='${pageContext.request.contextPath}/schedule/TemplateSetting.do'">
                                     </div>
                                 </td>
                             </tr>

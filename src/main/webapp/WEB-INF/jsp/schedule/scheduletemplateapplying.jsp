@@ -279,7 +279,7 @@
 
             async function displayTemplate(s) {
                 var templateName = encodeURIComponent(s.options[s.selectedIndex].value);
-                var url = "schedule/DisplayTemplate.do?name=" + templateName + "&providerid=<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("provider_no"))))%>";
+                var url = "${pageContext.request.contextPath}/schedule/DisplayTemplate.do?name=" + templateName + "&providerid=<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("provider_no"))))%>";
                 var div = "template";
                 fetch(url)
                     .then(response => response.text())
@@ -290,7 +290,7 @@
             }
 
             function selectrschedule(s) {
-                var ref = "schedule/TemplateApplying.do";
+                var ref = "${pageContext.request.contextPath}/schedule/TemplateApplying.do";
                 ref += "?provider_no=<%=URLEncoder.encode(request.getParameter("provider_no"), StandardCharsets.UTF_8)%>&provider_name=<%=URLEncoder.encode(request.getParameter("provider_name"), StandardCharsets.UTF_8)%>";
                 ref += "&sdate=" + s.options[s.selectedIndex].value;
                 window.location.href = ref;
@@ -300,7 +300,7 @@
                 if (confirm(i18n.msgDeleteConfirmation)) {
                     var form = document.createElement('form');
                     form.method = 'post';
-                    form.action = "schedule/TemplateApplying.do";
+                    form.action = "${pageContext.request.contextPath}/schedule/TemplateApplying.do";
                     var fields = {
                         'provider_no': '<%=Encode.forJavaScript(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "")%>',
                         'provider_name': '<%=Encode.forJavaScript(request.getParameter("provider_name") != null ? request.getParameter("provider_name") : "")%>',
@@ -566,7 +566,7 @@
     %>
     <body>
     <div class="container-fluid py-3">
-    <form method="post" name="schedule" action="schedule/CreateDate.do"
+    <form method="post" name="schedule" action="${pageContext.request.contextPath}/schedule/CreateDate.do"
           onSubmit="<%=bAlternate||bOrigAlt?"addDataStringB();":""%>addDataString();return(addDataString1())">
 
         <h4><fmt:message key="schedule.scheduletemplateapplying.msgMainLabel"/></h4>

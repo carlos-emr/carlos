@@ -104,14 +104,14 @@
             function selectprovider(s) {
                 var providerNo = encodeURIComponent(s.options[s.selectedIndex].value);
                 var providerName = encodeURIComponent(s.options[s.selectedIndex].text);
-                window.location.href = "schedule/TemplateApplying.do?provider_no=" + providerNo + "&provider_name=" + providerName;
+                window.location.href = "${pageContext.request.contextPath}/schedule/TemplateApplying.do?provider_no=" + providerNo + "&provider_name=" + providerName;
             }
 
             function go() {
                 var s = document.schedule.providerid.value;
                 var providerId = encodeURIComponent(s);
                 var providerName = encodeURIComponent(document.schedule.providerid.options[document.schedule.providerid.selectedIndex].text);
-                var u = 'schedule/EditTemplate.do?providerid=' + providerId + '&providername=' + providerName;
+                var u = '${pageContext.request.contextPath}/schedule/EditTemplate.do?providerid=' + providerId + '&providername=' + providerName;
                 popupPage(390, 700, u);
             }
         </script>
@@ -127,7 +127,7 @@
             <fmt:message key="schedule.scheduletemplatesetting.msgStepTwo"/>
         </div>
 
-        <form method="post" name="schedule" action="schedule/CreateDate.do">
+        <form method="post" name="schedule" action="${pageContext.request.contextPath}/schedule/CreateDate.do">
         <div class="card card-body bg-body-tertiary">
 
             <div class="mb-3">
@@ -163,13 +163,13 @@
                 <%if (!(isSiteAccessPrivacy || isTeamAccessPrivacy || grantOnlyCurProviderScheduleData)) {%>
                 <div class="p-2 bg-success-subtle rounded">
                     <a href="#"
-                       onclick="popupPage(440,530,'schedule/HolidaySetting.do?year=<%=year%>&month=<%=month%>&day=<%=day%>')"
+                       onclick="popupPage(440,530,'${pageContext.request.contextPath}/schedule/HolidaySetting.do?year=<%=year%>&month=<%=month%>&day=<%=day%>')"
                        title="<fmt:message key="schedule.scheduletemplatesetting.msgHolidaySettingTip"/>">
                         <fmt:message key="schedule.scheduletemplatesetting.btnHolidaySetting"/>
                     </a>
                 </div>
                 <div class="p-2 bg-success-subtle rounded">
-                    <a href="#" onclick="popupPage(600,700,'schedule/TemplateCodeSetting.do')">
+                    <a href="#" onclick="popupPage(600,700,'${pageContext.request.contextPath}/schedule/TemplateCodeSetting.do')">
                         <fmt:message key="schedule.scheduletemplatesetting.btnTemplateCodeSetting"/>
                     </a>
                 </div>

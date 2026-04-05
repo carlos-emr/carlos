@@ -115,7 +115,7 @@
             function changeGroup(s) {
                 var newGroupNo = s.options[s.selectedIndex].value;
                 newGroupNo = s.options[s.selectedIndex].value;
-                self.location.href = "schedule/EditTemplate.do?providerid=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerid"))) %>&providername=<%=URLEncoder.encode(request.getParameter("providername"), StandardCharsets.UTF_8)%>&step=" + newGroupNo;
+                self.location.href = "${pageContext.request.contextPath}/schedule/EditTemplate.do?providerid=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("providerid"))) %>&providername=<%=URLEncoder.encode(request.getParameter("providername"), StandardCharsets.UTF_8)%>&step=" + newGroupNo;
 
             }
 
@@ -131,7 +131,7 @@
             <td align="center">
 
                 <form name="addtemplatecode1" method="post"
-                      action="schedule/EditTemplate.do">
+                      action="${pageContext.request.contextPath}/schedule/EditTemplate.do">
                     <table width="100%" border="0" cellspacing="0" cellpadding="5">
                         <input type="hidden" name="dboperation" value="">
                         <input type="hidden" name="step" value="">
@@ -171,7 +171,7 @@
                 </form>
 
                 <form name="addtemplatecode2" method="post"
-                      action="schedule/EditTemplate.do">
+                      action="${pageContext.request.contextPath}/schedule/EditTemplate.do">
                     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="95%">
                         <tr>
                             <td width="50%" align="right">&nbsp; <select name="step1"
@@ -193,7 +193,7 @@
     </table>
     </form>
     <form name="addtemplatecode" method="post"
-          action="schedule/EditTemplate.do">
+          action="${pageContext.request.contextPath}/schedule/EditTemplate.do">
         <table width="95%" border="1" cellspacing="0" cellpadding="2"
                bgcolor="silver">
             <tr bgcolor="#FOFOFO" align="center">
