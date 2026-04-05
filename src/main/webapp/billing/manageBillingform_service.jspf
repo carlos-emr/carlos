@@ -109,7 +109,7 @@ int rCount = 0;
 			value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform_service.btnUpdate"/>"><input
 			type="hidden" name="typeid"
 			value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billingform"))) %>"><input
-			type="hidden" name="type" value="<%=service_name%>"></td>
+			type="hidden" name="type" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(service_name)) %>"></td>
 	</tr>
 </table>
 </form>

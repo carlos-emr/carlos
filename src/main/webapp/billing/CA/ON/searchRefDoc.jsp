@@ -134,7 +134,7 @@
 <%@ page import="java.util.Properties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.util.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 
 <%!
     /**
@@ -146,7 +146,7 @@
         if (value == null || value.isEmpty()) return null;
         java.util.regex.Matcher m = pattern.matcher(value);
         if (m.matches()) return new String[]{m.group(1), m.group(2)};
-        io.github.carlos_emr.carlos.util.MiscUtils.getLogger().warn(
+        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
             "searchRefDoc.jsp: '" + paramName + "' did not match expected JS path format: "
             + value.substring(0, Math.min(value.length(), 80)));
         return null;
