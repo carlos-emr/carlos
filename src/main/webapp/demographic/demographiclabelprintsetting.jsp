@@ -153,7 +153,11 @@
             if (demo.getHin() != null) hin = "HN " + demo.getHcType() + " " + demo.getHin() + " " + demo.getVer();
             if (demo.getFamilyDoctor() != null) refDoc = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd");
         }
-        phone2 = (phone2 == null || phone2.equals("")) ? "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" : (Encode.forHtml(phone2) + "&nbsp;");
+        String phone2Raw = (phone2 == null ? "" : phone2);
+        String phone2Display = phone2Raw.isEmpty()
+            ? "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+            : (Encode.forHtml(phone2Raw) + "&nbsp;");
+        phone2 = (phone2 == null || phone2.equals("")) ? "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" : (phone2 + "&nbsp;");
     %>
 
     <form method="post" class="" name="labelprint" action="demographicprintdemographic.jsp">
@@ -171,7 +175,7 @@
                         <input type="hidden" name="hin" value="<%=Encode.forHtmlAttribute(hin)%>">
                         <input type="hidden" name="last_name" value="<%=Encode.forHtmlAttribute(last_name)%>">
                         <input type="hidden" name="phone" value="<%=Encode.forHtmlAttribute(phone)%>">
-                        <input type="hidden" name="phone2" value="<%=Encode.forHtmlAttribute(phone2)%>">
+                        <input type="hidden" name="phone2" value="<%=Encode.forHtmlAttribute(phone2Raw)%>">
                         <input type="hidden" name="postal" value="<%=Encode.forHtmlAttribute(postal)%>">
                         <input type="hidden" name="providername" value="<%=Encode.forHtmlAttribute(providername)%>">
                         <input type="hidden" name="province" value="<%=Encode.forHtmlAttribute(province)%>">
@@ -248,7 +252,7 @@
 				<span id="copytext2"
                       class="copytext"> <b><%=Encode.forHtml(last_name)%>,&nbsp;<%=Encode.forHtml(first_name)%>&nbsp;<%=Encode.forHtml(chart_no)%></b><br><%=Encode.forHtml(address)%><br><%=Encode.forHtml(city)%>,&nbsp;<%=Encode.forHtml(province)%>,&nbsp;<%=Encode.forHtml(postal)%><br>
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgHome"/>:&nbsp;<%=Encode.forHtml(phone)%><br><%=Encode.forHtml(dob)%>&nbsp;<%=Encode.forHtml(sex)%><br><%=Encode.forHtml(hin)%><br>
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgBus"/>:<%=phone2%>&nbsp;
+				<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgBus"/>:<%=phone2Display%>&nbsp;
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgDr"/>&nbsp;<%=Encode.forHtml(providername)%><br>
 				</span></td>
                             </tr>
@@ -297,7 +301,7 @@
                                 <td style="border: solid 1px; background-color: white;">
 				<span id="copytext5"
                       class="copytext"> <%=Encode.forHtml(chart_no)%> &nbsp;&nbsp;<%=Encode.forHtml(last_name)%>, <%=Encode.forHtml(first_name)%><br><%=Encode.forHtml(address)%>, <%=Encode.forHtml(city)%>, <%=Encode.forHtml(province)%>, <%=Encode.forHtml(postal)%>
-				<br><%=Encode.forHtml(dob)%> &nbsp;&nbsp;&nbsp;<%=age%> <%=Encode.forHtml(sex)%> &nbsp;<%=Encode.forHtml(hin)%><br><%=Encode.forHtml(phone)%>&nbsp;&nbsp;&nbsp;<%=phone2%><br><%=Encode.forHtml(refDoc)%>
+				<br><%=Encode.forHtml(dob)%> &nbsp;&nbsp;&nbsp;<%=age%> <%=Encode.forHtml(sex)%> &nbsp;<%=Encode.forHtml(hin)%><br><%=Encode.forHtml(phone)%>&nbsp;&nbsp;&nbsp;<%=phone2Display%><br><%=Encode.forHtml(refDoc)%>
 				</span></td>
                             </tr>
                         </table>
