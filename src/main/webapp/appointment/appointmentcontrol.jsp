@@ -44,7 +44,7 @@
 <%
     // associate each operation with an output JSP file -- displaymode
     String[][] opToFile = new String[][]{
-            {"Add Appointment", "appointmentaddarecord.jsp"},
+            {"Add Appointment", "appointment/AddRecord.do"},
             {"Group Appt", "appointmentgrouprecords.jsp"},
             {"Group Action", "appointmentgrouprecords.jsp"},
             {"Add Appt & PrintPreview", "appointmentaddrecordprint.jsp"},
@@ -54,9 +54,9 @@
             {"Search ", "/demographic/DemographicSearch.do"},
             {"Search", "appointmentsearchrecords.jsp"},
             {"edit", "editappointment.jsp"},
-            {"Update Appt", "appointmentupdatearecord.jsp"},
-            {"Delete Appt", "appointmentdeletearecord.jsp"},
-            {"Cut", "appointmentcutrecord.jsp"},
+            {"Update Appt", "appointment/UpdateRecord.do"},
+            {"Delete Appt", "appointment/DeleteRecord.do"},
+            {"Cut", "appointment/CutRecord.do"},
             {"Copy", "appointmentcopyrecord.jsp"}
     };
 

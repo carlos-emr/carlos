@@ -87,6 +87,18 @@
         <action name="encounter/oscarMeasurements/FlowSheetDrugAction" class="io.github.carlos_emr.carlos.commn.web.FlowSheetDrug2Action">
             <result name="success">/encounter/oscarMeasurements/TemplateFlowSheet.jsp</result>
         </action>
+        <action name="appointment/AddRecord" class="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentAddRecord2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentaddarecord.jsp</result>
+        </action>
+        <action name="appointment/UpdateRecord" class="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentUpdateRecord2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentupdatearecord.jsp</result>
+        </action>
+        <action name="appointment/DeleteRecord" class="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentDeleteRecord2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentdeletearecord.jsp</result>
+        </action>
+        <action name="appointment/CutRecord" class="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentCutRecord2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentcutrecord.jsp</result>
+        </action>
         <action name="appointment/apptStatusSetting" class="io.github.carlos_emr.carlos.appt.status.web.AppointmentStatus2Action" method="execute">
             <result name="success">/appointment/appointmentstatussetting.jsp</result>
             <result name="edit">/appointment/appointmentstatusedit.jsp</result>
