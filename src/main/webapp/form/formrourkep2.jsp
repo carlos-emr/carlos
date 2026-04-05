@@ -285,7 +285,7 @@
                     <input type="submit"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnExit"/> "
                            onclick="javascript:return onExit();"/> <input type="button"
-                                                                          value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnPrint"/>"
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(resource)%>n_breastFeeding');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.msgBreastFeedingUnit"/></b></td>
                                                                           onclick="javascript:return onPrint();"/></td>
                 <td align="center" width="100%"><a name="length"
                                                    href="javascript:popup('form/graphLengthWeight.jsp?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');">
