@@ -82,7 +82,13 @@ public final class AppointmentCutRecord2Action extends ActionSupport {
             return NONE;
         }
 
-        Appointment appt = appointmentDao.find(Integer.parseInt(apptNoParam));
+        Appointment appt;
+        try {
+            appt = appointmentDao.find(Integer.parseInt(apptNoParam));
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid appointment_no");
+            return NONE;
+        }
         if (appt == null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Appointment not found");
             return NONE;

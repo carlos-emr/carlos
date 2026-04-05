@@ -92,8 +92,9 @@ public final class AppointmentAddRecord2Action extends ActionSupport {
 
         if (!StringUtils.isEmpty(demographicNoStr)) {
             DemographicMerged dmDAO = new DemographicMerged();
-            demographicNoStr = dmDAO.getHead(demographicNoStr);
-            demographicNo = Integer.parseInt(demographicNoStr);
+            String resolvedHead = dmDAO.getHead(demographicNoStr);
+            demographicNoStr = resolvedHead != null ? resolvedHead : demographicNoStr;
+            demographicNo = ConversionUtils.fromIntString(demographicNoStr);
             DemographicData demData = new DemographicData();
             Demographic demo = demData.getDemographic(loggedInInfo, demographicNoStr);
             if (demo != null) {
@@ -123,7 +124,10 @@ public final class AppointmentAddRecord2Action extends ActionSupport {
         a.setDemographicNo(demographicNo);
         String programIdStr = (String) request.getSession().getAttribute("programId_oscarView");
         if (!StringUtils.isEmpty(programIdStr)) {
-            a.setProgramId(Integer.parseInt(programIdStr));
+            int programId = ConversionUtils.fromIntString(programIdStr);
+            if (programId > 0) {
+                a.setProgramId(programId);
+            }
         }
         a.setUrgency(request.getParameter("urgency") != null ? request.getParameter("urgency") : "");
         String rc = request.getParameter("reasonCode");
