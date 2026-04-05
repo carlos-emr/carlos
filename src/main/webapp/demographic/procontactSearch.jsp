@@ -291,7 +291,7 @@
 
         <tr>
             <td>
-                <a href="<%= request.getContextPath() %>/demographic/Contact.do?method=addProContact&keyword=<%= Encode.forUriComponent(keyword) %>&contactRole=<%= Encode.forUriComponent(contactRole) %>&contactType=3"
+                <a href="<%= request.getContextPath() %>/demographic/Contact.do?method=addProContact&keyword=<%= Encode.forUriComponent(StringUtils.noNull(keyword)) %>&contactRole=<%= Encode.forUriComponent(contactRole) %>&contactType=3"
                    style="font:inherit;display:block;margin:10px;">
                     Add/Edit Professional Contact
                 </a>
@@ -303,12 +303,12 @@
     <script type="text/javascript">
         //<!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=Encode.forJavaScript(URLEncoder.encode(form,"UTF-8"))%>&elementName=<%=Encode.forJavaScript(URLEncoder.encode(elementName,"UTF-8"))%>&elementId=<%=Encode.forJavaScript(URLEncoder.encode(elementId,"UTF-8"))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
             document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=Encode.forJavaScript(URLEncoder.encode(form,"UTF-8"))%>&elementName=<%=Encode.forJavaScript(URLEncoder.encode(elementName,"UTF-8"))%>&elementId=<%=Encode.forJavaScript(URLEncoder.encode(elementId,"UTF-8"))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
             document.nextform.submit();
         }
 

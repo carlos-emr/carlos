@@ -63,6 +63,7 @@
 <%@page import="io.github.carlos_emr.carlos.providers.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     List providers = ProviderData.getProviderList();
     String provider = "";
@@ -320,8 +321,8 @@
 
 
             function setup() {
-                var update = "<%=updateParent%>";
-                var parentId = "<%=parentAjaxId%>";
+                var update = "<%=Encode.forJavaScript(updateParent)%>";
+                var parentId = "<%=Encode.forJavaScript(parentAjaxId)%>";
                 var Url = window.opener.URLs;
 
                 if (update == "true" && !window.opener.closed)
@@ -466,9 +467,9 @@
                         for (int i = 0; i < providers.size(); i++) {
                             Map h = (Map) providers.get(i);
                     %>
-                    <option value="<%= h.get("providerNo")%>"
-                            <%= (h.get("providerNo").equals(provider) ? " selected" : "")%>><%= h.get("lastName")%>
-                        <%= h.get("firstName")%>
+                    <option value="<%= Encode.forHtmlAttribute(String.valueOf(h.get("providerNo")))%>"
+                            <%= (h.get("providerNo").equals(provider) ? " selected" : "")%>><%= Encode.forHtml(String.valueOf(h.get("lastName")))%>
+                        <%= Encode.forHtml(String.valueOf(h.get("firstName")))%>
                     </option>
                     <%}%>
 

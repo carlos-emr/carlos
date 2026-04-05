@@ -401,7 +401,7 @@
                 loc = loc + "/oscarMDS/Split.jsp?document=";
                 loc = loc + id;
                 loc = loc + "&queueID=";
-                loc = loc + "<%=inQueue%>";
+                loc = loc + "<%=Encode.forJavaScript(inQueue)%>";
                 loc = loc + "&demoName=" + encodeURIComponent(demoName);
                 popupStart(1400, 1400, loc, "Splitter");
             }
@@ -657,7 +657,7 @@
                     <form id="forms_<%=docId%>" method="post" onsubmit="return updateDocument('forms_<%=docId%>');">
                         <input type="hidden" name="method" value="documentUpdateAjax">
                         <input type="hidden" name="documentId" value="<%=docId%>">
-                        <input type="hidden" name="providerNo" value="<%= providerNo%>">
+                        <input type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo)%>">
                         <input type="hidden" name="curPage_<%=docId%>" id="curPage_<%=docId%>" value="1">
                         <input type="hidden" name="totalPage_<%=docId%>" id="totalPage_<%=docId%>"
                                value="<%=numOfPage%>">
