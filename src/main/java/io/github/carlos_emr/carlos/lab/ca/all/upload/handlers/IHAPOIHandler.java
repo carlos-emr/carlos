@@ -176,6 +176,7 @@ public class IHAPOIHandler implements MessageHandler {
         Map<String, String> hl7BodyMap = null;
         DocumentBuilderFactory docFactory = XmlUtils.createSecureDocumentBuilderFactory();
         docFactory.setNamespaceAware(true);
+        docFactory.setValidating(false);
         DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
         Document doc = docBuilder.parse(is);
 
