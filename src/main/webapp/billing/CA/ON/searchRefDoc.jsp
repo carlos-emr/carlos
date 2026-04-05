@@ -146,9 +146,10 @@
         if (value == null || value.isEmpty()) return null;
         java.util.regex.Matcher m = pattern.matcher(value);
         if (m.matches()) return new String[]{m.group(1), m.group(2)};
+        String truncated = value.length() > 120 ? value.substring(0, 120) + "..." : value;
         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-            "searchRefDoc.jsp: '" + paramName + "' did not match expected JS path format (length="
-            + value.length() + ")");
+            "searchRefDoc.jsp: '" + paramName + "' did not match expected JS path format: '"
+            + truncated + "' (length=" + value.length() + ")");
         return null;
     }
 %>

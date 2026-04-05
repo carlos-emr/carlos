@@ -69,7 +69,6 @@
 
             function displayReport() {
                 var cpath = "<%=request.getContextPath()%>";
-                var fname = "<%= Encode.forJavaScript(StringUtils.noNull(filename)) %>";
                 sname = cpath + "/billing/CA/ON/<%= (filename != null && filename.length() >= 4 && "OU".equals(filename.substring(2, 4))) ? "OU" : "ES" %>.xsl";
 
                 xml = '<%=StringEscapeUtils.escapeEcmaScript(fileContents)%>';

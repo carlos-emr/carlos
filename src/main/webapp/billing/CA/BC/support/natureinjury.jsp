@@ -55,9 +55,14 @@
     %>
     <script language="JavaScript">
     function posttoText(index){
+    <%if (form == null || form.isEmpty() || field == null || field.isEmpty()) {%>
+    alert("Error: Missing form configuration. Cannot transfer the selected code.");
+    return;
+    <%} else {%>
     self.close();
-    opener.document["<%= Encode.forJavaScript(StringUtils.noNull(form)) %>"]["<%= Encode.forJavaScript(StringUtils.noNull(field)) %>"].value = index;
+    opener.document["<%= Encode.forJavaScript(form) %>"]["<%= Encode.forJavaScript(field) %>"].value = index;
     opener.document.focus();
+    <%}%>
     }
     </script>
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0">

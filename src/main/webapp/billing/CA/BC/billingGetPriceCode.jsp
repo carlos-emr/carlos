@@ -57,8 +57,13 @@
     <title>Service Code Price Search</title>
     <script LANGUAGE="JavaScript">
         function CodeAttach(cost) {
+            <%if (formName == null || formName.isEmpty() || formElementPrice == null || formElementPrice.isEmpty()) {%>
+            alert("Error: Missing form configuration. Cannot transfer the selected code.");
+            return;
+            <%} else {%>
             self.close();
-            self.opener.document["<%= Encode.forJavaScript(StringUtils.noNull(formName)) %>"]["<%= Encode.forJavaScript(StringUtils.noNull(formElementPrice)) %>"].value = cost;
+            self.opener.document["<%= Encode.forJavaScript(formName) %>"]["<%= Encode.forJavaScript(formElementPrice) %>"].value = cost;
+            <%}%>
         }
     </script>
 </head>

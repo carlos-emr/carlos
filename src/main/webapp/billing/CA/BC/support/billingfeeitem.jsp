@@ -78,15 +78,24 @@
 
     <script language="JavaScript">
     function posttoText(index){
+    <%if (form == null || form.isEmpty() || field == null || field.isEmpty()) {%>
+    alert("Error: Missing form configuration. Cannot transfer the selected code.");
+    return;
+    <%} else {%>
     self.close();
-    opener.document["<%= Encode.forJavaScript(StringUtils.noNull(form)) %>"]["<%= Encode.forJavaScript(StringUtils.noNull(field)) %>"].value = index;
+    opener.document["<%= Encode.forJavaScript(form) %>"]["<%= Encode.forJavaScript(field) %>"].value = index;
     opener.document.focus();
+    <%}%>
     }
     <%if (request.getParameter("corrections") != null) {%>
     function updateFeeCodeValues(code,description,fee){
+    <%if (form == null || form.isEmpty() || field == null || field.isEmpty()) {%>
+    alert("Error: Missing form configuration. Cannot transfer the selected code.");
+    return;
+    <%} else {%>
     self.close();
-    opener.document["<%= Encode.forJavaScript(StringUtils.noNull(form)) %>"]["<%= Encode.forJavaScript(StringUtils.noNull(field)) %>"].value = code;
-    opener.document["<%= Encode.forJavaScript(StringUtils.noNull(form)) %>"]["<%= Encode.forJavaScript(StringUtils.noNull(feeField)) %>"].value = fee;
+    opener.document["<%= Encode.forJavaScript(form) %>"]["<%= Encode.forJavaScript(field) %>"].value = code;
+    opener.document["<%= Encode.forJavaScript(form) %>"]["<%= Encode.forJavaScript(StringUtils.noNull(feeField)) %>"].value = fee;
 
     var valueEle = opener.document.getElementById('billValue');
     if (valueEle){
@@ -99,6 +108,7 @@
     }
 
     opener.document.focus();
+    <%}%>
     }
     <%}%>
 

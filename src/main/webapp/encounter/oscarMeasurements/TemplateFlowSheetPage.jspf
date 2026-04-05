@@ -90,6 +90,7 @@
 	LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_FLOWSHEET,  temp , request.getRemoteAddr(),demographic_no);
 
     // Pre-compute commonly used encoded values for demographic_no and template
+    String safeDemoNoHtml = Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no));
     String safeDemoNoUri = Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no));
     String safeDemoNoJsUri = Encode.forJavaScriptAttribute(safeDemoNoUri);
     String safeTempUri = Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(temp));
@@ -172,7 +173,7 @@
 <html>
 
 <head>
-<title><%= Encode.forHtml(flowSheet) %> - <oscar:nameage demographicNo="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no)) %>"/></title><!--I18n-->
+<title><%= Encode.forHtml(flowSheet) %> - <oscar:nameage demographicNo="<%= safeDemoNoHtml %>"/></title><!--I18n-->
 
 <script type="text/javascript" src="${ pageContext.request.contextPath }/share/javascript/Oscar.js"></script>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
@@ -472,7 +473,7 @@ div.recommendations ul{
         <h4><%= Encode.forHtml(flowSheet) %></h4>
     </td>
     <td class="MainTableTopRowRightColumn" style="text-align: center;">
-        <h4><oscar:nameage demographicNo="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no)) %>"/></h4>
+        <h4><oscar:nameage demographicNo="<%= safeDemoNoHtml %>"/></h4>
     </td>
 </tr>
     <tr>
@@ -565,7 +566,7 @@ div.recommendations ul{
                      <form method="post" action="FlowSheetDrugAction.do" style="display:inline;">
                          <input type="hidden" name="method" value="dxSave"/>
                          <input type="hidden" name="flowsheet" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(temp)) %>"/>
-                         <input type="hidden" name="demographic" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no)) %>"/>
+                         <input type="hidden" name="demographic" value="<%= safeDemoNoHtml %>"/>
                          <input type="hidden" name="dxCode" value="<%=code.getDxSearchCode()%>"/>
                          <input type="hidden" name="dxCodeType" value="<%=code.getType()%>"/>
                          <a href="javascript:void(0);" onclick="this.closest('form').submit();">
@@ -608,7 +609,7 @@ div.recommendations ul{
                             <form method="post" action="FlowSheetDrugAction.do" style="display:inline;">
                                 <input type="hidden" name="method" value="save"/>
                                 <input type="hidden" name="flowsheet" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(temp)) %>"/>
-                                <input type="hidden" name="demographic" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no)) %>"/>
+                                <input type="hidden" name="demographic" value="<%= safeDemoNoHtml %>"/>
                                 <input type="hidden" name="atcCode" value="<%= Encode.forHtmlAttribute(arr[i].getAtcCode()) %>"/>
                                 <a href="javascript:void(0);" onclick="this.closest('form').submit();">
                                 - <%= Encode.forHtml(org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12)) %>

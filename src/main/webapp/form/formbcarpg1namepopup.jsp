@@ -95,10 +95,10 @@
             <tr bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.backgroundColor='pink';"
                 onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                onClick='typeInData("<%=firstName + " " + lastName%>");'>
-                <td nowrap><%=firstName%>
+                onClick='typeInData("<%= Encode.forJavaScriptAttribute(firstName + " " + lastName) %>");'>
+                <td nowrap><%= Encode.forHtml(firstName) %>
                 </td>
-                <td nowrap><%=lastName%>
+                <td nowrap><%= Encode.forHtml(lastName) %>
                 </td>
             </tr>
             <%

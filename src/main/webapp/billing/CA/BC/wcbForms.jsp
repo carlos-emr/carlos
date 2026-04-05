@@ -136,12 +136,14 @@
 
 <%!
     String checked(String s, int i) {
+        if (s == null || s.isEmpty()) return "";
         try {
             int b = Integer.parseInt(s);
             if (b == i) {
                 return "checked";
             }
-        } catch (Exception e) {
+        } catch (NumberFormatException e) {
+            // wcbid parameter is not a valid integer -- default to unchecked
         }
         return "";
     }

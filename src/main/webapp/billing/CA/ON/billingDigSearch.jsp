@@ -61,8 +61,9 @@
             targetFormIdx = m2.group(1);
             targetElement = m2.group(2);
         } else if (!name2.isEmpty()) {
-            MiscUtils.getLogger().warn("billingDigSearch.jsp: 'name2' did not match expected JS path format (length="
-                + name2.length() + ")");
+            String truncated = name2.length() > 120 ? name2.substring(0, 120) + "..." : name2;
+            MiscUtils.getLogger().warn("billingDigSearch.jsp: 'name2' did not match expected JS path format: '"
+                + truncated + "' (length=" + name2.length() + ")");
             name2ParseError = true;
         }
     }
@@ -100,6 +101,9 @@
     </head>
 
     <body onLoad="setfocus()">
+    <%if(name2ParseError) {%>
+    <script>alert("Warning: The diagnostic code field reference could not be parsed. Selecting a code may not work correctly. Please close this window and try again from the billing form.");</script>
+    <%}%>
     <table style="width:100%">
         <tr>
             <th style="text-align:center; background-color:silver;"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.msgDiagnostic"/><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.msgMaxSelections"/></th>
@@ -119,7 +123,7 @@
 
     <form name="codesearch" id="codesearch" method="post"
           action="billingDigSearch.jsp">
-        <%if (targetElement != null) {%>
+        <%if (targetElement != null || name2ParseError) {%>
         <input type="hidden" name="name2"
                value="<%=Encode.forHtmlAttribute(name2)%>"/>
         <%}%>

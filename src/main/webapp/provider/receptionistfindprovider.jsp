@@ -134,9 +134,14 @@
         }
 
         function selectProviderCustom(p, pn) {
-            opener.document["<%= Encode.forJavaScript(StringUtils.noNull(form)) %>"].elements["<%= Encode.forJavaScript(StringUtils.noNull(elementName)) %>"].value = pn;
-            opener.document["<%= Encode.forJavaScript(StringUtils.noNull(form)) %>"].elements["<%= Encode.forJavaScript(StringUtils.noNull(elementId)) %>"].value = p;
+            <%if (form == null || form.isEmpty() || elementName == null || elementName.isEmpty() || elementId == null || elementId.isEmpty()) {%>
+            alert("Error: Missing form configuration. Cannot transfer the selected provider.");
+            return;
+            <%} else {%>
+            opener.document["<%= Encode.forJavaScript(form) %>"].elements["<%= Encode.forJavaScript(elementName) %>"].value = pn;
+            opener.document["<%= Encode.forJavaScript(form) %>"].elements["<%= Encode.forJavaScript(elementId) %>"].value = p;
             self.close();
+            <%}%>
         }
     </SCRIPT>
 </head>
