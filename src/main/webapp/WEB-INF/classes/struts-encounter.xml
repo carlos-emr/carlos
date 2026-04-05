@@ -28,6 +28,15 @@
 <struts>
     <package name="encounter" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/securityError.jsp</result>
+            <result name="error">/errorpage.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+            <exception-mapping exception="java.lang.Exception" result="error"/>
+        </global-exception-mappings>
 
         <action name="encounter/IncomingEncounter" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctIncomingEncounter2Action">
             <result name="failure">/errorpage.jsp</result>

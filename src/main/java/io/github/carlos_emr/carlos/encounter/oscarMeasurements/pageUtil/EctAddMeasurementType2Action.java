@@ -68,6 +68,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
             String measuringInstrc = this.getMeasuringInstrc();
             String validation = this.getValidation();
             if (!allInputIsValid(request, type, typeDesc, typeDisplayName, measuringInstrc)) {
+                request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
                 return "failure";
             }
 

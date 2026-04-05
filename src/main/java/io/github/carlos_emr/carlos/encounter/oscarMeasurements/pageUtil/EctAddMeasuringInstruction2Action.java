@@ -37,7 +37,6 @@ import java.util.List;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
@@ -57,7 +56,6 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctAddMeasuringInstruction2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
 
 
     private MeasurementTypeDao dao = SpringUtils.getBean(MeasurementTypeDao.class);
@@ -79,7 +77,6 @@ public class EctAddMeasuringInstruction2Action extends ActionSupport {
             EctValidation validate = new EctValidation();
             String regExp = validate.getRegCharacterExp();
             String errorField = "The measuring instruction " + measuringInstrc;
-            String contextPath = request.getContextPath();
             if (!validate.matchRegExp(regExp, measuringInstrc)) {
                 addActionError(getText("errors.invalid", new String[]{errorField}));
                 isValid = false;
@@ -89,12 +86,14 @@ public class EctAddMeasuringInstruction2Action extends ActionSupport {
                 isValid = false;
             }
             if (!isValid) {
+                request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
                 return "failure";
             }
 
             List<MeasurementType> mts = dao.findByMeasuringInstructionAndTypeDisplayName(measuringInstrc, typeDisplayName);
             if (mts.size() > 0) {
                 addActionError(getText("error.encounter.Measurements.duplicateTypeName"));
+                request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
                 return "failure";
             }
 

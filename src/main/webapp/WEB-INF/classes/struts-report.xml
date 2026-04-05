@@ -28,6 +28,16 @@
 <struts>
     <package name="report" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/securityError.jsp</result>
+            <result name="error">/errorpage.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+            <exception-mapping exception="java.lang.Exception" result="error"/>
+        </global-exception-mappings>
+
         <action name="report/printLabDaySheetAction" class="io.github.carlos_emr.carlos.report.pageUtil.printLabDaySheet2Action"/>
         <action name="oscarReport/FluBilling" class="io.github.carlos_emr.carlos.report.pageUtil.RptFluBilling2Action">
             <result name="success">/WEB-INF/jsp/oscarReport/oscarReportFluBilling.jsp</result>
@@ -53,6 +63,7 @@
         </action>
         <action name="oscarReport/obec" class="io.github.carlos_emr.carlos.report.pageUtil.Obec2Action">
             <result name="success">/WEB-INF/jsp/oscarReport/obec.jsp</result>
+            <result name="input">/WEB-INF/jsp/oscarReport/obec.jsp</result>
         </action>
         <action name="oscarReport/oscarMeasurements/SetupSelectCDMReport" class="io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil.RptSetupSelectCDMReport2Action">
             <result name="continue">/oscarReport/oscarMeasurements/SelectCDMReport.jsp</result>

@@ -75,6 +75,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
 
             if (!saveFile(file, fileName)) {
                 addActionError(getText("errors.fileNotAdded"));
+                request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
                 return INPUT;
             } else {
                 write2Database(fileName);

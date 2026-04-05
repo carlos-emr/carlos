@@ -31,6 +31,8 @@
 package io.github.carlos_emr.carlos.report.pageUtil;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Properties;
 
 import jakarta.servlet.ServletException;
@@ -77,23 +79,24 @@ public class Obec2Action extends ActionSupport {
       }
       if (!validation.isDate(startDate)) {
          MiscUtils.getLogger().debug("Invalid date format submitted to OBEC report: {}", startDate);
-         return SUCCESS;
+         addActionError("Invalid date format. Please use YYYY-MM-DD format.");
+         return INPUT;
       }
-      
+
       int numDays = this.getNumDays();
-      int startYear = 0;
-      int startMonth = 0;
-      int startDay = 0;
-      
-      int slashIndex1 = startDate.indexOf("-");
-      if (slashIndex1>=0){
-         startYear = Integer.parseInt(startDate.substring(0, slashIndex1));
-         int slashIndex2 = startDate.indexOf("-", slashIndex1+1);
-         if (slashIndex2>slashIndex1){
-            startMonth = Integer.parseInt(startDate.substring(slashIndex1+1, slashIndex2));
-            int length = startDate.length();
-            startDay = Integer.parseInt(startDate.substring(slashIndex2+1, length));
-         }
+      int startYear;
+      int startMonth;
+      int startDay;
+
+      try {
+         LocalDate parsed = LocalDate.parse(startDate);
+         startYear = parsed.getYear();
+         startMonth = parsed.getMonthValue();
+         startDay = parsed.getDayOfMonth();
+      } catch (DateTimeParseException e) {
+         MiscUtils.getLogger().debug("Failed to parse date for OBEC report: {}", startDate);
+         addActionError("Invalid date format. Please use YYYY-MM-DD format.");
+         return INPUT;
       }
       
       
