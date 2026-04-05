@@ -143,10 +143,14 @@ public final class LogSanitizer {
      * {@code StackOverflowError} specifically (for recursive {@code toString()} implementations),
      * but lets other {@code Error} subclasses propagate.</p>
      *
+     * <p>Named {@code sanitizeObject} (not {@code sanitize}) to avoid a confusing overload
+     * with {@link #sanitize(String)} — callers must opt in explicitly, and dispatch does not
+     * depend on the static type of the argument.</p>
+     *
      * @param input Object the value to sanitize; may be {@code null}
      * @return String the sanitized string; never {@code null}
      */
-    public static String sanitize(Object input) {
+    public static String sanitizeObject(Object input) {
         if (input == null) {
             return "null";
         }
