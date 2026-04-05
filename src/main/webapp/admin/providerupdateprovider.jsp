@@ -518,7 +518,7 @@
                                         ClinicNbr tempNbr = nbrIter.next();
                                         String valueString = tempNbr.getNbrValue() + " | " + tempNbr.getNbrString();
                                 %>
-                                <option value="<%=Encode.forHtmlAttribute(tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue())%>" <%=SxmlMisc.getXmlContent(provider.getComments(), "xml_p_nbr").startsWith(tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue()) ? "selected" : ""%>><%=Encode.forHtmlContent(valueString)%>
+                                <option value="<%=Encode.forHtmlAttribute(tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue())%>" <%=StringUtils.defaultString(SxmlMisc.getXmlContent(provider.getComments(), "xml_p_nbr")).startsWith(tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue()) ? "selected" : ""%>><%=Encode.forHtmlContent(valueString)%>
                                 </option>
                                 <%}%>
 

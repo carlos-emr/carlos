@@ -239,7 +239,7 @@
             msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + Encode.forHtml(privilege) + " is updated. ";
             LogAction.addLog(curUser_no, LogConst.UPDATE, LogConst.CON_PRIVILEGE, roleUserGroup + "|" + objectName + "|" + privilege, ip);
         } else {
-            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + privilege + " is <span style='color:red'>NOT</span> updated!!! ";
+            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + Encode.forHtml(privilege) + " is <span style='color:red'>NOT</span> updated!!! ";
         }
 
     }
