@@ -232,12 +232,12 @@
         <input type="hidden" name="chain" id="chain"/>
         <input type="hidden" name="demographicNo" id="demographicNo"/>
         <c:if test="${param.providerNo==null}">
-            <input type="hidden" name="providerNo" value="<%=session.getAttribute("user")%>">
+            <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(StringUtils.noNull((String)session.getAttribute("user")))%>">
         </c:if>
         <c:if test="${param.providerNo!=null}">
             <input type="hidden" name="providerNo" id="providerNo"/>
         </c:if>
-        <input type="hidden" name="caseNote.program_no" value="<%=pId%>"/>
+        <input type="hidden" name="caseNote.program_no" value="<%=Encode.forHtmlAttribute(pId)%>"/>
         <input type="hidden" name="method" value="save"/>
         <c:if test="${param.from=='casemgmt'||requestScope.from=='casemgmt'}">
             <input type="hidden" name="from" value="casemgmt"/>

@@ -149,9 +149,9 @@
                         proLast = p.getLastName();
                         proOHIP = p.getProviderNo();
                 %>
-                <option value="<%=proOHIP%>"
-                        <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=proLast%>,
-                    <%=proFirst%>
+                <option value="<%=Encode.forHtmlAttribute(proOHIP)%>"
+                        <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=Encode.forHtml(proLast)%>,
+                    <%=Encode.forHtml(proFirst)%>
                 </option>
                 <%
                     }

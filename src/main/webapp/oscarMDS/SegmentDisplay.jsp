@@ -270,17 +270,17 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                                                 </div>
                                                             </td>
                                                             <td colspan="2" nowrap>
-                                                                <div class="FieldData" nowrap="nowrap"><%=pd.getDOB()%>
+                                                                <div class="FieldData" nowrap="nowrap"><%=Encode.forHtml(pd.getDOB())%>
                                                                 </div>
                                                             </td>
                                                         </tr>
                                                         <tr>
                                                             <td colspan="2" nowrap>
-                                                                <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><%=pd.getAge()%>
+                                                                <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><%=Encode.forHtml(pd.getAge())%>
                                                                 </div>
                                                             </td>
                                                             <td colspan="2" nowrap>
-                                                                <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><%=pd.getSex()%>
+                                                                <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><%=Encode.forHtml(pd.getSex())%>
                                                                 </div>
                                                             </td>
                                                         </tr>

@@ -119,7 +119,7 @@
             <div class="col-md-5">
                 Patient Name: <br>
                 <div class="input-group">
-                    <input class="form-control" id="nameForlooksOnly" type="text" value="<%=name%>">
+                    <input class="form-control" id="nameForlooksOnly" type="text" value="<%=Encode.forHtmlAttribute(name)%>">
                     <button class="btn btn-primary" type="button" value="Search" onclick="demographicSearch()"><i
                             class="fa-solid fa-magnifying-glass"></i></button>
                 </div>
@@ -133,7 +133,7 @@
                 <label>Start Date:</label>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="fromDateParam" id="fromDateParam"
-                           value="<%= request.getAttribute("fromDateParam") != null ? request.getAttribute("fromDateParam") : "" %>"
+                           value="<%= Encode.forHtmlAttribute(request.getAttribute("fromDateParam") != null ? (String)request.getAttribute("fromDateParam") : "") %>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -144,7 +144,7 @@
                 <label>End Date:</label>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="toDateParam" id="toDateParam"
-                           value="<%= request.getAttribute("toDateParam") != null ? request.getAttribute("toDateParam") : "" %>"
+                           value="<%= Encode.forHtmlAttribute(request.getAttribute("toDateParam") != null ? (String)request.getAttribute("toDateParam") : "") %>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -170,7 +170,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%= Encode.forHtml(error) %></li>
             <% } %>
         </ul>
     </div>
