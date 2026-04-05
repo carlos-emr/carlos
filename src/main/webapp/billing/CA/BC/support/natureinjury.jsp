@@ -98,7 +98,7 @@
     <td class="SmallerText"><%= Encode.forHtml(StringUtils.noNull(c.getLevel1())) %></td>
     <td class="SmallerText"><%= Encode.forHtml(StringUtils.noNull(c.getLevel2())) %></td>
     <td class="SmallerText"><%= Encode.forHtml(StringUtils.noNull(c.getLevel3())) %></td>
-    <td class="SmallerText"><%= Encode.forHtml(StringUtils.noNull(c.getUsagenote())) %></td>
+    <td class="SmallerText"><%= Encode.forHtml(c.getUsagenote() != null ? new String(c.getUsagenote()) : "") %></td>
     </tr>
     <%
             color = !(color);

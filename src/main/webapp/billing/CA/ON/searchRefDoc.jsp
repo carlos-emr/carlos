@@ -179,6 +179,13 @@
                 self.close();
             }
 
+            <%} else if(param2Field != null) {%>
+
+            function typeInData2(data1, data2) {
+                opener.document.forms[<%= param2FormIdx %>].elements["<%= Encode.forJavaScript(param2Field) %>"].value = data2;
+                self.close();
+            }
+
             <%}%>
 
             function typeInData3(billno, toname, toaddress, tophone, tofax) {

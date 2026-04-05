@@ -499,15 +499,15 @@ div.recommendations ul{
                		<div class="DoNotPrint" style="display:flex; gap:3px; flex-direction: row;">
                         <div class="mb-3">
                    <label for="numEle"> #Of Elements</label>
-                        <input type="text" size="3" id="numEle" value="<%=request.getParameter("numEle") != null ? request.getParameter("numEle") : "" %>"/>
+                        <input type="text" size="3" id="numEle" value="<%= Encode.forHtmlAttribute(request.getParameter("numEle") != null ? request.getParameter("numEle") : "") %>"/>
                         </div>
                         <div class="mb-3">
                    <label for="flowsheetStartDate"> Start Date</label>
-                        <input type="date" size="10" id="flowsheetStartDate" value="<%=request.getParameter("sdate") != null ? request.getParameter("sdate") : "" %>" />
+                        <input type="date" size="10" id="flowsheetStartDate" value="<%= Encode.forHtmlAttribute(request.getParameter("sdate") != null ? request.getParameter("sdate") : "") %>" />
                         </div>
                         <div class="mb-3">
                    <label for="flowsheetEndDate"> End Date</label>
-                        <input type="date" size="10" id="flowsheetEndDate" value="<%=request.getParameter("edate") != null ? request.getParameter("edate") : "" %>"/>
+                        <input type="date" size="10" id="flowsheetEndDate" value="<%= Encode.forHtmlAttribute(request.getParameter("edate") != null ? request.getParameter("edate") : "") %>"/>
                         </div>
                         <div class="button-group">
                             <label>&nbsp;</label>
