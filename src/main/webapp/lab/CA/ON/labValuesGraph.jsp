@@ -132,24 +132,24 @@
                                                        width="50%">
                                                     <tr>
                                                         <td colspan="2" nowrap>
-                                                            <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formPatientName"/>: </strong> <%=demographic.getLastName()%>
+                                                            <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formPatientName"/>: </strong> <%=Encode.forHtml(demographic.getLastName())%>
                                                                 ,
-                                                                <%=demographic.getFirstName()%>
+                                                                <%=Encode.forHtml(demographic.getFirstName())%>
                                                             </div>
 
                                                         </td>
                                                         <td colspan="2" nowrap>
-                                                            <div class="FieldData" nowrap="nowrap"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><%=demographic.getSex()%>
+                                                            <div class="FieldData" nowrap="nowrap"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><%=Encode.forHtml(demographic.getSex())%>
                                                             </div>
                                                         </td>
                                                     </tr>
                                                     <tr>
                                                         <td colspan="2" nowrap>
-                                                            <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong> <%=DemographicData.getDob(demographic, "-")%>
+                                                            <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong> <%=Encode.forHtml(DemographicData.getDob(demographic, "-"))%>
                                                             </div>
                                                         </td>
                                                         <td colspan="2" nowrap>
-                                                            <div class="FieldData" nowrap="nowrap"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><%=demographic.getAge()%>
+                                                            <div class="FieldData" nowrap="nowrap"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><%=Encode.forHtml(String.valueOf(demographic.getAge()))%>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -251,7 +251,7 @@
                             }
                     %>
                     <li><input type="checkbox"  <%=getChecked(h, drug.getRegionalIdentifier())%> name="drug"
-                               value="<%=drug.getRegionalIdentifier()%>"/> <%=drug.getFullOutLine().replaceAll(";", " ")%>
+                               value="<%=Encode.forHtmlAttribute(drug.getRegionalIdentifier())%>"/> <%=Encode.forHtml(drug.getFullOutLine().replaceAll(";", " "))%>
                     </li>
                     <%
                         }

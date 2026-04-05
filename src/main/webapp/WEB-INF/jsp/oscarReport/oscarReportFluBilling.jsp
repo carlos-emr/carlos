@@ -97,7 +97,7 @@
     </h4>
 </div>
 
-<form action="${ctx}/oscarReport/oscarReportFluBilling.jsp" class="card card-body bg-body-tertiary d-flex flex-wrap align-items-center gap-2" id="fluForm">
+<form action="${ctx}/oscarReport/FluBilling.do" class="card card-body bg-body-tertiary d-flex flex-wrap align-items-center gap-2" id="fluForm">
     <select name="numMonth" class="form-select form-select-sm d-inline-block w-auto">
         <%
             for (int i = curYear - 2; i <= curYear + 2; i++) {

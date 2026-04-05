@@ -557,10 +557,10 @@
                                    bgcolor="#EEEEFF">
                                 <tr>
                                     <td nowrap width="30%"><b>Billing Physician</b></td>
-                                    <td width="20%"><%=providerBean.getProperty(request.getParameter("xml_provider"), "")%>
+                                    <td width="20%"><%= Encode.forHtml(providerBean.getProperty(StringUtils.noNull(request.getParameter("xml_provider")), "")) %>
                                     </td>
                                     <td nowrap width="30%"><b>Assig. Physician</b></td>
-                                    <td width="20%"><%=providerBean.getProperty(assgProvider_no, "")%>
+                                    <td width="20%"><%= Encode.forHtml(providerBean.getProperty(assgProvider_no, "")) %>
                                     </td>
                                 </tr>
                                 <tr>

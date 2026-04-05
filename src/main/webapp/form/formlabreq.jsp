@@ -298,29 +298,29 @@
     <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
 
         <input type="hidden" name="demographic_no"
-               value="<%= props.getProperty("demographic_no", "0") %>"/>
+               value="<%= Encode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
         <input type="hidden" name="patientLastName"
-               value="<%=patientNames[0].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientNames[0].trim())%>"/>
         <input type="hidden" name="patientFirstName"
-               value="<%=patientNames[1].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientNames[1].trim())%>"/>
         <input type="hidden" name="patientBirthYear"
-               value="<%=patientDOB[0].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientDOB[0].trim())%>"/>
         <input type="hidden" name="patientBirthMth"
-               value="<%=patientDOB[1].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientDOB[1].trim())%>"/>
         <input type="hidden" name="patientBirthDay"
-               value="<%=patientDOB[2].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientDOB[2].trim())%>"/>
         <input type="hidden" name="ID"
-               value="<%= props.getProperty("ID", "0") %>"/>
+               value="<%= Encode.forHtmlAttribute(props.getProperty("ID", "0")) %>"/>
         <input type="hidden" name="provider_no"
                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provNo"))) %>"/>
         <input type="hidden" name="formCreated"
-               value="<%= props.getProperty("formCreated", "") %>"/>
-        <input type="hidden" name="form_class" value="<%=formClass%>"/>
-        <input type="hidden" name="form_link" value="<%=formLink%>"/>
+               value="<%= Encode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
+        <input type="hidden" name="form_class" value="<%=Encode.forHtmlAttribute(formClass)%>"/>
+        <input type="hidden" name="form_link" value="<%=Encode.forHtmlAttribute(formLink)%>"/>
         <input type="hidden" name="provNo"
                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provNo"))) %>"/>
         <input type="hidden" name="submit" value="exit"/>
-        <input type="hidden" name="formId" value="<%=formId%>"/>
+        <input type="hidden" name="formId" value="<%=Encode.forHtmlAttribute(String.valueOf(formId))%>"/>
 
         <table class="Head" class="hidePrint">
             <tr>
@@ -351,23 +351,23 @@
                             <td colspan="3" nowrap="true">Requisitioning
                                 Physician/Practitioner:<br>
                                 <input type="hidden" style="width: 100%" name="provName"
-                                       value="<%=props.getProperty("provName", "")%>"/> <input
+                                       value="<%=Encode.forHtmlAttribute(props.getProperty("provName", ""))%>"/> <input
                                         type="hidden" style="width: 100%" name="reqProvName"
-                                        value="<%=props.getProperty("reqProvName", "")%>"/> <%=props.getProperty("reqProvName", "")%>&nbsp;<br>
+                                        value="<%=Encode.forHtmlAttribute(props.getProperty("reqProvName", ""))%>"/> <%=Encode.forHtml(props.getProperty("reqProvName", ""))%>&nbsp;<br>
                                     <%-- Dr. Hunter wants the form to say "Physician" instead of "Family Physician".  This is a quick and dirty hack to make it work.  This
                      should really be rewritten more elegantly at some later point in time. --%>
                                 <br><%=oscarProps.getProperty("clinic_no", "").startsWith("1022") ? "Physician:" : "Family Physician:"%>
                                 <br>
-                                <%=props.getProperty("provName", "") == null ? "" : props.getProperty("provName", "")%>&nbsp;<br>
+                                <%=Encode.forHtml(props.getProperty("provName", "") == null ? "" : props.getProperty("provName", ""))%>&nbsp;<br>
                                 <input type="hidden" style="width: 100%" name="clinicName"
-                                       value="<%=props.getProperty("clinicName","")%>"/> <%=props.getProperty("clinicName", "")%>&nbsp;<br>
+                                       value="<%=Encode.forHtmlAttribute(props.getProperty("clinicName",""))%>"/> <%=Encode.forHtml(props.getProperty("clinicName", ""))%>&nbsp;<br>
                                 <input type="hidden" style="width: 100%" name="clinicAddress"
-                                       value="<%=props.getProperty("clinicAddress", "")%>"/> <%=props.getProperty("clinicAddress", "")%>&nbsp;<br>
+                                       value="<%=Encode.forHtmlAttribute(props.getProperty("clinicAddress", ""))%>"/> <%=Encode.forHtml(props.getProperty("clinicAddress", ""))%>&nbsp;<br>
                                 <input type="hidden" style="width: 100%" name="clinicCity"
-                                       value="<%=props.getProperty("clinicCity", "")%>"/> <%=props.getProperty("clinicCity", "")%>
-                                ,<%=props.getProperty("clinicProvince", "") %><br>
+                                       value="<%=Encode.forHtmlAttribute(props.getProperty("clinicCity", ""))%>"/> <%=Encode.forHtml(props.getProperty("clinicCity", ""))%>
+                                ,<%=Encode.forHtml(props.getProperty("clinicProvince", "")) %><br>
                                 <input type="hidden" style="width: 100%" name="clinicPC"
-                                       value="<%=props.getProperty("clinicPC", "")%>"/> <%=props.getProperty("clinicPC", "")%>&nbsp;<br>
+                                       value="<%=Encode.forHtmlAttribute(props.getProperty("clinicPC", ""))%>"/> <%=Encode.forHtml(props.getProperty("clinicPC", ""))%>&nbsp;<br>
                             </td>
                         </tr>
                         <tr>
@@ -377,7 +377,7 @@
                                     <tr>
                                         <td colspan="3">Physician/Practitioner Number<br>
                                             <input type="hidden" name="practitionerNo"
-                                                   value="<%=props.getProperty("practitionerNo", "")%>"/> <%=props.getProperty("practitionerNo", "")%>&nbsp;
+                                                   value="<%=Encode.forHtmlAttribute(props.getProperty("practitionerNo", ""))%>"/> <%=Encode.forHtml(props.getProperty("practitionerNo", ""))%>&nbsp;
                                         </td>
                                     </tr>
                                     <tr>
@@ -403,7 +403,7 @@
                                     <tr>
                                         <td colspan="3">Additional Clinical Information<br>
                                             <textarea name="aci"
-                                                      style="width: 100%; height: 59px;"><%=props.getProperty("aci", "")%></textarea>
+                                                      style="width: 100%; height: 59px;"><%=Encode.forHtml(props.getProperty("aci", ""))%></textarea>
                                         </td>
                                     </tr>
                                 </table>
@@ -445,52 +445,52 @@
                                     <tr>
                                         <td width="33%"><input type="hidden" style="width: 90%"
                                                                name="patientName"
-                                                               value="<%=props.getProperty("patientName", "")%>"/> <%=props.getProperty("patientName", "")%>&nbsp;
+                                                               value="<%=Encode.forHtmlAttribute(props.getProperty("patientName", ""))%>"/> <%=Encode.forHtml(props.getProperty("patientName", ""))%>&nbsp;
                                         </td>
                                         <td>Health Number:</td>
                                         <td><input type="hidden" name="healthNumber" size="10"
-                                                   value="<%=props.getProperty("healthNumber", "")%>"/> <%=props.getProperty("healthNumber", "")%>&nbsp;
+                                                   value="<%=Encode.forHtmlAttribute(props.getProperty("healthNumber", ""))%>"/> <%=Encode.forHtml(props.getProperty("healthNumber", ""))%>&nbsp;
                                         </td>
                                         <td>Province:</td>
                                         <td><input type="hidden" name="province" size="12"
-                                                   value="<%=props.getProperty("province", "")%>"/> <%=props.getProperty("province", "")%>&nbsp;
+                                                   value="<%=Encode.forHtmlAttribute(props.getProperty("province", ""))%>"/> <%=Encode.forHtml(props.getProperty("province", ""))%>&nbsp;
                                         </td>
                                     </tr>
                                     <tr>
                                         <td><input type="hidden" style="width: 90%"
                                                    name="patientAddress"
-                                                   value="<%=props.getProperty("patientAddress", "")%>"/> <%=props.getProperty("patientAddress", "")%>
+                                                   value="<%=Encode.forHtmlAttribute(props.getProperty("patientAddress", ""))%>"/> <%=Encode.forHtml(props.getProperty("patientAddress", ""))%>
                                         </td>
                                         <td>Version:</td>
                                         <td><input type="hidden" name="version" size="10"
-                                                   value="<%=props.getProperty("version", "")%>"/> <%=props.getProperty("version", "")%>
+                                                   value="<%=Encode.forHtmlAttribute(props.getProperty("version", ""))%>"/> <%=Encode.forHtml(props.getProperty("version", ""))%>
                                         </td>
                                         <td>Other Registration Number:</td>
                                         <td><input type="text" name="orn" size="12"
-                                                   value="<%=props.getProperty("orn", "")%>"/></td>
+                                                   value="<%=Encode.forHtmlAttribute(props.getProperty("orn", ""))%>"/></td>
                                     </tr>
                                     <td><input type="hidden" style="width: 90%"
                                                name="patientCity"
-                                               value="<%=props.getProperty("patientCity", "")%>"/> <%=props.getProperty("patientCity", "")%>
+                                               value="<%=Encode.forHtmlAttribute(props.getProperty("patientCity", ""))%>"/> <%=Encode.forHtml(props.getProperty("patientCity", ""))%>
                                     </td>
                                     <td>Date of Birth:</td>
                                     <td><input type="hidden" name="birthDate" size="10"
-                                               value="<%=props.getProperty("birthDate", "")%>"/> <%=props.getProperty("birthDate", "")%>
+                                               value="<%=Encode.forHtmlAttribute(props.getProperty("birthDate", ""))%>"/> <%=Encode.forHtml(props.getProperty("birthDate", ""))%>
                                     </td>
                                     <td>Phone Number:</td>
                                     <td><input type="hidden" name="phoneNumber" size="12"
-                                               value="<%=props.getProperty("phoneNumber", "")%>"/> <%=props.getProperty("phoneNumber", "")%>
+                                               value="<%=Encode.forHtmlAttribute(props.getProperty("phoneNumber", ""))%>"/> <%=Encode.forHtml(props.getProperty("phoneNumber", ""))%>
                                     </td>
                         </tr>
                         <td><input type="hidden" style="width: 90%" name="patientPC"
-                                   value="<%=props.getProperty("patientPC", "")%>"/> <%=props.getProperty("patientPC", "")%>
+                                   value="<%=Encode.forHtmlAttribute(props.getProperty("patientPC", ""))%>"/> <%=Encode.forHtml(props.getProperty("patientPC", ""))%>
                         </td>
                         <td>Payment Program:</td>
                         <td><input type="text" name="paymentProgram" size="10"
-                                   value="<%=props.getProperty("paymentProgram", "")%>"/></td>
+                                   value="<%=Encode.forHtmlAttribute(props.getProperty("paymentProgram", ""))%>"/></td>
                         <td>Sex:</td>
                         <td><input type="hidden" name="sex" size="12"
-                                   value="<%=props.getProperty("sex", "")%>"/> <%=props.getProperty("sex", "")%>
+                                   value="<%=Encode.forHtmlAttribute(props.getProperty("sex", ""))%>"/> <%=Encode.forHtml(props.getProperty("sex", ""))%>
                         </td>
             </tr>
         </table>
@@ -622,14 +622,14 @@
                                                 <td colspan="2">Specify:</td>
                                                 <td>Hepatitis A</td>
                                                 <td><input type="text" name="v_hepA"
-                                                           value="<%=props.getProperty("v_hepA", "")%>"
+                                                           value="<%=Encode.forHtmlAttribute(props.getProperty("v_hepA", ""))%>"
                                                            style="width: 100%;"/></td>
                                             </tr>
                                             <tr>
                                                 <td colspan="2">&nbsp;</td>
                                                 <td>Hepatitis B</td>
                                                 <td><input type="text" name="v_hepB"
-                                                           value="<%=props.getProperty("v_hepB", "")%>"
+                                                           value="<%=Encode.forHtmlAttribute(props.getProperty("v_hepB", ""))%>"
                                                            style="width: 100%;"/></td>
                                             </tr>
                                         </table>
@@ -651,7 +651,7 @@
                                             <tr>
                                                 <td>_________________</td>
                                                 <td><input type="text" name="formDate" size="10"
-                                                           value="<%=props.getProperty("formDate", "")%>"/></td>
+                                                           value="<%=Encode.forHtmlAttribute(props.getProperty("formDate", ""))%>"/></td>
                                             </tr>
                                         </table>
                                     </td>
@@ -708,7 +708,7 @@
                                             <%=props.getProperty("h_otherC", "")%> /></td>
                                     <td style="padding-bottom: 1px"><input type="text"
                                                                            name="h_other"
-                                                                           value="<%=props.getProperty("h_other", "")%>"/>
+                                                                           value="<%=Encode.forHtmlAttribute(props.getProperty("h_other", ""))%>"/>
                                     </td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
@@ -773,7 +773,7 @@
                                             <%=props.getProperty("i_otherC", "")%> /></td>
                                     <td style="padding-bottom: 1px"><input type="text"
                                                                            name="i_other"
-                                                                           value="<%=props.getProperty("i_other", "")%>"/>
+                                                                           value="<%=Encode.forHtmlAttribute(props.getProperty("i_other", ""))%>"/>
                                     </td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
@@ -824,7 +824,7 @@
                                             <%=props.getProperty("m_otherSwabs", "")%> /></td>
                                     <td nowrap="true" style="padding-bottom: 2px"><input
                                             type="text" style="width: 100%;" name="m_other"
-                                            value="<%=props.getProperty("m_other", "")%>"/></td>
+                                            value="<%=Encode.forHtmlAttribute(props.getProperty("m_other", ""))%>"/></td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
@@ -844,7 +844,7 @@
                                 </tr>
                                 <tr>
                                     <td rowspan="9"><textarea name="otherTest"
-                                                              style="width: 100%; height: 159px; overflow: auto;"><%=props.getProperty("otherTest", "")%></textarea>
+                                                              style="width: 100%; height: 159px; overflow: auto;"><%=Encode.forHtml(props.getProperty("otherTest", ""))%></textarea>
                                     </td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>

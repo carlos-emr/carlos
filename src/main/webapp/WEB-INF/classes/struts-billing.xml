@@ -38,10 +38,13 @@
             <result name="error">/billing/CA/BC/quickBillingBC.jsp?saved=false</result>
         </action>
         <action name="admin/GstControl" class="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action">
-            <result name="success">/admin/gstControl.jsp</result>
+            <result name="success">/WEB-INF/jsp/admin/gstControl.jsp</result>
+        </action>
+        <action name="admin/GstReport" class="io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport2Action">
+            <result name="success">/WEB-INF/jsp/admin/gstreport.jsp</result>
         </action>
         <action name="admin/manageCSSStyles" class="io.github.carlos_emr.carlos.billing.CA.ON.web.ManageCSS2Action">
-            <result name="init">/admin/manageCSSStyles.jsp</result>
+            <result name="init">/WEB-INF/jsp/admin/manageCSSStyles.jsp</result>
         </action>
         <action name="billing" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.Billing2Action">
             <result name="BC">/billing/CA/BC/billingBC.jsp</result>
@@ -129,10 +132,10 @@
             <result name="success">/billing/CA/ON/ScheduleOfBenefitsUpload.jsp</result>
         </action>
         <action name="billing/CA/BC/receivePaymentAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ReceivePayment2Action">
-            <result name="success">/billing/CA/BC/receivePayment.jsp</result>
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/receivePayment.jsp</result>
         </action>
         <action name="billing/CA/BC/viewReceivePaymentAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewReceivePayment2Action">
-            <result name="success">/billing/CA/BC/receivePayment.jsp</result>
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/receivePayment.jsp</result>
         </action>
         <action name="billing/CA/BC/saveBillingPreferencesAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveBillingPreferences2Action">
             <result name="success">/billing/CA/BC/viewBillingPreferencesAction.do</result>

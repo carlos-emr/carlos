@@ -60,10 +60,10 @@
         <tr>
             <td valign="top">
                 <a onclick="javascript:addLuCode('instructions_<%=Encode.forJavaScriptAttribute(randomId)%>','<%=Encode.forJavaScriptAttribute(limitedUseCode.getUseId())%>')"
-                   href="javascript: return void();"><%=limitedUseCode.getUseId()%>
+                   href="javascript: return void();"><%=Encode.forHtml(limitedUseCode.getUseId())%>
                 </a>&nbsp;
             </td>
-            <td><%=limitedUseCode.getTxt()%>
+            <td><%=Encode.forHtml(limitedUseCode.getTxt())%>
             </td>
         </tr>
         <%}%>

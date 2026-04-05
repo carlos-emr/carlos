@@ -45,6 +45,7 @@
 %>
 
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ page import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.CarlosProperties" %>
 <!DOCTYPE HTML >
@@ -2409,11 +2410,11 @@
                 </tr>
                 <tr>
                     <td align="left" valign="center">
-                        <input type="hidden" name="providerNo" value="<%= providerNo %>">
-                        <input type="hidden" name="searchProviderNo" value="<%= searchProviderNo %>">
-                        <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + request.getParameter("lname") + "\">") %>
-                        <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + request.getParameter("fname") + "\">") %>
-                        <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + request.getParameter("hnum") + "\">") %>
+                        <input type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo) %>">
+                        <input type="hidden" name="searchProviderNo" value="<%= Encode.forHtmlAttribute(searchProviderNo) %>">
+                        <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>
+                        <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
+                        <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + Encode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
 
                         <input type="hidden" name="selectedProviders">
 
@@ -2443,7 +2444,7 @@
                     List dos = (List) queueDocNos.get(qId);
                     Integer numberOfDocs = dos.size();
             %>
-            <a href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showDocInQueue('<%=qId%>')"><%=name%>&nbsp;(<span
+            <a href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showDocInQueue('<%=qId%>')"><%=Encode.forHtml(name)%>&nbsp;(<span
                     id="docNo_<%=qId%>"><%=numberOfDocs%></span>)</a><br/>
             <%}%>
 
@@ -2463,9 +2464,9 @@
     var abnormals = initAbnormals('<%=abnormals%>');//[123,567]
     var patientIds = initPatientIds('<%=patientIdStr%>');
     var queueDocNos = initHashtblWithList('<%=queueDocNos%>');
-    var providerNo = '<%=providerNo%>';
+    var providerNo = '<%=Encode.forJavaScript(providerNo)%>';
 
-    var searchProviderNo = '<%=searchProviderNo%>';
+    var searchProviderNo = '<%=Encode.forJavaScript(searchProviderNo)%>';
     var types = ['DOC'];
 
     var contextpath = '${pageContext.servletContext.contextPath}';

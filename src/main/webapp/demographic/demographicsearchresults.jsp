@@ -449,15 +449,17 @@
                     </caisi:isModuleLoad>
                     <td class="chartNo"><%=Encode.forHtml(demo.getChartNo() == null || demo.getChartNo().equals("") ? " " : demo.getChartNo())%>
                     </td>
-                    <td class="sex"><%=demo.getSex()%>
+                    <td class="sex"><%=Encode.forHtml(demo.getSex() == null ? "" : demo.getSex())%>
                     </td>
-                    <td class="dob"><%=demo.getFormattedDob()%>
+                    <td class="dob"><%=Encode.forHtml(demo.getFormattedDob() == null ? "" : demo.getFormattedDob())%>
                     </td>
-                    <td class="doctor"><%=Misc.getShortStr(providerBean.getProperty(demo.getProviderNo() == null ? "" : demo.getProviderNo()), "_", 12)%>
+                    <td class="doctor"><%
+                        String providerShortName = Misc.getShortStr(providerBean.getProperty(demo.getProviderNo() == null ? "" : demo.getProviderNo()), "_", 12);
+                        %><%=Encode.forHtml(providerShortName == null ? "" : providerShortName)%>
                     </td>
-                    <td class="rosterStatus"><%=demo.getRosterStatus() == null || demo.getRosterStatus().equals("") ? " " : demo.getRosterStatus()%>
+                    <td class="rosterStatus"><%=Encode.forHtml(demo.getRosterStatus() == null || demo.getRosterStatus().equals("") ? " " : demo.getRosterStatus())%>
                     </td>
-                    <td class="patientStatus"><%=demo.getPatientStatus() == null || demo.getPatientStatus().equals("") ? " " : demo.getPatientStatus()%>
+                    <td class="patientStatus"><%=Encode.forHtml(demo.getPatientStatus() == null || demo.getPatientStatus().equals("") ? " " : demo.getPatientStatus())%>
                     </td>
                     <td class="phone"><%=Encode.forHtml(demo.getPhone() == null || demo.getPhone().equals("") ? " " : (demo.getPhone().length() == 10 ? (demo.getPhone().substring(0, 3) + "-" + demo.getPhone().substring(3)) : demo.getPhone()))%>
                     </td>

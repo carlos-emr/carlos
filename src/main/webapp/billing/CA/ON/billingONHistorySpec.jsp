@@ -130,14 +130,14 @@ for(int i=0; i<aL.size(); i=i+2) {
     <tr>
         <td style="text-align:center"><%=obj.getId()%>
         </td>
-        <td style="text-align:center"><%=obj.getBilling_date()%> <%--=obj.getBilling_time()--%></td>
-        <td style="text-align:center"><%=BillingDataHlp.propBillingType.getProperty(obj.getStatus(), "")%>
+        <td style="text-align:center"><%=Encode.forHtml(obj.getBilling_date())%> <%--=obj.getBilling_time()--%></td>
+        <td style="text-align:center"><%=Encode.forHtml(BillingDataHlp.propBillingType.getProperty(obj.getStatus(), ""))%>
         </td>
-        <td style="text-align:center"><%=strServiceCode%>
+        <td style="text-align:center"><%=Encode.forHtml(strServiceCode)%>
         </td>
-        <td style="text-align:center"><%=itObj.getDx()%>
+        <td style="text-align:center"><%=Encode.forHtml(itObj.getDx())%>
         </td>
-        <td style="text-align:center"><%=obj.getTotal()%>
+        <td style="text-align:center"><%=Encode.forHtml(obj.getTotal())%>
         </td>
     </tr>
         <%

@@ -43,11 +43,11 @@
         <action name="securityRecord/mfa" class="io.github.carlos_emr.carlos.security.MfaActions2Action"/>
 
         <action name="admin/uploadEntryText" class="io.github.carlos_emr.carlos.login.UploadLoginText2Action">
-            <result name="success">/admin/uploadEntryText.jsp</result>
+            <result name="success">/WEB-INF/jsp/admin/uploadEntryText.jsp</result>
         </action>
         <action name="FacilityManager" class="io.github.carlos_emr.carlos.facility.FacilityManager2Action" method="execute">
-            <result name="list">/admin/facility/ListFacilities.jsp</result>
-            <result name="edit">/admin/facility/EditFacility.jsp</result>
+            <result name="list">/WEB-INF/jsp/admin/facility/ListFacilities.jsp</result>
+            <result name="edit">/WEB-INF/jsp/admin/facility/EditFacility.jsp</result>
         </action>
 
     </package>

@@ -64,10 +64,10 @@
             <result name="ajax">/demographic/demographiceditdemographic.jsp</result>
         </action>
         <action name="PopulationReport" class="io.github.carlos_emr.carlos.commn.web.PopulationReport2Action" method="execute">
-            <result name="report">/report/PopulationReport.jsp</result>
+            <result name="report">/WEB-INF/jsp/report/PopulationReport.jsp</result>
         </action>
         <action name="admin/ManageClinic" class="io.github.carlos_emr.carlos.commn.web.ClinicManage2Action" method="execute">
-            <result name="success">/admin/clinicAdmin.jsp</result>
+            <result name="success">/WEB-INF/jsp/admin/clinicAdmin.jsp</result>
         </action>
         <action name="admin/ManageSites" class="io.github.carlos_emr.carlos.commn.web.SitesManage2Action" method="execute">
             <result name="list">/admin/sitesAdmin.jsp</result>

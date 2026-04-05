@@ -560,7 +560,7 @@
                         <% } %>
                         <label>
                             OHIP No.:
-                            <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="provider_ohipNo" readonly value="<%=ohipNo%>"></label>
+                            <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="provider_ohipNo" readonly value="<%= Encode.forHtmlAttribute(StringUtils.noNull(ohipNo)) %>"></label>
                     </div>
                     <div class="col-md-6">
                         <label for="xml_vdate">Start:</label>
