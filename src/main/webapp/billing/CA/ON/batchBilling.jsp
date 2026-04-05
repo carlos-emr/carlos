@@ -42,6 +42,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao, io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO, io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation, io.github.carlos_emr.carlos.commn.model.Provider, io.github.carlos_emr.carlos.commn.model.BatchBilling, io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <%
     ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);
@@ -181,9 +182,9 @@
                             proLast = p.getLastName();
                             proNo = p.getProviderNo();
                     %>
-                    <option value="<%=proNo%>"
-                            <%=providerview.equals(proNo) ? "selected" : ""%>><%=proLast%>,
-                        <%=proFirst%>
+                    <option value="<%=Encode.forHtmlAttribute(proNo)%>"
+                            <%=providerview.equals(proNo) ? "selected" : ""%>><%=Encode.forHtml(proLast)%>,
+                        <%=Encode.forHtml(proFirst)%>
                     </option>
                     <%
 
@@ -200,7 +201,7 @@
                         List<String> serviceCodes = batchBillingDAO.findDistinctServiceCodes();
                         for (String service : serviceCodes) {
                     %>
-                    <option value="<%=service%>" <%=servicecode.equals(service) ? "selected" : ""%>><%=service%>
+                    <option value="<%=Encode.forHtmlAttribute(service)%>" <%=servicecode.equals(service) ? "selected" : ""%>><%=Encode.forHtml(service)%>
                     </option>
                     <%
                         }
@@ -218,8 +219,8 @@
                             clinic_location = clinicLocation.getClinicLocationName();
                             clinic_code = clinicLocation.getClinicLocationNo();
                     %>
-                    <option value="<%=clinic_code%>"
-                            <%=clinicview.equals(clinic_code) ? "selected" : ""%>><%=clinic_location%>
+                    <option value="<%=Encode.forHtmlAttribute(clinic_code)%>"
+                            <%=clinicview.equals(clinic_code) ? "selected" : ""%>><%=Encode.forHtml(clinic_location)%>
                     </option>
                     <%
                         }
@@ -234,7 +235,7 @@
 
         <input type="hidden" name="verCode"
                value="V03"> <input type="hidden" name="curUser"
-                                   value="<%=user_no%>"> <input type="hidden" name="curDate"
+                                   value="<%=Encode.forHtmlAttribute(user_no)%>"> <input type="hidden" name="curDate"
                                                                 value="<%=nowDate%>"> <input type="hidden"
                                                                                              name="curTime"
                                                                                              value="<%=nowTime%>">
@@ -311,18 +312,18 @@
             <tr>
                 <td><input type="checkbox"
                            name="bill"
-                           value="<%=service_code + ";" + diagnostic_code + ";" + batchBilling.getDemographicNo() + ";" + batchBilling.getBillingProviderNo()%>">
+                           value="<%=Encode.forHtmlAttribute(service_code + ";" + diagnostic_code + ";" + batchBilling.getDemographicNo() + ";" + batchBilling.getBillingProviderNo())%>">
                 </td>
-                <td><%=demo_name%></a></td>
-                <td><%=proName1%>
+                <td><%=Encode.forHtml(demo_name)%></td>
+                <td><%=Encode.forHtml(proName1)%>
                 </td>
-                <td><%=service_code%>
+                <td><%=Encode.forHtml(service_code)%>
                 </td>
-                <td><%=billing_amount%>
+                <td><%=Encode.forHtml(billing_amount)%>
                 </td>
-                <td><%=diagnostic_code%>
+                <td><%=Encode.forHtml(diagnostic_code)%>
                 </td>
-                <td><%=billdate%>
+                <td><%=Encode.forHtml(billdate)%>
                 </td>
             </tr>
             <%

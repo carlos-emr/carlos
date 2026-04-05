@@ -179,7 +179,7 @@
                                 }
                         %>
                         <li><input type="checkbox"  <%=getChecked(h, drug.getRegionalIdentifier())%> name="drug"
-                                   value="<%=drug.getRegionalIdentifier()%>"/> <%=drug.getFullOutLine().replaceAll(";", " ")%>
+                                   value="<%=Encode.forHtmlAttribute(drug.getRegionalIdentifier())%>"/> <%=Encode.forHtml(drug.getFullOutLine().replaceAll(";", " "))%>
                         </li>
                         <%
                             }
