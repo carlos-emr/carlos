@@ -241,7 +241,7 @@
                         %>
                         <tr>
                             <td class="bordered" rowspan="<%=residentCountList.size()%>" valign="top">
-                                <%=supervisor%>
+                                <%=Encode.forHtml(supervisor)%>
                             </td>
                                     <%					boolean first = true;
 					for (String resident : residentCountList.keySet()) {
@@ -256,7 +256,7 @@
                         <tr>
                             <% }
                             %>
-                            <td class="bordered"><%=resident%>
+                            <td class="bordered"><%=Encode.forHtml(resident)%>
                             </td>
                             <td class="bordered" align="center"><%=residentCountList.get(resident)%>
                             </td>
@@ -279,18 +279,17 @@
             <%
                 for (String residentName : residentNameList.keySet()) {
                     String residentId = residentNameList.get(residentName);
-                    String resNameSend = residentName.replace("'", "\\'");
             %>
             <tr>
-                <td><%=residentName%>
+                <td><%=Encode.forHtml(residentName)%>
                 </td>
                 <td>
                     <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.view"/>"
                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.viewReport"/>"
-                           onclick="send('<%=residentId%>','<%=resNameSend%>','view');"/>
+                           onclick="send('<%=Encode.forJavaScriptAttribute(residentId)%>','<%=Encode.forJavaScriptAttribute(residentName)%>','view');"/>
                     <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.download"/>"
                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.fieldNote.downloadReport"/>"
-                           onclick="send('<%=residentId%>','<%=resNameSend%>','download');"/>
+                           onclick="send('<%=Encode.forJavaScriptAttribute(residentId)%>','<%=Encode.forJavaScriptAttribute(residentName)%>','download');"/>
                 </td>
             </tr>
             <% }

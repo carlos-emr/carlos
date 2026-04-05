@@ -252,18 +252,18 @@
                         <tr>
 
                             <td><a href="#"
-                                   ONCLICK="popupPage('efmshowform_data.jsp?fdid=<%=curform.get("fdid")%>&appointment=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(appointment))%>', '<%="FormP" + i%>'); return false;"
+                                   ONCLICK="popupPage('efmshowform_data.jsp?fdid=<%=Encode.forUriComponent((String) curform.get("fdid"))%>&appointment=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(appointment))%>', '<%="FormP" + i%>'); return false;"
                                    TITLE="<fmt:message key="eform.showmyform.msgViewFrm"/>"
                                    onmouseover="window.status='
                                         <fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=Encode.forHtml((String)curform.get("formName"))%>
                             </a></td>
                             <td><%=Encode.forHtmlContent((String)curform.get("formSubject"))%>
                             </td>
-                            <td><%=curform.get("formDate")%>
+                            <td><%=Encode.forHtml((String) curform.get("formDate"))%>
                             </td>
                             <td>
                                 <form method="post" action="${pageContext.request.contextPath}/eform/removeEForm.do" style="display:inline;">
-                                    <input type="hidden" name="fdid" value="<%=curform.get("fdid")%>"/>
+                                    <input type="hidden" name="fdid" value="<%=Encode.forHtmlAttribute((String) curform.get("fdid"))%>"/>
                                     <input type="hidden" name="group_view" value="<%= Encode.forHtmlAttribute(groupView) %>"/>
                                     <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>"/>
                                     <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>"/>
