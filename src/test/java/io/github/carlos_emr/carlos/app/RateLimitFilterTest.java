@@ -35,9 +35,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
 import org.mockito.MockedStatic;
-import org.mockito.MockitoAnnotations;
 
 import java.util.Map;
 
@@ -70,7 +68,6 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
 
     private MockedStatic<CarlosProperties> carlosPropertiesMock;
 
-    @Mock
     private CarlosProperties mockProperties;
 
     private RateLimitFilter filter;
@@ -80,9 +77,9 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() throws Exception {
-        MockitoAnnotations.openMocks(this);
+        mockProperties = mock(CarlosProperties.class);
 
-        // Mock CarlosProperties singleton
+        // Mock CarlosProperties singleton (Mockito initialized by CarlosUnitTestBase)
         carlosPropertiesMock = mockStatic(CarlosProperties.class);
         carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockProperties);
 
@@ -391,7 +388,7 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
             assertThat(counter.tryAcquire()).isFalse(); // 3 — exceeds limit
 
             // Wait for window to expire
-            Thread.sleep(60L);
+            Thread.sleep(100L);
 
             // Counter should reset — should be allowed again
             assertThat(counter.tryAcquire()).isTrue(); // 1 in new window
@@ -458,7 +455,7 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
 
             // Manually inject a stale counter (window expired > 2x ago)
             FixedWindowCounter staleCounter = new FixedWindowCounter(100, 50L); // 50ms window
-            Thread.sleep(120L); // wait > 2 * 50ms
+            Thread.sleep(150L); // wait > 2 * 50ms for reliable stale detection
             filter.getCounters().put("stale-ip", staleCounter);
 
             int sizeBefore = filter.getCounters().size();
@@ -513,7 +510,7 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
         @DisplayName("should report stale after two window durations")
         void shouldReportStale_afterTwoWindowDurations() throws Exception {
             FixedWindowCounter counter = new FixedWindowCounter(10, 50L); // 50ms window
-            Thread.sleep(120L); // wait > 2 * 50ms
+            Thread.sleep(150L); // wait > 2 * 50ms for reliable stale detection
             assertThat(counter.isStale(System.currentTimeMillis())).isTrue();
         }
 

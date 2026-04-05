@@ -93,7 +93,7 @@ public final class RateLimitFilter implements Filter {
      * Dedicated SLF4J logger category for WAF rate-limit events.
      * PHI-safe: logs IP, URI, and rule name only — never request parameter values.
      */
-    static final Logger logger = LoggerFactory.getLogger("waf.ratelimit");
+    private static final Logger logger = LoggerFactory.getLogger("waf.ratelimit");
 
     // --- Configuration fields (effectively final after init()) ---
 
@@ -364,12 +364,12 @@ public final class RateLimitFilter implements Filter {
      * Invalid entries are skipped with a warning log.
      *
      * @param config the raw configuration string from {@code carlos.properties}
-     * @return a map from path prefix to {@link RateConfig}
+     * @return an unmodifiable map from path prefix to {@link RateConfig}
      */
     Map<String, RateConfig> parsePathRates(String config) {
         Map<String, RateConfig> result = new HashMap<>();
         if (config == null || config.trim().isEmpty()) {
-            return result;
+            return Collections.unmodifiableMap(result);
         }
         for (String entry : config.split(",")) {
             entry = entry.trim();
@@ -400,19 +400,19 @@ public final class RateLimitFilter implements Filter {
                 logger.warn("Rate limit: skipping non-numeric rate for path '{}': {}", pathPrefix, rateStr);
             }
         }
-        return result;
+        return Collections.unmodifiableMap(result);
     }
 
     /**
-     * Parses a comma-separated string into a set of trimmed, non-empty strings.
+     * Parses a comma-separated string into an unmodifiable set of trimmed, non-empty strings.
      *
      * @param csv the comma-separated input
-     * @return a mutable set of values
+     * @return an unmodifiable set of values
      */
     Set<String> parseCsv(String csv) {
         Set<String> result = new HashSet<>();
         if (csv == null || csv.trim().isEmpty()) {
-            return result;
+            return Collections.unmodifiableSet(result);
         }
         for (String item : csv.split(",")) {
             String trimmed = item.trim();
@@ -420,7 +420,7 @@ public final class RateLimitFilter implements Filter {
                 result.add(trimmed);
             }
         }
-        return result;
+        return Collections.unmodifiableSet(result);
     }
 
     /**
@@ -457,13 +457,9 @@ public final class RateLimitFilter implements Filter {
      */
     void evictStaleCounters() {
         long now = System.currentTimeMillis();
-        int removed = 0;
-        for (Map.Entry<String, FixedWindowCounter> entry : counters.entrySet()) {
-            if (entry.getValue().isStale(now)) {
-                counters.remove(entry.getKey(), entry.getValue());
-                removed++;
-            }
-        }
+        int sizeBefore = counters.size();
+        counters.entrySet().removeIf(entry -> entry.getValue().isStale(now));
+        int removed = sizeBefore - counters.size();
         if (removed > 0) {
             logger.debug("Rate limit: evicted {} stale counter(s)", removed);
         }
