@@ -98,22 +98,26 @@ public class EctAddMeasuringInstruction2Action extends ActionSupport {
             }
 
             mts = dao.findByTypeDisplayName(typeDisplayName);
-            if (mts.size() > 0) {
-                MeasurementType mt = mts.get(0);
-                String type = mt.getType();
-                String typeDesc = mt.getTypeDescription();
-
-                MeasurementType m = new MeasurementType();
-                m.setType(type);
-                m.setTypeDisplayName(typeDisplayName);
-                m.setTypeDescription(typeDesc);
-                m.setMeasuringInstruction(measuringInstrc);
-                m.setValidation(validation);
-
-                dao.persist(m);
-
-                requestId = m.getId().toString();
+            if (mts.isEmpty()) {
+                addActionError(getText("errors.invalid", new String[]{"The display name " + typeDisplayName + " (no matching measurement type found)"}));
+                request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
+                return "failure";
             }
+
+            MeasurementType mt = mts.get(0);
+            String type = mt.getType();
+            String typeDesc = mt.getTypeDescription();
+
+            MeasurementType m = new MeasurementType();
+            m.setType(type);
+            m.setTypeDisplayName(typeDisplayName);
+            m.setTypeDescription(typeDesc);
+            m.setMeasuringInstruction(measuringInstrc);
+            m.setValidation(validation);
+
+            dao.persist(m);
+
+            requestId = m.getId().toString();
 
             String msg = getText("encounter.oscarMeasurements.AddMeasuringInstruction.successful", "!");
             messages.add(msg);

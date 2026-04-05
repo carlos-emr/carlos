@@ -62,6 +62,11 @@ public class EctAddMeasurementType2Action extends ActionSupport {
             List<String> messages = new LinkedList<String>();
 
             String type = this.getType();
+            if (type == null || type.isEmpty()) {
+                addActionError(getText("errors.invalid", new String[]{"Measurement type is required"}));
+                request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
+                return "failure";
+            }
             String typeUp = type.toUpperCase();
             String typeDesc = this.getTypeDesc();
             String typeDisplayName = this.getTypeDisplayName();

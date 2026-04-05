@@ -61,6 +61,7 @@
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearchUpdateQuickList" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchUpdateQuickList2Action">
             <result name="success">/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems.do</result>
+            <result name="failure">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchEditQuickList.jsp</result>
         </action>
         <action name="dxCodeSearchJSON" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxCodeSearchJSON2Action"/>
         <action name="oscarResearch/oscarDxResearch/dxResearchLoadAssociations" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchLoadAssociations2Action">

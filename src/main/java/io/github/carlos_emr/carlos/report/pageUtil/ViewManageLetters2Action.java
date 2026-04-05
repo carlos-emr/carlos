@@ -42,6 +42,13 @@ public final class ViewManageLetters2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Verifies the logged-in user has report read privileges,
+     * then forwards to the Manage Letters JSP.
+     *
+     * @return String {@link ActionSupport#SUCCESS} on successful authorization
+     * @throws SecurityException if the user lacks {@code _report} read privilege
+     */
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

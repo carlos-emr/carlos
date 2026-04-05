@@ -35,10 +35,6 @@ import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-
-/**
- * @author jay
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -46,14 +42,14 @@ public class RemoveClinicalReportFromHistory2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-
-    /**
-     * Creates a new instance of RunClinicalReport2Action
-     */
-    public RemoveClinicalReportFromHistory2Action() {
-    }
-
     public String execute() {
+
+        // Handle "clear all" request
+        String clear = request.getParameter("clear");
+        if ("yes".equals(clear)) {
+            request.getSession().removeAttribute("ClinicalReports");
+            return SUCCESS;
+        }
 
         String id = request.getParameter("id");
         int nid = -1;

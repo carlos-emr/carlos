@@ -53,6 +53,13 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action that generates the Overnight Batch Eligibility Checking (OBEC) report.
+ * Accepts a start date (YYYY-MM-DD format) and number of days, validates the input,
+ * and delegates report generation to {@link ObecData}.
+ *
+ * @since 2012-01-19
+ */
 public class Obec2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

@@ -57,6 +57,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for the Query-by-Example report tool. Allows admin users to execute
+ * custom SQL queries, persist them as recent searches, and display results.
+ *
+ * @since 2007-12-18
+ */
 public class RptByExample2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -72,7 +78,13 @@ public class RptByExample2Action extends ActionSupport {
             return NONE;
         }
 
-        String roleName$ = request.getSession().getAttribute("userrole") + "," + (String) request.getSession().getAttribute("user");
+        Object userrole = request.getSession().getAttribute("userrole");
+        if (userrole == null) {
+            response.sendRedirect(request.getContextPath() + "/logout.htm");
+            return NONE;
+        }
+
+        String roleName$ = userrole + "," + (String) request.getSession().getAttribute("user");
         if (!SecurityManager.hasPrivilege("_admin", roleName$) && !SecurityManager.hasPrivilege("_report", roleName$)) {
             throw new SecurityException("Insufficient Privileges");
         }
@@ -90,10 +102,6 @@ public class RptByExample2Action extends ActionSupport {
         RptByExampleQueryBeanHandler hd = new RptByExampleQueryBeanHandler();
         Collection favorites = hd.getFavoriteCollection(providerNo);
         request.setAttribute("favorites", favorites);
-
-
-        //String sql = frm.getSql();
-
 
         if (sql != null) {
             write2Database(sql, providerNo);

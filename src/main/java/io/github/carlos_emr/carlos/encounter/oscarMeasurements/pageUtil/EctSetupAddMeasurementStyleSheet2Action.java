@@ -42,6 +42,13 @@ public final class EctSetupAddMeasurementStyleSheet2Action extends ActionSupport
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Verifies the logged-in user has admin or measurement admin read privileges,
+     * then forwards to the stylesheet upload form JSP.
+     *
+     * @return String {@code "continue"} on successful authorization
+     * @throws SecurityException if the user lacks {@code _admin} or {@code _admin.measurements} read privilege
+     */
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

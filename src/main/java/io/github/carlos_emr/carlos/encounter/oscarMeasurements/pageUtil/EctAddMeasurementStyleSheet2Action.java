@@ -56,6 +56,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action that handles file upload submission for measurement CSS stylesheets.
+ * Validates the uploaded file, stores it to the configured upload directory using
+ * {@link PathValidationUtils}, and records the location in the database.
+ * Form rendering is handled by {@link EctSetupAddMeasurementStyleSheet2Action}.
+ *
+ * @since 2012-09-18
+ */
 public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -101,6 +109,11 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
         boolean isAdded = true;
 
         try {
+            if (file == null) {
+                MiscUtils.getLogger().debug("No file provided for measurement stylesheet upload");
+                return false;
+            }
+
             // Validate and sanitize the filename first
             if (fileName == null || fileName.trim().isEmpty()) {
                 throw new IllegalArgumentException("fileName cannot be null or empty");
@@ -155,9 +168,9 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
     }
 
     /**
-     * Write to database
+     * Sanitizes the filename and persists a new {@link MeasurementCSSLocation} record.
      *
-     * @param fileName - the filename to store
+     * @param fileName String the raw filename to sanitize and store as a CSS location record
      */
     private void write2Database(String fileName) {
         // Sanitize the filename before storing in database
