@@ -239,7 +239,7 @@
                             for (int i = 0; i < sites.size(); i++) {
                         %>
                         <input type="checkbox" name="sites"
-                               value="<%= Encode.forHtmlAttribute(sites.get(i).getSiteId() == null ? "" : sites.get(i).getSiteId()) %>" <%= psites.contains(sites.get(i))?"checked='checked'":"" %> <%=((!isSiteAccessPrivacy) || siteIDs.contains(sites.get(i).getSiteId()) ? "" : " disabled ") %>>
+                               value="<%= Encode.forHtmlAttribute(sites.get(i).getSiteId() == null ? "" : String.valueOf(sites.get(i).getSiteId())) %>" <%= psites.contains(sites.get(i))?"checked='checked'":"" %> <%=((!isSiteAccessPrivacy) || siteIDs.contains(sites.get(i).getSiteId()) ? "" : " disabled ") %>>
                         <%= Encode.forHtmlContent(sites.get(i).getName() == null ? "" : sites.get(i).getName()) %><br/>
                         <%
                             }
