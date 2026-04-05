@@ -532,19 +532,14 @@
 
             function rosterEnrolledToValid(trueIfBlank) {
                 var val = document.updatedelete.roster_enrolled_to.value.trim();
-                var errMsg = '';
 
                 if (trueIfBlank) {
-                    errMsg += i18n.msgLeaveBlank;
-                    if (val == "") return true;
+                    // blank or non-blank is acceptable when trueIfBlank=true
+                    return true;
                 }
 
-                if (val == "") {
-                    errMsg += i18n.msgWrongRosterEnrolledTo;
-                }
-
-                if (errMsg != '') {
-                    showAlert(errMsg);
+                if (val === '') {
+                    showAlert(i18n.msgWrongRosterEnrolledTo);
                     return false;
                 }
                 return true;
