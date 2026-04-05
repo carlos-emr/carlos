@@ -83,7 +83,7 @@
 
             function valid(form) {
                 if (validateServiceType(form)) {
-                    form.action = "<%= request.getContextPath() %>/billing/CA/ON/dbManageBillingform_add.jsp";
+                    form.action = "<%= request.getContextPath() %>/billing/CA/ON/DbManageBillingformAdd.do";
                     form.submit();
                 }
             }
@@ -139,7 +139,7 @@
             }
 
             function manageBillType(id, oldtype, newtype) {
-                url = "dbManageBillingform_billtype.jsp";
+                url = "DbManageBillingformBilltype.do";
                 pars = "?servicetype=" + id + "&billtype_old=" + oldtype + "&billtype=" + newtype;
                 popupPage(700, 720, url + pars);
             }

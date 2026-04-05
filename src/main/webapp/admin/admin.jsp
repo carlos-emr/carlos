@@ -457,7 +457,7 @@
                         </a>
                     </li>
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/dbReportAgeSex.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAgeSexReport"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/DbReportAgeSex.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAgeSexReport"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/oscarReportVisitControl.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnVisitReport"/></a></li>
                         <%-- This links doesnt make sense on Brazil. Hide then --%>

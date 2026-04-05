@@ -187,5 +187,42 @@
         </action>
         <action name="billing/ca/on/DisplayInvoiceLogo" class="io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action"/>
 
+        <!-- Migrated db*-prefixed JSP controllers: ON billing admin -->
+        <action name="billing/CA/ON/DbManageBillingformAdd" class="io.github.carlos_emr.carlos.billing.CA.ON.web.DbManageBillingformAdd2Action"/>
+        <action name="billing/CA/ON/DbManageBillingformDelete" class="io.github.carlos_emr.carlos.billing.CA.ON.web.DbManageBillingformDelete2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/dbManageBillingform_delete.jsp</result>
+        </action>
+        <action name="billing/CA/ON/DbManageBillingformDx" class="io.github.carlos_emr.carlos.billing.CA.ON.web.DbManageBillingformDx2Action"/>
+        <action name="billing/CA/ON/DbManageBillingformService" class="io.github.carlos_emr.carlos.billing.CA.ON.web.DbManageBillingformService2Action"/>
+        <action name="billing/CA/ON/DbManageBillingformPremium" class="io.github.carlos_emr.carlos.billing.CA.ON.web.DbManageBillingformPremium2Action"/>
+        <action name="billing/CA/ON/DbManageBillingformPremiumDelete" class="io.github.carlos_emr.carlos.billing.CA.ON.web.DbManageBillingformPremiumDelete2Action"/>
+        <action name="billing/CA/ON/DbManageBillingformBilltype" class="io.github.carlos_emr.carlos.billing.CA.ON.web.DbManageBillingformBilltype2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/dbManageBillingform_billtype.jsp</result>
+        </action>
+        <action name="billing/CA/ON/DbManageBillingLocation" class="io.github.carlos_emr.carlos.billing.CA.ON.web.DbManageBillingLocation2Action"/>
+
+        <!-- Migrated db*-prefixed JSP controllers: root/generic billing admin -->
+        <action name="billing/DbManageBillingformAdd" class="io.github.carlos_emr.carlos.billing.web.DbManageBillingformAdd2Action"/>
+        <action name="billing/DbManageBillingformDelete" class="io.github.carlos_emr.carlos.billing.web.DbManageBillingformDelete2Action">
+            <result name="success">/WEB-INF/jsp/billing/dbManageBillingform_delete.jsp</result>
+        </action>
+        <action name="billing/DbManageBillingformDx" class="io.github.carlos_emr.carlos.billing.web.DbManageBillingformDx2Action"/>
+        <action name="billing/DbManageBillingformService" class="io.github.carlos_emr.carlos.billing.web.DbManageBillingformService2Action"/>
+        <action name="billing/DbManageBillingformPremium" class="io.github.carlos_emr.carlos.billing.web.DbManageBillingformPremium2Action"/>
+        <action name="billing/DbManageBillingformPremiumDelete" class="io.github.carlos_emr.carlos.billing.web.DbManageBillingformPremiumDelete2Action"/>
+
+        <!-- Migrated db*-prefixed JSP controllers: INR billing -->
+        <action name="billing/CA/ON/inr/DbINRbilling" class="io.github.carlos_emr.carlos.billing.CA.ON.web.DbINRbilling2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/inr/dbINRbilling.jsp</result>
+        </action>
+        <action name="billing/CA/ON/inr/DbUpdateINRbilling" class="io.github.carlos_emr.carlos.billing.CA.ON.web.DbUpdateINRbilling2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/inr/dbUpdateINRbilling.jsp</result>
+        </action>
+
+        <!-- Migrated db*-prefixed JSP controllers: flu billing -->
+        <action name="billing/CA/ON/specialtyBilling/fluBilling/DbAddFluBilling" class="io.github.carlos_emr.carlos.billing.CA.ON.web.DbAddFluBilling2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/specialtyBilling/fluBilling/dbAddFluBilling.jsp</result>
+        </action>
+
     </package>
 </struts>

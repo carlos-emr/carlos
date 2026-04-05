@@ -67,11 +67,6 @@ public class DbManageBillingformDelete2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-            return NONE;
-        }
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");

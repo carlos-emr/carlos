@@ -77,7 +77,7 @@
 
             function valid(form) {
                 if (validateServiceType(form)) {
-                    form.action = "<%= request.getContextPath() %>/billing/CA/ON/dbManageBillingform_add.jsp"
+                    form.action = "<%= request.getContextPath() %>/billing/CA/ON/DbManageBillingformAdd.do"
                     form.submit()
                 } else {
                 }
@@ -122,7 +122,7 @@
                 <td width="3%"></td>
                 <td width="30%" align="left" valign="top">
                     <form name="serviceform" method="post"
-                          action="dbManageBillingLocation.jsp"><B><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingLocation.msgCodeDescription"/></B> <br>
+                          action="DbManageBillingLocation.do"><B><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingLocation.msgCodeDescription"/></B> <br>
                         <input style="width:40px" type="text" name="location1" size="4"> <input type="text"
                                                                                                 name="location1desc"
                                                                                                 size="30"> <br>

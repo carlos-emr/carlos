@@ -52,6 +52,11 @@
         <action name="tickler/AddTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.AddTickler2Action">
             <result name="close">/close.html</result>
         </action>
+        <action name="tickler/DbTicklerAdd" class="io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerAdd2Action">
+            <result name="success">/WEB-INF/jsp/tickler/dbTicklerAdd.jsp</result>
+        </action>
+        <action name="tickler/DbTicklerDemoMain" class="io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerDemoMain2Action"/>
+        <action name="tickler/DbTicklerMain" class="io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerMain2Action"/>
         <action name="tickler/ListTicklers" class="io.github.carlos_emr.carlos.tickler.pageUtil.TicklerList2Action"/>
         <action name="searchProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="search"/>
         <action name="getProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="get"/>
