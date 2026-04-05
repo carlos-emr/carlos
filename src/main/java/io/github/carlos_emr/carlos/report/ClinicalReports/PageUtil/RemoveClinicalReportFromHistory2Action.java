@@ -35,9 +35,17 @@ import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for removing individual clinical reports from the session history list,
+ * or clearing all reports when the {@code clear=yes} parameter is passed.
+ *
+ * @since 2006-01-12
+ */
 public class RemoveClinicalReportFromHistory2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -52,21 +60,22 @@ public class RemoveClinicalReportFromHistory2Action extends ActionSupport {
         }
 
         String id = request.getParameter("id");
-        int nid = -1;
+        int nid;
         try {
             nid = Integer.parseInt(id);
-        } catch (Exception e) {
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().debug("Invalid clinical report id parameter: {}", id);
+            return ERROR;
         }
 
         //Could be a concurrency issue here if they opened up more than one report screen
         ArrayList<Integer> arrList = (ArrayList<Integer>) request.getSession().getAttribute("ClinicalReports");
-        if (arrList != null && nid != -1) {
-            arrList.remove(Integer.parseInt(id));
+        if (arrList != null) {
+            arrList.remove(Integer.valueOf(nid));
         }
-        if (arrList != null && arrList.size() == 0) {
+        if (arrList != null && arrList.isEmpty()) {
             request.getSession().removeAttribute("ClinicalReports");
         }
-        //request.getSession().setAttribute("ClinicalReports",arrList);
 
         return SUCCESS;
     }

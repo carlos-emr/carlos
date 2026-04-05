@@ -54,6 +54,13 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for adding a new measuring instruction to an existing measurement type.
+ * Validates the instruction text, checks for duplicates against the specified type display name,
+ * and persists a new {@link MeasurementType} record with the instruction.
+ *
+ * @since 2004-02-23
+ */
 public class EctAddMeasuringInstruction2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
 
@@ -71,6 +78,12 @@ public class EctAddMeasuringInstruction2Action extends ActionSupport {
             String typeDisplayName = this.getTypeDisplayName();
             String measuringInstrc = this.getMeasuringInstrc();
             String validation = this.getValidation();
+
+            if (typeDisplayName == null || typeDisplayName.isEmpty() || measuringInstrc == null || measuringInstrc.isEmpty()) {
+                addActionError(getText("errors.invalid", new String[]{"Display name and measuring instruction are required"}));
+                request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
+                return "failure";
+            }
 
             boolean isValid = true;
 

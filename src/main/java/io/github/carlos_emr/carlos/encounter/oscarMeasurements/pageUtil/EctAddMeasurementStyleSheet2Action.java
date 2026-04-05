@@ -62,7 +62,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * {@link PathValidationUtils}, and records the location in the database.
  * Form rendering is handled by {@link EctSetupAddMeasurementStyleSheet2Action}.
  *
- * @since 2012-09-18
+ * @since 2004-03-12
  */
 public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();

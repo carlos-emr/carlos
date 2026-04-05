@@ -61,7 +61,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * Struts2 action for the Query-by-Example report tool. Allows admin users to execute
  * custom SQL queries, persist them as recent searches, and display results.
  *
- * @since 2007-12-18
+ * @since 2003-07-22
  */
 public class RptByExample2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -122,13 +122,6 @@ public class RptByExample2Action extends ActionSupport {
 
     public void write2Database(String query, String providerNo) {
         if (query != null && query.compareTo("") != 0) {
-
-
-            // StringEscapeUtils strEscUtils = new StringEscapeUtils();
-
-            //query = exampleData.replaceSQLString (";","",query);
-            //query = exampleData.replaceSQLString("\"", "\'", query);
-
             ReportByExamples r = new ReportByExamples();
             r.setProviderNo(providerNo);
             r.setQuery(query);

@@ -46,6 +46,13 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for adding or removing diagnosis research codes from a provider's quick list.
+ * Routes to the appropriate add/remove logic based on the {@code forward} parameter, then
+ * reloads the quick list items view.
+ *
+ * @since 2004-06-03
+ */
 public class dxResearchUpdateQuickList2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
 
@@ -53,7 +60,7 @@ public class dxResearchUpdateQuickList2Action extends ActionSupport {
 
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "w", null)) {
-            throw new RuntimeException("missing required sec object (_dxresearch)");
+            throw new SecurityException("missing required sec object (_dxresearch)");
         }
 
         String codingSystem = this.getSelectedCodingSystem();
@@ -61,7 +68,7 @@ public class dxResearchUpdateQuickList2Action extends ActionSupport {
         boolean valid = true;
 
         if (forward == null || quickListName == null || quickListName.isEmpty()) {
-            return SUCCESS;
+            return "failure";
         }
 
         if (forward.equals("add")) {

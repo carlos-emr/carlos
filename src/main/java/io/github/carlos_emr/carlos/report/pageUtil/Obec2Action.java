@@ -58,7 +58,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * Accepts a start date (YYYY-MM-DD format) and number of days, validates the input,
  * and delegates report generation to {@link ObecData}.
  *
- * @since 2012-01-19
+ * @since 2003-07-22
  */
 public class Obec2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();

@@ -49,6 +49,13 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for adding a new custom measurement type to the system.
+ * Validates all input fields (type code, description, display name, measuring instruction),
+ * checks for duplicates, and persists the new {@link MeasurementType} record.
+ *
+ * @since 2004-02-23
+ */
 public class EctAddMeasurementType2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
 
