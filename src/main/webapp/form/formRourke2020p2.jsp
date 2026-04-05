@@ -45,7 +45,8 @@
 %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
+               onclick="displayDemographicMeasurements('p2_ht2m', 'HT', '<%=Encode.forJavaScriptAttribute(String.valueOf(demographic.getDemographicNo()))%>',
+                       '<%=Encode.forJavaScriptAttribute(demographic.getFormattedDob())%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
