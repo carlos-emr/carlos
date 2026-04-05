@@ -169,8 +169,8 @@
                             billinggroup_no = p.getBillingNo();
                             specialty_code = SxmlMisc.getXmlContent(p.getComments(), "<xml_p_specialty_code>", "</xml_p_specialty_code>");
                 %>
-                <option value="<%=proOHIP%>"
-                        <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=proLast%>,<%=proFirst%>
+                <option value="<%=Encode.forHtmlAttribute(proOHIP)%>"
+                        <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=Encode.forHtml(proLast)%>,<%=Encode.forHtml(proFirst)%>
                 </option>
 
                 <%
@@ -205,6 +205,7 @@
     </form>
 </table>
 
+<%-- html output from billing simulation --%>
 <%=request.getAttribute("html") == null ? "" : request.getAttribute("html")%>
 
 </body>

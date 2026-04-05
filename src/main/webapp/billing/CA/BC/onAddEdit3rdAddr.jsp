@@ -49,6 +49,7 @@
          import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*,java.net.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBilling3rdPartImpl" %>
 <% //
     int serviceCodeLen = 5;
@@ -297,7 +298,7 @@
     <center>
         <table BORDER="1" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
             <tr class="myDarkGreen">
-                <th><font color="white"><%=msg%>
+                <th><font color="white"><%=Encode.forHtml(msg)%>
                 </font></th>
             </tr>
         </table>
@@ -317,7 +318,7 @@
                         for (int i = 0; i < sL.size(); i++) {
                             Properties propT = (Properties) sL.get(i);
                     %>
-                    <option value="<%=propT.getProperty("company_name", "")%>"><%=propT.getProperty("company_name", "")%>
+                    <option value="<%=Encode.forHtmlAttribute(propT.getProperty("company_name", ""))%>"><%=Encode.forHtml(propT.getProperty("company_name", ""))%>
                     </option>
                     <%
                         }
@@ -333,55 +334,55 @@
             <tr class="myGreen">
                 <td align="right"><b>Company Name</b></td>
                 <td><input type="text" name="company_name"
-                           value="<%=prop.getProperty("company_name", "")%>" size='40'
+                           value="<%=Encode.forHtmlAttribute(prop.getProperty("company_name", ""))%>" size='40'
                            maxlength='50'/> <input type="submit" name="submit" value="Search"
                                                    onclick="javascript:return onSearch();"></td>
             </tr>
             <tr class="myIvory">
                 <td align="right"><b>Attention</b></td>
                 <td><input type="text" name="attention"
-                           value="<%=prop.getProperty("attention", "")%>" size='40'
+                           value="<%=Encode.forHtmlAttribute(prop.getProperty("attention", ""))%>" size='40'
                            maxlength='50'/></td>
             </tr>
             <tr class="myGreen">
                 <td align="right"><b>Address</b></td>
                 <td><input type="text" name="address"
-                           value="<%=prop.getProperty("address", "")%>" size='40' maxlength='50'/>
+                           value="<%=Encode.forHtmlAttribute(prop.getProperty("address", ""))%>" size='40' maxlength='50'/>
                 </td>
             </tr>
             <tr class="myIvory">
                 <td align="right"><b>City</b></td>
                 <td><input type="text" name="city"
-                           value="<%=prop.getProperty("city", "")%>" size='40' maxlength='50'/>
+                           value="<%=Encode.forHtmlAttribute(prop.getProperty("city", ""))%>" size='40' maxlength='50'/>
                 </td>
             </tr>
             <tr class="myGreen">
                 <td align="right"><b>Province</b></td>
                 <td><input type="text" name="province"
-                           value="<%=prop.getProperty("province", "")%>" size='20'
+                           value="<%=Encode.forHtmlAttribute(prop.getProperty("province", ""))%>" size='20'
                            maxlength='20'/></td>
             </tr>
             <tr class="myIvory">
                 <td align="right"><b>postcode</b></td>
                 <td><input type="text" name="postcode"
-                           value="<%=prop.getProperty("postcode", "")%>" size='10'
+                           value="<%=Encode.forHtmlAttribute(prop.getProperty("postcode", ""))%>" size='10'
                            maxlength='10'/></td>
             </tr>
             <tr class="myGreen">
                 <td align="right"><b>Tel.</b></td>
                 <td><input type="text" name="telephone"
-                           value="<%=prop.getProperty("telephone", "")%>" size='40'
+                           value="<%=Encode.forHtmlAttribute(prop.getProperty("telephone", ""))%>" size='40'
                            maxlength='50'/></td>
             </tr>
             <tr class="myIvory">
                 <td align="right"><b>Fax</b></td>
                 <td><input type="text" name="fax"
-                           value="<%=prop.getProperty("fax", "")%>" size='40' maxlength='50'/>
+                           value="<%=Encode.forHtmlAttribute(prop.getProperty("fax", ""))%>" size='40' maxlength='50'/>
                 </td>
             </tr>
             <tr>
                 <td align="center" class="myGreen" colspan="2"><input
-                        type="hidden" name="action" value='<%=action%>'> <input
+                        type="hidden" name="action" value='<%=Encode.forHtmlAttribute(action)%>'> <input
                         type="submit" name="submit"
                         value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
                         onclick="javascript:return onSave();"> <input type="button"
@@ -389,7 +390,7 @@
                                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnExit"/>"
                                                                       onClick="window.close()"> <input type="hidden"
                                                                                                        name="id"
-                                                                                                       value="<%=prop.getProperty("id", "")%>"/>
+                                                                                                       value="<%=Encode.forHtmlAttribute(prop.getProperty("id", ""))%>"/>
                 </td>
             </tr>
         </form>
