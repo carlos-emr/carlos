@@ -35,7 +35,7 @@ import org.apache.struts2.ServletActionContext;
  * Struts2 action for demographic search. Replaces the {@code demographiccontrol.jsp}
  * {@code displaymode=Search} and {@code displaymode=Search } (trailing space) routes.
  * Performs security validation and routes to the appropriate result JSP. The target
- * JSPs handle their own data loading via DAOs.
+ * JSPs handle their own data loading via Spring-managed DAOs and Managers.
  *
  * <p>Routes to {@code demographicsearchresults.jsp} for general search, or
  * {@code demographicsearch2apptresults.jsp} for appointment-context search

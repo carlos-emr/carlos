@@ -51,7 +51,7 @@ public class DemographicPdfLabel2Action extends ActionSupport {
 
     /**
      * Validates session and demographic read privileges, then forwards to the
-     * PDF label generation JSP.
+     * print-oriented demographic label JSP.
      *
      * @return {@link #SUCCESS} on successful authorization
      * @throws SecurityException if the session is missing or the user lacks

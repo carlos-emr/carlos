@@ -21,49 +21,57 @@
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.*;
+import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Test suite for {@link DemographicSearch2Action}.
+ * Test suite for {@link DemographicEdit2Action}.
  *
- * <p>Covers security enforcement (null session, missing privilege) and the
- * routing logic that distinguishes general search from appointment-context
- * search via a trailing-space convention in the {@code displaymode} parameter.
+ * <p>Covers security enforcement (null session, missing privilege),
+ * session expiry (null "user" attribute returns "logout"),
+ * demographic_no validation (null, empty, non-numeric),
+ * and null demographic record handling.</p>
  *
  * @since 2026-04-04
  */
-@DisplayName("DemographicSearch2Action Tests")
+@DisplayName("DemographicEdit2Action Tests")
 @Tag("unit")
 @Tag("web")
 @Tag("demographic")
-class DemographicSearch2ActionTest extends CarlosWebTestBase {
+class DemographicEdit2ActionTest extends CarlosWebTestBase {
 
     private static final String TEST_PROVIDER = "999998";
-    private DemographicSearch2Action action;
+    private DemographicEdit2Action action;
+
+    @Mock
+    private DemographicDao mockDemographicDao;
 
     @BeforeEach
     void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
+        replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
 
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
         setSessionAttribute("user", TEST_PROVIDER);
         String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(key, mockLoggedInInfo);
 
-        action = new DemographicSearch2Action();
+        action = new DemographicEdit2Action();
 
         // Inject mocks via reflection (fields initialized at declaration time)
-        java.lang.reflect.Field secField = DemographicSearch2Action.class.getDeclaredField("securityInfoManager");
+        java.lang.reflect.Field secField = DemographicEdit2Action.class.getDeclaredField("securityInfoManager");
         secField.setAccessible(true);
         secField.set(action, mockSecurityInfoManager);
     }
@@ -75,7 +83,6 @@ class DemographicSearch2ActionTest extends CarlosWebTestBase {
         @Test
         @DisplayName("should throw SecurityException when session is null")
         void shouldThrowSecurityException_whenSessionIsNull() {
-            // Remove LoggedInInfo from session
             String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
             setSessionAttribute(key, null);
 
@@ -86,7 +93,7 @@ class DemographicSearch2ActionTest extends CarlosWebTestBase {
 
         @Test
         @DisplayName("should throw SecurityException when user lacks demographic read privilege")
-        void shouldThrowSecurityException_whenUserLacksDemographicReadPrivilege() {
+        void shouldThrowSecurityException_whenUserLacksReadPrivilege() {
             denyPrivilege("_demographic", "r");
 
             assertThatThrownBy(() -> executeAction(action))
@@ -97,19 +104,21 @@ class DemographicSearch2ActionTest extends CarlosWebTestBase {
         }
 
         @Test
-        @DisplayName("should return success when user has demographic read privilege")
-        void shouldReturnSuccess_whenUserHasReadPrivilege() throws Exception {
-            allowPrivilege("_demographic", "r");
+        @DisplayName("should require read privilege for demographic edit")
+        void shouldRequireReadPrivilege_forDemographicEdit() {
+            denyPrivilege("_demographic", "r");
 
-            String result = executeAction(action);
+            assertThatThrownBy(() -> executeAction(action))
+                    .isInstanceOf(SecurityException.class);
 
-            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            verify(mockSecurityInfoManager).hasPrivilege(
+                    any(LoggedInInfo.class), eq("_demographic"), eq("r"), any());
         }
     }
 
     @Nested
-    @DisplayName("Search Routing Logic")
-    class SearchRouting {
+    @DisplayName("Session Expiry")
+    class SessionExpiry {
 
         @BeforeEach
         void allowAccess() {
@@ -117,64 +126,84 @@ class DemographicSearch2ActionTest extends CarlosWebTestBase {
         }
 
         @Test
-        @DisplayName("should return SUCCESS for general search (displaymode=Search)")
-        void shouldReturnSuccess_whenDisplaymodeIsSearch() throws Exception {
-            addRequestParameter("displaymode", "Search");
+        @DisplayName("should return logout when user session attribute is null")
+        void shouldReturnLogout_whenUserSessionAttributeIsNull() throws Exception {
+            setSessionAttribute("user", null);
 
             String result = executeAction(action);
 
-            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(result).isEqualTo("logout");
+        }
+    }
+
+    @Nested
+    @DisplayName("Demographic Number Validation")
+    class DemographicNoValidation {
+
+        @BeforeEach
+        void allowAccess() {
+            allowPrivilege("_demographic", "r");
         }
 
         @Test
-        @DisplayName("should return apptResults for appointment-context search (displaymode='Search ')")
-        void shouldReturnApptResults_whenDisplaymodeHasTrailingSpace() throws Exception {
-            addRequestParameter("displaymode", "Search ");
+        @DisplayName("should return ERROR when demographic_no is null")
+        void shouldReturnError_whenDemographicNoIsNull() throws Exception {
+            // No demographic_no parameter set
 
             String result = executeAction(action);
 
-            assertThat(result).isEqualTo("apptResults");
+            assertThat(result).isEqualTo(ActionSupport.ERROR);
         }
 
         @Test
-        @DisplayName("should return SUCCESS when displaymode is null")
-        void shouldReturnSuccess_whenDisplaymodeIsNull() throws Exception {
-            // No displaymode parameter set
+        @DisplayName("should return ERROR when demographic_no is empty")
+        void shouldReturnError_whenDemographicNoIsEmpty() throws Exception {
+            addRequestParameter("demographic_no", "");
 
             String result = executeAction(action);
 
-            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(result).isEqualTo(ActionSupport.ERROR);
         }
 
         @Test
-        @DisplayName("should return SUCCESS for unexpected displaymode values")
-        void shouldReturnSuccess_whenDisplaymodeIsUnexpected() throws Exception {
-            addRequestParameter("displaymode", "SomethingElse");
+        @DisplayName("should return ERROR when demographic_no is whitespace only")
+        void shouldReturnError_whenDemographicNoIsWhitespace() throws Exception {
+            addRequestParameter("demographic_no", "   ");
 
             String result = executeAction(action);
 
-            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(result).isEqualTo(ActionSupport.ERROR);
         }
 
         @Test
-        @DisplayName("should return SUCCESS when displaymode is empty string")
-        void shouldReturnSuccess_whenDisplaymodeIsEmptyString() throws Exception {
-            addRequestParameter("displaymode", "");
+        @DisplayName("should return ERROR when demographic_no is non-numeric")
+        void shouldReturnError_whenDemographicNoIsNonNumeric() throws Exception {
+            addRequestParameter("demographic_no", "abc");
 
             String result = executeAction(action);
 
-            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(result).isEqualTo(ActionSupport.ERROR);
+        }
+    }
+
+    @Nested
+    @DisplayName("Demographic Record Loading")
+    class DemographicRecordLoading {
+
+        @BeforeEach
+        void allowAccess() {
+            allowPrivilege("_demographic", "r");
         }
 
         @Test
-        @DisplayName("should not route to apptResults when trailing space is trimmed")
-        void shouldNotReturnApptResults_whenSearchHasNoTrailingSpace() throws Exception {
-            // This test protects against someone "fixing" the trailing space
-            addRequestParameter("displaymode", "Search");
+        @DisplayName("should return ERROR when demographic record not found")
+        void shouldReturnError_whenDemographicNotFound() throws Exception {
+            addRequestParameter("demographic_no", "99999");
+            when(mockDemographicDao.getDemographic("99999")).thenReturn(null);
 
             String result = executeAction(action);
 
-            assertThat(result).isNotEqualTo("apptResults");
+            assertThat(result).isEqualTo(ActionSupport.ERROR);
         }
     }
 }

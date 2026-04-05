@@ -35,7 +35,7 @@ import org.apache.struts2.ServletActionContext;
  * Struts2 action for demographic appointment history. Replaces the
  * {@code demographiccontrol.jsp} {@code displaymode=appt_history} route.
  * Forwards to {@code demographicappthistory.jsp}, which handles its own
- * data loading via DAOs.
+ * data loading via Spring-managed DAOs and Managers.
  *
  * @since 2026-04-04
  */

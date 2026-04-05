@@ -57,12 +57,14 @@ import io.github.carlos_emr.carlos.managers.PatientConsentManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -88,6 +90,8 @@ import java.util.ResourceBundle;
  */
 public class DemographicEdit2Action extends ActionSupport {
 
+    private static final Logger logger = MiscUtils.getLogger();
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -97,10 +101,13 @@ public class DemographicEdit2Action extends ActionSupport {
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
+            logger.warn("DemographicEdit2Action: missing session");
             throw new SecurityException("missing required session");
         }
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            logger.warn("DemographicEdit2Action: provider {} lacks _demographic read privilege",
+                    loggedInInfo.getLoggedInProviderNo());
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
@@ -111,7 +118,16 @@ public class DemographicEdit2Action extends ActionSupport {
 
         String demographic_no = request.getParameter("demographic_no");
         if (demographic_no == null || demographic_no.trim().isEmpty()) {
-            throw new IllegalArgumentException("demographic_no is required");
+            logger.warn("DemographicEdit2Action: demographic_no parameter is missing");
+            addActionError("demographic_no is required");
+            return ERROR;
+        }
+        try {
+            Integer.parseInt(demographic_no.trim());
+        } catch (NumberFormatException e) {
+            logger.warn("DemographicEdit2Action: non-numeric demographic_no='{}'", demographic_no);
+            addActionError("Invalid demographic_no: must be numeric");
+            return ERROR;
         }
 
         CarlosProperties oscarProps = CarlosProperties.getInstance();
@@ -121,6 +137,11 @@ public class DemographicEdit2Action extends ActionSupport {
         // --- Load core demographic data ---
         DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
         Demographic demographic = demographicDao.getDemographic(demographic_no);
+        if (demographic == null) {
+            logger.warn("DemographicEdit2Action: demographic_no={} not found", demographic_no);
+            addActionError("Patient record not found for demographic_no: " + demographic_no);
+            return ERROR;
+        }
 
         DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
         Map<String, String> demoExt = demographicExtDao.getAllValuesForDemo(Integer.parseInt(demographic_no));
@@ -200,7 +221,7 @@ public class DemographicEdit2Action extends ActionSupport {
                     currentProgram = p.getName();
                 }
             } catch (NumberFormatException e) {
-                // ignore
+                logger.warn("DemographicEdit2Action: invalid CURRENT_PROGRAM_ID in session: '{}'", programId);
             }
         }
 
