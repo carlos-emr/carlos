@@ -72,7 +72,7 @@
 %>
 <%=js%>
 <% } %>
-<input type=hidden name="reloadUrl" value="<%=dao.getReloadUrl()%>"/>
+<input type=hidden name="reloadUrl" value="<%=Encode.forHtmlAttribute(dao.getReloadUrl())%>"/>
 <%
     //Do we have a '+' command to display on the right of the module header?
     String rh = dao.getRightHeadingID();
@@ -100,7 +100,7 @@
     %>
     <div id='menu<%=rh%>' class='menu' style='width: <%=menuWidth%>px;'
          onclick='event.cancelBubble = true;'>
-        <h3 style='text-align: center'><%=dao.getMenuHeader()%>
+        <h3 style='text-align: center'><%=Encode.forHtml(dao.getMenuHeader())%>
         </h3>
         <%
             for (int idx = 0; idx < num; ++idx) {
@@ -112,7 +112,7 @@
         <a href="javascript:void(0)" class="<%=style%>"
            onmouseover='this.style.color="black"'
            onmouseout='this.style.color="white"'
-           onclick="<%=dao.getPopUpUrl(idx) + ";"%> return false;"><%=dao.getPopUpText(idx)%>
+           onclick="<%=dao.getPopUpUrl(idx) + ";"%> return false;"><%=Encode.forHtml(dao.getPopUpText(idx))%>
         </a>
         <%
             if (columns && idx % 2 == 1) {
@@ -142,7 +142,7 @@
         //left hand module header comes last as it's displayed as a block
     %>
     <div class="nav-menu-title">
-        <h3 onclick="<%=dao.getLeftURL() + ";"%> return false;"><a href="javascript:void(0)"><%=dao.getLeftHeading()%>
+        <h3 onclick="<%=dao.getLeftURL() + ";"%> return false;"><a href="javascript:void(0)"><%=Encode.forHtml(dao.getLeftHeading())%>
         </a></h3>
     </div>
 </div>
@@ -277,11 +277,11 @@
             //url = StringUtils.replaceEach(url, new String[] {"'","\\\""}, new String[] {"\'","\\\""});
             if (item.isURLJavaScript()) {
                 divReloadInfo = trackWindowString(url, divReloadUrl, cmd, pattern);
-                out.println("<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href='#' onclick=\"" + divReloadInfo + url + "\" title='" + item.getLinkTitle() + "'>");
+                out.println("<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href='#' onclick=\"" + divReloadInfo + url + "\" title='" + Encode.forHtmlAttribute(item.getLinkTitle()) + "'>");
             } else {
-                out.println("<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href=\"" + url + "\" title='" + item.getLinkTitle() + "' target=\"_blank\">");
+                out.println("<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href=\"" + url + "\" title='" + Encode.forHtmlAttribute(item.getLinkTitle()) + "' target=\"_blank\">");
             }
-            out.println(item.getTitle());
+            out.println(Encode.forHtml(item.getTitle()));
             out.println("</a>");
             out.println("</span>");
 
@@ -290,13 +290,13 @@
 
                 if (item.isURLJavaScript()) {
                     divReloadInfo = trackWindowString(url, divReloadUrl, cmd, pattern);
-                    out.println("...<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href='#' onclick=\"" + divReloadInfo + url + "\" title='" + item.getLinkTitle() + "'>");
+                    out.println("...<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href='#' onclick=\"" + divReloadInfo + url + "\" title='" + Encode.forHtmlAttribute(item.getLinkTitle()) + "'>");
                 } else {
-                    out.println("...<a class='links' " + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href=\"" + url + "\" title='" + item.getLinkTitle() + "' target=\"_blank\">");
+                    out.println("...<a class='links' " + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href=\"" + url + "\" title='" + Encode.forHtmlAttribute(item.getLinkTitle()) + "' target=\"_blank\">");
                 }
 
                 if (item.getValue() != null && !item.getValue().trim().equals("")) {
-                    out.println(item.getValue());
+                    out.println(Encode.forHtml(item.getValue()));
                 }
                 out.println(DateUtils.getDate(item.getDate(), dateFormat, request.getLocale()));
                 out.println("</a>");

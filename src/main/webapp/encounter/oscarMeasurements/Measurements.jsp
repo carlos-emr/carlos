@@ -41,6 +41,7 @@
         import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBeanHandler, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MeasurementManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String demo = request.getParameter("demographicNo"); //bean.getDemographicNo();
     request.setAttribute("demo", demo);
@@ -213,7 +214,7 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/calculators.jsp?demo=<%=demo%>'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.calculators"/></a></td>
+                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/calculators.jsp?demo=<%=Encode.forUriComponent(demo)%>'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.calculators"/></a></td>
                         </tr>
                     </table>
                 </td>
@@ -241,7 +242,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%=Encode.forHtml(error)%></li>
             <% } %>
         </ul>
     </div>

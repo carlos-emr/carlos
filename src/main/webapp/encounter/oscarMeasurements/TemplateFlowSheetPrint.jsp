@@ -180,7 +180,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 <html>
 
     <head>
-        <title><oscar:nameage demographicNo="<%=demographic_no%>"/> - <%=flowSheet%> Custom Print</title><!--I18n-->
+        <title><oscar:nameage demographicNo="<%=demographic_no%>"/> - <%=Encode.forHtml(flowSheet)%> Custom Print</title><!--I18n-->
 
         <meta name="viewport" content="width=device-width, user-scalable=false;">
 
@@ -486,10 +486,10 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                 <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=<%=Encode.forUriComponent(demographic_no)%>&template=<%=Encode.forUriComponent(temp)%>"
                    title="go back to <%=Encode.forHtmlAttribute(temp)%>">&lt;&lt; <%=flowSheet%>
                 </a> <br/>
-                <a href="JavaScript:void(0);" class="back" title="go back to <%=flowSheet%>"></a>
+                <a href="JavaScript:void(0);" class="back" title="go back to <%=Encode.forHtmlAttribute(flowSheet)%>"></a>
 
                 <%} else {%>
-                <a href="JavaScript:void(0);" class="back" title="go back to custom print"> << <%=flowSheet%> -
+                <a href="JavaScript:void(0);" class="back" title="go back to custom print"> << <%=Encode.forHtml(flowSheet)%> -
                     Print</a>
                 <%}%>
 
@@ -718,9 +718,9 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                              onclick="javascript:popup(465,635,'AddMeasurementData.jsp?measurement=<%= response.encodeURL( measure) %>&amp;id=<%=hdata.get("id")%>&amp;demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&amp;template=<%= URLEncoder.encode(temp,"UTF-8") %>','addMeasurementData')">
 
                             <p <%=indColour%>
-                                    title="Entered By: <%=mdb.getProviderFirstName()%> <%=mdb.getProviderLastName()%>">
-                                <%=h2.get("value_name")%>: <%=hdata.get("age")%> <br/>
-                                <%=hdata.get("prevention_date")%>&nbsp;<%=mdb.getNumMonthSinceObserved()%>M
+                                    title="Entered By: <%=Encode.forHtmlAttribute(mdb.getProviderFirstName())%> <%=Encode.forHtmlAttribute(mdb.getProviderLastName())%>">
+                                <%=Encode.forHtml((String)h2.get("value_name"))%>: <%=Encode.forHtml((String)hdata.get("age"))%> <br/>
+                                <%=Encode.forHtml((String)hdata.get("prevention_date"))%>&nbsp;<%=Encode.forHtml(String.valueOf(mdb.getNumMonthSinceObserved()))%>M
                                 <%if (comb) {%>
                                 <span class="footnote"><%=comments.size()%></span>
                                 <%}%>
@@ -810,8 +810,8 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                          onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/oscarPrevention/AddPreventionData.jsp?id=<%=hdata.get("id")%>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no)) %>','addPreventionData')">
                         <p <%=r(hdata.get("refused"))%>
                                 title="fade=[on] header=[<%=hdata.get("age")%> -- Date:<%=hdata.get("prevention_date")%>] body=[<%=com%>]">
-                            Age: <%=hdata.get("age")%> <br/>
-                            <!--<%=refused(hdata.get("refused"))%>-->Date: <%=hdata.get("prevention_date")%>
+                            Age: <%=Encode.forHtml((String)hdata.get("age"))%> <br/>
+                            <!--<%=refused(hdata.get("refused"))%>-->Date: <%=Encode.forHtml((String)hdata.get("prevention_date"))%>
                             <%if (comb) {%>
                             <span class="footnote"><%=comments.size()%></span>
                             <%}%>
@@ -842,8 +842,8 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <%if (!printView) {%>
                     <div style="position: relative; float: left; padding-right: 10px;" class="DoNotPrint">
 
-                        <input type="checkbox" name="printHP" id="printHP<%=fsd.getAtcCode()%>" class="css-checkbox"
-                               value="<%=fsd.getAtcCode()%>"/>
+                        <input type="checkbox" name="printHP" id="printHP<%=Encode.forHtmlAttribute(fsd.getAtcCode())%>" class="css-checkbox"
+                               value="<%=Encode.forHtmlAttribute(fsd.getAtcCode())%>"/>
                         <label for="printHP<%=measure%>" name="printHP<%=measure%>" class="css-label"></label>
                         <!--needed for chkbox effect-->
 
@@ -853,7 +853,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                     <div class="headPrevention">
                         <p title="">
-                            <span title=""><%=arr[0].getGenericName()%></span>
+                            <span title=""><%=Encode.forHtml(arr[0].getGenericName())%></span>
                             <br/>
                         </p>
                     </div> <!--headPrevention-->
@@ -900,9 +900,9 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <div class="preventionProcedure" <%=hider%>
                          onclick="javascript:popup(465,635,'','addPreventionData')">
                         <p <%=""/*r(hdata.get("refused"))*/%>
-                                title="fade=[on] header=[<%=""/*hdata.get("age")*/%> -- Date:<%=""/*hdata.get("prevention_date")*/%>] body=[<%=""/*com*/%>]"><%=pres.getBrandName()%>
+                                title="fade=[on] header=[<%=""/*hdata.get("age")*/%> -- Date:<%=""/*hdata.get("prevention_date")*/%>] body=[<%=""/*com*/%>]"><%=Encode.forHtml(pres.getBrandName())%>
                             <br/>
-                            Date: <%=pres.getRxDate()%>
+                            Date: <%=Encode.forHtml(String.valueOf(pres.getRxDate()))%>
                                 <%-- if (comb) {%>
                                 <span class="footnote"><%=comments.size()%></span>
                                 <%} --%>
@@ -955,7 +955,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <% for (int i = 0; i < comments.size(); i++) {
                         String str = (String) comments.get(i);
                     %>
-                    <li><%=str%>
+                    <li><%=Encode.forHtml(str)%>
                     </li>
                     <% }%>
                 </ol>
@@ -966,15 +966,15 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
             <% if (warnings.size() > 0 || recomendations.size() > 0 || dsProblems) { %>
             <div class="card card-body bg-body-tertiary" id="recommendations-list" <%=noPrint2%> >
 
-                <h4><%=flowSheet%> Recommendations</h4>
+                <h4><%=Encode.forHtml(flowSheet)%> Recommendations</h4>
 
                 <ul id="recomList">
                     <% for (String warn : warnings) { %>
-                    <li><%=warn%>
+                    <li><%=Encode.forHtml(warn)%>
                     </li>
                     <%}%>
                     <% for (String warn : recomendations) {%>
-                    <li><%=warn%>
+                    <li><%=Encode.forHtml(warn)%>
                     </li>
                     <%}%>
                     <!--li style="color: red;">6 month TD overdue</li>

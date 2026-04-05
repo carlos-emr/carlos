@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -85,7 +86,7 @@
 
             function removeItem(id) {
                 jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=removeItem', {
-                        flowsheetId: <%=id%>,
+                        flowsheetId: <%=Encode.forJavaScript(id)%>,
                         id: id
                     },
                     function (data) {
@@ -98,7 +99,7 @@
             }
 
             function loadFlowsheet() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getFlowsheet&id=<%=id%>", {},
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getFlowsheet&id=<%=Encode.forUriComponent(id)%>", {},
                     function (xml) {
                         $("#itemTable tbody").empty();
                         document.getElementById('name').textContent = xml.name;
@@ -167,7 +168,7 @@
                 var typeId = document.getElementById('types').value;
 
                 $.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=addMeasurement', {
-                    flowsheetId:<%=id%>,
+                    flowsheetId:<%=Encode.forJavaScript(id)%>,
                     measurementTypeId: typeId
                 }, function (data) {
                     loadFlowsheet();
@@ -178,7 +179,7 @@
                 var typeId = document.getElementById('preventionTypes').value;
 
                 $.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=addPrevention', {
-                    flowsheetId:<%=id%>,
+                    flowsheetId:<%=Encode.forJavaScript(id)%>,
                     preventionType: typeId
                 }, function (data) {
                     loadFlowsheet();
