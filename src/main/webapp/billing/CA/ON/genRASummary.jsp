@@ -213,8 +213,9 @@
                         pfirst = prov.getFirstName();
 
                 %>
-                <option value="<%=Encode.forHtmlAttribute(pohipno)%>"
-                "selected"><%=Encode.forHtml(plast)%>,<%=Encode.forHtml(pfirst)%></option>
+                <option value="<%=Encode.forHtmlAttribute(pohipno)%>"<%=
+                        pohipno != null && pohipno.equals(proNo) ? " selected=\"selected\"" : ""
+                %>><%=Encode.forHtml(plast)%>,<%=Encode.forHtml(pfirst)%></option>
                 <% } %>
             </select> <input type="submit" name="submit" value="Generate"> <a
                     href="genRASummaryDetail.jsp?rano=<%=Encode.forUriComponent(raNo)%>&proNo=">Detail</a></form>
