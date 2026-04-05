@@ -447,7 +447,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="threatened"
-                               id="threatened" <%=props.getProperty("threatened", "")%> />
+                               id="threatened" <%=Encode.forHtmlAttribute(props.getProperty("threatened", ""))%> />
                     </label>
                     has threatened or is threatening to cause bodily harm to himself or herself
                 </td>
@@ -458,7 +458,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="attempted"
-                               id="attempted" <%=props.getProperty("attempted", "")%> />
+                               id="attempted" <%=Encode.forHtmlAttribute(props.getProperty("attempted", ""))%> />
 
                     </label>
                     has attempted or is attempting to cause bodily harm to himself or herself
@@ -467,7 +467,7 @@
             <tr>
                 <td>
                     <label>
-                        <input type="checkbox" name="behaved" id="behaved" <%=props.getProperty("behaved", "")%>/>
+                        <input type="checkbox" name="behaved" id="behaved" <%=Encode.forHtmlAttribute(props.getProperty("behaved", ""))%>/>
                     </label>
                     has behaved or is behaving violently towards another person
                 </td>
@@ -475,7 +475,7 @@
             <tr>
                 <td>
                     <label>
-                        <input type="checkbox" name="caused" id="caused" <%=props.getProperty("caused", "")%>/>
+                        <input type="checkbox" name="caused" id="caused" <%=Encode.forHtmlAttribute(props.getProperty("caused", ""))%>/>
                     </label>
                     has caused or is causing another person to fear bodily harm from him or her; or
                 </td>
@@ -483,7 +483,7 @@
             <tr>
                 <td>
                     <label>
-                        <input type="checkbox" name="shown" id="shown" <%=props.getProperty("shown", "")%>/>
+                        <input type="checkbox" name="shown" id="shown" <%=Encode.forHtmlAttribute(props.getProperty("shown", ""))%>/>
                     </label>
                     has shown or is showing a lack of competence to care for himself or herself
                 </td>
@@ -518,7 +518,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="harmHimself"
-                               id="harmHimself" <%=props.getProperty("harmHimself", "")%>/>
+                               id="harmHimself" <%=Encode.forHtmlAttribute(props.getProperty("harmHimself", ""))%>/>
                     </label>
                     serious bodily harm to himself or herself,
                 </td>
@@ -527,7 +527,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="harmOthers"
-                               id="harmOthers" <%=props.getProperty("harmOthers", "")%>/>
+                               id="harmOthers" <%=Encode.forHtmlAttribute(props.getProperty("harmOthers", ""))%>/>
                     </label>
                     serious bodily harm to another person,
                 </td>
@@ -536,7 +536,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="impairment"
-                               id="impairment" <%=props.getProperty("impairment", "")%> />
+                               id="impairment" <%=Encode.forHtmlAttribute(props.getProperty("impairment", ""))%> />
                     </label>
                     serious physical impairment of himself or herself
                 </td>
@@ -583,7 +583,7 @@
                 <td>
                     <label>
                         <input name="harmHimselfB" type="checkbox"
-                               id="harmHimselfB" <%=props.getProperty("harmHimselfB", "")%> />
+                               id="harmHimselfB" <%=Encode.forHtmlAttribute(props.getProperty("harmHimselfB", ""))%> />
                     </label>
                     serious bodily harm to himself or herself,
                 </td>
@@ -592,7 +592,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="harmOthersB"
-                               id="harmOthersB" <%=props.getProperty("harmOthersB", "")%>/>
+                               id="harmOthersB" <%=Encode.forHtmlAttribute(props.getProperty("harmOthersB", ""))%>/>
                     </label>
                     serious bodily harm to another person,
                 </td>
@@ -601,7 +601,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="deteriorationB"
-                               id="deteriorationB" <%=props.getProperty("deteriorationB", "")%>/>
+                               id="deteriorationB" <%=Encode.forHtmlAttribute(props.getProperty("deteriorationB", ""))%>/>
                     </label>
                     substantial mental or physical deterioration of himself or herself, or
                 </td>
@@ -610,7 +610,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="impairmentB"
-                               id="impairmentB" <%=props.getProperty("impairmentB", "")%>/>
+                               id="impairmentB" <%=Encode.forHtmlAttribute(props.getProperty("impairmentB", ""))%>/>
                     </label>
                     serious physical impairment of himself or herself;
                 </td>
@@ -653,7 +653,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="harmHimselfB2"
-                               id="harmHimselfB2" <%=props.getProperty("harmHimselfB2", "")%>/>
+                               id="harmHimselfB2" <%=Encode.forHtmlAttribute(props.getProperty("harmHimselfB2", ""))%>/>
                     </label>
                     cause serious bodily harm to himself or herself, or
                 </td>
@@ -662,7 +662,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="harmOthersB2"
-                               id="harmOthersB2" <%=props.getProperty("harmOthersB2", "")%>/>
+                               id="harmOthersB2" <%=Encode.forHtmlAttribute(props.getProperty("harmOthersB2", ""))%>/>
                     </label>
                     cause serious bodily harm to another person, or
                 </td>
@@ -671,7 +671,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="deteriorationB2"
-                               id="deteriorationB2" <%=props.getProperty("deteriorationB2", "")%>/>
+                               id="deteriorationB2" <%=Encode.forHtmlAttribute(props.getProperty("deteriorationB2", ""))%>/>
                     </label>
                     suffer substantial mental or physical deterioration, or
                 </td>
@@ -680,7 +680,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="impairmentB2"
-                               id="impairmentB2" <%=props.getProperty("impairmentB2", "")%>/>
+                               id="impairmentB2" <%=Encode.forHtmlAttribute(props.getProperty("impairmentB2", ""))%>/>
                     </label>
                     suffer serious physical impairment
                 </td>

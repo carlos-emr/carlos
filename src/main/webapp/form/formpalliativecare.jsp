@@ -330,14 +330,14 @@
                         </tr>
                         <tr class="pain">
                             <td><b><a
-                                    href="javascript: popupPage('<%=resource%>pain');">PAIN</a></b></td>
+                                    href="javascript: popupPage('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>pain');">PAIN</a></b></td>
                             <td><textarea name="pain1"><%=Encode.forHtml(props.getProperty("pain1", ""))%></textarea></td>
                             <td><textarea name="pain2"><%=Encode.forHtml(props.getProperty("pain2", ""))%></textarea></td>
                             <td><textarea name="pain3"><%=Encode.forHtml(props.getProperty("pain3", ""))%></textarea></td>
                             <td><textarea name="pain4"><%=Encode.forHtml(props.getProperty("pain4", ""))%></textarea></td>
                         </tr>
                         <tr class="giBowels">
-                            <td><b><a href="javascript: popupPage('<%=resource%>gi');">GI:</a></b><br>
+                            <td><b><a href="javascript: popupPage('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>gi');">GI:</a></b><br>
                                 Bowels<br>
                                 -diarrhea -constipation
                             </td>
@@ -375,7 +375,7 @@
                             <td><textarea name="giMouth4"><%=Encode.forHtml(props.getProperty("giMouth4", ""))%></textarea></td>
                         </tr>
                         <tr class="gu">
-                            <td><b><a href="javascript: popupPage('<%=resource%>gu');">GU:</a></b><br>
+                            <td><b><a href="javascript: popupPage('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>gu');">GU:</a></b><br>
                                 Retention<br>
                                 Incontinence
                             </td>
@@ -386,7 +386,7 @@
                         </tr>
                         <tr class="skinUlcers">
                             <td><b><a
-                                    href="javascript: popupPage('<%=resource%>skin');">SKIN:</a></b><br>
+                                    href="javascript: popupPage('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>skin');">SKIN:</a></b><br>
                                 Ulcers
                             </td>
                             <td><textarea name="skinUlcers1"><%=Encode.forHtml(props.getProperty("skinUlcers1", ""))%></textarea></td>
@@ -407,7 +407,7 @@
                         </tr>
                         <tr class="psychAgitation">
                             <td><b><a
-                                    href="javascript: popupPage('<%=resource%>psych');">PSYCH:</a></b><br>
+                                    href="javascript: popupPage('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>psych');">PSYCH:</a></b><br>
                                 Agitation<br>
                                 Myoclonus
                             </td>
@@ -485,7 +485,7 @@
                         </tr>
                         <tr class="respCough">
                             <td><b><a
-                                    href="javascript: popupPage('<%=resource%>resp');">RESP:</a></b><br>
+                                    href="javascript: popupPage('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>resp');">RESP:</a></b><br>
                                 Cough
                             </td>
                             <td><textarea name="respCough1"><%=Encode.forHtml(props.getProperty("respCough1", ""))%></textarea></td>
@@ -520,7 +520,7 @@
                         </tr>
                         <tr class="other">
                             <td><b><a
-                                    href="javascript: popupPage('<%=resource%>other');">Other
+                                    href="javascript: popupPage('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>other');">Other
                                 Issues / FU Plan</a></b></td>
                             <td><textarea name="other1"><%=Encode.forHtml(props.getProperty("other1", ""))%></textarea></td>
                             <td><textarea name="other2"><%=Encode.forHtml(props.getProperty("other2", ""))%></textarea></td>
