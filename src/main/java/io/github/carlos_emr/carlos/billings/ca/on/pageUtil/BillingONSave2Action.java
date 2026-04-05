@@ -84,7 +84,7 @@ public final class BillingONSave2Action extends ActionSupport {
                 && !rawUrlBack.contains("\r")
                 && !rawUrlBack.contains("\n")) ? rawUrlBack : "";
         if (rawUrlBack != null && safeUrlBack.isEmpty()) {
-            LogManager.getLogger("billingONSave").warn("Rejected url_back parameter: {}", Encode.forJava(rawUrlBack));
+            LogManager.getLogger(BillingONSave2Action.class).warn("Rejected url_back parameter: {}", Encode.forJava(rawUrlBack));
         }
         request.setAttribute("safeUrlBack", safeUrlBack);
 

@@ -114,6 +114,7 @@ public final class BillingCorrectionSubmit2Action extends ActionSupport {
                 b.setStatus(billingDataBean.getStatus());
                 b.setUpdateDate(ConversionUtils.fromDateString(
                         now.get(Calendar.YEAR) + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DAY_OF_MONTH)));
+                // ON amounts are stored in cents in the original, convert to dollars via movePointLeft(2)
                 b.setTotal(new BigDecimal(total).movePointLeft(2).toString());
                 b.setContent(content);
                 billingDao.merge(b);

@@ -111,7 +111,8 @@ public final class BillingDeleteWithBillNo2Action extends ActionSupport {
                 return "cannotDelete";
             } else if (billStatus != null) {
                 for (int idx = 0; idx < billStatus.size(); idx += 2) {
-                    if (!((String) billStatus.get(idx + 1)).equals("D")) {
+                    // idx = billing header ID, idx+1 = status; bounds check prevents IOOBE on odd-sized list
+                    if (idx + 1 < billStatus.size() && !((String) billStatus.get(idx + 1)).equals("D")) {
                         dbObj.deleteBilling((String) billStatus.get(idx), "D", curUserNo);
                     }
                 }

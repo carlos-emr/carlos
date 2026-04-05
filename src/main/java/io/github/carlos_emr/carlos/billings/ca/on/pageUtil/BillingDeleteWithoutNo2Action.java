@@ -100,7 +100,9 @@ public final class BillingDeleteWithoutNo2Action extends ActionSupport {
                 for (int idx = 0; idx < billStatus.size(); idx += 2) {
                     // idx = billing header ID, idx+1 = status
                     if (idx + 1 < billStatus.size() && !billStatus.get(idx + 1).equals("D")) {
-                        rowsAffected = dbObj.deleteBilling(billStatus.get(idx), "D", curUserNo) ? 1 : 0;
+                        if (dbObj.deleteBilling(billStatus.get(idx), "D", curUserNo)) {
+                            rowsAffected++;
+                        }
                     }
                 }
             }
