@@ -667,13 +667,13 @@
                 <td height="16"></td>
                 <td height="16"></td>
                 <td height="16">Total</td>
-                <td height="16" align=right><%=BigCTotal%>
+                <td height="16" align=right><%=Encode.forHtml(BigCTotal.toPlainString())%>
                 </td>
-                <td height="16" align=right><%=BigPTotal%><!-- <%=BigOTotal%>--></td>
-                <td height="16" align=right><%=BigTotal%><!--<%=BigLTotal%>--></td>
-                <td height="16" align=right><%=BigHTotal%>
+                <td height="16" align=right><%=Encode.forHtml(BigPTotal.toPlainString())%><!-- <%=Encode.forHtml(BigOTotal.toPlainString())%>--></td>
+                <td height="16" align=right><%=Encode.forHtml(BigTotal.toPlainString())%><!--<%=Encode.forHtml(BigLTotal.toPlainString())%>--></td>
+                <td height="16" align=right><%=Encode.forHtml(BigHTotal.toPlainString())%>
                 </td>
-                <td height="16" align=right><%=BigOBTotal%>
+                <td height="16" align=right><%=Encode.forHtml(BigOBTotal.toPlainString())%>
                 </td>
                 <td height="16"></td>
             </tr>

@@ -128,7 +128,7 @@ for(int i=0; i<aL.size(); i=i+2) {
 	}
 %>
     <tr>
-        <td style="text-align:center"><%=obj.getId()%>
+        <td style="text-align:center"><%=Encode.forHtml(String.valueOf(obj.getId()))%>
         </td>
         <td style="text-align:center"><%=Encode.forHtml(obj.getBilling_date())%> <%--=obj.getBilling_time()--%></td>
         <td style="text-align:center"><%=Encode.forHtml(BillingDataHlp.propBillingType.getProperty(obj.getStatus(), ""))%>

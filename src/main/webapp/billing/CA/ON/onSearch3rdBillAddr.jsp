@@ -210,7 +210,7 @@
                 </td>
                 <td><%=Encode.forHtml(prop.getProperty("telephone", ""))%>
                 </td>
-                <!--td><%=prop.getProperty("fax", "")%></td-->
+                <!--td><%=Encode.forHtml(prop.getProperty("fax", ""))%></td-->
             </tr>
             <%
                 }
