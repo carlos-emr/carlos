@@ -33,7 +33,6 @@ package io.github.carlos_emr.carlos.eform;
 import io.github.carlos_emr.CarlosProperties;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.Unmarshaller;
-import javax.xml.transform.sax.SAXSource;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -185,7 +184,7 @@ public class EFormLoader {
             }
             JAXBContext ctx = JAXBContext.newInstance(EFormApConfig.class);
             Unmarshaller unmarshaller = ctx.createUnmarshaller();
-            EFormApConfig config = (EFormApConfig) unmarshaller.unmarshal(fs);
+            EFormApConfig config = (EFormApConfig) unmarshaller.unmarshal(XmlUtils.createSecureJaxbSource(fs));
             fs.close();
             for (DatabaseAP ap : config.getDatabaseAPs()) {
                 addDatabaseAP(ap);

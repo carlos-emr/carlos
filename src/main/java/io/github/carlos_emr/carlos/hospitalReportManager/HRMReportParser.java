@@ -60,6 +60,8 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProv
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
+import javax.xml.transform.sax.SAXSource;
 
 import org.springframework.core.io.ClassPathResource;
 
@@ -136,7 +138,8 @@ public class HRMReportParser {
                 Unmarshaller u = jc.createUnmarshaller();
                 u.setSchema(schema);
                 try (FileInputStream fileInputStream = new FileInputStream(tmpXMLholder)) {
-                    root = (OmdCds) u.unmarshal(fileInputStream);
+                    SAXSource secureSource = XmlUtils.createSecureJaxbSource(fileInputStream);
+                    root = (OmdCds) u.unmarshal(secureSource);
                 }
 
                 tmpXMLholder = null;

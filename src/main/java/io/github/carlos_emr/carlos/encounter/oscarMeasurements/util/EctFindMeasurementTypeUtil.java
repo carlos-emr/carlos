@@ -33,10 +33,12 @@ import java.util.Vector;
 
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.Unmarshaller;
+import javax.xml.transform.sax.SAXSource;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctValidationsBean;
@@ -62,7 +64,8 @@ public class EctFindMeasurementTypeUtil {
         try {
             JAXBContext ctx = JAXBContext.newInstance(EctFormProp.class);
             Unmarshaller unmarshaller = ctx.createUnmarshaller();
-            ret = (EctFormProp) unmarshaller.unmarshal(is);
+            SAXSource source = XmlUtils.createSecureJaxbSource(is);
+            ret = (EctFormProp) unmarshaller.unmarshal(source);
         } catch (Exception exc) {
             MiscUtils.getLogger().error("Error", exc);
         }
