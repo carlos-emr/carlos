@@ -35,6 +35,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.EForm" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%--
@@ -66,7 +67,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%= Encode.forHtml(error) %></li>
             <% } %>
         </ul>
     </div>
