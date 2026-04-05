@@ -196,7 +196,7 @@
                                 selected = "selected";
                             }
                     %>
-                    <option value="<%=Encode.forHtmlAttribute((String) roleList.get(i)) %>" <%= selected%> %><%=Encode.forHtml((String) roleList.get(i)) %>
+                    <option value="<%=Encode.forHtmlAttribute((String) roleList.get(i)) %>" <%= selected%>><%=Encode.forHtml((String) roleList.get(i)) %>
                     </option>
 
                     <%} %>

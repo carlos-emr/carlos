@@ -197,8 +197,8 @@
                             for (int i = 0; i < eForms.size(); i++) {
                                 HashMap<String, ? extends Object> curForm = eForms.get(i);
                 %>
-                <tr data-bs-toggle="popover" data-bs-html="true" data-bs-title="<%=Encode.forHtmlAttribute((String) curForm.get("formName"))%>"
-                    data-bs-content="<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnSubject"/>:</strong><br> <%=Encode.forHtmlAttribute((String) curForm.get("formSubject"))%> <br> <small><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFile"/>: <%=Encode.forHtmlAttribute((String) curForm.get("formFileName"))%></small>"
+                <tr data-bs-toggle="popover" data-bs-html="true" data-bs-title="<%=Encode.forHtmlAttribute(Encode.forHtml((String) curForm.get("formName")))%>"
+                    data-bs-content="<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnSubject"/>:</strong><br> <%=Encode.forHtmlAttribute(Encode.forHtml((String) curForm.get("formSubject")))%> <br> <small><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFile"/>: <%=Encode.forHtmlAttribute(Encode.forHtml((String) curForm.get("formFileName")))%></small>"
                     data-bs-trigger="hover" data-bs-placement="bottom">
 
                     <td>
