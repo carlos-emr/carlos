@@ -138,9 +138,10 @@ public class UtilXML {
 
     public static Document parseXMLFile(String fileName)
             throws IOException, FileNotFoundException, Exception {
-        InputSource is = new InputSource(new FileReader(fileName));
-        Document doc = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(is);
-        return doc;
+        try (FileReader reader = new FileReader(fileName)) {
+            InputSource is = new InputSource(reader);
+            return XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(is);
+        }
     }
 
 

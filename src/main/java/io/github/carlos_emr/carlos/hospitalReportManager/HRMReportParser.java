@@ -61,6 +61,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.sax.SAXSource;
 
 import org.springframework.core.io.ClassPathResource;
@@ -146,7 +147,7 @@ public class HRMReportParser {
             } catch (FileNotFoundException e) {
                 logger.error("File Not Found " + e);
                 if (errors != null) errors.add(e);
-            } catch (SAXException e) {
+            } catch (SAXException | ParserConfigurationException e) {
                 logger.error("SAX ERROR PARSING XML " + e);
                 if (errors != null) errors.add(e);
             } catch (JAXBException e) {

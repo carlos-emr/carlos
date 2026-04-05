@@ -93,7 +93,7 @@ public class ReadHRMFile {
                 transactionInformation = pr.getTransactionInformation();
             }
         } catch (JAXBException ex) {
-            MiscUtils.getLogger();
+            MiscUtils.getLogger().error("Failed to parse HRM file", ex);
         } catch (Exception ex) {
             MiscUtils.getLogger().error("Error reading HRM file", ex);
         }

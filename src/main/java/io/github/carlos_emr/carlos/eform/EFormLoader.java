@@ -182,12 +182,13 @@ public class EFormLoader {
             } else {
                 fs = new FileInputStream(configpath);
             }
-            JAXBContext ctx = JAXBContext.newInstance(EFormApConfig.class);
-            Unmarshaller unmarshaller = ctx.createUnmarshaller();
-            EFormApConfig config = (EFormApConfig) unmarshaller.unmarshal(XmlUtils.createSecureJaxbSource(fs));
-            fs.close();
-            for (DatabaseAP ap : config.getDatabaseAPs()) {
-                addDatabaseAP(ap);
+            try (InputStream autoClose = fs) {
+                JAXBContext ctx = JAXBContext.newInstance(EFormApConfig.class);
+                Unmarshaller unmarshaller = ctx.createUnmarshaller();
+                EFormApConfig config = (EFormApConfig) unmarshaller.unmarshal(XmlUtils.createSecureJaxbSource(autoClose));
+                for (DatabaseAP ap : config.getDatabaseAPs()) {
+                    addDatabaseAP(ap);
+                }
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
