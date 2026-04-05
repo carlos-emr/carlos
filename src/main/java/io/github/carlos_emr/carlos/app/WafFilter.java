@@ -105,9 +105,15 @@ public class WafFilter implements Filter {
     private static final Pattern SQLI_UNION_SELECT =
             Pattern.compile("(?i)\\bunion\\b[\\s\\S]{0,30}\\bselect\\b");
 
-    /** Tautology with numeric or single-quoted string comparison: OR 1=1, AND '1'='1' */
+    /**
+     * Tautology patterns: numeric ({@code OR 1=1}), single-quoted numeric ({@code AND '1'='1'}),
+     * and string tautologies ({@code OR 'x'='x}, {@code OR 'admin'='admin'}).
+     */
     private static final Pattern SQLI_TAUTOLOGY =
-            Pattern.compile("(?i)\\b(or|and)\\b\\s*['\"]?\\d+['\"]?\\s*=\\s*['\"]?\\d+['\"]?");
+            Pattern.compile("(?i)\\b(or|and)\\b\\s*("
+                    + "['\"]?\\d+['\"]?\\s*=\\s*['\"]?\\d+['\"]?"   // numeric: OR 1=1, AND '1'='1'
+                    + "|['\"]\\w+['\"]\\s*=\\s*['\"]\\w+['\"]"       // string:  OR 'x'='x, OR 'admin'='admin'
+                    + ")");
 
     /** Stacked queries: '; DROP TABLE, ; DELETE FROM, ; INSERT INTO, ; TRUNCATE */
     private static final Pattern SQLI_STACKED =
@@ -144,7 +150,20 @@ public class WafFilter implements Filter {
 
     private static final Pattern XSS_SCRIPT_OPEN  = Pattern.compile("(?i)<\\s*script\\b");
     private static final Pattern XSS_SCRIPT_CLOSE = Pattern.compile("(?i)<\\s*/\\s*script\\b");
-    private static final Pattern XSS_EVENT_HANDLER = Pattern.compile("(?i)\\bon\\w+\\s*=");
+    /**
+     * HTML event handler attributes. Possessive quantifier ({@code ++}) eliminates backtracking
+     * to prevent ReDoS on user-controlled input (CodeQL CWE-1333). Pattern is limited to
+     * known HTML event handler prefixes to avoid false positives on medical terms like
+     * {@code onset=}, {@code ongoing=}, {@code only=} that begin with "on".
+     */
+    private static final Pattern XSS_EVENT_HANDLER = Pattern.compile(
+            "(?i)\\bon(?:click|dbl|mouse|key|submit|change|input|focus|blur|load|unload"
+            + "|error|scroll|resize|select|abort|contextmenu|drag|drop|touch"
+            + "|pointer|wheel|animation|transition|message|copy|cut|paste|reset"
+            + "|search|toggle|canplay|ended|pause|play|progress|stall|suspend"
+            + "|timeupdate|volumechange|waiting|cuechange|seek|ratechange"
+            + "|fullscreen|lostpointercapture|gotpointercapture|afterprint|beforeprint"
+            + "|beforeunload|hashchange|pagehide|pageshow|popstate|storage)\\w*+\\s*=");
     private static final Pattern XSS_JAVASCRIPT_URI = Pattern.compile("(?i)javascript\\s*:");
     private static final Pattern XSS_VBSCRIPT_URI  = Pattern.compile("(?i)vbscript\\s*:");
     private static final Pattern XSS_DATA_HTML_URI = Pattern.compile("(?i)data\\s*:[^,]{0,30}text/html");
@@ -378,29 +397,25 @@ public class WafFilter implements Filter {
         HttpServletRequest httpReq = (HttpServletRequest) request;
         HttpServletResponse httpResp = (HttpServletResponse) response;
 
-        // Derive the path relative to the context root for path-model matching
+        // Derive the path relative to the context root for path-model matching.
+        // Normalize requestUri to empty string on the (spec-prohibited but defensive) null case.
         String contextPath = httpReq.getContextPath();
         String requestUri  = httpReq.getRequestURI();
+        if (requestUri == null) {
+            requestUri = "";
+        }
         String relativePath = (contextPath != null && requestUri.startsWith(contextPath))
                 ? requestUri.substring(contextPath.length())
                 : requestUri;
 
-        // --- Allowlist check: skip all WAF checks for static assets ---
-        if (isAllowlistedPath(relativePath)) {
-            chain.doFilter(request, response);
-            return;
-        }
-
-        // --- Master switch ---
+        // --- Master switch: if WAF is disabled, skip everything ---
         if (!enabled) {
             chain.doFilter(request, response);
             return;
         }
 
-        boolean relaxed  = isRelaxedPath(relativePath);
-        boolean hardened = isHardenedPath(relativePath);
-
-        // --- Protocol enforcement: block TRACE / TRACK ---
+        // --- Protocol enforcement: block TRACE / TRACK regardless of path ---
+        // Runs BEFORE the allowlist so that TRACE to /images/, /csrfguard, etc. is still blocked.
         if (protocolEnforcementEnabled) {
             String method = httpReq.getMethod();
             if (method != null && BLOCKED_METHODS.contains(method.toUpperCase())) {
@@ -410,8 +425,21 @@ public class WafFilter implements Filter {
             }
         }
 
-        // --- URI length check ---
-        if (requestLimitsEnabled && requestUri != null && requestUri.length() > maxUriLength) {
+        // --- Allowlist check: skip content-inspection checks for static assets ---
+        if (isAllowlistedPath(relativePath)) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        boolean relaxed  = isRelaxedPath(relativePath);
+        boolean hardened = isHardenedPath(relativePath);
+
+        // --- URI + query-string length check ---
+        // getRequestURI() excludes the query string per Servlet spec; combine both to get the
+        // full request target length and prevent bypass via a very long query string.
+        String queryString = httpReq.getQueryString();
+        String fullRequestTarget = requestUri + (queryString != null ? "?" + queryString : "");
+        if (requestLimitsEnabled && fullRequestTarget.length() > maxUriLength) {
             if (block(httpReq, httpResp, "req_limits", "uri_too_long")) {
                 return;
             }
@@ -428,7 +456,7 @@ public class WafFilter implements Filter {
         }
 
         // --- Injection checks on the URI itself ---
-        if (relativePath != null) {
+        if (!relativePath.isEmpty()) {
             String decodedUri = decode(relativePath);
             if (checkInjectionPatterns(httpReq, httpResp, decodedUri, "uri")) {
                 return;
@@ -436,7 +464,6 @@ public class WafFilter implements Filter {
         }
 
         // --- Injection checks on the raw query string ---
-        String queryString = httpReq.getQueryString();
         if (queryString != null) {
             String decodedQs = decode(queryString);
             if (checkInjectionPatterns(httpReq, httpResp, decodedQs, "query")) {
@@ -469,47 +496,60 @@ public class WafFilter implements Filter {
                 break;
             }
 
-            String rawValue = httpReq.getParameter(paramName);
-            if (rawValue == null) {
+            // Inspect ALL values for this parameter name. Using getParameterValues() instead of
+            // getParameter() prevents bypass via repeated params (e.g. foo=safe&foo=<script>).
+            String[] rawValues = httpReq.getParameterValues(paramName);
+            if (rawValues == null) {
                 continue;
             }
 
-            // --- Request limits: parameter value length ---
-            if (requestLimitsEnabled && rawValue.length() > valueLimit) {
-                if (block(httpReq, httpResp, "req_limits", "param_value_too_long")) {
-                    return;
+            for (String rawValue : rawValues) {
+                if (rawValue == null) {
+                    continue;
                 }
-            }
 
-            // On relaxed paths for POST requests, skip injection checks on body params.
-            // Query string params (identifiable from the raw query string) are still checked.
-            if (relaxed && isPost && !queryStringParamNames.contains(paramName)) {
-                continue;
-            }
-
-            // --- Injection checks on the parameter value ---
-            String decodedValue = decode(rawValue);
-
-            if (headerInjectionEnabled) {
-                for (Pattern p : CRLF_PATTERNS) {
-                    if (p.matcher(decodedValue).find()) {
-                        if (block(httpReq, httpResp, "crlf", "header_injection")) {
-                            return;
-                        }
-                        break;
+                // --- Request limits: parameter value length ---
+                if (requestLimitsEnabled && rawValue.length() > valueLimit) {
+                    if (block(httpReq, httpResp, "req_limits", "param_value_too_long")) {
+                        return;
                     }
                 }
-            }
 
-            if (checkInjectionPatterns(httpReq, httpResp, decodedValue, "param")) {
-                return;
+                // On relaxed paths for POST requests, skip injection checks on body params.
+                // Query string params (identifiable from the raw query string) are still checked.
+                if (relaxed && isPost && !queryStringParamNames.contains(paramName)) {
+                    continue;
+                }
+
+                // --- Injection checks on the parameter value ---
+                String decodedValue = decode(rawValue);
+
+                if (headerInjectionEnabled) {
+                    for (Pattern p : CRLF_PATTERNS) {
+                        if (p.matcher(decodedValue).find()) {
+                            if (block(httpReq, httpResp, "crlf", "header_injection")) {
+                                return;
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                if (checkInjectionPatterns(httpReq, httpResp, decodedValue, "param")) {
+                    return;
+                }
             }
         }
 
         chain.doFilter(request, response);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Releases any resources held by this filter. No-op for WafFilter as all configuration
+     * is read-only after {@link #init(FilterConfig)}.
+     *
+     * @since 2026-04-05
+     */
     @Override
     public void destroy() {
         // nothing to release
@@ -605,8 +645,18 @@ public class WafFilter implements Filter {
 
     private static boolean isAllowlistedPath(String path) {
         for (String prefix : ALLOWLIST_PREFIXES) {
-            if (path.equals(prefix) || path.startsWith(prefix)) {
-                return true;
+            // For directory prefixes (ending with '/') use startsWith so any resource under
+            // that directory is matched. For exact-path entries (e.g. '/favicon.ico',
+            // '/csrfguard') require an exact match to avoid inadvertently allowlisting paths
+            // that share the same prefix (e.g. '/csrfguardAdmin').
+            if (prefix.endsWith("/")) {
+                if (path.startsWith(prefix)) {
+                    return true;
+                }
+            } else {
+                if (path.equals(prefix)) {
+                    return true;
+                }
             }
         }
         return false;
@@ -648,10 +698,18 @@ public class WafFilter implements Filter {
         }
         try {
             String decoded = URLDecoder.decode(value, StandardCharsets.UTF_8);
-            if (decoded.contains("%")) {
-                decoded = URLDecoder.decode(decoded, StandardCharsets.UTF_8);
+            if (!decoded.contains("%")) {
+                return decoded;
             }
-            return decoded;
+            // Second pass to catch double-encoded payloads (e.g. %252e%252e%252f → %2e%2e%2f → ../).
+            // If the second decode fails (e.g. the remaining % is not a valid escape), preserve the
+            // first-decoded result — never fall back to the original, which would hide the
+            // partially-exposed payload.
+            try {
+                return URLDecoder.decode(decoded, StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException ignored) {
+                return decoded;
+            }
         } catch (IllegalArgumentException e) {
             return value;
         }

