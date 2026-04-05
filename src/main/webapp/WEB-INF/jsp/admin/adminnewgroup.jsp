@@ -132,9 +132,9 @@
             <strong>Success!</strong> record(s) have been deleted.
         </div>
 
-        <a href="admindisplaymygroup.jsp" class="btn btn-primary">View Group List</a>
+        <a href="${pageContext.request.contextPath}/admin/admindisplaymygroup.jsp" class="btn btn-primary">View Group List</a>
 
-        <a href="adminnewgroup.jsp" class="btn btn-secondary"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
+        <a href="${pageContext.request.contextPath}/admin/AdminNewGroup.do" class="btn btn-secondary"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
         <%} else {%>
 
         <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.adminnewgroup.description"/></h3>
@@ -186,7 +186,7 @@
         <input type="submit" name="Submit" class="btn btn-primary"
                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.adminnewgroup.btnSubmit"/>">
 
-        <a href="admindisplaymygroup.jsp" class="btn btn-secondary">Cancel</a>
+        <a href="${pageContext.request.contextPath}/admin/admindisplaymygroup.jsp" class="btn btn-secondary">Cancel</a>
 
     </FORM>
 

@@ -484,7 +484,7 @@
 </div>
 
 
-<form name="myform" action="providerRole.jsp" method="POST">
+<form name="myform" action="${pageContext.request.contextPath}/admin/ProviderRole.do" method="POST">
 
     <% if (msg.length() > 1) {%>
     <div class="alert alert-info">
@@ -532,7 +532,7 @@
             Properties item = vec.get(i);
             String providerNo = item.getProperty("provider_no", "");
     %>
-      <form name="myform" class="myform myform-<%= Encode.forHtmlAttribute(providerNo) %>" action="providerRole.jsp" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
+      <form name="myform" class="myform myform-<%= Encode.forHtmlAttribute(providerNo) %>" action="${pageContext.request.contextPath}/admin/ProviderRole.do" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
         <tr>
 
               <td><%= Encode.forHtml(providerNo) %></td>
@@ -592,7 +592,7 @@
       <% if( newCaseManagement ) {
       %>
 <div class="card card-body bg-body-tertiary">
-       <form name="myform" action="providerRole.jsp" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
+       <form name="myform" action="${pageContext.request.contextPath}/admin/ProviderRole.do" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
         <table>
             <tr>
                 <td><fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.primaryEMR"/>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="role"/></td>

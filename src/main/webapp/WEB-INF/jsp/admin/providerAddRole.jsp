@@ -260,7 +260,7 @@
     <span style="display: inline-block; width:100%; margin:auto; text-align:center;" class="alert"><%=msg%></span>
     <br><br>
     <div class="card card-body bg-body-tertiary">
-        <form method="post" name="baseurl" action="providerAddRole.jsp" class="">
+        <form method="post" name="baseurl" action="${pageContext.request.contextPath}/admin/ProviderAddRole.do" class="">
             <div class="mb-3">
                 <label class="form-label" for="role_name"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrole.rolename"/></label>
                 <div>

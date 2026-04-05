@@ -128,7 +128,7 @@
         </div>
     </div>
 
-    <form method="post" name="baseurl" action="unLock.jsp">
+    <form method="post" name="baseurl" action="${pageContext.request.contextPath}/admin/UnLock.do">
         <% if (!msg.equals("")) { %>
         <div class="alert alert-success">
             <%=msg%>

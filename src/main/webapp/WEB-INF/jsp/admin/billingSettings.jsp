@@ -174,7 +174,7 @@
     <body vlink="#0000FF" class="BodyStyle">
 
     <h4>Manage OSCAR Billing Settings</h4>
-    <form name="billingSettingsForm" method="post" action="${pageContext.request.contextPath}/admin/billingSettings.jsp">
+    <form name="billingSettingsForm" method="post" action="${pageContext.request.contextPath}/admin/BillingSettings.do">
 
         <input type="hidden" name="dboperation" value="">
         <table id="displaySettingsTable" class="table table-bordered table-striped table-hover table-sm">

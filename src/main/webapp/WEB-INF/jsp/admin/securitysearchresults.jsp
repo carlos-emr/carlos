@@ -107,7 +107,7 @@
     <h4><i class="fa-solid fa-magnifying-glass" title=""></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchresults.description"/></h4>
     <div name="alert" style="display:none;" class="alert alert-danger"></div>
     <div class="card card-body bg-body-tertiary">
-        <form method="post" action="securitysearchresults.jsp" name="searchprovider">
+        <form method="post" action="${pageContext.request.contextPath}/admin/SecuritySearchResults.do" name="searchprovider">
             <table style="width:100%">
                 <tr>
                     <td style="text-align:right; vertical-align:middle"><b><i><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchrecordshtm.msgCriteria"/></i></b>&nbsp;&nbsp;
@@ -168,7 +168,7 @@
         %>
         <tr>
             <td>
-                <a href='securityupdatesecurity.jsp?keyword=<%=securityRecord.getId()%>'><%= Encode.forHtmlContent(securityRecord.getUserName()) %>
+                <a href='${pageContext.request.contextPath}/admin/securityupdatesecurity.jsp?keyword=<%=securityRecord.getId()%>'><%= Encode.forHtmlContent(securityRecord.getUserName()) %>
                 </a></td>
             <td style="text-align:center">*********</td>
             <td style="text-align:center"><%= securityRecord.getProviderNo() %>

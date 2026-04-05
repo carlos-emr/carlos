@@ -71,7 +71,7 @@
             String name = request.getParameter("name");
             MeasurementTemplateFlowSheetConfig.getInstance().enableFlowsheet(name);
         }
-        response.sendRedirect("manageFlowsheets.jsp");
+        response.sendRedirect(request.getContextPath() + "/admin/ManageFlowsheets.do");
     }
 
 %>
@@ -130,7 +130,7 @@
 
     <body>
 
-<form id="flowsheetActionForm" method="post" action="manageFlowsheets.jsp" style="display:none;">
+<form id="flowsheetActionForm" method="post" action="${pageContext.request.contextPath}/admin/ManageFlowsheets.do" style="display:none;">
 	<input type="hidden" name="method" value=""/>
 	<input type="hidden" name="name" value=""/>
 </form>
@@ -198,7 +198,7 @@
 				<h4>Upload Custom Flowsheet</h4>
 			</div>
 		<div class="card-body">
-			<form enctype="multipart/form-data" method="POST" action="<%=request.getContextPath()%>/admin/manageFlowsheetsUpload.jsp">
+			<form enctype="multipart/form-data" method="POST" action="${pageContext.request.contextPath}/admin/ManageFlowsheetsUpload.do">
         <input type="file" name="flowsheet_file">
 				<span title="<fmt:message key="global.uploadWarningBody"/>" style="vertical-align:middle;cursor:pointer"><img alt="alert" src="<%=request.getContextPath()%>/images/icon_alertsml.gif"/></span>
         <input type="submit" value="Upload" class="btn btn-primary">

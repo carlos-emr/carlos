@@ -147,7 +147,7 @@
 
     </head>
     <body>
-    <form name="myform" class="card card-body bg-body-tertiary" action="logReport.jsp" method="POST" onSubmit="return(onSub());">
+    <form name="myform" class="card card-body bg-body-tertiary" action="${pageContext.request.contextPath}/admin/LogReport.do" method="POST" onSubmit="return(onSub());">
         <fieldset>
             <h3>Log Admin Report <small>Please select the provider, start and end dates.</small></h3>
 
@@ -210,58 +210,11 @@
         out.flush();
         //String startDate = "";
         //String endDate = "";
-        boolean bAll = false;
-        Vector<Properties> vec = new Vector<Properties>();
-        String providerNo = "";
-        if (request.getParameter("submit") != null) {
-            providerNo = request.getParameter("providerNo");
-            String action = request.getParameter("submit");
-            String content = request.getParameter("content");
-            if (content.equals("login")) content = "login";
-            if (content.equals("admin")) content = "%";
-
-            String sDate = request.getParameter("startDate");
-            String eDate = request.getParameter("endDate");
-            String strDbType = CarlosProperties.getInstance().getProperty("db_type").trim();
-            if ("".equals(sDate) || sDate == null) sDate = "1900-01-01";
-            if ("".equals(eDate) || eDate == null) eDate = "2999-01-01";
-
-            DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[2];
-            params[0] = new DBPreparedHandlerParam(MyDateFormat.getSysDateEX(eDate, 1));
-            params[1] = new DBPreparedHandlerParam(MyDateFormat.getSysDate(sDate));
-
-            sql = "select * from log force index (datetime) where provider_no='" + providerNo + "' and dateTime <= ?";
-            sql += " and dateTime >= ? and content like '" + content + "' order by dateTime desc ";
-
-            if ("*".equals(providerNo)) {
-                bAll = true;
-                if (isSiteAccessPrivacy) {
-                    sql = "select * from log force index (datetime) where dateTime <= ?";
-                    sql += " and dateTime >= ? and content like '" + content + "' ";
-                    sql += "and provider_no IN (SELECT provider_no FROM providersite WHERE site_id IN (SELECT site_id from providersite where provider_no= " + curUser_no + ") )";
-                    sql += " order by dateTime desc ";
-                } else {
-                    sql = "select * from log force index (datetime) where dateTime <= ?";
-                    sql += " and dateTime >= ? and content like '" + content + "' order by dateTime desc ";
-                }
-            }
-            rs = dbObj.queryResults(sql, params);
-            while (rs.next()) {
-                prop = new Properties();
-                prop.setProperty("dateTime", "" + rs.getTimestamp("dateTime"));
-                prop.setProperty("action", Encode.forHtmlContent(Misc.getString(rs, "action")));
-                prop.setProperty("content", Encode.forHtmlContent(Misc.getString(rs, "content")));
-                prop.setProperty("contentId", Encode.forHtmlContent(Misc.getString(rs, "contentId")));
-                prop.setProperty("ip", Misc.getString(rs, "ip"));
-                prop.setProperty("provider_no", Encode.forHtmlContent(Misc.getString(rs, "provider_no")));
-                prop.setProperty("demographic_no", Encode.forHtmlContent(Misc.getString(rs, "demographic_no")));
-                prop.setProperty("data", Encode.forHtmlContent(Misc.getString(rs, "data")).replaceAll("\n", "\n<br/>"));
-                vec.add(prop);
-            }
-
-            //startDate = sDate;
-            //endDate = eDate;
-        }
+        Vector<Properties> vec = (Vector<Properties>) request.getAttribute("vec");
+        Boolean bAllAttr = (Boolean) request.getAttribute("bAll");
+        boolean bAll = bAllAttr != null && bAllAttr;
+        String providerNo = (String) request.getAttribute("providerNo");
+        if (vec == null) vec = new Vector<Properties>();
     %>
     <h4><%
         if (propName.getProperty(providerNo, "").equals("")) {

@@ -43,6 +43,16 @@
 <%
     String curProvider_no = (String) session.getAttribute("user");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
     ArrayList docTypes = EDocUtil.getDoctypes("demographic");
     UserPropertyDAO userPropertyDAO = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
     UserProperty uProp = userPropertyDAO.getProp(curProvider_no, UserProperty.DOCUMENT_DESCRIPTION_TEMPLATE);
@@ -293,7 +303,7 @@
         providerNo = null;
     }
 %>
-<form method="post" name="docDescriptionForm" action="displayDocumentDescriptionTemplate.jsp">
+<form method="post" name="docDescriptionForm" action="${pageContext.request.contextPath}/admin/DisplayDocumentDescriptionTemplate.do">
     <div id="usefault" style="<%=providerNo==null? "visibility:hidden" : ""%>">
         <input type="checkbox" name="useclinicdefault" <%=clinicDefault == true ? "checked='checked'" : ""%>
                id="useclinicdefault" onclick="checkClinicDefault()"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.useClinicDefault"/>

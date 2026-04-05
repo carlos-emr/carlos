@@ -98,5 +98,5 @@
         }
     }
 
-    response.sendRedirect("manageFlowsheets.jsp");
+    response.sendRedirect(request.getContextPath() + "/admin/ManageFlowsheets.do");
 %>

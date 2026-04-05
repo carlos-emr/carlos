@@ -395,7 +395,7 @@
 </head>
 <body>
 
-<form name="myform" action="providerPrivilege.jsp" method="POST">
+<form name="myform" action="${pageContext.request.contextPath}/admin/ProviderPrivilege.do" method="POST">
     <table width="100%">
         <tr>
             <th><% if (msg.length() > 1) {%>
@@ -454,7 +454,7 @@
                 String roleUserName = vecProviderNo.contains(roleUser) ? "" + (String) vecProviderName.get(vecProviderNo.indexOf(roleUser)) + "" : roleUser;
                 String obj = (vec.get(i)).getProperty("objectName", "");
         %>
-        <form name="myformrow<%=i%>" action="providerPrivilege.jsp"
+        <form name="myformrow<%=i%>" action="${pageContext.request.contextPath}/admin/ProviderPrivilege.do"
               method="POST">
             <tr style="background-color:<%=bgColor%>">
                 <td><%= roleUserName %>
@@ -501,7 +501,7 @@
 
 <h4>Add Role/Privilege</h4>
 <div class="card card-body bg-body-tertiary">
-    <form name="myform2" action="providerPrivilege.jsp" method="POST">
+    <form name="myform2" action="${pageContext.request.contextPath}/admin/ProviderPrivilege.do" method="POST">
         For:
         <select name="roleUserGroup"
                 onChange="onChangeSelect()">

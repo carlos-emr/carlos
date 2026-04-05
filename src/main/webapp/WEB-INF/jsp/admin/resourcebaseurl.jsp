@@ -155,7 +155,7 @@
         </div><!-- col-md-2 -->
 
         <div class="col-md-8" style="background-color:">
-            <form method="post" name="baseurl" id="websiteForm" action="resourcebaseurl.jsp" class="d-flex flex-wrap align-items-center gap-2">
+            <form method="post" name="baseurl" id="websiteForm" action="${pageContext.request.contextPath}/admin/ResourceBaseUrl.do" class="d-flex flex-wrap align-items-center gap-2">
 
                 <h4>Website</h4>
                 <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.formBaseUrl"/><br>-->
@@ -180,7 +180,7 @@
         </div><!-- col-md-2 -->
 
         <div class="col-md-8" style="background-color:">
-            <form method="post" name="baseurl" id="detailsForm" action="resourcebaseurl.jsp">
+            <form method="post" name="baseurl" id="detailsForm" action="${pageContext.request.contextPath}/admin/ResourceBaseUrl.do">
                 <h4>Details</h4>
                 <input type="hidden" name="resource_helpHtml" id="resource_helpHtml_hidden"/>
                 <div id="resource_helpHtml_editor" style="width:100%;min-height:160px"></div>

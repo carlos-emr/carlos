@@ -201,7 +201,7 @@
 <div class="container-fluid card card-body bg-body-tertiary">
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mergeRec"/></h3>
 
-    <form method="post" name="titlesearch" action="demographicmergerecord.jsp" class="d-flex flex-wrap align-items-center gap-2"
+    <form method="post" name="titlesearch" action="${pageContext.request.contextPath}/admin/DemographicMergeRecord.do" class="d-flex flex-wrap align-items-center gap-2"
           onSubmit="return checkTypeIn()">
 
         Search:
@@ -242,25 +242,25 @@
                 <th align="center" width="5%">Main Record</th>
                 <%}%>
                 <TH align="center" width="10%"><b><a
-                        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=demographic_no&limit1=0&limit2=<%=strLimit%>">Demographic</a></b></font>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord.do?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=demographic_no&limit1=0&limit2=<%=strLimit%>">Demographic</a></b></font>
                 </TH>
                 <TH align="center" width="20%"><b><a
-                        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=last_name&limit1=0&limit2=<%=strLimit%>">Last
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord.do?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=last_name&limit1=0&limit2=<%=strLimit%>">Last
                     Name</a> </b></font></TH>
                 <TH align="center" width="20%"><b><a
-                        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=first_name&limit1=0&limit2=<%=strLimit%>">First
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord.do?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=first_name&limit1=0&limit2=<%=strLimit%>">First
                     Name</a> </b></font></TH>
                 <TH align="center" width="10%"><b><a
-                        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=age&limit1=0&limit2=<%=strLimit%>">Age</a></b></font>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord.do?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=age&limit1=0&limit2=<%=strLimit%>">Age</a></b></font>
                 </TH>
                 <TH align="center" width="10%"><b><a
-                        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=roster_status&limit1=0&limit2=<%=strLimit%>">Roster
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord.do?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=roster_status&limit1=0&limit2=<%=strLimit%>">Roster
                     Status</a></b></font></TH>
                 <TH align="center" width="10%"><b><a
-                        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=sex&limit1=0&limit2=<%=strLimit%>">Sex</a></B></font>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord.do?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=sex&limit1=0&limit2=<%=strLimit%>">Sex</a></B></font>
                 </TH>
                 <TH align="center" width="10%"><b><a
-                        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=date_of_birth&limit1=0&limit2=<%=strLimit%>">DOB(yy/mm/dd)</a></B></Font>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord.do?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=date_of_birth&limit1=0&limit2=<%=strLimit%>">DOB(yy/mm/dd)</a></B></Font>
                 </TH>
             </tr>
             <%
@@ -395,12 +395,12 @@
         nLastPage = Integer.parseInt(strOffset) - Integer.parseInt(strLimit);
         if (nLastPage >= 0) {
     %> <a
-        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=<%=Encode.forUriComponent(request.getParameter("orderby") != null ? request.getParameter("orderby") : "")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>">Last
+        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord.do?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=<%=Encode.forUriComponent(request.getParameter("orderby") != null ? request.getParameter("orderby") : "")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>">Last
     Page</a> | <%
     }
     if (nItems == Integer.parseInt(strLimit)) {
 %> <a
-        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=<%=Encode.forUriComponent(request.getParameter("orderby") != null ? request.getParameter("orderby") : "")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>">
+        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord.do?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=<%=Encode.forUriComponent(request.getParameter("orderby") != null ? request.getParameter("orderby") : "")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>">
     Next Page</a> <%
     }
 

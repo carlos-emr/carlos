@@ -119,7 +119,7 @@
                 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providertemplate.msgTitle"/></h3>
 
                 <div class="card card-body bg-body-tertiary">
-                    <form name="edittemplate" method="post" action="providertemplate.jsp" class="d-flex flex-wrap align-items-center gap-2">
+                    <form name="edittemplate" method="post" action="${pageContext.request.contextPath}/admin/ProviderTemplate.do" class="d-flex flex-wrap align-items-center gap-2">
                         <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providertemplate.formEdit"/>:-->
                         Select Template<br>
                         <select name="name">
@@ -157,7 +157,7 @@
                 %>
 
                 <div class="card card-body bg-body-tertiary">
-                    <form name="template" method="post" action="providertemplate.jsp">
+                    <form name="template" method="post" action="${pageContext.request.contextPath}/admin/ProviderTemplate.do">
                         <input type="hidden" name="dboperation" value="">
 
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providertemplate.formTemplateName"/>:<br>
