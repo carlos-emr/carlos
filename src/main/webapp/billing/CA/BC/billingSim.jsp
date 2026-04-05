@@ -205,7 +205,13 @@
     </form>
 </table>
 
-<%-- html output from billing simulation --%>
+<%-- 
+    Server-generated HTML from billing simulation (ExtractBean.getHtmlCode).
+    This attribute is set by genSimulation.jsp from the billing extract engine
+    and contains structured HTML markup (tables, fonts, etc.) for the report.
+    Encoding this output would break the rendered billing report.
+    This is trusted server-generated content, not from direct user input.
+--%>
 <%=request.getAttribute("html") == null ? "" : request.getAttribute("html")%>
 
 </body>

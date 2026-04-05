@@ -319,6 +319,6 @@
         if (d == null || d.trim().equals("")) {
             return "";
         }
-        return StringEscapeUtils.escapeEcmaScript(d);
+        return org.owasp.encoder.Encode.forJavaScript(d);
     }
 %>
