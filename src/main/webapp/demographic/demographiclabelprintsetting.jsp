@@ -179,7 +179,7 @@
                         <input type="hidden" name="providername" value="<%=Encode.forHtmlAttribute(providername)%>">
                         <input type="hidden" name="province" value="<%=Encode.forHtmlAttribute(province)%>">
                         <input type="hidden" name="sex" value="<%=Encode.forHtmlAttribute(sex)%>">
-                        <input type="hidden" name="age" value="<%=age%>">
+                        <input type="hidden" name="age" value="<%=Encode.forHtmlAttribute(String.valueOf(age))%>">
                     </th>
                 </tr>
                 <tr>
@@ -300,7 +300,7 @@
                                 <td style="border: solid 1px; background-color: white;">
 				<span id="copytext5"
                       class="copytext"> <%=Encode.forHtml(chart_no)%> &nbsp;&nbsp;<%=Encode.forHtml(last_name)%>, <%=Encode.forHtml(first_name)%><br><%=Encode.forHtml(address)%>, <%=Encode.forHtml(city)%>, <%=Encode.forHtml(province)%>, <%=Encode.forHtml(postal)%>
-				<br><%=Encode.forHtml(dob)%> &nbsp;&nbsp;&nbsp;<%=age%> <%=Encode.forHtml(sex)%> &nbsp;<%=Encode.forHtml(hin)%><br><%=Encode.forHtml(phone)%>&nbsp;&nbsp;&nbsp;<%=phone2Display%><br><%=Encode.forHtml(refDoc)%>
+				<br><%=Encode.forHtml(dob)%> &nbsp;&nbsp;&nbsp;<%=Encode.forHtml(String.valueOf(age))%> <%=Encode.forHtml(sex)%> &nbsp;<%=Encode.forHtml(hin)%><br><%=Encode.forHtml(phone)%>&nbsp;&nbsp;&nbsp;<%=phone2Display%><br><%=Encode.forHtml(refDoc)%>
 				</span></td>
                             </tr>
                         </table>
