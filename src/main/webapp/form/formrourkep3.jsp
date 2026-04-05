@@ -929,7 +929,7 @@
                             </td>
 
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>o_dentalCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formDentalCare"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>o_dentalCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formDentalCare"/></a>*</b></td>
 
                         </tr>
 
