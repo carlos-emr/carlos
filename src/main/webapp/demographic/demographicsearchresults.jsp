@@ -453,7 +453,9 @@
                     </td>
                     <td class="dob"><%=Encode.forHtml(demo.getFormattedDob() == null ? "" : demo.getFormattedDob())%>
                     </td>
-                    <td class="doctor"><%=Encode.forHtml(Misc.getShortStr(providerBean.getProperty(demo.getProviderNo() == null ? "" : demo.getProviderNo()), "_", 12) == null ? "" : Misc.getShortStr(providerBean.getProperty(demo.getProviderNo() == null ? "" : demo.getProviderNo()), "_", 12))%>
+                    <td class="doctor"><%
+                        String providerShortName = Misc.getShortStr(providerBean.getProperty(demo.getProviderNo() == null ? "" : demo.getProviderNo()), "_", 12);
+                        %><%=Encode.forHtml(providerShortName == null ? "" : providerShortName)%>
                     </td>
                     <td class="rosterStatus"><%=Encode.forHtml(demo.getRosterStatus() == null || demo.getRosterStatus().equals("") ? " " : demo.getRosterStatus())%>
                     </td>
