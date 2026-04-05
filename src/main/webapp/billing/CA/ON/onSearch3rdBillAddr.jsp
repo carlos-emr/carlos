@@ -198,7 +198,7 @@
             <tr align="center" bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.cursor='pointer';this.style.backgroundColor='pink';"
                 onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                onClick="<%=Encode.forHtmlAttribute(strOnClick)%>">
+                onClick="<%=Encode.forJavaScriptAttribute(strOnClick)%>">
                 <td><%=Encode.forHtml(prop.getProperty("attention", ""))%>
                 </td>
                 <td><%=Encode.forHtml(WordUtils.capitalize(prop.getProperty("company_name", "").toLowerCase()))%>
