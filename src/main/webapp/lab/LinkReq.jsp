@@ -226,7 +226,7 @@
     <input type="hidden" name="reqid" value="<%=Encode.forHtmlAttribute(reqId != null ? reqId : "")%>"/>
 
     <p>&nbsp;</p>
-    Requisition Date: <%=reqDateLink%>
+    Requisition Date: <%=Encode.forHtml(reqDateLink)%>
     <p>
         Link to Lab Requisition:
         <select name="linkReqId">
@@ -245,8 +245,8 @@
 
                 for (int i = 0; i < req_id.size(); i++) {
             %>
-            <option value="<%=req_id.get(i)%>" <%=req_id.get(i).equals(matchingId) ? "selected" : ""%>><%=formDisplayName.get(i)%>
-                : <%=formCreated.get(i)%> : <%=patientName.get(i)%>
+            <option value="<%=Encode.forHtmlAttribute(req_id.get(i))%>" <%=req_id.get(i).equals(matchingId) ? "selected" : ""%>><%=Encode.forHtml(formDisplayName.get(i))%>
+                : <%=Encode.forHtml(formCreated.get(i))%> : <%=Encode.forHtml(patientName.get(i))%>
             </option>
             <% } %>
         </select>
