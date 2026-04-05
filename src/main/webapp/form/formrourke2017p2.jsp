@@ -187,7 +187,7 @@
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p2_ht2m', 'HT', '<%=Encode.forJavaScriptAttribute(String.valueOf(demographic.getDemographicNo()))%>',
-                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
+                       '<%=Encode.forJavaScriptAttribute(demographic.getFormattedDob())%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHt"/>
             </a>
         </td>
