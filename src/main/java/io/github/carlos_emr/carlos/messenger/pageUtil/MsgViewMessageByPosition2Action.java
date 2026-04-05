@@ -139,9 +139,13 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
 
         MsgDisplayMessagesBean displayMsgBean = new MsgDisplayMessagesBean();
 
+        // Resolve the ORDER BY clause through the allowlist in MsgDisplayMessagesBean.
+        // The returned value is always a safe, hard-coded SQL fragment (never the raw user input).
+        String safeOrderBy = displayMsgBean.getOrderBy(orderBy);
+
         String sql = "select m.messageid "
                 + "from messagetbl m, msgDemoMap mapp where mapp.demographic_no = :demographic_no "
-                + "and m.messageid = mapp.messageID order by " + displayMsgBean.getOrderBy(orderBy);
+                + "and m.messageid = mapp.messageID order by " + safeOrderBy;
 
         FormsDao dao = SpringUtils.getBean(FormsDao.class);
         EntityManager em = dao.getEntityManager();

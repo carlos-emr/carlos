@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -44,6 +46,7 @@ import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import io.github.carlos_emr.Misc;
+import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
@@ -112,12 +115,14 @@ public class ViewWCB2Action extends ActionSupport {
                 this.setInjuryLocations(data.getInjuryLocationList());
 
                 //Retrieve provider ohip number and payee number
-
-                List lstResults = SqlUtils.getQueryResultsList("select ohip_no,billing_no from provider where provider_no = " + providerNo);
-                if (lstResults != null) {
-                    String[] providerData = (String[]) lstResults.get(0);
-                    this.setW_pracno(providerData[0]);
-                    this.setW_payeeno(providerData[1]);
+                try (ResultSet rs = DBHandler.GetPreSQL(
+                        "select ohip_no,billing_no from provider where provider_no = ?", providerNo)) {
+                    if (rs != null && rs.next()) {
+                        this.setW_pracno(rs.getString("ohip_no"));
+                        this.setW_payeeno(rs.getString("billing_no"));
+                    }
+                } catch (SQLException e) {
+                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Error retrieving provider data", e);
                 }
 
                 this.setProviderNo(providerNo);

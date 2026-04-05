@@ -674,10 +674,9 @@ public class EFormUtil {
 
     public static void addEFormToGroup(String groupName, String fid) {
         try {
-
-            String sql1 = "SELECT eform_groups.fid FROM eform_groups, eform WHERE eform_groups.fid=" + fid
-                    + " AND eform_groups.fid=eform.fid AND eform.status=1 AND eform_groups.group_name='" + groupName + "'";
-            ResultSet rs = DBHandler.GetSQL(sql1);
+            String sql1 = "SELECT eform_groups.fid FROM eform_groups, eform WHERE eform_groups.fid=?"
+                    + " AND eform_groups.fid=eform.fid AND eform.status=1 AND eform_groups.group_name=?";
+            ResultSet rs = DBHandler.GetPreSQL(sql1, ConversionUtils.fromIntString(fid), groupName);
             if (!rs.next()) {
                 EFormGroup eg = new EFormGroup();
                 eg.setFormId(Integer.parseInt(fid));

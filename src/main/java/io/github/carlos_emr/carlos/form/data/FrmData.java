@@ -201,8 +201,8 @@ public class FrmData {
             if (searchFormName.equals("AR1"))
                 searchFormName = "ar1_99_12"; // quick hack for ease of migration from old forms to new
             if (searchFormName.equals("AR2")) searchFormName = "ar2_99_08"; // ditto
-            sql = "SELECT form_no FROM " + table + " WHERE demographic_no=" + demoNo + " AND form_name='" + searchFormName + "' order by form_no desc limit 0,1";
-            rs = DBHandler.GetSQL(sql);
+            sql = "SELECT form_no FROM " + table + " WHERE demographic_no=? AND form_name=? order by form_no desc limit 0,1";
+            rs = DBHandler.GetPreSQL(sql, demoNo, searchFormName);
             while (rs.next()) {
                 ret[1] = Misc.getString(rs, "form_no");
             }
@@ -257,8 +257,8 @@ public class FrmData {
             rs = null;
             ret[1] = "0";
         } else {
-            sql = "SELECT ID FROM " + table + " WHERE demographic_no=" + demoNo + " order by formEdited desc limit 0,1";
-            rs = DBHandler.GetSQL(sql);
+            sql = "SELECT ID FROM " + table + " WHERE demographic_no=? order by formEdited desc limit 0,1";
+            rs = DBHandler.GetPreSQL(sql, demoNo);
             while (rs.next()) {
                 ret[1] = Misc.getString(rs, "ID");
             }
