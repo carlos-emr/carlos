@@ -135,7 +135,7 @@
 
             first_name = demo.getFirstName() != null ? demo.getFirstName() : "";
             last_name = demo.getLastName() != null ? demo.getLastName() : "";
-            sex = demo.getSex();
+            sex = demo.getSex() != null ? demo.getSex() : "";
             dob_year = Integer.parseInt(demo.getYearOfBirth());
             dob_month = Integer.parseInt(demo.getMonthOfBirth());
             dob_date = Integer.parseInt(demo.getDateOfBirth());
@@ -152,6 +152,10 @@
             if (demo.getHin() != null) hin = "HN " + demo.getHcType() + " " + demo.getHin() + " " + demo.getVer();
             if (demo.getFamilyDoctor() != null) refDoc = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd");
         }
+        <%-- phone2 is split into two variables to avoid double-encoding:
+             phone2Raw holds the unencoded value for hidden form inputs (encoded at output with forHtmlAttribute);
+             phone2Display pre-encodes the user portion with forHtml() before appending raw &nbsp; padding,
+             so the entities render correctly. Do NOT re-encode phone2Display. --%>
         String phone2Raw = (phone2 == null ? "" : phone2);
         String phone2Display = phone2Raw.isEmpty()
             ? "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"

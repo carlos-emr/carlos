@@ -445,19 +445,19 @@
         <p>
         <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.msgSuccessful"/></h2>
 
-        <a href="DemographicEdit.do?demographic_no=<%=dem%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.goToRecord"/></a>
+        <a href="DemographicEdit.do?demographic_no=<%=Encode.forUriComponent(dem != null ? dem : "")%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.goToRecord"/></a>
 
         <caisi:isModuleLoad moduleName="caisi">
             <br/>
-            <a href="<%= request.getContextPath() %>/PMmodule/ClientManager.do?id=<%=dem%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.goToCaisiRecord"/> (<a href="#"
-                                                                                  onclick="popup(700,1027,'DemographicEdit.do?demographic_no=<%=dem%>')">New
+            <a href="<%= request.getContextPath() %>/PMmodule/ClientManager.do?id=<%=Encode.forUriComponent(dem != null ? dem : "")%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.goToCaisiRecord"/> (<a href="#"
+                                                                                  onclick="popup(700,1027,'DemographicEdit.do?demographic_no=<%=Encode.forUriComponent(dem != null ? dem : "")%>')">New
                 Window</a>)</a>
         </caisi:isModuleLoad>
 
 
         <caisi:isModuleLoad moduleName="caisi">
             <br/>
-            <a href="<%= request.getContextPath() %>/PMmodule/ClientManager.do?id=<%=dem%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.goToCaisiRecord"/></a>
+            <a href="<%= request.getContextPath() %>/PMmodule/ClientManager.do?id=<%=Encode.forUriComponent(dem != null ? dem : "")%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.goToCaisiRecord"/></a>
         </caisi:isModuleLoad>
 
 
