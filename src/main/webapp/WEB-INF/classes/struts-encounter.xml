@@ -509,9 +509,7 @@
             <result name="success">/WEB-INF/jsp/encounter/immunization/config/AdministrateImmunizationSets.jsp</result>
             <result name="goBack">/encounter/immunization/config/CreateImmunizationSetConfig.jsp</result>
         </action>
-        <action name="encounter/immunization/config/DeleteImmunizationSets" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmDeleteImmunizationSet2Action">
-            <result name="success">/WEB-INF/jsp/encounter/immunization/config/AdministrateImmunizationSets.jsp</result>
-        </action>
+
 
         <action name="encounter/immunization/config/ImmunizationSetDisplay" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmImmunizationSetDisplay2Action">
             <result name="success">/encounter/immunization/config/ImmunizationSetDisplay.jsp</result>
@@ -600,6 +598,9 @@
         </action>
         <action name="encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupDisplayMeasurementStyleSheet2Action">
             <result name="continue">/encounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/SetupAddMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasurementStyleSheet2Action">
+            <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/AddMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementStyleSheet2Action">
             <interceptor-ref name="defaultStack"/>

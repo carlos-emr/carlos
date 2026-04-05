@@ -61,9 +61,7 @@
             <result name="success">/messenger/selfCloseAndRefreshOpener.jsp</result>
             <result name="attaching">/messenger/generatePreviewPDF.jsp</result>
         </action>
-        <action name="messenger/ProcessDoc2PDF" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDoc2PDF2Action">
-            <result name="success">/WEB-INF/jsp/messenger/selfClose.jsp</result>
-        </action>
+
 
         <action name="messenger/HandleMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action">
             <result name="success">/messenger/DisplayMessages.jsp</result>
