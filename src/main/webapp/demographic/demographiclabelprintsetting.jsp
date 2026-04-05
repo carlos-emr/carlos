@@ -157,7 +157,6 @@
         String phone2Display = phone2Raw.isEmpty()
             ? "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
             : (Encode.forHtml(phone2Raw) + "&nbsp;");
-        phone2 = (phone2 == null || phone2.equals("")) ? "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" : (phone2 + "&nbsp;");
     %>
 
     <form method="post" class="" name="labelprint" action="demographicprintdemographic.jsp">
