@@ -61,8 +61,8 @@
             targetFormIdx = m2.group(1);
             targetElement = m2.group(2);
         } else if (!name2.isEmpty()) {
-            MiscUtils.getLogger().warn("billingDigSearch.jsp: 'name2' did not match expected JS path format: "
-                + name2.substring(0, Math.min(name2.length(), 80)));
+            MiscUtils.getLogger().warn("billingDigSearch.jsp: 'name2' did not match expected JS path format (length="
+                + name2.length() + ")");
             name2ParseError = true;
         }
     }

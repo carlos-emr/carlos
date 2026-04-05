@@ -684,7 +684,7 @@
                 <input type="hidden" id="billTotal" value="<%=BillTotal%>"/>
 
                 <div class="col-md-2">
-                    <a href="#" onclick="return sanityCheck('<%= Encode.forJavaScriptAttribute(nullToEmpty(billNo)) %>', <%=billNoErr%>);"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formInvoiceNo"/></a><br>
+                    <a href="#" onclick="return sanityCheck('<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(nullToEmpty(billNo))) %>', <%=billNoErr%>);"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formInvoiceNo"/></a><br>
                     <input type="text" id="billing_no" name="billing_no" value="<%= Encode.forHtmlAttribute(nullToEmpty(billNo)) %>" class="col-md-2"
                            required>
                 </div>

@@ -70,10 +70,7 @@
             function displayReport() {
                 var cpath = "<%=request.getContextPath()%>";
                 var fname = "<%= Encode.forJavaScript(StringUtils.noNull(filename)) %>";
-                sname = cpath + "/billing/CA/ON/ES.xsl";
-                if (fname.substring(2, 4) == "OU") {
-                    sname = cpath + "/billing/CA/ON/OU.xsl";
-                }
+                sname = cpath + "/billing/CA/ON/<%= (filename != null && filename.length() >= 4 && "OU".equals(filename.substring(2, 4))) ? "OU" : "ES" %>.xsl";
 
                 xml = '<%=StringEscapeUtils.escapeEcmaScript(fileContents)%>';
                 try {

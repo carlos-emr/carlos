@@ -147,8 +147,8 @@
         java.util.regex.Matcher m = pattern.matcher(value);
         if (m.matches()) return new String[]{m.group(1), m.group(2)};
         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-            "searchRefDoc.jsp: '" + paramName + "' did not match expected JS path format: "
-            + value.substring(0, Math.min(value.length(), 80)));
+            "searchRefDoc.jsp: '" + paramName + "' did not match expected JS path format (length="
+            + value.length() + ")");
         return null;
     }
 %>
