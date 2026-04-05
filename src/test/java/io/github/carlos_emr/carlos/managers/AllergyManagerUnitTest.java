@@ -22,8 +22,11 @@
 package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
+import io.github.carlos_emr.carlos.commn.model.PartialDate;
+import io.github.carlos_emr.carlos.log.LogAction;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -81,6 +84,9 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
     private AllergyDao mockAllergyDao;
 
     @Mock
+    private PartialDateDao mockPartialDateDao;
+
+    @Mock
     private PatientConsentManager mockPatientConsentManager;
 
     private AllergyManagerImpl allergyManager;
@@ -101,6 +107,7 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
         // Create manager instance and inject dependencies via reflection
         allergyManager = new AllergyManagerImpl();
         injectDependency(allergyManager, "allergyDao", mockAllergyDao);
+        injectDependency(allergyManager, "partialDateDao", mockPartialDateDao);
         injectDependency(allergyManager, "patientConsentManager", mockPatientConsentManager);
     }
 
@@ -914,6 +921,278 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
 
             // Then
             verifyNoInteractions(mockPatientConsentManager);
+        }
+    }
+
+    /**
+     * Tests for {@link AllergyManager#saveAllergy(LoggedInInfo, Allergy)}.
+     *
+     * <p>Verifies new allergy persistence including providerNo defaulting,
+     * entryDate defaulting, partial-date persistence, and audit logging.</p>
+     */
+    @Nested
+    @DisplayName("saveAllergy")
+    @Tag("create")
+    class SaveAllergy {
+
+        @Test
+        @DisplayName("should persist allergy and return it")
+        void shouldPersistAndReturnAllergy_whenValidAllergyProvided() {
+            // Given
+            Allergy allergy = createTestAllergy();
+
+            // When
+            Allergy result = allergyManager.saveAllergy(mockLoggedInInfo, allergy);
+
+            // Then
+            assertThat(result).isSameAs(allergy);
+            verify(mockAllergyDao).persist(allergy);
+        }
+
+        @Test
+        @DisplayName("should default providerNo from loggedInInfo when not set")
+        void shouldDefaultProviderNo_whenProviderNoIsNull() {
+            // Given
+            Allergy allergy = createTestAllergy();
+            allergy.setProviderNo(null);
+
+            // When
+            allergyManager.saveAllergy(mockLoggedInInfo, allergy);
+
+            // Then
+            assertThat(allergy.getProviderNo()).isEqualTo(TEST_PROVIDER);
+        }
+
+        @Test
+        @DisplayName("should not overwrite providerNo when already set")
+        void shouldNotOverwriteProviderNo_whenAlreadySet() {
+            // Given
+            Allergy allergy = createTestAllergy();
+            allergy.setProviderNo("000001");
+
+            // When
+            allergyManager.saveAllergy(mockLoggedInInfo, allergy);
+
+            // Then
+            assertThat(allergy.getProviderNo()).isEqualTo("000001");
+        }
+
+        @Test
+        @DisplayName("should default entryDate to now when not set")
+        void shouldDefaultEntryDate_whenEntryDateIsNull() {
+            // Given
+            Allergy allergy = createTestAllergy();
+            allergy.setEntryDate(null);
+            Date before = new Date();
+
+            // When
+            allergyManager.saveAllergy(mockLoggedInInfo, allergy);
+
+            // Then
+            assertThat(allergy.getEntryDate()).isNotNull();
+            assertThat(allergy.getEntryDate()).isAfterOrEqualTo(before);
+        }
+
+        @Test
+        @DisplayName("should not overwrite entryDate when already set")
+        void shouldNotOverwriteEntryDate_whenAlreadySet() {
+            // Given
+            Date existingDate = new Date(1000000L);
+            Allergy allergy = createTestAllergy();
+            allergy.setEntryDate(existingDate);
+
+            // When
+            allergyManager.saveAllergy(mockLoggedInInfo, allergy);
+
+            // Then
+            assertThat(allergy.getEntryDate()).isEqualTo(existingDate);
+        }
+
+        @Test
+        @DisplayName("should persist partial start-date format after saving allergy")
+        void shouldPersistPartialDateFormat_afterPersistingAllergy() {
+            // Given
+            Allergy allergy = createTestAllergyWithId(TEST_ALLERGY_ID);
+            allergy.setStartDateFormat("YYYY");
+
+            // When
+            allergyManager.saveAllergy(mockLoggedInInfo, allergy);
+
+            // Then - verify persist happened before partial date
+            var inOrder = inOrder(mockAllergyDao, mockPartialDateDao);
+            inOrder.verify(mockAllergyDao).persist(allergy);
+            inOrder.verify(mockPartialDateDao).setPartialDate(
+                    PartialDate.ALLERGIES,
+                    TEST_ALLERGY_ID,
+                    PartialDate.ALLERGIES_STARTDATE,
+                    "YYYY");
+        }
+
+        @Test
+        @DisplayName("should persist partial-date with null format when startDateFormat not set")
+        void shouldPersistPartialDate_withNullFormat_whenStartDateFormatNotSet() {
+            // Given
+            Allergy allergy = createTestAllergyWithId(TEST_ALLERGY_ID);
+            allergy.setStartDateFormat(null);
+
+            // When
+            allergyManager.saveAllergy(mockLoggedInInfo, allergy);
+
+            // Then
+            verify(mockPartialDateDao).setPartialDate(
+                    PartialDate.ALLERGIES,
+                    TEST_ALLERGY_ID,
+                    PartialDate.ALLERGIES_STARTDATE,
+                    null);
+        }
+
+        @Test
+        @DisplayName("should throw when demographicNo is null")
+        void shouldThrowIllegalArgumentException_whenDemographicNoIsNull() {
+            // Given
+            Allergy allergy = createTestAllergy();
+            allergy.setDemographicNo(null);
+
+            // When / Then
+            assertThatThrownBy(() -> allergyManager.saveAllergy(mockLoggedInInfo, allergy))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("demographicNo");
+            verifyNoInteractions(mockAllergyDao);
+        }
+
+        @Test
+        @DisplayName("should write an audit log entry after persisting")
+        void shouldWriteAuditLog_afterPersisting() {
+            // Given
+            Allergy allergy = createTestAllergyWithId(TEST_ALLERGY_ID);
+
+            // When
+            allergyManager.saveAllergy(mockLoggedInInfo, allergy);
+
+            // Then
+            logActionMock.verify(() -> LogAction.addLogSynchronous(
+                    eq(mockLoggedInInfo),
+                    eq("AllergyManager.saveAllergy"),
+                    contains("demographicNo=" + TEST_DEMO_NO)));
+        }
+    }
+
+    /**
+     * Tests for {@link AllergyManager#updateAllergy(LoggedInInfo, Allergy)}.
+     *
+     * <p>Verifies allergy update merging including providerNo defaulting, ID validation,
+     * demographicNo validation, and audit logging.</p>
+     */
+    @Nested
+    @DisplayName("updateAllergy")
+    @Tag("update")
+    class UpdateAllergy {
+
+        @Test
+        @DisplayName("should merge allergy and return result")
+        void shouldMergeAllergyAndReturnResult_whenValidAllergyProvided() {
+            // Given
+            Allergy allergy = createTestAllergyWithId(TEST_ALLERGY_ID);
+            Allergy merged = createTestAllergyWithId(TEST_ALLERGY_ID);
+            when(mockAllergyDao.merge(allergy)).thenReturn(merged);
+
+            // When
+            Allergy result = allergyManager.updateAllergy(mockLoggedInInfo, allergy);
+
+            // Then
+            assertThat(result).isSameAs(merged);
+            verify(mockAllergyDao).merge(allergy);
+        }
+
+        @Test
+        @DisplayName("should default providerNo from loggedInInfo when not set")
+        void shouldDefaultProviderNo_whenProviderNoIsNull() {
+            // Given
+            Allergy allergy = createTestAllergyWithId(TEST_ALLERGY_ID);
+            allergy.setProviderNo(null);
+            when(mockAllergyDao.merge(allergy)).thenReturn(allergy);
+
+            // When
+            allergyManager.updateAllergy(mockLoggedInInfo, allergy);
+
+            // Then
+            assertThat(allergy.getProviderNo()).isEqualTo(TEST_PROVIDER);
+        }
+
+        @Test
+        @DisplayName("should not overwrite providerNo when already set")
+        void shouldNotOverwriteProviderNo_whenAlreadySet() {
+            // Given
+            Allergy allergy = createTestAllergyWithId(TEST_ALLERGY_ID);
+            allergy.setProviderNo("000002");
+            when(mockAllergyDao.merge(allergy)).thenReturn(allergy);
+
+            // When
+            allergyManager.updateAllergy(mockLoggedInInfo, allergy);
+
+            // Then
+            assertThat(allergy.getProviderNo()).isEqualTo("000002");
+        }
+
+        @Test
+        @DisplayName("should throw when allergy ID is null")
+        void shouldThrowIllegalArgumentException_whenAllergyIdIsNull() {
+            // Given
+            Allergy allergy = createTestAllergy(); // no ID set
+
+            // When / Then
+            assertThatThrownBy(() -> allergyManager.updateAllergy(mockLoggedInInfo, allergy))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("ID");
+            verifyNoInteractions(mockAllergyDao);
+        }
+
+        @Test
+        @DisplayName("should throw when demographicNo is null")
+        void shouldThrowIllegalArgumentException_whenDemographicNoIsNull() {
+            // Given
+            Allergy allergy = createTestAllergyWithId(TEST_ALLERGY_ID);
+            allergy.setDemographicNo(null);
+
+            // When / Then
+            assertThatThrownBy(() -> allergyManager.updateAllergy(mockLoggedInInfo, allergy))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("demographicNo");
+            verifyNoInteractions(mockAllergyDao);
+        }
+
+        @Test
+        @DisplayName("should write an audit log entry after merging")
+        void shouldWriteAuditLog_afterMerging() {
+            // Given
+            Allergy allergy = createTestAllergyWithId(TEST_ALLERGY_ID);
+            when(mockAllergyDao.merge(allergy)).thenReturn(allergy);
+
+            // When
+            allergyManager.updateAllergy(mockLoggedInInfo, allergy);
+
+            // Then
+            logActionMock.verify(() -> LogAction.addLogSynchronous(
+                    eq(mockLoggedInInfo),
+                    eq("AllergyManager.updateAllergy"),
+                    contains("id=" + TEST_ALLERGY_ID)));
+        }
+
+        @Test
+        @DisplayName("should include demographicNo in audit log")
+        void shouldIncludeDemographicNoInAuditLog_whenUpdating() {
+            // Given
+            Allergy allergy = createTestAllergyWithId(TEST_ALLERGY_ID);
+            when(mockAllergyDao.merge(allergy)).thenReturn(allergy);
+
+            // When
+            allergyManager.updateAllergy(mockLoggedInInfo, allergy);
+
+            // Then
+            logActionMock.verify(() -> LogAction.addLogSynchronous(
+                    eq(mockLoggedInInfo),
+                    eq("AllergyManager.updateAllergy"),
+                    contains("demographicNo=" + TEST_DEMO_NO)));
         }
     }
 }

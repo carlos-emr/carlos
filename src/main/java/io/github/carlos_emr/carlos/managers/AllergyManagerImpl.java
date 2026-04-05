@@ -38,8 +38,10 @@ import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
+import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -50,6 +52,9 @@ import io.github.carlos_emr.carlos.log.LogAction;
 public class AllergyManagerImpl implements AllergyManager {
     @Autowired
     private AllergyDao allergyDao;
+
+    @Autowired
+    private PartialDateDao partialDateDao;
 
     @Autowired
     private PatientConsentManager patientConsentManager;
@@ -81,20 +86,45 @@ public class AllergyManagerImpl implements AllergyManager {
 
     @Override
     public Allergy saveAllergy(LoggedInInfo loggedInInfo, Allergy allergy) {
+        // getDemographicNo() returns primitive int and auto-unboxes the stored Integer field;
+        // catching NPE here converts a null demographicNo into a clear validation error.
+        int demoNo;
+        try {
+            demoNo = allergy.getDemographicNo();
+        } catch (NullPointerException e) {
+            throw new IllegalArgumentException("Allergy must have a demographicNo before saving.", e);
+        }
         if (allergy.getProviderNo() == null) {
             allergy.setProviderNo(loggedInInfo.getLoggedInProviderNo());
         }
+        if (allergy.getEntryDate() == null) {
+            allergy.setEntryDate(new Date());
+        }
         allergyDao.persist(allergy);
+        // Persist partial start-date format (year-only / year-month) to the partial_date table,
+        // matching what RxPatientData.Patient.addAllergy() does.
+        partialDateDao.setPartialDate(PartialDate.ALLERGIES, allergy.getId(),
+                PartialDate.ALLERGIES_STARTDATE, allergy.getStartDateFormat());
 
         // --- log action ---
         LogAction.addLogSynchronous(loggedInInfo, "AllergyManager.saveAllergy",
-                "demographicNo=" + allergy.getDemographicNo());
+                "demographicNo=" + demoNo);
 
         return allergy;
     }
 
     @Override
     public Allergy updateAllergy(LoggedInInfo loggedInInfo, Allergy allergy) {
+        if (allergy.getId() == null) {
+            throw new IllegalArgumentException("Allergy ID is required for update.");
+        }
+        // getDemographicNo() returns primitive int; convert NPE to clear validation error.
+        int demoNo;
+        try {
+            demoNo = allergy.getDemographicNo();
+        } catch (NullPointerException e) {
+            throw new IllegalArgumentException("Allergy must have a demographicNo before updating.", e);
+        }
         if (allergy.getProviderNo() == null) {
             allergy.setProviderNo(loggedInInfo.getLoggedInProviderNo());
         }
@@ -102,7 +132,7 @@ public class AllergyManagerImpl implements AllergyManager {
 
         // --- log action ---
         LogAction.addLogSynchronous(loggedInInfo, "AllergyManager.updateAllergy",
-                "id=" + allergy.getId() + " demographicNo=" + allergy.getDemographicNo());
+                "id=" + allergy.getId() + " demographicNo=" + demoNo);
 
         return result;
     }
