@@ -44,19 +44,19 @@
     }
 %>
 
-<%@ page import="java.util.*,io.github.carlos_emr.carlos.report.data.*" %>
+<%@ page import="java.util.*" %>
+<%@ taglib uri="io.github.carlos_emr.carlos.report.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 <link rel="stylesheet" type="text/css"
       href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
 <html>
-
+<fmt:setBundle basename="oscarResources"/>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgAllQueriesExecuted"/></title>
+        <title><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:message key="oscarReport.RptByExample.MsgAllQueriesExecuted"/></title>
 
         <script type="text/javascript">
             function set(text) {
@@ -70,14 +70,14 @@
 
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgReport"/></td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarReport.CDMReport.msgReport"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <form action="${pageContext.request.contextPath}/oscarReport/RptViewAllQueryByExamples.do" method="post">
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgAllQueriesExecutedFrom"/>:
+                            <td><fmt:message key="oscarReport.RptByExample.MsgAllQueriesExecutedFrom"/>:
                                 <input type="text" name="startDate" value="${startDate}" size="8"/>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgTo"/>
+                                <fmt:message key="oscarReport.RptByExample.MsgTo"/>
                                 <input type="text" name="endDate" value="${endDate}" size="8"/> <input type="submit"
                                                                          value="Refresh"/></td>
                         </tr>
@@ -90,10 +90,10 @@
             <td class="MainTableRightColumn">
                 <table>
                     <tr class="Header">
-                        <td align="left" width="140"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgDate"/></td>
-                        <td align="left" width="400"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgQuery"/></td>
-                        <td align="left" width="100"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgProvider"/></td>
-                        <td align="left" width="100"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgAddToFavorite"/></td>
+                        <td align="left" width="140"><fmt:message key="oscarReport.RptByExample.MsgDate"/></td>
+                        <td align="left" width="400"><fmt:message key="oscarReport.RptByExample.MsgQuery"/></td>
+                        <td align="left" width="100"><fmt:message key="oscarReport.RptByExample.MsgProvider"/></td>
+                        <td align="left" width="100"><fmt:message key="oscarReport.RptByExample.MsgAddToFavorite"/></td>
                     </tr>
 
                     <form id="favouriteForm" action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite.do" method="post">
@@ -107,7 +107,7 @@
                                 <td><c:out value="${queryInfo.providerLastName}"/>, <c:out value="${queryInfo.providerFirstName}"/></td>
                                 <td>
                                     <input type="button"
-                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgAddToFavorite"/>"
+                                        value="<fmt:message key="oscarReport.RptByExample.MsgAddToFavorite"/>"
                                         onclick="set('<c:out value="${escapedQuery}" escapeXml="true"/>'); submit();" />
                             </tr>
                         </c:forEach>
