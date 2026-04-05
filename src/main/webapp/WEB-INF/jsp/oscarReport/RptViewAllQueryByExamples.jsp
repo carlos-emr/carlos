@@ -44,82 +44,137 @@
     }
 %>
 
-<%@ page import="java.util.*" %>
-<%@ taglib uri="io.github.carlos_emr.carlos.report.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
-
-<link rel="stylesheet" type="text/css"
-      href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
-<html>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
-    <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:message key="oscarReport.RptByExample.MsgAllQueriesExecuted"/></title>
 
-        <script type="text/javascript">
-            function set(text) {
-                document.forms[1].newQuery.value = text;
-            };
-        </script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> -
+        <fmt:message key="oscarReport.RptByExample.MsgAllQueriesExecuted"/>
+    </title>
 
-    </head>
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+          integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM"
+          crossorigin="anonymous">
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" type="text/css" media="all"
+          href="${pageContext.request.contextPath}/share/css/extractedFromPages.css">
 
-    <body vlink="#0000FF" class="BodyStyle">
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
 
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarReport.CDMReport.msgReport"/></td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <form action="${pageContext.request.contextPath}/oscarReport/RptViewAllQueryByExamples.do" method="post">
-                        <tr>
-                            <td><fmt:message key="oscarReport.RptByExample.MsgAllQueriesExecutedFrom"/>:
-                                <input type="text" name="startDate" value="${startDate}" size="8"/>
-                                <fmt:message key="oscarReport.RptByExample.MsgTo"/>
-                                <input type="text" name="endDate" value="${endDate}" size="8"/> <input type="submit"
-                                                                         value="Refresh"/></td>
-                        </tr>
-                    </form>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn" valign="top"></td>
-            <td class="MainTableRightColumn">
-                <table>
-                    <tr class="Header">
-                        <td align="left" width="140"><fmt:message key="oscarReport.RptByExample.MsgDate"/></td>
-                        <td align="left" width="400"><fmt:message key="oscarReport.RptByExample.MsgQuery"/></td>
-                        <td align="left" width="100"><fmt:message key="oscarReport.RptByExample.MsgProvider"/></td>
-                        <td align="left" width="100"><fmt:message key="oscarReport.RptByExample.MsgAddToFavorite"/></td>
-                    </tr>
+    <script type="text/javascript">
+        function set(text) {
+            document.getElementById('newQuery').value = text;
+        }
+    </script>
+</head>
+<body>
 
-                    <form id="favouriteForm" action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite.do" method="post">
-                        <input type="hidden" id="newQuery" name="newQuery" value="error"/>
-                        <c:forEach var="queryInfo" items="${allQueries.queryVector}">
-                            <c:set var="escapedQuery" value="${queryInfo.queryWithEscapeChar}"/>
+<div class="container">
 
-                            <tr class="data">
-                                <td><c:out value="${queryInfo.date}"/></td>
-                                <td><c:out value="${queryInfo.query}"/></td>
-                                <td><c:out value="${queryInfo.providerLastName}"/>, <c:out value="${queryInfo.providerFirstName}"/></td>
-                                <td>
-                                    <input type="button"
-                                        value="<fmt:message key="oscarReport.RptByExample.MsgAddToFavorite"/>"
-                                        onclick="set('<c:out value="${escapedQuery}" escapeXml="true"/>'); submit();" />
+    <!-- Alert banner — hidden by default; surfaced via JS on error -->
+    <div id="jsAlertBanner"
+         class="alert alert-danger alert-dismissible"
+         style="display:none"
+         role="alert">
+        <span id="jsAlertText"></span>
+        <button type="button"
+                class="btn-close"
+                onclick="this.closest('.alert').style.display='none'"
+                aria-label="Close"></button>
+    </div>
+
+    <!-- Page header bar: report label on the left, date-range refresh form on the right -->
+    <div class="page-header-bar d-flex align-items-center justify-content-between py-2 mb-3 border-bottom"
+         id="header">
+        <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-search fs-5 text-secondary" aria-hidden="true"></i>
+            <span class="fw-semibold"><fmt:message key="oscarReport.CDMReport.msgReport"/></span>
+        </div>
+        <!-- Refresh form: form wraps controls directly — no table needed -->
+        <form action="${pageContext.request.contextPath}/oscarReport/RptViewAllQueryByExamples.do"
+              method="post"
+              class="d-flex align-items-center gap-2">
+            <label class="form-label form-label-sm mb-0">
+                <fmt:message key="oscarReport.RptByExample.MsgAllQueriesExecutedFrom"/>:
+            </label>
+            <input type="text" name="startDate"
+                   value="${e:forHtmlAttribute(startDate)}"
+                   class="form-control form-control-sm"
+                   style="width:8em"/>
+            <label class="form-label form-label-sm mb-0">
+                <fmt:message key="oscarReport.RptByExample.MsgTo"/>
+            </label>
+            <input type="text" name="endDate"
+                   value="${e:forHtmlAttribute(endDate)}"
+                   class="form-control form-control-sm"
+                   style="width:8em"/>
+            <button type="submit" class="btn btn-primary btn-sm">Refresh</button>
+        </form>
+    </div>
+
+    <!-- Main content area -->
+    <div class="bg-light border rounded p-2">
+        <div class="row g-2">
+
+            <!-- Left sidebar column (empty, mirrors OSCAR MainTableLeftColumn) -->
+            <div class="col-12 col-md-2"></div>
+
+            <!-- Right content column: all-queries table -->
+            <div class="col-12 col-md-10">
+
+                <!-- favouriteForm wraps the table — correct HTML5 nesting -->
+                <form id="favouriteForm"
+                      action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite.do"
+                      method="post">
+                    <input type="hidden" id="newQuery" name="newQuery" value="error"/>
+
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th scope="col" style="width:140px"><fmt:message key="oscarReport.RptByExample.MsgDate"/></th>
+                                <th scope="col" style="width:400px"><fmt:message key="oscarReport.RptByExample.MsgQuery"/></th>
+                                <th scope="col" style="width:100px"><fmt:message key="oscarReport.RptByExample.MsgProvider"/></th>
+                                <th scope="col" style="width:100px"><fmt:message key="oscarReport.RptByExample.MsgAddToFavorite"/></th>
                             </tr>
-                        </c:forEach>
-                    </form>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
-    </table>
+                        </thead>
+                        <tbody>
+                            <c:forEach var="queryInfo" items="${allQueries.queryVector}">
+                                <c:set var="escapedQuery" value="${queryInfo.queryWithEscapeChar}"/>
+                                <tr>
+                                    <td>${e:forHtml(queryInfo.date)}</td>
+                                    <td>${e:forHtml(queryInfo.query)}</td>
+                                    <td>${e:forHtml(queryInfo.providerLastName)}, ${e:forHtml(queryInfo.providerFirstName)}</td>
+                                    <td>
+                                        <input type="button"
+                                               class="btn btn-outline-secondary btn-sm"
+                                               value="<fmt:message key="oscarReport.RptByExample.MsgAddToFavorite"/>"
+                                               onclick="set('${e:forJavaScriptAttribute(escapedQuery)}'); document.getElementById('favouriteForm').submit();"/>
+                                    </td>
+                                </tr>
+                            </c:forEach>
+                        </tbody>
+                    </table>
 
-    </body>
+                </form>
+            </div><!-- end right column -->
+
+        </div><!-- end .row -->
+    </div><!-- end .bg-light -->
+
+</div><!-- end .container -->
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz"
+        crossorigin="anonymous"></script>
+</body>
 </html>
