@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.log.LogAction;
 
 import io.github.carlos_emr.carlos.services.LookupManager;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -103,8 +104,13 @@ public class ClientSearchAction22Action extends ActionSupport {
         if (noteId == null || noteId.trim().length() == 0) {
             //don't do anything?
         } else {
-            request.getSession().setAttribute("noteId", noteId);
-            request.setAttribute("noteId", noteId);
+            // Validate noteId as a positive integer to break the HTTP-parameter taint chain
+            Integer parsedNoteId = ConversionUtils.fromIntString(noteId);
+            if (parsedNoteId > 0) {
+                String validatedNoteId = String.valueOf(parsedNoteId);
+                request.getSession().setAttribute("noteId", validatedNoteId);
+                request.setAttribute("noteId", validatedNoteId);
+            }
         }
 
 

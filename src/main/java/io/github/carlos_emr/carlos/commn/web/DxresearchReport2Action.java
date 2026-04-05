@@ -58,6 +58,7 @@ import io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.owasp.encoder.Encode;
 
 public class DxresearchReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -258,7 +259,8 @@ public class DxresearchReport2Action extends ActionSupport {
     public String editDesc() {
         String editingCodeType = request.getParameter("editingCodeType");
         String editingCodeCode = request.getParameter("editingCodeCode");
-        String editingCodeDesc = request.getParameter("editingCodeDesc");
+        // Encode editingCodeDesc to break taint chain before session storage
+        String editingCodeDesc = Encode.forHtml(request.getParameter("editingCodeDesc"));
 
         dxQuickListItemsHandler.updatePatientCodeDesc(editingCodeType, editingCodeCode, editingCodeDesc);
 
@@ -273,8 +275,9 @@ public class DxresearchReport2Action extends ActionSupport {
 
         String quickListName = this.getQuickListName();
         List<dxCodeSearchBean> codeSearch = dxresearchdao.getQuickListItems(quickListName);
-        String codeSingle = request.getParameter("codesearch");
-        String codeSystem = request.getParameter("codesystem");
+        // Encode user-supplied code values to break taint chain before session storage
+        String codeSingle = Encode.forHtml(request.getParameter("codesearch"));
+        String codeSystem = Encode.forHtml(request.getParameter("codesystem"));
         String action = request.getParameter("action");
         dxCodeSearchBean newAddition = null;
 

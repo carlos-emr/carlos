@@ -98,7 +98,15 @@
           method="post" onsubmit="return onPicUpload();">
         <input type="hidden" name="method" value="saveImage"/>
         <%
-            request.getSession().setAttribute("clientId", request.getParameter("demographicNo"));
+            // Validate demographicNo as an integer to break taint chain before session storage
+            String demographicNoParam = request.getParameter("demographicNo");
+            String validatedDemoNo;
+            try {
+                validatedDemoNo = String.valueOf(Integer.parseInt(demographicNoParam == null ? "" : demographicNoParam.trim()));
+            } catch (NumberFormatException e) {
+                validatedDemoNo = "0";
+            }
+            request.getSession().setAttribute("clientId", validatedDemoNo);
         %>
         <div class="row align-items-center mb-3">
             <div class="col-auto">

@@ -35,6 +35,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -61,17 +62,21 @@ public final class dxSetupResearch2Action extends ActionSupport {
         }
 
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
-        String demographicNo = request.getParameter("demographicNo");
-        String providerNo = request.getParameter("providerNo");
+        // Validate demographicNo as a positive integer to break taint chain before session storage
+        String demographicNo = String.valueOf(ConversionUtils.fromIntString(request.getParameter("demographicNo")));
+        // Validate providerNo: fall back to trusted logged-in provider; otherwise parse as integer
+        String providerNoParam = request.getParameter("providerNo");
+        String providerNo;
+        if (providerNoParam == null) {
+            providerNo = loggedInInfo.getLoggedInProviderNo();
+        } else {
+            providerNo = String.valueOf(ConversionUtils.fromIntString(providerNoParam));
+        }
         String selectedQuickList = request.getParameter("quickList");
         dxResearchBeanHandler hd = new dxResearchBeanHandler(demographicNo);
 
         dxQuickListBeanHandler quicklistHd = null;
         dxQuickListItemsHandler quicklistItemsHd = null;
-
-        if (providerNo == null) {
-            providerNo = loggedInInfo.getLoggedInProviderNo();
-        }
         if (selectedQuickList == null) {
             selectedQuickList = "";
         }

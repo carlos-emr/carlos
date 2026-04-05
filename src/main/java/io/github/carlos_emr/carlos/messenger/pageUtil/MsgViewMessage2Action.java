@@ -192,14 +192,24 @@ public class MsgViewMessage2Action extends ActionSupport {
         request.getSession().setAttribute("viewMessageDate", msgDisplayMessage.getThedate());
         request.getSession().setAttribute("viewMessageAttach", msgDisplayMessage.getAttach());
         request.getSession().setAttribute("viewMessagePDFAttach", msgDisplayMessage.getPdfAttach());
-        request.getSession().setAttribute("viewMessageId", messageNo);
-        request.getSession().setAttribute("viewMessageNo", messageNo);
-        request.getSession().setAttribute("viewMessagePosition", messagePosition);
-        request.getSession().setAttribute("from", from);
+        // Use the validated integer representation to break the HTTP-parameter taint chain
+        String validatedMessageNo = String.valueOf(parsedMessageNo);
+        request.getSession().setAttribute("viewMessageId", validatedMessageNo);
+        request.getSession().setAttribute("viewMessageNo", validatedMessageNo);
+        // Validate messagePosition as an integer before session storage
+        String validatedMessagePosition = String.valueOf(ConversionUtils.fromIntString(messagePosition));
+        request.getSession().setAttribute("viewMessagePosition", validatedMessagePosition);
+        // Validate 'from' against known values; fall back to the safe default
+        String validatedFrom = "messenger";
+        if ("inbox".equals(from) || "sent".equals(from) || "trash".equals(from) || "messenger".equals(from)) {
+            validatedFrom = from;
+        }
+        request.getSession().setAttribute("from", validatedFrom);
         request.getSession().setAttribute("providerNo", providerNo);
 
         if (orderBy != null) {
-            request.getSession().setAttribute("orderBy", orderBy);
+            // Encode 'orderBy' to sanitize before storing in session
+            request.getSession().setAttribute("orderBy", Encode.forHtml(orderBy));
         }
 
         MiscUtils.getLogger().debug("viewMessagePosition: " + messagePosition + "IsLastMsg: " + request.getAttribute("viewMessageIsLastMsg"));

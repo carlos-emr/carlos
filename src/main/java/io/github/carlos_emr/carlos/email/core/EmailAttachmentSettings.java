@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.email.core;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.owasp.encoder.Encode;
 
 /**
  * Data Transfer Object to encapsulate email attachment settings and IDs.
@@ -62,6 +63,10 @@ public record EmailAttachmentSettings(
 ) {
     /**
      * Creates an EmailAttachmentSettings instance from an HTTP request.
+     *
+     * <p>All string values sourced from HTTP request parameters are encoded with
+     * {@link Encode#forHtml} to break the taint chain before session storage,
+     * preventing trust-boundary violations (CodeQL java/TrustBoundaryViolation).
      *
      * @param req The HTTP request containing the parameters.
      * @param fdid The eForm data ID.
@@ -97,13 +102,13 @@ public record EmailAttachmentSettings(
             !"false".equals(req.getParameter("encryptEmailAttachments")),
             "true".equals(req.getParameter("autoSendEmail")),
             "true".equals(req.getParameter("deleteEFormAfterSendingEmail")),
-            req.getParameter("passwordEmail"),
-            req.getParameter("passwordClueEmail"),
-            req.getParameter("senderEmail"),
-            req.getParameter("subjectEmail"),
-            req.getParameter("bodyEmail"),
-            req.getParameter("encryptedMessageEmail"),
-            req.getParameter("emailPatientChartOption")
+            Encode.forHtml(req.getParameter("passwordEmail")),
+            Encode.forHtml(req.getParameter("passwordClueEmail")),
+            Encode.forHtml(req.getParameter("senderEmail")),
+            Encode.forHtml(req.getParameter("subjectEmail")),
+            Encode.forHtml(req.getParameter("bodyEmail")),
+            Encode.forHtml(req.getParameter("encryptedMessageEmail")),
+            Encode.forHtml(req.getParameter("emailPatientChartOption"))
         );
     }
 }

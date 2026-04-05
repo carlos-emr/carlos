@@ -70,13 +70,15 @@ public class SystemMessage2Action extends ActionSupport {
         String messageId = request.getParameter("id");
 
         if (messageId != null) {
-            SystemMessage msg = systemMessageDao.find(Integer.parseInt(messageId));
+            int parsedId = Integer.parseInt(messageId);
+            SystemMessage msg = systemMessageDao.find(parsedId);
 
             if (msg == null) {
                 addActionMessage(getText("system_message.missing"));
                 return list();
             }
-            request.getSession().setAttribute("systemMessageId", messageId);
+            // Use the validated integer representation to break the HTTP-parameter taint chain
+            request.getSession().setAttribute("systemMessageId", String.valueOf(parsedId));
         } else {
             request.getSession().setAttribute("systemMessageId", "");
         }

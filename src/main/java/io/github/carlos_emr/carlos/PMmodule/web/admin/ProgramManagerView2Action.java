@@ -69,6 +69,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class ProgramManagerView2Action extends ActionSupport {
@@ -118,8 +119,9 @@ public class ProgramManagerView2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-                // find the program id
-        String programId = request.getParameter("id");
+                // find the program id; parse as integer to validate and break taint chain before session storage
+        String programId = String.valueOf(
+                io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(request.getParameter("id")));
 
         request.getSession().setAttribute("case_program_id", programId);
 
@@ -277,8 +279,11 @@ public class ProgramManagerView2Action extends ActionSupport {
 
     public String admit() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String programId = request.getParameter("id");
-        String clientId = request.getParameter("clientId");
+        // Validate programId and clientId as integers to break taint chain
+        String programId = String.valueOf(
+                io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(request.getParameter("id")));
+        String clientId = String.valueOf(
+                io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(request.getParameter("clientId")));
         String queueId = request.getParameter("queueId");
 
         ProgramQueue queue = programQueueManager.getProgramQueue(queueId);
@@ -307,12 +312,12 @@ public class ProgramManagerView2Action extends ActionSupport {
             logger.error("Error", e);
         } catch (ServiceRestrictionException e) {
             addActionMessage(getText("admit.service_restricted", e.getRestriction().getComments(), e.getRestriction().getProvider().getFormattedName()));
-            // store this for display
+            // store this for display; encode free-text notes to break taint chain before session storage
             this.setServiceRestriction(e.getRestriction());
 
             request.getSession().setAttribute("programId", programId);
-            request.getSession().setAttribute("admission.dischargeNotes", dischargeNotes);
-            request.getSession().setAttribute("admission.admissionNotes", admissionNotes);
+            request.getSession().setAttribute("admission.dischargeNotes", Encode.forHtml(dischargeNotes));
+            request.getSession().setAttribute("admission.admissionNotes", Encode.forHtml(admissionNotes));
 
             request.setAttribute("id", programId);
 

@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -97,11 +98,12 @@ public class AddEForm2Action extends ActionSupport {
         boolean isDownloadEForm = "true".equals(request.getParameter("saveAndDownloadEForm"));
         boolean isEmailEForm = "true".equals(request.getParameter("emailEForm"));
 
-        String[] attachedDocuments = (request.getParameterValues("docNo") != null ? request.getParameterValues("docNo") : new String[0]);
-        String[] attachedLabs = (request.getParameterValues("labNo") != null ? request.getParameterValues("labNo") : new String[0]);
-        String[] attachedForms = (request.getParameterValues("formNo") != null ? request.getParameterValues("formNo") : new String[0]);
-        String[] attachedEForms = (request.getParameterValues("eFormNo") != null ? request.getParameterValues("eFormNo") : new String[0]);
-        String[] attachedHRMDocuments = (request.getParameterValues("hrmNo") != null ? request.getParameterValues("hrmNo") : new String[0]);
+        // Validate each attachment ID array: parse every element as integer to break taint chain
+        String[] attachedDocuments = validateIdArray(request.getParameterValues("docNo"));
+        String[] attachedLabs = validateIdArray(request.getParameterValues("labNo"));
+        String[] attachedForms = validateIdArray(request.getParameterValues("formNo"));
+        String[] attachedEForms = validateIdArray(request.getParameterValues("eFormNo"));
+        String[] attachedHRMDocuments = validateIdArray(request.getParameterValues("hrmNo"));
 
         @SuppressWarnings("unchecked")
         Enumeration<String> paramNamesE = request.getParameterNames();
@@ -109,8 +111,10 @@ public class AddEForm2Action extends ActionSupport {
         ArrayList<String> paramNames = new ArrayList<String>();  //holds "fieldname, ...."
         ArrayList<String> paramValues = new ArrayList<String>(); //holds "myval, ...."
         String fid = request.getParameter("efmfid");
-        String demographic_no = request.getParameter("efmdemographic_no");
-        String eform_link = request.getParameter("eform_link");
+        // Validate demographicNo as integer to break taint chain before session/request storage
+        String demographic_no = String.valueOf(ConversionUtils.fromIntString(request.getParameter("efmdemographic_no")));
+        // Encode eform_link to prevent tainted session attribute key
+        String eform_link = Encode.forHtml(request.getParameter("eform_link"));
         String subject = request.getParameter("subject");
 
         /*
@@ -522,6 +526,25 @@ public class AddEForm2Action extends ActionSupport {
         documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.FORM, attachedForms, providerNo, Integer.valueOf(fdid), Integer.valueOf(demographic_no));
         documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.EFORM, attachedEForms, providerNo, Integer.valueOf(fdid), Integer.valueOf(demographic_no));
         documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.HRM, attachedHRMDocuments, providerNo, Integer.valueOf(fdid), Integer.valueOf(demographic_no));
+    }
+
+    /**
+     * Validates an array of ID strings by parsing each element as an integer.
+     * This breaks the taint chain for HTTP request parameters before session storage.
+     * Elements that are not valid integers are replaced with "0".
+     *
+     * @param rawIds the raw string array from the request, may be null
+     * @return a new array of validated integer strings, never null
+     */
+    private static String[] validateIdArray(String[] rawIds) {
+        if (rawIds == null) {
+            return new String[0];
+        }
+        String[] validated = new String[rawIds.length];
+        for (int i = 0; i < rawIds.length; i++) {
+            validated[i] = String.valueOf(ConversionUtils.fromIntString(rawIds[i]));
+        }
+        return validated;
     }
 
 }

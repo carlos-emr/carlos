@@ -127,8 +127,9 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                         map.put("size", docFile.length());
                     }
                 }
-
-                request.getSession().setAttribute("preferredQueue", queueId);
+                // Validate queueId as integer to break taint chain before session storage
+                int parsedQueueId = io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(queueId);
+                request.getSession().setAttribute("preferredQueue", String.valueOf(parsedQueueId));
                 if (docFile != null) {
                     docFile.delete();
                     docFile = null;
@@ -187,7 +188,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 Integer qid = Integer.parseInt(queueId.trim());
                 Integer did = Integer.parseInt(doc_no.trim());
                 queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-                request.getSession().setAttribute("preferredQueue", queueId);
+                // Use the already-validated integer to break the taint chain before session storage
+                request.getSession().setAttribute("preferredQueue", String.valueOf(qid));
             }
 
             map.put("name", docFile.getName());

@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.waitinglist.pageUtil;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
@@ -95,7 +96,9 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
 
         if (request.getParameter("waitingListId") != null) {
-            waitingListId = request.getParameter("waitingListId");
+            // Validate waitingListId as an integer to break taint chain before session storage
+            int parsedWlId = ConversionUtils.fromIntString(request.getParameter("waitingListId"));
+            waitingListId = parsedWlId > 0 ? String.valueOf(parsedWlId) : "";
         }
 
         log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = " + waitingListId);

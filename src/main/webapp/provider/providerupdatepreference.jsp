@@ -99,11 +99,19 @@
             }
 
             String programId_forCME = request.getParameter("case_program_id");
-            request.getSession().setAttribute("case_program_id", programId_forCME);
+            // Validate programId as an integer to break taint chain before session storage
+            String validatedProgramId;
+            try {
+                validatedProgramId = String.valueOf(Integer.parseInt(programId_forCME == null ? "" : programId_forCME.trim()));
+            } catch (NumberFormatException e) {
+                validatedProgramId = "0";
+            }
+            request.getSession().setAttribute("case_program_id", validatedProgramId);
 
             String selected_site = (String) request.getParameter("site");
             if (selected_site != null) {
-                session.setAttribute("site_selected", (selected_site.equals("none") ? null : selected_site));
+                // Encode site value to break taint chain before session storage
+                session.setAttribute("site_selected", ("none".equals(selected_site) ? null : org.owasp.encoder.Encode.forHtml(selected_site)));
             }
 
             boolean saveSuccess = false;

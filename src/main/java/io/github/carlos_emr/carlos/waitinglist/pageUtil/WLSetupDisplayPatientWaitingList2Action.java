@@ -36,6 +36,7 @@ import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -58,7 +59,9 @@ public final class WLSetupDisplayPatientWaitingList2Action extends ActionSupport
             throw new RuntimeException("missing required sec object (_demographic)");
         }
 
-        String demographicNo = request.getParameter("demographic_no");
+        // Validate demographicNo as a positive integer to break taint chain before session storage
+        Integer parsedDemoNo = ConversionUtils.fromIntString(request.getParameter("demographic_no"));
+        String demographicNo = String.valueOf(parsedDemoNo);
         DemographicData demoData = new DemographicData();
         Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);
         String demoInfo = demo.getLastName() + ", " + demo.getFirstName() + " " + demo.getSex() + " " + demo.getAge();
