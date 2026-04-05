@@ -683,7 +683,7 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
         </tr>
         <tr>
             <td>
-                <form method="post" id="adddemographic" name="adddemographic" action="demographicaddarecord.jsp"
+                <form method="post" id="adddemographic" name="adddemographic" action="demographic/DemographicAddRecord.do"
 
                     <jsp:include page="add-form-personal.jsp"/>
                     <jsp:include page="add-form-clinical.jsp"/>

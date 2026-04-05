@@ -102,7 +102,16 @@
 
         <action name="demographic/DemographicUpdate"
                 class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicUpdate2Action">
-            <result name="success">/demographic/demographicupdatearecord.jsp</result>
+            <result name="success">/WEB-INF/jsp/demographic/demographicupdatearecord.jsp</result>
+            <result name="duplicate">/WEB-INF/jsp/demographic/demographicupdatearecord.jsp</result>
+            <result name="methodNotAllowed">/WEB-INF/jsp/demographic/demographicupdatearecord.jsp</result>
+        </action>
+
+        <action name="demographic/DemographicAddRecord"
+                class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicAddRecord2Action">
+            <result name="success">/WEB-INF/jsp/demographic/demographicaddarecord.jsp</result>
+            <result name="duplicate">/WEB-INF/jsp/demographic/demographicaddarecord.jsp</result>
+            <result name="methodNotAllowed">/WEB-INF/jsp/demographic/demographicaddarecord.jsp</result>
         </action>
 
         <action name="demographic/DemographicPdfLabel"
