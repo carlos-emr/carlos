@@ -150,17 +150,16 @@ public class LoginFilter implements Filter {
             "/loginfailed.jsp",
             "/index.html",
             "/eformViewForPdfGenerationServlet",
-            "/LabViewForPdfGenerationServlet",
             "/oscarFacesheet/token_error.jsp",
             "/ws/",
             "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
             "/EFormImageViewForPdfGenerationServlet",
-            "/js/bootstap",
-            "/css/bootstrap",
+            "/js/bootstrap/",
+            "/css/bootstrap/",
             "/css/Roboto.css",
-            "/loginResource",
-            "/css/font/Roboto",
+            "/loginResource/",
+            "/css/font/Roboto/",
 		"/csrfguard",
 		"/mfa/",
 		// Heartbeat endpoint must be reachable without an active session so windows
@@ -192,7 +191,6 @@ public class LoginFilter implements Filter {
             "/loginfailed.jsp",
             "/index.html",
             "/eformViewForPdfGenerationServlet",
-            "/LabViewForPdfGenerationServlet",
             "/oscarFacesheet/token_error.jsp",
             "/ws/",
             "/EFormViewForPdfGenerationServlet",
@@ -203,11 +201,11 @@ public class LoginFilter implements Filter {
             "/provider/tabAlertsRefresh.jsp",
             "/SystemMessage.do",
             "/FacilityMessage.do",
-            "/js/bootstrap",
-            "/css/bootstrap",
+            "/js/bootstrap/",
+            "/css/bootstrap/",
             "/css/Roboto.css",
-            "/loginResource",
-            "/css/font/Roboto",
+            "/loginResource/",
+            "/css/font/Roboto/",
             // Heartbeat polling must not extend the inactivity timer, otherwise
             // background heartbeats would prevent legitimate session timeouts
             "/status/sessionHeartbeat.jsp"
@@ -374,17 +372,36 @@ public class LoginFilter implements Filter {
      *
      * @param requestURI String the full request URI including context path
      * @param contextPath String the servlet context path (e.g., "/carlos")
-     * @param EXEMPT_URLS String[] array of exempt URL prefixes (without context path)
-     * @return boolean true if request URI starts with any exempt URL, false otherwise
+     * @param exemptUrls String[] array of exempt URL patterns (without context path).
+     *        Patterns ending with "/" are treated as directory prefixes (match any sub-path).
+     *        All other patterns require an exact match or a path boundary character
+     *        ({@code /}, {@code ?}, {@code #}, {@code ;}) immediately after the pattern.
+     * @return boolean true if the request URI matches any exempt URL pattern, false otherwise
      */
-    boolean inListOfExemptions(String requestURI, String contextPath, String[] EXEMPT_URLS) {
+    boolean inListOfExemptions(String requestURI, String contextPath, String[] exemptUrls) {
         // Treat context root (e.g. /carlos/) as equivalent to /index.jsp (welcome file)
         if (requestURI.equals(contextPath) || requestURI.equals(contextPath + "/")) {
             requestURI = contextPath + "/index.jsp";
         }
-        for (String exemptUrl : EXEMPT_URLS) {
-            if (requestURI.startsWith(contextPath + exemptUrl)) {
+        for (String exemptUrl : exemptUrls) {
+            String fullExempt = contextPath + exemptUrl;
+            // Exact match (e.g., /login.do, /favicon.ico)
+            if (requestURI.equals(fullExempt)) {
                 return true;
+            }
+            // Prefix match with boundary enforcement
+            if (requestURI.startsWith(fullExempt)) {
+                // Directory patterns ending with / match any sub-path
+                if (exemptUrl.endsWith("/")) {
+                    return true;
+                }
+                // Non-directory patterns require a path boundary after the match
+                if (requestURI.length() > fullExempt.length()) {
+                    char next = requestURI.charAt(fullExempt.length());
+                    if (next == '/' || next == '?' || next == '#' || next == ';') {
+                        return true;
+                    }
+                }
             }
         }
 

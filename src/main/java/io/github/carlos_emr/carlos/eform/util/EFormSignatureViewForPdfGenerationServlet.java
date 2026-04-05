@@ -41,8 +41,9 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
         logger.debug("EformPdfServlet request from : " + remoteAddress);
 
         if (!"127.0.0.1".equals(remoteAddress)) {
-            logger.warn("Unauthorised request made to EFormSignatureViewForPdfGenerationServlet from address : " + remoteAddress);
+            logger.warn("Unauthorised request made to EFormSignatureViewForPdfGenerationServlet from address: {}", remoteAddress);
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
         }
 
 
