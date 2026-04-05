@@ -238,13 +238,13 @@
                 </a></li>
 
                 <li><a href="#"
-                       onclick='popupPage(500,700,"${pageContext.request.contextPath}/admin/providerRole.jsp");return false;'>
+                       onclick='popupPage(500,700,"${pageContext.request.contextPath}/admin/ProviderRole.do");return false;'>
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.assignRole"/></a></li>
 
                 <security:oscarSec roleName="<%=roleName$%>"
                                    objectName="_admin,_admin.unlockAccount" rights="r">
                     <li><a href="#"
-                           onclick='popupPage(500,800,"${pageContext.request.contextPath}/admin/unLock.jsp");return false;'>
+                           onclick='popupPage(500,800,"${pageContext.request.contextPath}/admin/UnLock.do");return false;'>
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.unlockAcct"/></a></li>
                 </security:oscarSec>
             </ul>
@@ -521,7 +521,7 @@
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_newCasemgmt.templates" rights="w"
                                        reverse="<%=false%>">
                         <li><a href="#"
-                               onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/providertemplate.jsp");return false;'>
+                               onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/ProviderTemplate.do");return false;'>
                             <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnInsertTemplate"/></a>
                         </li>
                     </security:oscarSec>
@@ -613,11 +613,11 @@
                                onclick="popupPage(500,screen.width,'${pageContext.request.contextPath}/appointment/appointmentTypeAction.do'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.appointmentTypeList"/></a></li>
 
                         <li><a href="#"
-                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/adminnewgroup.jsp?submit=blank");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
+                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/AdminNewGroup.do?submit=blank");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
                         <li><a href="#"
                                onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/admindisplaymygroup.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/groupnoacl.jsp")'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnGroupNoAcl"/></a></li>
+                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/GroupNoAcl.do")'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnGroupNoAcl"/></a></li>
                         <li><a href="#"
                                onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/groupPreferences.jsp")'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnGroupPreference"/></a></li>
                         <li><a href="#" onclick='popupPage(800, 700, "${pageContext.request.contextPath}/oscarPrevention/PreventionManager.jsp");return false;'
@@ -636,12 +636,12 @@
                 <ul>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.flowsheet" rights="r"
                                        reverse="<%=false%>">
-                        <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/manageFlowsheets.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.flowsheetManager"/></a></li>
+                        <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/ManageFlowsheets.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.flowsheetManager"/></a></li>
                     </security:oscarSec>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.document" rights="r"
                                        reverse="<%=false%>">
                         <li><a href="#"
-                               onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/displayDocumentDescriptionTemplate.jsp?setDefault=true");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>
+                               onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/DisplayDocumentDescriptionTemplate.do?setDefault=true");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>
                     </security:oscarSec>
                 </ul>
             </div>
@@ -664,16 +664,16 @@
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin,_admin.userAdmin" rights="r" reverse="<%=false%>">
                         <li><a href="#"
-                               onclick='popupPage(300,600, "${pageContext.request.contextPath}/admin/providerAddRole.jsp");return false;'>
+                               onclick='popupPage(300,600, "${pageContext.request.contextPath}/admin/ProviderAddRole.do");return false;'>
                             <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.addRole"/></a></li>
                     </security:oscarSec>
 
                     <li><a href="#"
-                           onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/providerPrivilege.jsp");return false;'>
+                           onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/ProviderPrivilege.do");return false;'>
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.assignRightsObject"/></a></li>
 
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/displayDocumentDescriptionTemplate.jsp?setDefault=true");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/DisplayDocumentDescriptionTemplate.do?setDefault=true");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>
 
                     <li><a href="#"
                            onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/ManageClinic.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.clinicAdmin"/></a></li>
@@ -693,7 +693,7 @@
                     <li><a href="#"
                            onclick='popupPage(250,450, "${pageContext.request.contextPath}/encounter/oscarMeasurements/Customization.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnCustomize"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oscarMeasurements"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(200,300, "${pageContext.request.contextPath}/admin/resourcebaseurl.jsp");return false;'
+                           onclick='popupPage(200,300, "${pageContext.request.contextPath}/admin/ResourceBaseUrl.do");return false;'
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.baseURLSettingTitle"/>'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBaseURLSetting"/></a></li>
 
                     <security:oscarSec roleName="<%=roleName$%>"
@@ -709,7 +709,7 @@
                     <li><a href="#" onclick='popupPage(600,600, "${pageContext.request.contextPath}/FacilityManager.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageFacilities"/></a></li>
                     <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/encounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp");return false;'>Create
                         New Flowsheet</a></li>
-                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/manageFlowsheets.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.flowsheetManager"/></a></li>
+                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/ManageFlowsheets.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.flowsheetManager"/></a></li>
                     <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/lotnraddrecordhtm.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.add_lot_nr.title"/></a></li>
                     <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/lotnrsearchrecordshtm.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchrecordshtm.title"/></a></li>
 
@@ -765,7 +765,7 @@
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin,_admin.securityLogReport" rights="r">
                         <li><a href="#"
-                               onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/logReport.jsp?keyword=admin");return false;'>
+                               onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/LogReport.do?keyword=admin");return false;'>
                             <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.securityLogReport"/></a></li>
                     </security:oscarSec>
                     <security:oscarSec roleName="<%=roleName$%>"
@@ -826,9 +826,9 @@
                     <li><a href="#"
                            onclick='popupPage(550,800, "${pageContext.request.contextPath}/demographic/demographicImport.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DemoImport"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/demographicmergerecord.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mergeRec"/></a></li>
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/DemographicMergeRecord.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mergeRec"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/updatedemographicprovider.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnUpdatePatientProvider"/></a></li>
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/UpdateDemographicProvider.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnUpdatePatientProvider"/></a></li>
 
                 </ul>
             </div>

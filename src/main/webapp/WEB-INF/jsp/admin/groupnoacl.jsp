@@ -111,7 +111,7 @@
 
     <body topmargin="0" leftmargin="0" rightmargin="0">
 
-    <FORM id="myform" NAME="UPDATEPRE" METHOD="post" ACTION="groupnoacl.jsp">
+    <FORM id="myform" NAME="UPDATEPRE" METHOD="post" ACTION="${pageContext.request.contextPath}/admin/GroupNoAcl.do">
         <input type="hidden" id="method" name="method"/>
 
         <table border=0 cellspacing=0 cellpadding=0 width="100%">

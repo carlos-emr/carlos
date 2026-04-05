@@ -227,7 +227,7 @@
             </tr>
         </table>
         <table cellspacing="0" cellpadding="2" width="100%" border="0">
-            <form method="post" action="securityupdate.jsp" name="updatearecord" onsubmit="return onsub()">
+            <form method="post" action="${pageContext.request.contextPath}/admin/SecurityUpdate.do" name="updatearecord" onsubmit="return onsub()">
                 <%
                     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
                     Integer securityId = Integer.valueOf(request.getParameter("keyword"));
@@ -384,7 +384,7 @@
                     }
                 %>
             </form>
-            <form id="deleteSecurityForm" method="post" action="securitydelete.jsp" style="display:none">
+            <form id="deleteSecurityForm" method="post" action="${pageContext.request.contextPath}/admin/SecurityDelete.do" style="display:none">
                 <input type="hidden" name="keyword" value="<%= Encode.forHtmlAttribute(String.valueOf(security.getSecurityNo())) %>">
             </form>
         </table>

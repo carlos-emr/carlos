@@ -227,7 +227,7 @@
                 <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityaddarecord.description"/></font></th>
             </tr>
         </table>
-        <form method="post" action="securityaddsecurity.jsp" name="searchprovider"
+        <form method="post" action="${pageContext.request.contextPath}/admin/SecurityAddSecurity.do" name="searchprovider"
               onsubmit="return onsub()">
 
             <table cellspacing="0" cellpadding="2" width="90%" border="0">

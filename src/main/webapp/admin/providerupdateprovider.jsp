@@ -193,7 +193,7 @@
             </tr>
         </table>
 
-        <form method="post" action="providerupdate.jsp" name="updatearecord" onsubmit="return onsub()">
+        <form method="post" action="${pageContext.request.contextPath}/admin/ProviderUpdate.do" name="updatearecord" onsubmit="return onsub()">
 
             <table cellspacing="0" cellpadding="2" width="100%" border="0"
                    datasrc='#xml_list'>

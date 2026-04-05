@@ -165,7 +165,7 @@
                 <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrecordhtm.description"/></font></th>
             </tr>
         </table>
-        <form method="post" action="provideraddarecord.jsp" name="searchprovider" onsubmit="return onsub()">
+        <form method="post" action="${pageContext.request.contextPath}/admin/ProviderAddARecord.do" name="searchprovider" onsubmit="return onsub()">
             <table cellspacing="0" cellpadding="2" width="90%" border="0">
                 <tr>
                     <td width="50%" align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formProviderNo"/><font color="red">:</font></td>

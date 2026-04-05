@@ -113,7 +113,7 @@
                 <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.add_lot_nr.description"/></font></th>
             </tr>
         </table>
-        <form method="post" action="lotnraddrecord.jsp" name="addlotnr"
+        <form method="post" action="${pageContext.request.contextPath}/admin/LotNrAddRecord.do" name="addlotnr"
               onsubmit="return onsub();">
             <table cellspacing="0" cellpadding="2" width="90%" border="0">
                 <tr>

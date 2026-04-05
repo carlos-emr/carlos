@@ -124,7 +124,7 @@
         }
     %>
 
-    <FORM NAME="UPDATEPRE" METHOD="post" ACTION="adminsavemygroup.jsp" onsubmit="return validate();">
+    <FORM NAME="UPDATEPRE" METHOD="post" ACTION="${pageContext.request.contextPath}/admin/AdminSaveMyGroup.do" onsubmit="return validate();">
 
         <%if (request.getParameter("submit") != null && request.getParameter("submit").equals(properties.getString("admin.admindisplaymygroup.btnSubmit1"))) { %>
         <br>

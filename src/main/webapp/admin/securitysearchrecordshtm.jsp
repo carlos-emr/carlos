@@ -93,7 +93,7 @@
         <table cellspacing="0" cellpadding="2" width="100%" border="0"
                BGCOLOR="#C4D9E7">
 
-            <form method="post" action="securitysearchresults.jsp" name="searchprovider"
+            <form method="post" action="${pageContext.request.contextPath}/admin/SecuritySearchResults.do" name="searchprovider"
                   onsubmit="return onsub()">
                 <tr valign="top">
                     <td rowspan="2" align="right" valign="middle"><font
