@@ -152,10 +152,10 @@
             if (demo.getHin() != null) hin = "HN " + demo.getHcType() + " " + demo.getHin() + " " + demo.getVer();
             if (demo.getFamilyDoctor() != null) refDoc = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd");
         }
-        <%-- phone2 is split into two variables to avoid double-encoding:
+        /* phone2 is split into two variables to avoid double-encoding:
              phone2Raw holds the unencoded value for hidden form inputs (encoded at output with forHtmlAttribute);
              phone2Display pre-encodes the user portion with forHtml() before appending raw &nbsp; padding,
-             so the entities render correctly. Do NOT re-encode phone2Display. --%>
+             so the entities render correctly. Do NOT re-encode phone2Display. */
         String phone2Raw = (phone2 == null ? "" : phone2);
         String phone2Display = phone2Raw.isEmpty()
             ? "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
@@ -212,7 +212,7 @@
                             <label class="form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.formLeft"/>:</label>
                             <div>
                                 <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="left"
-                                       placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>"
+                                       placeholder="<fmt:setBundle basename='oscarResources'/><fmt:message key='demographic.demographiclabelprintsetting.msgPx'/>"
                                        maxlength="3" value="<%= oscarVariables.getProperty("label.left","200") %>">&nbsp;
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>
                             </div>
@@ -222,7 +222,7 @@
                             <div>
                                 <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="top" maxlength="3"
                                        value="<%= oscarVariables.getProperty("label.top","0")%>"
-                                       placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>">&nbsp;
+                                       placeholder="<fmt:setBundle basename='oscarResources'/><fmt:message key='demographic.demographiclabelprintsetting.msgPx'/>">&nbsp;
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>
                             </div>
                         </div>
@@ -231,7 +231,7 @@
                             <div>
                                 <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="height" maxlength="3"
                                        value="<%= oscarVariables.getProperty("label.height","145")%>"
-                                       placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>">&nbsp;
+                                       placeholder="<fmt:setBundle basename='oscarResources'/><fmt:message key='demographic.demographiclabelprintsetting.msgPx'/>">&nbsp;
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>
                             </div>
                         </div>
@@ -240,7 +240,7 @@
                             <div>
                                 <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="gap" size="3" maxlength="3"
                                        value="<%= oscarVariables.getProperty("label.gap","0")%>"
-                                       placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>">&nbsp;
+                                       placeholder="<fmt:setBundle basename='oscarResources'/><fmt:message key='demographic.demographiclabelprintsetting.msgPx'/>">&nbsp;
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>
                             </div>
                         </div>
