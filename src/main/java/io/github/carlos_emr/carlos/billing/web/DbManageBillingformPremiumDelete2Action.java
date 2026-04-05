@@ -60,6 +60,12 @@ public class DbManageBillingformPremiumDelete2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private CtlBillingServicePremiumDao dao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
 
+    /**
+     * Deletes premium billing service entries matching the submitted service parameters.
+     *
+     * @return {@link #NONE} after redirecting, or if the request method is not POST
+     * @throws SecurityException if the user lacks {@code _admin.billing} write privilege
+     */
     @Override
     public String execute() throws Exception {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {

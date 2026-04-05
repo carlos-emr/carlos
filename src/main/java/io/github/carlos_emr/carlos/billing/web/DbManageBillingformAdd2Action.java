@@ -67,6 +67,13 @@ public class DbManageBillingformAdd2Action extends ActionSupport {
     private CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
     private CtlDiagCodeDao ctlDiagCodeDao = SpringUtils.getBean(CtlDiagCodeDao.class);
 
+    /**
+     * Creates a new generic billing service type with three groups and a diagnostic
+     * code seed.
+     *
+     * @return {@link #NONE} after redirecting, or if the request method is not POST
+     * @throws SecurityException if the user lacks {@code _admin.billing} write privilege
+     */
     @Override
     public String execute() throws Exception {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {

@@ -43,12 +43,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Struts2 action for regenerating the age/sex report data.
  *
- * <p>Migrated from {@code oscarReport/dbReportAgeSex.jsp}. Accepts POST only and
+ * <p>Migrated from {@code oscarReport/dbReportAgeSex.jsp}. Accepts GET or POST and
  * enforces {@code _report} or {@code _admin.reporting} read privilege (matching the
  * original JSP security check). Deletes stale age/sex records, repopulates them from
  * the given year of birth floor, then forwards to the report view.
  *
- * @since 2001-01-01
+ * @since 2026-04-05
  */
 public class DbReportAgeSex2Action extends ActionSupport {
 
@@ -62,8 +62,7 @@ public class DbReportAgeSex2Action extends ActionSupport {
     /**
      * Deletes and repopulates age/sex report data, then forwards to the report view.
      *
-     * @return {@code "success"} mapped to {@code /oscarReport/oscarReportAgeSex.jsp},
-     *         or {@link #NONE} if the method is not POST
+     * @return {@code "success"} mapped to {@code /oscarReport/oscarReportAgeSex.jsp}
      * @throws Exception if an unexpected error occurs during data population
      */
     @Override

@@ -70,6 +70,13 @@ public class DbManageBillingformAdd2Action extends ActionSupport {
     private CtlDiagCodeDao ctlDiagCodeDao = SpringUtils.getBean(CtlDiagCodeDao.class);
     private CtlBillingTypeDao ctlBillingTypeDao = SpringUtils.getBean(CtlBillingTypeDao.class);
 
+    /**
+     * Creates a new Ontario billing service type with three groups, a diagnostic code
+     * seed, and optionally a bill type entry.
+     *
+     * @return {@link #NONE} after redirecting, or if the request method is not POST
+     * @throws SecurityException if the user lacks {@code _admin.billing} write privilege
+     */
     @Override
     public String execute() throws Exception {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {

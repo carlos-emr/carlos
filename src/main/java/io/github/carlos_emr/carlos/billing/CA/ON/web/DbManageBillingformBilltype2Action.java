@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.model.CtlBillingType;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.util.Objects;
 
@@ -63,8 +64,20 @@ public class DbManageBillingformBilltype2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private CtlBillingTypeDao ctlBillingTypeDao = SpringUtils.getBean(CtlBillingTypeDao.class);
 
+    /**
+     * Processes a bill type change for the given service type.
+     *
+     * @return {@link #SUCCESS} to forward to the confirmation view, or {@link #NONE}
+     *         if the request method is not POST
+     * @throws SecurityException if the user lacks {@code _admin.billing} write privilege
+     */
     @Override
     public String execute() throws Exception {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
@@ -90,6 +103,10 @@ public class DbManageBillingformBilltype2Action extends ActionSupport {
             if (cbt != null) {
                 cbt.setBillType(billtype);
                 ctlBillingTypeDao.merge(cbt);
+            } else {
+                MiscUtils.getLogger().warn(
+                        "DbManageBillingformBilltype2Action: no CtlBillingType found for servicetype={} — update skipped",
+                        servicetype);
             }
         }
 

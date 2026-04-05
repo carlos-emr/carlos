@@ -56,7 +56,7 @@ import org.owasp.encoder.Encode;
  * <p>When no checkboxes are submitted the action redirects immediately to
  * {@code ticklerMain.jsp} with the current view parameters unchanged.
  *
- * <p>Security: requires {@code _tickler} read privilege.
+ * <p>Security: requires {@code _tickler} update privilege and POST method.
  *
  * @since 2026-01-01
  */
@@ -68,13 +68,25 @@ public final class DbTicklerDemoMain2Action extends ActionSupport {
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Updates tickler statuses from the submitted checkboxes and redirects to the
+     * demographic-specific tickler listing.
+     *
+     * @return {@link #NONE} after redirecting
+     * @throws SecurityException if the user lacks {@code _tickler} write privilege
+     */
     @Override
     public String execute() throws Exception {
 
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        // Security check — requires _tickler read privilege
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", null)) {
+        // Security check — requires _tickler update privilege
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "u", null)) {
             response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_tickler");
             return NONE;
         }
@@ -102,7 +114,7 @@ public final class DbTicklerDemoMain2Action extends ActionSupport {
             char firstChar = submitForm.charAt(0);
             if (firstChar == 'C' || firstChar == 'c') {
                 status = Tickler.STATUS.C;
-            } else if (firstChar == 'D' || firstChar == 'd') {
+            } else if (firstChar == 'D' || firstChar == 'd' || firstChar == 'E' || firstChar == 'e') {
                 status = Tickler.STATUS.D;
             }
         }

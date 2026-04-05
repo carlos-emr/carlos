@@ -31,7 +31,7 @@
     - ticklerLinkFailed (Boolean): true if the document link save failed
     - writeToEncounterFailed (Boolean): true if the encounter note write failed
 
-    @since 2006-01-01 (original OSCAR implementation)
+    @since 2026-04-05
 --%>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%

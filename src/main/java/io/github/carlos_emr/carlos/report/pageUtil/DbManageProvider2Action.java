@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * for the given {@code action}, then recreates them from the submitted provider
  * parameters (format {@code providerNo|group}).
  *
- * @since 2001-01-01
+ * @since 2026-04-05
  */
 public class DbManageProvider2Action extends ActionSupport {
 
@@ -103,6 +103,9 @@ public class DbManageProvider2Action extends ActionSupport {
             }
 
             String paramValue = request.getParameter(paramName);
+            if (paramValue == null) {
+                continue;
+            }
             int sepIdx = paramValue.indexOf("|");
             if (sepIdx < 0) {
                 continue;

@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.util.Objects;
 
@@ -60,6 +61,12 @@ public class DbManageBillingformService2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
 
+    /**
+     * Replaces all service codes for the given Ontario billing service type.
+     *
+     * @return {@link #NONE} after redirecting, or if the request method is not POST
+     * @throws SecurityException if the user lacks {@code _admin.billing} write privilege
+     */
     @Override
     public String execute() throws Exception {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
@@ -91,7 +98,12 @@ public class DbManageBillingformService2Action extends ActionSupport {
                 String orderStr = request.getParameter("group" + j + "_service" + i + "_order");
                 int serviceOrder = 0;
                 if (orderStr != null && !orderStr.isEmpty()) {
-                    serviceOrder = Integer.parseInt(orderStr);
+                    try {
+                        serviceOrder = Integer.parseInt(orderStr);
+                    } catch (NumberFormatException e) {
+                        MiscUtils.getLogger().warn("Invalid serviceOrder value '{}' for group{}_service{} — defaulting to 0", orderStr, j, i);
+                        serviceOrder = 0;
+                    }
                 }
 
                 CtlBillingService cbs = new CtlBillingService();

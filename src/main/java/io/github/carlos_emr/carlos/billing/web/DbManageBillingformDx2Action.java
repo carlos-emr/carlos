@@ -60,6 +60,12 @@ public class DbManageBillingformDx2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private CtlDiagCodeDao ctlDiagCodeDao = SpringUtils.getBean(CtlDiagCodeDao.class);
 
+    /**
+     * Replaces all diagnostic codes for the given generic billing service type.
+     *
+     * @return {@link #NONE} after redirecting, or if the request method is not POST
+     * @throws SecurityException if the user lacks {@code _admin.billing} write privilege
+     */
     @Override
     public String execute() throws Exception {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {

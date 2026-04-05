@@ -49,7 +49,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * enforces {@code _admin.billing} write privilege, builds a {@link BillingInr} entity
  * from request parameters and persists it via {@link BillingInrDao}.
  *
- * @since 2006-01-01
+ * @since 2026-04-05
  */
 public class DbINRbilling2Action extends ActionSupport {
 
@@ -79,8 +79,22 @@ public class DbINRbilling2Action extends ActionSupport {
             throw new SecurityException("missing required security object: _admin.billing");
         }
 
+        String demoid = request.getParameter("demoid");
+        if (demoid == null || demoid.trim().isEmpty()) {
+            addActionError("Missing demographic ID.");
+            return ERROR;
+        }
+
+        int demoIdInt;
+        try {
+            demoIdInt = Integer.parseInt(demoid.trim());
+        } catch (NumberFormatException e) {
+            addActionError("Invalid demographic ID — must be numeric.");
+            return ERROR;
+        }
+
         BillingInr bi = new BillingInr();
-        bi.setDemographicNo(Integer.parseInt(request.getParameter("demoid").trim()));
+        bi.setDemographicNo(demoIdInt);
         bi.setDemographicName(request.getParameter("demo_name"));
         bi.setHin(request.getParameter("demo_hin"));
         bi.setDob(request.getParameter("demo_dob"));

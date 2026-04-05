@@ -55,7 +55,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * then branches on the {@code inraction} parameter to either update or soft-delete
  * the target {@link BillingInr} via {@link BillingInrDao}.
  *
- * @since 2006-01-01
+ * @since 2026-04-05
  */
 public class DbUpdateINRbilling2Action extends ActionSupport {
 
@@ -88,6 +88,16 @@ public class DbUpdateINRbilling2Action extends ActionSupport {
         }
 
         String billinginrNo = request.getParameter("billinginr_no");
+        if (billinginrNo == null || billinginrNo.trim().isEmpty()) {
+            addActionError("Missing billing INR number.");
+            return ERROR;
+        }
+        try {
+            Integer.parseInt(billinginrNo.trim());
+        } catch (NumberFormatException e) {
+            addActionError("Invalid billing INR number.");
+            return ERROR;
+        }
         String serviceCodeParam = request.getParameter("service_code");
         String diagCodeParam = request.getParameter("diag_code");
         String serviceCode = serviceCodeParam != null ? serviceCodeParam.trim() : "";

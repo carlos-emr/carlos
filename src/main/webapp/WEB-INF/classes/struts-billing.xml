@@ -214,14 +214,17 @@
         <!-- Migrated db*-prefixed JSP controllers: INR billing -->
         <action name="billing/CA/ON/inr/DbINRbilling" class="io.github.carlos_emr.carlos.billing.CA.ON.web.DbINRbilling2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/inr/dbINRbilling.jsp</result>
+            <result name="error">/WEB-INF/jsp/billing/CA/ON/inr/dbINRbilling.jsp</result>
         </action>
         <action name="billing/CA/ON/inr/DbUpdateINRbilling" class="io.github.carlos_emr.carlos.billing.CA.ON.web.DbUpdateINRbilling2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/inr/dbUpdateINRbilling.jsp</result>
+            <result name="error">/WEB-INF/jsp/billing/CA/ON/inr/dbUpdateINRbilling.jsp</result>
         </action>
 
         <!-- Migrated db*-prefixed JSP controllers: flu billing -->
         <action name="billing/CA/ON/specialtyBilling/fluBilling/DbAddFluBilling" class="io.github.carlos_emr.carlos.billing.CA.ON.web.DbAddFluBilling2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/specialtyBilling/fluBilling/dbAddFluBilling.jsp</result>
+            <result name="error">/WEB-INF/jsp/billing/CA/ON/specialtyBilling/fluBilling/dbAddFluBilling.jsp</result>
         </action>
 
     </package>

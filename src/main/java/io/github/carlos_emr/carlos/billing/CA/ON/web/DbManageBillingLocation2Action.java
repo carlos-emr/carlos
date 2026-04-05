@@ -67,6 +67,12 @@ public class DbManageBillingLocation2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private ClinicLocationDao clinicLocationDao = SpringUtils.getBean(ClinicLocationDao.class);
 
+    /**
+     * Replaces all clinic location entries from the submitted form parameters.
+     *
+     * @return {@link #NONE} after redirecting, or if the request method is not POST
+     * @throws SecurityException if the user lacks {@code _admin.billing} write privilege
+     */
     @Override
     public String execute() throws Exception {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {

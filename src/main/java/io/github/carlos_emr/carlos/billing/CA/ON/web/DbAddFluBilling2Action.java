@@ -48,6 +48,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import org.owasp.encoder.Encode;
+
 /**
  * Struts2 action for adding a flu billing record.
  *
@@ -58,7 +60,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * then either redirects to the prevention page (when {@code goPrev} is set) or sets
  * the {@code billSaved} request attribute and returns {@link #SUCCESS}.
  *
- * @since 2006-01-01
+ * @since 2026-04-05
  */
 public class DbAddFluBilling2Action extends ActionSupport {
 
@@ -104,11 +106,12 @@ public class DbAddFluBilling2Action extends ActionSupport {
             hctype = "ON";
         }
 
-        // Build XML content field
-        String content = "<rdohip>" + rdohip + "</rdohip>"
-                + "<rd>" + rd + "</rd>"
-                + "<hctype>" + hctype + "</hctype>"
-                + "<demosex>" + request.getParameter("demo_sex") + "</demosex>"
+        // Build XML content field — escape values for safe XML embedding
+        String demoSex = request.getParameter("demo_sex") != null ? request.getParameter("demo_sex") : "";
+        String content = "<rdohip>" + escapeXml(rdohip) + "</rdohip>"
+                + "<rd>" + escapeXml(rd) + "</rd>"
+                + "<hctype>" + escapeXml(hctype) + "</hctype>"
+                + "<demosex>" + escapeXml(demoSex) + "</demosex>"
                 + "<specialty>flu</specialty>";
 
         // Resolve service code description and price
@@ -130,11 +133,38 @@ public class DbAddFluBilling2Action extends ActionSupport {
         String sPrice = svcPrice.substring(0, svcPrice.indexOf("."))
                 + svcPrice.substring(svcPrice.indexOf(".") + 1);
 
+        // Parse the providers parameter safely (format: "OHIP##providerNo")
+        String providers = request.getParameter("providers");
+        String providerOhipNo = "";
+        String providerNo = "";
+        if (providers != null && providers.length() >= 7) {
+            providerOhipNo = providers.substring(0, 6);
+            providerNo = providers.substring(7);
+        }
+
+        if (demoNo == null || demoNo.trim().isEmpty()) {
+            addActionError("Missing demographic number (functionid).");
+            return ERROR;
+        }
+
+        int clinicNoInt;
+        int demoNoInt;
+        int appointmentNoInt;
+        try {
+            clinicNoInt = Integer.parseInt(request.getParameter("clinicNo"));
+            demoNoInt = Integer.parseInt(demoNo.trim());
+            appointmentNoInt = Integer.parseInt(request.getParameter("appointment_no"));
+        } catch (NumberFormatException | NullPointerException e) {
+            MiscUtils.getLogger().error("DbAddFluBilling2Action: invalid numeric parameter", e);
+            addActionError("Invalid numeric parameter (clinicNo, functionid, or appointment_no).");
+            return ERROR;
+        }
+
         Billing b = new Billing();
-        b.setClinicNo(Integer.parseInt(request.getParameter("clinicNo")));
-        b.setDemographicNo(Integer.parseInt(demoNo.trim()));
-        b.setProviderNo(request.getParameter("providers").substring(7));
-        b.setAppointmentNo(Integer.parseInt(request.getParameter("appointment_no")));
+        b.setClinicNo(clinicNoInt);
+        b.setDemographicNo(demoNoInt);
+        b.setProviderNo(providerNo);
+        b.setAppointmentNo(appointmentNoInt);
         b.setOrganizationSpecCode("V03G");
         b.setDemographicName(request.getParameter("demo_name"));
         b.setHin(request.getParameter("demo_hin"));
@@ -149,19 +179,16 @@ public class DbAddFluBilling2Action extends ActionSupport {
         b.setDob(request.getParameter("demo_dob"));
         b.setVisitDate(null);
         b.setVisitType(request.getParameter("xml_visittype"));
-        b.setProviderOhipNo(request.getParameter("providers").substring(0, 6));
+        b.setProviderOhipNo(providerOhipNo);
         b.setProviderRmaNo("");
         b.setApptProviderNo(request.getParameter("apptProvider"));
         b.setAsstProviderNo("0");
         b.setCreator(request.getParameter("doccreator"));
         billingDao.persist(b);
 
-        String billNo = String.valueOf(billingDao.search_billing_no_by_appt(
-                Integer.parseInt(demoNo),
-                Integer.parseInt(request.getParameter("appointment_no"))));
-
+        // Use the persisted entity's PK directly instead of re-querying by (demoNo, appt)
         BillingDetail bd = new BillingDetail();
-        bd.setBillingNo(Integer.parseInt(billNo));
+        bd.setBillingNo(b.getId());
         bd.setServiceCode(request.getParameter("svcCode"));
         bd.setServiceDesc(svcDesc);
         bd.setBillingAmount(sPrice);
@@ -171,16 +198,35 @@ public class DbAddFluBilling2Action extends ActionSupport {
         bd.setBillingUnit("1");
         billingDetailDao.persist(bd);
 
-        boolean billSaved = billingDao.search_billing_no(Integer.parseInt(demoNo)) != null;
+        boolean billSaved = b.getId() != null && b.getId() > 0;
 
         String goPrev = request.getParameter("goPrev");
         if ("goPrev".equals(goPrev) && billSaved) {
             String ctx = request.getContextPath();
-            response.sendRedirect(ctx + "/oscarPrevention/AddPreventionData.jsp?prevention=Flu&demographic_no=" + demoNo);
+            response.sendRedirect(ctx + "/oscarPrevention/AddPreventionData.jsp?prevention=Flu&demographic_no="
+                    + Encode.forUriComponent(demoNo));
             return NONE;
         }
 
         request.setAttribute("billSaved", billSaved);
         return SUCCESS;
+    }
+
+    /**
+     * Escapes XML special characters ({@code <}, {@code >}, {@code &}, {@code "}, {@code '})
+     * for safe embedding in XML content strings.
+     *
+     * @param value the raw string value
+     * @return the XML-escaped string
+     */
+    private static String escapeXml(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&apos;");
     }
 }

@@ -65,13 +65,31 @@ public class DbManageBillingformDelete2Action extends ActionSupport {
     private CtlBillingServiceDao billingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
     private CtlDiagCodeDao diagCodeDao = SpringUtils.getBean(CtlDiagCodeDao.class);
 
+    /**
+     * Deletes all billing service, diagnostic code, and billing type entries for the
+     * given service type.
+     *
+     * @return {@link #SUCCESS} to forward to the confirmation view, or {@link #NONE}
+     *         if the request method is not POST
+     * @throws SecurityException if the user lacks {@code _admin.billing} write privilege
+     */
     @Override
     public String execute() throws Exception {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
         String typeid = Objects.toString(request.getParameter("servicetype"), "");
+
+        if (typeid.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing servicetype parameter");
+            return NONE;
+        }
 
         // Remove all billing service entries for this service type
         for (CtlBillingService b : billingServiceDao.findByServiceType(typeid)) {

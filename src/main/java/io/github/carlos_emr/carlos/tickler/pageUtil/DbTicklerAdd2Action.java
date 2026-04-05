@@ -59,8 +59,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.util.Date;
 import java.util.ResourceBundle;
 
-import org.owasp.encoder.Encode;
-
 /**
  * Struts2 action that migrates the server-side logic from {@code tickler/dbTicklerAdd.jsp}.
  *
@@ -90,6 +88,13 @@ public final class DbTicklerAdd2Action extends ActionSupport {
     private TicklerLinkDao ticklerLinkDao = SpringUtils.getBean(TicklerLinkDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Creates a new tickler, optionally links it to a document, and optionally writes
+     * the message to the patient's encounter chart.
+     *
+     * @return {@link #SUCCESS} to forward to the view JSP, or {@link #NONE} on redirect/error
+     * @throws SecurityException if the user lacks {@code _tickler} write privilege
+     */
     @Override
     public String execute() throws Exception {
 
@@ -153,7 +158,7 @@ public final class DbTicklerAdd2Action extends ActionSupport {
             ticklerManager.addTickler(loggedInInfo, tickler);
             rowsAffected = true;
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to add tickler for demographicNo=" + moduleId, e);
+            MiscUtils.getLogger().error("Failed to add tickler", e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to save tickler");
             return NONE;
         }
@@ -269,8 +274,7 @@ public final class DbTicklerAdd2Action extends ActionSupport {
                 }
             } catch (Exception e) {
                 MiscUtils.getLogger().error(
-                        "Failed to write tickler to encounter for ticklerNo=" + ticklerNo
-                        + ", demographicNo=" + moduleId, e);
+                        "Failed to write tickler to encounter for ticklerNo=" + ticklerNo, e);
                 writeToEncounterFailed = true;
             }
         }
