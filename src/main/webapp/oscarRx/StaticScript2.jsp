@@ -230,7 +230,7 @@
 								}
 					%>
                                 <tr style="height:20px;<%=arch%>">
-                                    <td><%=drug.providerName%>
+                                    <td><%=Encode.forHtml(drug.providerName)%>
                                     </td>
                                     <td><%
                                         if (!drug.startDate.equals("0001/01/01")) {
@@ -274,10 +274,10 @@
                                         <%
                                             if (drug.pickupDate != null && !drug.pickupDate.equals("") && !drug.pickupDate.equals("0000-00-00")) {
                                         %><br/><fmt:message
-                                            key="WriteScript.msgPickUpDate"/>&nbsp;<%=drug.pickupDate%>&nbsp;
+                                            key="WriteScript.msgPickUpDate"/>&nbsp;<%=Encode.forHtml(drug.pickupDate)%>&nbsp;
                                         <%
                                             if (!((drug.pickupTime).equals("")) && !((drug.pickupTime).equals("12:00 AM"))) {
-                                        %> &nbsp;<%=drug.pickupTime%>&nbsp;
+                                        %> &nbsp;<%=Encode.forHtml(drug.pickupTime)%>&nbsp;
                                         <% }
                                         } %>
                                         <%if (drug.eTreatmentType != null && !drug.eTreatmentType.equals("null")) { %>
@@ -298,7 +298,7 @@
                                             }
                                         %>
                                         <%if (drug.rxStatus != null && !drug.rxStatus.equals("null")) { %>
-                                        &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgRxStatus"/>: <%=drug.rxStatus%>
+                                        &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgRxStatus"/>: <%=Encode.forHtml(drug.rxStatus)%>
                                         <%}%>
 
                                     </td>
@@ -348,7 +348,7 @@
                                     if (searchString == null) searchString = drug.genericName;
                                     if (searchString == null) searchString = drug.prescriptionDetails;
                                 %>
-                                <input type="hidden" name="searchString" value="<%=searchString%>"/>
+                                <input type="hidden" name="searchString" value="<%=Encode.forHtmlAttribute(searchString)%>"/>
                                 <input type="submit" class="ControlPushButton" value="Search to Re-prescribe"/>
                             </form>
                             <%

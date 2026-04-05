@@ -611,28 +611,28 @@
                                             <tr bgcolor="<%=trColour%>" id="allergy_<%= allergy.getAllergyId() %>">
                                                 <td><%=labelStatus%>
                                                 </td>
-                                                <td><%=entryDate == null ? "" : entryDate %>
+                                                <td><%=entryDate == null ? "" : Encode.forHtml(entryDate) %>
                                                 </td>
-                                                <td><%=allergy.getLastUpdateDate() != null ? DateUtils.formatDate(allergy.getLastUpdateDate(), request.getLocale()) : "" %>
+                                                <td><%=allergy.getLastUpdateDate() != null ? Encode.forHtml(DateUtils.formatDate(allergy.getLastUpdateDate(), request.getLocale())) : "" %>
                                                 </td>
                                                 <td <%=title%> ><%=Encode.forHtml(allergy.getDescription())%>
                                                 </td>
-                                                <td><%=allergy.getTypeDesc() %>
+                                                <td><%=Encode.forHtml(allergy.getTypeDesc()) %>
                                                 </td>
 
                                                 <td><%=allergy.getTypeCode() == 0 && allergy.isNonDrug() == null ? "<i>&lt;Not Set&gt;</i>" : ""%><%=allergy.getTypeCode() == 0 && allergy.isNonDrug() != null && allergy.isNonDrug() ? "*" : "" %>
                                                 </td>
-                                                <td bgcolor="<%=sevColour%>"><%=allergy.getSeverityOfReactionDesc() %>
+                                                <td bgcolor="<%=sevColour%>"><%=Encode.forHtml(allergy.getSeverityOfReactionDesc()) %>
                                                 </td>
-                                                <td><%=allergy.getOnSetOfReactionDesc() %>
+                                                <td><%=Encode.forHtml(allergy.getOnSetOfReactionDesc()) %>
                                                 </td>
                                                 <td><%=allergy.getReaction() != null ? Encode.forHtml(allergy.getReaction()) : "" %>
                                                 </td>
-                                                <td><%=startDate == null ? "" : startDate %>
+                                                <td><%=startDate == null ? "" : Encode.forHtml(startDate) %>
                                                 </td>
-                                                <td><%=allergy.getLifeStageDesc() %>
+                                                <td><%=Encode.forHtml(allergy.getLifeStageDesc()) %>
                                                 </td>
-                                                <td><%=allergy.getAgeOfOnset() == null ? "" : allergy.getAgeOfOnset()%>
+                                                <td><%=allergy.getAgeOfOnset() == null ? "" : Encode.forHtml(String.valueOf(allergy.getAgeOfOnset()))%>
                                                 </td>
                                                 <%
                                                     CaseManagementManager cmm = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
@@ -659,7 +659,7 @@
                                                     </a> |
                                                     <% } %>
                                                     <a href="#" class="modifyAllergyLink"
-                                                       id="modifyAllergy:<%= labelAction %>_ID=<%=allergy.getDrugrefId() %>&name=<%=allergy.getDescription() %>&type=<%=allergy.getTypeCode() %>&allergyToArchive=<%=allergy.getId() %>">
+                                                       id="modifyAllergy:<%= labelAction %>_ID=<%=allergy.getDrugrefId() %>&name=<%=Encode.forHtmlAttribute(allergy.getDescription()) %>&type=<%=allergy.getTypeCode() %>&allergyToArchive=<%=allergy.getId() %>">
                                                         <%=intArchived == 0 ? "Modify" : labelAction%>
                                                     </a>
                                                     <% } %>

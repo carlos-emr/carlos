@@ -195,7 +195,7 @@
                      paramValue = request.getParameter(paramName);
 
                  %>
-                params += "&<%=paramName%>=<%=Encode.forJavaScript(paramValue)%>";
+                params += "&<%=Encode.forJavaScript(paramName)%>=<%=Encode.forJavaScript(paramValue)%>";
                 <%
 
                  }
