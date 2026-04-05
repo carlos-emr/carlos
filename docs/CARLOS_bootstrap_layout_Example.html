@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<!--
+    CARLOS Bootstrap Layout Example
+    ================================
+    Purpose: Demonstrates the standard CARLOS page layout using Bootstrap 5
+             as a modern, responsive alternative to the legacy OSCAR table-based layout.
+
+    Features:
+    - HTML5 compliant
+    - Bootstrap 5 responsive grid (flex-based, auto-reformat by screen size)
+    - Alert banner area for JS-driven error/warning messages
+    - Page header bar with optional icon, short title, and long title
+    - Left sidebar column (mirrors OSCAR MainTableLeftColumn)
+    - Right content column (mirrors OSCAR MainTableRightColumn)
+    - Form controls using Bootstrap form-control / form-control-sm classes
+
+    Usage:
+    - Copy this file as a starting point for new CARLOS pages
+    - Replace placeholder text, action URL, and form fields as needed
+    - Uncomment the global.jspf include if converting to a JSP page
+
+    @since 2026-04-05
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Example CARLOS Bootstrap Template</title>
+
+    <!--
+        Bootstrap 5 CSS
+        When running inside Tomcat, this can be served locally if desired.
+        The CDN reference below matches the version used across CARLOS pages.
+    -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+          integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM"
+          crossorigin="anonymous">
+
+    <!--
+        Bootstrap Icons (optional — used for page-header-bar icon slot)
+        Remove this link if you are not using Bootstrap Icons on this page.
+    -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <!--
+        CARLOS shared stylesheet — provides legacy class overrides and
+        healthcare-specific component styles.
+    -->
+    <link rel="stylesheet" type="text/css" media="all"
+          href="/carlos/share/css/extractedFromPages.css">
+
+    <!--
+        JSP conversion: uncomment the line below and remove the <title>
+        block above when converting this file to a JSP page.
+
+        <%@ include file="/WEB-INF/jspf/global.jspf" %>
+
+        global.jspf sets the page title, charset, CSRF token meta tag,
+        Bootstrap stylesheet reference, and the global.js script tag —
+        so the explicit <meta charset>, Bootstrap <link>, and
+        global.js <script> below can be removed once the include is active.
+    -->
+
+    <!--
+        CARLOS global JavaScript — provides shared utility functions used
+        across all pages (e.g., popup helpers, session keep-alive).
+    -->
+    <script type="text/javascript" src="/carlos/js/global.js"></script>
+</head>
+<body>
+
+<!-- ================================================================
+     CONTAINER — outermost wrapper; constrains max-width and centers
+     content on large screens while staying full-width on mobile.
+     ================================================================ -->
+<div class="container">
+
+    <!-- ============================================================
+         ALERT BANNER — hidden by default; shown via JavaScript when
+         a server-side or client-side error needs to be surfaced.
+         Usage: document.getElementById('jsAlertText').textContent = msg;
+                document.getElementById('jsAlertBanner').style.display = '';
+         ============================================================ -->
+    <div id="jsAlertBanner"
+         class="alert alert-danger alert-dismissible"
+         style="display:none"
+         role="alert">
+        <span id="jsAlertText"></span>
+        <button type="button"
+                class="btn-close"
+                onclick="this.closest('.alert').style.display='none'"
+                aria-label="Close"></button>
+    </div>
+
+    <!-- ============================================================
+         PAGE HEADER BAR — short title + long title (icon optional).
+         Mirrors the OSCAR MainTableTopRow / TopStatusBar pattern.
+         Structure:
+           [icon?] [Short Title]   [Long Title .....................]
+         ============================================================ -->
+    <div class="page-header-bar d-flex align-items-center justify-content-between
+                py-2 mb-3 border-bottom" id="header">
+        <div class="d-flex align-items-center gap-2">
+            <!--
+                Optional Bootstrap Icon — replace "bi-file-earmark-text"
+                with any icon from https://icons.getbootstrap.com/
+                or remove the <i> tag entirely if no icon is needed.
+            -->
+            <i class="bi bi-file-earmark-text fs-5 text-secondary" aria-hidden="true"></i>
+            <span class="fw-semibold">Short Title</span>
+        </div>
+        <div class="text-muted small">Long Title / Patient Name / Context Info</div>
+    </div>
+
+    <!-- ============================================================
+         MAIN CONTENT WRAPPER — light background card to separate
+         page content from the body background.
+         ============================================================ -->
+    <div class="bg-light border rounded p-2">
+
+        <form action="/something.do" method="post">
+
+            <!-- ==================================================
+                 CONTENT ROW — two-column layout:
+                   col-12 col-md-2 : left sidebar  (OSCAR left col)
+                   col-12 col-md-10: right content (OSCAR right col)
+                 On small screens both columns stack vertically.
+                 ================================================== -->
+            <div class="row g-2">
+
+                <!-- LEFT SIDEBAR COLUMN
+                     Mirrors: MainTableLeftColumn
+                     Contains navigation links / contextual actions. -->
+                <div class="col-12 col-md-2">
+                    <nav class="d-flex flex-column gap-1" aria-label="Sidebar navigation">
+                        <a href="#" class="text-decoration-none small text-nowrap">
+                            Left sidebar link 1
+                        </a>
+                        <a href="#" class="text-decoration-none small text-nowrap">
+                            Link 2
+                        </a>
+                    </nav>
+                </div>
+
+                <!-- RIGHT CONTENT COLUMN
+                     Mirrors: MainTableRightColumn
+                     Contains the primary form and data entry area. -->
+                <div class="col-12 col-md-10">
+
+                    <!-- Textarea input group -->
+                    <div class="mb-3">
+                        <label for="sqlInput" class="form-label form-label-sm">
+                            Label for element
+                        </label>
+                        <textarea id="sqlInput"
+                                  name="sql"
+                                  class="form-control form-control-sm"
+                                  rows="4"></textarea>
+                    </div>
+
+                    <!-- Divider -->
+                    <div class="mb-3 text-muted small fst-italic">OR</div>
+
+                    <!-- Select + secondary action group -->
+                    <div class="mb-3">
+                        <label for="selectedRecentSearch" class="form-label form-label-sm">
+                            Label for Select
+                        </label>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <select id="selectedRecentSearch"
+                                    name="selectedRecentSearch"
+                                    class="form-select form-select-sm flex-grow-1">
+                                <option value="" disabled selected>My favorites</option>
+                                <!-- Additional options rendered here -->
+                            </select>
+                            <button type="button" class="btn btn-outline-secondary btn-sm">
+                                Secondary button
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Primary action -->
+                    <div class="mb-2">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            Primary Button
+                        </button>
+                    </div>
+
+                </div><!-- end right column -->
+            </div><!-- end .row -->
+
+        </form>
+
+    </div><!-- end .bg-light -->
+
+</div><!-- end .container -->
+
+<!-- ================================================================
+     Bootstrap 5 JS bundle (includes Popper.js)
+     Required for dropdowns, modals, tooltips, etc.
+     ================================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz"
+        crossorigin="anonymous"></script>
+</body>
+</html>
