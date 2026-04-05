@@ -1580,8 +1580,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         //--> sex
         sb.append("<div id='patient-sex'>");
         sb.append("<div class='label'>");
-        String sex = getRes(carlosRes, "demographic.demographicaddrecordhtm.formSex", "Sex");
-        sb.append(sex);
+        String sexLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formSex", "Sex");
+        sb.append(sexLabel);
         sb.append("</div>");
         sb.append(getSex());
         sb.append("</div>");
@@ -1590,8 +1590,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         if (getGender() != null && !getGender().isEmpty()) {
             sb.append("<div id='patient-gender'>");
             sb.append("<div class='label'>");
-            String gender = getRes(carlosRes, "demographic.demographicaddrecordhtm.formGender", "Gender");
-            sb.append(gender);
+            String genderLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formGender", "Gender");
+            sb.append(genderLabel);
             sb.append("</div>");
             sb.append(getGender());
             sb.append("</div>");
@@ -1621,8 +1621,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
                     .append(Encode.forJavaScript(getHin()))
                     .append("',this)\">");
             sb.append("<div class='label'>");
-            String hin = getRes(carlosRes, "demographic.patient.context.hin", "HIN");
-            sb.append(hin);
+            String hinLabel = getRes(carlosRes, "demographic.patient.context.hin", "HIN");
+            sb.append(hinLabel);
 			sb.append(" (");
             sb.append(Encode.forHtml(getHcType()));
 			sb.append(")</div>");
@@ -1640,8 +1640,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
                     .append(Encode.forJavaScript(getPhone()))
                     .append("',this)\">");
             sb.append("<div class='label'>");
-            String phone = getRes(carlosRes, "demographic.demographicaddrecordhtm.formPhone", "Phone");
-            sb.append(phone);
+            String phoneLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formPhone", "Phone");
+            sb.append(phoneLabel);
             sb.append("</div>");
             sb.append(Encode.forHtmlContent(getPhone()));
             sb.append("</div>");
@@ -1668,8 +1668,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
                     .append(Encode.forJavaScript(getEmail()))
                     .append("',this)\">");
             sb.append("<div class='label'>");
-            String email = getRes(carlosRes, "demographic.demographicaddrecordhtm.formEMail", "Email");
-            sb.append(email);
+            String emailLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formEMail", "Email");
+            sb.append(emailLabel);
             sb.append("</div>");
             sb.append(Encode.forHtmlContent(getEmail()));
             sb.append("</div>");
