@@ -172,7 +172,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					<li><a href='#'
 						class="xlink" rel="${ctx}/admin/GstControl.do"><fmt:message key="admin.admin.manageGSTControl"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/gstreport.jsp"><fmt:message key="admin.admin.gstReport"/></a></li>
+						class="xlink" rel="${ctx}/admin/GstReport.do"><fmt:message key="admin.admin.gstReport"/></a></li>
 					<li><a href='#'
 						class="xlink" rel="${ctx}/billing/CA/ON/manageBillingLocation.jsp"><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
 					<li><a href='javascript:void(0);'
@@ -863,7 +863,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/admin/updatedemographicprovider.jsp"><fmt:message key="admin.admin.btnUpdatePatientProvider"/></a></li>
 						<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/fixRolesOnNotes.jsp"><fmt:message key="admin.admin.btnFixNotes"/></a></li>
+						class="xlink" rel="${ctx}/admin/FixRolesOnNotes.do"><fmt:message key="admin.admin.btnFixNotes"/></a></li>
 						
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/admin/AuditLogPurge.do"><fmt:message key="admin.admin.btnAuditLogPurge"/></a></li>

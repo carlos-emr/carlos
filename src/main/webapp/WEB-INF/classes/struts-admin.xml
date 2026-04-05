@@ -57,6 +57,9 @@
         <action name="admin/AuditLogPurge" class="io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action">
             <result name="success">/WEB-INF/jsp/admin/auditLogPurge.jsp</result>
         </action>
+        <action name="admin/FixRolesOnNotes" class="io.github.carlos_emr.carlos.admin.web.FixRolesOnNotes2Action">
+            <result name="success">/WEB-INF/jsp/admin/fixRolesOnNotes.jsp</result>
+        </action>
 
     </package>
 </struts>

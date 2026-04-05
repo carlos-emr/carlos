@@ -58,6 +58,7 @@ public class dxResearchUpdateQuickList2Action extends ActionSupport {
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    @Override
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "w", null)) {
             throw new SecurityException("missing required sec object (_dxresearch)");

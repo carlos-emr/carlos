@@ -512,11 +512,11 @@
             <result name="success">/WEB-INF/jsp/encounter/immunization/config/AdministrateImmunizationSets.jsp</result>
         </action>
         <action name="encounter/immunization/config/CreateInitImmunization" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetInit2Action">
-            <result name="success">/encounter/immunization/config/CreateImmunizationSetConfig.jsp</result>
+            <result name="success">/WEB-INF/jsp/encounter/immunization/config/CreateImmunizationSetConfig.jsp</result>
         </action>
         <action name="encounter/immunization/config/CreateImmunizationSetConfig" class="io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action">
             <result name="success">/WEB-INF/jsp/encounter/immunization/config/AdministrateImmunizationSets.jsp</result>
-            <result name="goBack">/encounter/immunization/config/CreateImmunizationSetConfig.jsp</result>
+            <result name="goBack">/WEB-INF/jsp/encounter/immunization/config/CreateImmunizationSetConfig.jsp</result>
         </action>
 
 
@@ -638,9 +638,8 @@
             <result name="failure">/encounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=failure</result>
             <result name="failedcheck">/encounter/oscarMeasurements/remapMeasurementMap.jsp?outcome=failedcheck</result>
         </action>
-        <action name="oscarMeasurement/AddShortMeasurement" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddShortMeasurement2Action">
-            <result name="success">/WEB-INF/jsp/oscarPrevention/PreventionReporting.jsp</result>
-        </action>
+        <action name="oscarMeasurement/AddShortMeasurement" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddShortMeasurement2Action"/>
+
         <action name="encounter/displayEpisodes" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayEpisode2Action">
             <result name="labs">/encounter/displayLabs.do</result>
             <result name="forms">/encounter/displayForms.do</result>

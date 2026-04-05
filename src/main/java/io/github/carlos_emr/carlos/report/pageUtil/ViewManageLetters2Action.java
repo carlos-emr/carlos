@@ -49,6 +49,7 @@ public final class ViewManageLetters2Action extends ActionSupport {
      * @return String {@link ActionSupport#SUCCESS} on successful authorization
      * @throws SecurityException if the user lacks {@code _report} read privilege
      */
+    @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

@@ -40,6 +40,9 @@
         <action name="admin/GstControl" class="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action">
             <result name="success">/WEB-INF/jsp/admin/gstControl.jsp</result>
         </action>
+        <action name="admin/GstReport" class="io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport2Action">
+            <result name="success">/WEB-INF/jsp/admin/gstreport.jsp</result>
+        </action>
         <action name="admin/manageCSSStyles" class="io.github.carlos_emr.carlos.billing.CA.ON.web.ManageCSS2Action">
             <result name="init">/WEB-INF/jsp/admin/manageCSSStyles.jsp</result>
         </action>

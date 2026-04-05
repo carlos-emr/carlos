@@ -20,7 +20,7 @@
  * https://github.com/carlos-emr/carlos
  */
 
-package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
+package io.github.carlos_emr.carlos.admin.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -32,33 +32,24 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Setup action that renders the Add Measurement Style Sheet upload form.
- * Separates form rendering from form submission processing handled by
- * {@link EctAddMeasurementStyleSheet2Action}.
+ * Setup action that renders the Fix Roles on Notes admin utility page.
+ * Enforces admin write privilege before forwarding to the JSP.
  *
- * @since 2026-04-04
+ * @since 2026-04-05
  */
-public final class EctSetupAddMeasurementStyleSheet2Action extends ActionSupport {
+public final class FixRolesOnNotes2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    /**
-     * Verifies the logged-in user has admin or measurement admin read privileges,
-     * then forwards to the stylesheet upload form JSP.
-     *
-     * @return String {@code "continue"} on successful authorization
-     * @throws SecurityException if the user lacks {@code _admin} or {@code _admin.measurements} read privilege
-     */
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.measurements", "r", null)) {
-            throw new SecurityException("missing required security object (_admin or _admin.measurements)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
         }
 
-        return "continue";
+        return SUCCESS;
     }
 }
