@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 
+import java.util.Set;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -49,6 +51,10 @@ public final class dxResearchCodeSearch2Action extends ActionSupport {
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /** Allowlisted code types accepted for DxResearch code search. */
+    private static final Set<String> VALID_CODE_TYPES = Set.of(
+            "icd9", "icd10", "ichppccode", "snomed", "atc", "inr");
+
     public String execute()
             throws Exception {
 
@@ -62,7 +68,10 @@ public final class dxResearchCodeSearch2Action extends ActionSupport {
         xml_research[2] = request.getParameter("xml_research3");
         xml_research[3] = request.getParameter("xml_research4");
         xml_research[4] = request.getParameter("xml_research5");
-        String codeType = request.getParameter("codeType");
+        String rawCodeType = request.getParameter("codeType");
+        // Validate codeType against known values to prevent trust boundary violation
+        String codeType = (rawCodeType != null && VALID_CODE_TYPES.contains(rawCodeType.toLowerCase()))
+                ? rawCodeType.toLowerCase() : "";
 
         dxCodeSearchBeanHandler hd = new dxCodeSearchBeanHandler(codeType, xml_research);
         HttpSession session = request.getSession();

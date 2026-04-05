@@ -35,6 +35,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -61,17 +62,18 @@ public final class dxSetupResearch2Action extends ActionSupport {
         }
 
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
-        String demographicNo = request.getParameter("demographicNo");
-        String providerNo = request.getParameter("providerNo");
+        String demographicNo = String.valueOf(ConversionUtils.fromIntString(request.getParameter("demographicNo")));
+        String rawProviderNo = request.getParameter("providerNo");
         String selectedQuickList = request.getParameter("quickList");
         dxResearchBeanHandler hd = new dxResearchBeanHandler(demographicNo);
 
         dxQuickListBeanHandler quicklistHd = null;
         dxQuickListItemsHandler quicklistItemsHd = null;
 
-        if (providerNo == null) {
-            providerNo = loggedInInfo.getLoggedInProviderNo();
-        }
+        // Use logged-in provider if request parameter is absent or not a valid provider ID
+        String providerNo = (rawProviderNo != null && rawProviderNo.matches("[a-zA-Z0-9]{1,20}"))
+                ? rawProviderNo
+                : loggedInInfo.getLoggedInProviderNo();
         if (selectedQuickList == null) {
             selectedQuickList = "";
         }

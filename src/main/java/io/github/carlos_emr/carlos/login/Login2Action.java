@@ -895,7 +895,11 @@ public final class Login2Action extends ActionSupport {
      */
     private void setUserInfoToSession(HttpServletRequest request, String userName, String password, String pin,
                                       String nextPage) throws Exception {
-        request.getSession().setAttribute("userName", userName);
+        // Validate userName: accept only printable non-control chars, max 100 chars,
+        // to prevent trust boundary violation (unsanitized HTTP param stored in session).
+        String safeUserName = (userName != null && userName.length() <= 100 && userName.matches("[^\\x00-\\x1F\\x7F]+"))
+                ? userName : "";
+        request.getSession().setAttribute("userName", safeUserName);
         request.getSession().setAttribute("password", encodePassword(password));
         request.getSession().setAttribute("pin", pin);
         // Validate nextPage before session storage to prevent open redirect via session (CWE-601 defense in depth)

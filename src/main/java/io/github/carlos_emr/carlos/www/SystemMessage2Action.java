@@ -76,7 +76,8 @@ public class SystemMessage2Action extends ActionSupport {
                 addActionMessage(getText("system_message.missing"));
                 return list();
             }
-            request.getSession().setAttribute("systemMessageId", messageId);
+            // Store the validated integer string (not the raw request parameter)
+            request.getSession().setAttribute("systemMessageId", String.valueOf(Integer.parseInt(messageId)));
         } else {
             request.getSession().setAttribute("systemMessageId", "");
         }

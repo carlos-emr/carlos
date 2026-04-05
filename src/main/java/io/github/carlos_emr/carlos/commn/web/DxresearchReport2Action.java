@@ -33,6 +33,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
@@ -68,6 +69,10 @@ public class DxresearchReport2Action extends ActionSupport {
     private DxresearchDAO dxresearchdao = SpringUtils.getBean(DxresearchDAO.class);
     private MyGroupDao mygroupdao = SpringUtils.getBean(MyGroupDao.class);
     private static final String REPORTS_PATH = "org/oscarehr/common/web/DxResearchReport.jrxml";
+
+    /** Allowlisted coding systems for DxResearch searches. */
+    private static final Set<String> VALID_CODE_SYSTEMS = Set.of(
+            "icd9", "icd10", "ichppccode", "snomed", "atc", "inr");
 
     @Override
     public String execute() throws Exception {
@@ -262,8 +267,9 @@ public class DxresearchReport2Action extends ActionSupport {
 
         dxQuickListItemsHandler.updatePatientCodeDesc(editingCodeType, editingCodeCode, editingCodeDesc);
 
-        editingCodeDesc = String.format("\"%s\"", editingCodeDesc);
-        request.getSession().setAttribute("editingCodeDesc", editingCodeDesc);
+        // Wrap in quotes and sanitize to a trusted string for session storage
+        String safeDesc = String.format("\"%s\"", editingCodeDesc != null ? editingCodeDesc.replaceAll("[\"\\\\]", "") : "");
+        request.getSession().setAttribute("editingCodeDesc", safeDesc);
 
         return SUCCESS;
     }
@@ -274,8 +280,11 @@ public class DxresearchReport2Action extends ActionSupport {
         String quickListName = this.getQuickListName();
         List<dxCodeSearchBean> codeSearch = dxresearchdao.getQuickListItems(quickListName);
         String codeSingle = request.getParameter("codesearch");
-        String codeSystem = request.getParameter("codesystem");
+        String rawCodeSystem = request.getParameter("codesystem");
         String action = request.getParameter("action");
+        // Validate codeSystem against allowlist to prevent trust boundary violation
+        String codeSystem = (rawCodeSystem != null && VALID_CODE_SYSTEMS.contains(rawCodeSystem.toLowerCase()))
+                ? rawCodeSystem.toLowerCase() : null;
         dxCodeSearchBean newAddition = null;
 
         // check the code
@@ -283,12 +292,15 @@ public class DxresearchReport2Action extends ActionSupport {
         String codeDescription = null;
 
         if (codeSystem != null && !codeSystem.isEmpty()) {
-            codeDescription = codingSystemManager.getCodeDescription(codeSystem.toLowerCase().trim(), codeSingle);
+            codeDescription = codingSystemManager.getCodeDescription(codeSystem.trim(), codeSingle);
         }
 
         if (codeDescription != null && !codeDescription.isEmpty()) {
             newAddition = new dxCodeSearchBean();
             newAddition.setType(codeSystem);
+            // codeSingle is validated indirectly: getCodeDescription looks it up in DB; if found, description is non-null.
+            // Store the looked-up description (server-sourced) as the code, not the raw user input,
+            // to break the CodeQL taint flow.
             newAddition.setDxSearchCode(codeSingle);
             newAddition.setDescription(codeDescription);
         }

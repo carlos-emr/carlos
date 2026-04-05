@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
@@ -128,7 +129,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     }
                 }
 
-                request.getSession().setAttribute("preferredQueue", queueId);
+                // Store validated integer queue ID (not raw request parameter)
+                request.getSession().setAttribute("preferredQueue", String.valueOf(ConversionUtils.fromIntString(queueId)));
                 if (docFile != null) {
                     docFile.delete();
                     docFile = null;
@@ -187,7 +189,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 Integer qid = Integer.parseInt(queueId.trim());
                 Integer did = Integer.parseInt(doc_no.trim());
                 queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-                request.getSession().setAttribute("preferredQueue", queueId);
+                // Use already-validated integer qid (not raw queueId string)
+                request.getSession().setAttribute("preferredQueue", String.valueOf(qid));
             }
 
             map.put("name", docFile.getName());

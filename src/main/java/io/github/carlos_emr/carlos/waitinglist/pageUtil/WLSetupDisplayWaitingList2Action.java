@@ -37,6 +37,7 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.providers.bean.ProviderNameBean;
@@ -95,7 +96,9 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
 
         if (request.getParameter("waitingListId") != null) {
-            waitingListId = request.getParameter("waitingListId");
+            // Parse as integer to validate and break trust boundary taint
+            int parsedId = ConversionUtils.fromIntString(request.getParameter("waitingListId"));
+            waitingListId = parsedId > 0 ? String.valueOf(parsedId) : "";
         }
 
         log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = " + waitingListId);

@@ -90,8 +90,22 @@ public class ClientSearchAction22Action extends ActionSupport {
             request.getSession().setAttribute("outsideOfDomainEnabled", "false");
         }
 
-        String noteId = request.getParameter("noteId");
-        if (noteId == null || noteId.trim().length() == 0 || noteId.trim().equalsIgnoreCase("null") || noteId.trim().substring(0, 1).equalsIgnoreCase("0")) {
+        String rawNoteId = request.getParameter("noteId");
+        String noteId = null;
+        // Validate noteId as a positive long ID before using it
+        if (rawNoteId != null && rawNoteId.trim().length() > 0
+                && !rawNoteId.trim().equalsIgnoreCase("null")
+                && !rawNoteId.trim().substring(0, 1).equalsIgnoreCase("0")) {
+            try {
+                long parsedId = Long.parseLong(rawNoteId.trim());
+                if (parsedId > 0) {
+                    noteId = String.valueOf(parsedId);
+                }
+            } catch (NumberFormatException e) {
+                // invalid noteId — leave as null
+            }
+        }
+        if (noteId == null) {
             String demographicNo = request.getParameter("demographicNo");
             if (demographicNo == null || demographicNo.trim().length() == 0) {
                 //don't do anything?

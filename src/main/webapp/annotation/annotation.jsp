@@ -70,6 +70,9 @@
     String attrib_name = request.getParameter("atbname");
     String special = request.getParameter("drugSpecial");
     if (attrib_name == null) attrib_name = "";
+    // Validate attrib_name: allow only alphanumeric and underscore to prevent using arbitrary
+    // user input as a session attribute key (trust boundary violation)
+    if (!attrib_name.matches("[a-zA-Z0-9_]{0,100}")) attrib_name = "";
 
     String demo = request.getParameter("demo");
     String display = request.getParameter("display");

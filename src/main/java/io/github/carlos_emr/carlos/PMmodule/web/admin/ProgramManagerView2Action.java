@@ -38,6 +38,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.PMmodule.model.*;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ClientReferralDAO;
@@ -121,7 +122,10 @@ public class ProgramManagerView2Action extends ActionSupport {
                 // find the program id
         String programId = request.getParameter("id");
 
-        request.getSession().setAttribute("case_program_id", programId);
+        // Validate programId as a positive integer to prevent trust boundary violation
+        int parsedProgramId = ConversionUtils.fromIntString(programId);
+        String validatedProgramId = String.valueOf(parsedProgramId);
+        request.getSession().setAttribute("case_program_id", validatedProgramId);
 
         if (request.getParameter("newVacancy") != null && "true".equals(request.getParameter("newVacancy")))
             request.setAttribute("vacancyOrTemplateId", "");

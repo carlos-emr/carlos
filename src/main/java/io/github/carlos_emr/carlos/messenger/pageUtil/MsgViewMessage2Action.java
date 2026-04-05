@@ -50,6 +50,7 @@ import java.sql.Date;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Struts2 action for viewing individual messages with full details and attachments.
@@ -87,6 +88,15 @@ public class MsgViewMessage2Action extends ActionSupport {
      * HTTP response object used for redirecting to the view page.
      */
     HttpServletResponse response = ServletActionContext.getResponse();
+
+    /** Valid values for the {@code from} parameter. */
+    private static final Set<String> VALID_FROM_VALUES = Set.of(
+            "messenger", "inbox", "sent", "deleted", "demographicmessage", "ticket");
+
+    /** Valid column names for message list ordering. */
+    private static final Set<String> VALID_ORDER_BY_VALUES = Set.of(
+            "date", "subject", "from", "to", "type", "asc", "desc",
+            "date asc", "date desc", "subject asc", "subject desc");
 
     /**
      * Security manager for enforcing read permissions on messaging operations.
@@ -153,8 +163,13 @@ public class MsgViewMessage2Action extends ActionSupport {
         String messagePosition = request.getParameter("messagePosition");
         String linkMsgDemo = request.getParameter("linkMsgDemo");
         String demographic_no = request.getParameter("demographic_no");
-        String orderBy = request.getParameter("orderBy");
-        String from = request.getParameter("from") == null ? "messenger" : request.getParameter("from");
+        String rawOrderBy = request.getParameter("orderBy");
+        String rawFrom = request.getParameter("from");
+        // Validate from and orderBy against allowlists to prevent trust boundary violation
+        String from = (rawFrom != null && VALID_FROM_VALUES.contains(rawFrom.toLowerCase()))
+                ? rawFrom : "messenger";
+        String orderBy = (rawOrderBy != null && VALID_ORDER_BY_VALUES.contains(rawOrderBy.toLowerCase()))
+                ? rawOrderBy : null;
         String boxType = request.getParameter("boxType") == null ? "" : request.getParameter("boxType");
 
         // Validate messageNo before use.
@@ -192,9 +207,10 @@ public class MsgViewMessage2Action extends ActionSupport {
         request.getSession().setAttribute("viewMessageDate", msgDisplayMessage.getThedate());
         request.getSession().setAttribute("viewMessageAttach", msgDisplayMessage.getAttach());
         request.getSession().setAttribute("viewMessagePDFAttach", msgDisplayMessage.getPdfAttach());
-        request.getSession().setAttribute("viewMessageId", messageNo);
-        request.getSession().setAttribute("viewMessageNo", messageNo);
-        request.getSession().setAttribute("viewMessagePosition", messagePosition);
+        // Store validated integer IDs (not raw request parameters) to prevent trust boundary violation
+        request.getSession().setAttribute("viewMessageId", String.valueOf(parsedMessageNo));
+        request.getSession().setAttribute("viewMessageNo", String.valueOf(parsedMessageNo));
+        request.getSession().setAttribute("viewMessagePosition", String.valueOf(ConversionUtils.fromIntString(messagePosition)));
         request.getSession().setAttribute("from", from);
         request.getSession().setAttribute("providerNo", providerNo);
 

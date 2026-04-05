@@ -98,7 +98,11 @@
           method="post" onsubmit="return onPicUpload();">
         <input type="hidden" name="method" value="saveImage"/>
         <%
-            request.getSession().setAttribute("clientId", request.getParameter("demographicNo"));
+            // Parse demographicNo as integer to validate and prevent trust boundary violation
+            String rawDemoNo = request.getParameter("demographicNo");
+            int parsedDemoNo = 0;
+            try { if (rawDemoNo != null) parsedDemoNo = Integer.parseInt(rawDemoNo.trim()); } catch (NumberFormatException ignored) {}
+            request.getSession().setAttribute("clientId", String.valueOf(parsedDemoNo));
         %>
         <div class="row align-items-center mb-3">
             <div class="col-auto">

@@ -98,12 +98,17 @@
                 throw new SecurityException("missing required sec object: _pref (write access required)");
             }
 
-            String programId_forCME = request.getParameter("case_program_id");
-            request.getSession().setAttribute("case_program_id", programId_forCME);
+            // Parse case_program_id as integer to validate and prevent trust boundary violation
+            String rawProgramId = request.getParameter("case_program_id");
+            int parsedProgramId = 0;
+            try { if (rawProgramId != null) parsedProgramId = Integer.parseInt(rawProgramId.trim()); } catch (NumberFormatException ignored) {}
+            request.getSession().setAttribute("case_program_id", String.valueOf(parsedProgramId));
 
             String selected_site = (String) request.getParameter("site");
             if (selected_site != null) {
-                session.setAttribute("site_selected", (selected_site.equals("none") ? null : selected_site));
+                // Validate site identifier — allow alphanumeric, hyphen, underscore, dot; "none" clears the selection
+                boolean validSite = selected_site.equals("none") || selected_site.matches("[a-zA-Z0-9_.\\-]{1,100}");
+                session.setAttribute("site_selected", (validSite && !selected_site.equals("none")) ? selected_site : null);
             }
 
             boolean saveSuccess = false;
