@@ -156,9 +156,9 @@
             </tr>
         </table>
         <input type='hidden' name='param'
-               value="<%=StringEscapeUtils.escapeHtml4(param)%>">
+               value="<%=Encode.forHtmlAttribute(param)%>">
         <input type='hidden' name='param2'
-               value="<%=StringEscapeUtils.escapeHtml4(param2)%>">
+               value="<%=Encode.forHtmlAttribute(param2)%>">
         <table width="95%" border="0">
             <tr>
                 <td align="left">Results based on keyword(s): <%= Encode.forHtml(keyword == null ? "" : keyword) %>
@@ -198,18 +198,18 @@
             <tr align="center" bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.cursor='pointer';this.style.backgroundColor='pink';"
                 onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                onClick="<%=StringEscapeUtils.escapeHtml4(strOnClick)%>">
-                <td><%=prop.getProperty("attention", "")%>
+                onClick="<%=Encode.forHtmlAttribute(strOnClick)%>">
+                <td><%=Encode.forHtml(prop.getProperty("attention", ""))%>
                 </td>
-                <td><%=WordUtils.capitalize(prop.getProperty("company_name", "").toLowerCase())%>
+                <td><%=Encode.forHtml(WordUtils.capitalize(prop.getProperty("company_name", "").toLowerCase()))%>
                 </td>
-                <td><%=WordUtils.capitalize(prop.getProperty("address", "").toLowerCase())%>
+                <td><%=Encode.forHtml(WordUtils.capitalize(prop.getProperty("address", "").toLowerCase()))%>
                 </td>
-                <td><%=prop.getProperty("city", "")%>
+                <td><%=Encode.forHtml(prop.getProperty("city", ""))%>
                 </td>
-                <td><%=prop.getProperty("postcode", "")%>
+                <td><%=Encode.forHtml(prop.getProperty("postcode", ""))%>
                 </td>
-                <td><%=prop.getProperty("telephone", "")%>
+                <td><%=Encode.forHtml(prop.getProperty("telephone", ""))%>
                 </td>
                 <!--td><%=prop.getProperty("fax", "")%></td-->
             </tr>

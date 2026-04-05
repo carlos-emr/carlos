@@ -47,9 +47,9 @@ if(bs==null) {
 %>
 	<tr bgcolor="<%=bodd?"#EEEEFF":"white"%>" align="center">
 		<TD width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=apptDate%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><%=Encode.forHtml(apptDate)%></font></b></TD>
 		<TD width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=apptTime%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><%=Encode.forHtml(apptTime)%></font></b></TD>
 		<TD width="10%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><%=Encode.forHtml(demoName)%></font></b></TD>
 		<TD width="20%"><b><font size="2"
