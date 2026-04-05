@@ -32,6 +32,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
 %>
@@ -44,10 +46,26 @@
 
     String codeName = request.getParameter("name");
 
-    // Validate name2 as safe JS property path to prevent script injection
+    // Extract form index + element name from a full JS path like
+    // "document.forms[0].elements['fieldname'].value" (format used by billingON.jsp callers)
+    // Allows dots in element names (e.g. "pref.default_dx_code" from UserPreferences.jsp)
     String name2 = request.getParameter("name2");
-    if (name2 != null && !name2.matches("[a-zA-Z0-9_.\\[\\]]+")) {
-        name2 = null;
+    String targetFormIdx = null;
+    String targetElement = null;
+    boolean name2ParseError = false;
+    if (name2 != null) {
+        java.util.regex.Matcher m2 = java.util.regex.Pattern
+            .compile("^document\\.forms\\[(\\d+)\\]\\.elements\\['([a-zA-Z0-9_.]+)'\\]\\.value$")
+            .matcher(name2);
+        if (m2.matches()) {
+            targetFormIdx = m2.group(1);
+            targetElement = m2.group(2);
+        } else if (!name2.isEmpty()) {
+            String truncated = name2.length() > 120 ? name2.substring(0, 120) + "..." : name2;
+            MiscUtils.getLogger().warn("billingDigSearch.jsp: 'name2' did not match expected JS path format: '"
+                + truncated + "' (length=" + name2.length() + ")");
+            name2ParseError = true;
+        }
     }
 %>
 
@@ -62,8 +80,11 @@
             function CodeAttach(File2) {
                 if (self.opener.callChangeCodeDesc) self.opener.callChangeCodeDesc();
 
-                <%if(name2 != null) {%>
-                self.opener.<%=name2%> = File2.substring(0, 3);
+                <%if(targetElement != null) {%>
+                self.opener.document.forms[<%= targetFormIdx %>].elements["<%= Encode.forJavaScript(StringUtils.noNull(targetElement)) %>"].value = File2.substring(0, 3);
+                <%} else if(name2ParseError) {%>
+                alert("Error: Unable to transfer diagnostic code to the billing form. Please close this window and try again.");
+                return;
                 <%} else {%>
                 self.opener.document.forms[1].xml_diagnostic_detail.value = File2;
                 <%}%>
@@ -80,6 +101,9 @@
     </head>
 
     <body onLoad="setfocus()">
+    <%if(name2ParseError) {%>
+    <script>alert("Warning: The diagnostic code field reference could not be parsed. Selecting a code may not work correctly. Please close this window and try again from the billing form.");</script>
+    <%}%>
     <table style="width:100%">
         <tr>
             <th style="text-align:center; background-color:silver;"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.msgDiagnostic"/><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.msgMaxSelections"/></th>
@@ -99,7 +123,7 @@
 
     <form name="codesearch" id="codesearch" method="post"
           action="billingDigSearch.jsp">
-        <%if (name2 != null) {%>
+        <%if (targetElement != null || name2ParseError) {%>
         <input type="hidden" name="name2"
                value="<%=Encode.forHtmlAttribute(name2)%>"/>
         <%}%>
@@ -216,13 +240,13 @@
 
             <tr>
                 <td style="width:12%"><a
-                        href="javascript:CodeAttach('<%=Dcode%>|<%=DcodeDesc%>')"><%=Dcode%>
+                        href="javascript:CodeAttach('<%= Encode.forJavaScriptAttribute(Dcode) %>|<%= Encode.forJavaScriptAttribute(DcodeDesc) %>')"><%= Encode.forHtml(Dcode) %>
                 </a></td>
                 <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
-                                             name="<%=Dcode%>"
-                                             value="<%=DcodeDesc%>">&nbsp;<input type="submit" class="btn btn-secondary"
+                                             name="<%= Encode.forHtmlAttribute(Dcode) %>"
+                                             value="<%= Encode.forHtmlAttribute(DcodeDesc) %>">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                  name="update"
-                                                                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.btnUpdate"/> <%=Dcode%>">
+                                                                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.btnUpdate"/> <%= Encode.forHtmlAttribute(Dcode) %>">
                 </td>
             </tr>
             <%
@@ -244,13 +268,13 @@
 
             <tr>
                 <td style="width:12%"><a
-                        href="javascript:CodeAttach('<%=Dcode%>|<%=DcodeDesc%>')"><%=Dcode%>
+                        href="javascript:CodeAttach('<%= Encode.forJavaScriptAttribute(Dcode) %>|<%= Encode.forJavaScriptAttribute(DcodeDesc) %>')"><%= Encode.forHtml(Dcode) %>
                 </a></td>
                 <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
-                                             name="<%=Dcode%>"
-                                             value="<%=DcodeDesc%>">&nbsp;<input type="submit" class="btn btn-secondary"
+                                             name="<%= Encode.forHtmlAttribute(Dcode) %>"
+                                             value="<%= Encode.forHtmlAttribute(DcodeDesc) %>">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                  name="update"
-                                                                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.btnUpdate"/> <%=Dcode%>">
+                                                                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.btnUpdate"/> <%= Encode.forHtmlAttribute(Dcode) %>">
                 </td>
             </tr>
             <%
@@ -271,13 +295,13 @@
 
             <tr>
                 <td style="width:12%"><a
-                        href="javascript:CodeAttach('<%=Dcode2%>|<%=DcodeDesc2%>')"><%=Dcode2%>
+                        href="javascript:CodeAttach('<%= Encode.forJavaScriptAttribute(Dcode2) %>|<%= Encode.forJavaScriptAttribute(DcodeDesc2) %>')"><%= Encode.forHtml(Dcode2) %>
                 </a></td>
                 <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
-                                             name="<%=Dcode2%>"
-                                             value="<%=DcodeDesc2%>">&nbsp;<input type="submit" class="btn btn-secondary"
+                                             name="<%= Encode.forHtmlAttribute(Dcode2) %>"
+                                             value="<%= Encode.forHtmlAttribute(DcodeDesc2) %>">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                   name="update"
-                                                                                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.btnUpdate"/> <%=Dcode2%>">
+                                                                                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.btnUpdate"/> <%= Encode.forHtmlAttribute(Dcode2) %>">
                 </td>
             </tr>
             <%
@@ -295,7 +319,7 @@
             <% if (intCount == 1) { %>
             <script LANGUAGE="JavaScript">
                 <!--
-                CodeAttach('<%=Dcode%>|<%=DcodeDesc%>');
+                CodeAttach('<%= Encode.forJavaScript(Dcode) %>|<%= Encode.forJavaScript(DcodeDesc) %>');
                 -->
 
             </script>

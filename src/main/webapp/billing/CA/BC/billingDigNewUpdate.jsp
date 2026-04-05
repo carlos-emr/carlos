@@ -50,6 +50,7 @@ b<%--
 %>
 <%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
@@ -78,9 +79,7 @@ b<%--
         function CodeAttach(File0, File1, File2) {
 
             self.close();
-            self.opener.document
-        .<%=formName%>.<%=formElement%>.
-            value = File0;
+            self.opener.document["<%= Encode.forJavaScript(StringUtils.noNull(formName)) %>"]["<%= Encode.forJavaScript(StringUtils.noNull(formElement)) %>"].value = File0;
         }
 
         <%}else{%>

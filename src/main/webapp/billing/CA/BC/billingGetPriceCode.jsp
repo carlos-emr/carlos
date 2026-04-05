@@ -32,6 +32,8 @@
     String user_no = (String) session.getAttribute("user");
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
@@ -55,10 +57,13 @@
     <title>Service Code Price Search</title>
     <script LANGUAGE="JavaScript">
         function CodeAttach(cost) {
+            <%if (formName == null || formName.isEmpty() || formElementPrice == null || formElementPrice.isEmpty()) {%>
+            alert("Error: Missing form configuration. Cannot transfer the selected code.");
+            return;
+            <%} else {%>
             self.close();
-            self.opener.document
-        .<%=formName%>.<%=formElementPrice%>.
-            value = cost;
+            self.opener.document["<%= Encode.forJavaScript(formName) %>"]["<%= Encode.forJavaScript(formElementPrice) %>"].value = cost;
+            <%}%>
         }
     </script>
 </head>
@@ -80,7 +85,7 @@
             String cost = bss.get(0).getValue(); %>
     <script LANGUAGE="JavaScript">
         <!--
-        CodeAttach('<%=cost%>');
+        CodeAttach('<%= Encode.forJavaScript(StringUtils.noNull(cost)) %>');
         -->
     </script>
     <%} else {%>
