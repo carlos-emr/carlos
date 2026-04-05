@@ -148,14 +148,14 @@
                                     style="color:red;">:</span> </b></td>
                             <td id="lastName" align="left">
                                 <input type="text" name="last_name" id="last_name" onBlur="upCaseCtrl(this)"
-                                       value="<%=lastNameVal%>">
+                                       value="<%=Encode.forHtmlAttribute(lastNameVal)%>">
 
                             </td>
                             <td align="right" id="firstNameLbl"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formFirstName"/><span
                                     style="color:red;">:</span> </b></td>
                             <td id="firstName" align="left">
                                 <input type="text" name="first_name" id="first_name" onBlur="upCaseCtrl(this)"
-                                       value="<%=firstNameVal%>">
+                                       value="<%=Encode.forHtmlAttribute(firstNameVal)%>">
                             </td>
                         </tr>
                         <tr>

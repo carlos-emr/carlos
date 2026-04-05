@@ -149,9 +149,9 @@
                 </td>
             </tr>
         </table>
-        <input type='hidden' name='form' value="<%=StringEscapeUtils.escapeHtml4(form)%>"/>
-        <input type='hidden' name='elementName' value="<%=StringEscapeUtils.escapeHtml4(elementName)%>"/>
-        <input type='hidden' name='elementId' value="<%=StringEscapeUtils.escapeHtml4(elementId)%>"/>
+        <input type='hidden' name='form' value="<%=Encode.forHtmlAttribute(form)%>"/>
+        <input type='hidden' name='elementName' value="<%=Encode.forHtmlAttribute(elementName)%>"/>
+        <input type='hidden' name='elementId' value="<%=Encode.forHtmlAttribute(elementId)%>"/>
     </form>
 
     <table bgcolor="#C0C0C0" width="100%">
@@ -174,7 +174,7 @@
             %>
             <tr bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
-                onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<%=strOnClick%>">
+                onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<%=Encode.forHtmlAttribute(strOnClick)%>">
                 <td></td>
                 <td><c:out value="${contact.lastName}"/></td>
                 <td><c:out value="${contact.firstName}"/></td>

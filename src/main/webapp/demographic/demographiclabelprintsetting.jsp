@@ -46,6 +46,7 @@
 
 
 <%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
@@ -54,7 +55,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 
@@ -133,9 +133,9 @@
                 providername = provider.getLastName() + "," + provider.getFirstName();
             }
 
-            first_name = Misc.JSEscape(demo.getFirstName());
-            last_name = Misc.JSEscape(demo.getLastName());
-            sex = demo.getSex();
+            first_name = demo.getFirstName() != null ? demo.getFirstName() : "";
+            last_name = demo.getLastName() != null ? demo.getLastName() : "";
+            sex = demo.getSex() != null ? demo.getSex() : "";
             dob_year = Integer.parseInt(demo.getYearOfBirth());
             dob_month = Integer.parseInt(demo.getMonthOfBirth());
             dob_date = Integer.parseInt(demo.getDateOfBirth());
@@ -143,7 +143,7 @@
             dob = dob_year + "/" + demo.getMonthOfBirth() + "/" + demo.getDateOfBirth();
 
             if (demo.getChartNo() != null) chart_no = demo.getChartNo();
-            if (demo.getAddress() != null) address = Misc.JSEscape(demo.getAddress());
+            if (demo.getAddress() != null) address = demo.getAddress();
             if (demo.getCity() != null) city = demo.getCity();
             if (demo.getProvince() != null) province = demo.getProvince();
             if (demo.getPostal() != null) postal = demo.getPostal();
@@ -152,7 +152,14 @@
             if (demo.getHin() != null) hin = "HN " + demo.getHcType() + " " + demo.getHin() + " " + demo.getVer();
             if (demo.getFamilyDoctor() != null) refDoc = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd");
         }
-        phone2 = (phone2 == null || phone2.equals("")) ? "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" : (phone2 + "&nbsp;");
+        <%-- phone2 is split into two variables to avoid double-encoding:
+             phone2Raw holds the unencoded value for hidden form inputs (encoded at output with forHtmlAttribute);
+             phone2Display pre-encodes the user portion with forHtml() before appending raw &nbsp; padding,
+             so the entities render correctly. Do NOT re-encode phone2Display. --%>
+        String phone2Raw = (phone2 == null ? "" : phone2);
+        String phone2Display = phone2Raw.isEmpty()
+            ? "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+            : (Encode.forHtml(phone2Raw) + "&nbsp;");
     %>
 
     <form method="post" class="" name="labelprint" action="demographicprintdemographic.jsp">
@@ -162,20 +169,20 @@
                     <th><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgLabel"/></th>
                     <th><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgNumeberOfLabel"/></th>
                     <th><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgLocation"/>
-                        <input type="hidden" name="address" value="<%=address%>">
-                        <input type="hidden" name="chart_no" value="<%=chart_no%>">
-                        <input type="hidden" name="city" value="<%=city%>">
-                        <input type="hidden" name="dob" value="<%=dob%>">
-                        <input type="hidden" name="first_name" value="<%=first_name%>">
-                        <input type="hidden" name="hin" value="<%=hin%>">
-                        <input type="hidden" name="last_name" value="<%=last_name%>">
-                        <input type="hidden" name="phone" value="<%=phone%>">
-                        <input type="hidden" name="phone2" value="<%=phone2%>">
-                        <input type="hidden" name="postal" value="<%=postal%>">
-                        <input type="hidden" name="providername" value="<%=providername%>">
-                        <input type="hidden" name="province" value="<%=province%>">
-                        <input type="hidden" name="sex" value="<%=sex%>">
-                        <input type="hidden" name="age" value="<%=age%>">
+                        <input type="hidden" name="address" value="<%=Encode.forHtmlAttribute(address)%>">
+                        <input type="hidden" name="chart_no" value="<%=Encode.forHtmlAttribute(chart_no)%>">
+                        <input type="hidden" name="city" value="<%=Encode.forHtmlAttribute(city)%>">
+                        <input type="hidden" name="dob" value="<%=Encode.forHtmlAttribute(dob)%>">
+                        <input type="hidden" name="first_name" value="<%=Encode.forHtmlAttribute(first_name)%>">
+                        <input type="hidden" name="hin" value="<%=Encode.forHtmlAttribute(hin)%>">
+                        <input type="hidden" name="last_name" value="<%=Encode.forHtmlAttribute(last_name)%>">
+                        <input type="hidden" name="phone" value="<%=Encode.forHtmlAttribute(phone)%>">
+                        <input type="hidden" name="phone2" value="<%=Encode.forHtmlAttribute(phone2Raw)%>">
+                        <input type="hidden" name="postal" value="<%=Encode.forHtmlAttribute(postal)%>">
+                        <input type="hidden" name="providername" value="<%=Encode.forHtmlAttribute(providername)%>">
+                        <input type="hidden" name="province" value="<%=Encode.forHtmlAttribute(province)%>">
+                        <input type="hidden" name="sex" value="<%=Encode.forHtmlAttribute(sex)%>">
+                        <input type="hidden" name="age" value="<%=Encode.forHtmlAttribute(String.valueOf(age))%>">
                     </th>
                 </tr>
                 <tr>
@@ -183,13 +190,13 @@
                         <table style="width:90%">
                             <tr>
                                 <td style="border: solid 1px; background-color: white;">
-				<span id="copytext1" class="copytext"> <b><%=last_name%>,&nbsp;<%=first_name%></b><br>
-				&nbsp;&nbsp;&nbsp;&nbsp;<%=hin%><br>
-				&nbsp;&nbsp;&nbsp;&nbsp;<%=dob%>&nbsp;<%=sex%><br>
+				<span id="copytext1" class="copytext"> <b><%=Encode.forHtml(last_name)%>,&nbsp;<%=Encode.forHtml(first_name)%></b><br>
+				&nbsp;&nbsp;&nbsp;&nbsp;<%=Encode.forHtml(hin)%><br>
+				&nbsp;&nbsp;&nbsp;&nbsp;<%=Encode.forHtml(dob)%>&nbsp;<%=Encode.forHtml(sex)%><br>
 				<br>
-				<b><%=last_name%>,&nbsp;<%=first_name%></b><br>
-				&nbsp;&nbsp;&nbsp;&nbsp;<%=hin%><br>
-				&nbsp;&nbsp;&nbsp;&nbsp;<%=dob%>&nbsp;<%=sex%><br>
+				<b><%=Encode.forHtml(last_name)%>,&nbsp;<%=Encode.forHtml(first_name)%></b><br>
+				&nbsp;&nbsp;&nbsp;&nbsp;<%=Encode.forHtml(hin)%><br>
+				&nbsp;&nbsp;&nbsp;&nbsp;<%=Encode.forHtml(dob)%>&nbsp;<%=Encode.forHtml(sex)%><br>
 				</span></td>
                             </tr>
                         </table>
@@ -245,10 +252,10 @@
                             <tr>
                                 <td style="border: solid 1px; background-color: white;">
 				<span id="copytext2"
-                      class="copytext"> <b><%=last_name%>,&nbsp;<%=first_name%>&nbsp;<%=chart_no%></b><br><%=address%><br><%=city%>,&nbsp;<%=province%>,&nbsp;<%=postal%><br>
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgHome"/>:&nbsp;<%=phone%><br><%=dob%>&nbsp;<%=sex%><br><%=hin%><br>
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgBus"/>:<%=phone2%>&nbsp;
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgDr"/>&nbsp;<%=providername%><br>
+                      class="copytext"> <b><%=Encode.forHtml(last_name)%>,&nbsp;<%=Encode.forHtml(first_name)%>&nbsp;<%=Encode.forHtml(chart_no)%></b><br><%=Encode.forHtml(address)%><br><%=Encode.forHtml(city)%>,&nbsp;<%=Encode.forHtml(province)%>,&nbsp;<%=Encode.forHtml(postal)%><br>
+				<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgHome"/>:&nbsp;<%=Encode.forHtml(phone)%><br><%=Encode.forHtml(dob)%>&nbsp;<%=Encode.forHtml(sex)%><br><%=Encode.forHtml(hin)%><br>
+				<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgBus"/>:<%=phone2Display%>&nbsp;
+				<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgDr"/>&nbsp;<%=Encode.forHtml(providername)%><br>
 				</span></td>
                             </tr>
                         </table>
@@ -263,7 +270,7 @@
                         <table style="width:90%">
                             <tr>
                                 <td style="border: solid 1px; background-color: white;">
-				<span id="copytext3" class="copytext"> <%=last_name%>,&nbsp;<%=first_name%><br><%=address%><br><%=city%>,&nbsp;<%=province%>,&nbsp;<%=postal%><br>
+				<span id="copytext3" class="copytext"> <%=Encode.forHtml(last_name)%>,&nbsp;<%=Encode.forHtml(first_name)%><br><%=Encode.forHtml(address)%><br><%=Encode.forHtml(city)%>,&nbsp;<%=Encode.forHtml(province)%>,&nbsp;<%=Encode.forHtml(postal)%><br>
 				</span></td>
                             </tr>
                         </table>
@@ -278,7 +285,7 @@
                         <table style="width:90%">
                             <tr>
                                 <td style="border: solid 1px; background-color: white;">
-				<span id="copytext4" class="copytext"> <%=first_name%>&nbsp;<%=last_name%><br><%=address%><br><%=city%>,&nbsp;<%=province%>,&nbsp;<%=postal%><br>
+				<span id="copytext4" class="copytext"> <%=Encode.forHtml(first_name)%>&nbsp;<%=Encode.forHtml(last_name)%><br><%=Encode.forHtml(address)%><br><%=Encode.forHtml(city)%>,&nbsp;<%=Encode.forHtml(province)%>,&nbsp;<%=Encode.forHtml(postal)%><br>
 				</span></td>
                             </tr>
                         </table>
@@ -295,8 +302,8 @@
                             <tr>
                                 <td style="border: solid 1px; background-color: white;">
 				<span id="copytext5"
-                      class="copytext"> <%=chart_no%> &nbsp;&nbsp;<%=last_name%>, <%=first_name%><br><%=address%>, <%=city%>, <%=province%>, <%=postal%>
-				<br><%=dob%> &nbsp;&nbsp;&nbsp;<%=age%> <%=sex%> &nbsp;<%=hin%><br><%=phone%>&nbsp;&nbsp;&nbsp;<%=phone2%><br><%=refDoc%>
+                      class="copytext"> <%=Encode.forHtml(chart_no)%> &nbsp;&nbsp;<%=Encode.forHtml(last_name)%>, <%=Encode.forHtml(first_name)%><br><%=Encode.forHtml(address)%>, <%=Encode.forHtml(city)%>, <%=Encode.forHtml(province)%>, <%=Encode.forHtml(postal)%>
+				<br><%=Encode.forHtml(dob)%> &nbsp;&nbsp;&nbsp;<%=Encode.forHtml(String.valueOf(age))%> <%=Encode.forHtml(sex)%> &nbsp;<%=Encode.forHtml(hin)%><br><%=Encode.forHtml(phone)%>&nbsp;&nbsp;&nbsp;<%=phone2Display%><br><%=Encode.forHtml(refDoc)%>
 				</span></td>
                             </tr>
                         </table>

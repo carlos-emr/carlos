@@ -381,7 +381,7 @@
                                 newline = true;
                             }
                         %>
-                        <td>&nbsp;<%=remarks%><% if (newline) {%><br/>&nbsp;<%}%><%=comments%>
+                        <td>&nbsp;<%=Encode.forHtml(remarks)%><% if (newline) {%><br/>&nbsp;<%}%><%=Encode.forHtml(comments)%>
                         </td>
                         <%
                             if (IsPropertiesOn.isMultisitesEnable()) {
@@ -430,7 +430,7 @@
                     <%
                         for (ProviderData prov : providerMap.values()) {
                     %>
-                    <option value="<%=prov.getId()%>"><%=prov.getLastName() + ", " + prov.getFirstName() %>
+                    <option value="<%=Encode.forHtmlAttribute(prov.getId())%>"><%=Encode.forHtml(prov.getLastName() + ", " + prov.getFirstName()) %>
                     </option>
                     <%
                         }
