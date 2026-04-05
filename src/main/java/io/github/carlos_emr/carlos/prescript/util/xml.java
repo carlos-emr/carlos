@@ -40,6 +40,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -49,7 +50,7 @@ public class xml {
 
     public static Document newDocument() {
         try {
-            Document document = DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();
+            Document document = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().newDocument();
             return document;
         } catch (Exception e) {
             Document document1 = null;
@@ -89,7 +90,7 @@ public class xml {
         Document document;
         try {
             InputSource is = new InputSource(new StringReader(xmlInput));
-            Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(is);
+            Document doc = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(is);
             Document document1 = doc;
             return document1;
         } catch (Exception e) {

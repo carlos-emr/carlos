@@ -124,6 +124,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.owasp.encoder.Encode;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
@@ -3640,21 +3641,10 @@ public class DemographicExportAction42Action extends ActionSupport {
     public Boolean validateExport(File f) {
         Boolean result = true;
 
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.setNamespaceAware(true);
-        
+        DocumentBuilderFactory factory = null;
         try {
-            // Disable external entities to prevent XXE attacks
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            
-            // Disable XInclude
-            factory.setXIncludeAware(false);
-            
-            // Disabled expansion of entity references
-            factory.setExpandEntityReferences(false);
+            factory = XmlUtils.createSecureDocumentBuilderFactory();
+            factory.setNamespaceAware(true);
         } catch (ParserConfigurationException e) {
             logger.error("Failed to configure XML parser security features", e);
             return false;

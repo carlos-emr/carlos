@@ -152,6 +152,25 @@ public final class XmlUtils {
     }
 
     /**
+     * Creates a {@link SAXParserFactory} with XXE protections enabled.
+     *
+     * <p>Disables DOCTYPE declarations and external entity resolution. Use this factory
+     * method instead of {@code SAXParserFactory.newInstance()} throughout the codebase.
+     *
+     * @return SAXParserFactory configured with XXE protections
+     * @throws ParserConfigurationException if the critical disallow-doctype-decl feature cannot be set
+     * @throws SAXException if a SAX feature cannot be configured
+     */
+    public static SAXParserFactory createSecureSAXParserFactory() throws ParserConfigurationException, SAXException {
+        SAXParserFactory spf = SAXParserFactory.newInstance();
+        spf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        spf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        spf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        spf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        return spf;
+    }
+
+    /**
      * Creates a secure {@link SAXSource} suitable for passing to a JAXB {@code Unmarshaller}.
      *
      * <p>Wraps the given {@link InputStream} in a SAX reader that has DOCTYPE declarations
