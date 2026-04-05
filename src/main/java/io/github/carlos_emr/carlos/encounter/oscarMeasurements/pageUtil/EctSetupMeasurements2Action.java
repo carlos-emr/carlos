@@ -68,8 +68,10 @@ public final class EctSetupMeasurements2Action extends ActionSupport {
 
         String rawGroupName = request.getParameter("groupName");
         // Validate groupName — allow alphanumeric, underscore, hyphen and spaces (medical group names)
-        String groupName = (rawGroupName != null && rawGroupName.matches("[a-zA-Z0-9 _\\-]{1,100}"))
-                ? rawGroupName : "";
+        if (rawGroupName == null || !rawGroupName.matches("[a-zA-Z0-9 _\\-]{1,100}")) {
+            return ERROR;
+        }
+        String groupName = rawGroupName;
         EctValidation ectValidation = new EctValidation();
         String css = ectValidation.getCssPath(groupName);
         java.util.Calendar calender = java.util.Calendar.getInstance();

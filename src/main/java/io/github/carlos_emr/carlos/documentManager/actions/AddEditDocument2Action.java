@@ -176,13 +176,18 @@ public class AddEditDocument2Action extends ActionSupport {
         String queueId = request.getParameter("queue");
 
         if (queueId != null && !queueId.equals("-1")) {
-            WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-            QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
-            Integer qid = Integer.parseInt(queueId.trim());
-            Integer did = Integer.parseInt(doc_no.trim());
-            queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-            // Use already-validated integer qid (not raw queueId string)
-            request.getSession().setAttribute("preferredQueue", String.valueOf(qid));
+            try {
+                int qid = Integer.parseInt(queueId.trim());
+                if (qid > 0) {
+                    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                    QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
+                    Integer did = Integer.parseInt(doc_no.trim());
+                    queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
+                    request.getSession().setAttribute("preferredQueue", String.valueOf(qid));
+                }
+            } catch (NumberFormatException ignored) {
+                // invalid queue or doc ID — skip queue linking
+            }
         }
 
         return null;

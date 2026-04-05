@@ -115,7 +115,8 @@ public class ClientSearchAction22Action extends ActionSupport {
             }
         }
         if (noteId == null || noteId.trim().length() == 0) {
-            //don't do anything?
+            request.getSession().removeAttribute("noteId");
+            request.removeAttribute("noteId");
         } else {
             request.getSession().setAttribute("noteId", noteId);
             request.setAttribute("noteId", noteId);

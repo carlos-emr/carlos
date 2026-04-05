@@ -36,6 +36,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.commn.dao.SystemMessageDao;
 import io.github.carlos_emr.carlos.commn.model.SystemMessage;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -70,14 +71,19 @@ public class SystemMessage2Action extends ActionSupport {
         String messageId = request.getParameter("id");
 
         if (messageId != null) {
-            SystemMessage msg = systemMessageDao.find(Integer.parseInt(messageId));
+            int parsedId = ConversionUtils.fromIntString(messageId);
+            if (parsedId <= 0) {
+                addActionMessage(getText("system_message.missing"));
+                return list();
+            }
+            SystemMessage msg = systemMessageDao.find(parsedId);
 
             if (msg == null) {
                 addActionMessage(getText("system_message.missing"));
                 return list();
             }
             // Store the validated integer string (not the raw request parameter)
-            request.getSession().setAttribute("systemMessageId", String.valueOf(Integer.parseInt(messageId)));
+            request.getSession().setAttribute("systemMessageId", String.valueOf(parsedId));
         } else {
             request.getSession().setAttribute("systemMessageId", "");
         }

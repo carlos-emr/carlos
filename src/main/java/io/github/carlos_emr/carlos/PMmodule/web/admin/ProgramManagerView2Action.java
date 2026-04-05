@@ -123,18 +123,21 @@ public class ProgramManagerView2Action extends ActionSupport {
         String programId = request.getParameter("id");
 
         // Validate programId as a positive integer to prevent trust boundary violation
+        if (programId == null) {
+            programId = (String) request.getAttribute("id");
+        }
         int parsedProgramId = ConversionUtils.fromIntString(programId);
-        String validatedProgramId = String.valueOf(parsedProgramId);
-        request.getSession().setAttribute("case_program_id", validatedProgramId);
+        if (parsedProgramId <= 0) {
+            addActionError("Invalid program ID");
+            return "error";
+        }
+        programId = String.valueOf(parsedProgramId);
+        request.getSession().setAttribute("case_program_id", programId);
 
         if (request.getParameter("newVacancy") != null && "true".equals(request.getParameter("newVacancy")))
             request.setAttribute("vacancyOrTemplateId", "");
         else
             request.setAttribute("vacancyOrTemplateId", this.getVacancyOrTemplateId());
-
-        if (programId == null) {
-            programId = (String) request.getAttribute("id");
-        }
 
         String demographicNo = request.getParameter("clientId");
 

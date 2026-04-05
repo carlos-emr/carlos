@@ -261,14 +261,21 @@ public class DxresearchReport2Action extends ActionSupport {
     }
 
     public String editDesc() {
-        String editingCodeType = request.getParameter("editingCodeType");
+        String rawCodeType = request.getParameter("editingCodeType");
         String editingCodeCode = request.getParameter("editingCodeCode");
         String editingCodeDesc = request.getParameter("editingCodeDesc");
 
-        dxQuickListItemsHandler.updatePatientCodeDesc(editingCodeType, editingCodeCode, editingCodeDesc);
+        // Validate editingCodeType against allowlist before DB update
+        String editingCodeType = (rawCodeType != null && VALID_CODE_SYSTEMS.contains(rawCodeType.trim().toLowerCase(java.util.Locale.ROOT)))
+                ? rawCodeType.trim().toLowerCase(java.util.Locale.ROOT) : null;
 
-        // Wrap in quotes and sanitize to a trusted string for session storage
-        String safeDesc = String.format("\"%s\"", editingCodeDesc != null ? editingCodeDesc.replaceAll("[\"\\\\]", "") : "");
+        if (editingCodeType != null && editingCodeCode != null && !editingCodeCode.trim().isEmpty()) {
+            dxQuickListItemsHandler.updatePatientCodeDesc(editingCodeType, editingCodeCode.trim(), editingCodeDesc);
+        }
+
+        // Store sanitized description in session (strip control chars, quotes, backslashes)
+        String safeDesc = (editingCodeDesc != null)
+                ? editingCodeDesc.replaceAll("[\\x00-\\x1F\\x7F\"\\\\]", "") : "";
         request.getSession().setAttribute("editingCodeDesc", safeDesc);
 
         return SUCCESS;
@@ -283,8 +290,8 @@ public class DxresearchReport2Action extends ActionSupport {
         String rawCodeSystem = request.getParameter("codesystem");
         String action = request.getParameter("action");
         // Validate codeSystem against allowlist to prevent trust boundary violation
-        String codeSystem = (rawCodeSystem != null && VALID_CODE_SYSTEMS.contains(rawCodeSystem.toLowerCase()))
-                ? rawCodeSystem.toLowerCase() : null;
+        String codeSystem = (rawCodeSystem != null && VALID_CODE_SYSTEMS.contains(rawCodeSystem.trim().toLowerCase(java.util.Locale.ROOT)))
+                ? rawCodeSystem.trim().toLowerCase(java.util.Locale.ROOT) : null;
         dxCodeSearchBean newAddition = null;
 
         // check the code

@@ -102,7 +102,11 @@
             String rawProgramId = request.getParameter("case_program_id");
             int parsedProgramId = 0;
             try { if (rawProgramId != null) parsedProgramId = Integer.parseInt(rawProgramId.trim()); } catch (NumberFormatException ignored) {}
-            request.getSession().setAttribute("case_program_id", String.valueOf(parsedProgramId));
+            if (parsedProgramId > 0) {
+                request.getSession().setAttribute("case_program_id", String.valueOf(parsedProgramId));
+            } else if (rawProgramId != null) {
+                request.getSession().removeAttribute("case_program_id");
+            }
 
             String selected_site = (String) request.getParameter("site");
             if (selected_site != null) {

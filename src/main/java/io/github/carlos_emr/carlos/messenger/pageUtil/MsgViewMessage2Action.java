@@ -91,12 +91,13 @@ public class MsgViewMessage2Action extends ActionSupport {
 
     /** Valid values for the {@code from} parameter. */
     private static final Set<String> VALID_FROM_VALUES = Set.of(
-            "messenger", "inbox", "sent", "deleted", "demographicmessage", "ticket");
+            "messenger", "inbox", "sent", "deleted", "demographicmessage", "ticket", "encounter");
 
-    /** Valid column names for message list ordering. */
+    /** Valid column names for message list ordering (including negated-sort tokens from navigation.jsp). */
     private static final Set<String> VALID_ORDER_BY_VALUES = Set.of(
             "date", "subject", "from", "to", "type", "asc", "desc",
-            "date asc", "date desc", "subject asc", "subject desc");
+            "date asc", "date desc", "subject asc", "subject desc",
+            "!date", "!subject", "!from", "!to", "!type");
 
     /**
      * Security manager for enforcing read permissions on messaging operations.

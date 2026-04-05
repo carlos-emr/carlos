@@ -129,8 +129,11 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     }
                 }
 
-                // Store validated integer queue ID (not raw request parameter)
-                request.getSession().setAttribute("preferredQueue", String.valueOf(ConversionUtils.fromIntString(queueId)));
+                // Store validated integer queue ID (not raw request parameter); skip if invalid
+                int parsedQueue = ConversionUtils.fromIntString(queueId != null ? queueId.trim() : null);
+                if (parsedQueue > 0) {
+                    request.getSession().setAttribute("preferredQueue", String.valueOf(parsedQueue));
+                }
                 if (docFile != null) {
                     docFile.delete();
                     docFile = null;

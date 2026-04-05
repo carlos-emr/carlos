@@ -70,8 +70,8 @@ public final class dxResearchCodeSearch2Action extends ActionSupport {
         xml_research[4] = request.getParameter("xml_research5");
         String rawCodeType = request.getParameter("codeType");
         // Validate codeType against known values to prevent trust boundary violation
-        String codeType = (rawCodeType != null && VALID_CODE_TYPES.contains(rawCodeType.toLowerCase()))
-                ? rawCodeType.toLowerCase() : "";
+        String codeType = (rawCodeType != null && VALID_CODE_TYPES.contains(rawCodeType.trim().toLowerCase(java.util.Locale.ROOT)))
+                ? rawCodeType.trim().toLowerCase(java.util.Locale.ROOT) : "";
 
         dxCodeSearchBeanHandler hd = new dxCodeSearchBeanHandler(codeType, xml_research);
         HttpSession session = request.getSession();

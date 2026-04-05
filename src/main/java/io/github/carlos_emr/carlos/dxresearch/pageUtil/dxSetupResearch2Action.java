@@ -62,7 +62,11 @@ public final class dxSetupResearch2Action extends ActionSupport {
         }
 
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
-        String demographicNo = String.valueOf(ConversionUtils.fromIntString(request.getParameter("demographicNo")));
+        int parsedDemoNo = ConversionUtils.fromIntString(request.getParameter("demographicNo"));
+        if (parsedDemoNo <= 0) {
+            return ERROR;
+        }
+        String demographicNo = String.valueOf(parsedDemoNo);
         String rawProviderNo = request.getParameter("providerNo");
         String selectedQuickList = request.getParameter("quickList");
         dxResearchBeanHandler hd = new dxResearchBeanHandler(demographicNo);

@@ -877,14 +877,14 @@ public final class Login2Action extends ActionSupport {
      *
      * <p>Session attributes set:
      * <ul>
-     *   <li>userName - String the authenticated username (validated alphanumeric)</li>
+     *   <li>userName - String the authenticated username (validated: printable non-control chars, max 100)</li>
      *   <li>password - String the SHA-encoded password hash</li>
      *   <li>pin - String the 4-digit provider PIN</li>
      *   <li>nextPage - String the validated relative URL, or null if invalid/absent</li>
      * </ul>
      *
      * @param request HttpServletRequest to access the session
-     * @param userName String the username (must match [a-zA-Z0-9]{1,10} pattern)
+     * @param userName String the username (printable non-control characters, max 100 chars)
      * @param password String the plain-text password (will be encoded before storage)
      * @param pin String the 4-digit PIN (must match [0-9]{4} pattern)
      * @param nextPage String the relative URL to redirect to after password reset (validated before storage)

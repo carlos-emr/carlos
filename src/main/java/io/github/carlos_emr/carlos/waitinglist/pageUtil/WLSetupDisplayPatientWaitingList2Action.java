@@ -59,9 +59,16 @@ public final class WLSetupDisplayPatientWaitingList2Action extends ActionSupport
             throw new RuntimeException("missing required sec object (_demographic)");
         }
 
-        String demographicNo = String.valueOf(ConversionUtils.fromIntString(request.getParameter("demographic_no")));
+        int parsedDemoNo = ConversionUtils.fromIntString(request.getParameter("demographic_no"));
+        if (parsedDemoNo <= 0) {
+            return "error";
+        }
+        String demographicNo = String.valueOf(parsedDemoNo);
         DemographicData demoData = new DemographicData();
         Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);
+        if (demo == null) {
+            return "error";
+        }
         String demoInfo = demo.getLastName() + ", " + demo.getFirstName() + " " + demo.getSex() + " " + demo.getAge();
         WLPatientWaitingListBeanHandler hd = new WLPatientWaitingListBeanHandler(demographicNo);
         HttpSession session = request.getSession();

@@ -102,7 +102,9 @@
             String rawDemoNo = request.getParameter("demographicNo");
             int parsedDemoNo = 0;
             try { if (rawDemoNo != null) parsedDemoNo = Integer.parseInt(rawDemoNo.trim()); } catch (NumberFormatException ignored) {}
-            request.getSession().setAttribute("clientId", String.valueOf(parsedDemoNo));
+            if (parsedDemoNo > 0) {
+                request.getSession().setAttribute("clientId", String.valueOf(parsedDemoNo));
+            }
         %>
         <div class="row align-items-center mb-3">
             <div class="col-auto">

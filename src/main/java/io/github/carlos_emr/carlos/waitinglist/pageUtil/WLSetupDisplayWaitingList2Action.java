@@ -115,7 +115,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                 waitingListId = (String) wlForm.get("selectedWL");
             }*/
 
-            if (waitingListId != null) {
+            if (waitingListId != null && !waitingListId.isEmpty()) {
                 try {
                     if (demographicNo != null && !demographicNo.equals("") &&
                             waitingListNote != null && !waitingListNote.equals("") &&
