@@ -692,11 +692,11 @@
      * Alt+4  Exit              — exits the encounter (prompts if unsaved changes)
      * Alt+T  New Tickler       — opens the Add Tickler window for this patient
      * Alt+C  New Consult       — opens a new Consultation Request form for this patient
-     * Alt+P  Open Prescriptions — opens the Prescriptions (Rx) window for this patient
+     * Alt+M  Medications (Rx)   — opens the Prescriptions (Rx) window for this patient
      *
      * Save/sign/exit shortcuts (Alt+1-4) are suppressed when focus is inside an
      * input or select to avoid interfering with normal typing, but still work from
-     * the note textarea. Popup shortcuts (Alt+T/C/P) work from any context.
+     * the note textarea. Popup shortcuts (Alt+T/C/M) work from any context.
      * The Alt modifier was chosen because Ctrl combinations conflict with browser
      * defaults (Ctrl+S = save page, etc).
      *
@@ -761,7 +761,7 @@
                 handled = true;
                 break;
 
-            case 'p': // Alt+P: Open Prescriptions (Rx)
+            case 'm': // Alt+M: Medications (Rx)
                 // String.fromCharCode(38) produces '&' at runtime — a literal '&' in this .js.jsp
                 // file may be misinterpreted by the JSP compiler as an HTML entity start.
                 window.open(ctx + '/oscarRx/choosePatient.do?providerNo=' + providerNo + String.fromCharCode(38) + 'demographicNo=' + demographicNo, '',
@@ -860,7 +860,7 @@
                 '<tr><td><kbd>Alt</kbd>+<kbd>4</kbd></td><td>Exit encounter</td></tr>' +
                 '<tr><td><kbd>Alt</kbd>+<kbd>T</kbd></td><td>New Tickler</td></tr>' +
                 '<tr><td><kbd>Alt</kbd>+<kbd>C</kbd></td><td>New Consult Request</td></tr>' +
-                '<tr><td><kbd>Alt</kbd>+<kbd>P</kbd></td><td>Open Prescriptions (Rx)</td></tr>' +
+                '<tr><td><kbd>Alt</kbd>+<kbd>M</kbd></td><td>Medications (Rx)</td></tr>' +
                 '<tr><td><kbd>Alt</kbd>+<kbd>S</kbd></td><td>Patient Search</td></tr>' +
                 '</tbody>' +
                 '</table>' +
