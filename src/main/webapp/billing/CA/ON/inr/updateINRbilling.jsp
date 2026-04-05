@@ -162,13 +162,13 @@
                             <td width="29%"><font size="1"
                                                   face="Arial, Helvetica, sans-serif">Demographic HIN</font></td>
                             <td width="50%"><input type="text" name="demo_hin"
-                                                   value="<%=demo_hin%> " size="20" readonly></td>
+                                                   value="<%=Encode.forHtmlAttribute(demo_hin)%> " size="20" readonly></td>
                         </tr>
                         <tr>
                             <td width="29%"><font size="1"
                                                   face="Arial, Helvetica, sans-serif">Demographic DOB</font></td>
                             <td width="50%"><input type="text" name="demo_dob"
-                                                   value="<%=demo_dob%> " size="20" readonly></td>
+                                                   value="<%=Encode.forHtmlAttribute(demo_dob)%> " size="20" readonly></td>
                         </tr>
                         <tr>
                             <td width="29%"><font face="Arial, Helvetica, sans-serif"

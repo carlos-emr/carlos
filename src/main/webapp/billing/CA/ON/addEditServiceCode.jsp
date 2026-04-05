@@ -40,6 +40,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
     BillingPercLimitDao billingPercLimitDao = SpringUtils.getBean(BillingPercLimitDao.class);
@@ -459,7 +460,7 @@
 
     <div class="container-fluid card card-body bg-body-tertiary">
 
-        <div class="alert alert-<%=alert%>">
+        <div class="alert alert-<%=Encode.forHtmlAttribute(alert)%>">
             <%=msg%>
         </div>
 
@@ -468,7 +469,7 @@
             <div class="col-md-10">
                 Service Code <small>5 Characters, e.g. A001A</small><br>
                 <div class="input-group">
-                    <input type="text" name="service_code" value="<%=prop.getProperty("service_code", "")%>"
+                    <input type="text" name="service_code" value="<%=Encode.forHtmlAttribute(prop.getProperty("service_code", ""))%>"
                            class="col-md-2" maxlength='5' onblur="upCaseCtrl(this)"/>
                     <button class="btn btn-primary" type="submit" name="submitFrm" value="Search"
                             onclick="javascript:return onSearch();">Search
@@ -487,7 +488,7 @@
                         while (i.hasNext()) {
                             date = i.next();
                     %>
-                    <option value="<%=codes.get(date)%>" <%=prop.getProperty("billingservice_date", "").equalsIgnoreCase(date) ? "selected" : ""%>><%=date%>
+                    <option value="<%=Encode.forHtmlAttribute(String.valueOf(codes.get(date)))%>" <%=prop.getProperty("billingservice_date", "").equalsIgnoreCase(date) ? "selected" : ""%>><%=Encode.forHtml(date)%>
                                 <%}%>
                 </select>
 
@@ -497,7 +498,7 @@
 
             <div class="col-md-10">
                 Description <small>50 Characters</small><br>
-                <textarea name="description" class="form-control"><%=prop.getProperty("description", "")%></textarea>
+                <textarea name="description" class="form-control"><%=Encode.forHtml(prop.getProperty("description", ""))%></textarea>
             </div>
 
             <div class="col-md-10">
@@ -508,7 +509,7 @@
                     <%
                         for (CssStyle cssStyle : styles) {
                     %>
-                    <option value="<%=cssStyle.getId()+","+cssStyle.getStyle()%>" <%=prop.getProperty("displaystyle", "").equals(cssStyle.getId().toString()) ? "selected" : ""%>><%=cssStyle.getName()%>
+                    <option value="<%=Encode.forHtmlAttribute(cssStyle.getId()+","+cssStyle.getStyle())%>" <%=prop.getProperty("displaystyle", "").equals(cssStyle.getId().toString()) ? "selected" : ""%>><%=Encode.forHtml(cssStyle.getName())%>
                     </option>
                     <%
                         }
@@ -521,23 +522,23 @@
 
             <div class="col-md-2">
                 Fee <small> e.g. 18.20</small><br>
-                <input type="text" name="value" value="<%=prop.getProperty("value", "")%>" size='8' maxlength='8'
+                <input type="text" name="value" value="<%=Encode.forHtmlAttribute(prop.getProperty("value", ""))%>" size='8' maxlength='8'
                        pattern="\d+(\.\d{2})?"><br/>
             </div>
 
             <div class="col-md-6">
                 Percentage <small> e.g. 0.20</small><br>
-                <input type="text" name="percentage" value="<%=prop.getProperty("percentage", "")%>" size='8'
+                <input type="text" name="percentage" value="<%=Encode.forHtmlAttribute(prop.getProperty("percentage", ""))%>" size='8'
                        maxlength='8'>
-                min.<input type="text" name="min" value="<%=prop.getProperty("min", "")%>" size='7' maxlength='8'>
-                max.<input type="text" name="max" value="<%=prop.getProperty("max", "")%>" size='7' maxlength='8'>
+                min.<input type="text" name="min" value="<%=Encode.forHtmlAttribute(prop.getProperty("min", ""))%>" size='7' maxlength='8'>
+                max.<input type="text" name="max" value="<%=Encode.forHtmlAttribute(prop.getProperty("max", ""))%>" size='7' maxlength='8'>
             </div>
 
             <div class="col-md-2">
                 <label>Issued Date</label>
                 <div class="input-group">
                     <input type="text" name="billingservice_date" id="billingservice_date"
-                           class="form-control" value="<%=prop.getProperty("billingservice_date", "")%>"
+                           class="form-control" value="<%=Encode.forHtmlAttribute(prop.getProperty("billingservice_date", ""))%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -547,7 +548,7 @@
                 <label>Termination Date</label>
                 <div class="input-group">
                     <input type="text" name="termination_date" id="termination_date"
-                           class="form-control" value="<%=prop.getProperty("termination_date", "9999-12-31")%>"
+                           class="form-control" value="<%=Encode.forHtmlAttribute(prop.getProperty("termination_date", "9999-12-31"))%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -567,14 +568,14 @@
                 <input type="hidden" id="action" name="action" value=''> <input class="btn btn-secondary" type="submit"
                                                                                 name="submitFrm"
                                                                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
-                                                                                onclick="document.getElementById('action').value='<%=action%>';return onSave();">
+                                                                                onclick="document.getElementById('action').value='<%=Encode.forJavaScript(action)%>';return onSave();">
 
                 <%
                     if (!action2.equals("")) {
                 %>
                 <input class="btn btn-secondary" type="submit" name="submitFrm"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnAdd"/>"
-                       onclick="document.getElementById('action').value='<%=action2%>';return onSave();">
+                       onclick="document.getElementById('action').value='<%=Encode.forJavaScript(action2)%>';return onSave();">
                 <%}%>
             </div>
 
