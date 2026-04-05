@@ -45,16 +45,19 @@
 
     String codeName = request.getParameter("name");
 
-    // Extract the target element name from a full JS path like
+    // Extract form index + element name from a full JS path like
     // "document.forms[0].elements['fieldname'].value" (format used by billingON.jsp callers)
+    // Allows dots in element names (e.g. "pref.default_dx_code" from UserPreferences.jsp)
     String name2 = request.getParameter("name2");
+    String targetFormIdx = null;
     String targetElement = null;
     if (name2 != null) {
         java.util.regex.Matcher m2 = java.util.regex.Pattern
-            .compile("^document\\.forms\\[0\\]\\.elements\\['([a-zA-Z0-9_]+)'\\]\\.value$")
+            .compile("^document\\.forms\\[(\\d+)\\]\\.elements\\['([a-zA-Z0-9_.]+)'\\]\\.value$")
             .matcher(name2);
         if (m2.matches()) {
-            targetElement = m2.group(1);
+            targetFormIdx = m2.group(1);
+            targetElement = m2.group(2);
         }
     }
 %>
@@ -71,7 +74,7 @@
                 if (self.opener.callChangeCodeDesc) self.opener.callChangeCodeDesc();
 
                 <%if(targetElement != null) {%>
-                self.opener.document.forms[0].elements["<%= Encode.forJavaScript(StringUtils.noNull(targetElement)) %>"].value = File2.substring(0, 3);
+                self.opener.document.forms[<%= targetFormIdx %>].elements["<%= Encode.forJavaScript(StringUtils.noNull(targetElement)) %>"].value = File2.substring(0, 3);
                 <%} else {%>
                 self.opener.document.forms[1].xml_diagnostic_detail.value = File2;
                 <%}%>

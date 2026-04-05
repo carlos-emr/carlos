@@ -54,41 +54,48 @@
     String tofax = request.getParameter("tofax") == null ? "" : request.getParameter("tofax");
     String keyword = request.getParameter("keyword");
 
-    // Safely extract element names from full JS path expressions like
-    // "document.forms[0].elements['fieldname'].value" passed by callers (e.g. billingON.jsp)
+    // Safely extract form index + element name from full JS path expressions like
+    // "document.forms[0].elements['fieldname'].value" or "document.forms[1].elements['fieldname'].value"
+    // passed by callers (e.g. billingON.jsp uses forms[0], billingONCorrection.jsp uses forms[1])
     java.util.regex.Pattern pathPattern = java.util.regex.Pattern.compile(
-        "^document\\.forms\\[0\\]\\.elements\\['([a-zA-Z0-9_]+)'\\]\\.value$");
+        "^document\\.forms\\[(\\d+)\\]\\.elements\\['([a-zA-Z0-9_]+)'\\]\\.value$");
     java.util.regex.Matcher pathMatcher;
 
+    String paramFormIdx = null;
     String paramField = null;
     if (!param.isEmpty()) {
         pathMatcher = pathPattern.matcher(param);
-        if (pathMatcher.matches()) paramField = pathMatcher.group(1);
+        if (pathMatcher.matches()) { paramFormIdx = pathMatcher.group(1); paramField = pathMatcher.group(2); }
     }
+    String param2FormIdx = null;
     String param2Field = null;
     if (!param2.isEmpty()) {
         pathMatcher = pathPattern.matcher(param2);
-        if (pathMatcher.matches()) param2Field = pathMatcher.group(1);
+        if (pathMatcher.matches()) { param2FormIdx = pathMatcher.group(1); param2Field = pathMatcher.group(2); }
     }
+    String tonameFormIdx = null;
     String tonameField = null;
     if (!toname.isEmpty()) {
         pathMatcher = pathPattern.matcher(toname);
-        if (pathMatcher.matches()) tonameField = pathMatcher.group(1);
+        if (pathMatcher.matches()) { tonameFormIdx = pathMatcher.group(1); tonameField = pathMatcher.group(2); }
     }
+    String toaddress1FormIdx = null;
     String toaddress1Field = null;
     if (!toaddress1.isEmpty()) {
         pathMatcher = pathPattern.matcher(toaddress1);
-        if (pathMatcher.matches()) toaddress1Field = pathMatcher.group(1);
+        if (pathMatcher.matches()) { toaddress1FormIdx = pathMatcher.group(1); toaddress1Field = pathMatcher.group(2); }
     }
+    String tophoneFormIdx = null;
     String tophoneField = null;
     if (!tophone.isEmpty()) {
         pathMatcher = pathPattern.matcher(tophone);
-        if (pathMatcher.matches()) tophoneField = pathMatcher.group(1);
+        if (pathMatcher.matches()) { tophoneFormIdx = pathMatcher.group(1); tophoneField = pathMatcher.group(2); }
     }
+    String tofaxFormIdx = null;
     String tofaxField = null;
     if (!tofax.isEmpty()) {
         pathMatcher = pathPattern.matcher(tofax);
-        if (pathMatcher.matches()) tofaxField = pathMatcher.group(1);
+        if (pathMatcher.matches()) { tofaxFormIdx = pathMatcher.group(1); tofaxField = pathMatcher.group(2); }
     }
     List<ProfessionalSpecialist> professionalSpecialists = null;
 
@@ -163,14 +170,14 @@
 
             function typeInData1(data) {
                 self.close();
-                opener.document.forms[0].elements["<%= Encode.forJavaScript(paramField) %>"].value = data;
+                opener.document.forms[<%= paramFormIdx %>].elements["<%= Encode.forJavaScript(paramField) %>"].value = data;
             }
 
             <%if(param2Field != null) {%>
 
             function typeInData2(data1, data2) {
-                opener.document.forms[0].elements["<%= Encode.forJavaScript(paramField) %>"].value = data1;
-                opener.document.forms[0].elements["<%= Encode.forJavaScript(param2Field) %>"].value = data2;
+                opener.document.forms[<%= paramFormIdx %>].elements["<%= Encode.forJavaScript(paramField) %>"].value = data1;
+                opener.document.forms[<%= param2FormIdx %>].elements["<%= Encode.forJavaScript(param2Field) %>"].value = data2;
                 self.close();
             }
 
@@ -179,19 +186,19 @@
             function typeInData3(billno, toname, toaddress, tophone, tofax) {
                 self.close();
                 <%if(paramField != null) {%>
-                opener.document.forms[0].elements["<%= Encode.forJavaScript(paramField) %>"].value = billno;
+                opener.document.forms[<%= paramFormIdx %>].elements["<%= Encode.forJavaScript(paramField) %>"].value = billno;
                 <%}
                   if(tonameField != null) {%>
-                opener.document.forms[0].elements["<%= Encode.forJavaScript(tonameField) %>"].value = toname;
+                opener.document.forms[<%= tonameFormIdx %>].elements["<%= Encode.forJavaScript(tonameField) %>"].value = toname;
                 <%}
                   if(toaddress1Field != null) {%>
-                opener.document.forms[0].elements["<%= Encode.forJavaScript(toaddress1Field) %>"].value = toaddress;
+                opener.document.forms[<%= toaddress1FormIdx %>].elements["<%= Encode.forJavaScript(toaddress1Field) %>"].value = toaddress;
                 <%}
                   if(tophoneField != null) {%>
-                opener.document.forms[0].elements["<%= Encode.forJavaScript(tophoneField) %>"].value = tophone;
+                opener.document.forms[<%= tophoneFormIdx %>].elements["<%= Encode.forJavaScript(tophoneField) %>"].value = tophone;
                 <%}
                   if(tofaxField != null) {%>
-                opener.document.forms[0].elements["<%= Encode.forJavaScript(tofaxField) %>"].value = tofax;
+                opener.document.forms[<%= tofaxFormIdx %>].elements["<%= Encode.forJavaScript(tofaxField) %>"].value = tofax;
                 <%}%>
             }
         </script>
@@ -229,11 +236,10 @@
                     prop = (Properties) alist.get(i);
                     String bgColor = i % 2 == 0 ? "#f9f9f9" : "#ffffff";
                     String strOnClick;
-                    if (param2.length() <= 0) {
-                        strOnClick = "typeInData3('" + Encode.forJavaScript(prop.getProperty("referral_no", "")) + "', '" + Encode.forJavaScript(prop.getProperty("to_name", "")) + "', '" + Encode.forJavaScript(prop.getProperty("to_address", "")) + "', '" + Encode.forJavaScript(prop.getProperty("phone", "")) + "', '" + Encode.forJavaScript(prop.getProperty("to_fax", "")) + "')";
+                    if (param2Field != null) {
+                        strOnClick = "typeInData2('" + Encode.forJavaScript(prop.getProperty("referral_no", "")) + "','" + Encode.forJavaScript(prop.getProperty("last_name", "") + "," + prop.getProperty("first_name", "")) + "')";
                     } else {
-                        strOnClick = param2.length() > 0 ? "typeInData2('" + Encode.forJavaScript(prop.getProperty("referral_no", "")) + "','" + Encode.forJavaScript(prop.getProperty("last_name", "") + "," + prop.getProperty("first_name", "")) + "')"
-                                : "typeInData1('" + prop.getProperty("referral_no", "") + "')";
+                        strOnClick = "typeInData3('" + Encode.forJavaScript(prop.getProperty("referral_no", "")) + "', '" + Encode.forJavaScript(prop.getProperty("to_name", "")) + "', '" + Encode.forJavaScript(prop.getProperty("to_address", "")) + "', '" + Encode.forJavaScript(prop.getProperty("phone", "")) + "', '" + Encode.forJavaScript(prop.getProperty("to_fax", "")) + "')";
                     }
             %>
             <tr style="background-color:<%=bgColor%>"

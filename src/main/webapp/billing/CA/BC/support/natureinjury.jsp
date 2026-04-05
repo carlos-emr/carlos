@@ -88,7 +88,7 @@
     <tr <%=((color) ? "bgcolor=\"#F6F6F6\"" : "")%> align="left"
     valign="top">
     <td class="SmallerText"><a href=#
-    onClick="posttoText('<%= Encode.forJavaScript(StringUtils.noNull(c.getCode())) %>');"><%= Encode.forHtml(StringUtils.noNull(c.getCode())) %></a>
+    onClick="posttoText('<%= Encode.forJavaScriptAttribute(StringUtils.noNull(c.getCode())) %>');"><%= Encode.forHtml(StringUtils.noNull(c.getCode())) %></a>
     </td>
     <td class="SmallerText"><%= Encode.forHtml(StringUtils.noNull(c.getLevel1())) %></td>
     <td class="SmallerText"><%= Encode.forHtml(StringUtils.noNull(c.getLevel2())) %></td>
