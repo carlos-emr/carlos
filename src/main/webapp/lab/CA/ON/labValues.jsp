@@ -184,17 +184,17 @@
 
                                                                 </td>
                                                                 <td>
-                                                                    <div class="" nowrap><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><%=demographic.getSex()%>
+                                                                    <div class="" nowrap><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><%=Encode.forHtml(demographic.getSex())%>
                                                                     </div>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td>
-                                                                    <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong> <%=DemographicData.getDob(demographic, "-")%>
+                                                                    <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong> <%=Encode.forHtml(DemographicData.getDob(demographic, "-"))%>
                                                                     </div>
                                                                 </td>
                                                                 <td>
-                                                                    <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><%=demographic.getAge()%>
+                                                                    <div class="FieldData"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><%=Encode.forHtml(String.valueOf(demographic.getAge()))%>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -247,17 +247,17 @@
                         %>
 
                         <tr class="<%=lineClass%>">
-                            <td><%=h.get("testName") %>
+                            <td><%=Encode.forHtml(String.valueOf(h.get("testName"))) %>
                             </td>
-                            <td><%=h.get("result") %>
+                            <td><%=Encode.forHtml(String.valueOf(h.get("result"))) %>
                             </td>
-                            <td><%=h.get("abn") %>
+                            <td><%=Encode.forHtml(String.valueOf(h.get("abn"))) %>
                             </td>
-                            <td><%=h.get("range")%>
+                            <td><%=Encode.forHtml(String.valueOf(h.get("range")))%>
                             </td>
-                            <td><%=h.get("units") %>
+                            <td><%=Encode.forHtml(String.valueOf(h.get("units"))) %>
                             </td>
-                            <td><%=h.get("collDate")%>
+                            <td><%=Encode.forHtml(String.valueOf(h.get("collDate")))%>
                             </td>
                         </tr>
 
