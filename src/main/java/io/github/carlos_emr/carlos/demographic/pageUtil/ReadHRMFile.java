@@ -36,6 +36,7 @@
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
@@ -43,6 +44,7 @@ import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Unmarshaller;
 import javax.xml.datatype.XMLGregorianCalendar;
+import javax.xml.transform.sax.SAXSource;
 
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.DateFullOrPartial;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.OmdCds;
@@ -56,6 +58,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportsReceived;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportsReceived.OBRContent;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.TransactionInformation;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 
 /**
@@ -82,14 +85,17 @@ public class ReadHRMFile {
             }
             JAXBContext jc = JAXBContext.newInstance("io.github.carlos_emr.carlos.hospitalReportManager.xsd");
             Unmarshaller u = jc.createUnmarshaller();
-            OmdCds root = (OmdCds) u.unmarshal(hrm);
-
-            PatientRecord pr = root.getPatientRecord();
-            reportsReceived = pr.getReportsReceived();
-            transactionInformation = pr.getTransactionInformation();
-
+            try (FileInputStream fis = new FileInputStream(hrm)) {
+                SAXSource source = XmlUtils.createSecureJaxbSource(fis);
+                OmdCds root = (OmdCds) u.unmarshal(source);
+                PatientRecord pr = root.getPatientRecord();
+                reportsReceived = pr.getReportsReceived();
+                transactionInformation = pr.getTransactionInformation();
+            }
         } catch (JAXBException ex) {
-            MiscUtils.getLogger();
+            MiscUtils.getLogger().error("Failed to parse HRM file", ex);
+        } catch (Exception ex) {
+            MiscUtils.getLogger().error("Error reading HRM file", ex);
         }
     }
 

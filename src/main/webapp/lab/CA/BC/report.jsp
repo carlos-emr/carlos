@@ -131,7 +131,7 @@
                     size="4">oscar<font size="3">PathNET - View Lab Report</font></font></b></font>
             </td>
             <td align="right" class="Text"
-                nowrap><%=(signed ? (provider.getLastName() != null ? "<b>Signed Off By: </b>" + provider.getFormattedName() : "<b>Signed Off By Provider No.:</b> " + provider.getProviderNo()) + " on " + hl7_link.getSignedOn() : "")%>
+                nowrap><%=(signed ? (provider.getLastName() != null ? "<b>Signed Off By: </b>" + Encode.forHtml(provider.getFormattedName()) : "<b>Signed Off By Provider No.:</b> " + Encode.forHtml(provider.getProviderNo())) + " on " + Encode.forHtml(String.valueOf(hl7_link.getSignedOn())) : "")%>
                 <input type="checkbox" name="cmd_sign" onclick="Sign(this);"
                        value="<%=Encode.forHtmlAttribute(pid)%>" <%=(signed ? "checked disabled" : "")%> /><input
                         type="hidden" name="pid" value="<%=Encode.forHtmlAttribute(pid)%>"/>Sign
@@ -155,15 +155,15 @@
         </tr>
         <tr>
             <td class="Text" width="100px">Patient:</td>
-            <td class="Text"><%=hl7pid.getPatientName()%>
+            <td class="Text"><%=Encode.forHtml(hl7pid.getPatientName())%>
             </td>
             <td class="Text" align="right">DOB:</td>
-            <td class="Text" width="100px"><%= ConversionUtils.toDateString(hl7pid.getDateOfBirth())%>
+            <td class="Text" width="100px"><%= Encode.forHtml(ConversionUtils.toDateString(hl7pid.getDateOfBirth()))%>
             </td>
         </tr>
         <tr>
             <td class="Text">PHN:</td>
-            <td class="Text"><%=hl7pid.getExternalId()%>
+            <td class="Text"><%=Encode.forHtml(hl7pid.getExternalId())%>
             </td>
             <td class="Text" align="right">Age:</td>
             <td class="Text"><%=age%>
@@ -173,17 +173,17 @@
             <td class="Text"></td>
             <td class="Text"></td>
             <td class="Text" align="right">Sex:</td>
-            <td class="Text"><%=hl7pid.getSex()%>
+            <td class="Text"><%=Encode.forHtml(hl7pid.getSex())%>
             </td>
         </tr>
         <tr>
             <td class="Text">Address:</td>
-            <td class="Text" colspan="3"><%=hl7pid.getPatientAddress().replaceAll("\\\\\\.br\\\\", " ")%>
+            <td class="Text" colspan="3"><%=Encode.forHtml(hl7pid.getPatientAddress()).replaceAll("\\\\\\.br\\\\", " ")%>
             </td>
         </tr>
         <tr>
             <td class="Text">Phone:</td>
-            <td class="Text"><%=hl7pid.getHomeNumber()%>
+            <td class="Text"><%=Encode.forHtml(hl7pid.getHomeNumber())%>
             </td>
             <td class="Text"></td>
             <td class="Text"></td>
@@ -200,23 +200,23 @@
         <tr>
             <td class="Text">Lab:</td>
             <td class="Text"
-                colspan="3"><%=hl7obr.getFillerOrderNumber().substring(0, hl7obr.getFillerOrderNumber().indexOf("-", 3))%>
+                colspan="3"><%=Encode.forHtml(hl7obr.getFillerOrderNumber().substring(0, hl7obr.getFillerOrderNumber().indexOf("-", 3)))%>
             </td>
         </tr>
         <tr>
             <td class="Text">Ordered By:</td>
-            <td class="Text"><%=hl7obr.getOrderingProvider().replaceAll("~", ",<br/>")%>
+            <td class="Text"><%=Encode.forHtml(hl7obr.getOrderingProvider()).replaceAll("~", ",<br/>")%>
             </td>
             <td class="Text">Requested On:</td>
-            <td class="Text"><%=hl7obr.getRequestedDateTime()%>
+            <td class="Text"><%=Encode.forHtml(hl7obr.getRequestedDateTime())%>
             </td>
         </tr>
         <tr>
             <td class="Text">Copies To:</td>
-            <td class="Text"><%=hl7obr.getResultCopiesTo().replaceAll("~", ",<br/>")%>
+            <td class="Text"><%=Encode.forHtml(hl7obr.getResultCopiesTo()).replaceAll("~", ",<br/>")%>
             </td>
             <td class="Text">Observed On:</td>
-            <td class="Text"><%=hl7obr.getOberservationDateTime()%>
+            <td class="Text"><%=Encode.forHtml(hl7obr.getOberservationDateTime())%>
             </td>
         </tr>
         <%
@@ -241,7 +241,7 @@
         </tr>
         <tr>
             <td class="Section"
-                colspan="7"><%=((hl7_obr.getDiagnosticServiceSectId() != null) ? hl7_obr.getDiagnosticServiceSectId() : "Other")%>
+                colspan="7"><%=((hl7_obr.getDiagnosticServiceSectId() != null) ? Encode.forHtml(hl7_obr.getDiagnosticServiceSectId()) : "Other")%>
             </td>
         </tr>
         <%
@@ -252,9 +252,9 @@
         </tr>
         <tr>
             <td class="Text" colspan="3"><b>Service
-                Id:</b><%=hl7_obr.getUniversalServiceId().substring(hl7_obr.getUniversalServiceId().indexOf(" "))%>
+                Id:</b><%=Encode.forHtml(hl7_obr.getUniversalServiceId().substring(hl7_obr.getUniversalServiceId().indexOf(" ")))%>
             </td>
-            <td class="Text" nowrap><b>Last Modified:</b><%= hl7_obr.getResultsReportStatusChange()%>
+            <td class="Text" nowrap><b>Last Modified:</b><%= Encode.forHtml(hl7_obr.getResultsReportStatusChange())%>
             </td>
             <td class="Text" nowrap colspan="3"><b>Result
                 Status:</b><%=(hl7_obr.getResultStatus().equalsIgnoreCase("f") ? "Final" : "Pending")%>
@@ -262,7 +262,7 @@
         </tr>
         <tr>
             <td class="Text" valign="top">Note:</td>
-            <td class="Text" colspan="6"><%=hl7_obx.getNote().replaceAll("\\\\\\.br\\\\", " ")%>&nbsp;</td>
+            <td class="Text" colspan="6"><%=Encode.forHtml(hl7_obx.getNote()).replaceAll("\\\\\\.br\\\\", " ")%>&nbsp;</td>
         </tr>
         <%
             }
@@ -286,21 +286,21 @@
         <tr>
             <td>&nbsp;</td>
             <td class="Text" nowrap
-                class="<%=(other? "LightBG" : "WhiteBG")%>"><%=hl7_obx.getObservationIdentifier().substring(hl7_obx.getObservationIdentifier().indexOf(" "))%>
+                class="<%=(other? "LightBG" : "WhiteBG")%>"><%=Encode.forHtml(hl7_obx.getObservationIdentifier().substring(hl7_obx.getObservationIdentifier().indexOf(" ")))%>
             </td>
             <td class="Text" nowrap class="<%=(other? "LightBG" : "WhiteBG")%>">
-                <b><%=((hl7_obx.getAbnormalFlags().toUpperCase().equals("N")) ? "&nbsp;" : Misc.check(hl7_obx.getAbnormalFlags(), "", "&nbsp;"))%>
+                <b><%=((hl7_obx.getAbnormalFlags().toUpperCase().equals("N")) ? "&nbsp;" : Encode.forHtml(Misc.check(hl7_obx.getAbnormalFlags(), "", "&nbsp;")))%>
                 </b></td>
             <td class="Text"
-                class="<%=(other? "LightBG" : "WhiteBG")%>"><%=((hl7_obx.getAbnormalFlags().toUpperCase().equals("N")) ? hl7_obx.getObservationResults() : "<b>" + hl7_obx.getObservationResults() + "</b>").replaceAll("\\\\\\.br\\\\", " ")%>
+                class="<%=(other? "LightBG" : "WhiteBG")%>"><%=((hl7_obx.getAbnormalFlags().toUpperCase().equals("N")) ? Encode.forHtml(hl7_obx.getObservationResults()) : "<b>" + Encode.forHtml(hl7_obx.getObservationResults()) + "</b>").replaceAll("\\\\\\.br\\\\", " ")%>
             </td>
-            <td class="Text" nowrap class="<%=(other? "LightBG" : "WhiteBG")%>"><%=hl7_obx.getReferenceRange()%>
+            <td class="Text" nowrap class="<%=(other? "LightBG" : "WhiteBG")%>"><%=Encode.forHtml(hl7_obx.getReferenceRange())%>
             </td>
-            <td class="Text" nowrap class="<%=(other? "LightBG" : "WhiteBG")%>"><%=hl7_obx.getUnits()%>
+            <td class="Text" nowrap class="<%=(other? "LightBG" : "WhiteBG")%>"><%=Encode.forHtml(hl7_obx.getUnits())%>
             </td>
             <td class="Text" nowrap
-                title="<%=hl7_obx.getNote().replaceAll("\\\\\\.br\\\\", " ")%>"
-                class="<%=(other? "LightBG" : "WhiteBG")%>"><%=((hl7_obx.getNote().length() < 20) ? hl7_obx.getNote() : hl7_obx.getNote().substring(0, 20)).replaceAll("\\\\\\.br\\\\", " ")%>
+                title="<%=Encode.forHtmlAttribute(hl7_obx.getNote().replaceAll("\\\\\\.br\\\\", " "))%>"
+                class="<%=(other? "LightBG" : "WhiteBG")%>"><%=Encode.forHtml(((hl7_obx.getNote().length() < 20) ? hl7_obx.getNote() : hl7_obx.getNote().substring(0, 20)).replaceAll("\\\\\\.br\\\\", " "))%>
             </td>
         </tr>
         <%
@@ -317,7 +317,7 @@
         </tr>
         <tr>
             <td colspan="7"><textarea name="notes" rows="7"
-                                      style="width: 100%;"><%=Misc.check(hl7_message.getNotes(), "")%></textarea>
+                                      style="width: 100%;"><%=Encode.forHtml(Misc.check(hl7_message.getNotes(), ""))%></textarea>
             </td>
         </tr>
         <tr class="LightBG">

@@ -15,6 +15,7 @@
 --%>
 
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -130,12 +131,12 @@
                     <table>
                         <tr>
                             <td align="left" valign="top">
-                                <input type="hidden" name="providerNo" value="<%= providerNo %>"/>
-                                <input type="hidden" name="searchProviderNo" value="<%= searchProviderNo %>"/>
-                                <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + request.getParameter("lname") + "\">") %>
-                                <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + request.getParameter("fname") + "\">") %>
-                                <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + request.getParameter("hnum") + "\">") %>
-                                <input type="hidden" name="status" value="<%= ackStatus %>"/>
+                                <input type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo) %>"/>
+                                <input type="hidden" name="searchProviderNo" value="<%= Encode.forHtmlAttribute(searchProviderNo) %>"/>
+                                <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>
+                                <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
+                                <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + Encode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
+                                <input type="hidden" name="status" value="<%= Encode.forHtmlAttribute(ackStatus) %>"/>
                                 <input type="hidden" name="selectedProviders"/>
                                 <input type="hidden" name="favorites" value=""/>
                                 <input type="hidden" name="isListView" value=""/>

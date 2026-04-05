@@ -274,7 +274,7 @@
             <div class="mb-3">
                 <div>
                     <input
-                            type="hidden" name="action" value='<%=action%>'/> <% if (!"search".equals(action)) {%>
+                            type="hidden" name="action" value='<%=Encode.forHtmlAttribute(action)%>'/> <% if (!"search".equals(action)) {%>
                     <input type="submit" name="submit" class="btn btn-primary"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
                            onclick="javascript:return onSave();"> <% }%>

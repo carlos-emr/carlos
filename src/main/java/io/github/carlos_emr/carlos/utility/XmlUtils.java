@@ -39,9 +39,13 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParserFactory;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.sax.SAXSource;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.Logger;
@@ -55,7 +59,9 @@ import org.w3c.dom.bootstrap.DOMImplementationRegistry;
 import org.w3c.dom.ls.DOMImplementationLS;
 import org.w3c.dom.ls.LSOutput;
 import org.w3c.dom.ls.LSSerializer;
+import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
+import org.xml.sax.XMLReader;
 
 /**
  * Static utility methods for XML parsing, serialization, and DOM manipulation.
@@ -104,6 +110,67 @@ public final class XmlUtils {
             logger.warn("Could not configure optional SAXBuilder security features", ex);
         }
         return parser;
+    }
+
+    /**
+     * Creates a {@link DocumentBuilderFactory} with XXE protections enabled.
+     *
+     * <p>Disables DOCTYPE declarations and external entity resolution. Use this factory
+     * method instead of {@code DocumentBuilderFactory.newInstance()} throughout the codebase.
+     *
+     * @return DocumentBuilderFactory configured with XXE protections
+     * @throws ParserConfigurationException if the critical disallow-doctype-decl feature cannot be set
+     */
+    public static DocumentBuilderFactory createSecureDocumentBuilderFactory() throws ParserConfigurationException {
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        dbf.setXIncludeAware(false);
+        dbf.setExpandEntityReferences(false);
+        return dbf;
+    }
+
+    /**
+     * Creates a {@link TransformerFactory} with external access disabled.
+     *
+     * <p>Sets {@code ACCESS_EXTERNAL_DTD} and {@code ACCESS_EXTERNAL_STYLESHEET} to empty strings
+     * so that no external DTD or stylesheet resources can be loaded during transformation.
+     *
+     * @return TransformerFactory configured with external-access restrictions
+     */
+    public static TransformerFactory createSecureTransformerFactory() {
+        TransformerFactory tf = TransformerFactory.newInstance();
+        try {
+            tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+            tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
+        } catch (IllegalArgumentException ex) {
+            logger.warn("Could not set TransformerFactory security attributes", ex);
+        }
+        return tf;
+    }
+
+    /**
+     * Creates a secure {@link SAXSource} suitable for passing to a JAXB {@code Unmarshaller}.
+     *
+     * <p>Wraps the given {@link InputStream} in a SAX reader that has DOCTYPE declarations
+     * disabled, preventing XXE attacks when unmarshalling XML via JAXB.
+     *
+     * @param inputStream the XML input to parse
+     * @return SAXSource backed by a secured XMLReader
+     * @throws ParserConfigurationException if the parser cannot be created with the required security features
+     * @throws SAXException if the XMLReader cannot be obtained
+     */
+    public static SAXSource createSecureJaxbSource(InputStream inputStream) throws ParserConfigurationException, SAXException {
+        SAXParserFactory spf = SAXParserFactory.newInstance();
+        spf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        spf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        spf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        spf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        spf.setNamespaceAware(true);
+        XMLReader xr = spf.newSAXParser().getXMLReader();
+        return new SAXSource(xr, new InputSource(inputStream));
     }
 
     public static void setLsSeriliserToFormatted(LSSerializer lsSerializer) {
@@ -162,14 +229,14 @@ public final class XmlUtils {
     }
 
     public static Document toDocument(InputStream is) throws ParserConfigurationException, SAXException, IOException {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilderFactory factory = createSecureDocumentBuilderFactory();
         DocumentBuilder builder = factory.newDocumentBuilder();
         Document document = builder.parse(is);
         return document;
     }
 
     public static Document newDocument(String rootName) throws ParserConfigurationException {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilderFactory factory = createSecureDocumentBuilderFactory();
         DocumentBuilder builder = factory.newDocumentBuilder();
         Document doc = builder.newDocument();
         doc.appendChild(doc.createElement(rootName));
