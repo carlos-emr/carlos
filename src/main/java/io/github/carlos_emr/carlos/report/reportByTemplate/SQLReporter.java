@@ -56,9 +56,12 @@ public class SQLReporter implements Reporter {
     }
 
     public boolean generateReport(HttpServletRequest request) {
-        // Validate templateId as an integer to break the HTTP-parameter taint chain
-        String templateId = String.valueOf(
-                io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(request.getParameter("templateId")));
+        // Validate templateId as a positive integer to break the HTTP-parameter taint chain
+        int parsedTemplateId = io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(request.getParameter("templateId"));
+        if (parsedTemplateId <= 0) {
+            return false;
+        }
+        String templateId = String.valueOf(parsedTemplateId);
         ReportObject curReport = (new ReportManager()).getReportTemplateNoParam(templateId);
         Map parameterMap = request.getParameterMap();
 
@@ -101,9 +104,12 @@ public class SQLReporter implements Reporter {
     }
 
     public boolean generateSequencedReport(HttpServletRequest request) {
-        // Validate templateId as an integer to break the HTTP-parameter taint chain
-        String templateId = String.valueOf(
-                io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(request.getParameter("templateId")));
+        // Validate templateId as a positive integer to break the HTTP-parameter taint chain
+        int parsedTemplateId = io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(request.getParameter("templateId"));
+        if (parsedTemplateId <= 0) {
+            return false;
+        }
+        String templateId = String.valueOf(parsedTemplateId);
         ReportObject curReport = (new ReportManager()).getReportTemplateNoParam(templateId);
         Map parameterMap = request.getParameterMap();
 

@@ -895,12 +895,13 @@ public final class Login2Action extends ActionSupport {
      */
     private void setUserInfoToSession(HttpServletRequest request, String userName, String password, String pin,
                                       String nextPage) throws Exception {
-        // Encode userName and pin to break the HTTP-parameter taint chain before session storage.
-        // Both values are validated by regex earlier in the auth flow (alphanumeric / 4-digit),
-        // so Encode.forHtml is a no-op semantically but is recognised as a sanitiser by CodeQL.
-        request.getSession().setAttribute("userName", Encode.forHtml(userName));
+        // userName is validated by regex earlier in the auth flow (alphanumeric chars only),
+        // and pin is validated as a 4-digit number. Store the already-validated values directly.
+        // Using Encode.forHtml here would be fragile — if regex validation were ever relaxed,
+        // encoded values in session would break downstream comparisons.
+        request.getSession().setAttribute("userName", userName);
         request.getSession().setAttribute("password", encodePassword(password));
-        request.getSession().setAttribute("pin", Encode.forHtml(pin));
+        request.getSession().setAttribute("pin", pin);
         // Validate nextPage before session storage to prevent open redirect via session (CWE-601 defense in depth)
         if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
             if (nextPage != null) {

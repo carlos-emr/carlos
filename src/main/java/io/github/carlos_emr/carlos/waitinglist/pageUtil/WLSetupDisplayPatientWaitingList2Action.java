@@ -60,7 +60,11 @@ public final class WLSetupDisplayPatientWaitingList2Action extends ActionSupport
         }
 
         // Validate demographicNo as a positive integer to break taint chain before session storage
-        Integer parsedDemoNo = ConversionUtils.fromIntString(request.getParameter("demographic_no"));
+        int parsedDemoNo = ConversionUtils.fromIntString(request.getParameter("demographic_no"));
+        if (parsedDemoNo <= 0) {
+            addActionError("Invalid patient identifier.");
+            return ERROR;
+        }
         String demographicNo = String.valueOf(parsedDemoNo);
         DemographicData demoData = new DemographicData();
         Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);

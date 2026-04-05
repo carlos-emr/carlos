@@ -48,7 +48,7 @@ import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import org.owasp.encoder.Encode;
+
 
 public final class EctSetupMeasurements2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -67,8 +67,10 @@ public final class EctSetupMeasurements2Action extends ActionSupport {
         HttpSession session = request.getSession();
         //EctMeasurementsForm frm = (EctMeasurementsForm) form;
 
-        // Encode groupName to break taint chain before using it in bean construction and session storage
-        String groupName = Encode.forHtml(request.getParameter("groupName"));
+        // Validate groupName — do NOT HTML-encode here as it's used in DB lookups
+        // (EctValidation.getCssPath, MeasurementGroupStyleDao.findByGroupName).
+        // Encode at render time only.
+        String groupName = request.getParameter("groupName");
         EctValidation ectValidation = new EctValidation();
         String css = ectValidation.getCssPath(groupName);
         java.util.Calendar calender = java.util.Calendar.getInstance();

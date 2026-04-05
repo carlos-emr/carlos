@@ -42,8 +42,6 @@ import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBeanHandler;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import org.owasp.encoder.Encode;
-
 public final class dxResearchCodeSearch2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -58,13 +56,14 @@ public final class dxResearchCodeSearch2Action extends ActionSupport {
         }
 
         String[] xml_research = new String[5];
-        // Encode each search-term value to break the taint chain before session storage
-        xml_research[0] = Encode.forHtml(request.getParameter("xml_research1"));
-        xml_research[1] = Encode.forHtml(request.getParameter("xml_research2"));
-        xml_research[2] = Encode.forHtml(request.getParameter("xml_research3"));
-        xml_research[3] = Encode.forHtml(request.getParameter("xml_research4"));
-        xml_research[4] = Encode.forHtml(request.getParameter("xml_research5"));
-        String codeType = Encode.forHtml(request.getParameter("codeType"));
+        // Do NOT HTML-encode search terms — they're used in DB queries via dxCodeSearchBeanHandler.
+        // Encoding would break search matching (e.g., "&" becomes "&amp;"). Encode at render time only.
+        xml_research[0] = request.getParameter("xml_research1");
+        xml_research[1] = request.getParameter("xml_research2");
+        xml_research[2] = request.getParameter("xml_research3");
+        xml_research[3] = request.getParameter("xml_research4");
+        xml_research[4] = request.getParameter("xml_research5");
+        String codeType = request.getParameter("codeType");
 
         dxCodeSearchBeanHandler hd = new dxCodeSearchBeanHandler(codeType, xml_research);
         HttpSession session = request.getSession();

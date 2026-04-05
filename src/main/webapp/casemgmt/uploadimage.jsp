@@ -98,15 +98,19 @@
           method="post" onsubmit="return onPicUpload();">
         <input type="hidden" name="method" value="saveImage"/>
         <%
-            // Validate demographicNo as an integer to break taint chain before session storage
+            // Validate demographicNo as a positive integer to break taint chain before session storage
             String demographicNoParam = request.getParameter("demographicNo");
-            String validatedDemoNo;
+            int parsedDemoNo;
             try {
-                validatedDemoNo = String.valueOf(Integer.parseInt(demographicNoParam == null ? "" : demographicNoParam.trim()));
+                parsedDemoNo = Integer.parseInt(demographicNoParam == null ? "" : demographicNoParam.trim());
             } catch (NumberFormatException e) {
-                validatedDemoNo = "0";
+                parsedDemoNo = 0;
             }
-            request.getSession().setAttribute("clientId", validatedDemoNo);
+            if (parsedDemoNo <= 0) {
+                out.println("<p class='text-danger'>Invalid patient identifier.</p>");
+                return;
+            }
+            request.getSession().setAttribute("clientId", String.valueOf(parsedDemoNo));
         %>
         <div class="row align-items-center mb-3">
             <div class="col-auto">

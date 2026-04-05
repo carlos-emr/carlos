@@ -99,19 +99,23 @@
             }
 
             String programId_forCME = request.getParameter("case_program_id");
-            // Validate programId as an integer to break taint chain before session storage
+            // Validate programId as an integer to break taint chain before session storage;
+            // on invalid input, preserve the existing session value rather than corrupting it with "0"
             String validatedProgramId;
             try {
                 validatedProgramId = String.valueOf(Integer.parseInt(programId_forCME == null ? "" : programId_forCME.trim()));
             } catch (NumberFormatException e) {
-                validatedProgramId = "0";
+                validatedProgramId = (String) session.getAttribute("case_program_id");
             }
-            request.getSession().setAttribute("case_program_id", validatedProgramId);
+            if (validatedProgramId != null) {
+                request.getSession().setAttribute("case_program_id", validatedProgramId);
+            }
 
             String selected_site = (String) request.getParameter("site");
             if (selected_site != null) {
-                // Encode site value to break taint chain before session storage
-                session.setAttribute("site_selected", ("none".equals(selected_site) ? null : org.owasp.encoder.Encode.forHtml(selected_site)));
+                // Store raw site value — encoding here would break downstream DB lookups
+                // (e.g., siteDao.getProviderNoBySiteLocation). Encode at render time only.
+                session.setAttribute("site_selected", ("none".equals(selected_site) ? null : selected_site));
             }
 
             boolean saveSuccess = false;

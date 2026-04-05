@@ -70,7 +70,13 @@ public class SystemMessage2Action extends ActionSupport {
         String messageId = request.getParameter("id");
 
         if (messageId != null) {
-            int parsedId = Integer.parseInt(messageId);
+            int parsedId;
+            try {
+                parsedId = Integer.parseInt(messageId);
+            } catch (NumberFormatException e) {
+                addActionMessage(getText("system_message.missing"));
+                return list();
+            }
             SystemMessage msg = systemMessageDao.find(parsedId);
 
             if (msg == null) {

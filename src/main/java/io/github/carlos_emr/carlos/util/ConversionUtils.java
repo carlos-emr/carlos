@@ -182,7 +182,7 @@ public class ConversionUtils {
         }
         try {
             return Long.parseLong(longString);
-        } catch (Exception e) {
+        } catch (NumberFormatException e) {
             return 0L;
         }
     }
@@ -200,7 +200,7 @@ public class ConversionUtils {
         }
         try {
             return Integer.parseInt(intString);
-        } catch (Exception e) {
+        } catch (NumberFormatException e) {
             return 0;
         }
     }

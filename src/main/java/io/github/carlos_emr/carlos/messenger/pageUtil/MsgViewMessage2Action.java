@@ -208,8 +208,13 @@ public class MsgViewMessage2Action extends ActionSupport {
         request.getSession().setAttribute("providerNo", providerNo);
 
         if (orderBy != null) {
-            // Encode 'orderBy' to sanitize before storing in session
-            request.getSession().setAttribute("orderBy", Encode.forHtml(orderBy));
+            // Validate orderBy against known sort columns — do NOT HTML-encode as it may be
+            // used in query construction. Strip optional '!' prefix (descending indicator).
+            String orderKey = orderBy.startsWith("!") ? orderBy.substring(1) : orderBy;
+            if ("status".equals(orderKey) || "from".equals(orderKey) || "subject".equals(orderKey)
+                    || "date".equals(orderKey) || "sentto".equals(orderKey) || "linked".equals(orderKey)) {
+                request.getSession().setAttribute("orderBy", orderBy);
+            }
         }
 
         MiscUtils.getLogger().debug("viewMessagePosition: " + messagePosition + "IsLastMsg: " + request.getAttribute("viewMessageIsLastMsg"));

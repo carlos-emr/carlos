@@ -69,7 +69,6 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class ProgramManagerView2Action extends ActionSupport {
@@ -119,9 +118,19 @@ public class ProgramManagerView2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-                // find the program id; parse as integer to validate and break taint chain before session storage
-        String programId = String.valueOf(
-                io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(request.getParameter("id")));
+                // Validate programId: prefer request parameter, fall back to request attribute (used by override_restriction)
+        String programId = null;
+        String programIdParam = request.getParameter("id");
+        if (programIdParam != null) {
+            int parsedProgramId = io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(programIdParam);
+            if (parsedProgramId > 0) {
+                programId = String.valueOf(parsedProgramId);
+            }
+        }
+
+        if (programId == null) {
+            programId = (String) request.getAttribute("id");
+        }
 
         request.getSession().setAttribute("case_program_id", programId);
 
@@ -129,10 +138,6 @@ public class ProgramManagerView2Action extends ActionSupport {
             request.setAttribute("vacancyOrTemplateId", "");
         else
             request.setAttribute("vacancyOrTemplateId", this.getVacancyOrTemplateId());
-
-        if (programId == null) {
-            programId = (String) request.getAttribute("id");
-        }
 
         String demographicNo = request.getParameter("clientId");
 
@@ -279,11 +284,15 @@ public class ProgramManagerView2Action extends ActionSupport {
 
     public String admit() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        // Validate programId and clientId as integers to break taint chain
-        String programId = String.valueOf(
-                io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(request.getParameter("id")));
-        String clientId = String.valueOf(
-                io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(request.getParameter("clientId")));
+        // Validate programId and clientId as positive integers — reject invalid input before admission writes
+        int parsedProgramId = io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(request.getParameter("id"));
+        int parsedClientId = io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(request.getParameter("clientId"));
+        if (parsedProgramId <= 0 || parsedClientId <= 0) {
+            addActionMessage(getText("admit.error", "Invalid program or client identifier."));
+            return view();
+        }
+        String programId = String.valueOf(parsedProgramId);
+        String clientId = String.valueOf(parsedClientId);
         String queueId = request.getParameter("queueId");
 
         ProgramQueue queue = programQueueManager.getProgramQueue(queueId);
@@ -312,12 +321,14 @@ public class ProgramManagerView2Action extends ActionSupport {
             logger.error("Error", e);
         } catch (ServiceRestrictionException e) {
             addActionMessage(getText("admit.service_restricted", e.getRestriction().getComments(), e.getRestriction().getProvider().getFormattedName()));
-            // store this for display; encode free-text notes to break taint chain before session storage
+            // Store raw notes — do NOT HTML-encode here as override_restriction() reads
+            // these values and passes them into processAdmission(), which persists them.
+            // Encoding here would corrupt stored clinical data. Encode at render time only.
             this.setServiceRestriction(e.getRestriction());
 
             request.getSession().setAttribute("programId", programId);
-            request.getSession().setAttribute("admission.dischargeNotes", Encode.forHtml(dischargeNotes));
-            request.getSession().setAttribute("admission.admissionNotes", Encode.forHtml(admissionNotes));
+            request.getSession().setAttribute("admission.dischargeNotes", dischargeNotes);
+            request.getSession().setAttribute("admission.admissionNotes", admissionNotes);
 
             request.setAttribute("id", programId);
 

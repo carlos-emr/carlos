@@ -62,15 +62,20 @@ public final class dxSetupResearch2Action extends ActionSupport {
         }
 
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
-        // Validate demographicNo as a positive integer to break taint chain before session storage
-        String demographicNo = String.valueOf(ConversionUtils.fromIntString(request.getParameter("demographicNo")));
-        // Validate providerNo: fall back to trusted logged-in provider; otherwise parse as integer
+        // Validate demographicNo as a positive integer — reject invalid input
+        int parsedDemoNo = ConversionUtils.fromIntString(request.getParameter("demographicNo"));
+        if (parsedDemoNo <= 0) {
+            throw new RuntimeException("Invalid demographicNo parameter");
+        }
+        String demographicNo = String.valueOf(parsedDemoNo);
+        // Validate providerNo: fall back to trusted logged-in provider when null or invalid
         String providerNoParam = request.getParameter("providerNo");
         String providerNo;
         if (providerNoParam == null) {
             providerNo = loggedInInfo.getLoggedInProviderNo();
         } else {
-            providerNo = String.valueOf(ConversionUtils.fromIntString(providerNoParam));
+            int parsedProviderNo = ConversionUtils.fromIntString(providerNoParam);
+            providerNo = parsedProviderNo > 0 ? String.valueOf(parsedProviderNo) : loggedInInfo.getLoggedInProviderNo();
         }
         String selectedQuickList = request.getParameter("quickList");
         dxResearchBeanHandler hd = new dxResearchBeanHandler(demographicNo);

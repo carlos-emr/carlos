@@ -111,10 +111,18 @@ public class AddEForm2Action extends ActionSupport {
         ArrayList<String> paramNames = new ArrayList<String>();  //holds "fieldname, ...."
         ArrayList<String> paramValues = new ArrayList<String>(); //holds "myval, ...."
         String fid = request.getParameter("efmfid");
-        // Validate demographicNo as integer to break taint chain before session/request storage
-        String demographic_no = String.valueOf(ConversionUtils.fromIntString(request.getParameter("efmdemographic_no")));
-        // Encode eform_link to prevent tainted session attribute key
-        String eform_link = Encode.forHtml(request.getParameter("eform_link"));
+        // Validate demographicNo as a positive integer — reject invalid input instead of coercing to "0"
+        int parsedDemoNo = ConversionUtils.fromIntString(request.getParameter("efmdemographic_no"));
+        if (parsedDemoNo <= 0) {
+            return "failure";
+        }
+        String demographic_no = String.valueOf(parsedDemoNo);
+        // Validate eform_link as a safe session attribute key (used as setAttribute key at line 221).
+        // Do NOT HTML-encode — it would create a mangled attribute name.
+        String eform_link = request.getParameter("eform_link");
+        if (eform_link != null && !eform_link.matches("[a-zA-Z0-9_\\-.]*")) {
+            eform_link = null;
+        }
         String subject = request.getParameter("subject");
 
         /*
@@ -530,21 +538,24 @@ public class AddEForm2Action extends ActionSupport {
 
     /**
      * Validates an array of ID strings by parsing each element as an integer.
-     * This breaks the taint chain for HTTP request parameters before session storage.
-     * Elements that are not valid integers are replaced with "0".
+     * Only positive integer identifiers are retained; invalid, zero, and negative
+     * values are discarded to prevent creating invalid attachment records.
      *
      * @param rawIds the raw string array from the request, may be null
-     * @return a new array of validated integer strings, never null
+     * @return a new array containing only valid positive integer strings, never null
      */
     private static String[] validateIdArray(String[] rawIds) {
         if (rawIds == null) {
             return new String[0];
         }
-        String[] validated = new String[rawIds.length];
-        for (int i = 0; i < rawIds.length; i++) {
-            validated[i] = String.valueOf(ConversionUtils.fromIntString(rawIds[i]));
+        java.util.List<String> validated = new java.util.ArrayList<>();
+        for (String rawId : rawIds) {
+            int parsedId = ConversionUtils.fromIntString(rawId);
+            if (parsedId > 0) {
+                validated.add(String.valueOf(parsedId));
+            }
         }
-        return validated;
+        return validated.toArray(new String[0]);
     }
 
 }

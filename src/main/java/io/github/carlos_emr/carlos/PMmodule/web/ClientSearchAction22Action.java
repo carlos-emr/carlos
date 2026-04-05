@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 
 import io.github.carlos_emr.carlos.services.LookupManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -110,6 +111,9 @@ public class ClientSearchAction22Action extends ActionSupport {
                 String validatedNoteId = String.valueOf(parsedNoteId);
                 request.getSession().setAttribute("noteId", validatedNoteId);
                 request.setAttribute("noteId", validatedNoteId);
+            } else {
+                MiscUtils.getLogger().warn("Invalid noteId parameter rejected");
+                request.getSession().removeAttribute("noteId");
             }
         }
 

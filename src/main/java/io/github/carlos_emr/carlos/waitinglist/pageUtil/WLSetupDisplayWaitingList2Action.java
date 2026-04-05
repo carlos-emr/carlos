@@ -96,9 +96,14 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
 
         if (request.getParameter("waitingListId") != null) {
-            // Validate waitingListId as an integer to break taint chain before session storage
+            // Validate waitingListId as a positive integer to break taint chain before session storage
             int parsedWlId = ConversionUtils.fromIntString(request.getParameter("waitingListId"));
-            waitingListId = parsedWlId > 0 ? String.valueOf(parsedWlId) : "";
+            if (parsedWlId > 0) {
+                waitingListId = String.valueOf(parsedWlId);
+            } else {
+                // Invalid ID — leave waitingListId as null to prevent downstream writes
+                waitingListId = null;
+            }
         }
 
         log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = " + waitingListId);
