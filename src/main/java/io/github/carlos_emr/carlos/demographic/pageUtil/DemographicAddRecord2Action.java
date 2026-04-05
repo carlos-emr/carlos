@@ -257,8 +257,8 @@ public class DemographicAddRecord2Action extends ActionSupport {
         }
 
         StringBuilder bufName = new StringBuilder(request.getParameter("last_name") + "," + request.getParameter("first_name"));
-        StringBuilder bufChart = new StringBuilder(StringUtils.trimToEmpty("chart_no"));
-        StringBuilder bufDoctorNo = new StringBuilder(StringUtils.trimToEmpty("provider_no"));
+        StringBuilder bufChart = new StringBuilder(StringUtils.trimToEmpty(request.getParameter("chart_no")));
+        StringBuilder bufDoctorNo = new StringBuilder(StringUtils.trimToEmpty(request.getParameter("staff")));
 
         demographicDao.save(demographic);
 
@@ -365,7 +365,6 @@ public class DemographicAddRecord2Action extends ActionSupport {
                         waitingList.setPosition(maxPosition + 1);
                         waitingList.setOnListSince(MyDateFormat.getSysDate(request.getParameter("waiting_list_referral_date")));
                         waitingList.setIsHistory("N");
-                        waitingList.setOnListSince(new Date());
                         waitingListDao.persist(waitingList);
                     }
                 }
