@@ -31,7 +31,6 @@
 <%@ page errorPage="/errorpage.jsp"
          import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*, java.lang.*,java.net.*" %>
 
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page
         import="io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO, io.github.carlos_emr.carlos.commn.model.CssStyle, java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
