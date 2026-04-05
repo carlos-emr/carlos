@@ -166,7 +166,7 @@
 <html>
 
 <head>
-<title><%=flowSheet%> - <oscar:nameage demographicNo="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no)) %>"/></title><!--I18n-->
+<title><%= Encode.forHtml(flowSheet) %> - <oscar:nameage demographicNo="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no)) %>"/></title><!--I18n-->
 
 <script type="text/javascript" src="${ pageContext.request.contextPath }/share/javascript/Oscar.js"></script>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
@@ -463,7 +463,7 @@ div.recommendations ul{
 <table  class="MainTable" id="scrollNumber1" >
 <tr class="MainTableTopRow">
     <td class="MainTableTopRowLeftColumn"  >
-        <h4><%=flowSheet%></h4>
+        <h4><%= Encode.forHtml(flowSheet) %></h4>
     </td>
     <td class="MainTableTopRowRightColumn" style="text-align: center;">
         <h4><oscar:nameage demographicNo="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no)) %>"/></h4>
@@ -598,14 +598,14 @@ div.recommendations ul{
                         String styleColor = "";
                         if(arr[i].isCurrent()){
                     %>
-                    <li title="<%=rxD%> - <%=rxP%>">
+                    <li title="<%= Encode.forHtmlAttribute(rxD) %> - <%= Encode.forHtmlAttribute(rxP) %>">
                             <form method="post" action="FlowSheetDrugAction.do" style="display:inline;">
                                 <input type="hidden" name="method" value="save"/>
                                 <input type="hidden" name="flowsheet" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(temp)) %>"/>
                                 <input type="hidden" name="demographic" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no)) %>"/>
-                                <input type="hidden" name="atcCode" value="<%=arr[i].getAtcCode()%>"/>
+                                <input type="hidden" name="atcCode" value="<%= Encode.forHtmlAttribute(arr[i].getAtcCode()) %>"/>
                                 <a href="javascript:void(0);" onclick="this.closest('form').submit();">
-                                - <%= org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12)%>
+                                - <%= Encode.forHtml(org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12)) %>
                                 </a>
                             </form>
                     </li>
@@ -636,8 +636,8 @@ div.recommendations ul{
                         String rxD = ""+allergies[i].getEntryDate();
                         String rxP = allergies[i].getDescription();
                     %>
-                    <li title="<%=rxD%> - <%=rxP%>">
-                            - <%= org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12)%>
+                    <li title="<%= Encode.forHtmlAttribute(rxD) %> - <%= Encode.forHtmlAttribute(rxP) %>">
+                            - <%= Encode.forHtml(org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12)) %>
                     </li>
                     <%}%>
                 </ul>
@@ -659,7 +659,7 @@ div.recommendations ul{
 <td class="MainTableRightColumn" style="vertical-align:top;">
 <% if (warnings.size() > 0 || recomendations.size() > 0  || dsProblems) { %>
 <div class="recommendations">
-    <span style="font-size:larger;"><%=flowSheet%> Recommendations</span>
+    <span style="font-size:larger;"><%= Encode.forHtml(flowSheet) %> Recommendations</span>
     <a href="javascript:void(0)" onclick="toggle('recomList'); return false;" style="font-size:x-small;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.showhide"/></a>
     <ul id="recomList" style="display:none;">
         <% for (String warn : warnings){ %>
@@ -753,7 +753,7 @@ div.recommendations ul{
 		   <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
             <a class="noborder" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'AddMeasurementData.jsp?measurement=<%= response.encodeURL( measure) %>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no))) %>&amp;template=<%= URLEncoder.encode(temp,"UTF-8") %>','addMeasurementData<%=Math.abs( ((String) h.get("name")).hashCode() ) %>')">
            </security:oscarSec>
-                <span  class="noborder" style="font-weight:bold;"><%=h2.get("display_name")%></span>
+                <span  class="noborder" style="font-weight:bold;"><%= Encode.forHtml((String) h2.get("display_name")) %></span>
 
            <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
             </a>

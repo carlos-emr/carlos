@@ -57,8 +57,9 @@
     // Safely extract form index + element name from full JS path expressions like
     // "document.forms[0].elements['fieldname'].value" or "document.forms[1].elements['fieldname'].value"
     // passed by callers (e.g. billingON.jsp uses forms[0], billingONCorrection.jsp uses forms[1])
+    // Allows dots in element names (e.g. "pref.default_dx_code" from UserPreferences.jsp)
     java.util.regex.Pattern pathPattern = java.util.regex.Pattern.compile(
-        "^document\\.forms\\[(\\d+)\\]\\.elements\\['([a-zA-Z0-9_]+)'\\]\\.value$");
+        "^document\\.forms\\[(\\d+)\\]\\.elements\\['([a-zA-Z0-9_.]+)'\\]\\.value$");
     java.util.regex.Matcher pathMatcher;
 
     String paramFormIdx = null;
@@ -66,36 +67,42 @@
     if (!param.isEmpty()) {
         pathMatcher = pathPattern.matcher(param);
         if (pathMatcher.matches()) { paramFormIdx = pathMatcher.group(1); paramField = pathMatcher.group(2); }
+        else { MiscUtils.getLogger().warn("searchRefDoc.jsp: 'param' did not match expected JS path format"); }
     }
     String param2FormIdx = null;
     String param2Field = null;
     if (!param2.isEmpty()) {
         pathMatcher = pathPattern.matcher(param2);
         if (pathMatcher.matches()) { param2FormIdx = pathMatcher.group(1); param2Field = pathMatcher.group(2); }
+        else { MiscUtils.getLogger().warn("searchRefDoc.jsp: 'param2' did not match expected JS path format"); }
     }
     String tonameFormIdx = null;
     String tonameField = null;
     if (!toname.isEmpty()) {
         pathMatcher = pathPattern.matcher(toname);
         if (pathMatcher.matches()) { tonameFormIdx = pathMatcher.group(1); tonameField = pathMatcher.group(2); }
+        else { MiscUtils.getLogger().warn("searchRefDoc.jsp: 'toname' did not match expected JS path format"); }
     }
     String toaddress1FormIdx = null;
     String toaddress1Field = null;
     if (!toaddress1.isEmpty()) {
         pathMatcher = pathPattern.matcher(toaddress1);
         if (pathMatcher.matches()) { toaddress1FormIdx = pathMatcher.group(1); toaddress1Field = pathMatcher.group(2); }
+        else { MiscUtils.getLogger().warn("searchRefDoc.jsp: 'toaddress1' did not match expected JS path format"); }
     }
     String tophoneFormIdx = null;
     String tophoneField = null;
     if (!tophone.isEmpty()) {
         pathMatcher = pathPattern.matcher(tophone);
         if (pathMatcher.matches()) { tophoneFormIdx = pathMatcher.group(1); tophoneField = pathMatcher.group(2); }
+        else { MiscUtils.getLogger().warn("searchRefDoc.jsp: 'tophone' did not match expected JS path format"); }
     }
     String tofaxFormIdx = null;
     String tofaxField = null;
     if (!tofax.isEmpty()) {
         pathMatcher = pathPattern.matcher(tofax);
         if (pathMatcher.matches()) { tofaxFormIdx = pathMatcher.group(1); tofaxField = pathMatcher.group(2); }
+        else { MiscUtils.getLogger().warn("searchRefDoc.jsp: 'tofax' did not match expected JS path format"); }
     }
     List<ProfessionalSpecialist> professionalSpecialists = null;
 
@@ -148,6 +155,7 @@
 <%@ page import="java.util.Properties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.MiscUtils" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -166,14 +174,7 @@
         <!-- DataTables 1.13.4 -->
 
         <script>
-            <%if(paramField != null) {%>
-
-            function typeInData1(data) {
-                self.close();
-                opener.document.forms[<%= paramFormIdx %>].elements["<%= Encode.forJavaScript(paramField) %>"].value = data;
-            }
-
-            <%if(param2Field != null) {%>
+            <%if(paramField != null && param2Field != null) {%>
 
             function typeInData2(data1, data2) {
                 opener.document.forms[<%= paramFormIdx %>].elements["<%= Encode.forJavaScript(paramField) %>"].value = data1;
@@ -181,7 +182,7 @@
                 self.close();
             }
 
-            <%}}%>
+            <%}%>
 
             function typeInData3(billno, toname, toaddress, tophone, tofax) {
                 self.close();
@@ -236,10 +237,12 @@
                     prop = (Properties) alist.get(i);
                     String bgColor = i % 2 == 0 ? "#f9f9f9" : "#ffffff";
                     String strOnClick;
+                    // When param2 was provided and matched (two-field update), use typeInData2;
+                    // otherwise fall back to typeInData3 for multi-field update
                     if (param2Field != null) {
-                        strOnClick = "typeInData2('" + Encode.forJavaScript(prop.getProperty("referral_no", "")) + "','" + Encode.forJavaScript(prop.getProperty("last_name", "") + "," + prop.getProperty("first_name", "")) + "')";
+                        strOnClick = "typeInData2('" + Encode.forJavaScriptAttribute(prop.getProperty("referral_no", "")) + "','" + Encode.forJavaScriptAttribute(prop.getProperty("last_name", "") + "," + prop.getProperty("first_name", "")) + "')";
                     } else {
-                        strOnClick = "typeInData3('" + Encode.forJavaScript(prop.getProperty("referral_no", "")) + "', '" + Encode.forJavaScript(prop.getProperty("to_name", "")) + "', '" + Encode.forJavaScript(prop.getProperty("to_address", "")) + "', '" + Encode.forJavaScript(prop.getProperty("phone", "")) + "', '" + Encode.forJavaScript(prop.getProperty("to_fax", "")) + "')";
+                        strOnClick = "typeInData3('" + Encode.forJavaScriptAttribute(prop.getProperty("referral_no", "")) + "', '" + Encode.forJavaScriptAttribute(prop.getProperty("to_name", "")) + "', '" + Encode.forJavaScriptAttribute(prop.getProperty("to_address", "")) + "', '" + Encode.forJavaScriptAttribute(prop.getProperty("phone", "")) + "', '" + Encode.forJavaScriptAttribute(prop.getProperty("to_fax", "")) + "')";
                     }
             %>
             <tr style="background-color:<%=bgColor%>"

@@ -1380,7 +1380,7 @@
         <h3>&nbsp;Dx Quick Pick Add Lists &nbsp;<a href="#" onclick="toggle('dxForm'); return false;"
                                                    style="font-size:small;">show/hide</a></h3>
         <form id="dxForm">
-            <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demo_no) %>"/>
+            <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(demo_no)) %>"/>
             <input type="hidden" name="providerNo" value="<%=session.getAttribute("user")%>"/>
             <input type="hidden" name="forward" value=""/>
             <input type="hidden" name="forwardTo" value="codeList"/>

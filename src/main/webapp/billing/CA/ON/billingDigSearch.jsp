@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.MiscUtils" %>
 <%
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
 %>
@@ -58,6 +59,8 @@
         if (m2.matches()) {
             targetFormIdx = m2.group(1);
             targetElement = m2.group(2);
+        } else if (!name2.isEmpty()) {
+            MiscUtils.getLogger().warn("billingDigSearch.jsp: 'name2' did not match expected JS path format");
         }
     }
 %>
