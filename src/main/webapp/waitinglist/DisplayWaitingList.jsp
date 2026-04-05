@@ -171,7 +171,7 @@
                                             <c:out value="${waitingListBean.position}"/>
                                         </td>
                                         <td class="${styleClass}">
-                                            <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=${waitingListBean.demographicNo}&displaymode=edit&dboperation=search_detail'); return false;">
+                                            <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=${waitingListBean.demographicNo}'); return false;">
                                                 <c:out value="${waitingListBean.patientName}"/>
                                             </a>
                                             <input type="button" value="Update" name="update_${ctr.index}" style="font-size: 7pt;"

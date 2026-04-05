@@ -37,16 +37,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.owasp.encoder.Encode;
 import org.springframework.beans.BeanUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-
 
 public class TicklerHandler {
 
@@ -70,9 +67,6 @@ public class TicklerHandler {
      * String taskAssignedTo
      * String ticklerCategoryId
      */
-    
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-
     public void createMasterTickler(Map<String, String[]> ticklerParameters) {
 
         Tickler tickler = new Tickler();
@@ -181,39 +175,59 @@ public class TicklerHandler {
     }
 
     /**
-     * Adds a copy of the master tickler to each demographic id in the given JSON Array String.
+     * Adds a copy of the master tickler to each demographic id in the given comma-separated
+     * integer string (optionally wrapped in square brackets).
+     *
+     * <p>Accepts formats such as {@code "1,2,3"} or {@code "[1,2,3]"}.
+     * Returns {@code false} immediately if the input is null, empty, contains empty tokens
+     * (e.g. {@code "1,,2"}), or cannot be parsed as integers.
+     *
+     * @param demographicIds comma-separated demographic IDs, optionally enclosed in square brackets
+     *                       (e.g. {@code "[1,2,3]"} or {@code "1,2,3"})
+     * @return {@code true} if all ticklers were added successfully; {@code false} if input is
+     *         null/empty, contains empty tokens, or any token is not a valid integer
+     * @throws nothing — all parsing exceptions are caught and logged; method returns {@code false}
+     * @since 2026-04-04
      */
-    public boolean addTickler(String jsonString) {
+    public boolean addTickler(String demographicIds) {
 
-        if (jsonString == null || jsonString.isEmpty()) {
-            return Boolean.FALSE;
+        if (demographicIds == null || demographicIds.isEmpty()) {
+            return false;
         }
 
-        if (!jsonString.startsWith("[")) {
-            jsonString = "[" + jsonString;
+        // Strip optional square brackets before parsing individual integer values
+        String trimmed = demographicIds.trim();
+        if (trimmed.startsWith("[")) {
+            trimmed = trimmed.substring(1);
+        }
+        if (trimmed.endsWith("]")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1);
         }
 
-        if (!jsonString.endsWith("]")) {
-            jsonString = jsonString + "]";
+        if (trimmed.isEmpty()) {
+            return false;
         }
-
-        ArrayNode jsonArray;
 
         try {
-            jsonArray = (ArrayNode) objectMapper.readTree(jsonString);
-            Integer arraySize = jsonArray.size();
-            Integer[] demographicArray = new Integer[arraySize];
+            // Use limit=-1 so trailing empty tokens (e.g. "1,2,") are not silently discarded
+            String[] parts = trimmed.split(",", -1);
+            Integer[] demographicArray = new Integer[parts.length];
 
-            for (int i = 0; i < arraySize; i++) {
-                demographicArray[i] = jsonArray.get(i).asInt();
+            for (int i = 0; i < parts.length; i++) {
+                String part = parts[i].trim();
+                if (part.isEmpty()) {
+                    MiscUtils.getLogger().error("Empty token in demographic list at index " + i + ": " + Encode.forJava(demographicIds));
+                    return false;
+                }
+                demographicArray[i] = Integer.parseInt(part);
             }
 
             setDemographicArray(demographicArray);
 
             return addTickler(demographicArray);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to parse demographic JSON array: " + jsonString, e);
-            return Boolean.FALSE;
+            MiscUtils.getLogger().error("Failed to parse demographic list: " + Encode.forJava(demographicIds), e);
+            return false;
         }
     }
 

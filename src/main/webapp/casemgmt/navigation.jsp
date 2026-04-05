@@ -209,7 +209,7 @@
 
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/demographic/demographiccontrol.jsp?demographic_no=<%=bean.demographicNo%>&displaymode=edit&dboperation=search_detail');return false;">Master</a>
+                               onClick="popupPage('<%=bsurl%>/demographic/DemographicEdit.do?demographic_no=<%=bean.demographicNo%>');return false;">Master</a>
                         </td>
                     </tr>
 
@@ -250,7 +250,7 @@
                 </caisirole:SecurityAccess>
 
                 <!-- allergies -->
-                <!-- tr><td><a href="javascript:void(0)" onClick="popupPage('<%=bsurl%>/oscarRx/ShowAllergies.jsp?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%>');return false;">Allergies</a></td></tr -->
+                <!-- tr><td><a href="javascript:void(0)" onClick="popupPage('<%=bsurl%>/oscarRx/ShowAllergies2.jsp?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%>');return false;">Allergies</a></td></tr -->
 
 
                 <!-- Consultations -->
@@ -299,13 +299,6 @@
                 <caisirole:SecurityAccess accessName="oscarcomm" accessType="access" providerNo="<%=bean.providerNo%>"
                                           demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
 
-                    <% if (CarlosProperties.getInstance().getProperty("oscarcomm", "").equals("on")) { %>
-                    <tr>
-                        <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/encounter/RemoteAttachments.jsp');return false;">CARLOS Messenger</a>
-                        </td>
-                    </tr>
-                    <% } %>
                 </caisirole:SecurityAccess>
 
                 <!-- Disease Registry -->

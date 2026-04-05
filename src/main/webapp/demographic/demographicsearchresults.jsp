@@ -45,7 +45,6 @@
 
 <!DOCTYPE HTML>
 <%@page import="java.nio.charset.StandardCharsets" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
@@ -104,8 +103,18 @@
         strLimit = request.getParameter("limit2");
     }
 
-    int offset = Integer.parseInt(strOffset);
-    int limit = Integer.parseInt(strLimit);
+    int offset;
+    int limit;
+    try {
+        offset = Integer.parseInt(strOffset);
+    } catch (NumberFormatException e) {
+        offset = 0;
+    }
+    try {
+        limit = Integer.parseInt(strLimit);
+    } catch (NumberFormatException e) {
+        limit = 18;
+    }
 
     String displayMode = request.getParameter("displaymode");
     String dboperation = request.getParameter("dboperation");
@@ -114,6 +123,13 @@
         keyword = Encode.forJava(request.getParameter("keyword"));
     }
     String orderBy = request.getParameter("orderby");
+
+    // Pre-encode request parameters used repeatedly in sort and pagination links.
+    // Each is null-safe (noNull converts null to "") and URI-component-encoded.
+    String encKeyword = Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")));
+    String encDisplayMode = Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")));
+    String encSearchMode = Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")));
+    String encDbOperation = Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")));
 
     String ptStatus = request.getParameter("ptstatus") == null ? "active" : request.getParameter("ptstatus");
     ;
@@ -250,41 +266,51 @@
             <table id="patientResults" class="table table-sm table-striped">
                 <tr class="tableHeadings deep">
 
+                    <%
+                        // Common search-link prefix shared by all column sort headers.
+                        // Only the "orderby" value changes per column.
+                        String sortBase = "DemographicSearch.do?fromMessenger=" + fromMessenger
+                            + "&keyword=" + encKeyword
+                            + "&displaymode=" + encDisplayMode
+                            + "&search_mode=" + encSearchMode
+                            + "&dboperation=" + encDbOperation;
+                        String sortSuffix = "&limit1=0&limit2=" + strLimit + "&ptstatus=" + Encode.forUriComponent(ptStatus);
+                    %>
                     <% if (fromMessenger) {%>
                     <!-- leave blank -->
                     <th class="demoIdSearch">
-                        <a href="demographiccontrol.jsp?fromMessenger=<%=fromMessenger%>&keyword=<%=StringEscapeUtils.escapeHtml4(request.getParameter("keyword"))%>&displaymode=<%=request.getParameter("displaymode")%>&search_mode=<%=request.getParameter("search_mode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=demographic_no&limit1=0&limit2=<%=strLimit%>&ptstatus=<%=ptStatus%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDemoNo"/></a>
+                        <a href="<%=sortBase%>&orderby=demographic_no<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDemoNo"/></a>
                     </th>
                     <%} else {%>
                     <th class="demoIdSearch">
-                        <a href="demographiccontrol.jsp?fromMessenger=<%=fromMessenger%>&keyword=<%=StringEscapeUtils.escapeHtml4(request.getParameter("keyword"))%>&displaymode=<%=request.getParameter("displaymode")%>&search_mode=<%=request.getParameter("search_mode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=demographic_no&limit1=0&limit2=<%=strLimit%>&ptstatus=<%=ptStatus%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDemoNo"/></a>
+                        <a href="<%=sortBase%>&orderby=demographic_no<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDemoNo"/></a>
                     </th>
                     <th class="links"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.module"/></th>
 
                     <%}%>
                     <th class="name"><a
-                            href="demographiccontrol.jsp?fromMessenger=<%=fromMessenger%>&keyword=<%=StringEscapeUtils.escapeHtml4(request.getParameter("keyword"))%>&displaymode=<%=request.getParameter("displaymode")%>&search_mode=<%=request.getParameter("search_mode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=last_name&limit1=0&limit2=<%=strLimit%>&ptstatus=<%=ptStatus%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDemoName"/></a>
+                            href="<%=sortBase%>&orderby=last_name<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDemoName"/></a>
                     </th>
                     <th class="chartNo"><a
-                            href="demographiccontrol.jsp?fromMessenger=<%=fromMessenger%>&keyword=<%=StringEscapeUtils.escapeHtml4(request.getParameter("keyword"))%>&displaymode=<%=request.getParameter("displaymode")%>&search_mode=<%=request.getParameter("search_mode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=chart_no&limit1=0&limit2=<%=strLimit%>&ptstatus=<%=ptStatus%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnChart"/></a>
+                            href="<%=sortBase%>&orderby=chart_no<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnChart"/></a>
                     </th>
                     <th class="sex"><a
-                            href="demographiccontrol.jsp?fromMessenger=<%=fromMessenger%>&keyword=<%=StringEscapeUtils.escapeHtml4(request.getParameter("keyword"))%>&displaymode=<%=request.getParameter("displaymode")%>&search_mode=<%=request.getParameter("search_mode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=sex&limit1=0&limit2=<%=strLimit%>&ptstatus=<%=ptStatus%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnSex"/></a>
+                            href="<%=sortBase%>&orderby=sex<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnSex"/></a>
                     </th>
                     <th class="dob"><a
-                            href="demographiccontrol.jsp?fromMessenger=<%=fromMessenger%>&keyword=<%=StringEscapeUtils.escapeHtml4(request.getParameter("keyword"))%>&displaymode=<%=request.getParameter("displaymode")%>&search_mode=<%=request.getParameter("search_mode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=dob&limit1=0&limit2=<%=strLimit%>&ptstatus=<%=ptStatus%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDOB"/> <span class="dateFormat"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDOBFormat"/></span></a>
+                            href="<%=sortBase%>&orderby=dob<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDOB"/> <span class="dateFormat"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDOBFormat"/></span></a>
                     </th>
                     <th class="doctor"><a
-                            href="demographiccontrol.jsp?fromMessenger=<%=fromMessenger%>&keyword=<%=StringEscapeUtils.escapeHtml4(request.getParameter("keyword"))%>&displaymode=<%=request.getParameter("displaymode")%>&search_mode=<%=request.getParameter("search_mode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=provider_no&limit1=0&limit2=<%=strLimit%>&ptstatus=<%=ptStatus%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDoctor"/></a>
+                            href="<%=sortBase%>&orderby=provider_no<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnDoctor"/></a>
                     </th>
                     <th class="rosterStatus"><a
-                            href="demographiccontrol.jsp?fromMessenger=<%=fromMessenger%>&keyword=<%=StringEscapeUtils.escapeHtml4(request.getParameter("keyword"))%>&displaymode=<%=request.getParameter("displaymode")%>&search_mode=<%=request.getParameter("search_mode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=roster_status&limit1=0&limit2=<%=strLimit%>&ptstatus=<%=ptStatus%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnRosSta"/></a>
+                            href="<%=sortBase%>&orderby=roster_status<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnRosSta"/></a>
                     </th>
                     <th class="patientStatus"><a
-                            href="demographiccontrol.jsp?fromMessenger=<%=fromMessenger%>&keyword=<%=StringEscapeUtils.escapeHtml4(request.getParameter("keyword"))%>&displaymode=<%=request.getParameter("displaymode")%>&search_mode=<%=request.getParameter("search_mode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=patient_status&limit1=0&limit2=<%=strLimit%>&ptstatus=<%=ptStatus%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnPatSta"/></a>
+                            href="<%=sortBase%>&orderby=patient_status<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnPatSta"/></a>
                     </th>
                     <th class="phone"><a
-                            href="demographiccontrol.jsp?fromMessenger=<%=fromMessenger%>&keyword=<%=StringEscapeUtils.escapeHtml4(request.getParameter("keyword"))%>&displaymode=<%=request.getParameter("displaymode")%>&search_mode=<%=request.getParameter("search_mode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=phone&limit1=0&limit2=<%=strLimit%>&ptstatus=<%=ptStatus%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnPhone"/></a>
+                            href="<%=sortBase%>&orderby=phone<%=sortSuffix%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnPhone"/></a>
                     </th>
                 </tr>
 
@@ -381,13 +407,13 @@
 
                             if (fromMessenger) {
                         %>
-                        <a href="demographiccontrol.jsp?keyword=<%=Encode.forUriComponent(Encode.forHtml(Misc.toUpperLowerCase(demo.getLastName()+", "+demo.getFirstName())))%>&demographic_no=<%= dem_no %>&displaymode=linkMsg2Demo&dboperation=search_detail"><%=demo.getDemographicNo()%>
+                        <a href="DemographicLinkMsg.do?keyword=<%=Encode.forUriComponent(Encode.forHtml(Misc.toUpperLowerCase(demo.getLastName()+", "+demo.getFirstName())))%>&demographic_no=<%= Encode.forUriComponent(dem_no) %>"><%=demo.getDemographicNo()%>
                         </a></td>
                     <%
                     } else {
                     %>
                     <a title="Master Demographic File" href="javascript:void(0)"
-                       onclick="popup(700,1027,'demographiccontrol.jsp?demographic_no=<%=head%>&displaymode=edit&dboperation=search_detail')"><%=dem_no%>
+                       onclick="popup(700,1027,'DemographicEdit.do?demographic_no=<%=head%>')"><%=dem_no%>
                     </a></td>
 
                     <!-- Rights -->
@@ -451,22 +477,31 @@
                 int nLastPage = 0, nNextPage = 0;
                 nNextPage = Integer.parseInt(strLimit) + Integer.parseInt(strOffset);
                 nLastPage = Integer.parseInt(strOffset) - Integer.parseInt(strLimit);
+
+                // Pagination links use local variables (already extracted from request params above)
+                String pageBase = "DemographicSearch.do?fromMessenger=" + fromMessenger
+                    + "&keyword=" + Encode.forUriComponent(StringUtils.noNull(keyword))
+                    + "&search_mode=" + Encode.forUriComponent(StringUtils.noNull(searchMode))
+                    + "&displaymode=" + Encode.forUriComponent(StringUtils.noNull(displayMode))
+                    + "&dboperation=" + Encode.forUriComponent(StringUtils.noNull(dboperation))
+                    + "&orderby=" + Encode.forUriComponent(StringUtils.noNull(orderBy));
+
                 if (nLastPage >= 0) {
             %>
-            <a href="demographiccontrol.jsp?keyword=<%= URLEncoder.encode((keyword != null) ? keyword : "", "UTF-8") %>&search_mode=<%=searchMode%>&displaymode=<%=displayMode%>&dboperation=<%=dboperation%>&orderby=<%=orderBy%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>&ptstatus=<%=ptStatus%>">
+            <a href="<%=pageBase%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>&ptstatus=<%=Encode.forUriComponent(ptStatus)%>">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnLastPage"/></a> <%
             }
             if (nItems >= Integer.parseInt(strLimit)) {
                 if (nLastPage >= 0) {
         %> | <% } %>
-            <a href="demographiccontrol.jsp?keyword=<%= URLEncoder.encode((keyword != null) ? keyword : "", "UTF-8") %>&search_mode=<%=searchMode%>&displaymode=<%=displayMode%>&dboperation=<%=dboperation%>&orderby=<%=orderBy%>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>&ptstatus=<%=ptStatus%>">
+            <a href="<%=pageBase%>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>&ptstatus=<%=Encode.forUriComponent(ptStatus)%>">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.btnNextPage"/></a>
             <%
                 }
             %>
             <br>
             <div class="createNew">
-                <a href="demographicaddarecordhtm.jsp?search_mode=<%=searchMode%>&keyword=<%=StringEscapeUtils.escapeHtml4(keyWord)%>"
+                <a href="demographicaddarecordhtm.jsp?search_mode=<%=Encode.forUriComponent(StringUtils.noNull(searchMode))%>&keyword=<%=Encode.forUriComponent(StringUtils.noNull(keyWord))%>"
                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.btnCreateNewTitle"/>">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.btnCreateNew"/>
                 </a>

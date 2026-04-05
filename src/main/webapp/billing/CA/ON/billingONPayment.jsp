@@ -394,7 +394,7 @@
                 </td>
                 <% if (!isSameBill) {%>
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=demoNo%>&displaymode=edit&dboperation=search_detail');return false;"><%=demographicName%>
+                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=demoNo%>');return false;"><%=demographicName%>
                 </a></td>
                 <%} else {%>
                 <td></td>
@@ -580,7 +580,7 @@
                 <td style="text-align:center"><%=billingDateStr%>
                 </td>
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=demoNo%>&displaymode=edit&dboperation=search_detail');return false;"><%=demographicName%>
+                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=demoNo%>');return false;"><%=demographicName%>
                 </a></td>
                 <%
                     String dxCode = "";

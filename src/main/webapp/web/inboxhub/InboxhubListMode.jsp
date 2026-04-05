@@ -1,15 +1,20 @@
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="org.apache.logging.log4j.Logger" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.inboxhub.query.InboxhubQuery" %>
+<%@ page import="io.github.carlos_emr.carlos.mds.data.CategoryData" %>
+
+<% pageContext.setAttribute("currentUser", session.getAttribute("user")); %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils,org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="org.apache.logging.log4j.Logger,io.github.carlos_emr.carlos.commn.dao.OscarLogDao,io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.inboxhub.query.InboxhubQuery" %>
-<%@ page import="io.github.carlos_emr.carlos.mds.data.CategoryData" %>
-<% pageContext.setAttribute("currentUser", session.getAttribute("user")); %>
 
 <fmt:setBundle basename="oscarResources"/>
 
@@ -69,18 +74,18 @@
                             <e:forHtmlContent value='${labRead}${labResult.patientName}' />
                         </a>
                     </td>
-                    <td><c:out value="${labResult.sex}" /></td>
+                    <td>${e:forHtml(labResult.sex)}</td>
                     <td><c:if test="${labResult.resultStatus == 'A'}"><fmt:message key="inboxhub.list.abnormal"/></c:if></td>
-                    <td><c:out value="${labResult.label == 'null' ? '' : labResult.label}" /></td>
-                    <td><c:out value="${labResult.dateTime}" /><c:out value="${labResult.document ? ' / ' : ''}" /><c:out value="${labResult.document ?  labResult.lastUpdateDate : ''}"/></td>
-                    <td><c:out value="${labResult.requestingClient}" /></td>
-                    <td><c:out value="${labResult.document ? (labResult.description == null ? '' : labResult.description) : labResult.disciplineDisplayString}" /></td>
-                    <td><c:out value="${labResult.reportStatus}" /></td>
+                    <td>${e:forHtml(labResult.label == 'null' ? '' : labResult.label)}</td>
+                    <td>${e:forHtml(labResult.dateTime)}${labResult.document ? ' / ' : ''}${e:forHtml(labResult.document ? labResult.lastUpdateDate : '')}</td>
+                    <td>${e:forHtml(labResult.requestingClient)}</td>
+                    <td>${e:forHtml(labResult.document ? (labResult.description == null ? '' : labResult.description) : labResult.disciplineDisplayString)}</td>
+                    <td>${e:forHtml(labResult.reportStatus)}</td>
                     <td>
                         <c:set var="multiLabCount" value="${labResult.multipleAckCount}" />
-                        <c:out value="${labResult.ackCount}" />&nbsp;
+                        ${e:forHtml(labResult.ackCount)}&nbsp;
                         <c:if test="${multiLabCount >= 0}">
-                            (<c:out value="${labResult.multipleAckCount}" />)
+                            (${e:forHtml(labResult.multipleAckCount)})
                         </c:if>
                     </td>
                 </tr>
@@ -109,6 +114,9 @@
             {orderable: false, targets: 0}
         ],
         order: [[5, 'desc']],
+        language: {
+            url: '${e:forJavaScript(pageContext.request.contextPath)}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
+        }
     });
 
     //Opens a popup window to a given inbox item.

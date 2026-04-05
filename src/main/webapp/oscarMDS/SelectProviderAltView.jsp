@@ -33,6 +33,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ProviderData, java.util.ArrayList" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <link rel="stylesheet" type="text/css" href="encounterStyles.css">
 <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
@@ -50,7 +51,7 @@
 <script language='JavaScript'>
 
     function doStuff() {
-        var docId = '<%=docId%>';
+        var docId = '<%= Encode.forJavaScript(docId) %>';
         var allSelected = "";
         if (document.providerSelectForm.selectedProviders.selectedIndex == -1) {
             alert("Please select at least one providers");

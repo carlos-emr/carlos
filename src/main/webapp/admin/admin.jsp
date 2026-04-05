@@ -569,7 +569,7 @@
                     </security:oscarSec>
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin.lookupFieldEditor" rights="r">
-                        <li><a href="${pageContext.request.contextPath}/Lookup/LookupTableList.do"> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.LookupFieldEditor"/></a></li>
+                        <li><a href="${pageContext.request.contextPath}/lookupListManagerAction"> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.LookupFieldEditor"/></a></li>
                     </security:oscarSec>
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin.issueEditor" rights="r">

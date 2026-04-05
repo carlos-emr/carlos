@@ -45,6 +45,7 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.Logger;
+import org.jdom2.input.SAXBuilder;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
@@ -56,10 +57,53 @@ import org.w3c.dom.ls.LSOutput;
 import org.w3c.dom.ls.LSSerializer;
 import org.xml.sax.SAXException;
 
+/**
+ * Static utility methods for XML parsing, serialization, and DOM manipulation.
+ *
+ * <p>Provides secure XML parser construction via {@link #createSecureSAXBuilder()},
+ * DOM document building, node-to-string conversion, and element helper methods
+ * used across CARLOS EMR for clinical data exchange (HL7, FHIR, e-forms).</p>
+ *
+ * @since 2012-01-12
+ */
 public final class XmlUtils {
     private static Logger logger = MiscUtils.getLogger();
 
-    public XmlUtils() {
+    private XmlUtils() {
+    }
+
+    /**
+     * Creates a {@link SAXBuilder} with XXE (XML External Entity) protections enabled.
+     *
+     * <p>Disables DOCTYPE declarations and external entity resolution to prevent XXE attacks.
+     * Use this factory method instead of {@code new SAXBuilder()} throughout the codebase.
+     *
+     * <p>The critical {@code disallow-doctype-decl} feature is required — an
+     * {@link IllegalStateException} is thrown if it cannot be applied so that callers
+     * never receive an unprotected parser. The remaining defense-in-depth features are
+     * applied on a best-effort basis; a warning is logged if any of them cannot be set.
+     *
+     * @return SAXBuilder configured with XXE protections
+     * @throws IllegalStateException if the critical disallow-doctype-decl protection cannot be enabled
+     */
+    public static SAXBuilder createSecureSAXBuilder() {
+        SAXBuilder parser = new SAXBuilder();
+        // Critical protection — fail closed if it cannot be applied
+        try {
+            parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to enable required XXE protection (disallow-doctype-decl)", ex);
+        }
+        // Defense-in-depth features — warn if unavailable but still return the parser
+        try {
+            parser.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            parser.setExpandEntities(false);
+        } catch (Exception ex) {
+            logger.warn("Could not configure optional SAXBuilder security features", ex);
+        }
+        return parser;
     }
 
     public static void setLsSeriliserToFormatted(LSSerializer lsSerializer) {

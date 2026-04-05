@@ -387,7 +387,7 @@
                     String flowsheetPath = "encounter/oscarMeasurements/TemplateFlowSheet.jsp";
             %>
 
-            <a href="<%= request.getContextPath() %>/<%=flowsheetPath%>?demographic_no=<%=demographic%>&template=<%=flowsheet%><%=tracker%>"
+            <a href="<%= request.getContextPath() %>/<%=flowsheetPath%>?demographic_no=<%= Encode.forUriComponent(demographic) %>&template=<%=flowsheet%><%=tracker%>"
                class="btn btn-sm" title="go back to <%=flowsheet%> flowsheet"><i class="fa-solid fa-backward"></i></a>
 
             <%}%>
@@ -500,7 +500,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 		         		    if(mFlowsheet.getFlowSheetItem(mstring).getPreventionType()!=null){ %>
 		         		<i class="fa-solid fa-lock action-icon" style="opacity:0.6;" title="Prevention item - managed in Prevention module"></i>
 		                <%} else {%>
-		                <a href="UpdateFlowsheet.jsp?flowsheet=<%=temp%>&measurement=<%=mstring%><%=demographicStr%><%=htQueryString%><%=scope==null?"":"&scope="+scope%>" title="Edit" class="action-icon"><i class="fa-solid fa-pencil"></i></a>
+		                <a href="UpdateFlowsheet.jsp?flowsheet=<%=Encode.forUriComponent(temp)%>&measurement=<%=Encode.forUriComponent(mstring)%><%=demographicStr%><%=htQueryString%><%=scope==null?"":"&scope="+Encode.forUriComponent(scope)%>" title="Edit" class="action-icon"><i class="fa-solid fa-pencil"></i></a>
 		                <%}%>
 		               <%
 		                boolean isHidden = mFlowsheet.getFlowSheetItem(mstring).isHide();
@@ -638,7 +638,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                                         <%} else if (cust.getDemographicNo().equals("0")) { %>
                                         Your patients
                                         <%} else { %>
-                                        <a href="<%=request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=cust.getDemographicNo()%>&displaymode=edit&dboperation=search_detail"
+                                        <a href="<%=request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=cust.getDemographicNo()%>"
                                            target="_blank"><%=cust.getDemographicNo()%>
                                         </a>
                                         <%} %>
@@ -661,15 +661,15 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 
                     <form name="FlowSheetCustomActionForm" id="FlowSheetCustomActionForm" class="card card-body bg-body-tertiary"
                           action="FlowSheetCustomAction.do" method="post">
-                        <input type="hidden" name="flowsheet" value="<%=temp%>"/>
+                        <input type="hidden" name="flowsheet" value="<%=Encode.forHtmlAttribute(temp)%>"/>
                         <input type="hidden" name="method" value="save"/>
                         <%if (demographic != null) {%>
-                        <input type="hidden" name="demographic" value="<%=demographic%>"/>
+                        <input type="hidden" name="demographic" value="<%= Encode.forHtmlAttribute(demographic) %>"/>
                         <%
                             }
                             if (scope != null) {
                         %>
-                        <input type="hidden" name="scope" value="<%=scope%>"/>
+                        <input type="hidden" name="scope" value="<%= Encode.forHtmlAttribute(scope) %>"/>
                         <%}%>
 
 

@@ -30,6 +30,7 @@
 
 --%>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -215,7 +216,7 @@
                value="search_address" <%=searchMode.equals("search_address")?"checked":""%>> Address
         <input type="radio" name="search_mode" value="search_hin" <%=searchMode.equals("search_hin")?"checked":""%>> HIN
 
-        <input type="text" NAME="keyword" class="form-control" MAXLENGTH="100" value="<%=(keyword != null)?keyword:""%>">
+        <input type="text" NAME="keyword" class="form-control" MAXLENGTH="100" value="<%=(keyword != null)?Encode.forHtmlAttribute(keyword):""%>">
         <INPUT TYPE="hidden" NAME="orderby" VALUE="last_name">
         <INPUT TYPE="hidden" NAME="limit1" VALUE="0">
         <INPUT TYPE="hidden" NAME="limit2" VALUE="10">
@@ -227,7 +228,7 @@
 
 <% if (request.getParameter("keyword") != null) {%>
 
-<i>Results based on keyword(s)</i> : <%=request.getParameter("keyword")%>
+<i>Results based on keyword(s)</i> : <%= Encode.forHtml(StringUtils.noNull(request.getParameter("keyword"))) %>
 
 <CENTER>
     <form method="post" name="mergeform" action="MergeRecords.do" onSubmit="return confirmMerge()">
@@ -353,20 +354,20 @@
                 %>
                 <td width="15%" align="center" height="25">
                     <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                        <a href="javascript:popupWindow('<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%= head %>&displaymode=edit&dboperation=search_detail')"><%=demographicNo%>
+                        <a href="javascript:popupWindow('<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%= head %>')"><%=demographicNo%>
                         </a>
                     </caisi:isModuleLoad></td>
-                <td align="center" width="20%" height="25"><%=demo.getLastName()%>
+                <td align="center" width="20%" height="25"><%=Encode.forHtml(demo.getLastName())%>
                 </td>
-                <td align="center" width="20%" height="25"><%=demo.getFirstName()%>
+                <td align="center" width="20%" height="25"><%=Encode.forHtml(demo.getFirstName())%>
                 </td>
-                <td align="center" width="10%" height="25"><%=demo.getAge()%>
+                <td align="center" width="10%" height="25"><%=Encode.forHtml(demo.getAge())%>
                 </td>
-                <td align="center" width="10%" height="25"><%=demo.getRosterStatus()%>
+                <td align="center" width="10%" height="25"><%=Encode.forHtml(demo.getRosterStatus())%>
                 </td>
-                <td align="center" width="10%" height="25"><%=demo.getSex()%>
+                <td align="center" width="10%" height="25"><%=Encode.forHtml(demo.getSex())%>
                 </td>
-                <td align="center" width="10%" height="25"><%=demo.getFormattedDob()%>
+                <td align="center" width="10%" height="25"><%=Encode.forHtml(demo.getFormattedDob())%>
                 </td>
             </tr>
             <%

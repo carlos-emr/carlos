@@ -54,6 +54,8 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class ReportReassign2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -109,7 +111,7 @@ public class ReportReassign2Action extends ActionSupport {
          * process.
          */
         String selectedProviders = request.getParameter("selectedProviders");
-        logger.info("selected providers to forward labs to " + selectedProviders);
+        logger.info("selected providers to forward labs to {}", LogSanitizer.sanitize(selectedProviders));
 
         if (selectedProviders != null && !selectedProviders.isEmpty()) {
             try {
@@ -202,25 +204,34 @@ public class ReportReassign2Action extends ActionSupport {
 
             newURL = request.getRequestURI();
 
+            // Encode all query parameters — defense-in-depth for session-derived values,
+            // required for user-controlled searchProviderNo and status
+            String encodedProviderNo = Encode.forUriComponent(providerNo);
+            String encodedSearchProviderNo = Encode.forUriComponent(searchProviderNo != null ? searchProviderNo : "");
+            String encodedStatus = Encode.forUriComponent(status != null ? status : "");
+
             if (newURL.contains("labDisplay.jsp")) {
-                newURL = newURL + "?providerNo=" + providerNo + "&searchProviderNo=" + searchProviderNo + "&status=" + status;
+                newURL = newURL + "?providerNo=" + encodedProviderNo + "&searchProviderNo=" + encodedSearchProviderNo + "&status=" + encodedStatus;
                 // the segmentID is needed when being called from a lab display
             } else {
-                newURL = newURL + "&providerNo=" + providerNo + "&searchProviderNo=" + searchProviderNo + "&status=" + status;
+                newURL = newURL + "&providerNo=" + encodedProviderNo + "&searchProviderNo=" + encodedSearchProviderNo + "&status=" + encodedStatus;
             }
 
             if (!flaggedLabsList.isEmpty()) {
-                newURL = newURL + "&segmentID=" + flaggedLabsList.get(0);
+                // flaggedLabsList entries are String[] from split(":")  e.g. ["labId","type"]
+                // join them back to reconstruct "labId:type" before encoding
+                String segmentId = String.join(":", flaggedLabsList.get(0));
+                newURL = newURL + "&segmentID=" + Encode.forUriComponent(segmentId);
             }
             
             if (request.getParameter("lname") != null) {
-                newURL = newURL + "&lname=" + request.getParameter("lname");
+                newURL = newURL + "&lname=" + Encode.forUriComponent(request.getParameter("lname"));
             }
             if (request.getParameter("fname") != null) {
-                newURL = newURL + "&fname=" + request.getParameter("fname");
+                newURL = newURL + "&fname=" + Encode.forUriComponent(request.getParameter("fname"));
             }
             if (request.getParameter("hnum") != null) {
-                newURL = newURL + "&hnum=" + request.getParameter("hnum");
+                newURL = newURL + "&hnum=" + Encode.forUriComponent(request.getParameter("hnum"));
             }
         } catch (Exception e) {
             logger.error("exception in ReportReassign2Action", e);

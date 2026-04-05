@@ -454,7 +454,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             %>
             <div style="background-color:#33FFCC; text-align:right">
                 Group Note - Editable note in this <a href="javascript:void(0)"
-                                                      onClick="popupPage(700,1000,'Master1','<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=note.getLocation() %>&displaymode=edit&dboperation=search_detail');return false;">client</a>
+                                                      onClick="popupPage(700,1000,'Master1','<%=request.getContextPath()%>/demographic/DemographicEdit.do?demographic_no=<%=note.getLocation() %>');return false;">client</a>
             </div>
             <%
                 }

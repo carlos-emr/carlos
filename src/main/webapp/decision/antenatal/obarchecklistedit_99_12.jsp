@@ -36,7 +36,16 @@
 <%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*"
          errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="javax.xml.parsers.SAXParserFactory" %>
+<%@ page import="javax.xml.parsers.SAXParser" %>
+<%@ page import="javax.xml.parsers.ParserConfigurationException" %>
+<%@ page import="org.xml.sax.InputSource" %>
+<%@ page import="org.xml.sax.SAXException" %>
+<%@ page import="org.xml.sax.helpers.DefaultHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
@@ -61,16 +70,39 @@
       method="POST">
     <%
         char sep = oscarVariables.getProperty("file_separator").toCharArray()[0];
-        String str = null;
+        String saveError = null;
         if (request.getParameter("submit") != null && request.getParameter("submit").compareTo(" Save ") == 0) {
-            //FileWriter inf = new FileWriter(".."+sep+"webapps"+sep+oscarVariables.getProperty("project_home")+sep+"decision"+sep+"antenatal"+sep+"desantenatalplannerchecklist_99_12.xml");
-            FileWriter inf = new FileWriter(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerchecklist_99_12.xml");
-            str = request.getParameter("checklist");
-            str = SxmlMisc.replaceString(str, " & ", " &amp; ");
-            str = SxmlMisc.replaceString(str, " > ", " &gt; ");
-            str = SxmlMisc.replaceString(str, " < ", " &lt; ");
-            inf.write(str);
-            inf.close();
+            // Security check — only admins may overwrite the shared checklist template
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
+                throw new SecurityException("missing required sec object: _admin (write access required)");
+            }
+
+            String checklist = request.getParameter("checklist");
+            if (checklist != null) {
+                // Validate submitted XML with a hardened SAX parser.
+                // Disabling DOCTYPE processing prevents XXE injection; parsing ensures the document
+                // is well-formed before it is written to disk and later consumed by DesAntenatalPlannerChecklist_99_12.
+                try {
+                    SAXParserFactory validationFactory = SAXParserFactory.newInstance();
+                    // Reject any DOCTYPE declaration — primary XXE defence
+                    validationFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+                    // Belt-and-suspenders: disable external entity resolution if the above is unsupported
+                    validationFactory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+                    validationFactory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+                    validationFactory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+                    SAXParser saxParser = validationFactory.newSAXParser();
+                    saxParser.parse(new InputSource(new StringReader(checklist)), new DefaultHandler());
+
+                    // XML is well-formed and safe — write the raw (un-encoded) document to disk
+                    try (FileWriter inf = new FileWriter(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerchecklist_99_12.xml")) {
+                        inf.write(checklist);
+                    }
+                } catch (SAXException | ParserConfigurationException e) {
+                    saveError = "Save failed: submitted content is not valid XML or contains unsafe constructs. Please correct the XML and try again.";
+                }
+            }
         }
     %>
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
@@ -89,6 +121,11 @@
                 </div>
             </th>
         </tr>
+        <% if (saveError != null) { %>
+        <tr>
+            <td colspan="2" style="color: red; padding: 4px;"><%= Encode.forHtml(saveError) %></td>
+        </tr>
+        <% } %>
         <tr>
             <td align=CENTER colspan="2"><font
                     face="Times New Roman, Times, serif"> <textarea
@@ -109,7 +146,8 @@
         while (true) {
             aline = raf.readLine();
             if (aline != null) {
-                out.println(aline);
+                // Encode for HTML context to prevent textarea-breakout XSS
+                out.println(Encode.forHtml(aline));
             } else {
                 break;
             }
@@ -120,9 +158,7 @@
 </textarea> </font></td>
         </tr>
         <TR>
-            <td><b>*</b> The Symbols ("&", "<", or ">") should be written as
-                " & ", " < ", or " > " in the content. Or use ("&amp;amp;","&amp;lt;",
-                or "&amp;gt;") instead.
+            <td><b>Note:</b> The XML document is validated on save. Malformed XML or documents containing DOCTYPE declarations will be rejected.
             </td>
         </tr>
     </table>

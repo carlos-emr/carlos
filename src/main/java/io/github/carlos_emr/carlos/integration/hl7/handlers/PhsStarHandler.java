@@ -63,6 +63,7 @@ import io.github.carlos_emr.carlos.integration.hl7.model.PatientId;
 import io.github.carlos_emr.carlos.integration.hl7.model.StaffId;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import ca.uhn.hl7v2.HL7Exception;
@@ -1255,7 +1256,7 @@ public class PhsStarHandler extends BasePhsStarHandler {
             is = new FileInputStream(new File(filename));
 
             if (is != null) {
-                SAXBuilder parser = new SAXBuilder();
+                SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
                 Document doc = null;
                 try {
                     doc = parser.build(is);

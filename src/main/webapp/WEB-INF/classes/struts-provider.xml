@@ -36,7 +36,6 @@
             <result name="error">/failure.jsp</result>
         </action>
         <action name="admin/ManageFax" class="io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action">
-            <result name="completed">/admin/manageFax.jsp</result>
         </action>
         <action name="admin/ManageFaxes" class="io.github.carlos_emr.carlos.fax.admin.ManageFaxes2Action">
             <result name="faxstatus">/admin/faxStatusResults.jspf</result>
@@ -68,7 +67,6 @@
             <result name="genHl7LabResultPrefs">/provider/setHl7LabResultPrefs.jsp</result>
             <result name="genRxDefaultQuantity">/provider/setGenRxDefaultQuantityProperty.jsp</result>
             <result name="genRxProfileView">/provider/setGenRxProfileViewProperty.jsp</result>
-            <result name="genRxUseRx3">/provider/setToUseRx3.jsp</result>
             <result name="genDefaultDocQueue">/provider/setDocDefaultQueue.jsp</result>
             <result name="genShowPatientDOB">/provider/setShowPatientDOB.jsp</result>
             <result name="genCppSingleLine">/provider/setCppSingleLine.jsp</result>

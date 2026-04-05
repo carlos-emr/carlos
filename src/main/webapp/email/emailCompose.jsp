@@ -814,7 +814,7 @@
 
     function openDemographicPage(event) {
         event.preventDefault();
-        window.open("${ctx}/demographic/demographiccontrol.jsp?demographic_no=${demographicId}&displaymode=edit&dboperation=search_detail", "_blank", "width=1027,height=700");
+        window.open("${ctx}/demographic/DemographicEdit.do?demographic_no=${demographicId}", "_blank", "width=1027,height=700");
     }
 
     function cancelEmail() {

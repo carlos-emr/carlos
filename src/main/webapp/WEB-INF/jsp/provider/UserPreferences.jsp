@@ -404,11 +404,6 @@
             <br/><br/>
             <table border="0">
                 <tr>
-                    <td nowrap="nowrap"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.pref.rx.rx3"/>:</td>
-                    <td><%=UserPreference2Action.getSelect(prefs, "pref." + UserProperty.RX_USE_RX3) %>
-                    </td>
-                </tr>
-                <tr>
                     <td nowrap="nowrap"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.pref.rx.qr"/>:</td>
                     <td><%=UserPreference2Action.getSelect(prefs, "pref." + UserProperty.RX_SHOW_QR_CODE) %>
                     </td>

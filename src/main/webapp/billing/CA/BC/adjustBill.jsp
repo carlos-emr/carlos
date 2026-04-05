@@ -452,7 +452,7 @@
             Office Claim No
         </td>
         <td class="bCellData">
-            <%=billingmasterNo%>
+            <%= Encode.forHtml(billingmasterNo != null ? billingmasterNo : "") %>
         </td>
         <td align="left" class="bCellData">
             <font color="#000000">Last update: <%=UpdateDate%>
@@ -539,7 +539,7 @@
     <table width="100%" border="0">
         <tr bgcolor="#CCCCFF">
             <td height="21" colspan="2" class="bCellData">Patient Information<input type="hidden" name="billingmasterNo"
-                                                                                    value="<%=billingmasterNo%>"/>
+                                                                                    value="<%= Encode.forHtmlAttribute(billingmasterNo) %>"/>
 
                 <%if (BillType.equals("A") || BillType.equals("P")) {%>
                 <a href="#"
@@ -553,7 +553,7 @@
             <td width="54%" class="bCellData">
                 Patient Name:
                 <a href=#
-                   onClick="popupPage2('<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=DemoNo%>&displaymode=edit&dboperation=search_detail');return false;"
+                   onClick="popupPage2('<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=DemoNo%>');return false;"
                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">
                     <%=Encode.forHtmlContent(DemoName)%>
                 </a>
@@ -1087,7 +1087,7 @@
 
             <td colspan="3">
                 <jsp:include flush="false" page="billTransactions.jsp">
-                    <jsp:param name="billMasterNo" value="<%=billingmasterNo%>"/>
+                    <jsp:param name="billMasterNo" value="<%= billingmasterNo %>"/>
                 </jsp:include>
             </td>
 

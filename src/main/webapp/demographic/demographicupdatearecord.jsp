@@ -339,7 +339,7 @@
         %>
         <span style="color:red;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicupdatearecord.msgDuplicatedHINError"/></span><br>
         <fmt:message key="demographic.msgDuplicatedHINDetail"/>
-        <a href="demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(hinDemo.getDemographicNo().toString()) %>&displaymode=edit&dboperation=search_detail"><%= Encode.forHtml(hinDemo.getLastName() + ", " + hinDemo.getFirstName()) %></a><br><br>
+        <a href="DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(hinDemo.getDemographicNo().toString()) %>"><%= Encode.forHtml(hinDemo.getLastName() + ", " + hinDemo.getFirstName()) %></a><br><br>
         <a href="#" onClick="history.go(-1);return false;"><b>&lt;-<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></b></a>
         <%
                             return;
@@ -400,11 +400,11 @@
         %>
 
         <form name="add2WLFrm" action="<%= request.getContextPath() %>/waitinglist/Add2WaitingList.jsp" method="post">
-            <input type="hidden" name="listId" value="<%=request.getParameter("list_id")%>"/>
-            <input type="hidden" name="demographicNo" value="<%=request.getParameter("demographic_no")%>"/>
-            <input type="hidden" name="demographic_no" value="<%=request.getParameter("demographic_no")%>"/>
-            <input type="hidden" name="waitingListNote" value="<%=request.getParameter("waiting_list_note")%>"/>
-            <input type="hidden" name="onListSince" value="<%=request.getParameter("waiting_list_referral_date")%>"/>
+            <input type="hidden" name="listId" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("list_id"))) %>"/>
+            <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>"/>
+            <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>"/>
+            <input type="hidden" name="waitingListNote" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("waiting_list_note"))) %>"/>
+            <input type="hidden" name="onListSince" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("waiting_list_referral_date"))) %>"/>
             <input type="hidden" name="displaymode" value="edit"/>
             <input type="hidden" name="dboperation" value="search_detail"/>
 
@@ -424,9 +424,9 @@
             <script language="JavaScript">
                 var add2List = confirm("The patient already has an appointment, do you still want to add him/her to the waiting list?");
                 if (add2List) {
-                    document.add2WLFrm.action = "<%= request.getContextPath() %>/waitinglist/Add2WaitingList.jsp?demographicNo=<%=request.getParameter("demographic_no")%>&listId=<%=request.getParameter("list_id")%>&waitingListNote=<%=request.getParameter("waiting_list_note")==null?"":request.getParameter("waiting_list_note")%>&onListSince=<%=request.getParameter("waiting_list_referral_date")==null?"":request.getParameter("waiting_list_referral_date")%>";
+                    document.add2WLFrm.action = "<%= request.getContextPath() %>/waitinglist/Add2WaitingList.jsp?demographicNo=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))) %>&listId=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("list_id")))) %>&waitingListNote=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("waiting_list_note")==null?"":request.getParameter("waiting_list_note"))) %>&onListSince=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("waiting_list_referral_date")==null?"":request.getParameter("waiting_list_referral_date"))) %>";
                 } else {
-                    document.add2WLFrm.action = "demographiccontrol.jsp?demographic_no=<%=request.getParameter("demographic_no")%>&displaymode=edit&dboperation=search_detail";
+                    document.add2WLFrm.action = "DemographicEdit.do?demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))) %>";
                 }
                 document.add2WLFrm.submit();
             </script>
@@ -434,28 +434,28 @@
             } else {
             %>
             <script language="JavaScript">
-                document.add2WLFrm.action = "<%= request.getContextPath() %>/waitinglist/Add2WaitingList.jsp?demographicNo=<%=request.getParameter("demographic_no")%>&listId=<%=request.getParameter("list_id")%>&waitingListNote=<%=request.getParameter("waiting_list_note")==null?"":request.getParameter("waiting_list_note")%>&onListSince=<%=request.getParameter("waiting_list_referral_date")==null?"":request.getParameter("waiting_list_referral_date")%>";
+                document.add2WLFrm.action = "<%= request.getContextPath() %>/waitinglist/Add2WaitingList.jsp?demographicNo=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))) %>&listId=<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("list_id")))) %>&waitingListNote=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("waiting_list_note")==null?"":request.getParameter("waiting_list_note"))) %>&onListSince=<%= Encode.forJavaScript(Encode.forUriComponent(request.getParameter("waiting_list_referral_date")==null?"":request.getParameter("waiting_list_referral_date"))) %>";
                 document.add2WLFrm.submit();
             </script>
             <%
                         }
                     } else {
-                        response.sendRedirect("demographiccontrol.jsp?demographic_no=" + request.getParameter("demographic_no") + "&displaymode=edit&dboperation=search_detail");
+                        response.sendRedirect("DemographicEdit.do?demographic_no=" + request.getParameter("demographic_no") + "");
                     }
                 } else {
-                    response.sendRedirect("demographiccontrol.jsp?demographic_no=" + request.getParameter("demographic_no") + "&displaymode=edit&dboperation=search_detail");
+                    response.sendRedirect("DemographicEdit.do?demographic_no=" + request.getParameter("demographic_no") + "");
                 }
             %>
         </form>
         <%
             } else {
-                response.sendRedirect("demographiccontrol.jsp?demographic_no=" + request.getParameter("demographic_no") + "&displaymode=edit&dboperation=search_detail");
+                response.sendRedirect("DemographicEdit.do?demographic_no=" + request.getParameter("demographic_no") + "");
             }
         %>
 
         <h2>Update a Provider Record Successfully !
             <p>
-                <a href="demographiccontrol.jsp?demographic_no=<%=request.getParameter("demographic_no")%>&displaymode=edit&dboperation=search_detail"><%= request.getParameter("demographic_no") %>
+                <a href="DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>"><%= Encode.forHtml(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>
                 </a></p>
         </h2>
 

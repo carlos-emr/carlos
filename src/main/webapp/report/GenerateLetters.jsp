@@ -237,9 +237,9 @@
                     if (followUpType != null && followUpValue != null) { %>
                     Mark in patients Records: <input type="checkbox" name="addFollowUp"
                                                      value="ON" checked/> <input type="hidden" name="followupType"
-                                                                                 value="<%=followUpType%>"/> <input
+                                                                                 value="<%= Encode.forHtmlAttribute(followUpType) %>"/> <input
                             type="hidden"
-                            name="followupValue" value="<%=followUpValue%>"/> <%}%>
+                            name="followupValue" value="<%= Encode.forHtmlAttribute(followUpValue) %>"/> <%}%>
                 </div>
 
                 <input type="submit" value="Generate Letters"/>

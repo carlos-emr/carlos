@@ -64,8 +64,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -378,6 +376,13 @@ public final class Login2Action extends ActionSupport {
                 pin = "";
             }
             nextPage = (String) request.getSession().getAttribute("nextPage");
+            // Validate nextPage retrieved from session to prevent open redirect (CWE-601 defense in depth)
+            if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
+                if (nextPage != null) {
+                    logger.warn("Rejected invalid nextPage from session: " + Encode.forJava(nextPage));
+                }
+                nextPage = null;
+            }
 
             String newPassword = this.getNewPassword();
             String confirmPassword = this.getConfirmPassword();
@@ -433,28 +438,18 @@ public final class Login2Action extends ActionSupport {
 
             logger.debug("nextPage: " + Encode.forJava(nextPage));
             if (nextPage != null) {
-                try {
-                    URI url = new URI(nextPage);
-
-                    // Reject absolute URIs (http://...), protocol-relative URIs (//evil.com),
-                    // and backslash-based bypasses (/\evil.com normalizes to //evil.com in browsers)
-                    if (url.isAbsolute() || url.getAuthority() != null || nextPage.contains("\\")) {
-                        logger.warn("Rejected redirect URL: " + Encode.forJava(nextPage));
-                        response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
-                        return NONE;
-                    } else {
-                        // set current facility
-                        String facilityIdString = request.getParameter(SELECTED_FACILITY_ID);
-                        Facility facility = facilityDao.find(Integer.parseInt(facilityIdString));
-                        request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility);
-                        String username = (String) request.getSession().getAttribute("user");
-                        LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIdString, ip);
-                        response.sendRedirect(nextPage);
-                        return NONE;
-                    }
-                } catch (URISyntaxException e) {
-                    logger.warn("Invalid nextPage parameter (URI syntax): " + Encode.forJava(nextPage), e);
+                if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
+                    logger.warn("Rejected redirect URL: " + Encode.forJava(nextPage));
                     response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+                    return NONE;
+                } else {
+                    // set current facility
+                    String facilityIdString = request.getParameter(SELECTED_FACILITY_ID);
+                    Facility facility = facilityDao.find(Integer.parseInt(facilityIdString));
+                    request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility);
+                    String username = (String) request.getSession().getAttribute("user");
+                    LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIdString, ip);
+                    response.sendRedirect(nextPage);
                     return NONE;
                 }
             }
@@ -693,7 +688,8 @@ public final class Login2Action extends ActionSupport {
 
             List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
             if (facilityIds.size() > 1) {
-                String newURL = request.getContextPath() + "/select_facility.jsp?nextPage=" + where;
+                String facilityPath = "/select_facility.jsp?nextPage=";
+                String newURL = request.getContextPath() + facilityPath + Encode.forUriComponent(where);
 
                 response.sendRedirect(newURL);
                 return NONE;
@@ -875,28 +871,40 @@ public final class Login2Action extends ActionSupport {
      * stored in the session so they can be re-authenticated after successfully changing
      * their password. The password is encoded before storage for security.
      *
+     * <p>The {@code nextPage} parameter is validated against open redirect (CWE-601) before
+     * being stored. Any value that is absolute, protocol-relative, or contains backslash
+     * bypasses is rejected and stored as {@code null} (defense in depth).
+     *
      * <p>Session attributes set:
      * <ul>
      *   <li>userName - String the authenticated username (validated alphanumeric)</li>
      *   <li>password - String the SHA-encoded password hash</li>
      *   <li>pin - String the 4-digit provider PIN</li>
-     *   <li>nextPage - String the target page to redirect to after password change</li>
+     *   <li>nextPage - String the validated relative URL, or null if invalid/absent</li>
      * </ul>
      *
      * @param request HttpServletRequest to access the session
      * @param userName String the username (must match [a-zA-Z0-9]{1,10} pattern)
      * @param password String the plain-text password (will be encoded before storage)
      * @param pin String the 4-digit PIN (must match [0-9]{4} pattern)
-     * @param nextPage String the relative URL to redirect to after password reset
+     * @param nextPage String the relative URL to redirect to after password reset (validated before storage)
      * @throws Exception if password encoding fails
      * @see #encodePassword for password encoding algorithm
      * @see #removeAttributesFromSession for cleanup after password reset
+     * @see RedirectValidationUtils#isValidRelativeRedirect for redirect URL validation logic
      */
     private void setUserInfoToSession(HttpServletRequest request, String userName, String password, String pin,
                                       String nextPage) throws Exception {
         request.getSession().setAttribute("userName", userName);
         request.getSession().setAttribute("password", encodePassword(password));
         request.getSession().setAttribute("pin", pin);
+        // Validate nextPage before session storage to prevent open redirect via session (CWE-601 defense in depth)
+        if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
+            if (nextPage != null) {
+                logger.warn("Rejected invalid nextPage before session storage: " + Encode.forJava(nextPage));
+            }
+            nextPage = null;
+        }
         request.getSession().setAttribute("nextPage", nextPage);
 
     }

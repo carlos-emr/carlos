@@ -274,7 +274,7 @@
                                         <c:when test="${ fn:containsIgnoreCase( primaryDataType,'demographic_no' ) }">
 
                                             <a class="donotprint"
-                                               href="${ pageContext.request.contextPath }/demographic/demographiccontrol.jsp?demographic_no=${ column }&amp;displaymode=edit&amp;dboperation=search_detail"
+                                               href="${ pageContext.request.contextPath }/demographic/DemographicEdit.do?demographic_no=${ column }"
                                                target="_blank" title="Open Patient File">
                                                 <span class="fa-solid fa-folder-open"
                                                       style="margin-right:10px;"></span>

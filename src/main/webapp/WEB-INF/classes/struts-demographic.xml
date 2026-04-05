@@ -28,6 +28,17 @@
 <struts>
     <package name="demographic" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/securityError.jsp</result>
+            <result name="logout" type="redirect">/logout.jsp</result>
+            <result name="error">/errorpage.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+            <exception-mapping exception="java.lang.Exception" result="error"/>
+        </global-exception-mappings>
+
         <action name="admin/MergeRecords" class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action">
             <result name="success">/admin/demographicmergerecord.jsp?outcome=success</result>
             <result name="failure">/admin/demographicmergerecord.jsp?outcome=failure</result>
@@ -66,6 +77,42 @@
         </action>
         <action name="demographic/eRourkeExport" class="io.github.carlos_emr.carlos.demographic.pageUtil.RourkeExport2Action" method="execute">
             <result name="display">/WEB-INF/jsp/demographic/rourkeExport.jsp</result>
+        </action>
+
+        <action name="demographic/DemographicEdit"
+                class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEdit2Action">
+            <result name="success">/WEB-INF/jsp/demographic/edit.jsp</result>
+        </action>
+
+        <action name="demographic/DemographicAdd"
+                class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicAdd2Action">
+            <result name="success">/WEB-INF/jsp/demographic/add.jsp</result>
+        </action>
+
+        <action name="demographic/DemographicSearch"
+                class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicSearch2Action">
+            <result name="success">/demographic/demographicsearchresults.jsp</result>
+            <result name="apptResults">/demographic/demographicsearch2apptresults.jsp</result>
+        </action>
+
+        <action name="demographic/DemographicApptHistory"
+                class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicApptHistory2Action">
+            <result name="success">/demographic/demographicappthistory.jsp</result>
+        </action>
+
+        <action name="demographic/DemographicUpdate"
+                class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicUpdate2Action">
+            <result name="success">/demographic/demographicupdatearecord.jsp</result>
+        </action>
+
+        <action name="demographic/DemographicPdfLabel"
+                class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicPdfLabel2Action">
+            <result name="success">/demographic/demographicpdflabel.jsp</result>
+        </action>
+
+        <action name="demographic/DemographicLinkMsg"
+                class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicLinkMsg2Action">
+            <result name="success">/messenger/msgSearchDemo.jsp</result>
         </action>
 
     </package>

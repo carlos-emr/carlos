@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class BulkPatientDashboard2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -105,7 +106,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         try {
             indicatorId = Integer.parseInt(indicatorIdString);
         } catch (NumberFormatException exception) {
-            logger.error("Could not parse indicator id from: " + indicatorIdString);
+            logger.error("Could not parse indicator id from: {}", LogSanitizer.sanitize(indicatorIdString), exception);
             return null;
         }
 
@@ -129,7 +130,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             messageHandler.notifyProvider(subject, message, mrp, null); //parseIntegers(patientIdsJson));
         }
 
-        logger.info(message);
+        logger.info("Bulk exclusion notification sent for indicator {} to provider(s)", LogSanitizer.sanitize(indicatorName));
 
         return null;
     }
@@ -181,7 +182,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             messageHandler.notifyProvider(subject, message, mrp, null); //patientIdList);
         }
 
-        logger.info(message);
+        logger.info("Bulk disease registry addition notification sent for ICD9 code {} to provider(s)", LogSanitizer.sanitize(icd9code));
 
         return null;
     }
@@ -241,7 +242,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             messageHandler.notifyProvider(subject, message, mrp);
         }
 
-        logger.info(message);
+        logger.info("Bulk patient status change (inactive) notification sent to provider(s), {} patients affected", patientIdList.size());
 
         return null;
     }
@@ -262,7 +263,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             ArrayNode jsonArray = (ArrayNode) objectMapper.readTree(jsonString);
             return jsonArray;
         } catch (Exception e) {
-            logger.error("Error parsing JSON array: " + jsonString, e);
+            logger.error("Error parsing JSON array: {}", LogSanitizer.sanitize(jsonString), e);
             return objectMapper.createArrayNode();
         }
     }

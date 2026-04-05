@@ -91,6 +91,7 @@
 
 <%@ page import="java.lang.*" errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String demographic_no = request.getParameter("demographic_no");
     boolean firstSearch = request.getParameter("firstSearch") == null ? false : (request.getParameter("firstSearch")).equalsIgnoreCase("true") ? true : false;
@@ -152,7 +153,7 @@
 <table BORDER="0" CELLPADDING="0" CELLSPACING="2" WIDTH="100%"
        bgcolor="#CCCCFF">
     <form method="post" name="titlesearch"
-          action="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp"
+          action="<%= request.getContextPath() %>/demographic/DemographicSearch.do"
           onsubmit="return checkTypeIn()">
         <tr>
             <td colspan="6" class="RowTop"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/></b></td>
@@ -172,7 +173,7 @@
                         <td nowrap></td>
                         <td nowrap></td>
                         <td valign="middle" rowspan="2" ALIGN="left"><input type="text"
-                                                                            NAME="keyword" VALUE="<%=keyword%>"
+                                                                            NAME="keyword" VALUE="<%=Encode.forHtmlAttribute(keyword)%>"
                                                                             SIZE="17" MAXLENGTH="100">
                             <%
                                 String searchMode = request.getParameter("search_mode");
@@ -181,7 +182,7 @@
                                 }
                             %>
                             <input type="hidden" name="outofdomain" value="">
-                            <input type="hidden" name="search_mode" value="<%=searchMode%>">
+                            <input type="hidden" name="search_mode" value="<%= Encode.forHtmlAttribute(searchMode) %>">
                             <INPUT TYPE="hidden" NAME="orderby" VALUE="last_name, first_name">
                             <INPUT TYPE="hidden" NAME="dboperation" VALUE="search_titlename">
                             <INPUT TYPE="hidden" NAME="limit1" VALUE="0"> <INPUT
@@ -212,8 +213,8 @@
 </table>
 <script>
     // Auto-close window and write selection back to parent if demographic was selected
-    if ("<%=demographic_no%>" != "null") {
-        write2Parent("<%=keyword%>", "<%=demographic_no%>");
+    if ("<%=Encode.forJavaScript(demographic_no)%>" != "null") {
+        write2Parent("<%=Encode.forJavaScript(keyword)%>", "<%=Encode.forJavaScript(demographic_no)%>");
         self.window.close();
     }
 </script>

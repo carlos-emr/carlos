@@ -1,4 +1,7 @@
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %><%--
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -65,11 +68,11 @@
 <%
  if (request.getParameter("ID") != null && type != null && type.equals("Edit")){ %>
 	$(function() {
-		var data = "pharmacyId=<%=request.getParameter("ID")%>";
+		var data = "pharmacyId=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("ID")))%>";
 		$.post("<%=request.getContextPath()%>/oscarRx/managePharmacy.do?method=getPharmacyInfo",
 				  data, function( data ) {
 			if(data.name) {
-			  $('#pharmacyId').val(<%=request.getParameter("ID")%>);
+			  $('#pharmacyId').val('<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("ID")))%>');
 			  $('#pharmacyName').val(data.name);
 			  $('#pharmacyAddress').val(data.address);
 			  $('#pharmacyCity').val(data.city);

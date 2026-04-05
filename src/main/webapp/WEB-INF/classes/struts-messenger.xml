@@ -31,9 +31,7 @@
         <action name="messenger/ImportDemographic" class="io.github.carlos_emr.carlos.messenger.pageUtil.ImportDemographic2Action">
             <result name="success">/messenger/ViewMessage.do</result>
         </action>
-        <action name="messenger/SendMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSendMessage2Action">
-            <result name="success">/messenger/SentMessage.jsp</result>
-        </action>
+
         <action name="messenger/CreateMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgCreateMessage2Action">
             <result name="success">/messenger/SentMessage.jsp</result>
             <result name="error">/messenger/CreateMessage.jsp</result>
@@ -54,7 +52,6 @@
         <action name="messenger/ViewMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessage2Action">
             <result name="noRights">/messenger/DisplayMessages.jsp</result>
             <result name="success">/messenger/ViewMessage.jsp</result>
-            <result name="viewFromEncounter">/messenger/ViewMessageFromEncounter.jsp</result>
         </action>
         <!-- DEPRECATED: This action is used by the legacy encounter page (encounter/Index.jsp) -->
         <action name="messenger/ViewMessageByPosition" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessageByPosition2Action">
@@ -67,6 +64,7 @@
         <action name="messenger/ProcessDoc2PDF" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDoc2PDF2Action">
             <result name="success">/WEB-INF/jsp/messenger/selfClose.jsp</result>
         </action>
+
         <action name="messenger/HandleMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action">
             <result name="success">/messenger/DisplayMessages.jsp</result>
             <result name="reply">/messenger/CreateMessage.jsp</result>
@@ -87,9 +85,7 @@
         <action name="messenger/ViewPDFFile" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewPDF2Action">
             <result name="success">/WEB-INF/jsp/messenger/ViewPDFFile.jsp</result>
         </action>
-        <action name="messenger/Transfer/Proceed" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgProceed2Action">
-            <result name="success">/messenger/Transfer/SearchComplete.jsp</result>
-        </action>
+
         <action name="messenger/ClearMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgClearMessage2Action">
             <result name="success">/messenger/CreateMessage.jsp</result>
         </action>

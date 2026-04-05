@@ -33,10 +33,8 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
-import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
-import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
@@ -63,11 +61,8 @@ import java.io.IOException;
  * <li>Displaying patient allergy information</li>
  * <li>Reordering allergies in the display list</li>
  * <li>Managing RxSessionBean for prescription context</li>
- * <li>Routing to appropriate JSP based on RX3 configuration</li>
+ * <li>Routing to ShowAllergies2.jsp</li>
  * </ul>
- * <p>
- * Supports both legacy (ShowAllergies.jsp) and RX3 (ShowAllergies2.jsp) interfaces
- * based on system and user preferences.
  *
  * @since 2006-04-20
  */
@@ -99,7 +94,12 @@ public final class RxShowAllergy2Action extends ActionSupport {
     public String reorder() {
         reorder(request);
         try {
-            response.sendRedirect(request.getContextPath() + "/oscarRx/ShowAllergies.jsp?demographicNo=" + request.getParameter("demographicNo"));
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, request.getParameter("demographicNo"));
+            if (patient != null) {
+                request.getSession().setAttribute("Patient", patient);
+            }
+            response.sendRedirect(request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + request.getParameter("demographicNo"));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -112,7 +112,6 @@ public final class RxShowAllergy2Action extends ActionSupport {
      * This method:
      * <ul>
      * <li>Checks security privileges for allergy access</li>
-     * <li>Determines RX3 interface preference (system-wide or user-specific)</li>
      * <li>Sets up or retrieves RxSessionBean for the session</li>
      * <li>Loads patient data including allergies</li>
      * <li>Redirects to appropriate allergies display JSP</li>
@@ -154,18 +153,6 @@ public final class RxShowAllergy2Action extends ActionSupport {
             return dispatchResult;
         }
 
-        boolean useRx3 = false;
-        String rx3 = CarlosProperties.getInstance().getProperty("RX3");
-        if (rx3 != null && rx3.equalsIgnoreCase("yes")) {
-            useRx3 = true;
-        }
-        UserPropertyDAO userPropertyDAO = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
-        String provider = (String) request.getSession().getAttribute("user");
-        UserProperty propUseRx3 = userPropertyDAO.getProp(provider, UserProperty.RX_USE_RX3);
-        if (propUseRx3 != null && propUseRx3.getValue().equalsIgnoreCase("yes"))
-            useRx3 = true;
-
-
         String user_no = (String) request.getSession().getAttribute("user");
         String demo_no = request.getParameter("demographicNo");
         String view = request.getParameter("view");
@@ -195,16 +182,9 @@ public final class RxShowAllergy2Action extends ActionSupport {
 
         request.getSession().setAttribute("RxSessionBean", bean);
 
-        if (request.getParameter("method") != null && request.getParameter("method").equals("reorder")) {
-            reorder(request);
-        }
-
         RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, bean.getDemographicNo());
 
-        String forward = request.getContextPath() + "/oscarRx/ShowAllergies.jsp?demographicNo=" + demo_no;
-        if (useRx3) {
-            forward = request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + demo_no;
-        }
+        String forward = request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + demo_no;
         if (patient != null) {
             request.getSession().setAttribute("Patient", patient);
             response.sendRedirect(forward);
@@ -229,7 +209,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
 
         String atcCode = request.getParameter("atcCode");
         String id = request.getParameter("id");
-        String disabled = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("rx3.disable_allergy_warnings", "false");
+        String disabled = CarlosProperties.getInstance().getProperty("rx.disable_allergy_warnings", "false");
         if (disabled.equals("false")) {
 
             ObjectMapper objectMapper = new ObjectMapper();

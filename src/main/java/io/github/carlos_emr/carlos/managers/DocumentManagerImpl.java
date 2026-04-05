@@ -54,6 +54,8 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import org.owasp.encoder.Encode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -397,19 +399,32 @@ public class DocumentManagerImpl implements DocumentManager {
      */
     public String getFullPathToDocument(String filename) {
 
-        String path = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-
-        if (!path.endsWith(File.separator)) {
-            path += File.separator;
+        if (filename == null || filename.isEmpty()) {
+            return null;
         }
 
-        path += filename;
-
-        if (!FileSystems.getDefault().getPath(path).toFile().exists()) {
-            path = null;
+        // Reject filenames containing path separators. Stored filenames are plain basenames;
+        // silently stripping a subdirectory component could resolve to a different file.
+        if (filename.contains("/") || filename.contains("\\")) {
+            logger.error("Document filename contains path separator, rejected: {}", Encode.forJava(filename));
+            return null;
         }
 
-        return path;
+        String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+
+        File validatedFile;
+        try {
+            validatedFile = PathValidationUtils.validatePath(filename, new File(documentDir));
+        } catch (SecurityException e) {
+            logger.error("Invalid document filename rejected: {}", Encode.forJava(filename));
+            return null;
+        }
+
+        if (!validatedFile.exists()) {
+            return null;
+        }
+
+        return validatedFile.getAbsolutePath();
     }
 
     /**

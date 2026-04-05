@@ -621,8 +621,8 @@ public class NotesService extends AbstractServiceImpl {
 			
 			CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.find(casemgmtNoteLockSession.getId());
 			//if other window has acquired lock we reject save									
-			if ( !casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId()) || !request.getRequestedSessionId().equals(casemgmtNoteLockSession.getSessionId()) ) {
-				logger.info("DO NOT HAVE LOCK FOR " + demo + " PROVIDER " + providerNo + " CONTINUE SAVING LOCAL SESSION " + request.getRequestedSessionId() + " LOCAL IP " + request.getRemoteAddr() + " LOCK SESSION " + casemgmtNoteLockSession.getSessionId() + " LOCK IP " + casemgmtNoteLockSession.getIpAddress());
+			if ( !casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId()) || !request.getSession().getId().equals(casemgmtNoteLockSession.getSessionId()) ) {
+				logger.info("DO NOT HAVE LOCK FOR " + demo + " PROVIDER " + providerNo + " CONTINUE SAVING LOCAL SESSION " + request.getSession().getId() + " LOCAL IP " + request.getRemoteAddr() + " LOCK SESSION " + casemgmtNoteLockSession.getSessionId() + " LOCK IP " + casemgmtNoteLockSession.getIpAddress());
 				return -1L;
 			}
 		}

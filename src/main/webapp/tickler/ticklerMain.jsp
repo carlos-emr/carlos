@@ -44,6 +44,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="java.util.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -312,7 +313,7 @@
                     pageLength: initialPageLength,
                     order: [[4, 'desc']],
                     language: {
-                        url: '${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18nLanguagecode"/>.json'
+                        url: '${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
                         },
                     ajax: {
                         url: ctx + '/tickler/ListTicklers.do',
@@ -363,7 +364,7 @@
                             orderable: false,
                             render: function(data) {
                                 var name = escapeHtml(data.demographicName || 'N/A');
-                                return '<a class="nav-link" href="javascript:void(0)" onClick="popupPage(600,800,\'' + ctx + '/demographic/demographiccontrol.jsp?demographic_no=' + encodeURIComponent(data.demographicNo) + '&displaymode=edit&dboperation=search_detail\')">' + name + '</a>';
+                                return '<a class="nav-link" href="javascript:void(0)" onClick="popupPage(600,800,\'' + ctx + '/demographic/DemographicEdit.do?demographic_no=' + encodeURIComponent(data.demographicNo) + '\')">' + name + '</a>';
                             }
                         },
                         {
@@ -786,7 +787,7 @@
                         %>
                         <script>
                             changeSite(document.getElementById("site"));
-                            document.getElementById("assignedTo").value = '<%=org.owasp.encoder.Encode.forJavaScript(request.getParameter("assignedTo"))%>';
+                            document.getElementById("assignedTo").value = '<%=org.owasp.encoder.Encode.forJavaScript(StringUtils.noNull(request.getParameter("assignedTo")))%>';
                         </script>
                         <%
                             }

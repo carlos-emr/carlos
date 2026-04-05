@@ -50,18 +50,6 @@
             <result name="list">/WEB-INF/jsp/caisicore/issueAdminList.jsp</result>
             <result name="edit">/WEB-INF/jsp/caisicore/issueAdminForm.jsp</result>
         </action>
-        <action name="Lookup/LookupList" class="io.github.carlos_emr.carlos.www.lookup.LookupList2Action" method="execute">
-            <result name="list">/PMmodule/lookup/LookupList.jsp</result>
-        </action>
-        <action name="Lookup/LookupTableList" class="io.github.carlos_emr.carlos.www.lookup.LookupTableList2Action" method="execute">
-            <result name="list">/PMmodule/lookup/LookupTableList.jsp</result>
-        </action>
-        <action name="Lookup/LookupCodeList" class="io.github.carlos_emr.carlos.www.lookup.LookupCodeList2Action" method="execute">
-            <result name="list">/PMmodule/lookup/LookupCodeList.jsp</result>
-        </action>
-        <action name="Lookup/LookupCodeEdit" class="io.github.carlos_emr.carlos.www.lookup.LookupCodeEdit2Action" method="execute">
-            <result name="edit">/PMmodule/lookup/LookupCodeEdit.jsp</result>
-        </action>
         <action name="admin/GenerateTraceAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTrace2Action"/>
         <action name="admin/GenerateTraceabilityReportAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTraceabilityReport2Action">
             <interceptor-ref name="defaultStack"/>

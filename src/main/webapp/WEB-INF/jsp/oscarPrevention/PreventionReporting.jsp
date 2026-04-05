@@ -286,7 +286,7 @@
                 <tr>
                     <td><%=i+1%></td>
                     <td>
-                        <a href="javascript: return false;" onClick="popup(724,964,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forHtmlAttribute(dis.demographicNo.toString())%>&amp;displaymode=edit&amp;dboperation=search_detail','MasterDemographic')"><%=Encode.forHtml(dis.demographicNo.toString())%></a>
+                        <a href="javascript: return false;" onClick="popup(724,964,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forHtmlAttribute(dis.demographicNo.toString())%>','MasterDemographic')"><%=Encode.forHtml(dis.demographicNo.toString())%></a>
                     </td>
                     <td><%=DemographicData.getDob(demo,"-")%></td>
 

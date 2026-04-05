@@ -115,11 +115,6 @@
             <result name="form">/episode/episodeForm.jsp</result>
             <result name="success">/episode/success.jsp</result>
         </action>
-        <action name="Pregnancy" class="io.github.carlos_emr.carlos.commn.web.Pregnancy2Action">
-            <result name="list">/pregnancy/list.jsp</result>
-            <result name="success">/pregnancy/success.jsp</result>
-            <result name="complete">/pregnancy/complete.jsp</result>
-        </action>
         <action name="PageMonitoringService" class="io.github.carlos_emr.carlos.commn.web.PageMonitoring2Action"/>
         <action name="BillingInvoice" class="io.github.carlos_emr.carlos.commn.web.BillingInvoice2Action">
             <result name="success">/billing/CA/ON/billingONCorrection.jsp</result>
