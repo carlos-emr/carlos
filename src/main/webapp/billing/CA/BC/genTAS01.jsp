@@ -50,6 +50,7 @@
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS00Dao" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS00" %>
 <%@page import="org.owasp.encoder.Encode" %>
+<%@page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%
     TeleplanS00Dao teleplanS00Dao = SpringUtils.getBean(TeleplanS00Dao.class);
@@ -131,7 +132,7 @@
                         pfirst = (String) result[2];
                 %>
 
-                <option value="<%=pohipno%>" <%=proNo.equals(pohipno) ? "selected" : ""%>><%=plast%>,<%=pfirst%>
+                <option value="<%=Encode.forHtmlAttribute(pohipno)%>" <%=proNo.equals(pohipno) ? "selected" : ""%>><%=Encode.forHtml(plast)%>,<%=Encode.forHtml(pfirst)%>
                 </option>
                 <%
 
@@ -183,41 +184,41 @@
       %>
         <tr>
             <td width="10%" height="16"><a
-                    href="javascript: popupPage(700,750,'adjustBill.jsp?billing_no=<%=result.getOfficeNo()%>')"><%=result.getOfficeNo()%>
+                    href="javascript: popupPage(700,750,'adjustBill.jsp?billing_no=<%=Encode.forJavaScript(result.getOfficeNo())%>')"><%=Encode.forHtml(result.getOfficeNo())%>
             </a>&nbsp;
             </td>
-            <td width="10%" height="16"><%=result.getPractitionerNo()%>&nbsp;
+            <td width="10%" height="16"><%=Encode.forHtml(result.getPractitionerNo())%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=result.getAjc1()%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(result.getAjc1())%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=moneyFormat(result.getAja1())%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(moneyFormat(result.getAja1()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=result.getAjc2()%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(result.getAjc2())%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=moneyFormat(result.getAja2())%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(moneyFormat(result.getAja2()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=result.getAjc3()%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(result.getAjc3())%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=moneyFormat(result.getAja3())%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(moneyFormat(result.getAja3()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=result.getAjc4()%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(result.getAjc4())%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=moneyFormat(result.getAja4())%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(moneyFormat(result.getAja4()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=result.getAjc5()%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(result.getAjc5())%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=moneyFormat(result.getAja5())%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(moneyFormat(result.getAja5()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=result.getAjc6()%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(result.getAjc6())%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=moneyFormat(result.getAja6())%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(moneyFormat(result.getAja6()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=result.getAjc7()%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(result.getAjc7())%>&nbsp;
             </td>
-            <!--<td width="5%" height="16"><%=moneyFormat(result.getAja7())%>&nbsp; </td>-->
-            <td width="5%" height="16"><%=result.getS00Type()%>&nbsp;
+            <!--<td width="5%" height="16"><%=Encode.forHtml(moneyFormat(result.getAja7()))%>&nbsp; </td>-->
+            <td width="5%" height="16"><%=Encode.forHtml(result.getS00Type())%>&nbsp;
             </td>
-            <td width="10%" height="16" align=right><%=moneyFormat(result.getPaidAmount())%>
+            <td width="10%" height="16" align=right><%=Encode.forHtml(moneyFormat(result.getPaidAmount()))%>
             </td>
         </tr>
 

@@ -205,9 +205,9 @@
             </tr>
     </table>
     <input type='hidden' name='param'
-           value="<%=StringEscapeUtils.escapeHtml4(param)%>">
+           value="<%=Encode.forHtmlAttribute(param)%>">
     <input type='hidden' name='param2'
-           value="<%=StringEscapeUtils.escapeHtml4(param2)%>">
+           value="<%=Encode.forHtmlAttribute(param2)%>">
     <table width="95%" border="0">
         <tr>
             <td align="left">Results based on keyword(s): <%= Encode.forHtml(keyword == null ? "" : keyword) %>
@@ -259,7 +259,7 @@
                 </td>
                 <td><%=Encode.forHtml(prop.getProperty("telephone", ""))%>
                 </td>
-                <!--td><%=prop.getProperty("fax", "")%></td-->
+                <!--td><%=Encode.forHtml(prop.getProperty("fax", ""))%></td-->
             </tr>
             <%
                 }

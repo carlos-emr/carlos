@@ -66,6 +66,8 @@
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanC12Dao" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
     TeleplanS21Dao teleplanS21Dao = SpringUtils.getBean(TeleplanS21Dao.class);
     TeleplanS00Dao teleplanS00Dao = SpringUtils.getBean(TeleplanS00Dao.class);
@@ -773,24 +775,24 @@
    %>
 
         <tr>
-            <td><%=paymentdate%>
+            <td><%=Encode.forHtml(paymentdate)%>
             </td>
-            <td><%=payable%>
+            <td><%=Encode.forHtml(payable)%>
             </td>
-            <td><%=amtbilled%>
+            <td><%=Encode.forHtml(amtbilled)%>
             </td>
-            <td><%=amtpaid%>
+            <td><%=Encode.forHtml(amtpaid)%>
             </td>
-            <td><%=balancefwd%>
+            <td><%=Encode.forHtml(balancefwd)%>
             </td>
-            <td><%=chequeamt%>
+            <td><%=Encode.forHtml(chequeamt)%>
             </td>
-            <td><%=newbalance%>
+            <td><%=Encode.forHtml(newbalance)%>
             </td>
-            <td><a href="genTAS01.jsp?rano=<%=raNo%>&proNo=" target="_blank">Billed</a>
-                | <a href="genTAS00.jsp?rano=<%=raNo%>&proNo=" target="_blank">Detail</a>|
-                <a href="genTAS22.jsp?rano=<%=raNo%>&proNo=" target="_blank">Summary</a></td>
-            <td><%=result.getStatus()%>
+            <td><a href="genTAS01.jsp?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Billed</a>
+                | <a href="genTAS00.jsp?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Detail</a>|
+                <a href="genTAS22.jsp?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Summary</a></td>
+            <td><%=Encode.forHtml(String.valueOf(result.getStatus()))%>
             </td>
         </tr>
 

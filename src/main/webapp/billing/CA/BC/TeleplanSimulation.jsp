@@ -53,6 +53,7 @@
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.providers.data.ProviderData,io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.entities.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillActivityDAO" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -147,7 +148,7 @@
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.simulateSubFile2"/></h3>
 <div class="container-fluid card card-body bg-body-tertiary noprint">
 
-    <h4>Simulate Teleplan Report - <%=thisyear%>
+    <h4>Simulate Teleplan Report - <%=Encode.forHtml(thisyear)%>
     </h4>
     <c:if test="${!empty error}"><c:out value="${error}"/></c:if>
 
@@ -163,7 +164,7 @@
                     String provNo = (String) list.get(i);
                     ProviderData provider = new ProviderData(provNo);
             %>
-            <option value="<%=provider.getOhip_no()%>">
+            <option value="<%=Encode.forHtmlAttribute(provider.getOhip_no())%>">
                 <%=Encode.forHtmlContent(provider.getLast_name())%>,<%=Encode.forHtmlContent(provider.getFirst_name())%>
             </option>
             <%}%>
