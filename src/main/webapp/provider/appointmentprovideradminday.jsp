@@ -3039,7 +3039,7 @@
 
     <!-- ============================================================ -->
     <!-- Keyboard Shortcuts Help Modal                               -->
-    <!-- Press ? to open/close; Esc, X, or backdrop click to close. -->
+    <!-- Press Alt+? to open/close; Esc, X, or backdrop click to close. -->
     <!-- @since 2026-04-05                                           -->
     <!-- ============================================================ -->
     <div id="carlosSchedKbBackdrop" aria-hidden="true"
@@ -3123,7 +3123,7 @@
         </table>
         <div style="margin-top:14px;padding-top:10px;border-top:1px solid #e5e7eb;
                     font-size:.8rem;color:#9ca3af;text-align:center;">
-            <kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">?</kbd>
+            <kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">Alt</kbd>+<kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">?</kbd>
             to show/hide &nbsp;&bull;&nbsp;
             <kbd style="display:inline-block;padding:2px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;">Esc</kbd>
             or click outside to close
@@ -3149,11 +3149,14 @@
         };
 
         document.addEventListener('keydown', function (e) {
-            // Ignore modifier combos — only plain keystrokes
-            if (e.ctrlKey || e.altKey || e.metaKey) return;
-            if (e.key === '?') {
+            if (e.key === 'Escape') {
+                carlosSchedKbModal.close();
+                return;
+            }
+            // Help modal: Alt+? — ignore Ctrl+Alt and Cmd+Alt combos
+            if (e.altKey && !e.ctrlKey && !e.metaKey && e.key === '?') {
                 var tag = e.target.tagName;
-                // Don't intercept ? when typing in form fields
+                // Don't intercept Alt+? when typing in form fields
                 if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
                 if (carlosSchedKbModal.isOpen()) {
                     carlosSchedKbModal.close();
@@ -3161,8 +3164,6 @@
                     carlosSchedKbModal.open();
                 }
                 e.preventDefault();
-            } else if (e.key === 'Escape') {
-                carlosSchedKbModal.close();
             }
         });
     </script>

@@ -778,7 +778,7 @@
 
     /* ------------------------------------------------------------------ *
      * EChart Keyboard Shortcuts Help Modal                                *
-     * Press ? to open/close. Also closes on Esc, X button, or backdrop.  *
+     * Press Alt+? to open/close. Also closes on Esc, X button, or backdrop. *
      * @since 2026-04-05                                                   *
      * ------------------------------------------------------------------ */
     (function () {
@@ -858,7 +858,7 @@
                 '</tbody>' +
                 '</table>' +
                 '<div class="carlos-kb-footer">' +
-                '<kbd>?</kbd> to show/hide &nbsp;&bull;&nbsp; <kbd>Esc</kbd> or click outside to close' +
+                '<kbd>Alt</kbd>+<kbd>?</kbd> to show/hide &nbsp;&bull;&nbsp; <kbd>Esc</kbd> or click outside to close' +
                 '</div>';
             modal.querySelector('.carlos-kb-close').addEventListener('click', closeModal);
             document.body.appendChild(modal);
@@ -884,20 +884,21 @@
         }
 
         document.addEventListener('keydown', function (e) {
-            // Ignore modifier combos — only plain keystrokes
-            if (e.ctrlKey || e.altKey || e.metaKey) return;
-            if (e.key === '?') {
+            if (e.key === 'Escape') {
+                closeModal();
+                return;
+            }
+            // Help modal: Alt+? — ignore Ctrl+Alt and Cmd+Alt combos
+            if (e.altKey && !e.ctrlKey && !e.metaKey && e.key === '?') {
                 var tag = e.target.tagName;
-                // Don't intercept ? when typing in form fields
-                if (tag === 'INPUT' || tag === 'SELECT') return;
+                // Don't intercept Alt+? when typing in form fields
+                if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
                 if (isOpen()) {
                     closeModal();
                 } else {
                     openModal();
                 }
                 e.preventDefault();
-            } else if (e.key === 'Escape') {
-                closeModal();
             }
         });
     }());
