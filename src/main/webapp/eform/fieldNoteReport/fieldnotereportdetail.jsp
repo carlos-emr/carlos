@@ -47,9 +47,14 @@
 
     if ("download".equals(method)) {
         response.setContentType("application/msword");
-        // Sanitize filename to prevent HTTP response splitting
-        String filename = residentName.replace(", ", "").replace(" ", "").replaceAll("[\r\n\u0000-\u001F\u007F-\u009F]", "") + ".doc";
-        response.setHeader("Content-Disposition", "attachment; filename=" + filename);
+        // Strict allowlist: only letters, digits, underscore, hyphen to prevent Content-Disposition parameter injection
+        String safeBaseName = residentName.replaceAll("[^A-Za-z0-9_-]", "_");
+        if (safeBaseName.isEmpty()) safeBaseName = "field-note-report";
+        // Truncate to safe max length to prevent header overflow
+        if (safeBaseName.length() > 100) safeBaseName = safeBaseName.substring(0, 100);
+        String filename = safeBaseName + ".doc";
+        // Quote the filename to prevent parameter delimiter injection
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
     }
 
     HashMap<String, String> purposes = new HashMap<String, String>();
