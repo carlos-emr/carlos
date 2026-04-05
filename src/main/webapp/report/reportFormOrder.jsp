@@ -129,11 +129,11 @@
 
                         <tr class=<%=color%>>
                             <td width="20%" align="right"><input type="checkbox"
-                                                                 name="nameSelected" value="<%=fieldId%>"
+                                                                 name="nameSelected" value="<%=Encode.forHtmlAttribute(fieldId)%>"
                                                                  onClick="onCheckbox(this, <%=i%>);"/></td>
                             <td width="30%" nowrap><span title="<%=fieldName%>"><%=fieldCaption%></span></td>
                             <td align="center"><input type="submit" name="submit"
-                                                      value="Move here" onClick="onButMove(<%=fieldPosition%>)"/></td>
+                                                      value="Move here" onClick="onButMove(<%=Encode.forJavaScript(fieldPosition)%>)"/></td>
                         </tr>
                         <% } %>
                         <input type="hidden" name="position"/>

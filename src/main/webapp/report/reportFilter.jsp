@@ -141,10 +141,10 @@
                 <td><%=Encode.forHtml(strElt[0])%>
                 </td>
                 <td width="5%" align="right"><input type="hidden"
-                                                    name="<%="value_" + itemId%>" value="<%=strElt[1]%>"> <input
-                        type="hidden" name="<%="position_" + itemId%>" value="<%=strElt[2]%>">
+                                                    name="<%="value_" + itemId%>" value="<%=Encode.forHtmlAttribute(strElt[1])%>"> <input
+                        type="hidden" name="<%="position_" + itemId%>" value="<%=Encode.forHtmlAttribute(strElt[2])%>">
                     <input type="hidden" name="<%="dateFormat_" + itemId%>"
-                           value="<%=strElt[5]%>"></td>
+                           value="<%=Encode.forHtmlAttribute(strElt[5])%>"></td>
             </tr>
             <% } %>
             <tr bgcolor="silver">

@@ -165,7 +165,7 @@
     }
     if (nItems == Integer.parseInt(strLimit2)) {
 %> <a
-        href="reportecharthistory.jsp?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>&splitectsize=<%=splitectsize%>">
+        href="reportecharthistory.jsp?demographic_no=<%= Encode.forUriComponent(demographic_no) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>&splitectsize=<%= Encode.forUriComponent(splitectsize) %>">
     Next Page</a> <%
     }
 %>

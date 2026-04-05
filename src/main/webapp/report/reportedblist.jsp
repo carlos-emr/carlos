@@ -74,7 +74,6 @@
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     FormDao formDao = SpringUtils.getBean(FormDao.class);
 %>
->
 
 <html>
 <head>
