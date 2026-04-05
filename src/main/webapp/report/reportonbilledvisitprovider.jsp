@@ -212,23 +212,23 @@
             </td-->
             <td align="center" <%=bDoc ? "bgcolor=\"silver\"" : ""%> title="Doctor">
                 <input type="radio"
-                       name="type<%=((Properties)vec.get(i)).getProperty("provider_no", "")%>"
+                       name="type<%=Encode.forHtmlAttribute(((Properties)vec.get(i)).getProperty("provider_no", ""))%>"
                        value="<%=ROLE[0]%>" <%=bDoc?"checked":""%>></td>
             <td align="center" <%=bRes ? "bgcolor=\"silver\"" : ""%> title="Resident">
                 <input type="radio"
-                       name="type<%=((Properties)vec.get(i)).getProperty("provider_no", "")%>"
+                       name="type<%=Encode.forHtmlAttribute(((Properties)vec.get(i)).getProperty("provider_no", ""))%>"
                        value="<%=ROLE[1]%>" <%=bRes?"checked":""%>></td>
             <td align="center" <%=bNp ? "bgcolor=\"silver\"" : ""%> title="Nurse">
                 <input type="radio"
-                       name="type<%=((Properties)vec.get(i)).getProperty("provider_no", "")%>"
+                       name="type<%=Encode.forHtmlAttribute(((Properties)vec.get(i)).getProperty("provider_no", ""))%>"
                        value="<%=ROLE[2]%>" <%=bNp?"checked":""%>></td>
             <td align="center" <%=bSw ? "bgcolor=\"silver\"" : ""%>
                 title="Social Worker"><input type="radio"
-                                             name="type<%=((Properties)vec.get(i)).getProperty("provider_no", "")%>"
+                                             name="type<%=Encode.forHtmlAttribute(((Properties)vec.get(i)).getProperty("provider_no", ""))%>"
                                              value="<%=ROLE[3]%>" <%=bSw?"checked":""%>></td>
             <td align="center" <%=bOt ? "bgcolor=\"silver\"" : ""%> title="Other">
                 <input type="radio"
-                       name="type<%=((Properties)vec.get(i)).getProperty("provider_no", "")%>"
+                       name="type<%=Encode.forHtmlAttribute(((Properties)vec.get(i)).getProperty("provider_no", ""))%>"
                        value="<%=ROLE[4]%>" <%=bOt?"checked":""%>></td>
         </tr>
         <%
