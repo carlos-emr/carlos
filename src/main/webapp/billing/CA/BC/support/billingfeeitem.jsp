@@ -27,6 +27,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@page import="java.math.*, java.util.*,  io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.commn.model.*,io.github.carlos_emr.carlos.util.*" %>
 
 <%@page import="org.springframework.web.context.WebApplicationContext,org.springframework.web.context.support.WebApplicationContextUtils, io.github.carlos_emr.carlos.entities.*" %>
@@ -77,15 +78,24 @@
 
     <script language="JavaScript">
     function posttoText(index){
+    <%if (form == null || form.isEmpty() || field == null || field.isEmpty()) {%>
+    alert("Error: Missing form configuration. Cannot transfer the selected code.");
+    return;
+    <%} else {%>
     self.close();
-    opener.document.<%=form%>.<%=field%>.value = index;
+    opener.document["<%= Encode.forJavaScript(form) %>"]["<%= Encode.forJavaScript(field) %>"].value = index;
     opener.document.focus();
+    <%}%>
     }
     <%if (request.getParameter("corrections") != null) {%>
     function updateFeeCodeValues(code,description,fee){
+    <%if (form == null || form.isEmpty() || field == null || field.isEmpty()) {%>
+    alert("Error: Missing form configuration. Cannot transfer the selected code.");
+    return;
+    <%} else {%>
     self.close();
-    opener.document.<%=form%>.<%=field%>.value = code;
-    opener.document.<%=form%>.<%=feeField%>.value = fee;
+    opener.document["<%= Encode.forJavaScript(form) %>"]["<%= Encode.forJavaScript(field) %>"].value = code;
+    opener.document["<%= Encode.forJavaScript(form) %>"]["<%= Encode.forJavaScript(StringUtils.noNull(feeField)) %>"].value = fee;
 
     var valueEle = opener.document.getElementById('billValue');
     if (valueEle){
@@ -98,6 +108,7 @@
     }
 
     opener.document.focus();
+    <%}%>
     }
     <%}%>
 
