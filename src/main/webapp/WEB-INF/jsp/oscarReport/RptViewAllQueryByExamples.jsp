@@ -29,6 +29,9 @@
 
 --%>
 
+<%@ page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.*" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -118,7 +121,7 @@
                    value="${e:forHtmlAttribute(endDate)}"
                    class="form-control form-control-sm"
                    style="width:8em"/>
-            <button type="submit" class="btn btn-primary btn-sm">Refresh</button>
+            <button type="submit" class="btn btn-primary btn-sm"><fmt:message key="oscarReport.RptByExample.MsgRefresh"/></button>
         </form>
     </div>
 
