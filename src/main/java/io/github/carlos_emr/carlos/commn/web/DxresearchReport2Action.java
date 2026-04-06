@@ -33,11 +33,15 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.owasp.encoder.Encode;
+
+import io.github.carlos_emr.carlos.commn.dao.AbstractCodeSystemDao;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.dao.MyGroupDao;
 import io.github.carlos_emr.carlos.commn.model.DxRegistedPTInfo;
@@ -69,6 +73,15 @@ public class DxresearchReport2Action extends ActionSupport {
     private MyGroupDao mygroupdao = SpringUtils.getBean(MyGroupDao.class);
     private static final String REPORTS_PATH = "org/oscarehr/common/web/DxResearchReport.jrxml";
 
+    /** Allowlist of valid values for the {@code radiovaluestatus} session attribute. */
+    private static final Set<String> VALID_STATUS_VALUES = Set.of(
+            "patientRegistedAll",
+            "patientRegistedDistincted",
+            "patientRegistedDeleted",
+            "patientRegistedActive",
+            "patientRegistedResolve"
+    );
+
     @Override
     public String execute() throws Exception {
         String method = request.getParameter("method");
@@ -99,7 +112,11 @@ public class DxresearchReport2Action extends ActionSupport {
         request.getSession().setAttribute("allQuickLists", quicklistHd);
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
         request.getSession().setAttribute("codingSystem", codingSys);
-        request.getSession().setAttribute("radiovaluestatus", request.getSession().getAttribute("radiovaluestatus"));
+        // Whitelist-validate the existing session value before writing it back (CWE-501)
+        String radiovaluestatus = (String) request.getSession().getAttribute("radiovaluestatus");
+        if (VALID_STATUS_VALUES.contains(radiovaluestatus)) {
+            request.getSession().setAttribute("radiovaluestatus", radiovaluestatus);
+        }
         return SUCCESS;
     }
 
@@ -262,7 +279,8 @@ public class DxresearchReport2Action extends ActionSupport {
 
         dxQuickListItemsHandler.updatePatientCodeDesc(editingCodeType, editingCodeCode, editingCodeDesc);
 
-        editingCodeDesc = String.format("\"%s\"", editingCodeDesc);
+        // Encode before storing in session to prevent XSS via unsanitized session data (CWE-501)
+        editingCodeDesc = String.format("\"%s\"", Encode.forHtml(editingCodeDesc));
         request.getSession().setAttribute("editingCodeDesc", editingCodeDesc);
 
         return SUCCESS;
@@ -283,7 +301,14 @@ public class DxresearchReport2Action extends ActionSupport {
         String codeDescription = null;
 
         if (codeSystem != null && !codeSystem.isEmpty()) {
-            codeDescription = codingSystemManager.getCodeDescription(codeSystem.toLowerCase().trim(), codeSingle);
+            // Whitelist codeSystem against the known coding-system enum to prevent trust
+            // boundary violation (CWE-501) before storing request data in session.
+            try {
+                AbstractCodeSystemDao.codingSystem.valueOf(codeSystem.toLowerCase().trim());
+                codeDescription = codingSystemManager.getCodeDescription(codeSystem.toLowerCase().trim(), codeSingle);
+            } catch (IllegalArgumentException ignored) {
+                MiscUtils.getLogger().warn("addSearchCode: rejected unrecognised coding system");
+            }
         }
 
         if (codeDescription != null && !codeDescription.isEmpty()) {
