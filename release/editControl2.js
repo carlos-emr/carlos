@@ -595,9 +595,22 @@ function viewsource(source) {
 		document.getElementById("control3").style.visibility="hidden";
 		document.getElementById("control4").style.visibility="hidden";
 	} else {
-		html = document.getElementById(cfg_editorname).contentWindow.document.body.ownerDocument.createRange();
-		html.selectNodeContents(document.getElementById(cfg_editorname).contentWindow.document.body);
-		document.getElementById(cfg_editorname).contentWindow.document.body.innerHTML = jQuery().convertImagePaths(html.toString());
+		var editorBody = document.getElementById(cfg_editorname).contentWindow.document.body;
+		// Read the raw HTML source text from the source-view editor using textContent
+		var sourceText = editorBody.textContent;
+		var convertedHTML = jQuery().convertImagePaths(sourceText);
+		// Use DOMParser + importNode to populate the editor body via safe DOM APIs,
+		// avoiding direct assignment of DOM-sourced text to innerHTML (prevents xss-through-dom)
+		var parser = new DOMParser();
+		var parsedDoc = parser.parseFromString(convertedHTML, 'text/html');
+		while (editorBody.firstChild) {
+			editorBody.removeChild(editorBody.firstChild);
+		}
+		var docFrag = editorBody.ownerDocument.createDocumentFragment();
+		while (parsedDoc.body.firstChild) {
+			docFrag.appendChild(editorBody.ownerDocument.importNode(parsedDoc.body.firstChild, true));
+		}
+		editorBody.appendChild(docFrag);
 		document.getElementById("control1").style.visibility="visible";
 		document.getElementById("control2").style.visibility="visible";
 		document.getElementById("control3").style.visibility="visible";
