@@ -446,6 +446,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 addEvent(window, "load", sortables_init);
 
 var SORT_COLUMN_INDEX;
+var ARROW;
 
 function sortables_init() {
     // Find all tables with class sortable and make them sortable
