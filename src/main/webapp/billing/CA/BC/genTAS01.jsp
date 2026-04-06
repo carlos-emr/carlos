@@ -184,7 +184,7 @@
       %>
         <tr>
             <td width="10%" height="16"><a
-                    href="javascript: popupPage(700,750,'adjustBill.jsp?billing_no=<%=Encode.forJavaScript(StringUtils.noNull(result.getOfficeNo()))%>')"><%=Encode.forHtml(StringUtils.noNull(result.getOfficeNo()))%>
+                    href="javascript: popupPage(700,750,'adjustBill.jsp?billing_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(result.getOfficeNo())))%>')"><%=Encode.forHtml(StringUtils.noNull(result.getOfficeNo()))%>
             </a>&nbsp;
             </td>
             <td width="10%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getPractitionerNo()))%>&nbsp;
@@ -238,10 +238,13 @@
 <%!
     String moneyFormat(String str) {
         String moneyStr = "0.00";
-        try {
-            moneyStr = new java.math.BigDecimal(str).movePointLeft(2).toString();
-        } catch (Exception moneyException) {
-            MiscUtils.getLogger().error("Error", moneyException);
+        if (str != null && !str.isEmpty()) {
+            try {
+                moneyStr = new java.math.BigDecimal(str).movePointLeft(2).toString();
+            } catch (NumberFormatException moneyException) {
+                MiscUtils.getLogger().error("Error", moneyException);
+                moneyStr = str;
+            }
         }
         return moneyStr;
     }

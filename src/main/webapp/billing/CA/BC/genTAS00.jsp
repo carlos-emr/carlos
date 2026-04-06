@@ -179,7 +179,7 @@
           %>
         <tr>
             <td width="5%" height="16"><a
-                    href="javascript: popupPage(700,750,'adjustBill.jsp?billing_no=<%=Encode.forJavaScript(StringUtils.noNull(result.getOfficeNo()))%>')"><%=Encode.forHtml(StringUtils.noNull(result.getOfficeNo()))%>
+                    href="javascript: popupPage(700,750,'adjustBill.jsp?billing_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(result.getOfficeNo())))%>')"><%=Encode.forHtml(StringUtils.noNull(result.getOfficeNo()))%>
             </a>&nbsp;
             </td>
             <td width="5%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getPractitionerNo()))%>&nbsp;
@@ -286,8 +286,9 @@
         if (str != null && !str.isEmpty()) {
             try {
                 moneyStr = new java.math.BigDecimal(str).movePointLeft(2).toString();
-            } catch (Exception moneyException) {
+            } catch (NumberFormatException moneyException) {
                 MiscUtils.getLogger().error("Error could not convert " + str + "into big decimal", moneyException);
+                moneyStr = str;
             }
         }
 

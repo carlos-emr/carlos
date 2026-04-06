@@ -135,9 +135,9 @@
     <tr <%=((color) ? "bgcolor=\"#F6F6F6\"" : "")%> align="left" valign="top">
     <td class="SmallerText">
     <%if (request.getParameter("corrections") == null) {%>
-    <a href=# onClick="posttoText('<%=Encode.forJavaScript(StringUtils.noNull(code.getServiceCode()))%>');"><%=Encode.forHtml(StringUtils.noNull(code.getServiceCode()))%></a>
+    <a href=# onClick="posttoText('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(code.getServiceCode()))%>');"><%=Encode.forHtml(StringUtils.noNull(code.getServiceCode()))%></a>
     <%} else {%>
-    <a href=# onClick="updateFeeCodeValues('<%=Encode.forJavaScript(StringUtils.noNull(code.getServiceCode()))%>',' ','<%=Encode.forJavaScript(StringUtils.noNull(code.getValue()))%>');"><%=Encode.forHtml(StringUtils.noNull(code.getServiceCode()))%></a>
+    <a href=# onClick="updateFeeCodeValues('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(code.getServiceCode()))%>',' ','<%=Encode.forJavaScriptAttribute(StringUtils.noNull(code.getValue()))%>');"><%=Encode.forHtml(StringUtils.noNull(code.getServiceCode()))%></a>
     <%}%>
     </td>
     <td class="SmallerText"><%=Encode.forHtml(StringUtils.noNull(code.getDescription()))%> (<%=Encode.forHtml(StringUtils.noNull(code.getValue()))%>) </td>

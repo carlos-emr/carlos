@@ -5,6 +5,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <%--
 This jsp fragment displays the Bill Type drop down which is used by the MSP and WCB "corrections" screens.
@@ -44,8 +45,8 @@ TODO: Localize Strings
         <td><select id="status" name="status"
                          onchange="javascript:document.forms[0].xml_status.value = this.value;callToggleWCB();">
             <c:forEach var="statusType" items="${statusTypes}">
-                <option value="${statusType.billingstatus}">
-                        ${statusType.displayNameExt}
+                <option value="${e:forHtmlAttribute(statusType.billingstatus)}">
+                        ${e:forHtml(statusType.displayNameExt)}
                 </option>
             </c:forEach>
         </select></td>

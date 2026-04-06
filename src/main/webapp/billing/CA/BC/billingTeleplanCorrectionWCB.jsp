@@ -31,6 +31,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -502,8 +503,8 @@
                             <td><% request.setAttribute("serviceLocationValue", StringUtils.noNull(form.getServiceLocation())); %>
                                 <select name="serviceLocation" style="font-size:80%;">
                                 <c:forEach var="bill" items="${billvisit}">
-                                    <option value="${bill.visitType}" ${bill.visitType eq requestScope['serviceLocationValue'] ? 'selected' : ''}>
-                                            ${bill.description}
+                                    <option value="${e:forHtmlAttribute(bill.visitType)}" ${bill.visitType eq requestScope['serviceLocationValue'] ? 'selected' : ''}>
+                                            ${e:forHtml(bill.description)}
                                     </option>
                                 </c:forEach>
                             </select></td>

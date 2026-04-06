@@ -270,10 +270,13 @@
 <%!
     String moneyFormat(String str) {
         String moneyStr = "0.00";
-        try {
-            moneyStr = new java.math.BigDecimal(str).movePointLeft(2).toString();
-        } catch (Exception moneyException) {
-            MiscUtils.getLogger().error("Error", moneyException);
+        if (str != null && !str.isEmpty()) {
+            try {
+                moneyStr = new java.math.BigDecimal(str).movePointLeft(2).toString();
+            } catch (NumberFormatException moneyException) {
+                MiscUtils.getLogger().error("Error", moneyException);
+                moneyStr = str;
+            }
         }
         return moneyStr;
     }
