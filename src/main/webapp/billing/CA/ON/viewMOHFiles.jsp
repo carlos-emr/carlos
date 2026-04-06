@@ -15,7 +15,7 @@
 
 --%>
 <%@page import="java.nio.charset.StandardCharsets" %>
-<%@ page import="java.util.*,io.github.carlos_emr.*,java.io.*,java.net.*,io.github.carlos_emr.carlos.util.*,org.apache.commons.io.FileUtils,java.text.SimpleDateFormat,io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder,io.github.carlos_emr.carlos.utility.MiscUtils"%>
+<%@ page import="java.util.*,io.github.carlos_emr.*,java.io.*,java.net.*,io.github.carlos_emr.carlos.util.*,org.apache.commons.io.FileUtils,java.text.SimpleDateFormat,io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder,io.github.carlos_emr.carlos.utility.MiscUtils,io.github.carlos_emr.carlos.utility.PathValidationUtils"%>
 <%@ page import="io.github.carlos_emr.carlos.util.FileSortByDate" %>
 <%@ page import="io.github.carlos_emr.carlos.util.zip" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -126,11 +126,16 @@
                 String unzipMSG = "";
                 try {
                     if (zname != null && !zname.equals("")) {
-                        Boolean unzipDone = zip.unzipXML(folderPath, zname);
+                        // Validate the user-provided filename to prevent path traversal (CWE-22)
+                        File safeZipFile = PathValidationUtils.validatePath(zname, new File(folderPath));
+                        Boolean unzipDone = zip.unzipXML(folderPath, safeZipFile.getName());
                         if (!unzipDone) {
                             unzipMSG = "(Cannot unzip)";
                         }
                     }
+                } catch (SecurityException e) {
+                    MiscUtils.getLogger().warn("viewMOHFiles: path traversal attempt blocked for unzipfile parameter");
+                    unzipMSG = "(Cannot unzip)";
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("viewMOHFiles: unzip file Unhandled exception:", e);
                     unzipMSG = "(Cannot unzip)";
