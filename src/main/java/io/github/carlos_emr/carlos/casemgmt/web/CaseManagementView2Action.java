@@ -93,8 +93,8 @@ public class CaseManagementView2Action extends ActionSupport {
     /** Valid tab names for whitelist validation (CWE-501). */
     private static final Set<String> VALID_TABS = Set.of(CaseManagementViewFormBean.tabs);
 
-    /** Expected format for check_issue parameters: two numeric parts separated by a dot. */
-    private static final Pattern CHECK_ISSUE_PATTERN = Pattern.compile("\\d+\\.\\d+");
+    /** Expected format for check_issue parameters: two numeric parts separated by a dot, each up to 10 digits. */
+    private static final Pattern CHECK_ISSUE_PATTERN = Pattern.compile("\\d{1,10}\\.\\d{1,10}");
 
     private CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
     private IssueDAO issueDao = (IssueDAO) SpringUtils.getBean(IssueDAO.class);
