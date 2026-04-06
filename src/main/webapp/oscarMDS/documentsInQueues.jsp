@@ -256,7 +256,14 @@
 
             var url = cp + '/documentManager/ManageDocument.do?method=display&doc_no=' + docid + '&rand=' + Math.random() + '#view=fitV&page=1';
 
-            document.getElementById('docDispPDF_' + docid).innerHTML = '<object width="' + (width) + '" height="' + (height) + '" type="application/pdf" data="' + url + '" id="docPDF_' + docid + '"></object>';
+            var container = document.getElementById('docDispPDF_' + docid);
+            var obj = document.createElement('object');
+            obj.setAttribute('width', String(width));
+            obj.setAttribute('height', String(height));
+            obj.setAttribute('type', 'application/pdf');
+            obj.setAttribute('data', url);
+            obj.id = 'docPDF_' + docid;
+            container.replaceChildren(obj);
         }
 
         function removeFirstPage(id) {
@@ -951,7 +958,7 @@
         function clearDocView() {
             var docview = $('docViews');
             //var docview=window.frames[0].document.getElementById('docViews');
-            docview.innerHTML = '';
+            docview.replaceChildren();
         }
 
         function showhideSubCat(plus_minus, patientId) {
@@ -1346,13 +1353,19 @@
                 if ($('msgPrevious')) $('msgPrevious').hide();
             }
             //oscarLog("current_numberofpages "+current_numberofpages);
-            if ($('current_individual_pages')) $('current_individual_pages').innerHTML = "";
+            var pagesContainer = $('current_individual_pages');
+            if (pagesContainer) pagesContainer.replaceChildren();
             if (current_numberofpages > 1) {
-                var html = "";
                 for (var i = 1; i <= current_numberofpages; i++) {
-                    if ($('current_individual_pages')) html += "<a style=\"text-decoration:none;\" href=\"javascript:void(0);\" onclick=\"navigatePage(" + i + ")\"> [ " + i + " ] </a>";
+                    if (pagesContainer) {
+                        var link = document.createElement('a');
+                        link.style.textDecoration = 'none';
+                        link.href = 'javascript:void(0);';
+                        link.setAttribute('onclick', 'navigatePage(' + i + ')');
+                        link.textContent = ' [ ' + i + ' ] ';
+                        pagesContainer.appendChild(link);
+                    }
                 }
-                document.getElementById('current_individual_pages').innerHTML = html; // Safe: html built from page numbers only
             }
         }
 
@@ -1818,13 +1831,13 @@
 //console.log('foundQ='+foundQ);
             //descrease the queue's doc number by 1
             if (foundQ.length > 0) {
-                var n = $('docNo_' + foundQ).innerHTML;
+                var n = $('docNo_' + foundQ).textContent;
                 //console.log('not found11');
                 n = parseInt(n);
                 //console.log('not found22');
                 if (n > 0) {
                     //console.log('not found33');
-                    $('docNo_' + foundQ).innerHTML = n - 1;
+                    $('docNo_' + foundQ).textContent = n - 1;
                 }
             }
             //console.log('not found44');
@@ -1882,24 +1895,24 @@
                 //update patient and patient's subtype
                 var patientId = getPatientIdFromDocLabId(doclabid);
                 //oscarLog('xx '+patientId+'--'+n);
-                n = $('patientNumDocs' + patientId).innerHTML;
+                n = $('patientNumDocs' + patientId).textContent;
                 //oscarLog('xx xx '+patientId+'--'+n);
                 n = parseInt(n);
                 if (n > 0) {
-                    $('patientNumDocs' + patientId).innerHTML = n - 1;
+                    $('patientNumDocs' + patientId).textContent = n - 1;
                 }
 
                 if (type == 'DOC') {
-                    n = $('pDocNum_' + patientId).innerHTML;
+                    n = $('pDocNum_' + patientId).textContent;
                     n = parseInt(n);
                     if (n > 0) {
-                        $('pDocNum_' + patientId).innerHTML = n - 1;
+                        $('pDocNum_' + patientId).textContent = n - 1;
                     }
                 } else if (type == 'HL7') {
-                    n = $('pLabNum_' + patientId).innerHTML;
+                    n = $('pLabNum_' + patientId).textContent;
                     n = parseInt(n);
                     if (n > 0) {
-                        $('pLabNum_' + patientId).innerHTML = n - 1;
+                        $('pLabNum_' + patientId).textContent = n - 1;
                     }
                 }
             }

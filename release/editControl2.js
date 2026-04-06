@@ -297,7 +297,13 @@ function seteditControlContents(editorname, value){
 
 	// Converting image paths with template style tag to URL format using 'cfg_isrc' using imageControl library.
 	value = jQuery().convertImagePaths(value, cfg_isrc);
-	
+
+	// Sanitize HTML via DOMPurify if available to prevent DOM-based XSS when reinserting
+	// rich-text content. Preserves formatting tags, style attributes, and eForm elements.
+	if (typeof DOMPurify !== 'undefined') {
+		value = DOMPurify.sanitize(value, { FORCE_BODY: true, ADD_TAGS: ['style'], ADD_ATTR: ['style', 'target', 'contenteditable', 'oscardb'] });
+	}
+
     if (document.designMode) {
 		if (isIE()){
 		    window[editorname].document.body.innerHTML = value; //if browser supports M$ conventions

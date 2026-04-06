@@ -1281,9 +1281,14 @@
          * catalogue so that a malicious JSON file cannot inject HTML/JS.
          */
         function escHtml(str) {
-            var d = document.createElement('div');
-            d.textContent = typeof str === 'string' ? str : '';
-            return d.innerHTML;
+            // Pure-string implementation avoids DOM text/innerHTML round-trip flagged by static analysis.
+            // IMPORTANT: & must be replaced first to prevent double-encoding of other entity references.
+            return String(str == null ? '' : str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#x27;');
         }
 
         /* ---- Plain-JS autocomplete helper ----
@@ -1314,7 +1319,7 @@
             }
 
             function renderDropdown(results) {
-                dropdown.innerHTML = '';
+                dropdown.replaceChildren();
                 activeIdx = -1;
                 if (!results || results.length === 0) {
                     dropdown.style.display = 'none';
@@ -1513,7 +1518,7 @@
                     return;
                 }
                 fetchResults(q, function(results) {
-                    dropdown.innerHTML = '';
+                    dropdown.replaceChildren();
                     activeIdx = -1;
                     if (!results.length) {
                         dropdown.style.display = 'none';

@@ -1688,9 +1688,9 @@ function renderRxStage() {
        }
        var styleStr= {left: posx, top: posy,width: widStr};
 
-        var drugName = document.getElementById('prescrip_'+id).innerHTML;
+        var drugName = document.getElementById('prescrip_'+id).textContent;
        var disUI=document.getElementById('discontinueUI'); disUI.style.left=styleStr.left; disUI.style.top=styleStr.top; disUI.style.width=styleStr.width;
-       document.getElementById('disDrug').innerHTML = drugName;
+       document.getElementById('disDrug').textContent = drugName;
        document.getElementById('discontinueUI').style.display="";
        document.getElementById('disDrugId').value=id;
 
