@@ -4,7 +4,7 @@
  * Drop-in compatible with legacy calling conventions used in Rourke growth chart forms.
  *
  * Creates a hidden counter span after the textarea that shows remaining characters
- * on focus, enforces character and line limits on keypress/keyup.
+ * on focus, enforces character and line limits on keydown/keyup/input.
  *
  * @since 2026-04-06
  */

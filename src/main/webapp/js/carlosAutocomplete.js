@@ -27,7 +27,10 @@ function initProviderAutocomplete(inputSelector, contextPath, onSelect, options)
     }
     var opts = options || {};
     var $el = jQuery(inputSelector);
-    if (!$el.length) return;
+    if (!$el.length) {
+        console.error("initProviderAutocomplete: element not found for selector: " + inputSelector);
+        return;
+    }
 
     $el.autocomplete({
         source: function (request, response) {
@@ -90,7 +93,10 @@ function initDemographicAutocomplete(inputSelector, contextPath, onSelect, optio
     }
     var opts = options || {};
     var $el = jQuery(inputSelector);
-    if (!$el.length) return;
+    if (!$el.length) {
+        console.error("initDemographicAutocomplete: element not found for selector: " + inputSelector);
+        return;
+    }
 
     $el.autocomplete({
         source: function (request, response) {

@@ -59,7 +59,7 @@
     <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
     <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/casemgmt.css" type="text/css">
     <script type="text/javascript">
-        var flag =<%=Encode.forJavaScript(StringUtils.noNull((String)request.getAttribute("change_flag")))%>;
+        var flag =<%= request.getAttribute("change_flag") == null ? "null" : Encode.forJavaScript((String)request.getAttribute("change_flag")) %>;
 
         <%
 

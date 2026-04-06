@@ -172,7 +172,7 @@
                             <td><select id="reason" name="reason"
                                         onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                 <% for (int i = 0; i < siteList.length; i++) { %>
-                                <option value="<%=Encode.forHtmlAttribute(siteList[i])%>" <%=(bMultisites ? " style='background-color:" + Encode.forHtmlAttribute(bgColors[i]) + "'" : "")%>
+                                <option value="<%=Encode.forHtmlAttribute(siteList[i])%>" <%=(bMultisites ? " style='background-color:" + Encode.forCssString(bgColors[i]) + "'" : "")%>
                                         <%=strReason.equals(siteList[i]) ? "selected" : ""%>><b><%=Encode.forHtml(siteList[i])%>
                                 </b></option>
                                 <% } %>

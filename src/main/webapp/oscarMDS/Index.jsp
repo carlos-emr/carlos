@@ -423,8 +423,8 @@
 
         var page = 1;
         var pageSize = 20;
-        var selected_category = <%=(selectedCategory == null ? "1" : Encode.forJavaScript(selectedCategory))%>;
-        let selected_category_patient = "<c:out value='${requestScope.selectedCategoryPatient}'/>";
+        var selected_category = <%=selectedCategory == null ? "1" : String.valueOf(Integer.parseInt(selectedCategory))%>;
+        let selected_category_patient = "<%=Encode.forJavaScript(StringUtils.noNull((String)request.getAttribute("selectedCategoryPatient")))%>";
         var selected_category_type = "<%=Encode.forJavaScript(selectedCategoryType == null ? "" : selectedCategoryType)%>";
         var searchProviderNo = "<%=Encode.forJavaScript(searchProviderNo == null ? "" : searchProviderNo)%>";
         var firstName = "<%=Encode.forJavaScript(patientFirstName == null ? "" : patientFirstName)%>";
@@ -434,12 +434,11 @@
         var searchStatus = "<%=Encode.forJavaScript(ackStatus == null ? "": ackStatus)%>";
         var abnormalStatus = "<%=abnormalStatus == null || "all".equals(abnormalStatus) ? "L" : (abnormalStatus.equals("normalOnly") ? "N" : "A")%>"
         var url = ctx + "/documentManager/inboxManage.do?";
-        const startDate = "<c:out value='${requestScope.startDate}'/>";
-        const endDate = "<c:out value='${requestScope.endDate}'/>";
+        const startDate = "<%=Encode.forJavaScript(StringUtils.noNull((String)request.getAttribute("startDate")))%>";
+        const endDate = "<%=Encode.forJavaScript(StringUtils.noNull((String)request.getAttribute("endDate")))%>";
         var abortController = null;
         var canLoad = true;
-        console.log("<%= isListView == null %>");
-        var isListView = <%= Encode.forJavaScript(StringUtils.noNull(isListView)) %>;
+        var isListView = <%= isListView == null ? "null" : Boolean.parseBoolean(isListView) %>;
         var loadingDocs = false;
         var currentBold = false;
         var oldestDate = null;
