@@ -80,7 +80,7 @@ function makeIndependent(reportId) {
         data: "method=makeIndependent&reportId=" + reportId,
         success: function (data) {
             if (data != null && data.indexOf('Success') !== -1) {
-                document.getElementById("similarNotice").innerHTML = "";
+                document.getElementById("similarNotice").textContent = "";
             }
         }
     });

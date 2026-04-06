@@ -66,7 +66,10 @@
 
 <%@page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <jsp:useBean id="LastPatientsBean" class="java.util.ArrayList" scope="session"/>
 
@@ -184,11 +187,26 @@
 
     String errorMessage = "";
     String pdfNo = "";
-    String pdfDir = request.getParameter("pdfDir") == null ? "Fax" : request.getParameter("pdfDir");
+    String pdfDirParam = request.getParameter("pdfDir");
+    // Validate pdfDir against whitelist to prevent path traversal (CWE-22)
+    String pdfDir = ("Fax".equals(pdfDirParam) || "Mail".equals(pdfDirParam)
+            || "File".equals(pdfDirParam) || "Refile".equals(pdfDirParam))
+            ? pdfDirParam : "Fax";
     String pdfDirectory = IncomingDocUtil.getIncomingDocumentFilePath(queueIdStr, pdfDir);
     String pdfAction = request.getParameter("pdfAction") == null ? "" : request.getParameter("pdfAction");
     String pdfPageNumber = request.getParameter("pdfPageNumber") == null ? "1" : request.getParameter("pdfPageNumber");
-    String pdfName = request.getParameter("pdfName") == null ? "" : request.getParameter("pdfName");
+    // Validate pdfName with PathValidationUtils to prevent path traversal (CWE-22)
+    String pdfNameParam = request.getParameter("pdfName");
+    String pdfName = "";
+    if (pdfNameParam != null && !pdfNameParam.isEmpty()) {
+        try {
+            File allowedPdfDir = new File(pdfDirectory);
+            pdfName = PathValidationUtils.validatePath(pdfNameParam, allowedPdfDir).getName();
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().warn("Path traversal attempt blocked for pdfName in incomingDocs.jsp");
+            pdfName = "";
+        }
+    }
     String pdfExtractPageNumber = request.getParameter("pdfExtractPageNumber") == null ? "" : request.getParameter("pdfExtractPageNumber");
 
     try {
@@ -711,7 +729,7 @@
 
         var docSubClassList = [
             <% for (int i = 0; i < subClasses.size(); i++) {%>
-            "<%=subClasses.get(i)%>"<%=(i < subClasses.size() - 1) ? "," : ""%>
+            "<%=Encode.forJavaScript(subClasses.get(i))%>"<%=(i < subClasses.size() - 1) ? "," : ""%>
             <% }%>
         ];
 
@@ -772,7 +790,7 @@
                 }
 
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
-                var data = 'method=getDocumentDescriptionFromDocType&doctype=' + docType + "&providerNo=<%=user_no%>&useDocumentDescriptionTemplateType=<%=useDocumentDescriptionTemplateType%>";
+                var data = 'method=getDocumentDescriptionFromDocType&doctype=' + encodeURIComponent(docType) + "&providerNo=<%=Encode.forJavaScript(StringUtils.noNull(user_no))%>&useDocumentDescriptionTemplateType=<%=Encode.forJavaScript(useDocumentDescriptionTemplateType)%>";
                 var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                 var csrfToken = csrfEl ? csrfEl.value : '';
                 fetch(url, {
@@ -792,8 +810,11 @@
                             bdoc = document.createElement('input');
                             bdoc.setAttribute("type", "button");
                             bdoc.setAttribute("value", json.documentDescriptionTemplate[i].descriptionShortcut);
-                            bdoc.setAttribute("title", json.documentDescriptionTemplate[i].description);
-                            bdoc.setAttribute("onclick", "selectDocDesc('" + json.documentDescriptionTemplate[i].description + "');");
+                            var description = json.documentDescriptionTemplate[i].description;
+                            bdoc.setAttribute("title", description);
+                            bdoc.onclick = (function(desc) {
+                                return function() { selectDocDesc(desc); };
+                            })(description);
                             document.getElementById('docDescriptionList').appendChild(bdoc);
                         }
                     }
@@ -820,7 +841,7 @@
                     <table width="350">
                         <%if (errorMessage.length() > 0) {%>
                         <tr>
-                            <td><b><font color="red"><%=errorMessage%>
+                            <td><b><font color="red"><%=Encode.forHtml(errorMessage)%>
                             </font></b></td>
                         </tr>
                         <%}%>
@@ -832,7 +853,7 @@
                                             int id = (Integer) ht.get("id");
                                             String qName = (String) ht.get("queue");
                                     %>
-                                    <option value="<%=id%>" <%=((id == queueId) ? " selected" : "")%>><%= qName%>
+                                    <option value="<%=id%>" <%=((id == queueId) ? " selected" : "")%>><%= Encode.forHtml(qName)%>
                                     </option>
                                     <%}%>
                                 </select>
@@ -854,7 +875,7 @@
                             <td>
                                 <fieldset>
                                     <legend>[<%=Encode.forHtml(pdfDir)%>]: <% if (Integer.parseInt(pdfNo) <= 0) {%><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.noFile"/><% } else {%> <%=pdfNo%>/ <%=pdfList.size()%>
-                                        <b><%=pdfList.get(Integer.parseInt(pdfNo) - 1)%>
+                                        <b><%=Encode.forHtml(String.valueOf(pdfList.get(Integer.parseInt(pdfNo) - 1)))%>
                                         </b> <%}%></legend>
                                     <table>
                                         <tr>
@@ -867,8 +888,8 @@
                                                             String docName = (String) pdfList.get(p);
                                                             String docModifiedDate = (String) pdfListModifiedDate.get(p);
                                                     %>
-                                                    <option value="<%= docName%>" title="<%=docName%>"><%=p + 1%>
-                                                        ) <%=docModifiedDate%>
+                                                    <option value="<%= Encode.forHtmlAttribute(docName)%>" title="<%=Encode.forHtmlAttribute(docName)%>"><%=p + 1%>
+                                                        ) <%=Encode.forHtml(docModifiedDate)%>
                                                     </option>
                                                     <%}%>
                                                 </select></td>
@@ -993,8 +1014,8 @@
                                         for (int j = 0; j < docTypes.size(); j++) {
                                             String docType = (String) docTypes.get(j);
                                     %>
-                                    <input type="button" value="<%=docType.length()<3?docType:docType.substring(0, 3)%>"
-                                           title="<%=docType%>" onclick="selectDocType(<%=j%>+1);"> <%}%>
+                                    <input type="button" value="<%=Encode.forHtmlAttribute(docType.length()<3?docType:docType.substring(0, 3))%>"
+                                           title="<%=Encode.forHtmlAttribute(docType)%>" onclick="selectDocType(<%=j%>+1);"> <%}%>
                                 </td>
                             </tr>
                             <%}%>
@@ -1008,7 +1029,7 @@
                                             for (int j = 0; j < docTypes.size(); j++) {
                                                 String docType = (String) docTypes.get(j);
                                         %>
-                                        <option value="<%= docType%>"><%= docType%>
+                                        <option value="<%= Encode.forHtmlAttribute(docType)%>"><%= Encode.forHtml(docType)%>
                                         </option>
                                         <%}%>
                                     </select>
@@ -1028,7 +1049,7 @@
                                                 consultShown = true;
                                             }
                                     %>
-                                    <option value="<%=reportClass%>"><%=reportClass%>
+                                    <option value="<%=Encode.forHtmlAttribute(reportClass)%>"><%=Encode.forHtml(reportClass)%>
                                     </option>
                                     <% }%>
                                 </select>
@@ -1078,9 +1099,9 @@
                                             if (demo != null) {
                                 %>
                                     <input type="button"
-                                           value="<%=demo.getLastName()%>, <%=demo.getFirstName()%> (<%=demo.getYearOfBirth()%>-<%=demo.getMonthOfBirth()%>-<%=demo.getDateOfBirth()%>)"
-                                           id="demvalueid<%=valueid%>"
-                                           onclick="loadRecentDemo('<%=valueid%>','<%=demo.getLastName()%>, <%=demo.getFirstName()%> (<%=demo.getYearOfBirth()%>-<%=demo.getMonthOfBirth()%>-<%=demo.getDateOfBirth()%>)')"/>
+                                           value="<%=Encode.forHtmlAttribute(demo.getLastName() + ", " + demo.getFirstName() + " (" + demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth() + ")")%>"
+                                           id="demvalueid<%=Encode.forHtmlAttribute(valueid)%>"
+                                           onclick="loadRecentDemo('<%=Encode.forJavaScriptAttribute(valueid)%>','<%=Encode.forJavaScriptAttribute(demo.getLastName() + ", " + demo.getFirstName() + " (" + demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth() + ")")%>')"/>
                                     <%
 
                                                 }
@@ -1155,9 +1176,9 @@
                                                 }
                                                 String initials = sbInitials.toString();
                                     %>
-                                    <input type="button" value="<%=initials%>"
-                                           title="<%=sortedprovider.getFirstName()%> <%=sortedprovider.getLastName()%> "
-                                           onclick="addflagprovider('<%=sortedprovider.getFirstName()%>','<%=sortedprovider.getLastName()%>','<%=sortedprovider.getProviderNo()%>');">
+                                    <input type="button" value="<%=Encode.forHtmlAttribute(initials)%>"
+                                           title="<%=Encode.forHtmlAttribute(sortedprovider.getFirstName() + " " + sortedprovider.getLastName())%>"
+                                           onclick="addflagprovider('<%=Encode.forJavaScriptAttribute(sortedprovider.getFirstName())%>','<%=Encode.forJavaScriptAttribute(sortedprovider.getLastName())%>','<%=Encode.forJavaScriptAttribute(sortedprovider.getProviderNo())%>');">
                                     <% }
                                     }
 

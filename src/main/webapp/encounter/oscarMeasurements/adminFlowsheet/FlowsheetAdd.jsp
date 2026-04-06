@@ -73,7 +73,7 @@
         <script src="<%=request.getContextPath()%>/js/demographicProviderAutocomplete.js"></script>
         <script src="<%=request.getContextPath()%>/js/carlosAutocomplete.js"></script>
 
-        <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath()%>/share/css/demographicProviderAutocomplete.css" media="all"
               rel="stylesheet">

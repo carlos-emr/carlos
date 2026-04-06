@@ -16,6 +16,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="org.apache.commons.lang3.StringUtils,io.github.carlos_emr.carlos.log.*" %>
 <%@page import="java.text.SimpleDateFormat" %>
+<%@page import="java.util.Objects" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -439,9 +440,9 @@
     <div id="reportViewer">
         <div id="hrmReportContent">
             <div id="hrmHeader"><b>Demographic Info:</b><br/>
-                <%=hrmReport.getLegalName() %> <br/>
-                <%=hrmReport.getHCN() %> &nbsp; <%=hrmReport.getHCNVersion() %> &nbsp; <%=hrmReport.getGender() %><br/>
-                <b>DOB:</b><%=hrmReport.getDateOfBirthAsString() %>
+                <%=Encode.forHtml(Objects.toString(hrmReport.getLegalName(), "")) %> <br/>
+                <%=Encode.forHtml(Objects.toString(hrmReport.getHCN(), "")) %> &nbsp; <%=Encode.forHtml(Objects.toString(hrmReport.getHCNVersion(), "")) %> &nbsp; <%=Encode.forHtml(Objects.toString(hrmReport.getGender(), "")) %><br/>
+                <b>DOB:</b><%=Encode.forHtml(Objects.toString(hrmReport.getDateOfBirthAsString(), "")) %>
             </div>
 
 
@@ -520,7 +521,7 @@
                 if (confidentialityStatement != null && confidentialityStatement.trim().length() > 0) {
             %>
             <hr/>
-            <em><strong>Provider Confidentiality Statement</strong><br/><%=confidentialityStatement %>
+            <em><strong>Provider Confidentiality Statement</strong><br/><%=Encode.forHtml(confidentialityStatement) %>
             </em>
             <% } %>
         </div>
@@ -536,10 +537,10 @@
                 <tr>
                     <th>Demographic Info:</th>
                     <td>
-                        <%=hrmReport.getLegalName() %><br/>
-                        <%=hrmReport.getAddressLine1() %><br/>
-                        <%=hrmReport.getAddressLine2() != null ? hrmReport.getAddressLine2() : "" %><br/>
-                        <%=hrmReport.getAddressCity() %>
+                        <%=Encode.forHtml(Objects.toString(hrmReport.getLegalName(), "")) %><br/>
+                        <%=Encode.forHtml(Objects.toString(hrmReport.getAddressLine1(), "")) %><br/>
+                        <%=Encode.forHtml(Objects.toString(hrmReport.getAddressLine2(), "")) %><br/>
+                        <%=Encode.forHtml(Objects.toString(hrmReport.getAddressCity(), "")) %>
                     </td>
                 </tr>
 
@@ -644,8 +645,14 @@
                         <div id="provstatus<%=hrmReportId %>"></div>
                         <% if (providerLinkList != null && providerLinkList.size() > 0) {
                             for (HRMDocumentToProvider p : providerLinkList) {
-                                if (!p.getProviderNo().equalsIgnoreCase("-1")) { %>
-                        <%=Encode.forHtml(providerDao.getProviderName(p.getProviderNo()))%> <%=p.getSignedOff() != null && p.getSignedOff() == 1 ? "<abbr title='" + p.getSignedOffTimestamp() + "'>(Signed-Off " + p.getSignedOffTimestamp() + ")</abbr>" : "" %>
+                                if (!p.getProviderNo().equalsIgnoreCase("-1")) {
+                                    String signedOffDisplay = "";
+                                    if (p.getSignedOff() != null && p.getSignedOff() == 1) {
+                                        String ts = Objects.toString(p.getSignedOffTimestamp(), "");
+                                        signedOffDisplay = "<abbr title='" + Encode.forHtmlAttribute(ts) + "'>(Signed-Off " + Encode.forHtml(ts) + ")</abbr>";
+                                    }
+                        %>
+                        <%=Encode.forHtml(providerDao.getProviderName(p.getProviderNo()))%> <%=signedOffDisplay%>
                         <a href="#"
                            onclick="removeProvFromHrm('<%=p.getId() %>', '<%=hrmReportId %>')">(remove)</a><br/>
                         <% }
@@ -656,7 +663,7 @@
                         <% if (document.getUnmatchedProviders() != null && document.getUnmatchedProviders().trim().length() >= 1) {
                             String[] unmatchedProviders = document.getUnmatchedProviders().substring(1).split("\\|");
                             for (String unmatchedProvider : unmatchedProviders) { %>
-                        <i><abbr title="From the HRM document"><%=unmatchedProvider %>
+                        <i><abbr title="From the HRM document"><%=Encode.forHtml(unmatchedProvider) %>
                         </abbr></i><br/>
                         <% }
                         } %>

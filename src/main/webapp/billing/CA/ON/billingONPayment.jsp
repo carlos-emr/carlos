@@ -175,9 +175,9 @@
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.paymentReceived.title"/></title>
 
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     <script type="text/javascript">
@@ -402,15 +402,15 @@
                 </td>
                 <td style="text-align:center"><%=Encode.forHtml(serviceCode)%>
                 </td>
-                <td style="text-align:center"><%=rad.getServiceCount()%>
+                <td style="text-align:center"><%=Encode.forHtml(rad.getServiceCount())%>
                 </td>
                 <td style="text-align:right"><%=Encode.forHtml(bItemFee)%>
                 </td>
                 <td style="text-align:right"><%=Encode.forHtml(claimAmtStr)%>
                 </td>
-                <td style="text-align:right"><%=paidAmt.toPlainString()%>
+                <td style="text-align:right"><%=Encode.forHtml(paidAmt.toPlainString())%>
                 </td>
-                <td style="text-align:right"><%=adjAmt.toPlainString()%>
+                <td style="text-align:right"><%=Encode.forHtml(adjAmt.toPlainString())%>
                 </td>
                 <td style="text-align:center"><%=Encode.forHtml(rad.getBillType())%>
                 </td>
@@ -425,17 +425,17 @@
             <tr>
                 <td colspan="2" style="font-weight:bold;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
                 </td>
-                <td colspan="4"><%=numItems%>
+                <td colspan="4"><%=Encode.forHtml(String.valueOf(numItems))%>
                 </td>
                 <td style="font-weight:bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
                 </td>
-                <td style="text-align:right"><%=feeTotal%>
+                <td style="text-align:right"><%=Encode.forHtml(feeTotal.toPlainString())%>
                 </td>
-                <td style="text-align:right"><%=claimTotal%>
+                <td style="text-align:right"><%=Encode.forHtml(claimTotal.toPlainString())%>
                 </td>
-                <td style="text-align:right"><%=paidTotal%>
+                <td style="text-align:right"><%=Encode.forHtml(paidTotal.toPlainString())%>
                 </td>
-                <td style="text-align:right"><%=adjTotal%>
+                <td style="text-align:right"><%=Encode.forHtml(adjTotal.toPlainString())%>
                 </td>
                 <td colspan="5"></td>
             </tr>
@@ -501,11 +501,11 @@
             <tr>
                 <td colspan="2" style="font-weight:bold;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
                 </td>
-                <td colspan="3"><%=numPremiumItems%>
+                <td colspan="3"><%=Encode.forHtml(String.valueOf(numPremiumItems))%>
                 </td>
                 <td style="font-weight:bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
                 </td>
-                <td style="text-align:right;font-weight:bold"><%=totalPremiums.toPlainString()%>
+                <td style="text-align:right;font-weight:bold"><%=Encode.forHtml(totalPremiums.toPlainString())%>
                 </td>
                 <td colspan="4"></td>
             </tr>
@@ -621,18 +621,18 @@
                 </td>
                 <td style="text-align:right"><%=Encode.forHtml(amtBilled)%>
                 </td>
-                <td style="text-align:right"><%=amtPaid.toPlainString()%>
+                <td style="text-align:right"><%=Encode.forHtml(amtPaid.toPlainString())%>
                 </td>
-                <td style="text-align:right"><%=amtRefund.toPlainString()%>
+                <td style="text-align:right"><%=Encode.forHtml(amtRefund.toPlainString())%>
                 </td>
                 <td colspan="2"></td>
 
 
                 <% } %>
             </tr>
-            <tr class="<%=rowColor%>">
+            <tr class="<%=Encode.forHtmlAttribute(rowColor)%>">
                 <td colspan="6"></td>
-                <td style="font-weight:bold;text-align:right"><%=totalBilled.toPlainString()%>
+                <td style="font-weight:bold;text-align:right"><%=Encode.forHtml(totalBilled.toPlainString())%>
                 </td>
 
 
@@ -658,9 +658,9 @@
                     }
 
                 %>
-                <td colspan="<%=colSpan%>" style="text-align:right"><%=payAmt.toPlainString()%>
+                <td colspan="<%=Encode.forHtmlAttribute(colSpan)%>" style="text-align:right"><%=Encode.forHtml(payAmt.toPlainString())%>
                 </td>
-                <td style="text-align:right"><%=refundAmt.toPlainString()%>
+                <td style="text-align:right"><%=Encode.forHtml(refundAmt.toPlainString())%>
                 </td>
                 <td style="text-align:center"><%=Encode.forHtml(payDate)%>
                 </td>
@@ -703,15 +703,15 @@
             <tr>
                 <td colspan="2" style="font-weight:bold;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
                 </td>
-                <td colspan="3"><%=num3rdItems%>
+                <td colspan="3"><%=Encode.forHtml(String.valueOf(num3rdItems))%>
                 </td>
                 <td style="font-weight:bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
                 </td>
-                <td style="text-align:right"><%=total3rdBilled%>
+                <td style="text-align:right"><%=Encode.forHtml(total3rdBilled.toPlainString())%>
                 </td>
-                <td style="text-align:right"><%=total3rdPaid%>
+                <td style="text-align:right"><%=Encode.forHtml(total3rdPaid.toPlainString())%>
                 </td>
-                <td style="text-align:right"><%=total3rdRefunded%>
+                <td style="text-align:right"><%=Encode.forHtml(total3rdRefunded.toPlainString())%>
                 </td>
                 <td colspan="2"></td>
             </tr>
@@ -721,7 +721,7 @@
         <%
             BigDecimal finalAmt = paidTotal.add(total3rdPaid).subtract(total3rdRefunded).add(totalPremiums);
         %>
-        <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.totalPaid"/>: <%=finalAmt%>
+        <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.totalPaid"/>: <%=Encode.forHtml(finalAmt.toPlainString())%>
         </h3>
 
         </form>

@@ -187,11 +187,10 @@ $(document).ready(function () {
         $('#drilldownTable thead th').each(function () {
             var id = this.id;
             if (id > 1) {
-                select.append('<option value="'
-                    + id
-                    + '">'
-                    + $(this).html()
-                    + '</option>');
+                var option = document.createElement('option');
+                option.value = id;
+                option.textContent = $(this).text();
+                select.append(option);
             }
         });
 
@@ -252,7 +251,10 @@ $(document).ready(function () {
                 });
 
             drilldownTable.column(columnId).data().unique().sort().each(function (d, j) {
-                select.append('<option value="' + d + '">' + d + '</option>')
+                var option = document.createElement('option');
+                option.value = d;
+                option.textContent = d;
+                select.append(option);
             });
         }
 

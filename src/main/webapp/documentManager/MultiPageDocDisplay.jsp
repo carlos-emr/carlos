@@ -64,6 +64,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderInboxItem" %>
 <%!
@@ -232,17 +234,17 @@
             </td>
             <td align="left" valign="top" class="docTable">
                 <fieldset>
-                    <legend>Patient: <%=demoName%>
+                    <legend>Patient: <%=Encode.forHtml(demoName)%>
                     </legend>
                     <table border="0">
                         <tr>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.DocumentUploaded"/></td>
-                            <td><%=curdoc.getDateTimeStamp()%>
+                            <td><%=Encode.forHtml(StringUtils.noNull(curdoc.getDateTimeStamp()))%>
                             </td>
                         </tr>
                         <tr>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.ContentType"/></td>
-                            <td><%=contentType%>
+                            <td><%=Encode.forHtml(contentType)%>
                             </td>
                         </tr>
                         <tr>
@@ -258,9 +260,9 @@
                     <form id="forms_<%=docId%>" onsubmit="return updateDocument(this.id);">
                         <input type="hidden" name="method" value="documentUpdate"/>
                         <input type="hidden" name="documentId" value="<%=docId%>"/>
-                        <input type="hidden" name="providerNo" value="<%=providerNo%>"/>
-                        <input type="hidden" name="searchProviderNo" value="<%=searchProviderNo%>"/>
-                        <input type="hidden" name="status" value="<%=status%>"/>
+                        <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(providerNo)%>"/>
+                        <input type="hidden" name="searchProviderNo" value="<%=Encode.forHtmlAttribute(searchProviderNo)%>"/>
+                        <input type="hidden" name="status" value="<%=Encode.forHtmlAttribute(status)%>"/>
                         <table border="0">
                             <tr>
                                 <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocType"/>:</td>
@@ -271,7 +273,7 @@
                                             for (int j = 0; j < doctypes.size(); j++) {
                                                 String doctype = (String) doctypes.get(j);
                                         %>
-                                        <option value="<%= doctype%>" <%=(curdoc.getType().equals(doctype)) ? " selected" : ""%>><%= doctype%>
+                                        <option value="<%= Encode.forHtmlAttribute(doctype)%>" <%=(curdoc.getType().equals(doctype)) ? " selected" : ""%>><%= Encode.forHtml(doctype)%>
                                         </option>
                                         <%}%>
                                     </select>
@@ -280,13 +282,13 @@
                             <tr>
                                 <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocDesc"/>:</td>
                                 <td><input tabindex="<%=tabindex++%>" type="text" name="documentDescription"
-                                           value="<%=curdoc.getDescription()%>"/></td>
+                                           value="<%=Encode.forHtmlAttribute(curdoc.getDescription())%>"/></td>
                             </tr>
                             <tr>
                                 <td>Observation Date:</td>
                                 <td>
                                     <input tabindex="<%=tabindex++%>" id="observationDate<%=docId%>"
-                                           name="observationDate" type="text" value="<%=curdoc.getObservationDate()%>">
+                                           name="observationDate" type="text" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(curdoc.getObservationDate()))%>">
                                     <a id="obsdate<%=docId%>"
                                        onmouseover="renderCalendar(this.id,'observationDate<%=docId%>' );"
                                        href="javascript:void(0);"><img title="Calendar"
@@ -299,11 +301,11 @@
                                 </td>
                                 <td><%if (!demographicID.equals("-1")) {%>
                                     <input id="saved<%=docId%>" type="hidden" name="saved" value="true"/>
-                                    <input type="hidden" value="<%=demographicID%>" name="demog"
+                                    <input type="hidden" value="<%=Encode.forHtmlAttribute(demographicID)%>" name="demog"
                                            id="demofind<%=docId%>"/>
-                                    <%=demoName%><%} else {%>
+                                    <%=Encode.forHtml(demoName)%><%} else {%>
                                     <input id="saved<%=docId%>" type="hidden" name="saved" value="false"/>
-                                    <input type="hidden" name="demog" value="<%=demographicID%>"
+                                    <input type="hidden" name="demog" value="<%=Encode.forHtmlAttribute(demographicID)%>"
                                            id="demofind<%=docId%>"/>
                                     <input tabindex="<%=tabindex++%>" type="text" id="autocompletedemo<%=docId%>"
                                            onchange="checkSave('<%=docId%>')" name="demographicKeyword"/>
@@ -696,7 +698,7 @@
 
                             <tr>
                                 <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgCreator"/>:</td>
-                                <td><%=curdoc.getCreatorName()%>
+                                <td><%=Encode.forHtml(StringUtils.noNull(curdoc.getCreatorName()))%>
                                 </td>
                             </tr>
 
@@ -722,7 +724,7 @@
                                                 String s = p.getProperty(pItem.getProviderNo(), pItem.getProviderNo());
                                                 if (!s.equals("0")) {
                                         %>
-                                        <li><%=s%>
+                                        <li><%=Encode.forHtml(s)%>
                                         </li>
                                         <%
                                                 }
@@ -749,7 +751,7 @@
                                     <!--center-->
                                     <% for (int i = 0; i < ackList.size(); i++) {
                                         ReportStatus report = (ReportStatus) ackList.get(i); %>
-                                    <%= report.getProviderName() %> :
+                                    <%= Encode.forHtml(report.getProviderName()) %> :
 
                                     <% String ackStatus = report.getStatus();
                                         if (providerNo.equals(report.getOscarProviderNo())) {
@@ -763,11 +765,11 @@
                                             ackStatus = "Not Acknowledged";
                                         }
                                     %>
-                                    <font color="red"><%= ackStatus %>
+                                    <font color="red"><%= Encode.forHtml(ackStatus) %>
                                     </font>
                                     &nbsp;
-                                    <%= report.getTimestamp() == null ? "" : report.getTimestamp() %>,&nbsp;
-                                    comment: <%= (report.getComment() == null || report.getComment().equals("") ? "no comment" : report.getComment()) %>
+                                    <%= report.getTimestamp() == null ? "" : Encode.forHtml(String.valueOf(report.getTimestamp())) %>,&nbsp;
+                                    comment: <%= Encode.forHtml(report.getComment() == null || report.getComment().equals("") ? "no comment" : report.getComment()) %>
 
                                     <br>
                                     <% }
@@ -853,7 +855,7 @@
                                                     if (curdoc.getCreatorId().equals(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo())) {
                                                 %>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="Delete"
-                                                       onClick="javascript: checkDelete('<%=curdoc.getDocId()%>','<%=curdoc.getDescription()%>')"/>
+                                                       onClick="javascript: checkDelete('<%=Encode.forJavaScriptAttribute(curdoc.getDocId())%>','<%=Encode.forJavaScriptAttribute(curdoc.getDescription())%>')"/>
 
                                                 <%
                                                 } else {
@@ -861,7 +863,7 @@
                                                 <security:oscarSec roleName="<%=roleName$%>"
                                                                    objectName="_admin,_admin.edocdelete" rights="r">
                                                     <input type="button" tabindex="<%=tabindex++%>" value="Delete"
-                                                           onClick="javascript: checkDelete('<%=curdoc.getDocId()%>','<%=curdoc.getDescription()%>')"/>
+                                                           onClick="javascript: checkDelete('<%=Encode.forJavaScriptAttribute(curdoc.getDocId())%>','<%=Encode.forJavaScriptAttribute(curdoc.getDescription())%>')"/>
                                                 </security:oscarSec>
                                                 <% } %>
                                                 <%}

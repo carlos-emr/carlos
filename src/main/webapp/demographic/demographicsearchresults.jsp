@@ -407,13 +407,13 @@
 
                             if (fromMessenger) {
                         %>
-                        <a href="DemographicLinkMsg.do?keyword=<%=Encode.forUriComponent(Encode.forHtml(Misc.toUpperLowerCase(demo.getLastName()+", "+demo.getFirstName())))%>&demographic_no=<%= Encode.forUriComponent(dem_no) %>"><%=demo.getDemographicNo()%>
+                        <a href="DemographicLinkMsg.do?keyword=<%=Encode.forUriComponent(Misc.toUpperLowerCase(demo.getLastName()+", "+demo.getFirstName()))%>&demographic_no=<%= Encode.forUriComponent(dem_no) %>"><%=Encode.forHtml(demo.getDemographicNo().toString())%>
                         </a></td>
                     <%
                     } else {
                     %>
                     <a title="Master Demographic File" href="javascript:void(0)"
-                       onclick="popup(700,1027,'DemographicEdit.do?demographic_no=<%=head%>')"><%=dem_no%>
+                       onclick="popup(700,1027,'DemographicEdit.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(head != null ? head : dem_no))%>')"><%=Encode.forHtml(dem_no)%>
                     </a></td>
 
                     <!-- Rights -->
@@ -421,16 +421,16 @@
                                                          objectName="_eChart" rights="r">
                         <a class="encounterBtn" title="Encounter" href="javascript:void(0)"
                            onclick="popupEChart(710,1024,'<c:out
-                                   value="${ctx}"/>/encounter/IncomingEncounter.do?providerNo=<%=curProvider_no%>&appointmentNo=&demographicNo=<%=dem_no%>&curProviderNo=&reason=<%=URLEncoder.encode(noteReason, StandardCharsets.UTF_8)%>&encType=&curDate=<%=""+curYear%>-<%=""+curMonth%>-<%=""+curDay%>&appointmentDate=&startTime=&status=');return false;">E</a>
+                                   value="${ctx}"/>/encounter/IncomingEncounter.do?providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(curProvider_no)))%>&appointmentNo=&demographicNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>&curProviderNo=&reason=<%=Encode.forJavaScriptAttribute(URLEncoder.encode(noteReason, StandardCharsets.UTF_8))%>&encType=&curDate=<%=""+curYear%>-<%=""+curMonth%>-<%=""+curDay%>&appointmentDate=&startTime=&status=');return false;">E</a>
                     </security:oscarSec> <!-- Rights --> <security:oscarSec roleName="<%=roleName$%>"
                                                                             objectName="_rx" rights="r">
-			<a class="rxBtn" title="Prescriptions"  href="javascript:void(0)" onclick="popup(700,1027,'<c:out value="${ctx}"/>/oscarRx/choosePatient.do?providerNo=<%=demo.getProviderNo()%>&demographicNo=<%=dem_no%>')">Rx</a>
+			<a class="rxBtn" title="Prescriptions"  href="javascript:void(0)" onclick="popup(700,1027,'<c:out value="${ctx}"/>/oscarRx/choosePatient.do?providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getProviderNo())))%>&demographicNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>')">Rx</a>
 			</security:oscarSec>
 			<security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
-			<a class="ticklerBtn" title="Tickler"  href="javascript:void(0)" onclick="popup(700,1027,'<c:out value="${ctx}"/>/tickler/ticklerMain.jsp?demoview=<%=dem_no%>')">T</a>
+			<a class="ticklerBtn" title="Tickler"  href="javascript:void(0)" onclick="popup(700,1027,'<c:out value="${ctx}"/>/tickler/ticklerMain.jsp?demoview=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>')">T</a>
 			</security:oscarSec>
 			<security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r">
-			<a class="consultBtn" title="Consultation"  href="javascript:void(0)" onclick="popup(700,1027,'<c:out value="${ctx}"/>/encounter/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp?de=<%=dem_no%>')">C</a>
+			<a class="consultBtn" title="Consultation"  href="javascript:void(0)" onclick="popup(700,1027,'<c:out value="${ctx}"/>/encounter/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp?de=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>')">C</a>
 			</security:oscarSec>
 		</td>
 
@@ -439,7 +439,7 @@
                     %>
                     <caisi:isModuleLoad moduleName="caisi">
                         <td class="name"><a href="javascript:void(0)"
-                                            onclick="location.href='<%= request.getContextPath() %>/PMmodule/ClientManager.do?id=<%=dem_no%>'"><%=Encode.forHtml(Misc.toUpperLowerCase(demo.getLastName()))%>
+                                            onclick="location.href='<%= request.getContextPath() %>/PMmodule/ClientManager.do?id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>'"><%=Encode.forHtml(Misc.toUpperLowerCase(demo.getLastName()))%>
                             , <%=Encode.forHtml(Misc.toUpperLowerCase(demo.getFirstName()))%>
                         </a></td>
                     </caisi:isModuleLoad>

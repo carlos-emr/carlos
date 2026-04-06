@@ -99,7 +99,9 @@
             }
 
             String programId_forCME = request.getParameter("case_program_id");
-            request.getSession().setAttribute("case_program_id", programId_forCME);
+            if (programId_forCME != null && programId_forCME.matches("\\d+")) {
+                request.getSession().setAttribute("case_program_id", programId_forCME);
+            }
 
             String selected_site = (String) request.getParameter("site");
             if (selected_site != null) {

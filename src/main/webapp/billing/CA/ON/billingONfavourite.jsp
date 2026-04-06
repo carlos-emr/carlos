@@ -48,6 +48,7 @@
         if (request.getParameter("action").startsWith("edit")) {
             // update the service code
             String name = request.getParameter("name");
+            String safeName = Encode.forHtml(name);
             if (name.equals(request.getParameter("action").substring("edit".length()))) {
                 String list = "";
                 for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) {
@@ -71,7 +72,6 @@
                 }
 
                 boolean ni = dbObj.updateBillingFavouriteList(name, list, user_no);
-                String safeName = Encode.forHtml(name);
                 if (ni) {
                     msg = safeName + " is updated.<br>"
                             + "Type in a name and search first to see if it is available.";
@@ -99,6 +99,7 @@
 
         } else if (request.getParameter("action").startsWith("add")) {
             String name = request.getParameter("name");
+            String safeName = Encode.forHtml(name);
             if (name.equals(request.getParameter("action").substring("add".length()))) {
                 String list = "";
                 for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) {
@@ -129,7 +130,6 @@
                 }
 
                 int ni = dbObj.addBillingFavouriteList(name, list, user_no);
-                String safeName = Encode.forHtml(name);
                 if (ni > 0) {
                     msg = safeName + " is added.<br>"
                             + "Type in a name and search first to see if it is available.";
@@ -228,7 +228,7 @@
         <title>Add/Edit Service Code</title>
 
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
 
         <script language="JavaScript">
 

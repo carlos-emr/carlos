@@ -51,7 +51,8 @@
                 io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink,
                 io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,
                 org.owasp.encoder.Encode,
-                java.util.List" %>
+                java.util.List,
+                java.util.Objects" %>
 <%
     HttpSession se = request.getSession();
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(se.getServletContext());
@@ -77,8 +78,8 @@
 <div style="width: 99%; background-color: #EFEFEF; font-size: 12px; border-left: thin groove #000000; border-bottom: thin groove #000000; border-right: thin groove #000000;">
     <%=Encode.forHtml("Lab Reports".equals(display) ? cmm.getNoteContentForDisplay(showNote) : showNote)%>
     <div style="color: #0000FF;">
-        Documentation Date: <%=cmn.getCreate_date()%><br>
-        Saved by <%=cmn.getProviderName()%>
+        Documentation Date: <%=Encode.forHtml(Objects.toString(cmn.getCreate_date(), ""))%><br>
+        Saved by <%=Encode.forHtml(cmn.getProviderName())%>
     </div>
 </div>
 <br>

@@ -208,7 +208,7 @@
             <td class="Text"><%=Encode.forHtml(hl7obr.getOrderingProvider()).replaceAll("~", ",<br/>")%>
             </td>
             <td class="Text">Requested On:</td>
-            <td class="Text"><%=Encode.forHtml(hl7obr.getRequestedDateTime())%>
+            <td class="Text"><%=Encode.forHtml(String.valueOf(hl7obr.getRequestedDateTime()))%>
             </td>
         </tr>
         <tr>
@@ -216,7 +216,7 @@
             <td class="Text"><%=Encode.forHtml(hl7obr.getResultCopiesTo()).replaceAll("~", ",<br/>")%>
             </td>
             <td class="Text">Observed On:</td>
-            <td class="Text"><%=Encode.forHtml(hl7obr.getOberservationDateTime())%>
+            <td class="Text"><%=Encode.forHtml(String.valueOf(hl7obr.getOberservationDateTime()))%>
             </td>
         </tr>
         <%
@@ -254,7 +254,7 @@
             <td class="Text" colspan="3"><b>Service
                 Id:</b><%=Encode.forHtml(hl7_obr.getUniversalServiceId().substring(hl7_obr.getUniversalServiceId().indexOf(" ")))%>
             </td>
-            <td class="Text" nowrap><b>Last Modified:</b><%= Encode.forHtml(hl7_obr.getResultsReportStatusChange())%>
+            <td class="Text" nowrap><b>Last Modified:</b><%= Encode.forHtml(String.valueOf(hl7_obr.getResultsReportStatusChange()))%>
             </td>
             <td class="Text" nowrap colspan="3"><b>Result
                 Status:</b><%=(hl7_obr.getResultStatus().equalsIgnoreCase("f") ? "Final" : "Pending")%>

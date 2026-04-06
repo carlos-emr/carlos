@@ -1929,13 +1929,21 @@ if (userAgent != null) {
         }
 
         function _AddOtherFax(name, number) {
-            var remove = "<a href='javascript:void(0);' onclick='removeRecipient(this)'>remove</a>";
             var rvalue = {};
             rvalue.name = name;
             rvalue.fax = number;
-            var html = "<tr><td class='tite1'>" + name + "</td><td class='tite1'>" + number + "</td><td class='tite1'>" + remove
-                + "<input type='hidden' id='faxRecipients' name='faxRecipients' value='" + JSON.stringify(rvalue) + "' /> </td></tr>";
-            jQuery("#addFaxRecipient").append(jQuery(html));
+            var removeLink = jQuery('<a>').attr('href', 'javascript:void(0);').text('remove').on('click', function() { removeRecipient(this); });
+            var hiddenInput = jQuery('<input>').attr({
+                type: 'hidden',
+                id: 'faxRecipients',
+                name: 'faxRecipients',
+                value: JSON.stringify(rvalue)
+            });
+            var row = jQuery('<tr>');
+            row.append(jQuery('<td>').addClass('tite1').text(name));
+            row.append(jQuery('<td>').addClass('tite1').text(number));
+            row.append(jQuery('<td>').addClass('tite1').append(removeLink).append(' ').append(hiddenInput));
+            jQuery("#addFaxRecipient").append(row);
             updateFaxButton();
         }
 
@@ -3284,7 +3292,7 @@ if (userAgent != null) {
                         let closeBtn = jQuery(this).parent().find(".ui-dialog-titlebar-close");
                         closeBtn.removeClass("ui-button-icon-only");
                         closeBtn.addClass("save-and-close-button");
-                        closeBtn.html("Save and Close");
+                        closeBtn.text("Save and Close");
                     },
 
                     beforeClose: function (event, ui) {
