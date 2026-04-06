@@ -367,7 +367,12 @@ public class NioFileManagerImpl implements NioFileManager {
             fileType = DEFAULT_FILE_SUFFIX;
         }
         String sanitizedName = sanitizeFileName(fileName);
-        Path file = Files.createFile(Paths.get(directory.toString(), String.format("%1$s.%2$s", sanitizedName, fileType)));
+        // Sanitize fileType to only allow safe alphanumeric extension characters
+        String sanitizedType = fileType.replaceAll("[^a-zA-Z0-9]", "");
+        if (sanitizedType.isEmpty()) {
+            sanitizedType = DEFAULT_FILE_SUFFIX;
+        }
+        Path file = Files.createFile(Paths.get(directory.toString(), String.format("%1$s.%2$s", sanitizedName, sanitizedType)));
         // Validate the resulting path is within the temp directory
         try {
             PathValidationUtils.validateExistingPath(file.toFile(), directory.toFile());
