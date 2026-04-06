@@ -66,6 +66,7 @@ function initProviderAutocomplete(inputSelector, contextPath, onSelect, options)
             if (onSelect) {
                 onSelect(ui.item.providerNo, ui.item.firstName, ui.item.lastName, ui.item);
             }
+            return false;
         }
     });
 
@@ -136,6 +137,7 @@ function initDemographicAutocomplete(inputSelector, contextPath, onSelect, optio
             if (onSelect) {
                 onSelect(ui.item.demographicNo, ui.item.formattedName, ui.item.formattedDob, ui.item.status, ui.item);
             }
+            return false;
         }
     });
 

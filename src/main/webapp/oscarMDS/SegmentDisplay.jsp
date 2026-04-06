@@ -464,7 +464,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                             <%= Encode.forHtml(rs.getProviderName()) %> : <font color="red"><%= Encode.forHtml(rs.getStatus()) %>
                                         </font>
                                             <% if (rs.getStatus().equals("Acknowledged")) { %> <%= Encode.forHtml(rs.getTimestamp()) %>,
-                                            <%= Encode.forHtml(rs.getComment().equals("") ? "no comment" : "comment : " + rs.getComment()) %>
+                                            <%= Encode.forHtml(rs.getComment() == null || rs.getComment().isEmpty() ? "no comment" : "comment : " + rs.getComment()) %>
                                             <% } %> <br>
                                             <% }
                                                 if (currentData.statusArray.size() == 0) {

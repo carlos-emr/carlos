@@ -23,13 +23,13 @@
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
     <link href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
-    <link href="${ctx}/library/jquery/jquery-ui.min.css" rel="stylesheet" type="text/css"/>
+    <link href="${ctx}/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet" type="text/css"/>
     <link href="${ctx}/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css"/>
     <link href="${ctx}/css/fontawesome-all.min.css" rel="stylesheet">
 
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.7.1.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/jquery/jquery.validate-1.21.0.min.js"></script>
-    <script type="text/javascript" src="${ctx}/library/jquery/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/flatpickr/flatpickr.min.js"></script>
 

@@ -425,7 +425,7 @@ display:inline-block;
                                         %>
 
                                         <%  String colVal = (String) colourHash.get(colour);
-                                            String safeCol = (colVal != null && colVal.matches("^#[0-9a-fA-F]{3,6}$")) ? colVal : "#FFFFFF";
+                                            String safeCol = (colVal != null && colVal.matches("^(#[0-9a-fA-F]{3,6}|[a-zA-Z]{3,20})$")) ? colVal : "#FFFFFF";
                                         %><li style="display:inline;background-color:<%=safeCol%>;">
                                             <input type="radio" name="col<%=targetCount%>"
                                                    value="<%=Encode.forHtmlAttribute(colour)%>" <%=s(colour, tc.getIndicationColor())%> ><%=Encode.forHtml(colour)%>
@@ -477,7 +477,7 @@ display:inline-block;
                                                 String colour = (String) en.nextElement();
                                         %>
                                         <%  String colVal = (String) colourHash.get(colour);
-                                            String safeCol = (colVal != null && colVal.matches("^#[0-9a-fA-F]{3,6}$")) ? colVal : "#FFFFFF";
+                                            String safeCol = (colVal != null && colVal.matches("^(#[0-9a-fA-F]{3,6}|[a-zA-Z]{3,20})$")) ? colVal : "#FFFFFF";
                                         %><li style="display:inline;background-color:<%=safeCol%>;">
                                             <input type="radio" name="col<%=targetCount%>"
                                                    value="<%=Encode.forHtmlAttribute(colour)%>"><%=Encode.forHtml(colour)%>
