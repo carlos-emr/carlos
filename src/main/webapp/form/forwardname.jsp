@@ -29,6 +29,8 @@
 
 --%>
 
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LogSanitizer" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -41,7 +43,23 @@
     // forward to the page 'form_link'
     if (true) {
         out.clearBuffer();
-        request.getRequestDispatcher(request.getParameter("form_link") + "?demographic_no=" + request.getParameter("demographic_no")).include(request, response);
+
+        String formLink = request.getParameter("form_link");
+        String demographicNo = request.getParameter("demographic_no");
+
+        // Validate form_link to prevent path traversal (CWE-22 / CWE-98).
+        // Only permit simple JSP filenames — no slashes, ".." sequences, or other
+        // path-manipulation characters.  All legitimate form links are plain filenames
+        // such as "formrourke1.jsp" that live in the /form/ directory.
+        if (formLink == null || !formLink.matches("[A-Za-z0-9_\\-]+\\.jsp")) {
+            MiscUtils.getLogger().warn("forwardname.jsp: blocked invalid form_link parameter: {}",
+                    LogSanitizer.sanitize(formLink));
+            response.sendError(400, "Invalid form link");
+            return;
+        }
+
+        // Dispatch to the validated form within the /form/ directory only.
+        request.getRequestDispatcher("/form/" + formLink + "?demographic_no=" + demographicNo).include(request, response);
         return;
     }
 %>
