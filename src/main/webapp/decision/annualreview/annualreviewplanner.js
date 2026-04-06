@@ -1,22 +1,20 @@
 function restoreCheckboxStates() {
-  const xmlEl = document.getElementById('xml_list');
-  if (!xmlEl) return;
-  const xmlText = (xmlEl.textContent || xmlEl.innerText).trim();
-  if (!xmlText) return;
+  const dataEl = document.getElementById('checked_fields');
+  if (!dataEl) return;
 
-  // parse XML
-  const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
-  if (doc.getElementsByTagName('parsererror').length) return;
+  let checkedNames;
+  try {
+    // JSON.parse is not an HTML sink, preventing DOM-based XSS (js/xss-through-dom)
+    checkedNames = JSON.parse(dataEl.textContent);
+  } catch (e) {
+    return;
+  }
 
-  // collect all tags whose text == "checked"
-  const checkedNames = Array.prototype.filter
-    .call(doc.documentElement.children, node => node.textContent === 'checked')
-    .map(node => node.nodeName.toLowerCase());
-
-  if (!checkedNames.length) return;
+  if (!Array.isArray(checkedNames) || !checkedNames.length) return;
 
   // set matching checkboxes in one pass
   checkedNames.forEach(function(name) {
+    if (typeof name !== 'string') return;
     // note the [i] for case-insensitive attr match in modern browsers
     const selector = 'input[type="checkbox"][name="' + CSS.escape(name) + '" i]';
     document.querySelectorAll(selector).forEach(cb => cb.checked = true);
