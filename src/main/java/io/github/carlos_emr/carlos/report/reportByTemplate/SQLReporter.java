@@ -63,6 +63,9 @@ public class SQLReporter implements Reporter {
      */
     static final int MAX_CSV_SESSION_LENGTH = 5 * 1024 * 1024;
 
+    /** Value of {@link ReportTemplates#getActive()} that indicates an active template. */
+    private static final int ACTIVE_STATUS = 1;
+
     public SQLReporter() {
     }
 
@@ -75,13 +78,16 @@ public class SQLReporter implements Reporter {
      * @return the active {@link ReportTemplates} record, or {@code null} if invalid
      */
     private ReportTemplates resolveActiveTemplate(String templateId) {
+        if (templateId == null || templateId.isEmpty()) {
+            return null;
+        }
         int id = ConversionUtils.fromIntString(templateId);
         if (id <= 0) {
             return null;
         }
         ReportTemplatesDao reportTemplatesDao = SpringUtils.getBean(ReportTemplatesDao.class);
         ReportTemplates rt = reportTemplatesDao.find(id);
-        if (rt == null || rt.getActive() != 1) {
+        if (rt == null || rt.getActive() != ACTIVE_STATUS) {
             return null;
         }
         return rt;
