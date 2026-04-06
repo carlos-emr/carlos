@@ -160,8 +160,9 @@ When the converted file is a `.jsp` (not a static `.html`):
    <%@ include file="/includes/global-head.jspf" %>
    ```
 
-   `global-head.jspf` provides: charset, viewport meta, Bootstrap CSS/JS, jQuery, Font Awesome, and the CSRF guard script.
-   Remove the explicit `<meta charset>`, Bootstrap `<link>`, and `<script src="global.js">` tags.
+   `global-head.jspf` provides: viewport meta, Bootstrap CSS/JS, jQuery, Font Awesome, and the CSRF guard script.
+   You will need to add an explicit `<meta charset>`
+   and remove explicit Bootstrap `<link>`, and `<script src="global.js">` tags.
 
 2. **Add OWASP encoding** for every value rendered from server-side data:
 
@@ -181,6 +182,7 @@ When the converted file is a `.jsp` (not a static `.html`):
    const csrfToken = document.querySelector('input[name="CSRF-TOKEN"]')?.value;
    // include csrfToken in the request body or as a header
    ```
+   
    A shared `getCsrfToken()` helper is available in
    `src/main/webapp/share/javascript/oscarMDSIndex.js` and is the recommended pattern for
    fetch/XHR CSRF inclusion.
@@ -277,7 +279,7 @@ When converting a complete page (not just editing a small section):
 
 - [ ] `<!DOCTYPE html>` present
 - [ ] `<html lang="en">` present
-- [ ] `global-head.jspf` included (JSP) or Bootstrap CSS + `global.js` referenced (static HTML)
+- [ ] `global-head.jspf` included (JSP) or Bootstrap CSS referenced (static HTML) with global.js optional
 - [ ] `<div class="container">` as outermost wrapper
 - [ ] `jsAlertBanner` div present immediately inside `.container`
 - [ ] `<div class="page-header-bar" id="header">` present with short + long title
