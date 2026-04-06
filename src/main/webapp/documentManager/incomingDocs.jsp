@@ -67,6 +67,7 @@
 <%@page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <jsp:useBean id="LastPatientsBean" class="java.util.ArrayList" scope="session"/>
@@ -198,8 +199,10 @@
     String pdfName = "";
     if (pdfNameParam != null && !pdfNameParam.isEmpty()) {
         try {
-            pdfName = PathValidationUtils.validatePath(pdfNameParam, new File(pdfDirectory)).getName();
+            File allowedPdfDir = new File(pdfDirectory);
+            pdfName = PathValidationUtils.validatePath(pdfNameParam, allowedPdfDir).getName();
         } catch (SecurityException e) {
+            MiscUtils.getLogger().warn("Path traversal attempt blocked for pdfName in incomingDocs.jsp");
             pdfName = "";
         }
     }
