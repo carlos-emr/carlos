@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.commn.model.ProviderInboxItem;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -70,8 +71,8 @@ public class SplitDocument2Action extends ActionSupport {
 
     private DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
 
-    
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final Set<PosixFilePermission> OWNER_RW_ONLY = PosixFilePermissions.fromString("rw-------");
 
     public String execute() throws Exception {
         String method = request.getParameter("method");
@@ -146,13 +147,15 @@ public class SplitDocument2Action extends ActionSupport {
 
                 String newDocNo = EDocUtil.addDocumentSQL(newDoc);
 
-                Path pdfPath = Paths.get(docdownload, newDoc.getFileName());
+                File docDir = new File(docdownload);
+                File safeFile = PathValidationUtils.validatePath(newDoc.getFileName(), docDir);
+                Path pdfPath = safeFile.toPath();
                 newPdf.save(pdfPath.toString());
                 newPdf.close();
                 try {
-                    Files.setPosixFilePermissions(pdfPath, PosixFilePermissions.fromString("rw-------"));
+                    Files.setPosixFilePermissions(pdfPath, OWNER_RW_ONLY);
                 } catch (IOException e) {
-                    MiscUtils.getLogger().error("Failed to set file permissions on saved PDF", e);
+                    MiscUtils.getLogger().error("Failed to set file permissions on saved PDF: " + pdfPath, e);
                 }
 
 
@@ -348,8 +351,7 @@ public class SplitDocument2Action extends ActionSupport {
      */
     private void setFilePermissions(File file) {
         try {
-            Set<PosixFilePermission> perms = PosixFilePermissions.fromString("rw-------");
-            Files.setPosixFilePermissions(file.toPath(), perms);
+            Files.setPosixFilePermissions(file.toPath(), OWNER_RW_ONLY);
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error setting file permissions on " + file.getName(), e);
         }
