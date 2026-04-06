@@ -300,8 +300,9 @@ function seteditControlContents(editorname, value){
 
 	// Sanitize HTML via DOMPurify if available to prevent DOM-based XSS when reinserting
 	// rich-text content. Preserves formatting tags, style attributes, and eForm elements.
+	// ADD_ATTR includes 'oscardb' (eForm DB-binding attribute) and 'target' (link targets).
 	if (typeof DOMPurify !== 'undefined') {
-		value = DOMPurify.sanitize(value, { FORCE_BODY: true, ADD_TAGS: ['style'], ADD_ATTR: ['style', 'target', 'contenteditable', 'oscardb'] });
+		value = DOMPurify.sanitize(value, { FORCE_BODY: true, ADD_TAGS: ['style'], ADD_ATTR: ['style', 'target', 'oscardb'] });
 	}
 
     if (document.designMode) {
