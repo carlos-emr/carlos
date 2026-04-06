@@ -196,7 +196,7 @@
         <table width="100%">
             <tr>
                 <td colspan="2" class="SectionHead"><a href=#
-                                                       onClick="popup(700,900,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forJavaScriptAttribute(StringUtils.noNull(form.getDemographicNumber()))%>','
+                                                       onClick="popup(700,900,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(form.getDemographicNumber())))%>','
                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.popupPage2Window"/>');return false;"
                                                        title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">Patient
                     Information</a> <input type="hidden" name="id" id="id" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getId()))%>"/>

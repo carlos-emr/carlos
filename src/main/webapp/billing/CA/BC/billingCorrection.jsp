@@ -381,7 +381,7 @@
             </select> </font></b></td>
             <td width="46%"><b><font face="Arial, Helvetica, sans-serif"
                                      size="2"><a href="#"
-                                                 onClick='rs("billingcalendar","billingCalendarPopup.jsp?year=<%=curYear%>&month=<%=curMonth%>&type=service","380","300","0")'>Billing
+                                                 onClick='rs("billingcalendar","billingCalendarPopup.jsp?year=<%=Encode.forJavaScriptAttribute(String.valueOf(curYear))%>&month=<%=Encode.forJavaScriptAttribute(String.valueOf(curMonth))%>&type=service","380","300","0")'>Billing
                 Date: </a><input type="text" style="font-size: 80%;"
                                  name="xml_appointment_date" value="<%=Encode.forHtmlAttribute(BillDate)%>"> </font></b></td>
         </tr>
@@ -457,7 +457,7 @@ String proFirst="", proLast="", proOHIP="", proNo="";
             <td width="46%"><b><font face="Arial, Helvetica, sans-serif"
                                      size="2"><input type="hidden" name="xml_visitdate"
                                                      value="<%=Encode.forHtmlAttribute(visitdate)%>"><a href="#"
-                                                                               onClick='rs("billingcalendar","billingCalendarPopup.jsp?year=<%=curYear%>&month=<%=curMonth%>&type=admission","380","300","0")'>
+                                                                               onClick='rs("billingcalendar","billingCalendarPopup.jsp?year=<%=Encode.forJavaScriptAttribute(String.valueOf(curYear))%>&month=<%=Encode.forJavaScriptAttribute(String.valueOf(curMonth))%>&type=admission","380","300","0")'>
                 Admission Date:</a> <input type="text" style="font-size: 80%;"
                                            name="xml_vdate" value="<%=Encode.forHtmlAttribute(visitdate)%>"></font></b></td>
         </tr>

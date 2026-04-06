@@ -544,7 +544,7 @@
 
                 <%if (BillType.equals("A") || BillType.equals("P")) {%>
                 <a href="#"
-                   onClick="popupPage(800,800, '<%=request.getContextPath()%>/billing/CA/BC/billingView.do?billing_no=<%=Encode.forJavaScriptAttribute(StringUtils.noNull((String) request.getAttribute("invoiceNo")))%>&receipt=yes')">View
+                   onClick="popupPage(800,800, '<%=request.getContextPath()%>/billing/CA/BC/billingView.do?billing_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull((String) request.getAttribute("invoiceNo"))))%>&receipt=yes')">View
                     Invoice</a>
                 <%}%>
             </td>
@@ -554,7 +554,7 @@
             <td width="54%" class="bCellData">
                 Patient Name:
                 <a href=#
-                   onClick="popupPage2('<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forJavaScriptAttribute(DemoNo)%>');return false;"
+                   onClick="popupPage2('<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(DemoNo))%>');return false;"
                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">
                     <%=Encode.forHtml(DemoName)%>
                 </a>
@@ -698,7 +698,7 @@
             <td width="46%" class="bCellData">
                 <input type="hidden" name="xml_visitdate" value="<%=Encode.forHtmlAttribute(visitdate)%>">
                 <a href="#"
-                   onClick='rs("billingcalendar","billingCalendarPopup.jsp?year=<%=curYear%>&month=<%=curMonth%>&type=&returnForm=serviceform&returnItem=xml_vdate","380","300","0")'>
+                   onClick='rs("billingcalendar","billingCalendarPopup.jsp?year=<%=Encode.forJavaScriptAttribute(String.valueOf(curYear))%>&month=<%=Encode.forJavaScriptAttribute(String.valueOf(curMonth))%>&type=&returnForm=serviceform&returnItem=xml_vdate","380","300","0")'>
                     Admission Date:
                 </a>
                 <input type="text" style="font-size:80%;" name="xml_vdate" value="<%=Encode.forHtmlAttribute(visitdate)%>">
@@ -811,7 +811,7 @@
                 <input type="hidden" value="<%=gstFlag%>" id="isGst"/>
                 <input type="button" value="Recalculate" onclick="calculateFee()"/>
                 <small style="float: right; display: <%=gstFlag? "" : "none"%>"
-                       id="currentGST"><%=("+ " + gstPercent + "% GST")%>
+                       id="currentGST"><%=("+ " + Encode.forHtml(gstPercent) + "% GST")%>
                 </small>
                 <input type="hidden" name="gstTotal" id="gstTotal" value="<%=Encode.forHtmlAttribute(allFields.getProperty("gst", "0.00"))%>"/>
             </td>
