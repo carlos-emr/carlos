@@ -76,7 +76,7 @@ public class SystemMessage2Action extends ActionSupport {
                 addActionMessage(getText("system_message.missing"));
                 return list();
             }
-            request.getSession().setAttribute("systemMessageId", messageId);
+            request.getSession().setAttribute("systemMessageId", String.valueOf(msg.getId()));
         } else {
             request.getSession().setAttribute("systemMessageId", "");
         }
@@ -90,7 +90,7 @@ public class SystemMessage2Action extends ActionSupport {
         msg.setCreationDate(new Date());
         int messageId = 0;
         String messageId_str = (String) request.getSession().getAttribute("systemMessageId");
-        if (messageId_str != null && messageId_str != "") {
+        if (messageId_str != null && !messageId_str.isEmpty()) {
             messageId = Integer.valueOf(messageId_str).intValue();
         }
 
