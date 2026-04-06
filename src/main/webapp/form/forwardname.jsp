@@ -51,10 +51,20 @@
         // Only permit simple JSP filenames — no slashes, ".." sequences, or other
         // path-manipulation characters.  All legitimate form links are plain filenames
         // such as "formrourke1.jsp" that live in the /form/ directory.
+        // The [A-Za-z0-9_\-]+ quantifier (+, not *) ensures the basename is non-empty.
         if (formLink == null || !formLink.matches("[A-Za-z0-9_\\-]+\\.jsp")) {
             MiscUtils.getLogger().warn("forwardname.jsp: blocked invalid form_link parameter: {}",
                     LogSanitizer.sanitize(formLink));
             response.sendError(400, "Invalid form link");
+            return;
+        }
+
+        // Validate demographic_no is a safe positive integer before appending to the
+        // query string, preventing any manipulation of the URL via this parameter.
+        if (demographicNo == null || !demographicNo.matches("\\d+")) {
+            MiscUtils.getLogger().warn("forwardname.jsp: blocked invalid demographic_no parameter: {}",
+                    LogSanitizer.sanitize(demographicNo));
+            response.sendError(400, "Invalid demographic number");
             return;
         }
 
