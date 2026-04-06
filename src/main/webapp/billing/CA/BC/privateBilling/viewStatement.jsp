@@ -171,7 +171,8 @@
                           - on click, go to the 'Edit Invoices' page
                         --%>
                     <td>
-                        <a href="javascript: popupPage( 700, 1000, '${e:forUri(ctx)}/billing/CA/BC/billStatus.jsp?showPRIV=show&providerview=ALL&verCode=V03&Submit=Create+Report&xml_vdate=&xml_appointment_date=&demographicNo=${ e:forUriComponent(invoice.demographicNumber) }&filterPatient=true&submitted=yes' );">
+                        <a href="#" data-demographic-no="${e:forHtmlAttribute(invoice.demographicNumber)}"
+                           onclick="openBillStatus(this.dataset.demographicNo); return false;">
                                 ${e:forHtml(invoice.billingCount)}
                         </a>
                     </td>
@@ -196,6 +197,25 @@
     <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="${ctx}/js/global.js"></script>
     <script type="text/javascript">
+        function openBillStatus(demographicNo) {
+            var id = parseInt(demographicNo, 10);
+            if (isNaN(id)) {
+                console.warn('openBillStatus: invalid demographicNo', demographicNo);
+                return false;
+            }
+            var params = new URLSearchParams();
+            params.set("showPRIV", "show");
+            params.set("providerview", "ALL");
+            params.set("verCode", "V03");
+            params.set("Submit", "Create Report");
+            params.set("xml_vdate", "");
+            params.set("xml_appointment_date", "");
+            params.set("demographicNo", String(id));
+            params.set("filterPatient", "true");
+            params.set("submitted", "yes");
+            popupPage(700, 1000, "${ctx}/billing/CA/BC/billStatus.jsp?" + params.toString());
+        }
+
         function printItem(itemValue) {
             var billToClinic = document.getElementById('cbBillToClinic').checked;
             var values = itemValue.split('|');
