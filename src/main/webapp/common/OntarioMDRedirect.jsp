@@ -93,11 +93,11 @@ Invalid Requestor Value. - Please contact your support vendor for configuration
     <p>PT login Token:</p>
     <input type="text" size="70" id="ptLoginToken" name="ptLoginToken" value="<%=Encode.forHtmlAttribute(Objects.toString(loginCreds.get("ptLoginToken"), ""))%>"/>
     <p>Keyword:</p>
-    <input type="text" size="100" id="keyword" name="keyword" value="<%=Encode.forHtmlAttribute(keyword)%>"/>
+    <input type="text" size="100" id="keyword" name="keyword" value="<%=Encode.forHtmlAttribute(Objects.toString(keyword, ""))%>"/>
     <p>Params:</p>
-    <input type="text" size="200" id="params" name="params" value="<%=Encode.forHtmlAttribute(params)%>"/>
+    <input type="text" size="200" id="params" name="params" value="<%=Encode.forHtmlAttribute(Objects.toString(params, ""))%>"/>
     <p>Requestor:</p>
-    <input type="text" size="50" id="requestor" name="requestor" value="<%=Encode.forHtmlAttribute(requestor)%>"/>
+    <input type="text" size="50" id="requestor" name="requestor" value="<%=Encode.forHtmlAttribute(Objects.toString(requestor, ""))%>"/>
     <p>Username:</p>
     <input type="text" size="50" id="username" name="username" value="<%=Encode.forHtmlAttribute(uname)%>"/>
     <p></p>

@@ -16,6 +16,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="org.apache.commons.lang3.StringUtils,io.github.carlos_emr.carlos.log.*" %>
 <%@page import="java.text.SimpleDateFormat" %>
+<%@page import="java.util.Objects" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -445,9 +446,9 @@
     <div id="reportViewer">
         <div id="hrmReportContent">
             <div id="hrmHeader"><b>Demographic Info:</b><br/>
-                <%=Encode.forHtml(hrmReport.getLegalName()) %> <br/>
-                <%=Encode.forHtml(hrmReport.getHCN()) %> &nbsp; <%=Encode.forHtml(hrmReport.getHCNVersion()) %> &nbsp; <%=Encode.forHtml(hrmReport.getGender()) %><br/>
-                <b>DOB:</b><%=Encode.forHtml(hrmReport.getDateOfBirthAsString()) %>
+                <%=Encode.forHtml(Objects.toString(hrmReport.getLegalName(), "")) %> <br/>
+                <%=Encode.forHtml(Objects.toString(hrmReport.getHCN(), "")) %> &nbsp; <%=Encode.forHtml(Objects.toString(hrmReport.getHCNVersion(), "")) %> &nbsp; <%=Encode.forHtml(Objects.toString(hrmReport.getGender(), "")) %><br/>
+                <b>DOB:</b><%=Encode.forHtml(Objects.toString(hrmReport.getDateOfBirthAsString(), "")) %>
             </div>
 
 
@@ -542,10 +543,10 @@
                 <tr>
                     <th>Demographic Info:</th>
                     <td>
-                        <%=Encode.forHtml(hrmReport.getLegalName()) %><br/>
-                        <%=Encode.forHtml(hrmReport.getAddressLine1()) %><br/>
+                        <%=Encode.forHtml(Objects.toString(hrmReport.getLegalName(), "")) %><br/>
+                        <%=Encode.forHtml(Objects.toString(hrmReport.getAddressLine1(), "")) %><br/>
                         <%=Encode.forHtml(Objects.toString(hrmReport.getAddressLine2(), "")) %><br/>
-                        <%=Encode.forHtml(hrmReport.getAddressCity()) %>
+                        <%=Encode.forHtml(Objects.toString(hrmReport.getAddressCity(), "")) %>
                     </td>
                 </tr>
 
