@@ -114,7 +114,7 @@ public class DxresearchReport2Action extends ActionSupport {
         request.getSession().setAttribute("codingSystem", codingSys);
         // Whitelist-validate the existing session value before writing it back (CWE-501)
         String radiovaluestatus = (String) request.getSession().getAttribute("radiovaluestatus");
-        if (VALID_STATUS_VALUES.contains(radiovaluestatus)) {
+        if (radiovaluestatus != null && VALID_STATUS_VALUES.contains(radiovaluestatus)) {
             request.getSession().setAttribute("radiovaluestatus", radiovaluestatus);
         }
         return SUCCESS;
@@ -303,11 +303,13 @@ public class DxresearchReport2Action extends ActionSupport {
         if (codeSystem != null && !codeSystem.isEmpty()) {
             // Whitelist codeSystem against the known coding-system enum to prevent trust
             // boundary violation (CWE-501) before storing request data in session.
+            String normalizedCodeSystem = codeSystem.toLowerCase().trim();
             try {
-                AbstractCodeSystemDao.codingSystem.valueOf(codeSystem.toLowerCase().trim());
-                codeDescription = codingSystemManager.getCodeDescription(codeSystem.toLowerCase().trim(), codeSingle);
+                AbstractCodeSystemDao.codingSystem.valueOf(normalizedCodeSystem);
+                codeDescription = codingSystemManager.getCodeDescription(normalizedCodeSystem, codeSingle);
             } catch (IllegalArgumentException ignored) {
-                MiscUtils.getLogger().warn("addSearchCode: rejected unrecognised coding system");
+                MiscUtils.getLogger().warn("addSearchCode: rejected unrecognised coding system: {}",
+                        Encode.forJava(codeSystem));
             }
         }
 
