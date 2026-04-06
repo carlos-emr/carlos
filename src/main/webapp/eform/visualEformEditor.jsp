@@ -117,11 +117,28 @@ FOR STAND ALONE USE
         var runStandaloneVersion = false;
         /* Load jquery requirements from jquery site when run outside of oscar */
         if (!window.jQuery){
-			document.write("\x3cscript src='https://code.jquery.com/jquery-3.6.4.min.js' integrity='sha256-oP6HI9z1XaZNBrJURtCoUT5SUnxFr8s3BzRl+cbzUq8=' crossorigin='anonymous'\x3e\x3c\/script\x3e");
-            document.write("\x3cscript src='https://code.jquery.com/ui/1.12.1/jquery-ui.min.js' integrity='sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=' crossorigin='anonymous'\x3e\x3c\/script\x3e");
-            document.write("\x3clink href='https://code.jquery.com/ui/1.12.0/themes/base/jquery-ui.min.css' rel='stylesheet' type='text/css' \x3e");
-            /* local javascript file for the signature pads */
-            document.write("\x3cscript src='signature_pad.min.js'\x3e\x3c\/script\x3e");
+            (function() {
+                var head = document.head || document.getElementsByTagName('head')[0];
+                var s1 = document.createElement('script');
+                s1.src = 'https://code.jquery.com/jquery-3.6.4.min.js';
+                s1.integrity = 'sha256-oP6HI9z1XaZNBrJURtCoUT5SUnxFr8s3BzRl+cbzUq8=';
+                s1.crossOrigin = 'anonymous';
+                head.appendChild(s1);
+                var s2 = document.createElement('script');
+                s2.src = 'https://code.jquery.com/ui/1.12.1/jquery-ui.min.js';
+                s2.integrity = 'sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=';
+                s2.crossOrigin = 'anonymous';
+                head.appendChild(s2);
+                var l1 = document.createElement('link');
+                l1.href = 'https://code.jquery.com/ui/1.12.0/themes/base/jquery-ui.min.css';
+                l1.rel = 'stylesheet';
+                l1.type = 'text/css';
+                head.appendChild(l1);
+                /* local javascript file for the signature pads */
+                var s3 = document.createElement('script');
+                s3.src = 'signature_pad.min.js';
+                head.appendChild(s3);
+            })();
             runStandaloneVersion = true;
         }
         console.info("Run as standalone version: " + runStandaloneVersion);
@@ -2605,17 +2622,25 @@ var EFORM_I18N = {
 			return data;
 		}
 		function loadPages($div) {
-			//iterate through possible pages of Forengi code
+			// Build a DocumentFragment of wrapper divs whose children are moved
+			// from the parsed $div nodes — avoids the .html() read→write roundtrip
+			// that CodeQL flags as DOM text reinterpreted as HTML (js/xss-through-dom).
+			var fragment = document.createDocumentFragment();
 			var pageNo = 1;
-			var toReturn = "";
-			var aPage;
-			while (typeof($div.find('#page'+pageNo).html()) != "undefined") {
-				aPage = $div.find('#page'+pageNo).html();
-				aPage = "<div id='page_"+pageNo+"' class='page_container ui-droppable' style='width: 800px; height: 1000px;'>"+aPage+"</div>";
-				toReturn += aPage;
-				pageNo++
+			while ($div.find('#page' + pageNo).length) {
+				var $page = $div.find('#page' + pageNo);
+				var wrapper = document.createElement('div');
+				wrapper.id = 'page_' + pageNo;
+				wrapper.className = 'page_container ui-droppable';
+				wrapper.setAttribute('style', 'width: 800px; height: 1000px;');
+				// Move child nodes instead of serialising/parsing HTML
+				$page.contents().each(function() {
+					wrapper.appendChild(this);
+				});
+				fragment.appendChild(wrapper);
+				pageNo++;
 			}
-			return toReturn;
+			return fragment;
 		}
 
         function loadEformData(data) {
@@ -2671,7 +2696,8 @@ var EFORM_I18N = {
 
             var $inputForm = $("#inputForm");
             if (ferengi) {
-                $inputForm.html(loadPages($div));
+                // loadPages now returns a DocumentFragment — use .append() not .html()
+                $inputForm.empty().append(loadPages($div));
             } else {
                 // Move child nodes directly to avoid the DOM-text-to-HTML roundtrip (.html() read → .html() write).
                 // jQuery .append() moves (not copies) nodes, automatically detaching them from $importedInputForm.
