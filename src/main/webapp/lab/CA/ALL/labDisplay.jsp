@@ -836,9 +836,9 @@ input[id^='acklabel_']{
 
         String ackLabFunc;
         if (skipComment) {
-            ackLabFunc = "handleLab('acknowledgeForm_" + Encode.forJavaScript(segmentID) + "','" + Encode.forJavaScript(segmentID) + "','ackLab');";
+            ackLabFunc = "handleLab('acknowledgeForm_" + Encode.forJavaScriptAttribute(segmentID) + "','" + Encode.forJavaScriptAttribute(segmentID) + "','ackLab');";
         } else {
-            ackLabFunc = "getComment('ackLab', " + Encode.forJavaScript(segmentID) + ");";
+            ackLabFunc = "getComment('ackLab', " + Encode.forJavaScriptAttribute(segmentID) + ");";
         }
 
 %>
@@ -955,7 +955,7 @@ input[id^='acklabel_']{
 
     <form name="labLabelForm_<%= Encode.forHtmlAttribute(segmentID) %>" method='POST'
           action="<%=request.getContextPath()%>/lab/CA/ALL/createLabLabel.do">
-        <input type="hidden" id="labellabNum_<%= Encode.forHtmlAttribute(segmentID) %>" name="lab_no" value="<%=Encode.forHtmlAttribute(lab_no)%>">
+        <input type="hidden" id="labellabNum_<%= Encode.forHtmlAttribute(segmentID) %>" name="lab_no" value="<%=Encode.forHtmlAttribute(String.valueOf(lab_no))%>">
         <input type="hidden" id="label_<%= Encode.forHtmlAttribute(segmentID) %>" name="label" value="<%= Encode.forHtmlAttribute(label) %>">
     </form>
 
@@ -1076,7 +1076,7 @@ input[id^='acklabel_']{
                                 </button>
                                 <%} %>
                                 <input type="hidden" id="labNum_<%=Encode.forHtmlAttribute(segmentID) %>" name="lab_no"
-                                       value="<%=Encode.forHtmlAttribute(lab_no)%>">
+                                       value="<%=Encode.forHtmlAttribute(String.valueOf(lab_no))%>">
                                 <input type="text" class="form-control form-control-sm" style="width: 140px; margin-top: 0px;" id="acklabel_<%= Encode.forHtmlAttribute(segmentID) %>" name="label"
                                        value="">
 
@@ -2398,15 +2398,15 @@ input[id^='acklabel_']{
                 <td style="text-align:left; width:50%">
                     <% if (!ackFlag) { %>
                     <input type="button" class="btn btn-sm btn-outline-primary" value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
-                           onclick="<%=ackLabFunc%>">
+                           onclick="<%=Encode.forHtmlAttribute(ackLabFunc)%>">
                     <% } %>
                     <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
-                           onclick="return getComment('addComment',<%=Encode.forJavaScript(segmentID)%>);">
+                           onclick="return getComment('addComment',<%=Encode.forJavaScriptAttribute(segmentID)%>);">
                     <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.index.btnForward"/>"
-                           onClick="ForwardSelectedRows(<%=Encode.forJavaScript(segmentID)%> + ':HL7', '', '')">
+                           onClick="ForwardSelectedRows(<%=Encode.forJavaScriptAttribute(segmentID)%> + ':HL7', '', '')">
                     <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="global.btnClose"/> " onClick="window.close()">
                     <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="global.btnPrint"/> "
-                           onClick="printPDF('<%=Encode.forJavaScript(segmentID)%>')">
+                           onClick="printPDF('<%=Encode.forJavaScriptAttribute(segmentID)%>')">
                     <% if (searchProviderNo != null) { // we were called from e-chart %>
                     <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                            onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'encounter')">

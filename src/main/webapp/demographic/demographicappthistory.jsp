@@ -385,8 +385,10 @@
                         <%
                             if (IsPropertiesOn.isMultisitesEnable()) {
                                 String[] sbc = siteBgColor.get(appointment.getLocation());
+                                String siteColor = sbc != null && sbc.length > 0 ? sbc[0] : "";
+                                String siteLabel = sbc != null && sbc.length > 1 ? sbc[1] : StringUtils.noNull(appointment.getLocation());
                         %>
-                        <td style='background-color:<%= Encode.forCssString(sbc[0]) %>'><%= Encode.forHtml(sbc[1]) %>
+                        <td style='background-color:<%= Encode.forCssString(siteColor) %>'><%= Encode.forHtml(siteLabel) %>
                         </td>
                         <%
                             }

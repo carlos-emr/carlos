@@ -396,7 +396,7 @@
     </form>
     <form name="labLabelForm" id="labLabelForm<%=Encode.forHtmlAttribute(segmentID)%>" method='POST'
           onsubmit="createLabLabel('labLabelForm<%=Encode.forJavaScriptAttribute(segmentID)%>');" action="javascript:void(0);">
-        <input type="hidden" id="labNum" name="lab_no" value="<%=Encode.forHtmlAttribute(lab_no)%>">
+        <input type="hidden" id="labNum" name="lab_no" value="<%=Encode.forHtmlAttribute(String.valueOf(lab_no))%>">
         <input type="hidden" id="label" name="label" value="<%=Encode.forHtmlAttribute(label)%>">
     </form>
     <form name="acknowledgeForm" id="acknowledgeForm_<%=Encode.forHtmlAttribute(segmentID)%>" onsubmit="javascript:void(0);" method="post"
