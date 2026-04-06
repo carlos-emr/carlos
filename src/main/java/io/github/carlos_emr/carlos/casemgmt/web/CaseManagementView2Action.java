@@ -231,10 +231,10 @@ public class CaseManagementView2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         logger.debug("Starting VIEW");
-        String tab = request.getParameter("tab");
-        if (tab == null) {
-            tab = CaseManagementViewFormBean.tabs[0];
-        }
+        // Whitelist tab against known tab identifiers to prevent trust boundary violation (CWE-501)
+        String tabParam = request.getParameter("tab");
+        String tab = Arrays.asList(CaseManagementViewFormBean.tabs).contains(tabParam)
+                ? tabParam : CaseManagementViewFormBean.tabs[0];
         HttpSession se = request.getSession();
         if (se.getAttribute("userrole") == null) return "expired";
 
@@ -264,18 +264,21 @@ public class CaseManagementView2Action extends ActionSupport {
         long beginning = start;
         long current = 0;
         boolean useNewCaseMgmt = false;
-        // First, try to get the newCaseManagement boolean from the session
+        // Read newCaseManagement from session (trusted) first; fall back to request parameter.
+        // Keep the two sources separate to avoid trust boundary contamination (CWE-501).
+        // Boolean.parseBoolean() is inherently safe: returns false for any non-"true" value.
         String useNewCaseMgmtString = (String) request.getSession().getAttribute("newCaseManagement");
-        // If null, try to get the newCaseManagement boolean from the parameters
-        if (useNewCaseMgmtString == null) useNewCaseMgmtString = (String) request.getParameter("newCaseManagement");
-        // Set the correct boolean if default or fallback value is present
-        if (useNewCaseMgmtString != null) useNewCaseMgmt = Boolean.parseBoolean(useNewCaseMgmtString);
+        if (useNewCaseMgmtString != null) {
+            useNewCaseMgmt = Boolean.parseBoolean(useNewCaseMgmtString);
+        } else {
+            useNewCaseMgmt = "true".equalsIgnoreCase(request.getParameter("newCaseManagement"));
+        }
 
         logger.debug("Starting VIEW");
-        String tab = request.getParameter("tab");
-        if (tab == null) {
-            tab = CaseManagementViewFormBean.tabs[0];
-        }
+        // Whitelist tab against known tab identifiers to prevent trust boundary violation (CWE-501)
+        String tabParam = request.getParameter("tab");
+        String tab = Arrays.asList(CaseManagementViewFormBean.tabs).contains(tabParam)
+                ? tabParam : CaseManagementViewFormBean.tabs[0];
         HttpSession se = request.getSession();
         if (se.getAttribute("userrole") == null) return "expired";
 
@@ -553,7 +556,16 @@ public class CaseManagementView2Action extends ActionSupport {
 
         /* PROGRESS NOTES */
         startTime = System.currentTimeMillis();
-        String[] checkedIssues = request.getParameterValues("check_issue");
+        // Validate check_issue values: only accept the expected "numericId.numericCode" format
+        // to prevent trust boundary violation (CWE-501). Values not matching this format are discarded.
+        String[] rawCheckedIssues = request.getParameterValues("check_issue");
+        String[] checkedIssues = null;
+        if (rawCheckedIssues != null) {
+            checkedIssues = Arrays.stream(rawCheckedIssues)
+                    .filter(s -> s != null && s.matches("\\d+\\.\\d+"))
+                    .toArray(String[]::new);
+            if (checkedIssues.length == 0) checkedIssues = null;
+        }
 
         // extract just the codes for local usage
         ArrayList<String> checkedCodeList = new ArrayList<String>();
