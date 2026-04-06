@@ -48,8 +48,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.sql.Date;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Struts2 action for viewing individual messages with full details and attachments.
@@ -120,12 +123,12 @@ public class MsgViewMessage2Action extends ActionSupport {
      * 
      * <p>Parameters processed:</p>
      * <ul>
-     *   <li>messageID - The message to view</li>
-     *   <li>messagePosition - Position in message list for navigation</li>
+     *   <li>messageID - The message to view (must be a positive integer)</li>
+     *   <li>messagePosition - Position in message list for navigation (parsed as non-negative integer; invalid values default to 0)</li>
      *   <li>linkMsgDemo - Flag to link message to demographic</li>
      *   <li>demographic_no - Demographic to link</li>
-     *   <li>orderBy - Ordering for message list</li>
-     *   <li>from - Source page (default "messenger")</li>
+     *   <li>orderBy - Ordering for message list (whitelisted to: status, from, subject, date, sentto, linked; optional "!" prefix for descending)</li>
+     *   <li>from - Source page, whitelisted to "messenger" (default) or "encounter"</li>
      *   <li>boxType - Type of message box (inbox/sent/deleted)</li>
      * </ul>
      * 
@@ -150,12 +153,45 @@ public class MsgViewMessage2Action extends ActionSupport {
 
         // Extract request parameters
         String messageNo = request.getParameter("messageID");
-        String messagePosition = request.getParameter("messagePosition");
         String linkMsgDemo = request.getParameter("linkMsgDemo");
         String demographic_no = request.getParameter("demographic_no");
-        String orderBy = request.getParameter("orderBy");
-        String from = request.getParameter("from") == null ? "messenger" : request.getParameter("from");
         String boxType = request.getParameter("boxType") == null ? "" : request.getParameter("boxType");
+
+        // Validate messagePosition as a non-negative integer to prevent trust boundary violation
+        int parsedPosition = 0;
+        String rawPosition = request.getParameter("messagePosition");
+        if (rawPosition != null) {
+            try {
+                parsedPosition = Integer.parseInt(rawPosition);
+                if (parsedPosition < 0) {
+                    parsedPosition = 0;
+                }
+            } catch (NumberFormatException e) {
+                parsedPosition = 0;
+            }
+        }
+        String messagePosition = String.valueOf(parsedPosition);
+
+        // Whitelist 'from' to known source pages to prevent trust boundary violation
+        String rawFrom = request.getParameter("from");
+        String from;
+        if ("encounter".equals(rawFrom)) {
+            from = "encounter";
+        } else {
+            from = "messenger";
+        }
+
+        // Whitelist 'orderBy' to allowed column names to prevent trust boundary violation
+        Set<String> validOrderByValues = new HashSet<>(
+                Arrays.asList("status", "from", "subject", "date", "sentto", "linked"));
+        String rawOrderBy = request.getParameter("orderBy");
+        String orderBy = null;
+        if (rawOrderBy != null) {
+            String candidate = rawOrderBy.startsWith("!") ? rawOrderBy.substring(1) : rawOrderBy;
+            if (validOrderByValues.contains(candidate)) {
+                orderBy = rawOrderBy;
+            }
+        }
 
         // Validate messageNo before use.
         // ConversionUtils.fromIntString() returns 0 for null/invalid input, never null.
