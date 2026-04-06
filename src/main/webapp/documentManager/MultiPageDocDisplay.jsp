@@ -65,6 +65,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderInboxItem" %>
 <%!
