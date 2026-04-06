@@ -163,6 +163,7 @@ public class Logout2Action extends ActionSupport {
      *   <li>Iterates through all cookies from request</li>
      *   <li>Sets each cookie's maxAge to 0 (immediate expiration)</li>
      *   <li>Sets cookie path to "/" to ensure deletion across entire application</li>
+     *   <li>Sets Secure, HttpOnly, and SameSite=Strict attributes for security</li>
      *   <li>Adds expired cookie to response to overwrite browser's stored cookie</li>
      * </ul>
      *
@@ -173,9 +174,6 @@ public class Logout2Action extends ActionSupport {
      *   <li>Provides PHI-compliant audit trail for security and compliance</li>
      * </ul>
      *
-     * <p>NOTE: The method currently retrieves login, errorMessage, and nameId parameters
-     * but does not use them. These may be legacy parameters from removed SSO functionality.
-     *
      * @return String Struts2 result name (always SUCCESS, redirects to logout.jsp)
      * @see HttpSession#invalidate() for session cleanup
      * @see Cookie#setMaxAge(int) for cookie expiration
@@ -185,10 +183,6 @@ public class Logout2Action extends ActionSupport {
 
         // Retrieve existing session without creating new one
         HttpSession session = request.getSession(false);
-        // Legacy parameters (unused, may be from removed SSO functionality)
-        String login = request.getParameter("login");
-        String errorMessage = request.getParameter("errorMessage");
-        String nameId = request.getParameter("nameId");
 
         // Invalidate session and log logout event if session exists
         if (session != null) {
@@ -209,6 +203,9 @@ public class Logout2Action extends ActionSupport {
                 cookie.setMaxAge(0);
                 // Set path to "/" to ensure cookie is deleted across entire application
                 cookie.setPath("/");
+                cookie.setSecure(true);
+                cookie.setHttpOnly(true);
+                cookie.setAttribute("SameSite", "Strict");
                 // Add expired cookie to response to overwrite browser's stored cookie
                 response.addCookie(cookie);
             }
