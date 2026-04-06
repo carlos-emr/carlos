@@ -115,7 +115,7 @@ CSS:
                 sb.append("<tr>");
                 for (int j = 0; j < columns; j++) {
                     sb.append("<td>");
-                    sb.append(Misc.getString(rs, columnNames[j]));
+                    sb.append(Encode.forHtml(Misc.getString(rs, columnNames[j])));
                     sb.append("</td>");
 
                 }

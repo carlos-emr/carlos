@@ -79,7 +79,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
     <meta charset="UTF-8">
     <title><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/></title>
@@ -115,7 +115,7 @@
         <button type="button"
                 class="btn-close"
                 onclick="this.closest('.alert').style.display='none'"
-                aria-label="Close"></button>
+                aria-label="<fmt:message key='button.close'/>"></button>
     </div>
 
     <!-- Page header bar -->

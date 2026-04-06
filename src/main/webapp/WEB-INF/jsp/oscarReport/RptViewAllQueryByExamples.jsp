@@ -177,7 +177,7 @@
                                         <input type="button"
                                                class="btn btn-outline-secondary btn-sm"
                                                value="<fmt:message key="oscarReport.RptByExample.MsgAddToFavorite"/>"
-                                               onclick="set('${e:forJavaScript(queryInfo.query)}'); document.getElementById('favouriteForm').submit();"/>
+                                               onclick="set('${e:forJavaScriptAttribute(queryInfo.query)}'); document.getElementById('favouriteForm').submit();"/>
                                     </td>
                                 </tr>
                             </c:forEach>
