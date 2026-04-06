@@ -173,7 +173,17 @@ When the converted file is a `.jsp` (not a static `.html`):
    ```
 
 
-3. **CSRF tokens are auto-injected** by `CsrfGuardScriptInjectionFilter` — do not add manually.
+3. **CSRF tokens are auto-injected** by `CsrfGuardScriptInjectionFilter` — do not manually add
+   hidden `<input name="CSRF-TOKEN">` elements in JSP markup; the filter handles injection
+   automatically for standard form submits. However, if you convert a form submit to
+   `fetch()` or XHR, you must read the auto-injected token and include it explicitly:
+   ```javascript
+   const csrfToken = document.querySelector('input[name="CSRF-TOKEN"]')?.value;
+   // include csrfToken in the request body or as a header
+   ```
+   A shared `getCsrfToken()` helper is available in
+   `src/main/webapp/share/javascript/oscarMDSIndex.js` and is the recommended pattern for
+   fetch/XHR CSRF inclusion.
 
 4. **Preserve all `name` attributes** on form fields exactly — back-end Actions read these by name.
 
@@ -242,8 +252,12 @@ to all rules in `CLAUDE.md`**:
 7. **Never change form field `name` attributes or form `action` URLs.**
    Back-end Struts Actions and Managers depend on these exact values.
 
-8. **Preserve the CSRF token behaviour.** Do not add manual CSRF token inputs — they are
-   auto-injected by `CsrfGuardScriptInjectionFilter`.
+8. **Preserve the CSRF token behaviour.** Do not manually add hidden CSRF token `<input>`
+   elements in JSP markup — they are auto-injected by `CsrfGuardScriptInjectionFilter` for
+   standard form submits. If converting a form to `fetch()` or XHR, read the injected token
+   via `document.querySelector('input[name="CSRF-TOKEN"]')?.value` and include it in the
+   request body or header. Use the `getCsrfToken()` helper from
+   `src/main/webapp/share/javascript/oscarMDSIndex.js` where available.
 
 9. **Preserve GPL copyright headers** at the top of JSP files. Do not remove or alter them.
 
