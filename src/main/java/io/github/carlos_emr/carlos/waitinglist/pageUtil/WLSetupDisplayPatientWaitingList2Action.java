@@ -37,6 +37,7 @@ import jakarta.servlet.http.HttpSession;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -71,7 +72,7 @@ public final class WLSetupDisplayPatientWaitingList2Action extends ActionSupport
             demographicNoInt = Integer.parseInt(rawDemographicNo.trim());
         } catch (NumberFormatException e) {
             MiscUtils.getLogger().warn("WLSetupDisplayPatientWaitingList2Action: non-numeric demographic_no='{}'",
-                    rawDemographicNo.trim());
+                    LogSanitizer.sanitize(rawDemographicNo.trim()));
             addActionError("Invalid demographic_no: must be numeric");
             return ERROR;
         }
