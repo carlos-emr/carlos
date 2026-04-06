@@ -468,18 +468,18 @@
                                                                          onclick="javascript:return onPrint();"/></td>
 
                 <td align="center" width="100%"><a name="length"
-                                                   href="javascript:popup('form/graphLengthWeight.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">
+                                                   href="javascript:popup('form/graphLengthWeight.jsp?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');">
 
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnGraphLenght"/></a><br>
 
                     <a name="headCirc"
-                       href="javascript:popup('form/graphHeadCirc.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">
+                       href="javascript:popup('form/graphHeadCirc.jsp?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');">
 
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnGraphHead"/></a></td>
 
                 <td nowrap="true"><a
-                        href="form/formrourkep1.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnPage1"/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourkep2.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnPage2"/></a>&nbsp;|&nbsp; <a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.msgPage3"/></a></td>
+                        href="form/formrourkep1.jsp?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnPage1"/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourkep2.jsp?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnPage2"/></a>&nbsp;|&nbsp; <a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.msgPage3"/></a></td>
 
             </tr>
 
@@ -695,7 +695,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_bottle18m" <%=props.getProperty("p3_bottle18m", "")%> />
+                                                    name="p3_bottle18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_bottle18m", ""))%> />
                             </td>
 
                             <td width="100%"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formNoBottles"/></td>
@@ -721,7 +721,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_milk2y" <%=props.getProperty("p3_milk2y", "")%>></td>
+                                                    name="p3_milk2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_milk2y", ""))%>></td>
 
                             <td width="100%"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formHomogenized"/></td>
 
@@ -730,7 +730,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_food2y" <%=props.getProperty("p3_food2y", "")%>></td>
+                                                    name="p3_food2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_food2y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formFoodGuide"/></td>
 
@@ -755,7 +755,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_milk4y" <%=props.getProperty("p3_milk4y", "")%>></td>
+                                                    name="p3_milk4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_milk4y", ""))%>></td>
 
                             <td width="100%"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.form2-100milk"/></td>
 
@@ -764,7 +764,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_food4y" <%=props.getProperty("p3_food4y", "")%>></td>
+                                                    name="p3_food4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_food4y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formFoodGuide"/></td>
 
@@ -856,21 +856,21 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_bath18m" <%=props.getProperty("p3_bath18m", "")%>></td>
+                                                    name="p3_bath18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_bath18m", ""))%>></td>
 
                             <td width="100%"><i><a href="#"
-                                                   onclick="popup('<%=resource%>s_drowning');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnbathSafety"/></a>*</i></td>
+                                                   onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_drowning');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnbathSafety"/></a>*</i></td>
 
                         </tr>
 
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_choking18m" <%=props.getProperty("p3_choking18m", "")%>>
+                                                    name="p3_choking18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_choking18m", ""))%>>
                             </td>
 
                             <td><a href="#"
-                                   onclick="popup('<%=resource%>s_choking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnChokngSafeToys"/></a>*
+                                   onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_choking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnChokngSafeToys"/></a>*
                             </td>
 
                         </tr>
@@ -885,7 +885,7 @@
 
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p3_temperment18m"
-                                    <%=props.getProperty("p3_temperment18m", "")%>></td>
+                                    <%=Encode.forHtmlAttribute(props.getProperty("p3_temperment18m", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formTemperment"/></td>
 
@@ -900,7 +900,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_limit18m" <%=props.getProperty("p3_limit18m", "")%>></td>
+                                                    name="p3_limit18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_limit18m", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formLimitSetting"/></td>
 
@@ -909,7 +909,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_social18m" <%=props.getProperty("p3_social18m", "")%>>
+                                                    name="p3_social18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_social18m", ""))%>>
                             </td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formSocializingOpp"/></td>
@@ -925,18 +925,18 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_dental18m" <%=props.getProperty("p3_dental18m", "")%>>
+                                                    name="p3_dental18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_dental18m", ""))%>>
                             </td>
 
                             <td><b><a href="#"
-                                      onclick="popup('<%=resource%>o_dentalCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formDentalCare"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>o_dentalCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formDentalCare"/></a>*</b></td>
 
                         </tr>
 
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_toilet18m" <%=props.getProperty("p3_toilet18m", "")%>>
+                                                    name="p3_toilet18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_toilet18m", ""))%>>
                             </td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formToiletTraining"/></td>
@@ -963,17 +963,17 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_bike2y" <%=props.getProperty("p3_bike2y", "")%>></td>
+                                                    name="p3_bike2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_bike2y", ""))%>></td>
 
                             <td width="100%"><i><a href="#"
-                                                   onclick="popup('<%=resource%>s_falls');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formBikeHelmets"/></a>*</i></td>
+                                                   onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_falls');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formBikeHelmets"/></a>*</i></td>
 
                         </tr>
 
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_matches2y" <%=props.getProperty("p3_matches2y", "")%>>
+                                                    name="p3_matches2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_matches2y", ""))%>>
                             </td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formMatches"/></td>
@@ -983,10 +983,10 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_carbon2y" <%=props.getProperty("p3_carbon2y", "")%>></td>
+                                                    name="p3_carbon2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_carbon2y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formCarbonMonoxide"/>/ <i><a
-                                    href="#" onclick="popup('<%=resource%>s_burns');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formSmokeDetectors"/></a>*</i></td>
+                                    href="#" onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_burns');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formSmokeDetectors"/></a>*</i></td>
 
                         </tr>
 
@@ -1005,7 +1005,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_parent2y" <%=props.getProperty("p3_parent2y", "")%>></td>
+                                                    name="p3_parent2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_parent2y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formParentChildInteraction"/></td>
 
@@ -1014,7 +1014,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_social2y" <%=props.getProperty("p3_social2y", "")%>></td>
+                                                    name="p3_social2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_social2y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formSocializingOpp"/></td>
 
@@ -1023,28 +1023,28 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_dayCare2y" <%=props.getProperty("p3_dayCare2y", "")%>>
+                                                    name="p3_dayCare2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_dayCare2y", ""))%>>
                             </td>
 
                             <td><b><a href="#"
-                                      onclick="popup('<%=resource%>hri_dayCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formAssessDayCare"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>hri_dayCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formAssessDayCare"/></a>*</b></td>
 
                         </tr>
 
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_dental2y" <%=props.getProperty("p3_dental2y", "")%>></td>
+                                                    name="p3_dental2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_dental2y", ""))%>></td>
 
                             <td><b><a href="#"
-                                      onclick="popup('<%=resource%>o_dentalCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formDentalCareCheckUp"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>o_dentalCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formDentalCareCheckUp"/></a>*</b></td>
 
                         </tr>
 
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_toilet2y" <%=props.getProperty("p3_toilet2y", "")%>></td>
+                                                    name="p3_toilet2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_toilet2y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formToiletTraining"/></td>
 
@@ -1070,17 +1070,17 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_bike4y" <%=props.getProperty("p3_bike4y", "")%>></td>
+                                                    name="p3_bike4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_bike4y", ""))%>></td>
 
                             <td width="100%"><i><a href="#"
-                                                   onclick="popup('<%=resource%>s_falls');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formBikeHelmets"/></a>*</i></td>
+                                                   onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_falls');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formBikeHelmets"/></a>*</i></td>
 
                         </tr>
 
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_matches4y" <%=props.getProperty("p3_matches4y", "")%>>
+                                                    name="p3_matches4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_matches4y", ""))%>>
                             </td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formMatches"/></td>
@@ -1090,20 +1090,20 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_carbon4y" <%=props.getProperty("p3_carbon4y", "")%>></td>
+                                                    name="p3_carbon4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_carbon4y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formCarbonMonoxide"/>/ <i><a
-                                    href="#" onclick="popup('<%=resource%>s_burns');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formSmokeDetectors"/></a>*</i></td>
+                                    href="#" onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_burns');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formSmokeDetectors"/></a>*</i></td>
 
                         </tr>
 
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_water4y" <%=props.getProperty("p3_water4y", "")%>></td>
+                                                    name="p3_water4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_water4y", ""))%>></td>
 
                             <td><a href="#"
-                                   onclick="popup('<%=resource%>s_drowning');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formWaterSafety"/></a></td>
+                                   onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_drowning');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formWaterSafety"/></a></td>
 
                         </tr>
 
@@ -1122,7 +1122,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_social4y" <%=props.getProperty("p3_social4y", "")%>></td>
+                                                    name="p3_social4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_social4y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formSocializingOpp"/></td>
 
@@ -1137,17 +1137,17 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_dental4y" <%=props.getProperty("p3_dental4y", "")%>></td>
+                                                    name="p3_dental4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_dental4y", ""))%>></td>
 
                             <td><b><a href="#"
-                                      onclick="popup('<%=resource%>o_dentalCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formDentalCareCheckUp"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>o_dentalCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formDentalCareCheckUp"/></a>*</b></td>
 
                         </tr>
 
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_school4y" <%=props.getProperty("p3_school4y", "")%>></td>
+                                                    name="p3_school4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_school4y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formSchoolReadiness"/></td>
 
@@ -1186,7 +1186,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_points18m" <%=props.getProperty("p3_points18m", "")%>>
+                                                    name="p3_points18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_points18m", ""))%>>
                             </td>
 
                             <td width="100%"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formPoints"/></td>
@@ -1196,7 +1196,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_words18m" <%=props.getProperty("p3_words18m", "")%>></td>
+                                                    name="p3_words18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_words18m", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.form5Words"/></td>
 
@@ -1205,7 +1205,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_picks18m" <%=props.getProperty("p3_picks18m", "")%>></td>
+                                                    name="p3_picks18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_picks18m", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formFingerFood"/></td>
 
@@ -1214,7 +1214,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_walks18m" <%=props.getProperty("p3_walks18m", "")%>></td>
+                                                    name="p3_walks18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_walks18m", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formWalkAlone"/></td>
 
@@ -1223,7 +1223,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_stacks18m" <%=props.getProperty("p3_stacks18m", "")%>>
+                                                    name="p3_stacks18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_stacks18m", ""))%>>
                             </td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formStack3Blocks"/></td>
@@ -1234,7 +1234,7 @@
 
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p3_affection18m"
-                                    <%=props.getProperty("p3_affection18m", "")%>></td>
+                                    <%=Encode.forHtmlAttribute(props.getProperty("p3_affection18m", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formShowAffection"/></td>
 
@@ -1244,7 +1244,7 @@
 
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p3_showParents18m"
-                                    <%=props.getProperty("p3_showParents18m", "")%>></td>
+                                    <%=Encode.forHtmlAttribute(props.getProperty("p3_showParents18m", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formPointShow"/></td>
 
@@ -1253,7 +1253,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_looks18m" <%=props.getProperty("p3_looks18m", "")%>></td>
+                                                    name="p3_looks18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_looks18m", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formLooksWhenTalk"/></td>
 
@@ -1263,7 +1263,7 @@
 
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p3_noParentsConcerns18m"
-                                    <%=props.getProperty("p3_noParentsConcerns18m", "")%>></td>
+                                    <%=Encode.forHtmlAttribute(props.getProperty("p3_noParentsConcerns18m", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formNoParentsConcerns"/></td>
 
@@ -1294,7 +1294,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_word2y" <%=props.getProperty("p3_word2y", "")%>></td>
+                                                    name="p3_word2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_word2y", ""))%>></td>
 
                             <td width="100%"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formNewWordWeek"/></td>
 
@@ -1303,7 +1303,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_sentence2y" <%=props.getProperty("p3_sentence2y", "")%>>
+                                                    name="p3_sentence2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_sentence2y", ""))%>>
                             </td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.form2WordSentences"/></td>
@@ -1313,7 +1313,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_run2y" <%=props.getProperty("p3_run2y", "")%>></td>
+                                                    name="p3_run2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_run2y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formTriesToRun"/></td>
 
@@ -1323,7 +1323,7 @@
 
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p3_container2y"
-                                    <%=props.getProperty("p3_container2y", "")%>></td>
+                                    <%=Encode.forHtmlAttribute(props.getProperty("p3_container2y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formPutObjectsContainer"/></td>
 
@@ -1332,7 +1332,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_copies2y" <%=props.getProperty("p3_copies2y", "")%>></td>
+                                                    name="p3_copies2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_copies2y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formCopies"/></td>
 
@@ -1341,7 +1341,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_skills2y" <%=props.getProperty("p3_skills2y", "")%>></td>
+                                                    name="p3_skills2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_skills2y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formDevelopNewSkills"/></td>
 
@@ -1351,7 +1351,7 @@
 
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p3_noParentsConcerns2y"
-                                    <%=props.getProperty("p3_noParentsConcerns2y", "")%>></td>
+                                    <%=Encode.forHtmlAttribute(props.getProperty("p3_noParentsConcerns2y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formNoParentsConcerns"/></td>
 
@@ -1380,7 +1380,7 @@
 
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p3_understands3y"
-                                    <%=props.getProperty("p3_understands3y", "")%>></td>
+                                    <%=Encode.forHtmlAttribute(props.getProperty("p3_understands3y", ""))%>></td>
 
                             <td width="100%"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formUnderstands2StepDirection"/></td>
 
@@ -1389,7 +1389,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_twists3y" <%=props.getProperty("p3_twists3y", "")%>></td>
+                                                    name="p3_twists3y" <%=Encode.forHtmlAttribute(props.getProperty("p3_twists3y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formTurnsKnobs"/></td>
 
@@ -1399,7 +1399,7 @@
 
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p3_turnPages3y"
-                                    <%=props.getProperty("p3_turnPages3y", "")%>></td>
+                                    <%=Encode.forHtmlAttribute(props.getProperty("p3_turnPages3y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formTurnsOnePage"/></td>
 
@@ -1408,7 +1408,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_share3y" <%=props.getProperty("p3_share3y", "")%>></td>
+                                                    name="p3_share3y" <%=Encode.forHtmlAttribute(props.getProperty("p3_share3y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formShareSomeTime"/></td>
 
@@ -1417,7 +1417,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_listens3y" <%=props.getProperty("p3_listens3y", "")%>>
+                                                    name="p3_listens3y" <%=Encode.forHtmlAttribute(props.getProperty("p3_listens3y", ""))%>>
                             </td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formListenMusic"/></td>
@@ -1428,7 +1428,7 @@
 
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p3_noParentsConcerns3y"
-                                    <%=props.getProperty("p3_noParentsConcerns3y", "")%>></td>
+                                    <%=Encode.forHtmlAttribute(props.getProperty("p3_noParentsConcerns3y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formNoParentsConcerns"/></td>
 
@@ -1460,7 +1460,7 @@
 
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p3_understands4y"
-                                    <%=props.getProperty("p3_understands4y", "")%>></td>
+                                    <%=Encode.forHtmlAttribute(props.getProperty("p3_understands4y", ""))%>></td>
 
                             <td width="100%"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formUnderstandsRelated3PartDirection"/></td>
 
@@ -1470,7 +1470,7 @@
 
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p3_questions4y"
-                                    <%=props.getProperty("p3_questions4y", "")%>></td>
+                                    <%=Encode.forHtmlAttribute(props.getProperty("p3_questions4y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formAsksQuestions"/></td>
 
@@ -1479,7 +1479,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_oneFoot4y" <%=props.getProperty("p3_oneFoot4y", "")%>>
+                                                    name="p3_oneFoot4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_oneFoot4y", ""))%>>
                             </td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formStandsOn1Foot"/></td>
@@ -1489,7 +1489,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_draws4y" <%=props.getProperty("p3_draws4y", "")%>></td>
+                                                    name="p3_draws4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_draws4y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formDraw3PartsPerson"/></td>
 
@@ -1498,7 +1498,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_toilet4y" <%=props.getProperty("p3_toilet4y", "")%>></td>
+                                                    name="p3_toilet4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_toilet4y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formToiletTrained"/></td>
 
@@ -1507,7 +1507,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_comfort4y" <%=props.getProperty("p3_comfort4y", "")%>>
+                                                    name="p3_comfort4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_comfort4y", ""))%>>
                             </td>
 
                             <td>Tries to comfort someone who is upset</td>
@@ -1518,7 +1518,7 @@
 
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p3_noParentsConcerns4y"
-                                    <%=props.getProperty("p3_noParentsConcerns4y", "")%>></td>
+                                    <%=Encode.forHtmlAttribute(props.getProperty("p3_noParentsConcerns4y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formNoParentsConcerns"/></td>
 
@@ -1546,7 +1546,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_counts5y" <%=props.getProperty("p3_counts5y", "")%>></td>
+                                                    name="p3_counts5y" <%=Encode.forHtmlAttribute(props.getProperty("p3_counts5y", ""))%>></td>
 
                             <td width="100%"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formCounts10"/></td>
 
@@ -1555,7 +1555,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_speaks5y" <%=props.getProperty("p3_speaks5y", "")%>></td>
+                                                    name="p3_speaks5y" <%=Encode.forHtmlAttribute(props.getProperty("p3_speaks5y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formSpeaksClearly"/></td>
 
@@ -1564,7 +1564,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_ball5y" <%=props.getProperty("p3_ball5y", "")%>></td>
+                                                    name="p3_ball5y" <%=Encode.forHtmlAttribute(props.getProperty("p3_ball5y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formPlayWithBall"/></td>
 
@@ -1573,7 +1573,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_hops5y" <%=props.getProperty("p3_hops5y", "")%>></td>
+                                                    name="p3_hops5y" <%=Encode.forHtmlAttribute(props.getProperty("p3_hops5y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formHops1Foot"/></td>
 
@@ -1582,7 +1582,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_shares5y" <%=props.getProperty("p3_shares5y", "")%>></td>
+                                                    name="p3_shares5y" <%=Encode.forHtmlAttribute(props.getProperty("p3_shares5y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formSharesWillingly"/></td>
 
@@ -1591,7 +1591,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_alone5y" <%=props.getProperty("p3_alone5y", "")%>></td>
+                                                    name="p3_alone5y" <%=Encode.forHtmlAttribute(props.getProperty("p3_alone5y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formWorksAlone20Minutes"/></td>
 
@@ -1601,7 +1601,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_separate5y" <%=props.getProperty("p3_separate5y", "")%>>
+                                                    name="p3_separate5y" <%=Encode.forHtmlAttribute(props.getProperty("p3_separate5y", ""))%>>
                             </td>
 
                             <td>Separates easily from parents</td>
@@ -1612,7 +1612,7 @@
 
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p3_noParentsConcerns5y"
-                                    <%=props.getProperty("p3_noParentsConcerns5y", "")%>></td>
+                                    <%=Encode.forHtmlAttribute(props.getProperty("p3_noParentsConcerns5y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formNoParentsConcerns"/></td>
 
@@ -1645,7 +1645,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_eyes18m" <%=props.getProperty("p3_eyes18m", "")%>></td>
+                                                    name="p3_eyes18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_eyes18m", ""))%>></td>
 
                             <td width="100%"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formRedEyes"/></td>
 
@@ -1654,17 +1654,17 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_cover18m" <%=props.getProperty("p3_cover18m", "")%>></td>
+                                                    name="p3_cover18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_cover18m", ""))%>></td>
 
                             <td><b><a href="#"
-                                      onclick="popup('<%=resource%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnCoverTest"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnCoverTest"/></a>*</b></td>
 
                         </tr>
 
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_hearing18m" <%=props.getProperty("p3_hearing18m", "")%>>
+                                                    name="p3_hearing18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_hearing18m", ""))%>>
                             </td>
 
                             <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.msgHearing"/></b></td>
@@ -1690,7 +1690,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_visual2y" <%=props.getProperty("p3_visual2y", "")%>></td>
+                                                    name="p3_visual2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_visual2y", ""))%>></td>
 
                             <td width="100%"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formVisualAcuity"/></td>
 
@@ -1699,17 +1699,17 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_cover2y" <%=props.getProperty("p3_cover2y", "")%>></td>
+                                                    name="p3_cover2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_cover2y", ""))%>></td>
 
                             <td><b><a href="#"
-                                      onclick="popup('<%=resource%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnCoverTest"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnCoverTest"/></a>*</b></td>
 
                         </tr>
 
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_hearing2y" <%=props.getProperty("p3_hearing2y", "")%>>
+                                                    name="p3_hearing2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_hearing2y", ""))%>>
                             </td>
 
                             <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.msgHearing"/></b></td>
@@ -1735,7 +1735,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_visual4y" <%=props.getProperty("p3_visual4y", "")%>></td>
+                                                    name="p3_visual4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_visual4y", ""))%>></td>
 
                             <td width="100%"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formVisualAcuity"/></td>
 
@@ -1744,17 +1744,17 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_cover4y" <%=props.getProperty("p3_cover4y", "")%>></td>
+                                                    name="p3_cover4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_cover4y", ""))%>></td>
 
                             <td><b><a href="#"
-                                      onclick="popup('<%=resource%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnCoverTest"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnCoverTest"/></a>*</b></td>
 
                         </tr>
 
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_hearing4y" <%=props.getProperty("p3_hearing4y", "")%>>
+                                                    name="p3_hearing4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_hearing4y", ""))%>>
                             </td>
 
                             <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.msgHearing"/></b></td>
@@ -1764,7 +1764,7 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_blood4y" <%=props.getProperty("p3_blood4y", "")%>></td>
+                                                    name="p3_blood4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_blood4y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formBloodPressure"/></td>
 
@@ -1815,10 +1815,10 @@
                         <tr>
 
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p3_serum2y" <%=props.getProperty("p3_serum2y", "")%>></td>
+                                                    name="p3_serum2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_serum2y", ""))%>></td>
 
                             <td width="100%"><i><a href="#"
-                                                   onclick="popup('<%=resource%>pp_leadScreening');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.msgSerumLead"/></a>*</i></td>
+                                                   onclick="popup('<%=Encode.forHtmlAttribute(resource)%>pp_leadScreening');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.msgSerumLead"/></a>*</i></td>
 
                         </tr>
 
@@ -1919,18 +1919,18 @@
                                                                          onclick="javascript:return onPrint();"/></td>
 
                 <td align="center" width="100%"><a name="length"
-                                                   href="javascript:popup('form/graphLengthWeight.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">
+                                                   href="javascript:popup('form/graphLengthWeight.jsp?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');">
 
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnGraphLenght"/></a><br>
 
                     <a name="headCirc"
-                       href="javascript:popup('form/graphHeadCirc.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">
+                       href="javascript:popup('form/graphHeadCirc.jsp?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');">
 
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnGraphHead"/></a></td>
 
                 <td nowrap="true"><a
-                        href="form/formrourkep1.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnPage1"/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourkep2.jsp?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnPage2"/></a>&nbsp;|&nbsp; <a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.msgPage3"/></a></td>
+                        href="form/formrourkep1.jsp?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnPage1"/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourkep2.jsp?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnPage2"/></a>&nbsp;|&nbsp; <a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.msgPage3"/></a></td>
 
             </tr>
 
