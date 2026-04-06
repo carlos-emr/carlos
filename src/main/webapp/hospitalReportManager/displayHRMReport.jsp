@@ -651,7 +651,7 @@
                         <% if (providerLinkList != null && providerLinkList.size() > 0) {
                             for (HRMDocumentToProvider p : providerLinkList) {
                                 if (!p.getProviderNo().equalsIgnoreCase("-1")) { %>
-                        <%=Encode.forHtml(providerDao.getProviderName(p.getProviderNo()))%> <%=p.getSignedOff() != null && p.getSignedOff() == 1 ? "<abbr title='" + Encode.forHtmlAttribute(String.valueOf(p.getSignedOffTimestamp())) + "'>(Signed-Off " + Encode.forHtml(String.valueOf(p.getSignedOffTimestamp())) + ")</abbr>" : "" %>
+                        <%=Encode.forHtml(providerDao.getProviderName(p.getProviderNo()))%> <%=p.getSignedOff() != null && p.getSignedOff() == 1 ? "<abbr title='" + Encode.forHtmlAttribute(p.getSignedOffTimestamp() != null ? String.valueOf(p.getSignedOffTimestamp()) : "") + "'>(Signed-Off " + Encode.forHtml(p.getSignedOffTimestamp() != null ? String.valueOf(p.getSignedOffTimestamp()) : "") + ")</abbr>" : "" %>
                         <a href="#"
                            onclick="removeProvFromHrm('<%=p.getId() %>', '<%=hrmReportId %>')">(remove)</a><br/>
                         <% }

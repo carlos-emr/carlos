@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.commn.web;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -86,7 +87,7 @@ public class BillingONReview2Action extends ActionSupport {
 
         String json = objectMapper.writeValueAsString(demographic);
         response.setContentType("application/json;charset=UTF-8");
-        response.getOutputStream().write(json.getBytes());
+        response.getOutputStream().write(json.getBytes(StandardCharsets.UTF_8));
         return null;
     }
 
@@ -94,7 +95,7 @@ public class BillingONReview2Action extends ActionSupport {
         Clinic clinic = clinicDao.getClinic();
         String json = objectMapper.writeValueAsString(clinic);
         response.setContentType("application/json;charset=UTF-8");
-        response.getOutputStream().write(json.getBytes());
+        response.getOutputStream().write(json.getBytes(StandardCharsets.UTF_8));
         return null;
     }
 }

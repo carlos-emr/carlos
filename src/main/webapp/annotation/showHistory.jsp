@@ -77,7 +77,7 @@
 <div style="width: 99%; background-color: #EFEFEF; font-size: 12px; border-left: thin groove #000000; border-bottom: thin groove #000000; border-right: thin groove #000000;">
     <%=Encode.forHtml("Lab Reports".equals(display) ? cmm.getNoteContentForDisplay(showNote) : showNote)%>
     <div style="color: #0000FF;">
-        Documentation Date: <%=Encode.forHtml(String.valueOf(cmn.getCreate_date()))%><br>
+        Documentation Date: <%=Encode.forHtml(cmn.getCreate_date() != null ? String.valueOf(cmn.getCreate_date()) : "")%><br>
         Saved by <%=Encode.forHtml(cmn.getProviderName())%>
     </div>
 </div>

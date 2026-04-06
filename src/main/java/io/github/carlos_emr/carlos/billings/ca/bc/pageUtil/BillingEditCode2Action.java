@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -83,7 +84,7 @@ public final class BillingEditCode2Action extends ActionSupport {
         jsonObject.put("id", id);
         MiscUtils.getLogger().debug(jsonObject.toString());
         response.setContentType("application/json;charset=UTF-8");
-        response.getOutputStream().write(jsonObject.toString().getBytes());
+        response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         return null;
     }
 

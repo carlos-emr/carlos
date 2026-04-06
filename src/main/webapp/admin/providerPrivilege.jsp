@@ -486,8 +486,8 @@
                 <td style="text-align:center">
                     <% if (!roleUser.equals("admin") && !obj.equals("_admin")) { %> <input
                         type="hidden" name="keyword" value="<%=Encode.forHtmlAttribute(keyword)%>"> <input
-                        type="hidden" name="objectName" value="<%=Encode.forHtmlAttribute(obj) %>"> <input
-                        type="hidden" name="roleUserGroup" value="<%=Encode.forHtmlAttribute(roleUser) %>"> <input
+                        type="hidden" name="objectName" value="<%=obj %>"> <input
+                        type="hidden" name="roleUserGroup" value="<%=roleUser %>"> <input
                         type="submit" name="buttonUpdate" value="Update" class="btn btn-secondary"> <input
                         type="submit" name="submit" value="Delete" class="btn btn-secondary"> <% } %>
                 </td>
@@ -546,10 +546,10 @@
                         String objName = "";
                         if (i == vecObjectId.size()) {
                             objName = "Name1";
-                    %> <input type="text" name="object$<%=Encode.forHtmlAttribute(objName)%>" value=""> <% } else {
+                    %> <input type="text" name="object$<%=objName%>" value=""> <% } else {
 
                     objName = (String) vecObjectId.get(i);
-                %> <input type="checkbox" name="object$<%=Encode.forHtmlAttribute(objName)%>"> <%= Encode.forHtml(vecObjectId.get(i).toString()) %>
+                %> <input type="checkbox" name="object$<%=objName%>"> <%= Encode.forHtml(vecObjectId.get(i).toString()) %>
                     <% if (objName.startsWith("_queue.")) {
                         String d = null;
                         SecObjectName son = secObjectNameDao.find(objName);
@@ -579,10 +579,10 @@
                                 bSet = false;
                             }
                     %> <input type="checkbox"
-                              name="privilege$<%=Encode.forHtmlAttribute(objName)%>$<%=Encode.forHtmlAttribute(vecRightsName.get(j).toString())%>"/> <%=Encode.forHtml(vecRightsDesc.get(j).toString())%>
+                              name="privilege$<%=objName%>$<%=vecRightsName.get(j)%>"/> <%=Encode.forHtml(vecRightsDesc.get(j).toString())%>
                     <% }%>
                 </td>
-                <td><select name="priority$<%=Encode.forHtmlAttribute(objName)%>" style="width:50px;">
+                <td><select name="priority$<%=objName%>" style="width:50px;">
                     <option value="">-</option>
                     <% for (int j = 10; j >= 0; j--) { %>
                     <option value="<%=j%>" <%= ("" + j).equals("0") ? "selected" : "" %>>
@@ -618,7 +618,7 @@
                                 bSet = false;
                             }
                     %> <input type="checkbox"
-                              name="privilege$Name1$<%=Encode.forHtmlAttribute(vecRightsName.get(j).toString())%>"> <%=Encode.forHtml(vecRightsDesc.get(j).toString())%>
+                              name="privilege$Name1$<%=vecRightsName.get(j)%>"> <%=Encode.forHtml(vecRightsDesc.get(j).toString())%>
                     <% }%>
                 </td>
                 <td>Priority <select name="priority$Name1" style="width:50px;">

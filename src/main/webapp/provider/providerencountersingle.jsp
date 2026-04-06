@@ -74,12 +74,12 @@
         encounterattachment = enc.getEncounterAttachment();
 %>
 <font size="-1"><%=Encode.forHtml(ConversionUtils.toDateString(enc.getEncounterDate()))%> <%=Encode.forHtml(ConversionUtils.toTimeString(enc.getEncounterTime()))%>
-    &nbsp;<font color="green"><%=Encode.forHtml(enc.getSubject().equals("") ? "Unknown" : enc.getSubject())%>
+    &nbsp;<font color="green"><%=Encode.forHtml(StringUtils.noNull(enc.getSubject()).isEmpty() ? "Unknown" : enc.getSubject())%>
     </font></font>
 <br>
 <xml id="xml_list">
     <encounter>
-        <%=Encode.forHtml(content)%>
+        <%=content%>
     </encounter>
 </xml>
 <%

@@ -439,7 +439,7 @@
                 temp = e.nextElement().toString();
                 if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no"))
                     continue;
-                out.println("<input type='hidden' name='" + Encode.forHtmlAttribute(temp) + "' value=\"" + Encode.forHtmlAttribute(request.getParameter(temp)) + "\">");
+                out.println("<input type='hidden' name='" + temp + "' value=\"" + Encode.forHtmlAttribute(request.getParameter(temp) != null ? request.getParameter(temp) : "") + "\">");
             }
         %>
     </form>

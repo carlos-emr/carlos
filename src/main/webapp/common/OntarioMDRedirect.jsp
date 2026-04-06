@@ -88,9 +88,9 @@ Invalid Requestor Value. - Please contact your support vendor for configuration
 <body>
 <form id="loginFormID" name="loginForm" action="https://www.ontariomd.ca/AutoAuthentication/redirect.jsp" method="post">
     <p>JSESSIONID:</p>
-    <input type="text" size="70" id="jsessionID" name="jsessionID" value="<%=Encode.forHtmlAttribute(String.valueOf(loginCreds.get("jsessionID")))%>"/>
+    <input type="text" size="70" id="jsessionID" name="jsessionID" value="<%=Encode.forHtmlAttribute(loginCreds.get("jsessionID") != null ? String.valueOf(loginCreds.get("jsessionID")) : "")%>"/>
     <p>PT login Token:</p>
-    <input type="text" size="70" id="ptLoginToken" name="ptLoginToken" value="<%=Encode.forHtmlAttribute(String.valueOf(loginCreds.get("ptLoginToken")))%>"/>
+    <input type="text" size="70" id="ptLoginToken" name="ptLoginToken" value="<%=Encode.forHtmlAttribute(loginCreds.get("ptLoginToken") != null ? String.valueOf(loginCreds.get("ptLoginToken")) : "")%>"/>
     <p>Keyword:</p>
     <input type="text" size="100" id="keyword" name="keyword" value="<%=Encode.forHtmlAttribute(keyword)%>"/>
     <p>Params:</p>
