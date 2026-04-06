@@ -28,10 +28,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Example CARLOS Bootstrap Template</title>
 
-        <%@ include file="/includes/global-head.jspf" %>
     <!--
-        When this template is used to form the HTML backbone of a JSP
-        The fragment includes:
+        Bootstrap CSS (CDN) — remove these links when converting to a JSP page
+        and replace with the single JSP include shown below.
+    -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+          integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM"
+          crossorigin="anonymous">
+
+    <!--
+        When converting this template to a JSP page, replace the Bootstrap CDN links above
+        with a single JSP include fragment:
+
+            <%@ include file="/includes/global-head.jspf" %>
+
+        The global-head.jspf fragment provides:
         - Viewport meta tag for responsive design
         - global.js (legacy focus/refresh helpers)
         - jQuery 3.7.1
@@ -125,7 +137,7 @@
 
                     <!-- Textarea input group -->
                     <div class="mb-3">
-                        <label for="sqlInput" class="form-label form-label-sm">
+                        <label for="anInput" class="form-label form-label-sm">
                             Label for element
                         </label>
                         <textarea id="anInput"

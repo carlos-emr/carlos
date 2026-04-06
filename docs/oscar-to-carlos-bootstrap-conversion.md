@@ -66,7 +66,7 @@ The reference template is `docs/CARLOS_bootstrap_layout_Example.html`.
 
 ### Key structural elements (in order)
 
-```
+```html
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -155,19 +155,23 @@ document.getElementById('jsAlertBanner').style.display = '';
 When the converted file is a `.jsp` (not a static `.html`):
 
 1. **Replace the `<head>` block** with a single JSP include:
+
    ```jsp
-   <%@ include file="/WEB-INF/jspf/global.jspf" %>
+   <%@ include file="/includes/global-head.jspf" %>
    ```
-   `global.jspf` provides: charset, viewport meta, CSRF token, Bootstrap CSS, and `global.js`.
+
+   `global-head.jspf` provides: charset, viewport meta, Bootstrap CSS/JS, jQuery, Font Awesome, and the CSRF guard script.
    Remove the explicit `<meta charset>`, Bootstrap `<link>`, and `<script src="global.js">` tags.
 
 2. **Add OWASP encoding** for every value rendered from server-side data:
+
    ```jsp
    <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
    ...
    ${e:forHtml(someValue)}
    ${e:forHtmlAttribute(someAttr)}
    ```
+
 
 3. **CSRF tokens are auto-injected** by `CsrfGuardScriptInjectionFilter` — do not add manually.
 
@@ -259,7 +263,7 @@ When converting a complete page (not just editing a small section):
 
 - [ ] `<!DOCTYPE html>` present
 - [ ] `<html lang="en">` present
-- [ ] `global.jspf` included (JSP) or Bootstrap CSS + `global.js` referenced (static HTML)
+- [ ] `global-head.jspf` included (JSP) or Bootstrap CSS + `global.js` referenced (static HTML)
 - [ ] `<div class="container">` as outermost wrapper
 - [ ] `jsAlertBanner` div present immediately inside `.container`
 - [ ] `<div class="page-header-bar" id="header">` present with short + long title
@@ -267,7 +271,7 @@ When converting a complete page (not just editing a small section):
 - [ ] Two-column layout uses Bootstrap grid (`col-12 col-md-2` / `col-12 col-md-10`)
 - [ ] All form controls have Bootstrap form classes (`form-control`, `form-select`, etc.)
 - [ ] No deprecated HTML elements or attributes remain
-- [ ] `<form>` is not nested inside `<table>` outside of `<td>`
+- [ ] `<form>` is not nested inside `<table>` outside `<td>`
 - [ ] All dynamic values use OWASP encoding
 - [ ] All form field `name` attributes and `action` URLs are unchanged
 - [ ] Copyright header preserved
@@ -279,5 +283,5 @@ When converting a complete page (not just editing a small section):
 - `docs/OSCAR_standard_layout_Example.html` — annotated example of the legacy OSCAR layout
 - `docs/CARLOS_bootstrap_layout_Example.html` — reference Bootstrap 5 equivalent
 - `docs/JSP-REFACTORING-GUIDE.md` — detailed JSP refactoring process (scriptlets, JSTL migration, phased approach)
-- `CLAUDE.md` → *OWASP Encoding — XSS Prevention* section — encoding rules for all output contexts
-- `CLAUDE.md` → *Struts2 Migration Pattern ("2Action")* section — backing Action class conventions
+- `CLAUDE.md` → _OWASP Encoding — XSS Prevention_ section — encoding rules for all output contexts
+- `CLAUDE.md` → _Struts2 Migration Pattern ("2Action")_ section — backing Action class conventions
