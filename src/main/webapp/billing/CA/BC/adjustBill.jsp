@@ -1086,7 +1086,7 @@
 
             <td colspan="3">
                 <jsp:include flush="false" page="billTransactions.jsp">
-                    <jsp:param name="billMasterNo" value="<%= billingmasterNo != null ? billingmasterNo : "" %>"/>
+                    <jsp:param name="billMasterNo" value='<%= billingmasterNo != null ? billingmasterNo : "" %>'/>
                 </jsp:include>
             </td>
 
