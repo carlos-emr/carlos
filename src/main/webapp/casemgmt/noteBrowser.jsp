@@ -51,7 +51,7 @@
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay,io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayLocal" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="org.owasp.encoder.Encode" %>
-<%@page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>

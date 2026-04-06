@@ -423,7 +423,13 @@
 
         var page = 1;
         var pageSize = 20;
-        var selected_category = <%=selectedCategory == null ? "1" : String.valueOf(Integer.parseInt(selectedCategory))%>;
+        var selected_category = <%
+            int catVal = 1;
+            if (selectedCategory != null) {
+                try { catVal = Integer.parseInt(selectedCategory); } catch (NumberFormatException ignored) { /* default to 1 */ }
+            }
+            out.print(catVal);
+        %>;
         let selected_category_patient = "<%=Encode.forJavaScript(StringUtils.noNull((String)request.getAttribute("selectedCategoryPatient")))%>";
         var selected_category_type = "<%=Encode.forJavaScript(selectedCategoryType == null ? "" : selectedCategoryType)%>";
         var searchProviderNo = "<%=Encode.forJavaScript(searchProviderNo == null ? "" : searchProviderNo)%>";
