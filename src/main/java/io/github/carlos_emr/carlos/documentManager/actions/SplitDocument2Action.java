@@ -148,14 +148,20 @@ public class SplitDocument2Action extends ActionSupport {
                 String newDocNo = EDocUtil.addDocumentSQL(newDoc);
 
                 File docDir = new File(docdownload);
-                // docdownload is from server-side configuration (DOCUMENT_DIR), not user input
+                // Validate the user-sourced filename component to prevent path traversal;
+                // docdownload (the base directory) comes from server-side configuration.
                 File safeFile = PathValidationUtils.validatePath(newDoc.getFileName(), docDir);
                 Path pdfPath = safeFile.toPath();
                 // Atomically create the file with owner-only permissions before writing content,
                 // eliminating the window where a new file exists with default world-readable permissions.
-                // Requires a POSIX-compliant filesystem; UnsupportedOperationException is caught
-                // by the outer catch block and will prevent the split if POSIX is unavailable.
-                Files.createFile(pdfPath, PosixFilePermissions.asFileAttribute(OWNER_RW_ONLY));
+                // On non-POSIX filesystems, falls back to creating without explicit permissions.
+                try {
+                    Files.createFile(pdfPath, PosixFilePermissions.asFileAttribute(OWNER_RW_ONLY));
+                } catch (UnsupportedOperationException e) {
+                    MiscUtils.getLogger().warn("POSIX file permissions not supported; creating PDF without "
+                            + "restricted permissions: " + pdfPath);
+                    Files.createFile(pdfPath);
+                }
                 newPdf.save(pdfPath.toString());
                 newPdf.close();
 
