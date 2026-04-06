@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListBeanHandler;
 import io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBeanHandler;
 import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import org.owasp.encoder.Encode;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -98,9 +99,13 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         if (rawWaitingListId != null && !rawWaitingListId.trim().isEmpty()) {
             try {
                 int parsedId = Integer.parseInt(rawWaitingListId.trim());
-                waitingListId = String.valueOf(parsedId);
+                if (parsedId > 0) {
+                    waitingListId = String.valueOf(parsedId);
+                } else {
+                    log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId '{}': must be a positive integer", Encode.forJava(rawWaitingListId));
+                }
             } catch (NumberFormatException e) {
-                log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId parameter: not a valid integer");
+                log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId '{}': not a valid integer", Encode.forJava(rawWaitingListId));
             }
         }
 
