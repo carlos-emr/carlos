@@ -187,11 +187,7 @@ $(document).ready(function () {
         $('#drilldownTable thead th').each(function () {
             var id = this.id;
             if (id > 1) {
-                select.append('<option value="'
-                    + id
-                    + '">'
-                    + $(this).html()
-                    + '</option>');
+                select.append($('<option>').val(id).text($(this).text()));
             }
         });
 
@@ -252,7 +248,7 @@ $(document).ready(function () {
                 });
 
             drilldownTable.column(columnId).data().unique().sort().each(function (d, j) {
-                select.append('<option value="' + d + '">' + d + '</option>')
+                select.append($('<option>').val(d).text(d));
             });
         }
 
