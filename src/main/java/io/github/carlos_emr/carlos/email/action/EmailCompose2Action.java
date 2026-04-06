@@ -203,7 +203,7 @@ public class EmailCompose2Action extends ActionSupport {
         String fdid = attachEFormItSelf ? (String) session.getAttribute("fdid") : "";
         String demographicId = (String) session.getAttribute("demographicId");
         String fid = request.getParameter("fid");
-        String emailPDFPassword = (String) session.getAttribute("emailPDFPassword");
+        String emailPDFPassword = (String) session.getAttribute("emailPDFPassword"); // NOSONAR java:S2068 — dynamically generated per-patient encryption key, not a hardcoded credential
         String emailPDFPasswordClue = (String) session.getAttribute("emailPDFPasswordClue");
         String[] attachedDocuments = (String[]) session.getAttribute("attachedDocuments");
         String[] attachedLabs = (String[]) session.getAttribute("attachedLabs");

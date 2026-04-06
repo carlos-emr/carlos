@@ -107,6 +107,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
         try {
             // safeSystem comes from a hardcoded map — not from user input — so it is safe
             // to interpolate as a table/column identifier.  The code value is parameterized.
+            // lgtm[java/concatenated-sql-query] — all identifiers below are from VALID_CODING_SYSTEMS allowlist
             String sql = "SELECT " + safeSystem + ", description FROM " + safeSystem + " WHERE " + safeSystem
                     + " = ?1";
             Query query = entityManager.createNativeQuery(sql);
@@ -145,6 +146,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
             }
             
             // Build parameterized query; safeSystem is from the allowlist map
+            // lgtm[java/concatenated-sql-query] — identifier from VALID_CODING_SYSTEMS allowlist
             StringBuilder buf = new StringBuilder("select " + safeSystem + ", description from " + safeSystem + " where ");
             List<String> conditions = new ArrayList<>();
             
@@ -186,6 +188,7 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
         }
 
         // safeSystem comes from the hardcoded allowlist map — safe to use as an identifier
+        // lgtm[java/concatenated-sql-query] — identifier from VALID_CODING_SYSTEMS allowlist
         String sql = "select description from " + safeSystem + " where " + safeSystem + "=?1";
         try {
             Query query = entityManager.createNativeQuery(sql);

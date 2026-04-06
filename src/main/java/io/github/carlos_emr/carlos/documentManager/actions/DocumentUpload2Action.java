@@ -290,7 +290,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         }
 
         File baseDir = new File(incomingDocDir);
-        File destinationFile = new File(savePath);
+        File destinationFile = new File(savePath); // NOSONAR java:S6549 — path validated by PathValidationUtils and filename sanitization above
         try {
             PathValidationUtils.validateExistingPath(destinationFile.getParentFile(), baseDir);
         } catch (SecurityException e) {

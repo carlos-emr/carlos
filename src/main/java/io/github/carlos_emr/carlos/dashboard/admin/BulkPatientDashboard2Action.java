@@ -155,14 +155,10 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         String icd9code = getICD9Code(request);
 
         String patientIdsJson = request.getParameter("patientIds");
-        ArrayNode patientIds = asJsonArray(patientIdsJson);
-        List<Integer> patientIdList = new ArrayList<Integer>();
+        List<Integer> patientIdList = parseIntegerList(patientIdsJson);
 
         String ip = request.getRemoteAddr();
-        for (int i = 0; i < patientIds.size(); ++i) {
-            int patientId = patientIds.get(i).asInt();
-            patientIdList.add(patientId);
-
+        for (int patientId : patientIdList) {
             Integer drId = diseaseRegistryHandler.addToDiseaseRegistry(
                     patientId,
                     icd9code,
@@ -221,13 +217,10 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         demographicPatientStatusRosterStatusHandler.setLoggedinInfo(loggedInInfo);
 
         String patientIdsJson = request.getParameter("patientIds");
-        ArrayNode patientIds = asJsonArray(patientIdsJson);
-        List<Integer> patientIdList = new ArrayList<Integer>();
+        List<Integer> patientIdList = parseIntegerList(patientIdsJson);
 
         String ip = request.getRemoteAddr();
-        for (int i = 0; i < patientIds.size(); ++i) {
-            int patientId = patientIds.get(i).asInt();
-            patientIdList.add(patientId);
+        for (int patientId : patientIdList) {
             demographicPatientStatusRosterStatusHandler.setPatientStatusInactive("" + patientId);
             LogAction.addLog(providerNo, LogConst.UPDATE, LogConst.CON_DEMOGRAPHIC, "" + patientId, ip, "" + patientId, "patient_status: IN");
         }
@@ -247,9 +240,9 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         return null;
     }
 
-    private static ArrayNode asJsonArray(String jsonString) {
+    private static List<Integer> parseIntegerList(String jsonString) {
         if (jsonString == null || jsonString.isEmpty()) {
-            return objectMapper.createArrayNode();
+            return new ArrayList<>();
         }
 
         if (!jsonString.startsWith("[")) {
@@ -261,23 +254,20 @@ public class BulkPatientDashboard2Action extends ActionSupport {
 
         try {
             ArrayNode jsonArray = (ArrayNode) objectMapper.readTree(jsonString);
-            return jsonArray;
+            List<Integer> result = new ArrayList<>();
+            for (int i = 0; i < jsonArray.size(); i++) {
+                if (!jsonArray.get(i).isIntegralNumber()) {
+                    logger.warn("Non-integer element in patient ID list at index {}", i);
+                    return new ArrayList<>();
+                }
+                result.add(jsonArray.get(i).asInt());
+            }
+            return result;
         } catch (Exception e) {
-            logger.error("Error parsing JSON array: {}", LogSanitizer.sanitize(jsonString), e);
-            return objectMapper.createArrayNode();
+            logger.error("Error parsing integer list: {}", LogSanitizer.sanitize(jsonString), e);
+            return new ArrayList<>();
         }
     }
-
-/*	private List<Integer> parseIntegers(String jsonString) {
-		List<Integer> ints = new ArrayList<Integer>();
-
-		ArrayNode jsonArray = asJsonArray(jsonString);
-		for (int i = 0; i < jsonArray.size(); i++) {
-			ints.add(jsonArray.get(i).asInt());
-		}
-
-		return ints;
-	}*/
 
     private String getProviderNo(LoggedInInfo loggedInInfo) {
         String providerNo = null;

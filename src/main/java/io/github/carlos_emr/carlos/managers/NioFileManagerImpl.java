@@ -214,7 +214,7 @@ public class NioFileManagerImpl implements NioFileManager {
                 return null;
             }
             
-            Path sourceFile = normalizedSourceDir.resolve(sanitizedFilename).normalize().toAbsolutePath();
+            Path sourceFile = normalizedSourceDir.resolve(sanitizedFilename).normalize().toAbsolutePath(); // NOSONAR java:S2083 — filename sanitized via sanitizeFileName() and path validated by PathValidationUtils below
 
             // Ensure source file is within the source directory
             try {
@@ -226,7 +226,7 @@ public class NioFileManagerImpl implements NioFileManager {
             
             Path documentCacheDir = getDocumentCacheDirectory(loggedInInfo);
             Path normalizedCacheDir = documentCacheDir.normalize().toAbsolutePath();
-            cacheFilePath = normalizedCacheDir.resolve(sanitizedFilename + "_" + pageNum + ".png");
+            cacheFilePath = normalizedCacheDir.resolve(sanitizedFilename + "_" + pageNum + ".png"); // NOSONAR java:S2083 — filename sanitized and cache path validated below
             cacheFilePath = cacheFilePath.normalize().toAbsolutePath();
             
             // Verify the cache file path is within the cache directory
@@ -372,7 +372,7 @@ public class NioFileManagerImpl implements NioFileManager {
         if (sanitizedType.isEmpty()) {
             sanitizedType = DEFAULT_FILE_SUFFIX;
         }
-        Path file = Files.createFile(Paths.get(directory.toString(), String.format("%1$s.%2$s", sanitizedName, sanitizedType)));
+        Path file = Files.createFile(Paths.get(directory.toString(), String.format("%1$s.%2$s", sanitizedName, sanitizedType))); // NOSONAR java:S2083 — name/type sanitized and path validated by PathValidationUtils below
         // Validate the resulting path is within the temp directory
         try {
             PathValidationUtils.validateExistingPath(file.toFile(), directory.toFile());
@@ -462,7 +462,7 @@ public class NioFileManagerImpl implements NioFileManager {
         String sanitizedFileName = sanitizeFileName(fileName);
         
         Path documentDir = Paths.get(getDocumentDirectory()).normalize().toAbsolutePath();
-        Path oscarDocument = documentDir.resolve(sanitizedFileName).normalize().toAbsolutePath();
+        Path oscarDocument = documentDir.resolve(sanitizedFileName).normalize().toAbsolutePath(); // NOSONAR java:S2083 — filename sanitized via sanitizeFileName() and path validated by PathValidationUtils below
         
         // Ensure the file is within the document directory
         try {
@@ -501,7 +501,7 @@ public class NioFileManagerImpl implements NioFileManager {
             // Get source and destination directories
             File documentDir = new File(getDocumentDirectory());
             File sourceFile = new File(tempFilePath);
-            File destinationFile = new File(documentDir, sanitizedFileName);
+            File destinationFile = new File(documentDir, sanitizedFileName); // NOSONAR java:S2083 — filename sanitized via sanitizeFileName() and path validated by PathValidationUtils below
 
             // Validate that source file exists and is a regular file
             if (!sourceFile.exists() || !sourceFile.isFile()) {

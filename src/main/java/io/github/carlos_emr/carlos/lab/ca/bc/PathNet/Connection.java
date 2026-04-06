@@ -64,7 +64,7 @@ public class Connection {
     private boolean secure;
     private String url;
     private static final
-    String LoginQuery = "Page=Login&Mode=Silent&UserID=@username&Password=@password",
+    String LoginQuery = "Page=Login&Mode=Silent&UserID={user}&Password={pass}",
             RequestNewQuery = "Page=HL7&Query=NewRequests",
             RequestNewPendingQuery = "Page=HL7&Query=NewRequests&Pending=Yes",
             PositiveAckQuery = "Page=HL7&ACK=Positive",
@@ -80,7 +80,7 @@ public class Connection {
     public boolean Open(String username, String password) {
         boolean success = true;
         try {
-            String response = this.CreateString(LoginQuery.replaceAll("@username", username).replaceAll("@password", password));
+            String response = this.CreateString(LoginQuery.replace("{user}", username).replace("{pass}", password));
             success = (response.toUpperCase().indexOf("ACCESSGRANTED") > -1);
         } catch (Exception ex) {
             logger.error("Error - oscar.PathNet.Connection.Open - Message: " + ex.getMessage(), ex);

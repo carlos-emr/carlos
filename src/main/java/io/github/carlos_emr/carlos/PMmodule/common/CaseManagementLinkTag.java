@@ -79,12 +79,12 @@ public class CaseManagementLinkTag extends TagSupport {
             builder.append(req.getContextPath()).append("/");
 
             builder.append("encounter/IncomingEncounter.do").append("?");
-            builder.append("providerNo=").append(Encode.forUriComponent(providerNo != null ? providerNo : "")).append("&");
+            builder.append("providerNo=").append(Encode.forUriComponent(providerNo != null ? providerNo : "")).append("&"); // NOSONAR java:S5131 — encoded via Encode.forUriComponent()
             builder.append("appointmentNo=").append(0).append("&");
             builder.append("demographicNo=").append(demographicNo).append("&");
-            builder.append("curProviderNo=").append(Encode.forUriComponent(providerNo != null ? providerNo : "")).append("&");
+            builder.append("curProviderNo=").append(Encode.forUriComponent(providerNo != null ? providerNo : "")).append("&"); // NOSONAR java:S5131 — encoded via Encode.forUriComponent()
             builder.append("reason=").append("&");
-            builder.append("userName=").append(Encode.forUriComponent(providerName != null ? providerName : "")).append("&");
+            builder.append("userName=").append(Encode.forUriComponent(providerName != null ? providerName : "")).append("&"); // NOSONAR java:S5131 — encoded via Encode.forUriComponent()
             builder.append("curDate=").append(placeDate).append("&");
             builder.append("appointmentDate=").append(placeDate).append("&");
             builder.append("startTime=").append(placeTime).append("&");

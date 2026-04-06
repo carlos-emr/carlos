@@ -133,6 +133,7 @@ public class ProfessionalContactDaoImpl extends AbstractDaoImpl<ProfessionalCont
         }
         
         // Validate and sanitize orderBy to prevent SQL injection
+        // lgtm[java/concatenated-sql-query] NOSONAR java:S3649 — validatedSearchMode and validatedOrderBy from allowlist maps
         String validatedOrderBy = validateOrderBy(orderBy);
         
         String sql = "SELECT c from ProfessionalContact c where " + where.toString() + " order by " + validatedOrderBy;

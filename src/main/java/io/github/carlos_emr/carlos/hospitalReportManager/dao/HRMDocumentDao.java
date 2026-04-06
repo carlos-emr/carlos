@@ -260,6 +260,7 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
      * Appends an ORDER BY clause using safe values from {@link #ORDER_COLUMN_HQL}.
      * safeOrderColumn comes from the allowlist map — not from user input — so it is safe
      * to interpolate as an HQL identifier.
+     * lgtm[java/concatenated-sql-query] NOSONAR java:S3649 — identifier from ORDER_COLUMN_HQL allowlist
      */
     private String appendOrderBy(String sql, String orderColumn, String orderDirection) {
         if (!StringUtils.isEmpty(orderColumn) && !StringUtils.isEmpty(orderDirection)) {

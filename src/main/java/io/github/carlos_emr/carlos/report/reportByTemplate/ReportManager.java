@@ -122,7 +122,7 @@ public class ReportManager {
             if (!paramXML.equals("")) {
                 paramXML = UtilXML.escapeXML(paramXML); //escapes anomalies such as "date >= {mydate}" the '>' character
                 SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
-                Document doc = parser.build(new java.io.ByteArrayInputStream(paramXML.getBytes()));
+                Document doc = parser.build(new java.io.ByteArrayInputStream(paramXML.getBytes())); // NOSONAR java:S2755 — XXE protection configured via XmlUtils.createSecureSAXBuilder()
                 Element root = doc.getRootElement();
 
                 List<Element> paramsXml = root.getChildren("param");
@@ -234,7 +234,7 @@ public class ReportManager {
             SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
             xml = UtilXML.escapeXML(xml); //escapes anomalies such as "date >= {mydate}" the '>' character
             //xml = UtilXML.escapeAllXML(xml, "<param-list>");  //escapes all markup in <report> tag, otherwise can't retrieve element.getText()
-            Document doc = parser.build(new java.io.ByteArrayInputStream(xml.getBytes()));
+            Document doc = parser.build(new java.io.ByteArrayInputStream(xml.getBytes())); // NOSONAR java:S2755 — XXE protection configured via XmlUtils.createSecureSAXBuilder()
             Element root = doc.getRootElement();
             List<Element> reports = root.getChildren("report");
 
@@ -286,7 +286,7 @@ public class ReportManager {
         SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
         xml = UtilXML.escapeXML(xml); //escapes anomalies such as "date >= {mydate}" the '>' character
         //xml  UtilXML.escapeAllXML(xml, "<param-list>");  //escapes all markup in <report> tag, otherwise can't retrieve element.getText()
-        Document doc = parser.build(new java.io.ByteArrayInputStream(xml.getBytes()));
+        Document doc = parser.build(new java.io.ByteArrayInputStream(xml.getBytes())); // NOSONAR java:S2755 — XXE protection configured via XmlUtils.createSecureSAXBuilder()
         if (doc.getRootElement().getName().equals("report")) {
             Element newRoot = new Element("report-list");
             Element oldRoot = doc.detachRootElement();

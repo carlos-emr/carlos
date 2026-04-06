@@ -94,7 +94,7 @@ public class OntarioMD {
         Hashtable h = null;
         try {
             // Create secure SAXBuilder with XXE protection
-            SAXBuilder parser = new SAXBuilder();
+            SAXBuilder parser = new SAXBuilder(); // NOSONAR java:S2755 — XXE protection features configured immediately below
 
             // Security features to prevent XXE attacks
             setFeatureSafely(parser, "http://apache.org/xml/features/disallow-doctype-decl", true);

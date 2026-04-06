@@ -45,7 +45,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class ExcludeDemographicHandler {
@@ -132,26 +131,35 @@ public class ExcludeDemographicHandler {
     public void excludeDemoIds(String jsonString, String indicatorName) {
         String providerNo = getProviderNo();
         if (jsonString == null || jsonString.isEmpty() || indicatorName == null || indicatorName.isEmpty()) return;
-        if (!jsonString.startsWith("[")) {
-            jsonString = "[" + jsonString;
-        }
-        if (!jsonString.endsWith("]")) {
-            jsonString = jsonString + "]";
-        }
-        try {
-            ArrayNode jsonArray = (ArrayNode) objectMapper.readTree(jsonString);
-            Integer arraySize = jsonArray.size();
-            for (int i = 0; i < arraySize; i++) {
-                demographicExtDao.addKey(providerNo, jsonArray.get(i).asInt(), excludeIndicator, indicatorName);
-                logger.info("demo: " + jsonArray.get(i).asInt() + " excluded from indicatorTemplate " + indicatorName);
-            }
-        } catch (Exception e) {
-            logger.error("Failed to parse JSON string: " + jsonString, e);
+
+        List<Integer> demoIds = parseIntegerList(jsonString);
+        for (int demographicId : demoIds) {
+            demographicExtDao.addKey(providerNo, demographicId, excludeIndicator, indicatorName);
+            logger.info("demo: {} excluded from indicatorTemplate {}", demographicId, indicatorName);
         }
     }
 
     public void unExcludeDemoIds(String jsonString, String indicatorName) {
         if (jsonString == null || jsonString.isEmpty() || indicatorName == null || indicatorName.isEmpty()) return;
+
+        Set<Integer> demoIds = new HashSet<>(parseIntegerList(jsonString));
+        String providerNo = getProviderNo();
+
+        List<DemographicExt> allProviderDemoExts = demographicExtDao.getDemographicExtByKeyAndValue(excludeIndicator, indicatorName);
+        logger.debug("unExcludeDemoIds (json): {} matching extensions for template {}", allProviderDemoExts, indicatorName);
+        for (DemographicExt e : allProviderDemoExts) {
+            // remove exclusion if provider_no matches or is null and the demographic_no matches
+            if (e.getProviderNo().equals(providerNo) && demoIds.contains(e.getDemographicNo())) {
+                demographicExtDao.removeDemographicExt(e.getId());
+                logger.info("demo: {} unexcluded from indicatorTemplate {}", e.getDemographicNo(), indicatorName);
+            }
+        }
+    }
+
+    private List<Integer> parseIntegerList(String jsonString) {
+        if (jsonString == null || jsonString.isEmpty()) {
+            return new ArrayList<>();
+        }
         if (!jsonString.startsWith("[")) {
             jsonString = "[" + jsonString;
         }
@@ -160,24 +168,18 @@ public class ExcludeDemographicHandler {
         }
         try {
             ArrayNode jsonArray = (ArrayNode) objectMapper.readTree(jsonString);
-            String providerNo = getProviderNo();
-
-            Set<Integer> demoIds = new HashSet<>();
-            for (JsonNode node : jsonArray) {
-                demoIds.add(node.asInt());
-            }
-
-            List<DemographicExt> allProviderDemoExts = demographicExtDao.getDemographicExtByKeyAndValue(excludeIndicator, indicatorName);
-            logger.debug("unExcludeDemoIds (json): " + allProviderDemoExts + " matching extensions for template " + indicatorName);
-            for (DemographicExt e : allProviderDemoExts) {
-                // remove exclusion if provider_no matches or is null and the demongraphic_no matches
-                if (e.getProviderNo().equals(providerNo) && demoIds.contains(e.getDemographicNo())) {
-                    demographicExtDao.removeDemographicExt(e.getId());
-                    logger.info("demo: " + e.getDemographicNo() + " unexcluded from indicatorTemplate " + indicatorName);
+            List<Integer> result = new ArrayList<>();
+            for (int i = 0; i < jsonArray.size(); i++) {
+                if (!jsonArray.get(i).isIntegralNumber()) {
+                    logger.warn("Non-integer element in demographic ID list at index {}", i);
+                    return new ArrayList<>();
                 }
+                result.add(jsonArray.get(i).asInt());
             }
-        } catch (Exception ex) {
-            logger.error("Failed to parse JSON string: " + jsonString, ex);
+            return result;
+        } catch (Exception e) {
+            logger.error("Failed to parse integer list: {}", jsonString, e);
+            return new ArrayList<>();
         }
     }
 
