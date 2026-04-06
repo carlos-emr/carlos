@@ -39,6 +39,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.Choice" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.Parameter" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -144,8 +145,8 @@
     <div class="card card-body bg-body-tertiary configDiv" id=manageGroups>
         <form class="form" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/GenerateReportAction.do"
                    method="post" onsubmit="return checkform(this);">
-            <input type="hidden" name="templateId" value="${ curreport.templateId }">
-            <input type="hidden" name="type" value="${ curreport.type }">
+            <input type="hidden" name="templateId" value="<%= Encode.forHtmlAttribute(curreport.getTemplateId()) %>">
+            <input type="hidden" name="type" value="<%= Encode.forHtmlAttribute(curreport.getType()) %>">
 
             <%
                 for (int i = 0; i < parameters.size(); i++) {
@@ -153,20 +154,20 @@
                     Parameter curparam = (Parameter) parameters.get(i);
             %>
             <div class="mb-3">
-                <label class="form-label" for="<%=curparam.getParamId()%>"><strong>Step <%=step%>
-                    : </strong> <%=curparam.getParamDescription()%>
+                <label class="form-label" for="<%=Encode.forHtmlAttribute(curparam.getParamId())%>"><strong>Step <%=step%>
+                    : </strong> <%=Encode.forHtml(curparam.getParamDescription())%>
                 </label>
 
                     <%-- If LIST field --%>
                 <%if (curparam.getParamType().equals(curparam.LIST)) {%>
                 <div>
-                    <select name="<%=curparam.getParamId()%>" id="<%=curparam.getParamId()%>">
+                    <select name="<%=Encode.forHtmlAttribute(curparam.getParamId())%>" id="<%=Encode.forHtmlAttribute(curparam.getParamId())%>">
                         <%
                             ArrayList paramChoices = curparam.getParamChoices();
                             for (int i2 = 0; i2 < paramChoices.size(); i2++) {
                                 Choice curchoice = (Choice) paramChoices.get(i2);
                         %>
-                        <option value="<%=curchoice.getChoiceId()%>"><%=curchoice.getChoiceText()%>
+                        <option value="<%=Encode.forHtmlAttribute(curchoice.getChoiceId())%>"><%=Encode.forHtml(curchoice.getChoiceText())%>
                         </option>
                         <%}%>
                     </select>
@@ -175,14 +176,14 @@
                     <%--If TEXT field --%>
                 <% } else if (curparam.getParamType().equals(curparam.TEXT)) {%>
                 <div>
-                    <input type="text" name="<%=curparam.getParamId()%>" id="<%=curparam.getParamId()%>"/>
+                    <input type="text" name="<%=Encode.forHtmlAttribute(curparam.getParamId())%>" id="<%=Encode.forHtmlAttribute(curparam.getParamId())%>"/>
                 </div>
 
                     <%--If DATE field --%>
                 <% } else if (curparam.getParamType().equals(curparam.DATE)) {%>
                 <div>
-                    <div class="input-group" id="<%=curparam.getParamId()%>">
-                        <input type="text" class="datefield" id="datefield<%=i%>" name="<%=curparam.getParamId()%>"/>
+                    <div class="input-group" id="<%=Encode.forHtmlAttribute(curparam.getParamId())%>">
+                        <input type="text" class="datefield" id="datefield<%=i%>" name="<%=Encode.forHtmlAttribute(curparam.getParamId())%>"/>
                         <span class="input-group-text">
 									<a id="obsdate<%=i%>">
 										<img title="Calendar" src="${pageContext.request.contextPath}/images/cal.gif"
@@ -203,7 +204,7 @@
 
                     <%--If CHECK field --%>
                 <% } else if (curparam.getParamType().equals(curparam.CHECK)) {%>
-                <input type="hidden" name="<%=curparam.getParamId()%>:check" value=""/>
+                <input type="hidden" name="<%=Encode.forHtmlAttribute(curparam.getParamId())%>:check" value=""/>
                 <div>
 
                     <input type="checkbox" name="mastercheck" id="mastercheck"
@@ -215,17 +216,17 @@
                             Choice curchoice = (Choice) paramChoices.get(i2);
                     %>
                     <div class="form-check">
-                        <input type="checkbox" class="form-check-input checkclass<%=i%>" name="<%=curparam.getParamId()%>"
-                               id="<%=curparam.getParamId() + curchoice.getChoiceId()%>"
-                               value="<%=curchoice.getChoiceId()%>"/>
-                        <label class="form-check-label" for="<%=curparam.getParamId() + curchoice.getChoiceId()%>"><%=curchoice.getChoiceText()%></label>
+                        <input type="checkbox" class="form-check-input checkclass<%=i%>" name="<%=Encode.forHtmlAttribute(curparam.getParamId())%>"
+                               id="<%=Encode.forHtmlAttribute(curparam.getParamId() + curchoice.getChoiceId())%>"
+                               value="<%=Encode.forHtmlAttribute(curchoice.getChoiceId())%>"/>
+                        <label class="form-check-label" for="<%=Encode.forHtmlAttribute(curparam.getParamId() + curchoice.getChoiceId())%>"><%=Encode.forHtml(curchoice.getChoiceText())%></label>
                     </div>
                     <%}%>
                 </div>
                 <% } else if (curparam.getParamType().equals(curparam.TEXTLIST)) {%>
                 <div>
-                    <input type="text" placeholder="Comma Separated" name="<%=curparam.getParamId()%>:list"
-                           id="<%=curparam.getParamId()%>"/>
+                    <input type="text" placeholder="Comma Separated" name="<%=Encode.forHtmlAttribute(curparam.getParamId())%>:list"
+                           id="<%=Encode.forHtmlAttribute(curparam.getParamId())%>"/>
                 </div>
                 <% }%>
 
@@ -243,10 +244,10 @@
     </div>
 
     <div id="optionsDiv" class="form-actions">
-        <a href="viewTemplate.jsp?templateid=<%=curreport.getTemplateId()%>" class="link">View Template XML</a>
-        <a href="addEditTemplate.jsp?templateid=<%=curreport.getTemplateId()%>&opentext=1" class="link">Edit
+        <a href="viewTemplate.jsp?templateid=<%=Encode.forUriComponent(curreport.getTemplateId())%>" class="link">View Template XML</a>
+        <a href="addEditTemplate.jsp?templateid=<%=Encode.forUriComponent(curreport.getTemplateId())%>&amp;opentext=1" class="link">Edit
             Template</a>
-        <a href="javascript:void(0);" onclick="deleteTemplate('<%=curreport.getTemplateId()%>');" class="link">
+        <a href="javascript:void(0);" onclick="deleteTemplate('<%=Encode.forJavaScriptAttribute(curreport.getTemplateId())%>');" class="link">
             Delete Template
         </a>
     </div>

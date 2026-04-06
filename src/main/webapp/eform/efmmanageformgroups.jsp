@@ -145,11 +145,11 @@
 ><i
                                     class="fa-solid fa-trash"></i></a>
                         </form></td>
-                    <td title="<%=groupName%>"><a
+                    <td title="<%=Encode.forHtmlAttribute(groupName)%>"><a
                             href='<%= request.getContextPath() %>/eform/efmmanageformgroups.jsp?orderby=form_name&group_view=<%=URLEncoder.encode(groupName, "UTF-8")%>'
-                            class="contentLink"><%=groupName%>
+                            class="contentLink"><%=Encode.forHtml(groupName)%>
                     </a></td>
-                    <td><%= (String) curhash.get("count") %>
+                    <td><%= Encode.forHtml((String) curhash.get("count")) %>
                     </td>
 
                 </tr>
@@ -197,13 +197,13 @@
                             for (int i = 0; i < eForms.size(); i++) {
                                 HashMap<String, ? extends Object> curForm = eForms.get(i);
                 %>
-                <tr data-bs-toggle="popover" data-bs-html="true" data-bs-title="<%=curForm.get("formName")%>"
-                    data-bs-content="<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnSubject"/>:</strong><br> <%=curForm.get("formSubject")%> <br> <small><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFile"/>: <%=curForm.get("formFileName")%></small>"
+                <tr data-bs-toggle="popover" data-bs-html="true" data-bs-title="<%=Encode.forHtmlAttribute(Encode.forHtml((String) curForm.get("formName")))%>"
+                    data-bs-content="<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnSubject"/>:</strong><br> <%=Encode.forHtmlAttribute(Encode.forHtml((String) curForm.get("formSubject")))%> <br> <small><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFile"/>: <%=Encode.forHtmlAttribute(Encode.forHtml((String) curForm.get("formFileName")))%></small>"
                     data-bs-trigger="hover" data-bs-placement="bottom">
 
                     <td>
                         <form method="post" action="<%= request.getContextPath() %>/eforms/removeFromGroup.do" style="display:inline;">
-                            <input type="hidden" name="fid" value="<%=curForm.get("fid")%>"/>
+                            <input type="hidden" name="fid" value="<%=Encode.forHtmlAttribute((String) curForm.get("fid"))%>"/>
                             <input type="hidden" name="groupName" value="<%=Encode.forHtmlAttribute(groupView)%>"/>
                             <a href="javascript:void(0);"
                                title="remove from group" class="btn btn-sm btn-secondary"
@@ -214,10 +214,10 @@
                     </td>
 
                     <td><a href="#"
-                           onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data.jsp?fid=<%=curForm.get("fid")%>', '<%="FormG" + i%>'); return false;"><%=curForm.get("formName")%>
+                           onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data.jsp?fid=<%=Encode.forUriComponent((String) curForm.get("fid"))%>', '<%="FormG" + i%>'); return false;"><%=Encode.forHtml((String) curForm.get("formName"))%>
                     </a></td>
 
-                    <td align='center'><%=curForm.get("formDate")%>
+                    <td align='center'><%=Encode.forHtml((String) curForm.get("formDate"))%>
                     </td>
 
 
@@ -263,7 +263,7 @@
                                 HashMap<String, ? extends Object> curhash = forms.get(i);
                         %>
                         <option
-                                value='<%= (String) curhash.get("fid")%>'><%= (String) curhash.get("formName")%> | <%= (String) curhash.get("formDate")%>
+                                value='<%= Encode.forHtmlAttribute((String) curhash.get("fid"))%>'><%= Encode.forHtml((String) curhash.get("formName"))%> | <%= Encode.forHtml((String) curhash.get("formDate"))%>
                         </option>
                         <% } %>
                     </select>

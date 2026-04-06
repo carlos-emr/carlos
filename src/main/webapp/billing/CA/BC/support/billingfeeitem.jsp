@@ -29,6 +29,7 @@
 --%>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@page import="java.math.*, java.util.*,  io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.commn.model.*,io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@page import="org.springframework.web.context.WebApplicationContext,org.springframework.web.context.support.WebApplicationContextUtils, io.github.carlos_emr.carlos.entities.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData" %>
@@ -134,12 +135,12 @@
     <tr <%=((color) ? "bgcolor=\"#F6F6F6\"" : "")%> align="left" valign="top">
     <td class="SmallerText">
     <%if (request.getParameter("corrections") == null) {%>
-    <a href=# onClick="posttoText('<%=code.getServiceCode()%>');"><%=code.getServiceCode()%></a>
+    <a href=# onClick="posttoText('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(code.getServiceCode()))%>');"><%=Encode.forHtml(StringUtils.noNull(code.getServiceCode()))%></a>
     <%} else {%>
-    <a href=# onClick="updateFeeCodeValues('<%=code.getServiceCode()%>',' ','<%=code.getValue()%>');"><%=code.getServiceCode()%></a>
+    <a href=# onClick="updateFeeCodeValues('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(code.getServiceCode()))%>',' ','<%=Encode.forJavaScriptAttribute(StringUtils.noNull(code.getValue()))%>');"><%=Encode.forHtml(StringUtils.noNull(code.getServiceCode()))%></a>
     <%}%>
     </td>
-    <td class="SmallerText"><%=code.getDescription()%> (<%=code.getValue()%>) </td>
+    <td class="SmallerText"><%=Encode.forHtml(StringUtils.noNull(code.getDescription()))%> (<%=Encode.forHtml(StringUtils.noNull(code.getValue()))%>) </td>
     </tr>
     <%
             color = !(color);
