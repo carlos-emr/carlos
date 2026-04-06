@@ -540,11 +540,11 @@ function ts_resortTable(lnk,clid) {
     newRows.sort(sortfn);
 
     if (span.getAttribute("sortdir") == 'down') {
-        ARROW = '&nbsp;&nbsp;&uarr;';
+        ARROW = '\u00a0\u00a0\u2191';
         newRows.reverse();
         span.setAttribute('sortdir','up');
     } else {
-        ARROW = '&nbsp;&nbsp;&darr;';
+        ARROW = '\u00a0\u00a0\u2193';
         span.setAttribute('sortdir','down');
     }
 
@@ -559,12 +559,12 @@ function ts_resortTable(lnk,clid) {
     for (var ci=0;ci<allspans.length;ci++) {
         if (allspans[ci].className == 'sortarrow') {
             if (getParent(allspans[ci],"table") == getParent(lnk,"table")) { // in the same table as us?
-                allspans[ci].innerHTML = '';
+                allspans[ci].textContent = '';
             }
         }
     }
 
-    span.innerHTML = ARROW;
+    span.textContent = ARROW;
 }
 
 function getParent(el, pTagName) {
@@ -1187,7 +1187,7 @@ function renderRxStage() {
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.msgComment"/><br/>
         <textarea id="disComment" rows="3" cols="45"></textarea><br/>
         <input type="button" onclick="document.getElementById('discontinueUI').style.display='none';" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.discontinue.cancel"/>"/>
-        <input type="button" onclick="Discontinue2(document.getElementById('disDrugId').value,document.getElementById('disReason').value,document.getElementById('disComment').value,document.getElementById('disDrug').innerHTML);" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.discontinue.action"/>"/>
+        <input type="button" onclick="Discontinue2(document.getElementById('disDrugId').value,document.getElementById('disReason').value,document.getElementById('disComment').value,document.getElementById('disDrug').textContent);" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.discontinue.action"/>"/>
 
     </div>
 
@@ -1394,7 +1394,7 @@ function renderRxStage() {
              else if(elementId.match("repeats_")!=null)
                  data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.value);
              else
-                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.innerHTML);
+                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.textContent);
              data = data + "&rand="+Math.floor(Math.random()*10001);
              CarlosAjax.request(url, {method: 'post',parameters:data});
          }
@@ -1407,7 +1407,7 @@ function renderRxStage() {
     }
     function setPrn(randomId){
         var prnEl=document.getElementById('prn_'+randomId);
-        var prnStr=prnEl.innerHTML.trim();
+        var prnStr=prnEl.textContent.trim();
         var prnStyle=prnEl.style.textDecoration || getComputedStyle(prnEl).textDecoration;
         if(prnStr=='prn' || prnStr=='PRN'|| prnStr=='Prn'){
             if(prnStyle.match("line-through")!=null){
@@ -1477,7 +1477,7 @@ function renderRxStage() {
                CarlosAjax.request(url, {method: 'post',parameters:data,onSuccess:function(transport){
                             // updateCurrentInteractions();
             }});
-               document.getElementById('rxText').innerHTML="";//make pending prescriptions disappear.
+               document.getElementById('rxText').textContent="";//make pending prescriptions disappear.
 	            renderRxStage();
                document.getElementById("searchString").focus();
     }
@@ -1631,8 +1631,20 @@ function renderRxStage() {
          if (json != null && json.results && json.results.length > 0) {
            // Pick the first allergy warning found
            var allergy = json.results[0];
-           var str = "<label style=\"color:red;\"> Allergy:</label> " + allergy.DESCRIPTION + " <label style=\"color:red;\">Reaction:</label> " + allergy.reaction;
-           document.getElementById('alleg_' + json.id).innerHTML = str;
+           var allegEl = document.getElementById('alleg_' + json.id);
+           allegEl.textContent = '';
+           var allergyLabel = document.createElement('label');
+           allergyLabel.style.color = 'red';
+           allergyLabel.textContent = ' Allergy:';
+           var descText = document.createTextNode(' ' + allergy.DESCRIPTION + ' ');
+           var reactionLabel = document.createElement('label');
+           reactionLabel.style.color = 'red';
+           reactionLabel.textContent = 'Reaction:';
+           var reactionText = document.createTextNode(' ' + allergy.reaction);
+           allegEl.appendChild(allergyLabel);
+           allegEl.appendChild(descText);
+           allegEl.appendChild(reactionLabel);
+           allegEl.appendChild(reactionText);
            document.getElementById('alleg_tbl_' + json.id).style.display = 'block';
          }
        }
@@ -1648,10 +1660,9 @@ function renderRxStage() {
                  try { json = JSON.parse(transport.responseText); } catch(e) { return; }
 
                 if(json!=null && json.results && json.results.length > 0 && json.results[0].time != null){
-                    var str = "Inactive Drug Since: "+new Date(json.results[0].time).toDateString();
-                    document.getElementById('inactive_'+id).innerHTML = str;
+                    document.getElementById('inactive_'+id).textContent = "Inactive Drug Since: "+new Date(json.results[0].time).toDateString();
                 } else {
-                    document.getElementById('inactive_'+id).innerHTML = '';
+                    document.getElementById('inactive_'+id).textContent = '';
                 }
             }});
    }
@@ -1688,9 +1699,9 @@ function renderRxStage() {
        }
        var styleStr= {left: posx, top: posy,width: widStr};
 
-        var drugName = document.getElementById('prescrip_'+id).innerHTML;
+        var drugName = document.getElementById('prescrip_'+id).textContent;
        var disUI=document.getElementById('discontinueUI'); disUI.style.left=styleStr.left; disUI.style.top=styleStr.top; disUI.style.width=styleStr.width;
-       document.getElementById('disDrug').innerHTML = drugName;
+       document.getElementById('disDrug').textContent = drugName;
        document.getElementById('discontinueUI').style.display="";
        document.getElementById('disDrugId').value=id;
 
@@ -1812,7 +1823,7 @@ function popForm2(scriptId){
                 }
             }
             var modalBody = document.getElementById('carlosModalBody');
-            modalBody.innerHTML = '';
+            modalBody.textContent = '';
             var iframe = document.createElement('iframe');
             iframe.style.cssText = 'width:100%;height:890px;border:none;display:block;';
             iframe.src = url;
@@ -2425,7 +2436,7 @@ function updateQty(element){
                 document.getElementById(minimumStr).textContent=json.takeMin;
                 document.getElementById(maximumStr).textContent=json.takeMax;
                 if(json.duration==null || json.duration=="null"){
-                    document.getElementById(durationStr).innerHTML='';
+                    document.getElementById(durationStr).textContent='';
                 }else{
                     document.getElementById(durationStr).textContent=json.duration;
                 }
@@ -2434,13 +2445,13 @@ function updateQty(element){
                 if(json.unitName!=null && json.unitName!="null" && json.unitName!="NULL" && json.unitName!="Null"){
                     document.getElementById(unitNameStr).textContent=json.unitName;
                 }else{
-                    document.getElementById(unitNameStr).innerHTML='';
+                    document.getElementById(unitNameStr).textContent='';
                 }
                 if(json.prn){
-                    document.getElementById(prnStr).innerHTML="prn";
+                    document.getElementById(prnStr).textContent="prn";
                     document.getElementById(prnVal).value=true;
                 } else{
-                    document.getElementById(prnStr).innerHTML="";document.getElementById(prnVal).value=false;
+                    document.getElementById(prnStr).textContent="";document.getElementById(prnVal).value=false;
                 }
 
             }});
@@ -2487,7 +2498,7 @@ function updateQty(element){
                 document.getElementById(minimumStr).textContent=json.takeMin;
                 document.getElementById(maximumStr).textContent=json.takeMax;
                 if(json.duration==null || json.duration=="null"){
-                    document.getElementById(durationStr).innerHTML='';
+                    document.getElementById(durationStr).textContent='';
                 }else{
                     document.getElementById(durationStr).textContent=json.duration;
                 }
@@ -2495,7 +2506,7 @@ function updateQty(element){
                 if(json.unitName!=null && json.unitName!="null" && json.unitName!="NULL" && json.unitName!="Null"){
                     document.getElementById(unitNameStr).textContent=json.unitName;
                 }else{
-                    document.getElementById(unitNameStr).innerHTML='';
+                    document.getElementById(unitNameStr).textContent='';
                 }
                 if (json.calQuantity != 0) {
                     //this is oftentimes zero when re-prescribing a drug where the unitName != null.  
@@ -2510,9 +2521,9 @@ function updateQty(element){
                     
                 }                
                 if(json.prn){
-                    document.getElementById(prnStr).innerHTML="prn";document.getElementById(prnVal).value=true;
+                    document.getElementById(prnStr).textContent="prn";document.getElementById(prnVal).value=true;
                 } else{
-                    document.getElementById(prnStr).innerHTML="";document.getElementById(prnVal).value=false;
+                    document.getElementById(prnStr).textContent="";document.getElementById(prnVal).value=false;
                 }
             }});
         return true;
