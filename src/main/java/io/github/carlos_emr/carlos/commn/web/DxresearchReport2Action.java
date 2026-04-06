@@ -112,10 +112,14 @@ public class DxresearchReport2Action extends ActionSupport {
         request.getSession().setAttribute("allQuickLists", quicklistHd);
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
         request.getSession().setAttribute("codingSystem", codingSys);
-        // Whitelist-validate the existing session value before writing it back (CWE-501)
+        // Whitelist-validate the existing session value before writing it back (CWE-501).
+        // If the value is null or not in the allowlist, remove it from session so that the
+        // JSP fallback defaults to "patientRegistedAll" (see oscarReportDxReg.jsp).
         String radiovaluestatus = (String) request.getSession().getAttribute("radiovaluestatus");
         if (radiovaluestatus != null && VALID_STATUS_VALUES.contains(radiovaluestatus)) {
             request.getSession().setAttribute("radiovaluestatus", radiovaluestatus);
+        } else {
+            request.getSession().removeAttribute("radiovaluestatus");
         }
         return SUCCESS;
     }
@@ -305,6 +309,8 @@ public class DxresearchReport2Action extends ActionSupport {
             // boundary violation (CWE-501) before storing request data in session.
             String normalizedCodeSystem = codeSystem.toLowerCase().trim();
             try {
+                // Use valueOf() as an allowlist check; the result is intentionally discarded —
+                // only validation is needed here, and getCodeDescription() accepts the String form.
                 AbstractCodeSystemDao.codingSystem.valueOf(normalizedCodeSystem);
                 codeDescription = codingSystemManager.getCodeDescription(normalizedCodeSystem, codeSingle);
             } catch (IllegalArgumentException ignored) {
