@@ -66,6 +66,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <jsp:useBean id="LastPatientsBean" class="java.util.ArrayList" scope="session"/>
@@ -184,11 +185,24 @@
 
     String errorMessage = "";
     String pdfNo = "";
-    String pdfDir = request.getParameter("pdfDir") == null ? "Fax" : request.getParameter("pdfDir");
+    String pdfDirParam = request.getParameter("pdfDir");
+    // Validate pdfDir against whitelist to prevent path traversal (CWE-22)
+    String pdfDir = ("Fax".equals(pdfDirParam) || "Mail".equals(pdfDirParam)
+            || "File".equals(pdfDirParam) || "Refile".equals(pdfDirParam))
+            ? pdfDirParam : "Fax";
     String pdfDirectory = IncomingDocUtil.getIncomingDocumentFilePath(queueIdStr, pdfDir);
     String pdfAction = request.getParameter("pdfAction") == null ? "" : request.getParameter("pdfAction");
     String pdfPageNumber = request.getParameter("pdfPageNumber") == null ? "1" : request.getParameter("pdfPageNumber");
-    String pdfName = request.getParameter("pdfName") == null ? "" : request.getParameter("pdfName");
+    // Validate pdfName with PathValidationUtils to prevent path traversal (CWE-22)
+    String pdfNameParam = request.getParameter("pdfName");
+    String pdfName = "";
+    if (pdfNameParam != null && !pdfNameParam.isEmpty()) {
+        try {
+            pdfName = PathValidationUtils.validatePath(pdfNameParam, new File(pdfDirectory)).getName();
+        } catch (SecurityException e) {
+            pdfName = "";
+        }
+    }
     String pdfExtractPageNumber = request.getParameter("pdfExtractPageNumber") == null ? "" : request.getParameter("pdfExtractPageNumber");
 
     try {
