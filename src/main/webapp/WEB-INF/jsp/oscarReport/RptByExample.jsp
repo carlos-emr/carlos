@@ -82,23 +82,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/></title>
 
-    <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-          integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM"
-          crossorigin="anonymous">
-    <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <%@ include file="/includes/global-head.jspf" %>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.request.contextPath}/share/css/extractedFromPages.css">
 
     <style type="text/css" media="print">
         .page-header-bar { display: none; }
     </style>
-
-    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
 
     <script type="text/javascript">
         // Copies the selected favourite query into the SQL textarea.
@@ -130,7 +122,7 @@
     <div class="page-header-bar d-flex align-items-center justify-content-between py-2 mb-3 border-bottom"
          id="header">
         <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-search fs-5 text-secondary" aria-hidden="true"></i>
+            <i class="fas fa-search text-secondary" aria-hidden="true"></i>
             <span class="fw-semibold"><fmt:message key="oscarReport.CDMReport.msgReport"/></span>
         </div>
         <span><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/></span>
@@ -224,8 +216,5 @@
 
 </div><!-- end .container -->
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz"
-        crossorigin="anonymous"></script>
 </body>
 </html>
