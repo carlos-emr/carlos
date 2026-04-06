@@ -54,7 +54,6 @@
         import="java.util.*, java.sql.*, io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.providers.data.ProviderData,io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.entities.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillActivityDAO" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>

@@ -618,7 +618,7 @@
             <td class="bCellData">
                 <!-- includes the Billing Type Drop Down List -->
                 <jsp:include flush="false" page="billType_frag.jsp">
-                    <jsp:param name="BillType" value="<%=Encode.forHtmlAttribute(BillType)%>"/>
+                    <jsp:param name="BillType" value="<%=BillType%>"/>
                 </jsp:include>
             </td>
             <td class="bCellData">
@@ -1088,7 +1088,7 @@
 
             <td colspan="3">
                 <jsp:include flush="false" page="billTransactions.jsp">
-                    <jsp:param name="billMasterNo" value="<%= Encode.forHtmlAttribute(billingmasterNo != null ? billingmasterNo : "") %>"/>
+                    <jsp:param name="billMasterNo" value="<%= billingmasterNo != null ? billingmasterNo : "" %>"/>
                 </jsp:include>
             </td>
 
@@ -1097,7 +1097,7 @@
     <script type="text/javascript">
         function callReplacementWebService(url, id) {
             var ran_number = Math.round(Math.random() * 1000000);
-            var params = "demographicNo=<%=Encode.forJavaScript(String.valueOf(bill.getDemographicNo()))%>&wcb=&billingcode=<%=Encode.forJavaScript(allFields.getProperty("billingCode", ""))%>&rand=" + ran_number;  //hack to get around ie caching the page
+            var params = "demographicNo=<%=Encode.forJavaScript(Encode.forUriComponent(String.valueOf(bill.getDemographicNo())))%>&wcb=&billingcode=<%=Encode.forJavaScript(Encode.forUriComponent(allFields.getProperty("billingCode", "")))%>&rand=" + ran_number;  //hack to get around ie caching the page
             CarlosAjax.updater(id, url, {method: 'get', parameters: params});
         }
 

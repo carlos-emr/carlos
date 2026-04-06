@@ -75,7 +75,6 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <html>
 <head>
 
@@ -182,7 +181,7 @@
 
      <tr>
         <td ><%=Encode.forHtml(paymentdate)%>  </td>
-        <td align="right"><%=Encode.forHtmlContent(payable)%> </td>
+        <td align="right"><%=Encode.forHtml(payable)%> </td>
         <td align="right"><%=Encode.forHtml(moneyFormat(amtbilled))%></td>
         <td align="right"><%=Encode.forHtml(moneyFormat(amtpaid))%></td>
         <td align="right"><%=Encode.forHtml(moneyFormat(balancefwd))%></td>

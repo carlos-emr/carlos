@@ -220,7 +220,7 @@
                             billinggroup_no = p.getBillingNo();//SxmlMisc.getXmlContent(rslocal.getString("comments"),"<xml_p_billinggroup_no>","</xml_p_billinggroup_no>");
                             specialty_code = SxmlMisc.getXmlContent(p.getComments(), "<xml_p_specialty_code>", "</xml_p_specialty_code>");
                 %>
-                <option value="<%=Encode.forHtmlAttribute(proOHIP)%>,<%=Encode.forHtmlAttribute(specialty_code)%>|<%=Encode.forHtmlAttribute(billinggroup_no)%>"><%=Encode.forHtml(proLast)%>,<%=Encode.forHtml(proFirst)%>
+                <option value="<%=Encode.forHtmlAttribute(StringUtils.noNull(proOHIP))%>,<%=Encode.forHtmlAttribute(StringUtils.noNull(specialty_code))%>|<%=Encode.forHtmlAttribute(StringUtils.noNull(billinggroup_no))%>"><%=Encode.forHtml(StringUtils.noNull(proLast))%>,<%=Encode.forHtml(StringUtils.noNull(proFirst))%>
                 </option>
                 <%
 

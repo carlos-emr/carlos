@@ -534,7 +534,7 @@
                                 %>
                                 <!-- includes the Billing Type Drop Down List -->
                                 <jsp:include flush="false" page="billType_frag.jsp">
-                                    <jsp:param name="BillType" value="<%=Encode.forHtmlAttribute(status)%>"/>
+                                    <jsp:param name="BillType" value="<%=status%>"/>
                                 </jsp:include>
                             </td>
                         </tr>
@@ -709,7 +709,7 @@
                 </td>
                 <td>
                     <jsp:include flush="false" page="billTransactions.jsp">
-                        <jsp:param name="billNo" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getBillingNo()))%>"/>
+                        <jsp:param name="billNo" value="<%=StringUtils.noNull(form.getBillingNo())%>"/>
                     </jsp:include>
                 </td>
             </tr>

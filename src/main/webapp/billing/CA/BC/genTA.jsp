@@ -775,19 +775,19 @@
    %>
 
         <tr>
-            <td><%=Encode.forHtml(paymentdate)%>
+            <td><%=Encode.forHtml(StringUtils.noNull(paymentdate))%>
             </td>
-            <td><%=Encode.forHtml(payable)%>
+            <td><%=Encode.forHtml(StringUtils.noNull(payable))%>
             </td>
-            <td><%=Encode.forHtml(amtbilled)%>
+            <td><%=Encode.forHtml(StringUtils.noNull(amtbilled))%>
             </td>
-            <td><%=Encode.forHtml(amtpaid)%>
+            <td><%=Encode.forHtml(StringUtils.noNull(amtpaid))%>
             </td>
-            <td><%=Encode.forHtml(balancefwd)%>
+            <td><%=Encode.forHtml(StringUtils.noNull(balancefwd))%>
             </td>
-            <td><%=Encode.forHtml(chequeamt)%>
+            <td><%=Encode.forHtml(StringUtils.noNull(chequeamt))%>
             </td>
-            <td><%=Encode.forHtml(newbalance)%>
+            <td><%=Encode.forHtml(StringUtils.noNull(newbalance))%>
             </td>
             <td><a href="genTAS01.jsp?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Billed</a>
                 | <a href="genTAS00.jsp?rano=<%=Encode.forUriComponent(raNo)%>&proNo=" target="_blank">Detail</a>|
