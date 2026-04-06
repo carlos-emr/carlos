@@ -185,7 +185,7 @@ public class DocumentManagerImpl implements DocumentManager {
         String documentPath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         String fileName = dateTimeFormat.format(today) + "_" + document.getDocfilename();
 		fileName = MiscUtils.sanitizeFileName(fileName);
-        File file = new File(documentPath + File.separator + fileName);
+        File file = PathValidationUtils.validatePath(fileName, new File(documentPath));
         FileUtils.writeByteArrayToFile(file, documentData);
 
         // Gets the number of pages for the document
