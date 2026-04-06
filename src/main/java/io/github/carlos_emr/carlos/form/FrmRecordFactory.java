@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.form;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import java.util.Set;
@@ -124,6 +125,7 @@ public class FrmRecordFactory {
     public FrmRecord factory(String which) {
 
         if (which == null || !ALLOWED_FORM_CLASSES.contains(which)) {
+            MiscUtils.getLogger().warn("Rejected invalid form class attempt: {}", LogSanitizer.sanitize(which));
             throw new SecurityException("Invalid form class specified");
         }
 
