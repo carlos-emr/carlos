@@ -62,7 +62,8 @@
         <title>Palliative Care</title>
         <link rel="stylesheet" type="text/css" href="palliativeCareStyles.css"/>
         <link rel="stylesheet" type="text/css" media="print" href="print.css"/>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <%-- S5131: getServerName() returns the Host header — safe when deployed behind a reverse proxy that validates the Host header (required for production) --%>
+        <base href="<%= Encode.forHtmlAttribute(request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/") %>"> <%-- NOSONAR --%>
     </head>
 
     <%

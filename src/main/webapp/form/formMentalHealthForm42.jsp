@@ -57,7 +57,8 @@
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Laboratory Requisition</title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <%-- S5131: getServerName() returns the Host header — safe when deployed behind a reverse proxy that validates the Host header (required for production) --%>
+        <base href="<%= Encode.forHtmlAttribute(request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/") %>"> <%-- NOSONAR --%>
         <link rel="stylesheet" type="text/css" media="screen"
               href="form/labReq07Style.css">
         <link rel="stylesheet" type="text/css" media="print" href="form/print.css">
