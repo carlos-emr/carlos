@@ -544,7 +544,7 @@
                     <td>
                         <%=Encode.forHtml(hrmReport.getLegalName()) %><br/>
                         <%=Encode.forHtml(hrmReport.getAddressLine1()) %><br/>
-                        <%=Encode.forHtml(hrmReport.getAddressLine2() != null ? hrmReport.getAddressLine2() : "") %><br/>
+                        <%=Encode.forHtml(Objects.toString(hrmReport.getAddressLine2(), "")) %><br/>
                         <%=Encode.forHtml(hrmReport.getAddressCity()) %>
                     </td>
                 </tr>
@@ -650,8 +650,14 @@
                         <div id="provstatus<%=hrmReportId %>"></div>
                         <% if (providerLinkList != null && providerLinkList.size() > 0) {
                             for (HRMDocumentToProvider p : providerLinkList) {
-                                if (!p.getProviderNo().equalsIgnoreCase("-1")) { %>
-                        <%=Encode.forHtml(providerDao.getProviderName(p.getProviderNo()))%> <%=p.getSignedOff() != null && p.getSignedOff() == 1 ? "<abbr title='" + Encode.forHtmlAttribute(p.getSignedOffTimestamp() != null ? String.valueOf(p.getSignedOffTimestamp()) : "") + "'>(Signed-Off " + Encode.forHtml(p.getSignedOffTimestamp() != null ? String.valueOf(p.getSignedOffTimestamp()) : "") + ")</abbr>" : "" %>
+                                if (!p.getProviderNo().equalsIgnoreCase("-1")) {
+                                    String signedOffDisplay = "";
+                                    if (p.getSignedOff() != null && p.getSignedOff() == 1) {
+                                        String ts = Objects.toString(p.getSignedOffTimestamp(), "");
+                                        signedOffDisplay = "<abbr title='" + Encode.forHtmlAttribute(ts) + "'>(Signed-Off " + Encode.forHtml(ts) + ")</abbr>";
+                                    }
+                        %>
+                        <%=Encode.forHtml(providerDao.getProviderName(p.getProviderNo()))%> <%=signedOffDisplay%>
                         <a href="#"
                            onclick="removeProvFromHrm('<%=p.getId() %>', '<%=hrmReportId %>')">(remove)</a><br/>
                         <% }

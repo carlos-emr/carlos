@@ -202,14 +202,16 @@
     int intLimit2=Integer.parseInt(strLimit2);
     nNextPage=intLimit2+Integer.parseInt(strLimit1);
     nLastPage=Integer.parseInt(strLimit1)-intLimit2;
+    String encodedStartDate = Encode.forUriComponent(startDate != null ? startDate : "");
+    String encodedEndDate = Encode.forUriComponent(endDate != null ? endDate : "");
     if(nLastPage>=0) {
 %> <a
-                href="reportedblist.jsp?startDate=<%=Encode.forUriComponent(request.getParameter("startDate") != null ? request.getParameter("startDate") : "")%>&endDate=<%=Encode.forUriComponent(request.getParameter("endDate") != null ? request.getParameter("endDate") : "")%>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>">Last
+                href="reportedblist.jsp?startDate=<%=encodedStartDate%>&endDate=<%=encodedEndDate%>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>">Last
             Page</a> | <%
   }
   if(nItems==intLimit2) {
 %> <a
-                href="reportedblist.jsp?startDate=<%=Encode.forUriComponent(request.getParameter("startDate") != null ? request.getParameter("startDate") : "")%>&endDate=<%=Encode.forUriComponent(request.getParameter("endDate") != null ? request.getParameter("endDate") : "")%>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>">
+                href="reportedblist.jsp?startDate=<%=encodedStartDate%>&endDate=<%=encodedEndDate%>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>">
             Next Page</a> <%}%>
 
 </body>
