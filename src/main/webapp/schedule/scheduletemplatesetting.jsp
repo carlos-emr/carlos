@@ -102,17 +102,49 @@
             }
 
             function selectprovider(s) {
-                var providerNo = encodeURIComponent(s.options[s.selectedIndex].value);
-                var providerName = encodeURIComponent(s.options[s.selectedIndex].text);
-                window.location.href = "scheduletemplateapplying.jsp?provider_no=" + providerNo + "&provider_name=" + providerName;
+                // Use form submission instead of direct URL construction to prevent
+                // DOM text from flowing into a navigation sink (js/xss-through-dom).
+                var form = document.createElement('form');
+                form.method = 'get';
+                form.action = 'scheduletemplateapplying.jsp';
+                var fNo = document.createElement('input');
+                fNo.type = 'hidden';
+                fNo.name = 'provider_no';
+                fNo.value = s.options[s.selectedIndex].value;
+                form.appendChild(fNo);
+                var fName = document.createElement('input');
+                fName.type = 'hidden';
+                fName.name = 'provider_name';
+                fName.value = s.options[s.selectedIndex].text;
+                form.appendChild(fName);
+                document.body.appendChild(form);
+                form.submit();
             }
 
             function go() {
-                var s = document.schedule.providerid.value;
-                var providerId = encodeURIComponent(s);
-                var providerName = encodeURIComponent(document.schedule.providerid.options[document.schedule.providerid.selectedIndex].text);
-                var u = 'scheduleedittemplate.jsp?providerid=' + providerId + '&providername=' + providerName;
-                popupPage(390, 700, u);
+                // Use a named popup window with form submission to prevent DOM text
+                // from flowing into window.open() URL (js/xss-through-dom).
+                var popupName = 'attachment';
+                var popupProps = 'height=390,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes';
+                window.open('', popupName, popupProps);
+                var s = document.schedule.providerid;
+                var form = document.createElement('form');
+                form.method = 'get';
+                form.action = 'scheduleedittemplate.jsp';
+                form.target = popupName;
+                var fId = document.createElement('input');
+                fId.type = 'hidden';
+                fId.name = 'providerid';
+                fId.value = s.value;
+                form.appendChild(fId);
+                var fName = document.createElement('input');
+                fName.type = 'hidden';
+                fName.name = 'providername';
+                fName.value = s.options[s.selectedIndex].text;
+                form.appendChild(fName);
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form);
             }
         </script>
     </head>
