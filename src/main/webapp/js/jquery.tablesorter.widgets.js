@@ -122,7 +122,7 @@
                 } else {
                     date = new Date();
                     date.setTime(date.getTime() + (31536e+6)); // 365 days
-                    document.cookie = key + '=' + JSON.stringify(values) + '; expires=' + date.toGMTString() + '; path=/; Secure';
+                    document.cookie = key + '=' + JSON.stringify(values) + '; expires=' + date.toGMTString() + '; path=/; Secure; SameSite=Strict';
                 }
             } else {
                 return values && values[url] ? values[url][id] : '';
