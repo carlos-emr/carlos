@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -63,6 +64,7 @@ import io.github.carlos_emr.carlos.prevention.reports.FollowupManagement;
 import io.github.carlos_emr.carlos.report.data.ManageLetters;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 /**
  * @author jay
@@ -165,7 +167,9 @@ public class GeneratePatientLetters2Action extends ActionSupport {
                 }
 
                 fileName = newDoc.getFileName();
-                String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "/" + fileName;
+                File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+                File safeFile = PathValidationUtils.validatePath(fileName, documentDir);
+                String savePath = safeFile.getAbsolutePath();
                 if (log.isTraceEnabled()) {
                     log.trace("writing report to disk location " + savePath);
                 }
