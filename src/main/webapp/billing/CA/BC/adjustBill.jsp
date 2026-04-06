@@ -625,7 +625,7 @@
                 <table>
                     <tr>
                         <td>
-                            <!--<a href="#" onClick='rs("billingcalendar","<rewrite:reWrite jspPage="billingCalendarPopup.jsp"/>?year=<%=curYear%>&month=<%=curMonth%>&type=&returnForm=ReProcessBilling&returnItem=serviceDate","380","300","0")'>-->
+                            <%--<a href="#" onClick='rs("billingcalendar","<rewrite:reWrite jspPage="billingCalendarPopup.jsp"/>?year=<%=curYear%>&month=<%=curMonth%>&type=&returnForm=ReProcessBilling&returnItem=serviceDate","380","300","0")'>--%>
                             <a href="javascript: function myFunction() {return false; }" id="hlSDate">
                                 Billing Date:
                             </a>
@@ -638,7 +638,7 @@
                         <td>
                             <input type="text" style="font-size:80%;" id="serviceDate" name="serviceDate"
                                    value="<%=Encode.forHtmlAttribute(allFields.getProperty("serviceDate", ""))%>">
-                            <!--<%=allFields.getProperty("serviceDate")%>"/><%=BillDate%>-->
+                            <%--<%=allFields.getProperty("serviceDate")%>"/><%=BillDate%>--%>
                         </td>
                         <td>
                             <input type="text" name="serviceToDay" value="<%=Encode.forHtmlAttribute(allFields.getProperty("serviceToDay", ""))%>"
@@ -758,7 +758,7 @@
                     <option value="Y" <%=allFields.getProperty("mvaClaimCode").equals("Y") ? "selected" : ""%>>Yes
                     </option>
                 </select>
-                <!--<input type="text" name="mvaClaim" value="<%=allFields.getProperty("mvaClaimCode")%>" size="1"/>-->
+                <%--<input type="text" name="mvaClaim" value="<%=allFields.getProperty("mvaClaimCode")%>" size="1"/>--%>
             </td>
             <td class="bCellData">ICBC Claim Num:
                 <input type="text" name="icbcClaim" value="<%=Encode.forHtmlAttribute(allFields.getProperty("icbcClaimNo", ""))%>" size="8"
@@ -1039,7 +1039,7 @@
                         Both
                     </option>
                 </select>
-                <!--<input type="text" name="correspondenceCode" value="<%=allFields.getProperty("correspondenceCode")%>" size="1"/>-->
+                <%--<input type="text" name="correspondenceCode" value="<%=allFields.getProperty("correspondenceCode")%>" size="1"/>--%>
             </td>
             <td class="bCellData">Insurer Code</td><!--OIN-INSURER-C0DE-->
             <td class="bCellData">
@@ -1065,7 +1065,7 @@
             <td>
                 <div id="CORRESPONDENCENOTE">
                     <textarea cols="60" rows="5" name="notes"
-                              onKeyUp="checkTextLimit(this.form.notes,400);"><%=Encode.forHtml(corrNote)%></textarea>
+                              onKeyUp="checkTextLimit(this.form.notes,400);"><%=Encode.forHtml(StringUtils.noNull(corrNote))%></textarea>
                 </div>
             </td>
 
@@ -1080,7 +1080,7 @@
 
                         <!--CLAIM-SHORT-COMMENT-->
                         <td colspan="3">
-                            <textarea cols="60" rows="5" name="messageNotes"><%=Encode.forHtml(messageNotes)%>              </textarea>
+                            <textarea cols="60" rows="5" name="messageNotes"><%=Encode.forHtml(StringUtils.noNull(messageNotes))%></textarea>
                         </td>
                         <td></td>
 

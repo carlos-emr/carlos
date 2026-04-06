@@ -331,40 +331,35 @@
                         </tr>
                         <tr>
                             <td>Capability:</td>
-                            <td><select name="w_capability"
-                                             value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_capability()))%>" id="w_capability">
-                                <option value="Y">Yes</option>
-                                <option value="N">No</option>
+                            <td><select name="w_capability" id="w_capability">
+                                <option value="Y" <%="Y".equals(form.getW_capability()) ? "selected" : ""%>>Yes</option>
+                                <option value="N" <%="N".equals(form.getW_capability()) ? "selected" : ""%>>No</option>
                             </select></td>
                             <td>Rehab:</td>
-                            <td><select name="w_rehab" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_rehab()))%>"
-                                             id="w_rehab">
-                                <option value="Y">Yes</option>
-                                <option value="N">No</option>
+                            <td><select name="w_rehab" id="w_rehab">
+                                <option value="Y" <%="Y".equals(form.getW_rehab()) ? "selected" : ""%>>Yes</option>
+                                <option value="N" <%="N".equals(form.getW_rehab()) ? "selected" : ""%>>No</option>
                             </select></td>
                         </tr>
                         <tr>
                             <td>Rehab Type:</td>
-                            <td><select name="w_rehabtype"
-                                             value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_rehabtype()))%>" id="w_rehabtype">
-                                <option value="C">Work Conditioning</option>
-                                <option value="O">Other</option>
+                            <td><select name="w_rehabtype" id="w_rehabtype">
+                                <option value="C" <%="C".equals(form.getW_rehabtype()) ? "selected" : ""%>>Work Conditioning</option>
+                                <option value="O" <%="O".equals(form.getW_rehabtype()) ? "selected" : ""%>>Other</option>
                             </select></td>
                             <td>To Follow:</td>
-                            <td><select name="w_tofollow"
-                                             value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_tofollow()))%>" id="w_tofollow">
-                                <option value="Y">Yes</option>
-                                <option value="N">No</option>
+                            <td><select name="w_tofollow" id="w_tofollow">
+                                <option value="Y" <%="Y".equals(form.getW_tofollow()) ? "selected" : ""%>>Yes</option>
+                                <option value="N" <%="N".equals(form.getW_tofollow()) ? "selected" : ""%>>No</option>
                             </select></td>
                         </tr>
 
 
             </tr>
             <td>Advisor:</td>
-            <td><select name="w_wcbadvisor"
-                             value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_wcbadvisor()))%>" id="w_wcbadvisor">
-                <option value="Y">Yes</option>
-                <option value="N">No</option>
+            <td><select name="w_wcbadvisor" id="w_wcbadvisor">
+                <option value="Y" <%="Y".equals(form.getW_wcbadvisor()) ? "selected" : ""%>>Yes</option>
+                <option value="N" <%="N".equals(form.getW_wcbadvisor()) ? "selected" : ""%>>No</option>
             </select></td>
             </tr>
         </table>
@@ -387,8 +382,7 @@
                         </tr>
                         <tr>
                             <td class="FormLabel">Billing Physician</td>
-                            <td><select style="font-size:80%;" name="providerNo"
-                                             value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getProviderNo()))%>">
+                            <td><select style="font-size:80%;" name="providerNo">
                                 <%
                                     String proFirst = "", proLast = "", proOHIP = "", proNo = "";
                                     for (Provider p : providerDao.getActiveProviders()) {
@@ -397,7 +391,7 @@
                                             proLast = p.getLastName();
                                             proOHIP = p.getProviderNo();
                                 %>
-                                <option value="<%=Encode.forHtmlAttribute(proOHIP)%>"><%=Encode.forHtml(proOHIP)%>                    |
+                                <option value="<%=Encode.forHtmlAttribute(proOHIP)%>" <%=proOHIP.equals(form.getProviderNo()) ? "selected" : ""%>><%=Encode.forHtml(proOHIP)%>                    |
                                     <%=Encode.forHtml(proLast)%>                    ,
                                     <%=Encode.forHtml(proFirst)%>
                                 </option>
@@ -419,19 +413,17 @@
                         </tr>
                         <tr>
                             <td class="FormLabel">Regular Physician:</td>
-                            <td><select name="w_rphysician"
-                                             value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_rphysician()))%>" id="w_rphysician">
-                                <option value="Y">Yes</option>
-                                <option value="N">No</option>
+                            <td><select name="w_rphysician" id="w_rphysician">
+                                <option value="Y" <%="Y".equals(form.getW_rphysician()) ? "selected" : ""%>>Yes</option>
+                                <option value="N" <%="N".equals(form.getW_rphysician()) ? "selected" : ""%>>No</option>
                             </select></td>
                         </tr>
                         <tr>
                             <td class="FormLabel">Duration:</td>
-                            <td><select name="w_duration"
-                                             value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_duration()))%>" id="w_duration">
-                                <option value="1">0-6 months</option>
-                                <option value="2">7-12 months</option>
-                                <option value="9"> &gt;
+                            <td><select name="w_duration" id="w_duration">
+                                <option value="1" <%="1".equals(form.getW_duration()) ? "selected" : ""%>>0-6 months</option>
+                                <option value="2" <%="2".equals(form.getW_duration()) ? "selected" : ""%>>7-12 months</option>
+                                <option value="9" <%="9".equals(form.getW_duration()) ? "selected" : ""%>> &gt;
                                     12 months</option>
                             </select></td>
                         </tr>
@@ -440,7 +432,7 @@
                             <td><input type="text" name="billingUnit"
                                            value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getBillingUnit()))%>"/></td>
                         </tr>
-                        <!--<tr>
+                        <%--<tr>
 
 					<td class="FormLabel">Billing Code:</td>
 
@@ -450,7 +442,7 @@
 
 					</td>
 
-				</tr>-->
+				</tr>--%>
                         <tr>
                             <td class="FormLabel">Bill Amount:</td>
                             <td><input type="text" name="billingAmount"
@@ -497,7 +489,7 @@
                                     onClick="popFeeItemList('TeleplanCorrectionFormWCB','w_feeitem');">Codes</a>
                             </td>
                         </tr>
-                        <!--<tr>
+                        <%--<tr>
 
 					<td class="FormLabel">Fee Item:</td>
 
@@ -505,13 +497,13 @@
 
 					<a onClick="popup('400', '600', 'support/billingfeeitem.jsp?info=all&form=TeleplanCorrectionFormWCB&field=w_extrafeeitem', 'eFeeItem');">Codes</a></td>
 
-				</tr>-->
+				</tr>--%>
                         <tr>
                             <td class="FormLabel">Service Location:</td>
-                            <td><select name="serviceLocation"
-                                             style="font-size:80%;" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getServiceLocation()))%>">
+                            <td><% request.setAttribute("serviceLocationValue", StringUtils.noNull(form.getServiceLocation())); %>
+                                <select name="serviceLocation" style="font-size:80%;">
                                 <c:forEach var="bill" items="${billvisit}">
-                                    <option value="${bill.visitType}">
+                                    <option value="${bill.visitType}" ${bill.visitType eq requestScope['serviceLocationValue'] ? 'selected' : ''}>
                                             ${bill.description}
                                     </option>
                                 </c:forEach>
@@ -548,9 +540,9 @@
                                     <tr>
                                         <td class="FormLabel">Disabled from Work:</td>
                                         <td>
-                                            <select name="w_work" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_work()))%>" property="w_work">
-                                                <option value="Y">Yes</option>
-                                                <option value="N">No</option>
+                                            <select name="w_work">
+                                                <option value="Y" <%="Y".equals(form.getW_work()) ? "selected" : ""%>>Yes</option>
+                                                <option value="N" <%="N".equals(form.getW_work()) ? "selected" : ""%>>No</option>
                                             </select>
                                         </td>
                                     </tr>
@@ -581,12 +573,12 @@
                                     <tr>
                                         <td class="FormLabel">Estimate:</td>
                                         <td>
-                                            <select name="w_estimate" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_estimate()))%>">
-                                                <option value="0">At Work</option>
-                                                <option value="1">1-6 days</option>
-                                                <option value="2">7-13 days</option>
-                                                <option value="3">14-20 days</option>
-                                                <option value="9"> &gt;
+                                            <select name="w_estimate">
+                                                <option value="0" <%="0".equals(form.getW_estimate()) ? "selected" : ""%>>At Work</option>
+                                                <option value="1" <%="1".equals(form.getW_estimate()) ? "selected" : ""%>>1-6 days</option>
+                                                <option value="2" <%="2".equals(form.getW_estimate()) ? "selected" : ""%>>7-13 days</option>
+                                                <option value="3" <%="3".equals(form.getW_estimate()) ? "selected" : ""%>>14-20 days</option>
+                                                <option value="9" <%="9".equals(form.getW_estimate()) ? "selected" : ""%>> &gt;
                                                     20 days
                                                 </option>
                                             </select></td>
