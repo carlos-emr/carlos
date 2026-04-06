@@ -1201,41 +1201,22 @@
                 });
 
             function addflagprovider(pfirstname, plastname, provider_no) {
-                //enable Save button whenever a selection is made
-                var bdoc;
-                if (navigator.appName == "Microsoft Internet Explorer") {
+                var link = document.createElement('a');
+                link.id = "removeProv";
+                link.onclick = function () { removeThisProv(this); };
+                link.appendChild(document.createTextNode(" -remove- "));
 
-                    var bdoc = document.createElement('<a id="removeProv" onclick="removeThisProv(this)" >');
+                var wrapper = document.createElement('div');
+                wrapper.appendChild(document.createTextNode(pfirstname + " " + plastname));
 
-                } else {
-                    var bdoc = document.createElement('a');
-                    bdoc.setAttribute("id", "removeProv");
-                    bdoc.setAttribute("onclick", "removeThisProv(this);");
-                }
+                var hidden = document.createElement('input');
+                hidden.type = "hidden";
+                hidden.name = "flagproviders";
+                hidden.value = provider_no;
 
-                bdoc.appendChild(document.createTextNode(" -remove- "));
-
-
-                var adoc = document.createElement('div');
-                adoc.appendChild(document.createTextNode(pfirstname + " " + plastname));
-
-                var idoc;
-                if (navigator.appName == "Microsoft Internet Explorer") {
-                    idoc = document.createElement('<input type="hidden" name=flagproviders   value="' + provider_no + '" >');
-                } else {
-                    idoc = document.createElement('input');
-                    idoc.setAttribute("type", "hidden");
-                    idoc.setAttribute("name", "flagproviders");
-                    idoc.setAttribute("value", provider_no);
-                }
-
-                adoc.appendChild(idoc);
-
-                adoc.appendChild(bdoc);
-                var providerList = document.getElementById('providerList');
-
-                providerList.appendChild(adoc);
-
+                wrapper.appendChild(hidden);
+                wrapper.appendChild(link);
+                document.getElementById('providerList').appendChild(wrapper);
             }
 
             if (document.getElementById("autocompletedemo") && document.getElementById("autocomplete_choices")) {

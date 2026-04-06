@@ -19,7 +19,7 @@ ylib.widget = ylib.widget || {};
  *
  * @param {string} elementId  - ID of the textarea element
  * @param {number} maxChars   - Maximum character count
- * @param {number} maxLines   - Maximum number of lines
+ * @param {number} maxLines   - Maximum number of lines (counted by literal newlines, not visual wrap)
  * @param {string} [textBefore='Chars left: '] - Prefix for counter display
  * @param {string} [textAfter='']              - Suffix for counter display
  */
