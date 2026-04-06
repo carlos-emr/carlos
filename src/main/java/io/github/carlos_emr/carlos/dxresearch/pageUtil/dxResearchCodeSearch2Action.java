@@ -62,6 +62,8 @@ public final class dxResearchCodeSearch2Action extends ActionSupport {
      * Pattern that research keyword parameters must match. Permits characters
      * found in diagnostic codes and short search terms (letters, digits, dots,
      * hyphens, spaces) and enforces a maximum length to limit the attack surface.
+     * Spaces are allowed because users may search by partial description
+     * (e.g., "diabetes mellitus") in addition to searching by code prefix.
      */
     private static final Pattern RESEARCH_CODE_PATTERN = Pattern.compile("^[A-Za-z0-9.\\-\\s]{0,100}$");
 
@@ -95,7 +97,7 @@ public final class dxResearchCodeSearch2Action extends ActionSupport {
                 // Replace unrecognised input with empty string rather than propagating
                 // potentially malicious data across the trust boundary into session.
                 if (value != null) {
-                    MiscUtils.getLogger().warn("dxResearchCodeSearch: sanitised invalid {} parameter", paramNames[i]);
+                    MiscUtils.getLogger().warn("dxResearchCodeSearch: sanitized invalid {} parameter", paramNames[i]);
                 }
                 xml_research[i] = "";
             }
