@@ -150,6 +150,6 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
 
     @StrutsParameter
     public void setImportFile(File importFile) {
-        this.importFile = importFile;
+        this.importFile = PathValidationUtils.validateUpload(importFile);
     }
 }
