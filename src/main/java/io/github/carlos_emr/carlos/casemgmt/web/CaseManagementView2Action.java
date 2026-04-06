@@ -91,8 +91,7 @@ public class CaseManagementView2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
 
     /** Valid tab names for whitelist validation (CWE-501). */
-    private static final Set<String> VALID_TABS =
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(CaseManagementViewFormBean.tabs)));
+    private static final Set<String> VALID_TABS = Set.of(CaseManagementViewFormBean.tabs);
 
     /** Expected format for check_issue parameters: two numeric parts separated by a dot. */
     private static final Pattern CHECK_ISSUE_PATTERN = Pattern.compile("\\d+\\.\\d+");
@@ -567,8 +566,9 @@ public class CaseManagementView2Action extends ActionSupport {
         String[] checkedIssues = null;
         if (rawCheckedIssues != null) {
             checkedIssues = Arrays.stream(rawCheckedIssues)
-                    .filter(s -> s != null && CHECK_ISSUE_PATTERN.matcher(s).matches())
+                    .filter(s -> CHECK_ISSUE_PATTERN.matcher(s).matches())
                     .toArray(String[]::new);
+            // Normalize empty result to null so existing downstream null-checks remain correct
             if (checkedIssues.length == 0) checkedIssues = null;
         }
 
