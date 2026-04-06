@@ -401,7 +401,7 @@
                 loc = loc + "/oscarMDS/Split.jsp?document=";
                 loc = loc + id;
                 loc = loc + "&queueID=";
-                loc = loc + "<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(inQueue)))%>";
+                loc = loc + "<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.defaultString(inQueue)))%>";
                 loc = loc + "&demoName=" + encodeURIComponent(demoName);
                 popupStart(1400, 1400, loc, "Splitter");
             }

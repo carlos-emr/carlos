@@ -413,7 +413,7 @@
                     } else {
                     %>
                     <a title="Master Demographic File" href="javascript:void(0)"
-                       onclick="popup(700,1027,'DemographicEdit.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(head)))%>')"><%=Encode.forHtml(dem_no)%>
+                       onclick="popup(700,1027,'DemographicEdit.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(head != null ? head : dem_no))%>')"><%=Encode.forHtml(dem_no)%>
                     </a></td>
 
                     <!-- Rights -->

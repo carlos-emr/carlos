@@ -775,7 +775,7 @@
                 }
 
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
-                var data = 'method=getDocumentDescriptionFromDocType&doctype=' + docType + "&providerNo=<%=Encode.forJavaScript(user_no)%>&useDocumentDescriptionTemplateType=<%=Encode.forJavaScript(useDocumentDescriptionTemplateType)%>";
+                var data = 'method=getDocumentDescriptionFromDocType&doctype=' + encodeURIComponent(docType) + "&providerNo=<%=Encode.forJavaScript(StringUtils.noNull(user_no))%>&useDocumentDescriptionTemplateType=<%=Encode.forJavaScript(useDocumentDescriptionTemplateType)%>";
                 var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                 var csrfToken = csrfEl ? csrfEl.value : '';
                 fetch(url, {
@@ -795,8 +795,11 @@
                             bdoc = document.createElement('input');
                             bdoc.setAttribute("type", "button");
                             bdoc.setAttribute("value", json.documentDescriptionTemplate[i].descriptionShortcut);
-                            bdoc.setAttribute("title", json.documentDescriptionTemplate[i].description);
-                            bdoc.setAttribute("onclick", "selectDocDesc('" + json.documentDescriptionTemplate[i].description + "');");
+                            var description = json.documentDescriptionTemplate[i].description;
+                            bdoc.setAttribute("title", description);
+                            bdoc.onclick = (function(desc) {
+                                return function() { selectDocDesc(desc); };
+                            })(description);
                             document.getElementById('docDescriptionList').appendChild(bdoc);
                         }
                     }
@@ -1082,7 +1085,7 @@
                                 %>
                                     <input type="button"
                                            value="<%=Encode.forHtmlAttribute(demo.getLastName() + ", " + demo.getFirstName() + " (" + demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth() + ")")%>"
-                                           id="demvalueid<%=valueid%>"
+                                           id="demvalueid<%=Encode.forHtmlAttribute(valueid)%>"
                                            onclick="loadRecentDemo('<%=Encode.forJavaScriptAttribute(valueid)%>','<%=Encode.forJavaScriptAttribute(demo.getLastName() + ", " + demo.getFirstName() + " (" + demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth() + ")")%>')"/>
                                     <%
 

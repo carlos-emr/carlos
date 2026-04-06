@@ -244,7 +244,7 @@
                     <table border="0">
                         <tr>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.DocumentUploaded"/></td>
-                            <td><%=Encode.forHtml(curdoc.getDateTimeStamp())%>
+                            <td><%=Encode.forHtml(StringUtils.noNull(curdoc.getDateTimeStamp()))%>
                             </td>
                         </tr>
                         <tr>
@@ -293,7 +293,7 @@
                                 <td>Observation Date:</td>
                                 <td>
                                     <input tabindex="<%=tabindex++%>" id="observationDate<%=docId%>"
-                                           name="observationDate" type="text" value="<%=Encode.forHtmlAttribute(curdoc.getObservationDate())%>">
+                                           name="observationDate" type="text" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(curdoc.getObservationDate()))%>">
                                     <a id="obsdate<%=docId%>"
                                        onmouseover="renderCalendar(this.id,'observationDate<%=docId%>' );"
                                        href="javascript:void(0);"><img title="Calendar"
@@ -813,7 +813,7 @@
 
                             <tr>
                                 <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgCreator"/>:</td>
-                                <td><%=Encode.forHtml(curdoc.getCreatorName())%>
+                                <td><%=Encode.forHtml(StringUtils.noNull(curdoc.getCreatorName()))%>
                                 </td>
                             </tr>
 
