@@ -38,6 +38,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
@@ -182,12 +183,26 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
             String queueId = request.getParameter("queue");
             if (queueId != null && !queueId.equals("-1")) {
-                WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
-                Integer qid = Integer.parseInt(queueId.trim());
-                Integer did = Integer.parseInt(doc_no.trim());
-                queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-                request.getSession().setAttribute("preferredQueue", queueId);
+                Integer qid;
+                try {
+                    qid = Integer.parseInt(queueId.trim());
+                } catch (NumberFormatException e) {
+                    logger.warn("Invalid queue ID in request: non-integer value rejected");
+                    qid = null;
+                }
+                if (qid != null) {
+                    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                    QueueDao queueDao = (QueueDao) ctx.getBean(QueueDao.class);
+                    // Validate queue exists before linking or storing in session
+                    String queueName = queueDao.getQueueName(qid);
+                    if (queueName != null && !queueName.isEmpty()) {
+                        QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
+                        Integer did = Integer.parseInt(doc_no.trim());
+                        queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
+                        // Store the validated integer as a string to prevent raw HTTP data in session
+                        request.getSession().setAttribute("preferredQueue", qid.toString());
+                    }
+                }
             }
 
             map.put("name", docFile.getName());
