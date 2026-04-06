@@ -1152,7 +1152,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                 } else {
                     document.querySelectorAll('.loading-print').forEach(function(btn) {
                         var loadingText = btn.getAttribute('data-bs-loading-text') || 'Loading...';
-                        if (!btn.getAttribute('data-original-text')) { btn.setAttribute('data-original-text', btn.innerHTML); }
+                        if (!btn.getAttribute('data-original-text')) { btn.setAttribute('data-original-text', btn.textContent); }
                         btn.disabled = true;
                         btn.textContent = '';
                         var spinner = document.createElement('span');
