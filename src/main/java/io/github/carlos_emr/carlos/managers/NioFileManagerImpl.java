@@ -362,6 +362,9 @@ public class NioFileManagerImpl implements NioFileManager {
      * @throws IOException
      */
     public Path saveTempFile(final String fileName, ByteArrayOutputStream os, String fileType) throws IOException {
+        if (fileName == null) {
+            throw new IllegalArgumentException("fileName must not be null");
+        }
         Path directory = Files.createTempDirectory(TEMP_PDF_DIRECTORY + System.currentTimeMillis());
         if (fileType == null) {
             fileType = DEFAULT_FILE_SUFFIX;
