@@ -114,6 +114,12 @@ public class EChartPrint2Action extends ActionSupport {
     public String print() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String demographicNo = request.getParameter("demographicNo");
+
+        // Validate numeric to prevent HTTP response splitting (CRLF injection)
+        if (demographicNo == null || !demographicNo.matches("\\d+")) {
+            throw new IllegalArgumentException("Invalid demographic number");
+        }
+
         DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demographicNo)) {
