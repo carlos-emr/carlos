@@ -64,6 +64,7 @@ import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+import org.apache.commons.io.FilenameUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.owasp.encoder.Encode;
@@ -309,6 +310,15 @@ public class AddEForm2Action extends ActionSupport {
                 String uri = request.getRequestURI();
                 path = path.substring(0, path.indexOf(uri));
                 path += request.getContextPath();
+
+                // Sanitize the eForm template filename to prevent path traversal attacks.
+                // The formFileName originates from user-supplied input (the fid request
+                // parameter that selects the eForm template) and must be validated before
+                // it propagates into any downstream file-system operations.
+                String rawFileName = curForm.getFormFileName();
+                if (rawFileName != null && !rawFileName.isEmpty()) {
+                    curForm.setFormFileName(FilenameUtils.getName(rawFileName));
+                }
 
                 EFormUtil.writeEformTemplate(LoggedInInfo.getLoggedInInfoFromSession(request), paramNames, paramValues, curForm, fdid, program_no, path);
             }

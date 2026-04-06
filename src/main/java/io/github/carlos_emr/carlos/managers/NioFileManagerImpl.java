@@ -366,7 +366,19 @@ public class NioFileManagerImpl implements NioFileManager {
         if (fileType == null) {
             fileType = DEFAULT_FILE_SUFFIX;
         }
-        Path file = Files.createFile(Paths.get(directory.toString(), String.format("%1$s.%2$s", fileName, fileType)));
+        // Strip any path components from the caller-supplied fileName to prevent
+        // path traversal (e.g. "../../etc/evil" → "evil").
+        String sanitizedName = new File(fileName).getName();
+        String fileNameWithType = String.format("%1$s.%2$s", sanitizedName, fileType);
+        Path file = directory.resolve(fileNameWithType).normalize();
+
+        // Verify the resolved path stays inside the temp directory created above.
+        try {
+            PathValidationUtils.validateExistingPath(file.toFile(), directory.toFile());
+        } catch (SecurityException e) {
+            throw new SecurityException("Path traversal attempt detected in temp file creation.");
+        }
+
         return Files.write(file, os.toByteArray());
     }
 
