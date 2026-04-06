@@ -59,7 +59,7 @@
 //String oscar_home= oscarVariables.getProperty("project_home")+".properties";
     String provider = request.getParameter("providers");
     String monthCode = request.getParameter("monthCode");
-    if (monthCode == null || !monthCode.matches("^\\d{4}-\\d{2}$")) {
+    if (monthCode == null || !monthCode.matches("^\\d{4}-(0[1-9]|1[0-2])$")) {
         response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid monthCode parameter");
         return;
     }

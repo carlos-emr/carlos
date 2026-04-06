@@ -534,7 +534,7 @@ public class ExtractBean implements Serializable {
             p.close();
             out.close();
         } catch (SecurityException e) {
-            logger.error("Path traversal attempt detected for OHIP file", e);
+            logger.error("Path traversal attempt detected for OHIP file: {}", ohipFilename, e);
         } catch (Exception e) {
             logger.error("Write OHIP File Error", e);
         }
@@ -555,7 +555,7 @@ public class ExtractBean implements Serializable {
             p1.close();
             out1.close();
         } catch (SecurityException e) {
-            logger.error("Path traversal attempt detected for HTML file", e);
+            logger.error("Path traversal attempt detected for HTML file: {}", htmlFilename, e);
         } catch (Exception e) {
             logger.error("Write HTML File Error!!!", e);
         }
