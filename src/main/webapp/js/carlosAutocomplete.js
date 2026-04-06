@@ -73,7 +73,7 @@ function initProviderAutocomplete(inputSelector, contextPath, onSelect, options)
     var instance = $el.autocomplete("instance");
     if (instance) {
         instance._renderItem = function (ul, item) {
-            return jQuery("<li>").append("<div>" + item.label + "</div>").appendTo(ul);
+            return jQuery("<li>").append(jQuery("<div>").text(item.label)).appendTo(ul);
         };
     }
 }
@@ -144,7 +144,7 @@ function initDemographicAutocomplete(inputSelector, contextPath, onSelect, optio
     var instance = $el.autocomplete("instance");
     if (instance) {
         instance._renderItem = function (ul, item) {
-            return jQuery("<li>").append("<div>" + item.label + "</div>").appendTo(ul);
+            return jQuery("<li>").append(jQuery("<div>").text(item.label)).appendTo(ul);
         };
     }
 }

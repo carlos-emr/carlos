@@ -39,7 +39,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.ExportMeasurementType" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
-    String mstring = StringUtils.noNull(request.getParameter("mType"));
+    String mstring = StringUtils.noNull(request.getParameter("mType")).trim();
     String export = "<ERROR/>";
     if (!mstring.isEmpty()) {
         EctMeasurementTypeBeanHandler mType = new EctMeasurementTypeBeanHandler();

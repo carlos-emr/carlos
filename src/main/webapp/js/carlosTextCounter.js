@@ -54,7 +54,8 @@ ylib.widget.TextCounter = function (elementId, maxChars, maxLines, textBefore, t
     }
 
     function onKey(e) {
-        if (el.value.length >= maxChars && e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+        var selLen = (el.selectionEnd || 0) - (el.selectionStart || 0);
+        if ((el.value.length - selLen) >= maxChars && e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
             return;
         }

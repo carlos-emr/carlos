@@ -846,9 +846,9 @@
                                                     String eURL = request.getContextPath() + "/encounter/IncomingEncounter.do?providerNo=" + providerNo + "&appointmentNo=&demographicNo=" + demographicID + "&curProviderNo=&reason=" + java.net.URLEncoder.encode("Document Notes", "UTF-8") + "&encType=" + java.net.URLEncoder.encode("encounter without client", "UTF-8") + "&userName=" + java.net.URLEncoder.encode(provider.getFullName(), StandardCharsets.UTF_8) + "&curDate=" + UtilDateUtilities.getToday("yyyy-MM-dd") + "&appointmentDate=&startTime=&status=";
                                                 %>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="Msg"
-                                                       onclick="popup(700,960,'<%=request.getContextPath()%>/messenger/SendDemoMessage.do?demographic_no=<%=demographicID%>','msg')"/>
+                                                       onclick="popup(700,960,'<%=request.getContextPath()%>/messenger/SendDemoMessage.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicID))%>','msg')"/>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="Tickler"
-                                                       onclick="popup(450,600,'<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&docId=<%=docId%>&demographic_no=<%=demographicID%>&providerNo=<%=providerNo%>','tickler')"/>
+                                                       onclick="popup(450,600,'<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&docId=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(docId))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographicID))%>&providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo))%>','tickler')"/>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="eChart"
                                                        onclick="popup(710,1024,'<%=eURL%>','encounter')"/>
                                                 <%
