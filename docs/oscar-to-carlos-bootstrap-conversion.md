@@ -161,7 +161,7 @@ When the converted file is a `.jsp` (not a static `.html`):
    ```
 
    `global-head.jspf` provides: viewport meta, Bootstrap CSS/JS, jQuery, Font Awesome, and the CSRF guard script.
-   You will need to add an explicit `<meta charset>`
+   You will need to add an explicit `<meta charset="UTF-8">`
    and remove explicit Bootstrap `<link>`, and `<script src="global.js">` tags.
 
 2. **Add OWASP encoding** for every value rendered from server-side data:
