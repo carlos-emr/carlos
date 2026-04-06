@@ -193,7 +193,7 @@
         </td>
         <td><a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p2_wt2m', 'WT', '<%=Encode.forJavaScriptAttribute(String.valueOf(demographic.getDemographicNo()))%>',
-                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
+                       '<%=Encode.forJavaScriptAttribute(demographic.getFormattedDob())%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formWt"/>
         </a>
         </td>
@@ -201,14 +201,14 @@
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p2_ht4m', 'HT', '<%=Encode.forJavaScriptAttribute(String.valueOf(demographic.getDemographicNo()))%>',
-                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
+                       '<%=Encode.forJavaScriptAttribute(demographic.getFormattedDob())%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHt"/>
             </a>
         </td>
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p2_wt4m', 'WT', '<%=Encode.forJavaScriptAttribute(String.valueOf(demographic.getDemographicNo()))%>',
-                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
+                       '<%=Encode.forJavaScriptAttribute(demographic.getFormattedDob())%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formWt"/>
             </a>
         </td>
@@ -216,14 +216,14 @@
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p2_ht6m', 'HT', '<%=Encode.forJavaScriptAttribute(String.valueOf(demographic.getDemographicNo()))%>',
-                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
+                       '<%=Encode.forJavaScriptAttribute(demographic.getFormattedDob())%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHt"/>
             </a>
         </td>
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p2_wt6m', 'WT', '<%=Encode.forJavaScriptAttribute(String.valueOf(demographic.getDemographicNo()))%>',
-                       '<%=demographic.getFormattedDob()%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
+                       '<%=Encode.forJavaScriptAttribute(demographic.getFormattedDob())%>', '<%= Encode.forJavaScriptAttribute(appointmentNo) %>')">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2006_2.formWt6m"/>
             </a>
         </td>

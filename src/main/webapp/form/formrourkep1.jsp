@@ -471,7 +471,7 @@
                                                     name="p1_breastFeeding2w"
                                     <%=Encode.forHtmlAttribute(props.getProperty("p1_breastFeeding2w", ""))%>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>n_breastFeeding');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBreastFeedingDescr"/></b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>n_breastFeeding');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBreastFeedingDescr"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -499,7 +499,7 @@
                                                     name="p1_breastFeeding1m"
                                     <%=Encode.forHtmlAttribute(props.getProperty("p1_breastFeeding1m", ""))%>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>n_breastFeeding');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBreastFeedingDescr"/></b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>n_breastFeeding');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBreastFeedingDescr"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -527,7 +527,7 @@
                                                     name="p1_breastFeeding2m"
                                     <%=Encode.forHtmlAttribute(props.getProperty("p1_breastFeeding2m", ""))%>></td>
                             <td nowrap="true"><b><a href="#"
-                                                    onclick="popup('<%=Encode.forHtmlAttribute(resource)%>n_breastFeeding');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBreastFeedingDescr"/></b></td>
+                                                    onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>n_breastFeeding');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.msgBreastFeedingDescr"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -601,7 +601,7 @@
                                                     name="p1_carSeat1w" <%=Encode.forHtmlAttribute(props.getProperty("p1_carSeat1w", ""))%>>
                             </td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_motorVehicleAccidents');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formCarSeat"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_motorVehicleAccidents');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formCarSeat"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -651,14 +651,14 @@
                                                     name="p1_homeVisit1w"
                                     <%=Encode.forHtmlAttribute(props.getProperty("p1_homeVisit1w", ""))%>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>hri_homeVisits');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnHomeVisit"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>hri_homeVisits');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnHomeVisit"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_sleepPos1w" <%=Encode.forHtmlAttribute(props.getProperty("p1_sleepPos1w", ""))%>>
                             </td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>o_sleepPosition');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnSleepPosition"/></a>*</b>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>o_sleepPosition');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnSleepPosition"/></a>*</b>
                             <td>
                         </tr>
                         <tr>
@@ -670,7 +670,7 @@
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_smoke1w" <%=Encode.forHtmlAttribute(props.getProperty("p1_smoke1w", ""))%>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>o_secondHandSmoke');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSecondHandSmoke"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>o_secondHandSmoke');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSecondHandSmoke"/></a>*</b></td>
                         </tr>
                     </table>
                 </td>
@@ -687,7 +687,7 @@
                                                     name="p1_carSeat2w" <%=Encode.forHtmlAttribute(props.getProperty("p1_carSeat2w", ""))%>>
                             </td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_motorVehicleAccidents');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formCarSeat"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_motorVehicleAccidents');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formCarSeat"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -737,14 +737,14 @@
                                                     name="p1_homeVisit2w"
                                     <%=Encode.forHtmlAttribute(props.getProperty("p1_homeVisit2w", ""))%>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>hri_homeVisits');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnHomeVisit"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>hri_homeVisits');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnHomeVisit"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_sleepPos2w" <%=Encode.forHtmlAttribute(props.getProperty("p1_sleepPos2w", ""))%>>
                             </td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>o_sleepPosition');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnSleepPosition"/>*</a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>o_sleepPosition');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnSleepPosition"/>*</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -755,7 +755,7 @@
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_smoke2w" <%=Encode.forHtmlAttribute(props.getProperty("p1_smoke2w", ""))%>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>o_secondHandSmoke'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSecondHandSmoke"/></a>* </b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>o_secondHandSmoke'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSecondHandSmoke"/></a>* </b></td>
                         </tr>
                     </table>
                 </td>
@@ -772,7 +772,7 @@
                                                     name="p1_carbonMonoxide1m"
                                     <%=Encode.forHtmlAttribute(props.getProperty("p1_carbonMonoxide1m", ""))%>></td>
                             <td>Carbon monoxide/ <i><a href="#"
-                                                       onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_burns');return false;">Smoke
+                                                       onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_burns');return false;">Smoke
                                 detectors</a>*</i></td>
                         </tr>
                         <tr>
@@ -780,20 +780,20 @@
                                                     name="p1_sleepwear1m"
                                     <%=Encode.forHtmlAttribute(props.getProperty("p1_sleepwear1m", ""))%>></td>
                             <td><i><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_burns');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSleepwear"/></a></i></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_burns');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formSleepwear"/></a></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_hotWater1m" <%=Encode.forHtmlAttribute(props.getProperty("p1_hotWater1m", ""))%>>
                             </td>
                             <td><i><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_burns');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnHotWater"/></a>*</i></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_burns');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnHotWater"/></a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_toys1m" <%=Encode.forHtmlAttribute(props.getProperty("p1_toys1m", ""))%>></td>
                             <td><a href="#"
-                                   onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_choking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnSafeToys"/></a>*
+                                   onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_choking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnSafeToys"/></a>*
                             </td>
                         </tr>
                         <tr>
@@ -832,13 +832,13 @@
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_falls2m" <%=Encode.forHtmlAttribute(props.getProperty("p1_falls2m", ""))%>></td>
                             <td><i><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_falls');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnFalls"/></a>*</i></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_falls');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnFalls"/></a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_toys2m" <%=Encode.forHtmlAttribute(props.getProperty("p1_toys2m", ""))%>></td>
                             <td><a href="#"
-                                   onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_choking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnSafeToys"/></a>*
+                                   onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_choking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnSafeToys"/></a>*
                             </td>
                         </tr>
                         <tr>
@@ -1135,7 +1135,7 @@
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_cover1m" <%=Encode.forHtmlAttribute(props.getProperty("p1_cover1m", ""))%>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnCoverTest"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnCoverTest"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -1177,7 +1177,7 @@
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_cover2m" <%=Encode.forHtmlAttribute(props.getProperty("p1_cover2m", ""))%>></td>
                             <td></i><b><a href="#"
-                                          onclick="popup('<%=Encode.forHtmlAttribute(resource)%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnCoverTest"/></a>*</b></td>
+                                          onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.btnCoverTest"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -1218,7 +1218,7 @@
                                                     name="p1_hemoScreen1w"
                                     <%=Encode.forHtmlAttribute(props.getProperty("p1_hemoScreen1w", ""))%>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>pp_hemoglobinopathyScreening');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHemoglobinopathy"/></a> (if at
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>pp_hemoglobinopathyScreening');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke1.formHemoglobinopathy"/></a> (if at
                                 risk)*</b></td>
                         </tr>
                     </table>

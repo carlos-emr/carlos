@@ -859,7 +859,7 @@
                                                     name="p3_bath18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_bath18m", ""))%>></td>
 
                             <td width="100%"><i><a href="#"
-                                                   onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_drowning');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnbathSafety"/></a>*</i></td>
+                                                   onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_drowning');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnbathSafety"/></a>*</i></td>
 
                         </tr>
 
@@ -870,7 +870,7 @@
                             </td>
 
                             <td><a href="#"
-                                   onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_choking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnChokngSafeToys"/></a>*
+                                   onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_choking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnChokngSafeToys"/></a>*
                             </td>
 
                         </tr>
@@ -966,7 +966,7 @@
                                                     name="p3_bike2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_bike2y", ""))%>></td>
 
                             <td width="100%"><i><a href="#"
-                                                   onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_falls');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formBikeHelmets"/></a>*</i></td>
+                                                   onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_falls');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formBikeHelmets"/></a>*</i></td>
 
                         </tr>
 
@@ -986,7 +986,7 @@
                                                     name="p3_carbon2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_carbon2y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formCarbonMonoxide"/>/ <i><a
-                                    href="#" onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_burns');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formSmokeDetectors"/></a>*</i></td>
+                                    href="#" onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_burns');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formSmokeDetectors"/></a>*</i></td>
 
                         </tr>
 
@@ -1027,7 +1027,7 @@
                             </td>
 
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>hri_dayCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formAssessDayCare"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>hri_dayCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formAssessDayCare"/></a>*</b></td>
 
                         </tr>
 
@@ -1037,7 +1037,7 @@
                                                     name="p3_dental2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_dental2y", ""))%>></td>
 
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>o_dentalCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formDentalCareCheckUp"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>o_dentalCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formDentalCareCheckUp"/></a>*</b></td>
 
                         </tr>
 
@@ -1073,7 +1073,7 @@
                                                     name="p3_bike4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_bike4y", ""))%>></td>
 
                             <td width="100%"><i><a href="#"
-                                                   onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_falls');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formBikeHelmets"/></a>*</i></td>
+                                                   onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_falls');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formBikeHelmets"/></a>*</i></td>
 
                         </tr>
 
@@ -1093,7 +1093,7 @@
                                                     name="p3_carbon4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_carbon4y", ""))%>></td>
 
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formCarbonMonoxide"/>/ <i><a
-                                    href="#" onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_burns');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formSmokeDetectors"/></a>*</i></td>
+                                    href="#" onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_burns');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formSmokeDetectors"/></a>*</i></td>
 
                         </tr>
 
@@ -1103,7 +1103,7 @@
                                                     name="p3_water4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_water4y", ""))%>></td>
 
                             <td><a href="#"
-                                   onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_drowning');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formWaterSafety"/></a></td>
+                                   onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_drowning');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formWaterSafety"/></a></td>
 
                         </tr>
 
@@ -1140,7 +1140,7 @@
                                                     name="p3_dental4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_dental4y", ""))%>></td>
 
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>o_dentalCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formDentalCareCheckUp"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>o_dentalCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.formDentalCareCheckUp"/></a>*</b></td>
 
                         </tr>
 
@@ -1657,7 +1657,7 @@
                                                     name="p3_cover18m" <%=Encode.forHtmlAttribute(props.getProperty("p3_cover18m", ""))%>></td>
 
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnCoverTest"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnCoverTest"/></a>*</b></td>
 
                         </tr>
 
@@ -1702,7 +1702,7 @@
                                                     name="p3_cover2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_cover2y", ""))%>></td>
 
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnCoverTest"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnCoverTest"/></a>*</b></td>
 
                         </tr>
 
@@ -1747,7 +1747,7 @@
                                                     name="p3_cover4y" <%=Encode.forHtmlAttribute(props.getProperty("p3_cover4y", ""))%>></td>
 
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnCoverTest"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.btnCoverTest"/></a>*</b></td>
 
                         </tr>
 
@@ -1818,7 +1818,7 @@
                                                     name="p3_serum2y" <%=Encode.forHtmlAttribute(props.getProperty("p3_serum2y", ""))%>></td>
 
                             <td width="100%"><i><a href="#"
-                                                   onclick="popup('<%=Encode.forHtmlAttribute(resource)%>pp_leadScreening');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.msgSerumLead"/></a>*</i></td>
+                                                   onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>pp_leadScreening');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke3.msgSerumLead"/></a>*</i></td>
 
                         </tr>
 

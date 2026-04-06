@@ -285,7 +285,7 @@
                     <input type="submit"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnExit"/> "
                            onclick="javascript:return onExit();"/> <input type="button"
-                                      onclick="popup('<%=Encode.forJavaScriptAttribute(resource)%>n_breastFeeding');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.msgBreastFeedingUnit"/></b></td>
+                                                                          value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnPrint"/>"
                                                                           onclick="javascript:return onPrint();"/></td>
                 <td align="center" width="100%"><a name="length"
                                                    href="javascript:popup('form/graphLengthWeight.jsp?demographic_no=<%=Encode.forUriComponent(String.valueOf(demoNo))%>&formId=<%=Encode.forUriComponent(String.valueOf(formId))%>&provNo=<%=Encode.forUriComponent(String.valueOf(provNo))%>');">
@@ -469,7 +469,7 @@
                                                     name="p2_breastFeeding6m"
                                     <%=Encode.forHtmlAttribute(props.getProperty("p2_breastFeeding6m", ""))%>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>n_breastFeeding');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.msgBreastFeedingUnit"/></b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>n_breastFeeding');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.msgBreastFeedingUnit"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -498,7 +498,7 @@
                                                     name="p2_choking6m" <%=Encode.forHtmlAttribute(props.getProperty("p2_choking6m", ""))%>>
                             </td>
                             <td><a href="#"
-                                   onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_choking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formChokingSafeFood"/></a>*
+                                   onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_choking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formChokingSafeFood"/></a>*
                             </td>
                         </tr>
                     </table>
@@ -515,7 +515,7 @@
                                                     name="p2_breastFeeding9m"
                                     <%=Encode.forHtmlAttribute(props.getProperty("p2_breastFeeding9m", ""))%>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>n_breastFeeding');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.msgBreastFeedingUnit"/></b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>n_breastFeeding');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnBreastFeeding"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.msgBreastFeedingUnit"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -549,7 +549,7 @@
                                                     name="p2_choking9m" <%=Encode.forHtmlAttribute(props.getProperty("p2_choking9m", ""))%>>
                             </td>
                             <td><a href="#"
-                                   onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_choking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formChokingSafeFood"/></a>*
+                                   onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_choking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formChokingSafeFood"/></a>*
                             </td>
                         </tr>
                     </table>
@@ -634,7 +634,7 @@
                                                     name="p2_carSeat4m" <%=Encode.forHtmlAttribute(props.getProperty("p2_carSeat4m", ""))%>>
                             </td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_motorVehicleAccidents');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formCarSeat"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_motorVehicleAccidents');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formCarSeat"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -645,14 +645,14 @@
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_bath4m" <%=Encode.forHtmlAttribute(props.getProperty("p2_bath4m", ""))%>></td>
                             <td><i><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_drowning');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formBathSafety"/></a>*</i></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_drowning');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formBathSafety"/></a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_sleeping4m" <%=Encode.forHtmlAttribute(props.getProperty("p2_sleeping4m", ""))%>>
                             </td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>b_nightWaking');return false;">Night
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>b_nightWaking');return false;">Night
                                 waking/crying</a>*</b></td>
                         </tr>
                         <tr>
@@ -696,7 +696,7 @@
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_poison6m" <%=Encode.forHtmlAttribute(props.getProperty("p2_poison6m", ""))%>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_poisons');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnPoisons"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_poisons');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnPoisons"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -712,7 +712,7 @@
                                                     name="p2_sleeping6m" <%=Encode.forHtmlAttribute(props.getProperty("p2_sleeping6m", ""))%>>
                             </td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>b_nightWaking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formNightWaking"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>b_nightWaking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formNightWaking"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td>&nbsp;</td>
@@ -757,7 +757,7 @@
                                                     name="p2_sleeping9m" <%=Encode.forHtmlAttribute(props.getProperty("p2_sleeping9m", ""))%>>
                             </td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>b_nightWaking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formNightWaking"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>b_nightWaking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formNightWaking"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td>&nbsp;</td>
@@ -767,14 +767,14 @@
                                                     name="p2_dayCare9m" <%=Encode.forHtmlAttribute(props.getProperty("p2_dayCare9m", ""))%>>
                             </td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>hri_dayCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formAssessDay"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>hri_dayCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formAssessDay"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_homeVisit9m"
                                     <%=Encode.forHtmlAttribute(props.getProperty("p2_homeVisit9m", ""))%>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>hri_homeVisits');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formAssessHomeVisit"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>hri_homeVisits');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formAssessHomeVisit"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td>&nbsp;</td>
@@ -783,7 +783,7 @@
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_smoke9m" <%=Encode.forHtmlAttribute(props.getProperty("p2_smoke9m", ""))%>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>o_secondHandSmoke');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formSecondHandSmoke"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>o_secondHandSmoke');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formSecondHandSmoke"/></a>*</b></td>
                         </tr>
                     </table>
                 </td>
@@ -799,7 +799,7 @@
                                                     name="p2_poison12m" <%=Encode.forHtmlAttribute(props.getProperty("p2_poison12m", ""))%> />
                             </td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_poisons');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnPoisons"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_poisons');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnPoisons"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -813,7 +813,7 @@
                             </td>
                             <td>Carbon monoxide/<br>
                                 &nbsp;&nbsp;<i><a href="#"
-                                                  onclick="popup('<%=Encode.forHtmlAttribute(resource)%>s_burns');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formSmokeDetectors"/></a>*</i></td>
+                                                  onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>s_burns');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formSmokeDetectors"/></a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -826,7 +826,7 @@
                                                     name="p2_sleeping12m"
                                     <%=Encode.forHtmlAttribute(props.getProperty("p2_sleeping12m", ""))%> /></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>b_nightWaking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formNightWaking"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>b_nightWaking');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formNightWaking"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td>&nbsp;</td>
@@ -845,7 +845,7 @@
                                                     name="p2_teething12m"
                                     <%=Encode.forHtmlAttribute(props.getProperty("p2_teething12m", ""))%> /></td>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formTeething"/><b><a href="#"
-                                                                                         onclick="popup('<%=Encode.forHtmlAttribute(resource)%>o_dentalCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnDentalCare"/></a>*</b></td>
+                                                                                         onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>o_dentalCare');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnDentalCare"/></a>*</b></td>
                         </tr>
                     </table>
                 </td>
@@ -1050,7 +1050,7 @@
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_cover4m" <%=Encode.forHtmlAttribute(props.getProperty("p2_cover4m", ""))%>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formCover"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formCover"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -1093,7 +1093,7 @@
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_cover6m" <%=Encode.forHtmlAttribute(props.getProperty("p2_cover6m", ""))%>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formCover"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formCover"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -1124,7 +1124,7 @@
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_cover9m" <%=Encode.forHtmlAttribute(props.getProperty("p2_cover9m", ""))%>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formCover"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formCover"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -1150,7 +1150,7 @@
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_cover12m" <%=Encode.forHtmlAttribute(props.getProperty("p2_cover12m", ""))%>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<%=Encode.forHtmlAttribute(resource)%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formCover"/></a>*</b></td>
+                                      onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>pe_cover');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formCover"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
@@ -1203,7 +1203,7 @@
                                                     name="p2_antiHbs9m" <%=Encode.forHtmlAttribute(props.getProperty("p2_antiHbs9m", ""))%>>
                             </td>
                             <td width="100%"><b><a href="#"
-                                                   onclick="popup('<%=Encode.forHtmlAttribute(resource)%>i_hepB');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnAntiHB"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formAntiHB"/></td>
+                                                   onclick="popup('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>i_hepB');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.btnAntiHB"/></a><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formRourke2.formAntiHB"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
