@@ -42,7 +42,7 @@
 
 <%
     String monthCodeParam = request.getParameter("monthCode");
-    if (monthCodeParam == null || !monthCodeParam.matches("[A-Za-z0-9]+")) {
+    if (monthCodeParam == null || !monthCodeParam.matches("^[A-Za-z0-9]+$")) {
         response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid monthCode parameter");
         return;
     }

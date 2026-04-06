@@ -533,6 +533,7 @@ public class ExtractBean implements Serializable {
             }
         } catch (SecurityException se) {
             logger.error("Path traversal attempt blocked in writeFile: {}", ohipFilename, se);
+            throw se;
         } catch (Exception e) {
             logger.error("Write OHIP File Error", e);
         }
@@ -551,6 +552,7 @@ public class ExtractBean implements Serializable {
             }
         } catch (SecurityException se) {
             logger.error("Path traversal attempt blocked in writeHtml: {}", htmlFilename, se);
+            throw se;
         } catch (Exception e) {
             logger.error("Write HTML File Error!!!", e);
         }
