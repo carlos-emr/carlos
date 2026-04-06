@@ -70,6 +70,11 @@ public class Utilities {
 
     public static ArrayList<String> separateMessages(String fileName) throws Exception {
 
+        // Validate the file path is within DOCUMENT_DIR to prevent path traversal
+        CarlosProperties props = CarlosProperties.getInstance();
+        String place = props.getProperty("DOCUMENT_DIR");
+        PathValidationUtils.validateExistingPath(new File(fileName), new File(place));
+
         ArrayList<String> messages = new ArrayList<String>();
         try (InputStream is = new FileInputStream(fileName);
              BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
@@ -202,13 +207,15 @@ public class Utilities {
             File baseDir = new File(place);
             File targetFile = PathValidationUtils.validatePath(filename, baseDir);
 
+            // Derive the safe output name from the validated file (not the raw input)
+            String safeName = targetFile.getName();
             // Remove .enc
-            filename = filename.replaceAll("\\.enc$", "");
-            if (filename.toLowerCase().endsWith(".pdf")) {
-                filename = filename.substring(0, filename.length() - 4);
+            safeName = safeName.replaceAll("\\.enc$", "");
+            if (safeName.toLowerCase().endsWith(".pdf")) {
+                safeName = safeName.substring(0, safeName.length() - 4);
             }
 
-            retVal = new File(baseDir, "DocUpload." + filename + "." + System.currentTimeMillis() + ".pdf").toString();
+            retVal = new File(baseDir, "DocUpload." + safeName + "." + System.currentTimeMillis() + ".pdf").toString();
 
             try (OutputStream os = new FileOutputStream(retVal)) {
                 int bytesRead;
