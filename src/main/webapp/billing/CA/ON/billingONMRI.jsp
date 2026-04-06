@@ -139,7 +139,7 @@
         String xml_appointment_date = request.getParameter("xml_appointment_date") == null ? UtilDateUtilities.DateToString(new java.util.Date(), "yyyy-MM-dd") : request.getParameter("xml_appointment_date");
     %>
 
-    <script language="JavaScript" type="text/JavaScript">
+    <script>
 
         var checkSubmitFlg = false;
 
@@ -153,28 +153,16 @@
         }
 
         function recreate(si) {
-            ret = confirm("Are you sure you want to regenerate the file? \n\nWARNING: This should only be performed in very specific circumstances. If you are unsure, consult your OSCAR administrator before using this feature.");
+            var ret = confirm("Are you sure you want to regenerate the file? \n\nWARNING: This should only be performed in very specific circumstances. If you are unsure, consult your OSCAR administrator before using this feature.");
             if (ret) {
-                ss = document.forms[0].billcenter[document.forms[0].billcenter.selectedIndex].value;
+                var ss = document.forms[0].billcenter[document.forms[0].billcenter.selectedIndex].value;
                 var su = document.forms[0].useProviderMOH.checked;
-                location.href = "onregenreport.jsp?diskId=" + encodeURIComponent(si) + "&billcenter=" + encodeURIComponent(ss) + "&useProviderMOH=" + encodeURIComponent(su);
+                var params = new URLSearchParams({diskId: si, billcenter: ss, useProviderMOH: su});
+                window.location.href = "onregenreport.jsp?" + params.toString();
             }
         }
 
-    </script>
-
-
-    <script>
-        function recreate(si) {
-            ret = confirm("Are you sure you want to regenerate the file? \n\nWARNING: This should only be performed in very specific circumstances. If you are unsure, consult your OSCAR administrator before using this feature.");
-            if (ret) {
-                ss = document.forms[0].billcenter[document.forms[0].billcenter.selectedIndex].value;
-                var su = document.forms[0].useProviderMOH.checked;
-                location.href = "onregenreport.jsp?diskId=" + encodeURIComponent(si) + "&billcenter=" + encodeURIComponent(ss) + "&useProviderMOH=" + encodeURIComponent(su);
-            }
-        }
-
-        var providerBillCenterMap = new Object();
+        var providerBillCenterMap = {};
         <%
         ProviderBillCenterDao providerBillCenterDao = (ProviderBillCenterDao)SpringUtils.getBean(ProviderBillCenterDao.class);
 
@@ -183,7 +171,7 @@
             ProviderBillCenter pbc = providerBillCenterDao.find(providerNo);
             if(pbc != null) {
             %>
-        providerBillCenterMap['<%=providerNo%>'] = '<%=pbc.getBillCenterCode()%>';
+        providerBillCenterMap['<%= Encode.forJavaScript(providerNo) %>'] = '<%= Encode.forJavaScript(pbc.getBillCenterCode()) %>';
         <%
         }
     }
@@ -265,7 +253,7 @@
                         if (providerStr.size() == 1) {
                             String temp[] = ((String) providerStr.get(0)).split("\\|");
                     %>
-                    <option value="<%=temp[0]%>"><%=temp[1]%>, <%=temp[2]%>
+                    <option value="<%= Encode.forHtmlAttribute(temp[0]) %>"><%= Encode.forHtml(temp[1]) %>, <%= Encode.forHtml(temp[2]) %>
                     </option>
                     <%
                     } else {
@@ -276,7 +264,7 @@
                         for (int i = 0; i < providerStr.size(); i++) {
                             String temp[] = ((String) providerStr.get(i)).split("\\|");
                     %>
-                    <option value="<%=temp[0]%>"><%=temp[1]%>, <%=temp[2]%>
+                    <option value="<%= Encode.forHtmlAttribute(temp[0]) %>"><%= Encode.forHtml(temp[1]) %>, <%= Encode.forHtml(temp[2]) %>
                     </option>
                     <%
                             }
@@ -292,8 +280,8 @@
                         for (Enumeration e = BillingDataHlp.propBillingCenter.propertyNames(); e.hasMoreElements(); ) {
                             String centerCode = (String) e.nextElement();
                     %>
-                    <option value="<%=centerCode%>"
-                            <%=oscarVariables.getProperty("billcenter").compareTo(centerCode) == 0 ? "selected" : ""%>><%=BillingDataHlp.propBillingCenter.getProperty(centerCode)%>
+                    <option value="<%= Encode.forHtmlAttribute(centerCode) %>"
+                            <%=oscarVariables.getProperty("billcenter").compareTo(centerCode) == 0 ? "selected" : ""%>><%= Encode.forHtml(BillingDataHlp.propBillingCenter.getProperty(centerCode)) %>
                     </option>
                     <%
                         }
@@ -301,10 +289,10 @@
                 </select>
             </div>
 
-            <input type="hidden" name="monthCode" value="<%=monthCode%>">
+            <input type="hidden" name="monthCode" value="<%= Encode.forHtmlAttribute(monthCode) %>">
             <input type="hidden" name="verCode" value="V03">
-            <input type="hidden" name="curUser" value="<%=curProvider_no%>">
-            <input type="hidden" name="curDate" value="<%=nowDate%>">
+            <input type="hidden" name="curUser" value="<%= Encode.forHtmlAttribute(curProvider_no) %>">
+            <input type="hidden" name="curDate" value="<%= Encode.forHtmlAttribute(nowDate) %>">
 
 
             <div class="col-md-4">
@@ -384,26 +372,26 @@
 
         %>
 
-        <tr onMouseOver="this.style.backgroundColor='pink';" onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-            bgcolor="<%=bgColor%>">
-            <td><font size="2"><%=pro_name%>
+        <tr onMouseOver="this.style.backgroundColor='pink';" onMouseout="this.style.backgroundColor='<%= Encode.forJavaScriptAttribute(bgColor) %>';"
+            bgcolor="<%= Encode.forHtmlAttribute(bgColor) %>">
+            <td><font size="2"><%= Encode.forHtml(pro_name) %>
             </font></td>
-            <td align="center"><font size="2"><%=updatedate.substring(0, 16)%>
+            <td align="center"><font size="2"><%= Encode.forHtml(updatedate.substring(0, 16)) %>
             </font></td>
-            <td align="center"><font size="2"><%=cr%>
+            <td align="center"><font size="2"><%= Encode.forHtml(cr) %>
             </font></td>
-            <td align="right"><font size="2"><%=total%>
+            <td align="right"><font size="2"><%= Encode.forHtml(total) %>
             </font></td>
 
             <td width="15%"><font size="2"> <a
-                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<%=oFile%>"
-                    target="_blank"><%=oFile%>
+                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<%= Encode.forUriComponent(oFile) %>"
+                    target="_blank"><%= Encode.forHtml(oFile) %>
             </a></font></td>
             <td width="3%"><input type="button" value="R" class="btn d-print-none"
                                   onclick="recreate(<%=obj.getId() %>)"/></td>
             <td><font size="2"> <a
-                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<%=hFile%>"
-                    target="_blank"><%=hFile%>
+                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<%= Encode.forUriComponent(hFile) %>"
+                    target="_blank"><%= Encode.forHtml(hFile) %>
             </a></font></td>
         </tr>
 
@@ -442,23 +430,23 @@
         %>
 
         <tr bgcolor="<%=count%2==0?yearColor:"white"%>">
-            <td><%if (pro_name != null) { %><font size="2"><%=pro_name%>
+            <td><%if (pro_name != null) { %><font size="2"><%= Encode.forHtml(pro_name) %>
             </font><%}%></td>
-            <td align="center"><font size="2"><%=updatedate%>
+            <td align="center"><font size="2"><%= Encode.forHtml(updatedate) %>
             </font></td>
-            <td align="center"><font size="2"><%=cr%>
+            <td align="center"><font size="2"><%= Encode.forHtml(cr) %>
             </td>
             <td align="right"><font
-                    size="2"><%=total.substring(0, total.indexOf(".")) + total.substring(total.indexOf("."), total.indexOf(".") + 3)%>
+                    size="2"><%= Encode.forHtml(total.substring(0, total.indexOf(".")) + total.substring(total.indexOf("."), total.indexOf(".") + 3)) %>
             </font></td>
 
             <td colspan=2><font size="2"> <a
-                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<%=oFile%>"
-                    target="_blank"><%=oFile%>
+                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<%= Encode.forUriComponent(oFile) %>"
+                    target="_blank"><%= Encode.forHtml(oFile) %>
             </a></font></td>
             <td><font size="2"> <a
-                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<%=hFile%>"
-                    target="_blank"><%=hFile%>
+                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<%= Encode.forUriComponent(hFile) %>"
+                    target="_blank"><%= Encode.forHtml(hFile) %>
             </a></font></td>
         </tr>
 
