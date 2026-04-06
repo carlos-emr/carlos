@@ -150,13 +150,11 @@ public class SplitDocument2Action extends ActionSupport {
                 File docDir = new File(docdownload);
                 File safeFile = PathValidationUtils.validatePath(newDoc.getFileName(), docDir);
                 Path pdfPath = safeFile.toPath();
+                // Atomically create the file with owner-only permissions before writing content,
+                // eliminating the window where a new file exists with default world-readable permissions.
+                Files.createFile(pdfPath, PosixFilePermissions.asFileAttribute(OWNER_RW_ONLY));
                 newPdf.save(pdfPath.toString());
                 newPdf.close();
-                try {
-                    Files.setPosixFilePermissions(pdfPath, OWNER_RW_ONLY);
-                } catch (IOException e) {
-                    MiscUtils.getLogger().error("Failed to set file permissions on saved PDF: " + pdfPath, e);
-                }
 
 
                 WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
@@ -353,7 +351,7 @@ public class SplitDocument2Action extends ActionSupport {
         try {
             Files.setPosixFilePermissions(file.toPath(), OWNER_RW_ONLY);
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error setting file permissions on " + file.getName(), e);
+            MiscUtils.getLogger().error("Error setting file permissions on " + file.getAbsolutePath(), e);
         }
     }
 }
