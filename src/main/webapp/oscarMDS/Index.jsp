@@ -150,7 +150,7 @@
                                 <% if (demographicNo == null) { %>
                                 <input type="button" class="smallButton"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnSearch"/>"
-                                       onClick="window.location='${pageContext.servletContext.contextPath}/oscarMDS/Search.jsp?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>'"/>
+                                       onClick="window.location='${pageContext.servletContext.contextPath}/oscarMDS/Search.jsp?providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(providerNo))) %>'"/>
                                 <% } %>
                                 <input type="button" class="smallButton"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnLoadAll"/>"
@@ -160,7 +160,7 @@
                             </td>
 
                             <td align="right" valign="top">
-                                <a href="javascript:parent.reportWindow('${pageContext.servletContext.contextPath}/oscarMDS/ForwardingRules.jsp?providerNo=<%= Encode.forJavaScriptAttribute(providerNo) %>');"
+                                <a href="javascript:parent.reportWindow('${pageContext.servletContext.contextPath}/oscarMDS/ForwardingRules.jsp?providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(providerNo))) %>');"
                                    style="color: #FFFFFF;">Forwarding Rules</a>
                                 <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/lab/CA/ALL/testUploader.jsp')"
                                    style="color: #FFFFFF; "><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.hl7LabUpload"/></a>

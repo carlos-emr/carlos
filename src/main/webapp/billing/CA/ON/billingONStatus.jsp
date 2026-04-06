@@ -230,6 +230,8 @@
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
               rel="stylesheet">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css">
+        <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});

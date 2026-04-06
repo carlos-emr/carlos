@@ -1196,7 +1196,7 @@
             initProviderAutocomplete("#autocompleteprov", "<%= request.getContextPath()%>",
                 function (providerNo, firstName, lastName) {
                     document.getElementById('provfind').value = providerNo;
-                    addflagprovider(lastName, firstName, providerNo);
+                    addflagprovider(firstName, lastName, providerNo);
                     document.getElementById('autocompleteprov').value = '';
                 });
 

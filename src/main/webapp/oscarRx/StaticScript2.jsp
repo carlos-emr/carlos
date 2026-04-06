@@ -152,7 +152,7 @@
                         credentials: 'same-origin',
                         body: data
                     }).then(function() {
-                        window.location.href = "<c:out value="${ctx}"/>" + "/oscarRx/StaticScript2.jsp?regionalIdentifier=" + '<%= Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier)) %>' + "&cn=" + '<%= Encode.forJavaScript(io.github.carlos_emr.carlos.util.StringUtils.noNull(cn)) %>';
+                        window.location.href = "<c:out value="${ctx}"/>" + "/oscarRx/StaticScript2.jsp?regionalIdentifier=" + '<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier))) %>' + "&cn=" + '<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(cn))) %>';
                     });
                 }
             }
