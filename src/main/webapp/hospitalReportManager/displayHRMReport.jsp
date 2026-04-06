@@ -215,20 +215,14 @@
             src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
     <script type="text/javascript" src="${pageContext.request.contextPath}/share/javascript/carlos-ajax.js"></script>
 
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/yui/js/yahoo-dom-event.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/yui/js/connection-min.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/yui/js/animation-min.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/yui/js/datasource-min.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/yui/js/autocomplete-min.js"></script>
     <script type="text/javascript"
             src="${pageContext.request.contextPath}/js/demographicProviderAutocomplete.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/carlosAutocomplete.js"></script>
     <script type="text/javascript" src="<%=request.getContextPath()%>/hospitalReportManager/hrmActions.js"></script>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
 
     <link rel="stylesheet" href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.css"
           type="text/css"/>
-    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/yui/css/fonts-min.css"/>
-    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/yui/css/autocomplete.css"/>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.request.contextPath}/share/css/demographicProviderAutocomplete.css"/>
 
@@ -913,52 +907,27 @@
     <script type="text/javascript">
         jQuery(setupHrmDemoAutoCompletion(<%=hrmReportId%>));
 
-        YAHOO.example.BasicRemote = function () {
-            var url = "<%= request.getContextPath() %>/provider/SearchProvider.do";
-            var oDS = new YAHOO.util.XHRDataSource(url, {connMethodPost: true, connXhrMode: 'ignoreStaleResponses'});
-            oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;// Set the responseType
-            // Define the schema of the delimited resultsTEST, PATIENT(1985-06-15)
-            oDS.responseSchema = {
-                resultsList: "results",
-                fields: ["providerNo", "firstName", "lastName"]
-            };
-            // Enable caching
-            oDS.maxCacheEntries = 0;
-            // Instantiate the AutoComplete
-            var oAC = new YAHOO.widget.AutoComplete("autocompleteprov<%=hrmReportId%>hrm", "autocomplete_choicesprov<%=hrmReportId%>hrm", oDS);
-            oAC.queryMatchSubset = true;
-            oAC.minQueryLength = 3;
-            oAC.maxResultsDisplayed = 25;
-            oAC.formatResult = resultFormatter3;
-            oAC.queryMatchContains = true;
-            oAC.itemSelectEvent.subscribe(function (type, args) {
-                var myAC = args[0];
-                var str = myAC.getInputEl().id.replace("autocompleteprov", "provfind");
-                var oData = args[2];
-                document.getElementById(str).value = args[2][0];
-                myAC.getInputEl().value = args[2][2] + "," + args[2][1];
+        initProviderAutocomplete("#autocompleteprov<%=hrmReportId%>hrm", "<%= request.getContextPath() %>",
+            function (providerNo, firstName, lastName) {
+                var inputEl = document.getElementById("autocompleteprov<%=hrmReportId%>hrm");
+                var str = inputEl.id.replace("autocompleteprov", "provfind");
+                document.getElementById(str).value = providerNo;
+
                 var adoc = document.createElement('div');
-                adoc.appendChild(document.createTextNode(oData[2] + " " + oData[1]));
+                adoc.appendChild(document.createTextNode(lastName + " " + firstName));
                 var idoc = document.createElement('input');
                 idoc.setAttribute("type", "hidden");
                 idoc.setAttribute("name", "flagproviders");
-                idoc.setAttribute("value", oData[0]);
+                idoc.setAttribute("value", providerNo);
                 adoc.appendChild(idoc);
 
                 var providerList = document.getElementById('providerList<%=hrmReportId%>hrm');
                 providerList.appendChild(adoc);
 
-                myAC.getInputEl().value = '';//;oData.fname + " " + oData.lname ;
+                inputEl.value = '';
 
-                addProvToHrm('<%=hrmReportId %>', args[2][0]);
+                addProvToHrm('<%=hrmReportId %>', providerNo);
             });
-
-
-            return {
-                oDS: oDS,
-                oAC: oAC
-            };
-        }();
     </script>
 
     <%

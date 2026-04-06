@@ -69,16 +69,12 @@
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
         <script src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
-        <script src="<%=request.getContextPath()%>/share/yui/js/yahoo-dom-event.js"></script>
-        <script src="<%=request.getContextPath()%>/share/yui/js/connection-min.js"></script>
-        <script src="<%=request.getContextPath()%>/share/yui/js/animation-min.js"></script>
-        <script src="<%=request.getContextPath()%>/share/yui/js/datasource-min.js"></script>
-        <script src="<%=request.getContextPath()%>/share/yui/js/autocomplete-min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="<%=request.getContextPath()%>/js/demographicProviderAutocomplete.js"></script>
+        <script src="<%=request.getContextPath()%>/js/carlosAutocomplete.js"></script>
 
         <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath()%>/share/yui/css/fonts-min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath()%>/share/yui/css/autocomplete.css" rel="stylesheet">
+        <link href="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath()%>/share/css/demographicProviderAutocomplete.css" media="all"
               rel="stylesheet">
 
@@ -232,64 +228,17 @@
     </form>
 
     <script>
-
-        YAHOO.example.BasicRemote = function () {
-            var url = "<%= request.getContextPath() %>/demographic/SearchDemographic.do";
-            var oDS = new YAHOO.util.XHRDataSource(url, {connMethodPost: true, connXhrMode: 'ignoreStaleResponses'});
-            oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;
-            oDS.responseSchema = {
-                resultsList: "results",
-                fields: ["formattedName", "fomattedDob", "demographicNo", "status"]
-            };
-            oDS.maxCacheEntries = 0;
-            var oAC = new YAHOO.widget.AutoComplete("demographicAC", "demographic_choices", oDS);
-            oAC.queryMatchSubset = true;
-            oAC.minQueryLength = 3;
-            oAC.maxResultsDisplayed = 25;
-            oAC.formatResult = resultFormatter2;
-            oAC.queryMatchContains = true;
-            oAC.itemSelectEvent.subscribe(function (type, args) {
-                var oData = args[2];
-                var demographicNo = args[2][2];
-                var demographicName = args[2][0];
+        initDemographicAutocomplete("#demographicAC", "<%= request.getContextPath() %>",
+            function (demographicNo, formattedName) {
                 document.getElementById('demographicNo').value = demographicNo;
-                document.getElementById('demographicAC').value = demographicName;
+                document.getElementById('demographicAC').value = formattedName;
             });
-            return {
-                oDS: oDS,
-                oAC: oAC
-            };
-        }();
 
-
-        YAHOO.example.BasicRemote = function () {
-            var url = "<%= request.getContextPath() %>/provider/SearchProvider.do";
-            var oDS = new YAHOO.util.XHRDataSource(url, {connMethodPost: true, connXhrMode: 'ignoreStaleResponses'});
-            oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;
-            oDS.responseSchema = {
-                resultsList: "results",
-                fields: ["providerNo", "firstName", "lastName"]
-            };
-            oDS.maxCacheEntries = 0;
-            var oAC = new YAHOO.widget.AutoComplete("providerAC", "provider_choices", oDS);
-            oAC.queryMatchSubset = true;
-            oAC.minQueryLength = 3;
-            oAC.maxResultsDisplayed = 25;
-            oAC.formatResult = resultFormatter3;
-            oAC.queryMatchContains = true;
-            oAC.itemSelectEvent.subscribe(function (type, args) {
-                var oData = args[2];
-                var providerNo = args[2][0];
-                var providerName = args[2][2] + "," + args[2][1];
+        initProviderAutocomplete("#providerAC", "<%= request.getContextPath() %>",
+            function (providerNo, firstName, lastName) {
                 document.getElementById('providerNo').value = providerNo;
-                document.getElementById('providerAC').value = providerName;
+                document.getElementById('providerAC').value = lastName + "," + firstName;
             });
-            return {
-                oDS: oDS,
-                oAC: oAC
-            };
-        }();
-
     </script>
     </body>
 </html>
