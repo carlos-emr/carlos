@@ -184,8 +184,12 @@ public class DocumentManagerImpl implements DocumentManager {
         // Generates filename and path data and saves the document data to the file system
         String documentPath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         String fileName = dateTimeFormat.format(today) + "_" + document.getDocfilename();
-		fileName = MiscUtils.sanitizeFileName(fileName);
-        File file = new File(documentPath + File.separator + fileName);
+        File docDir = new File(documentPath);
+        if (!docDir.exists() || !docDir.isDirectory()) {
+            throw new IllegalStateException("Document directory does not exist or is not a directory: " + documentPath);
+        }
+        File file = PathValidationUtils.validatePath(fileName, docDir);
+        fileName = file.getName();
         FileUtils.writeByteArrayToFile(file, documentData);
 
         // Gets the number of pages for the document
