@@ -19,26 +19,40 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <c:if test="${page eq 1}">
-<div class="bg-light text-light">
-    <row>
+<div class="inbox-toolbar">
         <input id="topFBtn" type="button" class="btn btn-primary btn-sm ms-1" value="<fmt:message key="oscarMDS.index.btnForward"/>" onclick="submitForward('${e:forJavaScript(currentUser)}')">
         <input id="topFileBtn" type="button" class="btn btn-primary btn-sm" value="<fmt:message key='oscarMDS.index.btnFile'/>" onclick="submitFile('${e:forJavaScript(currentUser)}')"/>
-        <div class="d-flex align-items-center position-relative float-end">
-            <span class="d-inline me-2 py-1 text-dark fw-bold"><fmt:message key="inboxhub.list.documents"/> <span id="totalDocsCountStat" class="badge" style="background-color: #5a9bd3; color: white;">0</span></span>
-            <span class="d-inline me-2 py-1 text-dark fw-bold"><fmt:message key="inboxhub.list.labs"/> <span id="totalLabssCountStat" class="badge" style="background-color: #8cbfda; color: white;">0</span></span>
-            <c:if test="${!CarlosProperties.getInstance().isBritishColumbiaBillingRegion()}">
-                <span class="d-inline py-1 text-dark fw-bold"><fmt:message key="inboxhub.list.hrms"/> <span id="totalHRMsCountStat" class="badge" style="background-color: #b3d9eb; color: black;">0</span></span>
-            </c:if>
-            <div id="loadingLabel" class="loading-label ms-2 me-2 text-dark"><fmt:message key="inboxhub.list.loadingSearchResults"/></div>
-            <div class="progress me-2 position-relative" id="loadInboxListProgress" style="width: 15vw; height: 25px; display: none; flex-grow: 1; background-color: #c7c7c7;">
-                <div id="loadInboxListProgressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
-                    <span id="inboxListProgressCount" class="count text-white" style="position: absolute; width: 100%; text-align: center; font-weight: 600;">0% Complete</span>
-                </div>
+        <%-- Acknowledged toggle: switches between showing New vs Acknowledged items --%>
+        <label class="inbox-toolbar-link" for="ackToggle">
+            <input type="checkbox" id="ackToggle" onchange="toggleAcknowledged(this.checked)">Acknowledged
+        </label>
+        <%-- Rapid Review toggle: after acknowledging a lab in the popup, auto-opens the next item --%>
+        <label class="inbox-toolbar-link" for="rapidReviewToggle">
+            <input type="checkbox" id="rapidReviewToggle" onchange="toggleRapidReview(this.checked)">Rapid Review
+        </label>
+        <%-- Type filter badges: click to filter inbox to only that type. "All" resets. Active filter is highlighted. --%>
+        <span class="inbox-toolbar-link inbox-type-filter active-type-filter" id="filterAll" onclick="filterByType('ALL')" title="Show all types" style="margin-left:auto;">
+            All
+        </span>
+        <span class="inbox-toolbar-link inbox-type-filter" id="filterDOC" onclick="filterByType('DOC')" title="Show only Documents">
+            <fmt:message key="inboxhub.list.documents"/> <span id="totalDocsCountStat" class="badge" style="background-color: #337ab7; color: white;">0</span>
+        </span>
+        <span class="inbox-toolbar-link inbox-type-filter" id="filterHL7" onclick="filterByType('HL7')" title="Show only Labs">
+            <fmt:message key="inboxhub.list.labs"/> <span id="totalLabssCountStat" class="badge" style="background-color: #337ab7; color: white;">0</span>
+        </span>
+        <c:if test="${!CarlosProperties.getInstance().isBritishColumbiaBillingRegion()}">
+            <span class="inbox-toolbar-link inbox-type-filter" id="filterHRM" onclick="filterByType('HRM')" title="Show only HRMs">
+                <fmt:message key="inboxhub.list.hrms"/> <span id="totalHRMsCountStat" class="badge" style="background-color: #337ab7; color: white;">0</span>
+            </span>
+        </c:if>
+        <div id="loadingLabel" class="loading-label ms-2 me-2 text-dark" style="display:none;"><fmt:message key="inboxhub.list.loadingSearchResults"/></div>
+        <div class="progress me-2 position-relative" id="loadInboxListProgress" style="width: 15vw; height: 25px; display: none; flex-grow: 1; background-color: #c7c7c7;">
+            <div id="loadInboxListProgressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                <span id="inboxListProgressCount" class="count text-white" style="position: absolute; width: 100%; text-align: center; font-weight: 600;">0% Complete</span>
             </div>
-            <button id="stopLoadingInboxList" onclick="stopInboxhubListProgress(0)" class="btn btn-sm btn-danger" style="display: none;"><fmt:message key="inboxhub.list.stop"/></button>
         </div>
-    </row>
-    <row>
+        <button id="stopLoadingInboxList" onclick="stopInboxhubListProgress(0)" class="btn btn-sm btn-danger" style="display: none;"><fmt:message key="inboxhub.list.stop"/></button>
+</div>
         <div class="inbox-table-responsive">
         <table table id="inbox_table" class="table table-striped inbox-table">
             <thead class="inbox-table-sticky-header">

@@ -90,6 +90,50 @@
         text-decoration: underline;
     }
 
+    /* Fix YUI autocomplete — the yui-skin-sam stylesheet sets position:absolute
+       on the input and container which breaks the table-based layout */
+    body.yui-skin-sam .yui-ac-input {
+        position: static !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    body.yui-skin-sam .yui-ac {
+        position: relative !important;
+        display: block !important;
+    }
+    body.yui-skin-sam .yui-ac-container {
+        top: auto !important;
+    }
+
+    /* Override the global .autocomplete { display:none } from autocomplete.css
+       for YUI autocomplete containers — YUI manages visibility on its inner elements */
+    #autocomplete_choices.autocomplete,
+    #autocomplete_choicesprov.autocomplete {
+        display: block !important;
+        position: relative;
+        border: none;
+        box-shadow: none;
+        background: transparent;
+        max-height: none;
+        overflow: visible;
+    }
+
+    /* Constrain the left panel so fields don't extend off-page */
+    #incoming-docs-wrapper > table { width: 100%; table-layout: fixed; }
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child { width: 380px; overflow: hidden; }
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child table { width: 100% !important; }
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child input[type="text"],
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child select {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    #incoming-docs-wrapper fieldset { border: 1px solid #ddd; border-radius: 4px; padding: 8px; margin-bottom: 8px; }
+    #incoming-docs-wrapper legend { font-size: 12px; font-weight: bold; padding: 0 4px; width: auto; float: none; }
+    #incoming-docs-wrapper fieldset input[type="button"] {
+        font-size: 11px; padding: 2px 6px; margin: 1px;
+    }
+
+
     .multiPage {
         background-color: RED;
         color: WHITE;
@@ -233,8 +277,13 @@
     }
 %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="<%= request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/global.css"/>
+    <link href="<%= request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
     <!-- main calendar program -->
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
     <!-- language for the calendar -->
@@ -256,7 +305,7 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/autocomplete-min.js"></script>
 
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/demographicProviderAutocomplete.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/documentDescriptionTypeahead.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/documentDescriptionTypeahead.js?v=<%= System.currentTimeMillis() %>"></script>
 
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/fonts-min.css"/>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/autocomplete.css"/>
@@ -805,8 +854,12 @@
         }
     </script>
 </head>
-<body>
-<div id="incoming-docs-wrapper" class="container">
+<body class="yui-skin-sam">
+<div class="page-header-bar">
+    <h4 class="page-header-title"><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.incomingDocs"/></h4>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="window.close();">Back</button>
+</div>
+<div id="incoming-docs-wrapper" class="container-fluid">
     <table>
         <tr style="display: flex;">
             <td align="left" valign="top">
@@ -823,13 +876,12 @@
                     <table width="350">
                         <%if (errorMessage.length() > 0) {%>
                         <tr>
-                            <td><b><font color="red"><%=errorMessage%>
-                            </font></b></td>
+                            <td><div class="alert alert-danger py-1 px-2 mb-1" role="alert"><%=Encode.forHtml(errorMessage)%></div></td>
                         </tr>
                         <%}%>
                         <tr>
                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.queue"/>:
-                                <select id="queueList" name="queueList" onchange="setQueue();">
+                                <select id="queueList" name="queueList" onchange="setQueue();" class="form-select form-select-sm" style="display:inline-block;width:auto;">
                                     <%
                                         for (Hashtable ht : queues) {
                                             int id = (Integer) ht.get("id");
@@ -842,15 +894,13 @@
                             </td>
                         </tr>
                         <tr>
-                            <td><input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.fax"/>"
-                                       onclick="loadPdf('1','Fax');">
-                                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.mail"/>"
-                                       onclick="loadPdf('1','Mail');">
-                                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.file"/>"
-                                       onclick="loadPdf('1','File');">
-                                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.refile"/>"
-                                       onclick="loadPdf('1','Refile');">
-
+                            <td>
+                                <div class="d-flex gap-1 flex-wrap">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Fax');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.fax"/></button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Mail');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.mail"/></button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','File');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.file"/></button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Refile');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.refile"/></button>
+                                </div>
                             </td>
                         </tr>
                         <tr>
@@ -877,26 +927,21 @@
                                                 </select></td>
                                         </tr>
                                         <tr>
-                                            <td><input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.first"/>"
-                                                       onclick="loadPdf('1','<%= Encode.forJavaScriptAttribute(pdfDir) %>');">
-                                                <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.previous"/>"
-                                                       onclick="loadPdf('<%=Integer.parseInt(pdfNo) - 1%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>');">
-                                                <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.next"/>"
-                                                       onclick="loadPdf('<%=Integer.parseInt(pdfNo) + 1%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>');">
-                                                <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.last"/>"
-                                                       onclick="loadPdf('<%=pdfList.size()%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>');">
+                                            <td>
+                                                <div class="d-flex gap-1 flex-wrap mb-1">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','<%= Encode.forJavaScriptAttribute(pdfDir) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.first"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('<%=Integer.parseInt(pdfNo) - 1%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.previous"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('<%=Integer.parseInt(pdfNo) + 1%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.next"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('<%=pdfList.size()%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.last"/></button>
+                                                </div>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td><input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
-                                                       onClick="printPdf('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
-                                                <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.deletePDF"/>"
-                                                       onclick="deletePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
+                                            <td>
+                                                <div class="d-flex gap-1 flex-wrap mb-1">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="printPdf('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/></button>
+                                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="deletePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.deletePDF"/></button>
+                                                </div>
                                             </td>
                                         </tr>
                                     </table>
@@ -920,48 +965,41 @@
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td><input type="button" id="firstP"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.first"/>"
-                                                       onclick="firstPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
-                                                <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.previous"/>"
-                                                       onclick="prevPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
-                                                <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.next"/>"
-                                                       onclick="nextPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
-                                                <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.last"/>"
-                                                       onclick="lastPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
-
+                                            <td>
+                                                <div class="d-flex gap-1 flex-wrap mb-1">
+                                                    <button type="button" id="firstP" class="btn btn-outline-secondary btn-sm" onclick="firstPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.first"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="prevPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.previous"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="nextPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.next"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="lastPage('<%= Encode.forJavaScriptAttribute(queueIdStr) %>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.last"/></button>
+                                                </div>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.rotateThisPage"/>:<input
-                                                    type="button" value="180"
-                                                    onclick="rotatePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','180');">
-                                                <input type="button" value="+90"
-                                                       onclick="rotatePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','90');">
-                                                <input type="button" value="-90"
-                                                       onclick="rotatePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','M90');">
+                                            <td>
+                                                <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.rotateThisPage"/>:</small>
+                                                <div class="d-flex gap-1 flex-wrap mb-1">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotatePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','180');">180</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotatePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','90');">+90</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotatePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','M90');">-90</button>
+                                                </div>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.rotateAllPages"/>:<input
-                                                    type="button" value="180"
-                                                    onclick="rotateAllPagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','180');">
-                                                <input type="button" value="+90"
-                                                       onclick="rotateAllPagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','90');">
-                                                <input type="button" value="-90"
-                                                       onclick="rotateAllPagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','M90');">
+                                            <td>
+                                                <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.rotateAllPages"/>:</small>
+                                                <div class="d-flex gap-1 flex-wrap mb-1">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotateAllPagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','180');">180</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotateAllPagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','90');">+90</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotateAllPagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>','M90');">-90</button>
+                                                </div>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td><input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.extractPage"/>"
-                                                       onclick="extractPagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
-                                                <input type="button"
-                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.deletePage"/>"
-                                                       onclick="deletePagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');">
+                                            <td>
+                                                <div class="d-flex gap-1 flex-wrap">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="extractPagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.extractPage"/></button>
+                                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="deletePagePdf('<%=pdfNo%>','<%= Encode.forJavaScriptAttribute(pdfDir) %>','<%= Encode.forJavaScriptAttribute(pdfName) %>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.deletePage"/></button>
+                                                </div>
                                             </td>
                                         </tr>
                                     </table>
@@ -1104,7 +1142,7 @@
                                     <input id="saved" type="hidden" name="saved" value="false"/>
                                     <input type="hidden" name="demog" value="-1" id="demofind"/>
                                     <input tabIndex="<%=tabIndex++%>" type="text" id="autocompletedemo"
-                                           onchange="checkSave('')" name="demographicKeyword"/>
+                                           onchange="checkSave('')" name="demographicKeyword" style="width:100%;"/>
                                     <div id="autocomplete_choices" class="autocomplete"></div>
                                 </td>
                             </tr>
@@ -1167,15 +1205,15 @@
                                     }%>
 
                                     <input tabIndex="<%=tabIndex++%>" type="text" id="autocompleteprov"
-                                           name="ProvKeyword"/>
+                                           name="ProvKeyword" style="width:100%;"/>
                                     <div id="autocomplete_choicesprov" class="autocomplete"></div>
                                     <div id="providerList"></div>
                                 </td>
                             </tr>
                             <tr>
                                 <td colspan="2" align="left"><p>
-                                    <p><input type="submit" onclick="return checkDocument();" name="save"
-                                              tabIndex="<%=tabIndex++%>" id="save" disabled value="Save & Next"/></td>
+                                    <p><button type="submit" onclick="return checkDocument();" name="save"
+                                              tabIndex="<%=tabIndex++%>" id="save" disabled class="btn btn-primary btn-sm">Save & Next</button></td>
                             </tr>
                         </table>
                     </form>

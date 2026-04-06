@@ -106,6 +106,7 @@
 
      <!-- Bootstrap -->
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/global.css"/>
 
     <!-- jQuery for preference AJAX calls (CSRFGuard auto-patches jQuery XHR) -->
     <script src="<%= Encode.forHtmlAttribute(context) %>/library/jquery/jquery-3.7.1.min.js"></script>
@@ -175,7 +176,7 @@
         transition: border-color 0.2s, background-color 0.2s;
       }
       #drop-area.drag-over {
-        border-color: #0d6efd;
+        border-color: var(--carlos-primary, #337ab7);
         background-color: #f0f7ff;
       }
       .progress { margin-bottom: 10px; }
@@ -184,9 +185,13 @@
 </head>
 <body onload="setDropList();">
     <div class="container">
+      <div class="page-header-bar">
+          <h4 class="page-header-title"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgManageUploadDocument" /></h4>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="window.close();">Back</button>
+      </div>
       <div class="card">
         <div class="card-header">
-          <h3 class="card-title"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgManageUploadDocument" /></h3>
+          <h6 class="card-title mb-0 fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.title" /></h6>
         </div>
         <div class="card-body">
             <ul>

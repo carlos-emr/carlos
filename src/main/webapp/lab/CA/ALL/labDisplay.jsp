@@ -561,6 +561,15 @@ input[id^='acklabel_']{
 #labVersionInfoModal .status {
     font-weight: bold;
 }
+
+/* Macros dropdown — hover to open, Bootstrap handles the click interactions */
+.dropdown:hover > .dropdown-menu {
+    display: block;
+}
+.dropdown-item:hover, .dropdown-item:focus {
+    background-color: #337ab7 !important;
+    color: #fff !important;
+}
     </style>
 
     <script>
@@ -893,7 +902,8 @@ input[id^='acklabel_']{
         fetch(url, {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: data
+            body: data,
+            credentials: 'same-origin'
         })
         .then(function(response) { return response.json(); })
         .then(function(json) {
@@ -921,7 +931,8 @@ input[id^='acklabel_']{
         fetch(url, {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: params.toString()
+            body: params.toString(),
+            credentials: 'same-origin'
         })
         .then(function() {
             if (closeOnSuccess) {
@@ -933,6 +944,23 @@ input[id^='acklabel_']{
             alert('An error occurred while running the macro. Please refresh and try again.');
         });
     }
+
+    // Fetch CSRF token from CSRFGuard servlet and populate hidden inputs
+    (function() {
+        var ctx = '<%=request.getContextPath()%>';
+        fetch(ctx + '/csrfguard', { credentials: 'same-origin' })
+            .then(function(r) { return r.text(); })
+            .then(function(js) {
+                var match = js.match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
+                if (match) {
+                    var inputs = document.querySelectorAll('input[name="CSRF-TOKEN"]');
+                    for (var i = 0; i < inputs.length; i++) {
+                        inputs[i].value = match[1];
+                    }
+                }
+            })
+            .catch(function() {});
+    })();
 </script>
 
 <div id="lab_<%= Encode.forHtmlAttribute(segmentID) %>">
@@ -962,6 +990,7 @@ input[id^='acklabel_']{
     <form name="acknowledgeForm_<%= Encode.forHtmlAttribute(segmentID) %>"
           id="acknowledgeForm_<%= Encode.forHtmlAttribute(segmentID) %>" method="post" onsubmit="javascript:void(0);"
           action="javascript:void(0);">
+        <input type="hidden" name="CSRF-TOKEN" value="">
 
         <table style="width:100%;">
             <tr>
@@ -992,7 +1021,7 @@ input[id^='acklabel_']{
                                     if (up != null && !StringUtils.isEmpty(up.getValue())) {
 
                                 %>
-                                <div class="dropdown">
+                                <div class="dropdown" style="display:inline-block;position:relative;">
                                     <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false">Macros</button>
                                     <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
                                         <%

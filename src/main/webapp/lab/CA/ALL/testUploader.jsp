@@ -60,13 +60,14 @@
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="lab.ca.all.testUploader.labUploadUtility"/></title>
 
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/share/css/global.css"/>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css">
 
     <style>
         body {
-            margin: 30px !important;
+            margin: 0 !important;
         }
 
         .file-item {
@@ -245,8 +246,11 @@
 </head>
 
 <body>
-
-<h3>HL7 Lab Upload</h3>
+<div class="container">
+<div class="page-header-bar">
+    <h4 class="page-header-title">HL7 Lab Upload</h4>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="window.close();">Back</button>
+</div>
 <div class="loading-screen">
     <div class="loading-bar progress" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
         <div class="progress-bar" style="width: 100%;"></div>
@@ -316,6 +320,7 @@
         </c:forEach>
     </form>
 </div>
+</div><%-- close container --%>
 </body>
 
 </html>

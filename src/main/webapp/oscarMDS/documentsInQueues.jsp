@@ -62,10 +62,12 @@
           href="${pageContext.servletContext.contextPath}/share/css/oscarMDSIndex.css"/>
     <link rel="stylesheet" type="text/css"
           href="${pageContext.servletContext.contextPath}/oscarMDS/encounterStyles.css">
+    <link href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/share/calendar/calendar.css" title="win2k-cold-1"/>
     <link rel="stylesheet" type="text/css"
           href="${pageContext.servletContext.contextPath}/share/css/OscarStandardLayout.css">
+    <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/share/css/global.css"/>
 
     <script type="text/javascript">
         var contextpath = "${pageContext.servletContext.contextPath}";
@@ -2400,39 +2402,20 @@
 
 %>
 
+<div class="page-header-bar" style="font-size:14px !important;">
+    <h4 class="page-header-title" style="font-size:18px !important;font-weight:normal !important;"><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.documentsInQueues"/></h4>
+    <input type="hidden" name="providerNo" value="<%= providerNo %>">
+    <input type="hidden" name="searchProviderNo" value="<%= searchProviderNo %>">
+    <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + request.getParameter("lname") + "\">") %>
+    <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + request.getParameter("fname") + "\">") %>
+    <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + request.getParameter("hnum") + "\">") %>
+    <input type="hidden" name="selectedProviders">
+    <button type="button" class="btn btn-secondary btn-sm" style="font-size:14px !important;" onclick="window.close();">Back</button>
+</div>
 <table id="pendingDocs" width="100%">
-    <tr oldclass="MainTableTopRow">
-        <td class="MainTableTopRowRightColumn" colspan="2" align="left">
-            <table width="100%">
-                <tr>
-                    <td align="center" class="Nav" valign="center"><span class="white"><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.documentsInQueues"/></span></td>
-                </tr>
-                <tr>
-                    <td align="left" valign="center">
-                        <input type="hidden" name="providerNo" value="<%= providerNo %>">
-                        <input type="hidden" name="searchProviderNo" value="<%= searchProviderNo %>">
-                        <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + request.getParameter("lname") + "\">") %>
-                        <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + request.getParameter("fname") + "\">") %>
-                        <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + request.getParameter("hnum") + "\">") %>
-
-                        <input type="hidden" name="selectedProviders">
-
-                        <input type="button" class="smallButton" onclick="window.close();"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnClose"/>">
-
-                    </td>
-
-                    <%--                            <td align="right" valign="center" width="30%">--%>
-
-                    <%--                                | <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/About.jsp')" style="color: #FFFFFF;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>--%>
-                    <%--                            </td>--%>
-                </tr>
-            </table>
-        </td>
-    </tr>
     <tr>
-        <th class="Cell" align="left" valign="bottom" nowrap>Queues</th>
-        <th class="Cell" align="left" valign="bottom" nowrap>Documents</th>
+        <th style="background:#f5f5f5;border-bottom:1px solid #ddd;padding:6px 10px;font-size:12px;">Queues</th>
+        <th style="background:#f5f5f5;border-bottom:1px solid #ddd;padding:6px 10px;font-size:12px;">Documents</th>
     </tr>
     <tr>
         <td valign="top" id="queueNames" width="10%">

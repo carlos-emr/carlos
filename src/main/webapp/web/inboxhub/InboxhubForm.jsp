@@ -230,11 +230,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                         </div>
 
                         <!--Search Button-->
-                        <div class="d-grid">
+                        <div class="d-grid gap-1">
                             <button id="inboxhubFormSearchBtn" class="btn btn-primary btn-sm" type="submit" value='<fmt:message key="oscarMDS.search.btnSearch"/>'>
                                 <span id="inboxhubFormSearchSpinner" class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
                                 <span id="inboxhubFormSearchText"><fmt:message key="oscarMDS.search.btnSearch"/></span>
                             </button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="resetInboxFilters();">Reset</button>
                         </div>
                     </div>
                 </form>
@@ -557,6 +558,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     }
 
     function fetchInboxhubData() {
+        // Re-serialize the search form so programmatic checkbox/radio changes take effect
+        inboxSearchFormData = jQuery("#inboxSearchForm").serialize();
         const viewModeBtn = document.getElementById("btnViewMode");
         viewModeBtn.disabled = true;
         resetDataPageCount();
@@ -580,9 +583,145 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      */
     try {
         const inboxhubRefreshChannel = new BroadcastChannel('inboxhub-refresh');
-        inboxhubRefreshChannel.onmessage = function() { fetchInboxhubData(); };
+        inboxhubRefreshChannel.onmessage = function() {
+            fetchInboxhubData();
+            // When Rapid Review is on, open the next item after the refresh completes
+            if (rapidReviewState) {
+                pendingRapidReviewOpen = true;
+            }
+        };
     } catch (e) {
         // BroadcastChannel unsupported — user must manually refresh the inbox
+    }
+
+    /**
+     * Resets all inbox filters to defaults by reloading the page with no parameters.
+     * This ensures counts, filters, and toolbar state all return to the default view
+     * showing New items for the current provider.
+     */
+    function resetInboxFilters() {
+        window.location.href = ctx + '/web/inboxhub/Inboxhub.do?method=displayInboxForm';
+    }
+
+    // Flag set by BroadcastChannel listener to open the next item after data loads
+    var pendingRapidReviewOpen = false;
+
+    /**
+     * Rapid Review auto-advance: opens the first item in the inbox table.
+     * Called after an acknowledge refreshes the list, so the previously-acknowledged
+     * item is gone and the "first" item is effectively the next one to review.
+     * Uses a short delay to let the DataTable finish rendering.
+     */
+    function openNextInboxItem() {
+        setTimeout(function() {
+            var nextLink = document.querySelector('#inbox_table tbody tr a');
+            if (nextLink) {
+                nextLink.click();
+            }
+        }, 500);
+    }
+
+    // State variables preserved across inbox refreshes (the toolbar HTML inside
+    // #inboxhubMode is replaced on each fetch, so checkbox state must be restored)
+    var activeTypeFilter = null;
+    var ackToggleState = false;
+    var rapidReviewState = false;
+    var savedStartDate = '';  // preserves the original start date when toggling Acknowledged
+
+    /**
+     * Filters the inbox to show only one type (DOC, HL7, HRM) or all types.
+     * Clicking the active filter or "ALL" resets to show everything.
+     * Updates the type checkboxes in the search panel and highlights the active badge.
+     *
+     * @param {string} type - 'ALL', 'DOC', 'HL7', or 'HRM'
+     */
+    function filterByType(type) {
+        var btnDoc = document.getElementById('btnDoc');
+        var btnLab = document.getElementById('btnLab');
+        var btnHRM = document.getElementById('btnHRM');
+
+        if (type === 'ALL' || activeTypeFilter === type) {
+            // Reset to show all types
+            if (btnDoc) btnDoc.checked = true;
+            if (btnLab) btnLab.checked = true;
+            if (btnHRM) btnHRM.checked = true;
+            activeTypeFilter = null;
+        } else {
+            // Filter to only the selected type
+            if (btnDoc) btnDoc.checked = (type === 'DOC');
+            if (btnLab) btnLab.checked = (type === 'HL7');
+            if (btnHRM) btnHRM.checked = (type === 'HRM');
+            activeTypeFilter = type;
+        }
+        highlightActiveTypeFilter();
+        fetchInboxhubData();
+    }
+
+    /**
+     * Highlights the active type filter badge and removes highlight from others.
+     * Called after filterByType changes the active filter.
+     */
+    function highlightActiveTypeFilter() {
+        var filters = document.querySelectorAll('.inbox-type-filter');
+        for (var i = 0; i < filters.length; i++) {
+            filters[i].classList.remove('active-type-filter');
+        }
+        var activeId = activeTypeFilter ? ('filter' + activeTypeFilter) : 'filterAll';
+        var activeEl = document.getElementById(activeId);
+        if (activeEl) activeEl.classList.add('active-type-filter');
+    }
+
+    /**
+     * Toggles the inbox between showing New items and Acknowledged items.
+     * Updates the hidden status filter field and refreshes the inbox data.
+     *
+     * @param {boolean} checked - true to show Acknowledged, false to show New
+     */
+    function toggleAcknowledged(checked) {
+        ackToggleState = checked;
+        changeValueElementByName('query.status', checked ? 'A' : 'N');
+        // Also update the radio buttons in the search panel to stay in sync
+        var radioId = checked ? 'statusAcknowledged' : 'statusNew';
+        var radio = document.getElementById(radioId);
+        if (radio) radio.checked = true;
+
+        // When showing acknowledged items, scope to today only so the list
+        // isn't overwhelmed with historical data. Clear the date when toggling back.
+        var startDateEl = document.getElementById('startDate');
+        if (checked) {
+            var today = new Date();
+            var yyyy = today.getFullYear();
+            var mm = String(today.getMonth() + 1).padStart(2, '0');
+            var dd = String(today.getDate()).padStart(2, '0');
+            savedStartDate = startDateEl.value;
+            startDateEl.value = yyyy + '-' + mm + '-' + dd;
+        } else {
+            startDateEl.value = savedStartDate || '';
+        }
+
+        fetchInboxhubData();
+    }
+
+    /**
+     * Toggles Rapid Review mode. When enabled, acknowledging a lab in the popup
+     * automatically opens the next item in the list for sequential review.
+     *
+     * @param {boolean} checked - true to enable auto-advance, false to disable
+     */
+    function toggleRapidReview(checked) {
+        rapidReviewState = checked;
+    }
+
+    /**
+     * Restores toolbar toggle states after the inbox HTML is replaced.
+     * Called from addDataInInboxhubListTable when page 1 data is loaded.
+     */
+    function restoreToolbarState() {
+        var ackToggle = document.getElementById('ackToggle');
+        if (ackToggle) ackToggle.checked = ackToggleState;
+        var rapidToggle = document.getElementById('rapidReviewToggle');
+        if (rapidToggle) rapidToggle.checked = rapidReviewState;
+        highlightActiveTypeFilter();
     }
 
     function fetchInboxhubListData() {
@@ -637,6 +776,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             jQuery("#inboxhubMode").html(data);
             jQuery('#inbox_table').DataTable().draw(false); // `draw(false)` prevents resetting the scroll position
             showInboxhubStats();
+            restoreToolbarState();
+            // Rapid Review auto-open: after acknowledging an item, open the next one
+            if (pendingRapidReviewOpen) {
+                pendingRapidReviewOpen = false;
+                openNextInboxItem();
+            }
             startInboxhubListProgress();
             updateInboxhubListProgress();
             return;

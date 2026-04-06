@@ -63,6 +63,7 @@
     <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar-setup.js"></script>
 
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
+    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/global.css"/>
     <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet">
     <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.structure-1.14.2.min.css" rel="stylesheet">
 
@@ -212,7 +213,11 @@
 
 </head>
 <body>
-<div class="card card-body bg-body-tertiary">
+<div class="container">
+<div class="page-header-bar">
+    <h4 class="page-header-title">Create Lab</h4>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="window.close();">Back</button>
+</div>
 
     <%-- Display Struts action errors (e.g., failed HL7 generation) --%>
     <s:if test="hasActionErrors()">
@@ -224,92 +229,113 @@
     <form name="testForm" method="post" action="<%=request.getContextPath()%>/oscarMDS/SubmitLab.do?method=saveManage"
           onsubmit="return confirmSave();">
 
-        <table width="100%">
-            <tr>
-                <td valign="top">
-                    <fieldset>
-                        <legend>Laboratory Information</legend>
-                        <table>
-                        <tr>
-                            <td><label>Lab Name:</label></td>
-                            <td>
-                                <select name="labname" id="labname">
-                                    <option value="MDS">MDS</option>
-                                    <option value="CML">CML</option>
-                                    <option value="GDML">GDML</option>
-                                </select>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><label>Accession #</label></td>
-                            <td><input type="text" name="accession" id="accession"/></td>
-                        </tr>
-                        <tr>
-                            <td><label>Lab Req Date/Time:</label></td>
-                            <td class="input-group"><input type="text" class="form-control" name="lab_req_date" id="lab_req_date" required><img
-                                    src="<%=request.getContextPath()%>/images/cal.gif" id="lab_req_date_cal" class="input-group-text"></td>
-                        </tr>
-                        </table>
-                    </fieldset>
-                </td>
-                <td valign="top">
+        <div class="row mb-3">
+            <%-- Laboratory Information --%>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header fw-bold">Laboratory Information</div>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <label class="form-label" for="labname">Lab Name</label>
+                            <select name="labname" id="labname" class="form-select">
+                                <option value="MDS">MDS</option>
+                                <option value="CML">CML</option>
+                                <option value="GDML">GDML</option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="accession">Accession #</label>
+                            <input type="text" class="form-control" name="accession" id="accession"/>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="lab_req_date">Lab Req Date/Time</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" name="lab_req_date" id="lab_req_date" required>
+                                <img src="<%=request.getContextPath()%>/images/cal.gif" id="lab_req_date_cal" class="input-group-text" style="cursor:pointer;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                    <fieldset>
-                        <legend>Ordering Provider</legend>
-                        <table>
-                            <tr>
-                                <td><label>Billing #</label></td>
-                                <td><input type="text" name="billingNo" id="billingNo"/></td>
-                            </tr>
-                            <tr>
-                                <td><label>Last Name</label></td>
-                                <td><input type="text" name="pLastname" id="pLastname"/></td>
-                            </tr>
-                            <tr>
-                                <td><label>First Name</label></td>
-                                <td><input type="text" name="pFirstname" id="pFirstname"/></td>
-                            </tr>
-                            <tr>
-                                <td><label>CC</label></td>
-                                <td><input type="text" name="cc" id="cc" size="50"/></td>
-                            </tr>
-                        </table>
-                    </fieldset>
-                </td>
-            </tr>
-        </table>
+            <%-- Ordering Provider --%>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header fw-bold">Ordering Provider</div>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <label class="form-label" for="billingNo">Billing #</label>
+                            <input type="text" class="form-control" name="billingNo" id="billingNo"/>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="pLastname">Last Name</label>
+                            <input type="text" class="form-control" name="pLastname" id="pLastname"/>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="pFirstname">First Name</label>
+                            <input type="text" class="form-control" name="pFirstname" id="pFirstname"/>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="cc">CC</label>
+                            <input type="text" class="form-control" name="cc" id="cc"/>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
+        <%-- Patient Information --%>
+        <div class="card mb-3">
+            <div class="card-header fw-bold">Patient Information</div>
+            <div class="card-body">
+                <div class="row mb-2">
+                    <div class="col-md-4">
+                        <label class="form-label" for="lastname">Last Name</label>
+                        <input type="text" class="form-control" name="lastname" id="lastname" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="firstname">First Name</label>
+                        <input type="text" class="form-control" name="firstname" id="firstname"/>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="sex">Sex</label>
+                        <select name="sex" id="sex" class="form-select">
+                            <option value="M">Male</option>
+                            <option value="F">Female</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <label class="form-label" for="dob">Date of Birth</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" required name="dob" id="dob"/>
+                            <img src="<%=request.getContextPath()%>/images/cal.gif" id="dob_cal" class="input-group-text" style="cursor:pointer;">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="hin">HIN</label>
+                        <input type="text" class="form-control" name="hin" id="hin"/>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="phone">Phone</label>
+                        <input type="text" class="form-control" name="phone" id="phone"/>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-        <fieldset>
-            <legend>Patient Information</legend>
-            <table>
-                <tr>
-                    <td><label>Last Name:</label><input type="text" name="lastname" id="lastname" required></td>
-                    <td><label>First Name:</label><input type="text" name="firstname" id="firstname"/></td>
-                    <td><label>Sex:</label><select name="sex" id="sex">
-                        <option value="M">Male</option>
-                        <option value="F">Female</option>
-                    </select>
-                    </td>
-                </tr>
-                <tr>
-                    <td class="input-group"><label>DOB:</label><input type="text" class="form-control" required name="dob" id="dob"/><img src="<%=request.getContextPath()%>/images/cal.gif"
-                                                                     id="dob_cal" class="input-group-text"></td>
-                    <td><label>HIN:</label><input type="text" name="hin" id="hin"/></td>
-                    <td><label>Phone:</label><input type="text" name="phone" id="phone"/></td>
-                </tr>
-            </table>
-        </fieldset>
+        <%-- Tests --%>
+        <div class="card mb-3">
+            <div class="card-header fw-bold">Tests</div>
+            <div class="card-body">
+                <div id="test_container"></div>
+                <input type="hidden" id="test_num" name="test_num" value="0"/>
+                <a href="#" onclick="addTest(); return false;" class="btn btn-success btn-sm mt-2">Add Test</a>
+            </div>
+        </div>
 
-
-        <b>Tests:</b>
-        <br/>
-        <div id="test_container"></div>
-        <input type="hidden" id="test_num" name="test_num" value="0"/>
-        <a href="#" onclick="addTest();" class="btn btn-success" style="width: 80px; margin-top: 10px;">Add Test</a>
-
-        <br/><br/>
-        <input type="submit" class="btn btn-primary" value="Submit to OSCAR" disabled>
+        <input type="submit" class="btn btn-primary" value="Submit to CARLOS" disabled>
     </form>
 </div>
 
@@ -324,5 +350,6 @@
     Calendar.setup({inputField: "dob", ifFormat: "%Y-%m-%d", showsTime: true, button: "dob_cal"});
 
 </script>
+</div><%-- close container --%>
 </body>
 </html>

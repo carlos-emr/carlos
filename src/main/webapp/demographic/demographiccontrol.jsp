@@ -171,7 +171,7 @@
     String[][] responseTargets = new String[][]{
             {"Search ", "demographicsearch2apptresults.jsp"},
             {"Search", "demographicsearchresults.jsp"},
-            <%-- "edit" mode now served by DemographicEdit2Action (Struts2) --%>
+            // "edit" mode now served by DemographicEdit2Action (Struts2)
             {"pdflabel", "demographicpdflabel.jsp"},
             {"pdfaddresslabel", "demographicpdfaddresslabel.jsp"},
             {"pdfchartlabel", "demographicpdfchartlabel.jsp"},

@@ -443,7 +443,7 @@
     %>
     <form name="acknowledgeForm_<%=docId%>" id="acknowledgeForm_<%=docId%>" onsubmit="<%=Encode.forHtmlAttribute(ackFunc)%>" method="post"
           action="javascript:void(0);">
-
+        <input type="hidden" name="CSRF-TOKEN" value="">
         <input type="hidden" name="segmentID" value="<%=Encode.forHtmlAttribute(docId)%>">
         <input type="hidden" name="multiID" value="<%=Encode.forHtmlAttribute(docId)%>">
         <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(providerNo)%>">
@@ -454,7 +454,11 @@
         <%
             if (labMacroProp != null && !StringUtils.isEmpty(labMacroProp.getValue())) {
         %>
-        <div class="dropdown d-inline-block">
+        <div class="dropdown d-inline-block" style="position:relative;">
+            <style>
+                .dropdown:hover > .dropdown-menu { display:block; }
+                .dropdown-item:hover, .dropdown-item:focus { background-color:#337ab7 !important; color:#fff !important; }
+            </style>
             <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button"
                     data-bs-toggle="dropdown" aria-expanded="false"><fmt:message key="showDocument.btnMacros"/></button>
             <ul class="dropdown-menu">
@@ -1169,6 +1173,23 @@
         });
     }
 
+    // Fetch CSRF token from CSRFGuard servlet and populate hidden inputs
+    (function() {
+        var ctx = '<%=request.getContextPath()%>';
+        fetch(ctx + '/csrfguard', { credentials: 'same-origin' })
+            .then(function(r) { return r.text(); })
+            .then(function(js) {
+                // CSRFGuard servlet returns JS that sets the master token
+                var match = js.match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
+                if (match) {
+                    var inputs = document.querySelectorAll('input[name="CSRF-TOKEN"]');
+                    for (var i = 0; i < inputs.length; i++) {
+                        inputs[i].value = match[1];
+                    }
+                }
+            })
+            .catch(function() {});
+    })();
 
 </script>
 <jsp:include page="/images/spinner.jsp"/>

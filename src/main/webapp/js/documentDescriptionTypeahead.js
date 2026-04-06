@@ -85,7 +85,7 @@ function setupDocDescriptionTypeahead(docId) {
         }
         abortController = new AbortController();
 
-        const url = contextPath + '/ManageDocument.do?method=searchDocumentDescriptions&term=' +
+        const url = contextPath + '/documentManager/ManageDocument.do?method=searchDocumentDescriptions&term=' +
             encodeURIComponent(term);
 
         fetch(url, { signal: abortController.signal })
