@@ -1,6 +1,7 @@
 /**
- * Minimal vanilla JS replacement for the legacy ylib.widget.TextCounter library.
- * Drop-in compatible — same constructor signature and DOM behavior.
+ * Vanilla JS implementation of the ylib.widget.TextCounter widget.
+ * Provides textarea character and line limits with visual counter feedback.
+ * Drop-in compatible with legacy calling conventions used in Rourke growth chart forms.
  *
  * Creates a hidden counter span after the textarea that shows remaining characters
  * on focus, enforces character and line limits on keypress/keyup.
@@ -24,7 +25,10 @@ ylib.widget = ylib.widget || {};
  */
 ylib.widget.TextCounter = function (elementId, maxChars, maxLines, textBefore, textAfter) {
     var el = document.getElementById(elementId);
-    if (!el) return;
+    if (!el) {
+        console.warn("TextCounter: element not found: " + elementId);
+        return;
+    }
 
     var prefix = (textBefore !== undefined) ? textBefore : 'Chars left: ';
     var suffix = (textAfter !== undefined) ? textAfter : '';
