@@ -164,7 +164,7 @@
                     ProviderData provider = new ProviderData(provNo);
             %>
             <option value="<%=Encode.forHtmlAttribute(provider.getOhip_no())%>">
-                <%=Encode.forHtmlContent(provider.getLast_name())%>,<%=Encode.forHtmlContent(provider.getFirst_name())%>
+                <%=Encode.forHtml(provider.getLast_name())%>,<%=Encode.forHtml(provider.getFirst_name())%>
             </option>
             <%}%>
         </select>

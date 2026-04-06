@@ -6,11 +6,10 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<!--
--
+<%--
 This jsp fragment displays the Bill Type drop down which is used by the MSP and WCB "corrections" screens.
 TODO: Localize Strings
--->
+--%>
 <%
     BillingFormData billForm = new BillingFormData();
     Properties statusTypeProps = billForm.getStatusProperties(billForm.getStatusTypes(null));

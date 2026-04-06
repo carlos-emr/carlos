@@ -468,12 +468,11 @@
                         </tr>
                         <tr>
                             <td class="FormLabel">Side:</td>
-                            <td colspan="2"><select name="w_side"
-                                                         value="<%=Encode.forHtmlAttribute(StringUtils.noNull(form.getW_side()))%>" id="w_side">
-                                <option value="B">Left and Right</option>
-                                <option value="L">Left</option>
-                                <option value="N">Not Applicable</option>
-                                <option value="R">Right</option>
+                            <td colspan="2"><select name="w_side" id="w_side">
+                                <option value="B" <%="B".equals(form.getW_side()) ? "selected" : ""%>>Left and Right</option>
+                                <option value="L" <%="L".equals(form.getW_side()) ? "selected" : ""%>>Left</option>
+                                <option value="N" <%="N".equals(form.getW_side()) ? "selected" : ""%>>Not Applicable</option>
+                                <option value="R" <%="R".equals(form.getW_side()) ? "selected" : ""%>>Right</option>
                             </select></td>
                         </tr>
                         <tr>

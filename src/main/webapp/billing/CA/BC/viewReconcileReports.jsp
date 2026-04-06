@@ -216,8 +216,9 @@
         if (str != null && !str.isEmpty()) {
             try {
                 moneyStr = new java.math.BigDecimal(str).movePointLeft(2).toString();
-            } catch (Exception moneyException) {
+            } catch (NumberFormatException moneyException) {
                 MiscUtils.getLogger().error("Error", moneyException);
+                moneyStr = str;
             }
         }
         return moneyStr;

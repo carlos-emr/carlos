@@ -556,7 +556,7 @@
                 <a href=#
                    onClick="popupPage2('<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forJavaScriptAttribute(DemoNo)%>');return false;"
                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">
-                    <%=Encode.forHtmlContent(DemoName)%>
+                    <%=Encode.forHtml(DemoName)%>
                 </a>
                 <input type="hidden" name="demo_name" value="<%=Encode.forHtmlAttribute(DemoName)%>">
             </td>
@@ -686,7 +686,7 @@
                         for (BillingFormData.BillingVisit billingVisit : billvisit) {
                             String selected = serviceLocation.equals(billingVisit.getVisitType()) ? "selected" : "";
                     %>
-                    <option value="<%=Encode.forHtmlAttribute(billingVisit.getVisitType())%>" <%=selected%>><%=Encode.forHtmlContent(billingVisit.getDisplayName())%>
+                    <option value="<%=Encode.forHtmlAttribute(billingVisit.getVisitType())%>" <%=selected%>><%=Encode.forHtml(billingVisit.getDisplayName())%>
                     </option>
                     <%
                         }
@@ -758,7 +758,6 @@
                     <option value="Y" <%=allFields.getProperty("mvaClaimCode").equals("Y") ? "selected" : ""%>>Yes
                     </option>
                 </select>
-                <%--<input type="text" name="mvaClaim" value="<%=allFields.getProperty("mvaClaimCode")%>" size="1"/>--%>
             </td>
             <td class="bCellData">ICBC Claim Num:
                 <input type="text" name="icbcClaim" value="<%=Encode.forHtmlAttribute(allFields.getProperty("icbcClaimNo", ""))%>" size="8"
@@ -781,7 +780,7 @@
         String billValue = "0.00";
         boolean gstFlag = false;
         if (billService != null) {
-            billValue = billService.getValue();
+            billValue = billService.getValue() != null ? billService.getValue() : "0.00";
             gstFlag = billService.getGstFlag();
         }
     %>
@@ -1039,7 +1038,6 @@
                         Both
                     </option>
                 </select>
-                <%--<input type="text" name="correspondenceCode" value="<%=allFields.getProperty("correspondenceCode")%>" size="1"/>--%>
             </td>
             <td class="bCellData">Insurer Code</td><!--OIN-INSURER-C0DE-->
             <td class="bCellData">
@@ -1097,7 +1095,8 @@
     <script type="text/javascript">
         function callReplacementWebService(url, id) {
             var ran_number = Math.round(Math.random() * 1000000);
-            var params = "demographicNo=<%=Encode.forJavaScript(Encode.forUriComponent(String.valueOf(bill.getDemographicNo())))%>&wcb=&billingcode=<%=Encode.forJavaScript(Encode.forUriComponent(allFields.getProperty("billingCode", "")))%>&rand=" + ran_number;  //hack to get around ie caching the page
+            // forUriComponent encodes URL parameter values, forJavaScript wraps for JS string context; rand busts cache
+            var params = "demographicNo=<%=Encode.forJavaScript(Encode.forUriComponent(String.valueOf(bill.getDemographicNo())))%>&wcb=&billingcode=<%=Encode.forJavaScript(Encode.forUriComponent(allFields.getProperty("billingCode", "")))%>&rand=" + ran_number;
             CarlosAjax.updater(id, url, {method: 'get', parameters: params});
         }
 
