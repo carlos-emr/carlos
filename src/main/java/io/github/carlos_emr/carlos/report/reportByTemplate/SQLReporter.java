@@ -37,7 +37,11 @@ import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
+import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.report.data.RptResultStruct;
@@ -52,11 +56,47 @@ import org.apache.commons.csv.CSVPrinter;
  */
 public class SQLReporter implements Reporter {
 
+    /**
+     * Maximum number of characters of CSV data that may be stored in the HTTP session.
+     * Prevents memory exhaustion when large report results are generated.
+     * Approximately 5 million characters (~5 MB of ASCII CSV data).
+     */
+    static final int MAX_CSV_SESSION_LENGTH = 5 * 1024 * 1024;
+
     public SQLReporter() {
+    }
+
+    /**
+     * Validates that the given templateId refers to an active report template.
+     * Returns the {@link ReportTemplates} entity when valid, or {@code null} when the
+     * id is missing, non-numeric, zero, or does not correspond to an active template.
+     *
+     * @param templateId the raw string value of the {@code templateId} HTTP parameter
+     * @return the active {@link ReportTemplates} record, or {@code null} if invalid
+     */
+    private ReportTemplates resolveActiveTemplate(String templateId) {
+        int id = ConversionUtils.fromIntString(templateId);
+        if (id <= 0) {
+            return null;
+        }
+        ReportTemplatesDao reportTemplatesDao = SpringUtils.getBean(ReportTemplatesDao.class);
+        ReportTemplates rt = reportTemplatesDao.find(id);
+        if (rt == null || rt.getActive() != 1) {
+            return null;
+        }
+        return rt;
     }
 
     public boolean generateReport(HttpServletRequest request) {
         String templateId = request.getParameter("templateId");
+
+        // Validate templateId against the database before executing any query (CWE-501)
+        if (resolveActiveTemplate(templateId) == null) {
+            MiscUtils.getLogger().warn("generateReport: invalid or inactive templateId '{}'", templateId);
+            request.setAttribute("errormsg", "Error: Invalid or inactive report template.");
+            return false;
+        }
+
         ReportObject curReport = (new ReportManager()).getReportTemplateNoParam(templateId);
         Map parameterMap = request.getParameterMap();
 
@@ -89,8 +129,15 @@ public class SQLReporter implements Reporter {
 
         String[] result = executeQuery(sql, sqlParams, false);
 
-        request.getSession().setAttribute("csv", result[1]);
-        request.setAttribute("csv", result[1]);
+        String csv = result[1];
+        if (csv.length() > MAX_CSV_SESSION_LENGTH) {
+            MiscUtils.getLogger().warn("generateReport: CSV result for template '{}' exceeds session size limit ({} chars); not storing in session", templateId, csv.length());
+            request.setAttribute("errormsg", "Warning: Report result is too large to download as CSV. Please narrow your search criteria.");
+            csv = "";
+        }
+
+        request.getSession().setAttribute("csv", csv);
+        request.setAttribute("csv", csv);
         request.setAttribute("sql", sql);
         request.setAttribute("reportobject", curReport);
         request.setAttribute("resultsethtml", result[0]);
@@ -100,6 +147,14 @@ public class SQLReporter implements Reporter {
 
     public boolean generateSequencedReport(HttpServletRequest request) {
         String templateId = request.getParameter("templateId");
+
+        // Validate templateId against the database before executing any query (CWE-501)
+        if (resolveActiveTemplate(templateId) == null) {
+            MiscUtils.getLogger().warn("generateSequencedReport: invalid or inactive templateId '{}'", templateId);
+            request.setAttribute("errormsg", "Error: Invalid or inactive report template.");
+            return false;
+        }
+
         ReportObject curReport = (new ReportManager()).getReportTemplateNoParam(templateId);
         Map parameterMap = request.getParameterMap();
 
