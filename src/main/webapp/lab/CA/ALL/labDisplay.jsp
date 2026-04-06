@@ -1023,21 +1023,21 @@ input[id^='acklabel_']{
                                        onclick="<%=Encode.forHtmlAttribute(ackLabFunc)%>">
                                 <% } %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
-                                       onclick="return getComment('addComment',<%=Encode.forJavaScript(segmentID)%>);">
+                                       onclick="return getComment('addComment',<%=Encode.forJavaScriptAttribute(segmentID)%>);">
                                 <input type="button" class="btn btn-sm btn-outline-secondary"
                                        value="<fmt:message key="oscarMDS.index.btnForward"/>"
-                                       onClick="ForwardSelectedRows(<%=Encode.forJavaScript(segmentID)%> + ':HL7', '', '')">
+                                       onClick="ForwardSelectedRows(<%=Encode.forJavaScriptAttribute(segmentID)%> + ':HL7', '', '')">
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="global.btnClose"/> "
                                        onClick="window.close()">
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="global.btnPrint"/> "
-                                       onClick="printPDF('<%=Encode.forJavaScript(segmentID)%>')">
+                                       onClick="printPDF('<%=Encode.forJavaScriptAttribute(segmentID)%>')">
 
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="Msg"
-                                       onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','msgLab');">
+                                       onclick="handleLab('','<%=Encode.forJavaScriptAttribute(segmentID)%>','msgLab');">
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="Tickler"
-                                       onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','ticklerLab');">
+                                       onclick="handleLab('','<%=Encode.forJavaScriptAttribute(segmentID)%>','ticklerLab');">
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.segmentDisplay.btnUnlinkDemo"/>"
-                                       onclick="unlinkDemographic(<%=Encode.forJavaScript(segmentID)%>)">
+                                       onclick="unlinkDemographic(<%=Encode.forJavaScriptAttribute(segmentID)%>)">
 
                                 <% if (searchProviderNo != null) { // null if we were called from e-chart%>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/>"

@@ -1285,7 +1285,7 @@
                     <td align="left" width="50%">
                         <% if (!ackFlag) { %>
                         <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
-                               onclick="<%=ackLabFunc%>">
+                               onclick="<%=Encode.forHtmlAttribute(ackLabFunc)%>">
                         <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                                onclick="getComment('<%=Encode.forJavaScriptAttribute(segmentID)%>','addComment')">
                         <% } %>
