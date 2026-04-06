@@ -2,7 +2,7 @@
  * jQuery 3.x Compatibility Polyfill for CARLOS EMR
  *
  * Restores jQuery APIs removed in 1.9–3.x so that vendored third-party plugins
- * (DataTables, fileupload, validate, sparkline, tablesorter, autocomplete, etc.)
+ * (DataTables, fileupload, validate, tablesorter, autocomplete, etc.)
  * continue to work with jQuery 3.7.1.
  *
  * Must be loaded immediately after jquery-3.7.1.min.js and before any plugins.
