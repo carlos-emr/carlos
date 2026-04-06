@@ -41,6 +41,14 @@
 %>
 
 <%
+    String monthCodeParam = request.getParameter("monthCode");
+    if (monthCodeParam == null || !monthCodeParam.matches("[A-Za-z0-9]+")) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid monthCode parameter");
+        return;
+    }
+%>
+
+<%
     boolean bHybridBilling = false;
     Vector vecGrpBillingPro = new Vector();
     if (oscarVariables.getProperty("hybrid_billing", "").equalsIgnoreCase("on")) {
@@ -77,7 +85,7 @@
 
                 if (bCount == 1) {
 
-                    for (BillActivity ba : billActivityDao.findCurrentByMonthCodeAndGroupNo(request.getParameter("monthCode"), billinggroup_no, ConversionUtils.fromDateString(curYear + "-01-01"))) {
+                    for (BillActivity ba : billActivityDao.findCurrentByMonthCodeAndGroupNo(monthCodeParam, billinggroup_no, ConversionUtils.fromDateString(curYear + "-01-01"))) {
                         batchCount = String.valueOf(ba.getBatchCount());
                     }
 
@@ -107,11 +115,11 @@
                 String zero = "";
                 if (fLength == 1) zero = "0";
                 if (fLength == 2) zero = "00";
-                String htmlFilename = "H" + request.getParameter("monthCode") + billinggroup_no + "_" + proOHIP + "_" + zero + batchCount + ".htm";
-                String ohipFilename = "H" + request.getParameter("monthCode") + billinggroup_no + "." + zero + batchCount;
+                String htmlFilename = "H" + monthCodeParam + billinggroup_no + "_" + proOHIP + "_" + zero + batchCount + ".htm";
+                String ohipFilename = "H" + monthCodeParam + billinggroup_no + "." + zero + batchCount;
 
                 BillActivity ba = new BillActivity();
-                ba.setMonthCode(request.getParameter("monthCode"));
+                ba.setMonthCode(monthCodeParam);
                 ba.setBatchCount(Integer.parseInt(batchCount));
                 ba.setHtmlFilename(htmlFilename);
                 ba.setOhipFilename(ohipFilename);
@@ -158,7 +166,7 @@
                     specialty_code = SxmlMisc.getXmlContent(p.getComments(), "<xml_p_specialty_code>", "</xml_p_specialty_code>");
 
                     if (bCount == 1) {
-                        for (BillActivity ba : billActivityDao.findCurrentByMonthCodeAndGroupNo(request.getParameter("monthCode"), billinggroup_no, ConversionUtils.fromDateString(curYear + "-01-01"))) {
+                        for (BillActivity ba : billActivityDao.findCurrentByMonthCodeAndGroupNo(monthCodeParam, billinggroup_no, ConversionUtils.fromDateString(curYear + "-01-01"))) {
                             batchCount = String.valueOf(ba.getBatchCount());
                         }
 
@@ -188,11 +196,11 @@
                     String zero = "";
                     if (fLength == 1) zero = "0";
                     if (fLength == 2) zero = "00";
-                    String htmlFilename = "H" + request.getParameter("monthCode") + billinggroup_no + "_" + proOHIP + "_" + zero + batchCount + ".htm";
-                    String ohipFilename = "H" + request.getParameter("monthCode") + billinggroup_no + "." + zero + batchCount;
+                    String htmlFilename = "H" + monthCodeParam + billinggroup_no + "_" + proOHIP + "_" + zero + batchCount + ".htm";
+                    String ohipFilename = "H" + monthCodeParam + billinggroup_no + "." + zero + batchCount;
 
                     BillActivity ba = new BillActivity();
-                    ba.setMonthCode(request.getParameter("monthCode"));
+                    ba.setMonthCode(monthCodeParam);
                     ba.setBatchCount(Integer.parseInt(batchCount));
                     ba.setHtmlFilename(htmlFilename);
                     ba.setOhipFilename(ohipFilename);
