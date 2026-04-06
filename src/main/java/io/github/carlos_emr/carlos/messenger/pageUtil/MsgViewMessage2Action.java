@@ -81,6 +81,14 @@ import java.util.Set;
  * @see MsgDisplayMessage
  */
 public class MsgViewMessage2Action extends ActionSupport {
+
+    /**
+     * Allowed values for the {@code orderBy} request parameter.
+     * Includes the optional {@code !} prefix variant handled at runtime.
+     */
+    private static final Set<String> VALID_ORDER_BY_VALUES = new HashSet<>(
+            Arrays.asList("status", "from", "subject", "date", "sentto", "linked"));
+
     /**
      * HTTP request object for accessing parameters and session.
      */
@@ -182,13 +190,11 @@ public class MsgViewMessage2Action extends ActionSupport {
         }
 
         // Whitelist 'orderBy' to allowed column names to prevent trust boundary violation
-        Set<String> validOrderByValues = new HashSet<>(
-                Arrays.asList("status", "from", "subject", "date", "sentto", "linked"));
         String rawOrderBy = request.getParameter("orderBy");
         String orderBy = null;
         if (rawOrderBy != null) {
             String candidate = rawOrderBy.startsWith("!") ? rawOrderBy.substring(1) : rawOrderBy;
-            if (validOrderByValues.contains(candidate)) {
+            if (VALID_ORDER_BY_VALUES.contains(candidate)) {
                 orderBy = rawOrderBy;
             }
         }
