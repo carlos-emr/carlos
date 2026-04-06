@@ -124,7 +124,7 @@ public class FrmRecordFactory {
     public FrmRecord factory(String which) {
 
         if (which == null || !ALLOWED_FORM_CLASSES.contains(which)) {
-            throw new SecurityException("Invalid form class: " + which);
+            throw new SecurityException("Invalid form class specified");
         }
 
         // Build the full class name from the form name (the 'which' parameter).
