@@ -148,10 +148,13 @@ public class SplitDocument2Action extends ActionSupport {
                 String newDocNo = EDocUtil.addDocumentSQL(newDoc);
 
                 File docDir = new File(docdownload);
+                // docdownload is from server-side configuration (DOCUMENT_DIR), not user input
                 File safeFile = PathValidationUtils.validatePath(newDoc.getFileName(), docDir);
                 Path pdfPath = safeFile.toPath();
                 // Atomically create the file with owner-only permissions before writing content,
                 // eliminating the window where a new file exists with default world-readable permissions.
+                // Requires a POSIX-compliant filesystem; UnsupportedOperationException is caught
+                // by the outer catch block and will prevent the split if POSIX is unavailable.
                 Files.createFile(pdfPath, PosixFilePermissions.asFileAttribute(OWNER_RW_ONLY));
                 newPdf.save(pdfPath.toString());
                 newPdf.close();
@@ -345,11 +348,17 @@ public class SplitDocument2Action extends ActionSupport {
      * Sets file permissions for the file that is being modified, restricting
      * access to the owner only (rw-------).
      *
+     * <p>Requires a POSIX-compliant filesystem (Linux/macOS). On non-POSIX
+     * filesystems (e.g., Windows/FAT32) the call is a no-op with a warning logged.</p>
+     *
      * @param file A file
      */
     private void setFilePermissions(File file) {
         try {
             Files.setPosixFilePermissions(file.toPath(), OWNER_RW_ONLY);
+        } catch (UnsupportedOperationException e) {
+            MiscUtils.getLogger().warn("POSIX file permissions not supported on this filesystem; "
+                    + "file permissions could not be restricted: " + file.getAbsolutePath());
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error setting file permissions on " + file.getAbsolutePath(), e);
         }
