@@ -201,7 +201,7 @@
             var id = parseInt(demographicNo, 10);
             if (isNaN(id)) {
                 console.warn('openBillStatus: invalid demographicNo', demographicNo);
-                return false;
+                return;
             }
             var params = new URLSearchParams();
             params.set("showPRIV", "show");
