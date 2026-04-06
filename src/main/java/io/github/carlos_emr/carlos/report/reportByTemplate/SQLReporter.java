@@ -57,9 +57,9 @@ import org.apache.commons.csv.CSVPrinter;
 public class SQLReporter implements Reporter {
 
     /**
-     * Maximum number of characters of CSV data that may be stored in the HTTP session.
-     * Prevents memory exhaustion when large report results are generated.
-     * Approximately 5 million characters (~5 MB of ASCII CSV data).
+     * Maximum number of characters ({@code String.length()}) of CSV data that may be
+     * stored in the HTTP session. Prevents memory exhaustion when large report results
+     * are generated. Value: 5,242,880 characters (5&nbsp;×&nbsp;1024&nbsp;×&nbsp;1024).
      */
     static final int MAX_CSV_SESSION_LENGTH = 5 * 1024 * 1024;
 
@@ -92,7 +92,7 @@ public class SQLReporter implements Reporter {
 
         // Validate templateId against the database before executing any query (CWE-501)
         if (resolveActiveTemplate(templateId) == null) {
-            MiscUtils.getLogger().warn("generateReport: invalid or inactive templateId '{}'", templateId);
+            MiscUtils.getLogger().warn("generateReport: invalid or inactive templateId '{}'", Encode.forJava(templateId));
             request.setAttribute("errormsg", "Error: Invalid or inactive report template.");
             return false;
         }
@@ -131,7 +131,7 @@ public class SQLReporter implements Reporter {
 
         String csv = result[1];
         if (csv.length() > MAX_CSV_SESSION_LENGTH) {
-            MiscUtils.getLogger().warn("generateReport: CSV result for template '{}' exceeds session size limit ({} chars); not storing in session", templateId, csv.length());
+            MiscUtils.getLogger().warn("generateReport: CSV result for template '{}' exceeds session size limit ({} chars); not storing in session", Encode.forJava(templateId), csv.length());
             request.setAttribute("errormsg", "Warning: Report result is too large to download as CSV. Please narrow your search criteria.");
             csv = "";
         }
@@ -150,7 +150,7 @@ public class SQLReporter implements Reporter {
 
         // Validate templateId against the database before executing any query (CWE-501)
         if (resolveActiveTemplate(templateId) == null) {
-            MiscUtils.getLogger().warn("generateSequencedReport: invalid or inactive templateId '{}'", templateId);
+            MiscUtils.getLogger().warn("generateSequencedReport: invalid or inactive templateId '{}'", Encode.forJava(templateId));
             request.setAttribute("errormsg", "Error: Invalid or inactive report template.");
             return false;
         }
