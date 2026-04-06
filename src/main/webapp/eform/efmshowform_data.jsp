@@ -119,13 +119,13 @@
      * For Javascript: First is last.
      */
 
-    eForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js");
+    eForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
     eForm.addHeadJavascript(request.getContextPath()+"/js/jquery.are-you-sure.js");
     eForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-ui-1.14.2.min.js");
     eForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-3.7.1.min.js");
 
-    eForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.3/css/bootstrap.min.css", "all");
-    eForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js");
+    eForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.8/css/bootstrap.min.css", "all");
+    eForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
 
     eForm.addCSS(request.getContextPath()+"/css/oscar_alert.css", "all");
     eForm.addBodyJavascript(request.getContextPath()+"/js/oscar-alert.js");

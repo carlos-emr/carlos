@@ -65,7 +65,7 @@
     <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
 
     <link rel="stylesheet" type="text/css"
-          href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
+          href="<%=request.getContextPath()%>/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
 
     <style>
         :root * {

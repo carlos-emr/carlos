@@ -228,8 +228,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 
 
         <%-- UI library includes (Bootstrap, jQuery UI) --%>
-		<link rel="stylesheet" type="text/css" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
-		<script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+		<link rel="stylesheet" type="text/css" href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
+		<script type="text/javascript" src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 		<link rel="stylesheet" type="text/css" href="${ctx}/library/jquery/jquery-ui-1.14.2.min.css"/>
 
         <%-- Pre-declare all i18n messages used in JavaScript so they can be safely embedded

@@ -76,7 +76,7 @@
         <script src="<%=request.getContextPath()%>/share/yui/js/autocomplete-min.js"></script>
         <script src="<%=request.getContextPath()%>/js/demographicProviderAutocomplete.js"></script>
 
-        <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath()%>/share/yui/css/fonts-min.css" rel="stylesheet">
         <link href="<%=request.getContextPath()%>/share/yui/css/autocomplete.css" rel="stylesheet">
         <link href="<%=request.getContextPath()%>/share/css/demographicProviderAutocomplete.css" media="all"

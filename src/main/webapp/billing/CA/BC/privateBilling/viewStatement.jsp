@@ -27,7 +27,7 @@
     <head>
         <meta charset="utf-8">
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.PrivateBillingStatement"/></title>
-        <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css">
+        <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css">
         <style>
             .table > tbody > tr.highlight_pink {
                 background-color: pink;
@@ -192,7 +192,7 @@
 
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="${ctx}/library/jquery/jquery-compat.js"></script>
-    <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="${ctx}/js/global.js"></script>
     <script type="text/javascript">
         function printItem(itemValue) {
