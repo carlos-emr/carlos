@@ -57,7 +57,8 @@
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Laboratory Requisition</title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <%-- S5131: getServerName() returns the Host header — safe when deployed behind a reverse proxy that validates the Host header (required for production) --%>
+        <base href="<%= Encode.forHtmlAttribute(request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/") %>"> <%-- NOSONAR --%>
         <link rel="stylesheet" type="text/css" media="screen"
               href="form/labReq07Style.css">
         <link rel="stylesheet" type="text/css" media="print" href="form/print.css">
@@ -447,7 +448,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="threatened"
-                               id="threatened" <%=props.getProperty("threatened", "")%> />
+                               id="threatened" <%="checked='checked'".equals(props.getProperty("threatened", "")) ? "checked=\"checked\"" : ""%> />
                     </label>
                     has threatened or is threatening to cause bodily harm to himself or herself
                 </td>
@@ -458,7 +459,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="attempted"
-                               id="attempted" <%=props.getProperty("attempted", "")%> />
+                               id="attempted" <%="checked='checked'".equals(props.getProperty("attempted", "")) ? "checked=\"checked\"" : ""%> />
 
                     </label>
                     has attempted or is attempting to cause bodily harm to himself or herself
@@ -467,7 +468,7 @@
             <tr>
                 <td>
                     <label>
-                        <input type="checkbox" name="behaved" id="behaved" <%=props.getProperty("behaved", "")%>/>
+                        <input type="checkbox" name="behaved" id="behaved" <%="checked='checked'".equals(props.getProperty("behaved", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     has behaved or is behaving violently towards another person
                 </td>
@@ -475,7 +476,7 @@
             <tr>
                 <td>
                     <label>
-                        <input type="checkbox" name="caused" id="caused" <%=props.getProperty("caused", "")%>/>
+                        <input type="checkbox" name="caused" id="caused" <%="checked='checked'".equals(props.getProperty("caused", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     has caused or is causing another person to fear bodily harm from him or her; or
                 </td>
@@ -483,7 +484,7 @@
             <tr>
                 <td>
                     <label>
-                        <input type="checkbox" name="shown" id="shown" <%=props.getProperty("shown", "")%>/>
+                        <input type="checkbox" name="shown" id="shown" <%="checked='checked'".equals(props.getProperty("shown", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     has shown or is showing a lack of competence to care for himself or herself
                 </td>
@@ -518,7 +519,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="harmHimself"
-                               id="harmHimself" <%=props.getProperty("harmHimself", "")%>/>
+                               id="harmHimself" <%="checked='checked'".equals(props.getProperty("harmHimself", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     serious bodily harm to himself or herself,
                 </td>
@@ -527,7 +528,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="harmOthers"
-                               id="harmOthers" <%=props.getProperty("harmOthers", "")%>/>
+                               id="harmOthers" <%="checked='checked'".equals(props.getProperty("harmOthers", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     serious bodily harm to another person,
                 </td>
@@ -536,7 +537,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="impairment"
-                               id="impairment" <%=props.getProperty("impairment", "")%> />
+                               id="impairment" <%="checked='checked'".equals(props.getProperty("impairment", "")) ? "checked=\"checked\"" : ""%> />
                     </label>
                     serious physical impairment of himself or herself
                 </td>
@@ -583,7 +584,7 @@
                 <td>
                     <label>
                         <input name="harmHimselfB" type="checkbox"
-                               id="harmHimselfB" <%=props.getProperty("harmHimselfB", "")%> />
+                               id="harmHimselfB" <%="checked='checked'".equals(props.getProperty("harmHimselfB", "")) ? "checked=\"checked\"" : ""%> />
                     </label>
                     serious bodily harm to himself or herself,
                 </td>
@@ -592,7 +593,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="harmOthersB"
-                               id="harmOthersB" <%=props.getProperty("harmOthersB", "")%>/>
+                               id="harmOthersB" <%="checked='checked'".equals(props.getProperty("harmOthersB", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     serious bodily harm to another person,
                 </td>
@@ -601,7 +602,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="deteriorationB"
-                               id="deteriorationB" <%=props.getProperty("deteriorationB", "")%>/>
+                               id="deteriorationB" <%="checked='checked'".equals(props.getProperty("deteriorationB", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     substantial mental or physical deterioration of himself or herself, or
                 </td>
@@ -610,7 +611,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="impairmentB"
-                               id="impairmentB" <%=props.getProperty("impairmentB", "")%>/>
+                               id="impairmentB" <%="checked='checked'".equals(props.getProperty("impairmentB", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     serious physical impairment of himself or herself;
                 </td>
@@ -653,7 +654,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="harmHimselfB2"
-                               id="harmHimselfB2" <%=props.getProperty("harmHimselfB2", "")%>/>
+                               id="harmHimselfB2" <%="checked='checked'".equals(props.getProperty("harmHimselfB2", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     cause serious bodily harm to himself or herself, or
                 </td>
@@ -662,7 +663,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="harmOthersB2"
-                               id="harmOthersB2" <%=props.getProperty("harmOthersB2", "")%>/>
+                               id="harmOthersB2" <%="checked='checked'".equals(props.getProperty("harmOthersB2", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     cause serious bodily harm to another person, or
                 </td>
@@ -671,7 +672,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="deteriorationB2"
-                               id="deteriorationB2" <%=props.getProperty("deteriorationB2", "")%>/>
+                               id="deteriorationB2" <%="checked='checked'".equals(props.getProperty("deteriorationB2", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     suffer substantial mental or physical deterioration, or
                 </td>
@@ -680,7 +681,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="impairmentB2"
-                               id="impairmentB2" <%=props.getProperty("impairmentB2", "")%>/>
+                               id="impairmentB2" <%="checked='checked'".equals(props.getProperty("impairmentB2", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     suffer serious physical impairment
                 </td>
