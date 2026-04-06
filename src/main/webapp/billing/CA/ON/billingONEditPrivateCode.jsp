@@ -30,10 +30,8 @@
 %>
 <%@ page errorPage="/errorpage.jsp" import="java.util.*,java.sql.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCodeImpl" %>
 <%
     //
@@ -324,7 +322,7 @@
         <div class="card card-body bg-body-tertiary">
             <form method="post" name="baseurl" action="billingONEditPrivateCode.jsp">
 
-                <div class="alert alert-<%=alert%>">
+                <div class="alert alert-<%=Encode.forHtmlAttribute(alert)%>">
                     <%=msg%>
                 </div>
 

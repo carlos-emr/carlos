@@ -353,7 +353,7 @@
             </td>
             <td height="16"><%=Encode.forHtml(servicecode)%>
             </td>
-            <!-- <td width="8%" height="16"><%=serviceno%></td>-->
+            <!-- <td width="8%" height="16"><%=Encode.forHtml(serviceno)%></td>-->
             <td height="16" align=right><%=Encode.forHtml(amountsubmit)%>
             </td>
             <td height="16" align=right><%=Encode.forHtml(amountpay)%>
@@ -389,7 +389,7 @@
             </td>
             <td height="16"><%=Encode.forHtml(servicecode)%>
             </td>
-            <!-- <td width="8%" height="16"><%=serviceno%></td>-->
+            <!-- <td width="8%" height="16"><%=Encode.forHtml(serviceno)%></td>-->
             <td height="16" align=right><%=Encode.forHtml(amountsubmit)%>
             </td>
             <td height="16" align=right><%=Encode.forHtml(amountpay)%>
@@ -422,7 +422,7 @@
             </td>
             <td height="16"><%=Encode.forHtml(servicecode)%>
             </td>
-            <!-- <td width="8%" height="16"><%=serviceno%></td>-->
+            <!-- <td width="8%" height="16"><%=Encode.forHtml(serviceno)%></td>-->
             <td height="16" align=right><%=Encode.forHtml(amountsubmit)%>
             </td>
             <td height="16" align=right><%=Encode.forHtml(amountpay)%>
@@ -567,7 +567,7 @@
                 </td>
                 <td height="16"><%=Encode.forHtml(servicecode)%>
                 </td>
-                <!--<td width="8%" height="16"><%=serviceno%></td>-->
+                <!--<td width="8%" height="16"><%=Encode.forHtml(serviceno)%></td>-->
                 <td height="16" align=right><%=Encode.forHtml(amountsubmit)%>
                 </td>
                 <td height="16" align=right><%=Encode.forHtml(amountpay)%>
@@ -601,7 +601,7 @@
                 </td>
                 <td height="16"><%=Encode.forHtml(servicecode)%>
                 </td>
-                <!-- <td width="8%" height="16"><%=serviceno%></td>-->
+                <!-- <td width="8%" height="16"><%=Encode.forHtml(serviceno)%></td>-->
                 <td height="16" align=right><%=Encode.forHtml(amountsubmit)%>
                 </td>
                 <td height="16" align=right><%=Encode.forHtml(amountpay)%>
@@ -634,7 +634,7 @@
                 </td>
                 <td height="16"><%=Encode.forHtml(servicecode)%>
                 </td>
-                <!-- <td width="8%" height="16"><%=serviceno%></td>-->
+                <!-- <td width="8%" height="16"><%=Encode.forHtml(serviceno)%></td>-->
                 <td height="16" align=right><%=Encode.forHtml(amountsubmit)%>
                 </td>
                 <td height="16" align=right><%=Encode.forHtml(amountpay)%>
