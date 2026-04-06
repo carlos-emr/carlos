@@ -714,7 +714,7 @@
 
         var docSubClassList = [
             <% for (int i = 0; i < subClasses.size(); i++) {%>
-            "<%=subClasses.get(i)%>"<%=(i < subClasses.size() - 1) ? "," : ""%>
+            "<%=Encode.forJavaScript(subClasses.get(i))%>"<%=(i < subClasses.size() - 1) ? "," : ""%>
             <% }%>
         ];
 
@@ -775,7 +775,7 @@
                 }
 
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
-                var data = 'method=getDocumentDescriptionFromDocType&doctype=' + docType + "&providerNo=<%=user_no%>&useDocumentDescriptionTemplateType=<%=useDocumentDescriptionTemplateType%>";
+                var data = 'method=getDocumentDescriptionFromDocType&doctype=' + docType + "&providerNo=<%=Encode.forJavaScript(user_no)%>&useDocumentDescriptionTemplateType=<%=Encode.forJavaScript(useDocumentDescriptionTemplateType)%>";
                 var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                 var csrfToken = csrfEl ? csrfEl.value : '';
                 fetch(url, {
@@ -823,7 +823,7 @@
                     <table width="350">
                         <%if (errorMessage.length() > 0) {%>
                         <tr>
-                            <td><b><font color="red"><%=errorMessage%>
+                            <td><b><font color="red"><%=Encode.forHtml(errorMessage)%>
                             </font></b></td>
                         </tr>
                         <%}%>
@@ -835,7 +835,7 @@
                                             int id = (Integer) ht.get("id");
                                             String qName = (String) ht.get("queue");
                                     %>
-                                    <option value="<%=id%>" <%=((id == queueId) ? " selected" : "")%>><%= qName%>
+                                    <option value="<%=id%>" <%=((id == queueId) ? " selected" : "")%>><%= Encode.forHtml(qName)%>
                                     </option>
                                     <%}%>
                                 </select>
@@ -857,7 +857,7 @@
                             <td>
                                 <fieldset>
                                     <legend>[<%=Encode.forHtml(pdfDir)%>]: <% if (Integer.parseInt(pdfNo) <= 0) {%><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.noFile"/><% } else {%> <%=pdfNo%>/ <%=pdfList.size()%>
-                                        <b><%=pdfList.get(Integer.parseInt(pdfNo) - 1)%>
+                                        <b><%=Encode.forHtml(String.valueOf(pdfList.get(Integer.parseInt(pdfNo) - 1)))%>
                                         </b> <%}%></legend>
                                     <table>
                                         <tr>
@@ -870,8 +870,8 @@
                                                             String docName = (String) pdfList.get(p);
                                                             String docModifiedDate = (String) pdfListModifiedDate.get(p);
                                                     %>
-                                                    <option value="<%= docName%>" title="<%=docName%>"><%=p + 1%>
-                                                        ) <%=docModifiedDate%>
+                                                    <option value="<%= Encode.forHtmlAttribute(docName)%>" title="<%=Encode.forHtmlAttribute(docName)%>"><%=p + 1%>
+                                                        ) <%=Encode.forHtml(docModifiedDate)%>
                                                     </option>
                                                     <%}%>
                                                 </select></td>
@@ -996,8 +996,8 @@
                                         for (int j = 0; j < docTypes.size(); j++) {
                                             String docType = (String) docTypes.get(j);
                                     %>
-                                    <input type="button" value="<%=docType.length()<3?docType:docType.substring(0, 3)%>"
-                                           title="<%=docType%>" onclick="selectDocType(<%=j%>+1);"> <%}%>
+                                    <input type="button" value="<%=Encode.forHtmlAttribute(docType.length()<3?docType:docType.substring(0, 3))%>"
+                                           title="<%=Encode.forHtmlAttribute(docType)%>" onclick="selectDocType(<%=j%>+1);"> <%}%>
                                 </td>
                             </tr>
                             <%}%>
@@ -1011,7 +1011,7 @@
                                             for (int j = 0; j < docTypes.size(); j++) {
                                                 String docType = (String) docTypes.get(j);
                                         %>
-                                        <option value="<%= docType%>"><%= docType%>
+                                        <option value="<%= Encode.forHtmlAttribute(docType)%>"><%= Encode.forHtml(docType)%>
                                         </option>
                                         <%}%>
                                     </select>
@@ -1031,7 +1031,7 @@
                                                 consultShown = true;
                                             }
                                     %>
-                                    <option value="<%=reportClass%>"><%=reportClass%>
+                                    <option value="<%=Encode.forHtmlAttribute(reportClass)%>"><%=Encode.forHtml(reportClass)%>
                                     </option>
                                     <% }%>
                                 </select>
@@ -1081,9 +1081,9 @@
                                             if (demo != null) {
                                 %>
                                     <input type="button"
-                                           value="<%=demo.getLastName()%>, <%=demo.getFirstName()%> (<%=demo.getYearOfBirth()%>-<%=demo.getMonthOfBirth()%>-<%=demo.getDateOfBirth()%>)"
+                                           value="<%=Encode.forHtmlAttribute(demo.getLastName() + ", " + demo.getFirstName() + " (" + demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth() + ")")%>"
                                            id="demvalueid<%=valueid%>"
-                                           onclick="loadRecentDemo('<%=valueid%>','<%=demo.getLastName()%>, <%=demo.getFirstName()%> (<%=demo.getYearOfBirth()%>-<%=demo.getMonthOfBirth()%>-<%=demo.getDateOfBirth()%>)')"/>
+                                           onclick="loadRecentDemo('<%=Encode.forJavaScriptAttribute(valueid)%>','<%=Encode.forJavaScriptAttribute(demo.getLastName() + ", " + demo.getFirstName() + " (" + demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth() + ")")%>')"/>
                                     <%
 
                                                 }
@@ -1158,9 +1158,9 @@
                                                 }
                                                 String initials = sbInitials.toString();
                                     %>
-                                    <input type="button" value="<%=initials%>"
-                                           title="<%=sortedprovider.getFirstName()%> <%=sortedprovider.getLastName()%> "
-                                           onclick="addflagprovider('<%=sortedprovider.getFirstName()%>','<%=sortedprovider.getLastName()%>','<%=sortedprovider.getProviderNo()%>');">
+                                    <input type="button" value="<%=Encode.forHtmlAttribute(initials)%>"
+                                           title="<%=Encode.forHtmlAttribute(sortedprovider.getFirstName() + " " + sortedprovider.getLastName())%>"
+                                           onclick="addflagprovider('<%=Encode.forJavaScriptAttribute(sortedprovider.getFirstName())%>','<%=Encode.forJavaScriptAttribute(sortedprovider.getLastName())%>','<%=Encode.forJavaScriptAttribute(sortedprovider.getProviderNo())%>');">
                                     <% }
                                     }
 
