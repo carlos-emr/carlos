@@ -29,6 +29,31 @@
 
 --%>
 
+<%--
+    RptViewAllQueryByExamples.jsp
+    =============================
+    Purpose: Displays all previously executed queries for the current provider,
+             allowing them to select and save any query as a favourite.
+
+    Features:
+    - Bootstrap 5 / HTML5 compliant layout
+    - OWASP encoding for all user-supplied values
+    - i18n via oscarResources bundle
+    - Date-range filter to narrow query history
+    - "Add to Favourite" button submits selected query to RptByExamplesFavorite.do
+
+    Parameters (set by backing Action):
+    - allQueries  — RptByExampleAllQueryBean containing queryVector of RptByExampleQueryBean
+    - startDate   — Start date filter currently applied (String)
+    - endDate     — End date filter currently applied (String)
+
+    Security:
+    - Requires _report or _admin.reporting read privilege
+    - CSRF token auto-injected by CsrfGuardScriptInjectionFilter
+
+    @since 2001-2002
+--%>
+
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.*" %>
 
@@ -54,7 +79,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
     <meta charset="UTF-8">
     <title>
@@ -85,7 +110,7 @@
         <button type="button"
                 class="btn-close"
                 onclick="this.closest('.alert').style.display='none'"
-                aria-label="Close"></button>
+                aria-label="<fmt:message key='button.close'/>"></button>
     </div>
 
     <!-- Page header bar: report label on the left, date-range refresh form on the right -->
@@ -99,17 +124,17 @@
         <form action="${pageContext.request.contextPath}/oscarReport/RptViewAllQueryByExamples.do"
               method="post"
               class="d-flex align-items-center gap-2">
-            <label class="form-label form-label-sm mb-0">
+            <label for="startDateInput" class="form-label form-label-sm mb-0">
                 <fmt:message key="oscarReport.RptByExample.MsgAllQueriesExecutedFrom"/>:
             </label>
-            <input type="text" name="startDate"
+            <input type="text" id="startDateInput" name="startDate"
                    value="${e:forHtmlAttribute(startDate)}"
                    class="form-control form-control-sm"
                    style="width:8em"/>
-            <label class="form-label form-label-sm mb-0">
+            <label for="endDateInput" class="form-label form-label-sm mb-0">
                 <fmt:message key="oscarReport.RptByExample.MsgTo"/>
             </label>
-            <input type="text" name="endDate"
+            <input type="text" id="endDateInput" name="endDate"
                    value="${e:forHtmlAttribute(endDate)}"
                    class="form-control form-control-sm"
                    style="width:8em"/>
@@ -144,7 +169,6 @@
                         </thead>
                         <tbody>
                             <c:forEach var="queryInfo" items="${allQueries.queryVector}">
-                                <c:set var="escapedQuery" value="${queryInfo.queryWithEscapeChar}"/>
                                 <tr>
                                     <td>${e:forHtml(queryInfo.date)}</td>
                                     <td>${e:forHtml(queryInfo.query)}</td>
@@ -153,7 +177,7 @@
                                         <input type="button"
                                                class="btn btn-outline-secondary btn-sm"
                                                value="<fmt:message key="oscarReport.RptByExample.MsgAddToFavorite"/>"
-                                               onclick="set('${e:forJavaScriptAttribute(escapedQuery)}'); document.getElementById('favouriteForm').submit();"/>
+                                               onclick="set('${e:forJavaScript(queryInfo.query)}'); document.getElementById('favouriteForm').submit();"/>
                                     </td>
                                 </tr>
                             </c:forEach>

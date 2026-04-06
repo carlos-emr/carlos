@@ -42,7 +42,7 @@
     - i18n via oscarResources bundle
     - Links to query history (RptViewAllQueryByExamples.do) and favorites editor
       (RptByExamplesAllFavorites.do)
-    - Favourite queries loaded from the session via ${favorites} attribute
+    - Favourite queries loaded from the request scope via ${favorites} attribute
 
     Parameters (set by backing Action):
     - favorites   — Collection of favourite query objects (query property)
