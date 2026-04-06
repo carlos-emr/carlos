@@ -55,6 +55,15 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.XmlUtils" %>
+<%@ page import="java.io.StringReader" %>
+<%@ page import="org.xml.sax.InputSource" %>
+<%@ page import="javax.xml.parsers.DocumentBuilder" %>
+<%@ page import="javax.xml.parsers.DocumentBuilderFactory" %>
+<%@ page import="org.w3c.dom.Document" %>
+<%@ page import="org.w3c.dom.Node" %>
+<%@ page import="org.w3c.dom.NodeList" %>
 <%
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
     String folderPath = pageContext.getServletContext().getRealPath("/decision/annualreview/");
@@ -117,11 +126,36 @@
         String risk_content = darp.getRiskContent();
         String checklist_content = darp.getChecklistContent();
 %>
-<script type="text/xml" id="xml_list">
-    <planner>
-        <%=checklist_content%>
-    </planner>
-</script>
+<script type="application/json" id="checked_fields"><%
+        // Generate a JSON array of checked field names server-side to avoid DOM-based XSS
+        // (js/xss-through-dom: prevents DOM text from being re-parsed as HTML/XML in JS)
+        List<String> checkedFieldNames = new ArrayList<>();
+        try {
+            String combinedXml = "<planner>"
+                    + (checklist_content != null ? checklist_content : "")
+                    + "</planner>";
+            DocumentBuilderFactory dbFactory = XmlUtils.createSecureDocumentBuilderFactory();
+            DocumentBuilder db = dbFactory.newDocumentBuilder();
+            Document xmlDoc = db.parse(new InputSource(new StringReader(combinedXml)));
+            NodeList children = xmlDoc.getDocumentElement().getChildNodes();
+            for (int ci = 0; ci < children.getLength(); ci++) {
+                Node child = children.item(ci);
+                if (child.getNodeType() == Node.ELEMENT_NODE
+                        && "checked".equals(child.getTextContent())) {
+                    checkedFieldNames.add(child.getNodeName().toLowerCase());
+                }
+            }
+        } catch (Exception xmlEx) {
+            // XML parse failure: checkedFieldNames stays empty, checkboxes won't be pre-checked
+        }
+        StringBuilder checkedJson = new StringBuilder("[");
+        for (int ci = 0; ci < checkedFieldNames.size(); ci++) {
+            if (ci > 0) checkedJson.append(",");
+            checkedJson.append("\"").append(Encode.forJavaScript(checkedFieldNames.get(ci))).append("\"");
+        }
+        checkedJson.append("]");
+        out.print(checkedJson.toString());
+%></script>
 
 <%
         //set the riskdata bean from xml file
