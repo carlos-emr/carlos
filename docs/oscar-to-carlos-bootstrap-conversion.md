@@ -218,7 +218,7 @@ to all rules in `CLAUDE.md`**:
 3. **HTML5 compliance is required for all new or converted markup:**
    - Add `<!DOCTYPE html>` if missing.
    - Add `lang="en"` on `<html>` if missing.
-   - Add `<meta charset="UTF-8">` and viewport meta if missing (unless `global.jspf` is included).
+   - Add `<meta charset="UTF-8">` and viewport meta if missing (unless `global-head.jspf` is included).
    - Remove or replace all deprecated elements and attributes:
      `<font>`, `vlink`, `alink`, `bgcolor`, `cellpadding`, `cellspacing`, `border` on non-data tables, `nowrap` (use `class="text-nowrap"`), `valign` (use Bootstrap utilities).
 
