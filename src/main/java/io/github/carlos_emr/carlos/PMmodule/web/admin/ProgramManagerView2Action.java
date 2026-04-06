@@ -70,6 +70,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import org.owasp.encoder.Encode;
 
 public class ProgramManagerView2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -121,6 +122,15 @@ public class ProgramManagerView2Action extends ActionSupport {
                 // find the program id
         String programId = request.getParameter("id");
 
+        // Validate programId is numeric before storing in session (CWE-501: Trust Boundary Violation)
+        if (programId != null) {
+            try {
+                programId = String.valueOf(Integer.parseInt(programId));
+            } catch (NumberFormatException e) {
+                logger.warn("Invalid non-numeric program ID received: {}", LogSanitizer.sanitize(programId));
+                programId = null;
+            }
+        }
         request.getSession().setAttribute("case_program_id", programId);
 
         if (request.getParameter("newVacancy") != null && "true".equals(request.getParameter("newVacancy")))
@@ -278,6 +288,15 @@ public class ProgramManagerView2Action extends ActionSupport {
     public String admit() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String programId = request.getParameter("id");
+        // Validate programId is numeric before use (CWE-501: Trust Boundary Violation)
+        if (programId != null) {
+            try {
+                programId = String.valueOf(Integer.parseInt(programId));
+            } catch (NumberFormatException e) {
+                logger.warn("Invalid non-numeric program ID received: {}", LogSanitizer.sanitize(programId));
+                programId = null;
+            }
+        }
         String clientId = request.getParameter("clientId");
         String queueId = request.getParameter("queueId");
 
@@ -285,6 +304,9 @@ public class ProgramManagerView2Action extends ActionSupport {
         Program fullProgram = programManager.getProgram(String.valueOf(programId));
         String dischargeNotes = request.getParameter("admission.dischargeNotes");
         String admissionNotes = request.getParameter("admission.admissionNotes");
+        // Sanitize notes before session storage to prevent trust boundary violation (CWE-501)
+        String sanitizedDischargeNotes = dischargeNotes != null ? Encode.forHtml(dischargeNotes) : null;
+        String sanitizedAdmissionNotes = admissionNotes != null ? Encode.forHtml(admissionNotes) : null;
         String formattedAdmissionDate = request.getParameter("admissionDate");
         Date admissionDate = DateUtils.toDate(formattedAdmissionDate);
         List<Integer> dependents = clientManager.getDependentsList(Integer.valueOf(clientId));
@@ -311,8 +333,8 @@ public class ProgramManagerView2Action extends ActionSupport {
             this.setServiceRestriction(e.getRestriction());
 
             request.getSession().setAttribute("programId", programId);
-            request.getSession().setAttribute("admission.dischargeNotes", dischargeNotes);
-            request.getSession().setAttribute("admission.admissionNotes", admissionNotes);
+            request.getSession().setAttribute("admission.dischargeNotes", sanitizedDischargeNotes);
+            request.getSession().setAttribute("admission.admissionNotes", sanitizedAdmissionNotes);
 
             request.setAttribute("id", programId);
 
