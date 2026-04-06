@@ -201,19 +201,17 @@
                         </button>
                     </div>
 
+                </form>
+            </div><!-- end right column -->
+
+        </div><!-- end .row -->
+    </div><!-- end .bg-light -->
                     <!-- Query results — rendered as backend-generated HTML -->
                     <c:if test="${not empty results}">
                         <div class="mt-3">
                             ${results}
                         </div>
                     </c:if>
-
-                </form>
-            </div><!-- end right column -->
-
-        </div><!-- end .row -->
-    </div><!-- end .bg-light -->
-
 </div><!-- end .container -->
 
 </body>
