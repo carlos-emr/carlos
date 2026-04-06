@@ -439,7 +439,7 @@
                             FaxConfig faxCfg = faxConfigList.isEmpty() ? null : faxConfigList.get(0);
                             String configId = faxCfg != null ? String.valueOf(faxCfg.getId()) : "-1";
                             String faxUser = faxCfg != null ? faxCfg.getFaxUser() : "";
-                            String faxPassword = (faxCfg != null && faxCfg.getFaxPasswd() != null && !faxCfg.getFaxPasswd().isEmpty()) ? ConfigureFax2Action.PASSWORD_MASK_SENTINEL : "";
+                            String faxPassword = faxCfg != null ? ConfigureFax2Action.maskPasswordForDisplay(faxCfg.getFaxPasswd()) : "";
                             String faxNumber = faxCfg != null ? faxCfg.getFaxNumber() : "";
                             String senderEmail = faxCfg != null ? faxCfg.getSenderEmail() : "";
                             String accountName = faxCfg != null ? faxCfg.getAccountName() : "";
@@ -449,7 +449,7 @@
                             boolean isDownload = faxCfg != null && faxCfg.isDownload();
                             String faxUrl = faxCfg != null ? faxCfg.getUrl() : "";
                             String siteUser = faxCfg != null ? faxCfg.getSiteUser() : "";
-                            String sitePasswd = (faxCfg != null && faxCfg.getPasswd() != null && !faxCfg.getPasswd().isEmpty()) ? ConfigureFax2Action.PASSWORD_MASK_SENTINEL : "";
+                            String sitePasswd = faxCfg != null ? ConfigureFax2Action.maskPasswordForDisplay(faxCfg.getPasswd()) : "";
                         %>
 
                         <!-- Provider Type Selection -->

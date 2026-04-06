@@ -320,6 +320,20 @@ public class ConfigureFax2Action extends ActionSupport {
     }
 
     /**
+     * Returns {@link #PASSWORD_MASK_SENTINEL} when the stored password is non-empty,
+     * or an empty string when no password has been stored yet.
+     *
+     * <p>Use this helper in view templates to populate password input fields without
+     * revealing the actual credential to the browser.</p>
+     *
+     * @param storedPassword the stored (encrypted) password value read from the database
+     * @return mask sentinel string or empty string
+     */
+    public static String maskPasswordForDisplay(String storedPassword) {
+        return (storedPassword != null && !storedPassword.isEmpty()) ? PASSWORD_MASK_SENTINEL : "";
+    }
+
+    /**
      * Resolves provider type selection from request arrays with safe middleware fallback.
      *
      * <p><strong>Backward Compatibility:</strong> Middleware is the legacy default provider.
