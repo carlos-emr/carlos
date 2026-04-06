@@ -109,6 +109,7 @@
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -205,7 +206,7 @@
                         Provider p = providerDao.getProvider(curProvider_no);
                         if (p != null) {
                 %>
-                <option value="<%=p.getProviderNo()%>" <%=p.getProviderNo().equals(curProvider_no) ? "selected" : ""%>><%=Encode.forHtmlContent(Misc.getShortStr(p.getFormattedName(), "", 12))%>
+                <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>" <%=p.getProviderNo().equals(curProvider_no) ? "selected" : ""%>><%=Encode.forHtmlContent(Misc.getShortStr(p.getFormattedName(), "", 12))%>
                 </option>
                 <%
                     }
@@ -213,7 +214,7 @@
                     List<MyGroup> mgs = myGroupDao.getGroupByGroupNo(mygroupno);
                     for (MyGroup mg : mgs) {
                 %>
-                <option value="<%=mg.getId().getProviderNo()%>" <%=mg.getId().getProviderNo().equals(curProvider_no) ? "selected" : ""%>><%=Encode.forHtmlContent(Misc.getShortStr(mg.getLastName() + "," + mg.getFirstName(), "", 12))%>
+                <option value="<%=Encode.forHtmlAttribute(mg.getId().getProviderNo())%>" <%=mg.getId().getProviderNo().equals(curProvider_no) ? "selected" : ""%>><%=Encode.forHtmlContent(Misc.getShortStr(mg.getLastName() + "," + mg.getFirstName(), "", 12))%>
                 </option>
                 <%
                         }
@@ -386,13 +387,13 @@
 
             %>
             <td
-                    <%=DateTimeCodeBean.get("color" + temp.toString()) != null ? ("bgcolor=" + DateTimeCodeBean.get("color" + temp.toString())) : ""%>
+                    <%=DateTimeCodeBean.get("color" + temp.toString()) != null ? ("bgcolor=\"" + Encode.forHtmlAttribute(String.valueOf(DateTimeCodeBean.get("color" + temp.toString()))) + "\"") : ""%>
                     title="<%=hour+":"+(min<10?"0":"")+min%>">
                 <table style="display:inline; font-size:x-small;">
                     <tr>
                         <td rowspan="2" style="vertical-align:middle;"><a href=#
-                                                                          onClick="t(<%=cal.get(Calendar.YEAR)%>,<%=cal.get(Calendar.MONTH)+1%>,<%=cal.get(Calendar.DATE)%>,'<%=(hour<10?"0":"")+hour+":"+(min<10?"0":"")+min %>','<%=appointmentTime.get(Calendar.HOUR_OF_DAY)%>:<%=appointmentTime.get(Calendar.MINUTE)%>','<%=DateTimeCodeBean.get("duration"+temp.toString())%>','<%=DateTimeCodeBean.get("confirm"+scheduleCode)%>','<%=allowDay%>','<%=allowWeek%>');return false;">
-                            <%=temp.toString()%>
+                                                                          onClick="t(<%=cal.get(Calendar.YEAR)%>,<%=cal.get(Calendar.MONTH)+1%>,<%=cal.get(Calendar.DATE)%>,'<%=(hour<10?"0":"")+hour+":"+(min<10?"0":"")+min %>','<%=appointmentTime.get(Calendar.HOUR_OF_DAY)%>:<%=appointmentTime.get(Calendar.MINUTE)%>','<%=Encode.forJavaScriptAttribute(DateTimeCodeBean.get("duration"+temp.toString()) != null ? String.valueOf(DateTimeCodeBean.get("duration"+temp.toString())) : "")%>','<%=Encode.forJavaScriptAttribute(DateTimeCodeBean.get("confirm"+scheduleCode) != null ? String.valueOf(DateTimeCodeBean.get("confirm"+scheduleCode)) : "")%>','<%=allowDay%>','<%=allowWeek%>');return false;">
+                            <%= "&nbsp;".equals(temp.toString()) ? "&nbsp;" : Encode.forHtml(temp.toString()) %>
                         </a></td>
                         <td title="<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleflipview.msgbookings"/>"
                             style="vertical-align:top; font-size: x-small;"><%=strNumOfAppts%>

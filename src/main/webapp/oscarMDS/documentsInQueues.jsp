@@ -97,14 +97,6 @@
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/Oscar.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/yui/js/yahoo-dom-event.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/yui/js/connection-min.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/yui/js/animation-min.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/yui/js/datasource-min.js"></script>
 
 
     <script type="text/javascript">
@@ -2374,10 +2366,6 @@
             src="${pageContext.servletContext.contextPath}/documentManager/showDocument.js"></script>
 
 
-    <link rel="stylesheet" type="text/css"
-          href="${pageContext.servletContext.contextPath}/share/yui/css/fonts-min.css"/>
-    <link rel="stylesheet" type="text/css"
-          href="${pageContext.servletContext.contextPath}/share/yui/css/autocomplete.css"/>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/share/css/demographicProviderAutocomplete.css"/>
     <style type="text/css">

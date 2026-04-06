@@ -493,7 +493,7 @@
         if (strView.equals(navArray[i])) {
             out.print(" <span class='view_selected'>" + navArray[i] + "</span>");
         } else {
-            out.print("<span class='view_menu'><a href='ShowAllergies2.jsp?demographicNo=" + demoNo + "&view=" + navArray[i] + "'>");
+            out.print("<span class='view_menu'><a href='ShowAllergies2.jsp?demographicNo=" + Encode.forUriComponent(demoNo) + "&view=" + Encode.forUriComponent(navArray[i]) + "'>");
             out.print(navArray[i]);
             out.print("</a></span>");
          }

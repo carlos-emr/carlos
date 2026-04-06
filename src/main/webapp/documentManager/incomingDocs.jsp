@@ -267,17 +267,14 @@
     <script language="javascript" type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
     <!-- Prototype.js/effects.js/controls.js removed — using vanilla JS (Phase 1c migration) -->
 
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/yahoo-dom-event.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/connection-min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/animation-min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/datasource-min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/autocomplete-min.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.css"/>
 
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/demographicProviderAutocomplete.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/carlosAutocomplete.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/documentDescriptionTypeahead.js"></script>
 
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/fonts-min.css"/>
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/autocomplete.css"/>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/demographicProviderAutocomplete.css"/>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/autocomplete.css"/>
     <script type="text/javascript">
@@ -1217,133 +1214,42 @@
             </td>
         </tr>
         <script type="text/javascript">
-            YAHOO.example.BasicRemote = function () {
-                var url = "<%= request.getContextPath()%>/provider/SearchProvider.do";
-                var oDS = new YAHOO.util.XHRDataSource(url, {
-                    connMethodPost: true,
-                    connXhrMode: 'ignoreStaleResponses'
+            initProviderAutocomplete("#autocompleteprov", "<%= request.getContextPath()%>",
+                function (providerNo, firstName, lastName) {
+                    document.getElementById('provfind').value = providerNo;
+                    addflagprovider(firstName, lastName, providerNo);
+                    document.getElementById('autocompleteprov').value = '';
                 });
-                oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;// Set the responseType
-
-                // Define the schema of the delimited results
-                oDS.responseSchema = {
-                    resultsList: "results",
-                    fields: ["providerNo", "firstName", "lastName"]
-                };
-
-                // Enable caching
-                oDS.maxCacheEntries = 0;
-
-                // Instantiate the AutoComplete
-                var oAC = new YAHOO.widget.AutoComplete("autocompleteprov", "autocomplete_choicesprov", oDS);
-                oAC.queryMatchSubset = true;
-                oAC.minQueryLength = 3;
-                oAC.maxResultsDisplayed = 25;
-                oAC.formatResult = resultFormatter3;
-
-                oAC.queryMatchContains = true;
-
-                oAC.itemSelectEvent.subscribe(function (type, args) {
-
-                    var myAC = args[0];
-                    var str = myAC.getInputEl().id.replace("autocompleteprov", "provfind");
-                    var oData = args[2];
-                    document.getElementById(str).value = args[2][0];
-                    myAC.getInputEl().value = args[2][2] + "," + args[2][1];
-
-                    addflagprovider(oData[2], oData[1], oData[0]);
-
-                    myAC.getInputEl().value = '';
-
-                });
-
-
-                return {
-                    oDS: oDS,
-                    oAC: oAC
-                };
-            }();
 
             function addflagprovider(pfirstname, plastname, provider_no) {
-                //enable Save button whenever a selection is made
-                var bdoc;
-                if (navigator.appName == "Microsoft Internet Explorer") {
+                var link = document.createElement('a');
+                link.id = "removeProv";
+                link.onclick = function () { removeThisProv(this); };
+                link.appendChild(document.createTextNode(" -remove- "));
 
-                    var bdoc = document.createElement('<a id="removeProv" onclick="removeThisProv(this)" >');
+                var wrapper = document.createElement('div');
+                wrapper.appendChild(document.createTextNode(pfirstname + " " + plastname));
 
-                } else {
-                    var bdoc = document.createElement('a');
-                    bdoc.setAttribute("id", "removeProv");
-                    bdoc.setAttribute("onclick", "removeThisProv(this);");
-                }
+                var hidden = document.createElement('input');
+                hidden.type = "hidden";
+                hidden.name = "flagproviders";
+                hidden.value = provider_no;
 
-                bdoc.appendChild(document.createTextNode(" -remove- "));
-
-
-                var adoc = document.createElement('div');
-                adoc.appendChild(document.createTextNode(pfirstname + " " + plastname));
-
-                var idoc;
-                if (navigator.appName == "Microsoft Internet Explorer") {
-                    idoc = document.createElement('<input type="hidden" name=flagproviders   value="' + provider_no + '" >');
-                } else {
-                    idoc = document.createElement('input');
-                    idoc.setAttribute("type", "hidden");
-                    idoc.setAttribute("name", "flagproviders");
-                    idoc.setAttribute("value", provider_no);
-                }
-
-                adoc.appendChild(idoc);
-
-                adoc.appendChild(bdoc);
-                var providerList = document.getElementById('providerList');
-
-                providerList.appendChild(adoc);
-
+                wrapper.appendChild(hidden);
+                wrapper.appendChild(link);
+                document.getElementById('providerList').appendChild(wrapper);
             }
 
-            YAHOO.example.BasicRemote = function () {
-                if (document.getElementById("autocompletedemo") && document.getElementById("autocomplete_choices")) {
+            if (document.getElementById("autocompletedemo") && document.getElementById("autocomplete_choices")) {
+                initDemographicAutocomplete("#autocompletedemo", "<%=request.getContextPath()%>",
+                    function (demographicNo, formattedName, formattedDob, status, item) {
+                        document.getElementById('demofind').value = demographicNo;
+                        document.getElementById('MRPNo').value = item.providerNo || '';
+                        document.getElementById('MRPName').value = item.providerName || '';
 
-                    var url = "<%=request.getContextPath()%>/demographic/SearchDemographic.do";
-                    var oDS = new YAHOO.util.XHRDataSource(url, {
-                        connMethodPost: true,
-                        connXhrMode: 'ignoreStaleResponses'
-                    });
-                    oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;// Set the responseType
+                        document.getElementById('autocompletedemo').value = formattedName + " (" + formattedDob + ")";
+                        selectedDemos.push(document.getElementById('autocompletedemo').value);
 
-                    // Define the schema of the delimited results
-                    oDS.responseSchema = {
-                        resultsList: "results",
-                        fields: ["formattedName", "fomattedDob", "demographicNo", "status", "providerNo", "providerName"]
-                    };
-
-                    // Enable caching
-                    oDS.maxCacheEntries = 0;
-
-                    var oAC = new YAHOO.widget.AutoComplete("autocompletedemo", "autocomplete_choices", oDS);
-
-                    oAC.queryMatchSubset = true;
-                    oAC.minQueryLength = 3;
-                    oAC.maxResultsDisplayed = 25;
-                    oAC.formatResult = resultFormatter2;
-                    oAC.queryMatchContains = true;
-
-                    oAC.itemSelectEvent.subscribe(function (type, args) {
-
-                        var str = args[0].getInputEl().id.replace("autocompletedemo", "demofind");
-
-
-                        document.getElementById('MRPNo').value = args[2][4];
-                        document.getElementById('MRPName').value = args[2][5];
-
-                        document.getElementById(str).value = args[2][2];
-
-                        args[0].getInputEl().value = args[2][0] + " (" + args[2][1] + ")";
-
-                        selectedDemos.push(args[0].getInputEl().value);
-
-                        //enable Save button whenever a selection is made
                         document.getElementById('save').disabled = false;
 
                         if (document.PdfInfoForm.pdfDir.value != "File") {
@@ -1354,14 +1260,7 @@
                             }
                         }
                     });
-
-
-                    return {
-                        oDS: oDS,
-                        oAC: oAC
-                    };
-                }
-            }();
+            }
         </script>
     </table>
 </div>
