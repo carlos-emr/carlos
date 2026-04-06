@@ -32,7 +32,6 @@
 <%@ page errorPage="/errorpage.jsp"
          import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*,java.net.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBilling3rdPartImpl" %>
 <% //
