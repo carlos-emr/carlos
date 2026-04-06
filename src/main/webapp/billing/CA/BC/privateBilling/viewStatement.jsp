@@ -11,6 +11,7 @@
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 
 
@@ -60,7 +61,7 @@
                         onchange="handleFilterByProvider()">
                     <option value="%">All Providers</option>
                     <c:forEach var="provider" items="${providers}">
-                        <option value="${provider.providerNo}" ${providerId==provider.providerNo ? 'selected' : ''}>${provider.getFormattedName()}</option>
+                        <option value="${e:forHtmlAttribute(provider.providerNo)}" ${providerId==provider.providerNo ? 'selected' : ''}>${e:forHtml(provider.getFormattedName())}</option>
                     </c:forEach>
                 </select>
             </div>
@@ -125,17 +126,17 @@
                     </c:otherwise>
                 </c:choose>
                 <tr class="${rowstyle}">
-                    <td><input type="checkbox" class="case" value="${invoice.demographicNumber}|${invoice.recipientId}"
+                    <td><input type="checkbox" class="case" value="${e:forHtmlAttribute(invoice.demographicNumber)}|${e:forHtmlAttribute(invoice.recipientId)}"
                                onclick="checkMasterCheckbox();"/></td>
 
                         <%-- Invoice Date --%>
-                    <td>${invoice.billingDate}</td>
+                    <td>${e:forHtml(invoice.billingDate)}</td>
 
                         <%-- Billing Type & Status --%>
-                    <td>${invoice.billingType} - ${invoice.status}</td>
+                    <td>${e:forHtml(invoice.billingType)} - ${e:forHtml(invoice.status)}</td>
 
                         <%-- Patient --%>
-                    <td>${invoice.demographicName}</td>
+                    <td>${e:forHtml(invoice.demographicName)}</td>
 
                         <%-- Provider
                           - show providers name from provider_no
@@ -148,7 +149,7 @@
                             Provider provider = providerDao.getProvider(providerNumber);
                             pageContext.setAttribute("providerName", provider.getFormattedName());
                         %>
-                            ${providerName}
+                            ${e:forHtml(providerName)}
                     </td>
 
                         <%-- Recipient:
@@ -170,15 +171,15 @@
                           - on click, go to the 'Edit Invoices' page
                         --%>
                     <td>
-                        <a href="javascript: popupPage( 700, 1000, '${ctx}/billing/CA/BC/billStatus.jsp?showPRIV=show&providerview=ALL&verCode=V03&Submit=Create+Report&xml_vdate=&xml_appointment_date=&demographicNo=${ invoice.demographicNumber }&filterPatient=true&submitted=yes' );">
-                                ${invoice.billingCount}
+                        <a href="javascript: popupPage( 700, 1000, '${e:forJavaScript(ctx)}/billing/CA/BC/billStatus.jsp?showPRIV=show&providerview=ALL&verCode=V03&Submit=Create+Report&xml_vdate=&xml_appointment_date=&demographicNo=${ e:forUriComponent(invoice.demographicNumber) }&filterPatient=true&submitted=yes' );">
+                                ${e:forHtml(invoice.billingCount)}
                         </a>
                     </td>
 
                         <%-- pop up a printer-frieldy private billing statement page --%>
                     <td>
                         <button class="btn btn-primary btn-sm"
-                                value="${invoice.demographicNumber}|${invoice.recipientId}"
+                                value="${e:forHtmlAttribute(invoice.demographicNumber)}|${e:forHtmlAttribute(invoice.recipientId)}"
                                 onclick="printItem(this.value)">
                             <span class="fa-solid fa-print" aria-hidden="true"></span>
                             print
@@ -198,7 +199,9 @@
         function printItem(itemValue) {
             var billToClinic = document.getElementById('cbBillToClinic').checked;
             var values = itemValue.split('|');
-            var selectedBillIds = [{demographicNumber: values[0], recipientId: values[1]}];
+            var demographicNumber = parseInt(values[0], 10) || 0;
+            var recipientId = parseInt(values[1], 10) || 0;
+            var selectedBillIds = [{demographicNumber: demographicNumber, recipientId: recipientId}];
             generatePrintFriendlyPage(selectedBillIds, billToClinic);
         }
 
@@ -207,15 +210,19 @@
             var selectedBillIds = [];
             document.querySelectorAll("input.case:checked").forEach(function (el) {
                 var values = el.value.split('|');
-                selectedBillIds.push({demographicNumber: values[0], recipientId: values[1]});
+                var demographicNumber = parseInt(values[0], 10) || 0;
+                var recipientId = parseInt(values[1], 10) || 0;
+                selectedBillIds.push({demographicNumber: demographicNumber, recipientId: recipientId});
             });
             generatePrintFriendlyPage(selectedBillIds, billToClinic);
         }
 
         function generatePrintFriendlyPage(billIds, billToClinic) {
-            var encodedParams = encodeURIComponent(JSON.stringify(billIds));
-            // redirect to print-ready page via controller
-            window.location.href = "${ctx}/PrivateBillingController?action=printPreviewBills&billToClinic=" + billToClinic + "&billIds=" + encodedParams;
+            var params = new URLSearchParams();
+            params.set("action", "printPreviewBills");
+            params.set("billToClinic", String(billToClinic));
+            params.set("billIds", JSON.stringify(billIds));
+            window.location.href = "${ctx}/PrivateBillingController?" + params.toString();
         }
 
         function checkAllCaseCheckboxes() {
@@ -246,7 +253,10 @@
 
         function handleFilterByProvider() {
             var providerId = document.getElementById('providerList').value;
-            window.location.href = "${ctx}/PrivateBillingController?action=listPrivateBills&providerId=" + encodeURIComponent(providerId);
+            var params = new URLSearchParams();
+            params.set("action", "listPrivateBills");
+            params.set("providerId", providerId);
+            window.location.href = "${ctx}/PrivateBillingController?" + params.toString();
         }
 
         document.addEventListener('DOMContentLoaded', function () {
