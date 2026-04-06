@@ -117,7 +117,7 @@ public class EChartPrint2Action extends ActionSupport {
 
         // Validate numeric to prevent HTTP response splitting (CRLF injection)
         if (demographicNo == null || !demographicNo.matches("\\d+")) {
-            throw new IllegalArgumentException("Invalid demographic number");
+            throw new IllegalArgumentException("Invalid demographicNo: must contain only digits");
         }
 
         DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
