@@ -366,20 +366,13 @@ public class NioFileManagerImpl implements NioFileManager {
         if (fileType == null) {
             fileType = DEFAULT_FILE_SUFFIX;
         }
-        // Strip any path components from the caller-supplied fileName to prevent
-        // path traversal (e.g. "../../etc/evil" → "evil").
-        String sanitizedName = new File(fileName).getName();
-        String fileNameWithType = String.format("%1$s.%2$s", sanitizedName, fileType);
-        Path file = directory.resolve(fileNameWithType).normalize();
-
-        // Verify the resolved path stays inside the temp directory created above.
-        try {
-            PathValidationUtils.validateExistingPath(file.toFile(), directory.toFile());
-        } catch (SecurityException e) {
-            throw new SecurityException("Path traversal attempt detected in temp file creation.");
-        }
-
-        return Files.write(file, os.toByteArray());
+        // Use PathValidationUtils.validatePath() to sanitize the caller-supplied fileName
+        // (strips path components such as "../../etc/evil") and verify the resulting
+        // path stays inside the freshly-created temp directory.  This follows the same
+        // pattern used throughout the CARLOS codebase for user-originated filenames.
+        String fileNameWithType = fileName + "." + fileType;
+        File safeFile = PathValidationUtils.validatePath(fileNameWithType, directory.toFile());
+        return Files.write(safeFile.toPath(), os.toByteArray());
     }
 
     public final Path saveTempFile(final String fileName, ByteArrayOutputStream os) throws IOException {
