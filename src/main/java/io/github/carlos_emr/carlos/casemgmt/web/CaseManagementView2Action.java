@@ -79,6 +79,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class CaseManagementView2Action extends ActionSupport {
@@ -88,6 +89,14 @@ public class CaseManagementView2Action extends ActionSupport {
 
     private static final Integer MAX_INVOICES = 20;
     private static Logger logger = MiscUtils.getLogger();
+
+    /** Valid tab names for whitelist validation (CWE-501). */
+    private static final Set<String> VALID_TABS =
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(CaseManagementViewFormBean.tabs)));
+
+    /** Expected format for check_issue parameters: two numeric parts separated by a dot. */
+    private static final Pattern CHECK_ISSUE_PATTERN = Pattern.compile("\\d+\\.\\d+");
+
     private CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
     private IssueDAO issueDao = (IssueDAO) SpringUtils.getBean(IssueDAO.class);
     private CaseManagementNoteDAO caseManagementNoteDao = (CaseManagementNoteDAO) SpringUtils.getBean(CaseManagementNoteDAO.class);
@@ -232,9 +241,7 @@ public class CaseManagementView2Action extends ActionSupport {
 
         logger.debug("Starting VIEW");
         // Whitelist tab against known tab identifiers to prevent trust boundary violation (CWE-501)
-        String tabParam = request.getParameter("tab");
-        String tab = Arrays.asList(CaseManagementViewFormBean.tabs).contains(tabParam)
-                ? tabParam : CaseManagementViewFormBean.tabs[0];
+        String tab = getValidatedTab(request.getParameter("tab"));
         HttpSession se = request.getSession();
         if (se.getAttribute("userrole") == null) return "expired";
 
@@ -276,9 +283,7 @@ public class CaseManagementView2Action extends ActionSupport {
 
         logger.debug("Starting VIEW");
         // Whitelist tab against known tab identifiers to prevent trust boundary violation (CWE-501)
-        String tabParam = request.getParameter("tab");
-        String tab = Arrays.asList(CaseManagementViewFormBean.tabs).contains(tabParam)
-                ? tabParam : CaseManagementViewFormBean.tabs[0];
+        String tab = getValidatedTab(request.getParameter("tab"));
         HttpSession se = request.getSession();
         if (se.getAttribute("userrole") == null) return "expired";
 
@@ -562,7 +567,7 @@ public class CaseManagementView2Action extends ActionSupport {
         String[] checkedIssues = null;
         if (rawCheckedIssues != null) {
             checkedIssues = Arrays.stream(rawCheckedIssues)
-                    .filter(s -> s != null && s.matches("\\d+\\.\\d+"))
+                    .filter(s -> s != null && CHECK_ISSUE_PATTERN.matcher(s).matches())
                     .toArray(String[]::new);
             if (checkedIssues.length == 0) checkedIssues = null;
         }
@@ -1659,6 +1664,18 @@ public class CaseManagementView2Action extends ActionSupport {
         }
         request.setAttribute("notesToDisplay", result.getNotes());
         return "ajaxDisplayNotes";
+    }
+
+    /**
+     * Returns the requested tab if it is a known tab identifier, or the default tab otherwise.
+     * This whitelist check prevents trust boundary violations (CWE-501) by ensuring that only
+     * server-defined tab names are accepted from untrusted HTTP request parameters.
+     *
+     * @param tabParam the raw tab parameter value from the HTTP request (may be null)
+     * @return a validated tab name; never null
+     */
+    private String getValidatedTab(String tabParam) {
+        return VALID_TABS.contains(tabParam) ? tabParam : CaseManagementViewFormBean.tabs[0];
     }
 
     // Gets the parameters or attributes that are connected to the inputted name
