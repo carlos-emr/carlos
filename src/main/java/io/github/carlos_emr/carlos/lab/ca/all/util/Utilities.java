@@ -73,10 +73,10 @@ public class Utilities {
         // Validate the file path is within DOCUMENT_DIR to prevent path traversal
         CarlosProperties props = CarlosProperties.getInstance();
         String place = props.getProperty("DOCUMENT_DIR");
-        PathValidationUtils.validateExistingPath(new File(fileName), new File(place));
+        File validatedFile = PathValidationUtils.validateExistingPath(new File(fileName), new File(place));
 
         ArrayList<String> messages = new ArrayList<String>();
-        try (InputStream is = new FileInputStream(fileName);
+        try (InputStream is = new FileInputStream(validatedFile);
              BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
 
             String line = null;
