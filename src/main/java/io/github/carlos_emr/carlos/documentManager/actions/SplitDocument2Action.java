@@ -16,11 +16,15 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -142,8 +146,14 @@ public class SplitDocument2Action extends ActionSupport {
 
                 String newDocNo = EDocUtil.addDocumentSQL(newDoc);
 
-                newPdf.save(docdownload + newDoc.getFileName());
+                Path pdfPath = Paths.get(docdownload, newDoc.getFileName());
+                newPdf.save(pdfPath.toString());
                 newPdf.close();
+                try {
+                    Files.setPosixFilePermissions(pdfPath, PosixFilePermissions.fromString("rw-------"));
+                } catch (IOException e) {
+                    MiscUtils.getLogger().error("Failed to set file permissions on saved PDF", e);
+                }
 
 
                 WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
@@ -331,13 +341,17 @@ public class SplitDocument2Action extends ActionSupport {
     }
 
     /**
-     * Sets file permissions for the file that is being modified.
+     * Sets file permissions for the file that is being modified, restricting
+     * access to the owner only (rw-------).
      *
      * @param file A file
      */
     private void setFilePermissions(File file) {
-        file.setWritable(true, false);
-        file.setExecutable(true, false);
-        file.setReadable(true, false);
+        try {
+            Set<PosixFilePermission> perms = PosixFilePermissions.fromString("rw-------");
+            Files.setPosixFilePermissions(file.toPath(), perms);
+        } catch (IOException e) {
+            MiscUtils.getLogger().error("Error setting file permissions on " + file.getName(), e);
+        }
     }
 }
