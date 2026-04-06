@@ -428,20 +428,20 @@
                 value="<%=Encode.forHtmlAttribute(props.getProperty("obsHisL",""))%>"/> <br/>
 
             <input type="checkbox" name="obsHisTubMolPregYes"
-                    <%=Encode.forHtmlAttribute(props.getProperty("obsHisTubMolPregYes",""))%>>Yes</input> <input
+                    <%="checked='checked'".equals(props.getProperty("obsHisTubMolPregYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
                 type="checkbox" name="obsHisTubMolPregNo"
-                <%=Encode.forHtmlAttribute(props.getProperty("obsHisTubMolPregNo",""))%>>No</input> <label>Any
+                <%="checked='checked'".equals(props.getProperty("obsHisTubMolPregNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Any
             previous tubal or molar pregnancy?</label> <br/>
             <input type="checkbox" name="obsHisMisAbortionYes"
-                    <%=Encode.forHtmlAttribute(props.getProperty("obsHisMisAbortionYes",""))%>>Yes</input> <input
+                    <%="checked='checked'".equals(props.getProperty("obsHisMisAbortionYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
                 type="checkbox" name="obsHisMisAbortionNo"
-                <%=Encode.forHtmlAttribute(props.getProperty("obsHisMisAbortionNo",""))%>>No</input> <label
+                <%="checked='checked'".equals(props.getProperty("obsHisMisAbortionNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label
                 style="float: none;">Any previous miscarriage, pregnancy loss,
             or therapeutic abortions?</label> <br/>
             <input type="checkbox" name="obsHisReceiveAntiDYes"
-                    <%=Encode.forHtmlAttribute(props.getProperty("obsHisReceiveAntiDYes",""))%>>Yes</input> <input
+                    <%="checked='checked'".equals(props.getProperty("obsHisReceiveAntiDYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
                 type="checkbox" name="obsHisReceiveAntiDNo"
-                <%=Encode.forHtmlAttribute(props.getProperty("obsHisReceiveAntiDNo",""))%>>No</input> <label>Did
+                <%="checked='checked'".equals(props.getProperty("obsHisReceiveAntiDNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Did
             you receive Anti-D during each of these pregnancies or following the
             pregnancy loss?</label> <br/>
 
@@ -454,16 +454,16 @@
                 History
             </legend>
             <input type="checkbox" name="pmHisBlClDisordersYes"
-                    <%=Encode.forHtmlAttribute(props.getProperty("pmHisBlClDisordersYes",""))%>>Yes</input> <input
+                    <%="checked='checked'".equals(props.getProperty("pmHisBlClDisordersYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
                 type="checkbox" name="pmHisBlClDisordersNo"
-                <%=Encode.forHtmlAttribute(props.getProperty("pmHisBlClDisordersNo",""))%>>No</input> <label>Do
+                <%="checked='checked'".equals(props.getProperty("pmHisBlClDisordersNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Do
             you have any bleeding or clotting disorders?</label> If yes, describe<input
                 type="text" name="pmHisBlClDisordersComment"
                 value="<%=Encode.forHtmlAttribute(props.getProperty("pmHisBlClDisordersComment",""))%>"/> <br/>
             <input type="checkbox" name="pmHisBlPlTransfusYes"
-                    <%=Encode.forHtmlAttribute(props.getProperty("pmHisBlPlTransfusYes",""))%>>Yes</input> <input
+                    <%="checked='checked'".equals(props.getProperty("pmHisBlPlTransfusYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
                 type="checkbox" name="pmHisBlPlTransfusNo"
-                <%=Encode.forHtmlAttribute(props.getProperty("pmHisBlPlTransfusNo",""))%>>No</input> <label>Have
+                <%="checked='checked'".equals(props.getProperty("pmHisBlPlTransfusNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Have
             you had any blood or platelet transfusions?</label> If yes, when<input
                 type="text" name="pmHisBlPlTransfusComment"
                 value="<%=Encode.forHtmlAttribute(props.getProperty("pmHisBlPlTransfusComment",""))%>"/></fieldset>
@@ -473,9 +473,9 @@
             <legend>Allergies</legend>
             <input
                     type="checkbox" name="allReactionsYes"
-                    <%=Encode.forHtmlAttribute(props.getProperty("allReactionsYes",""))%>>Yes</input> <input
+                    <%="checked='checked'".equals(props.getProperty("allReactionsYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
                 type="checkbox" name="allReactionsNo"
-                <%=Encode.forHtmlAttribute(props.getProperty("allReactionsNo",""))%>>No</input> <label>Any
+                <%="checked='checked'".equals(props.getProperty("allReactionsNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Any
             adverse reactions to previous immune globulin or other blood products?</label>
             If yes, describe<input type="text" name="allReactionsComment"
                                    value="<%=Encode.forHtmlAttribute(props.getProperty("allReactionsComment",""))%>"/> <br/>
@@ -515,62 +515,62 @@
         </select> <br/>
 
             <input type="checkbox" name="curPregDueDateChangeYes"
-                    <%=Encode.forHtmlAttribute(props.getProperty("curPregDueDateChangeYes",""))%>>Yes</input> <input
+                    <%="checked='checked'".equals(props.getProperty("curPregDueDateChangeYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
                 type="checkbox" name="curPregDueDateChangeNo"
-                <%=Encode.forHtmlAttribute(props.getProperty("curPregDueDateChangeNo",""))%>>No</input> <label>Has
+                <%="checked='checked'".equals(props.getProperty("curPregDueDateChangeNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Has
             your due date changed during this pregnancy?</label> Comment<input type="text"
                                                                                name="curPregDueDateChangeComment"
                                                                                value="<%=Encode.forHtmlAttribute(props.getProperty("curPregDueDateChangeComment",""))%>"/>
             <br/>
 
             <input type="checkbox" name="curPregProceduresYes"
-                    <%=Encode.forHtmlAttribute(props.getProperty("curPregProceduresYes",""))%>>Yes</input> <input
+                    <%="checked='checked'".equals(props.getProperty("curPregProceduresYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
                 type="checkbox" name="curPregProceduresNo"
-                <%=Encode.forHtmlAttribute(props.getProperty("curPregProceduresNo",""))%>>No</input> <label>Any
+                <%="checked='checked'".equals(props.getProperty("curPregProceduresNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Any
             procedures during this pregnancy such as amniocentesis, chorionic
             villous sampling, cordocentesis, or external cephalic version?</label> If yes,
             when<input type="text" name="curPregProceduresComment"
                        value="<%=Encode.forHtmlAttribute(props.getProperty("curPregProceduresComment",""))%>"/> <br/>
 
             <input type="checkbox" name="curPregBleedingYes"
-                    <%=Encode.forHtmlAttribute(props.getProperty("curPregBleedingYes",""))%>>Yes</input> <input
+                    <%="checked='checked'".equals(props.getProperty("curPregBleedingYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
                 type="checkbox" name="curPregBleedingNo"
-                <%=Encode.forHtmlAttribute(props.getProperty("curPregBleedingNo",""))%>>No</input> <label>Any
+                <%="checked='checked'".equals(props.getProperty("curPregBleedingNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Any
             bleeding or threatened miscarriage during this pregnancy?</label> <br/>
             If yes, when<input type="text" name="curPregBleedingComment"
                                value="<%=Encode.forHtmlAttribute(props.getProperty("curPregBleedingComment",""))%>"/> <br/>
 
             <input type="checkbox" name="curPregBleedingContYes"
-                    <%=Encode.forHtmlAttribute(props.getProperty("curPregBleedingContYes",""))%>>Yes</input> <input
+                    <%="checked='checked'".equals(props.getProperty("curPregBleedingContYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
                 type="checkbox" name="curPregBleedingContNo"
-                <%=Encode.forHtmlAttribute(props.getProperty("curPregBleedingContNo",""))%>>No</input> <label>Has
+                <%="checked='checked'".equals(props.getProperty("curPregBleedingContNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Has
             the bleeding continued?</label> <br/>
 
 
             <input type="checkbox" name="curPregTraumaYes"
-                    <%=Encode.forHtmlAttribute(props.getProperty("curPregTraumaYes",""))%>>Yes</input> <input
+                    <%="checked='checked'".equals(props.getProperty("curPregTraumaYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
                 type="checkbox" name="curPregTraumaNo"
-                <%=Encode.forHtmlAttribute(props.getProperty("curPregTraumaNo",""))%>>No</input> <label>Any
+                <%="checked='checked'".equals(props.getProperty("curPregTraumaNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Any
             abdominal trauma, serious fall or car accident?</label> <br/>
 
             <input type="checkbox" name="curPregAntiDYes"
-                    <%=Encode.forHtmlAttribute(props.getProperty("curPregAntiDYes",""))%>>Yes</input> <input
+                    <%="checked='checked'".equals(props.getProperty("curPregAntiDYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
                 type="checkbox" name="curPregAntiDNo"
-                <%=Encode.forHtmlAttribute(props.getProperty("curPregAntiDNo",""))%>>No</input> <label>Have
+                <%="checked='checked'".equals(props.getProperty("curPregAntiDNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Have
             you received any Anti-D during this pregnancy?</label> If yes, when<input
                 type="text" name="curPregAntiDComment"
                 value="<%=Encode.forHtmlAttribute(props.getProperty("curPregAntiDComment",""))%>"/> <br/>
 
             <input type="checkbox" name="curPregAntiDReactionYes"
-                    <%=Encode.forHtmlAttribute(props.getProperty("curPregAntiDReactionYes",""))%>>Yes</input> <input
+                    <%="checked='checked'".equals(props.getProperty("curPregAntiDReactionYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
                 type="checkbox" name="curPregAntiDReactionNo"
-                <%=Encode.forHtmlAttribute(props.getProperty("curPregAntiDReactionNo",""))%>>No</input> <label>Any
+                <%="checked='checked'".equals(props.getProperty("curPregAntiDReactionNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Any
             adverse reaction?</label> <br/>
 
             <input type="checkbox" name="curPregBloodDrawnYes"
-                    <%=Encode.forHtmlAttribute(props.getProperty("curPregBloodDrawnYes",""))%>>Yes</input> <input
+                    <%="checked='checked'".equals(props.getProperty("curPregBloodDrawnYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
                 type="checkbox" name="curPregBloodDrawnNo"
-                <%=Encode.forHtmlAttribute(props.getProperty("curPregBloodDrawnNo",""))%>>No</input> <label>Blood
+                <%="checked='checked'".equals(props.getProperty("curPregBloodDrawnNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Blood
             sample drawn?</label></fieldset>
 
 

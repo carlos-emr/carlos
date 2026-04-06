@@ -447,7 +447,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="threatened"
-                               id="threatened" <%=Encode.forHtmlAttribute(props.getProperty("threatened", ""))%> />
+                               id="threatened" <%="checked='checked'".equals(props.getProperty("threatened", "")) ? "checked=\"checked\"" : ""%> />
                     </label>
                     has threatened or is threatening to cause bodily harm to himself or herself
                 </td>
@@ -458,7 +458,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="attempted"
-                               id="attempted" <%=Encode.forHtmlAttribute(props.getProperty("attempted", ""))%> />
+                               id="attempted" <%="checked='checked'".equals(props.getProperty("attempted", "")) ? "checked=\"checked\"" : ""%> />
 
                     </label>
                     has attempted or is attempting to cause bodily harm to himself or herself
@@ -467,7 +467,7 @@
             <tr>
                 <td>
                     <label>
-                        <input type="checkbox" name="behaved" id="behaved" <%=Encode.forHtmlAttribute(props.getProperty("behaved", ""))%>/>
+                        <input type="checkbox" name="behaved" id="behaved" <%="checked='checked'".equals(props.getProperty("behaved", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     has behaved or is behaving violently towards another person
                 </td>
@@ -475,7 +475,7 @@
             <tr>
                 <td>
                     <label>
-                        <input type="checkbox" name="caused" id="caused" <%=Encode.forHtmlAttribute(props.getProperty("caused", ""))%>/>
+                        <input type="checkbox" name="caused" id="caused" <%="checked='checked'".equals(props.getProperty("caused", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     has caused or is causing another person to fear bodily harm from him or her; or
                 </td>
@@ -483,7 +483,7 @@
             <tr>
                 <td>
                     <label>
-                        <input type="checkbox" name="shown" id="shown" <%=Encode.forHtmlAttribute(props.getProperty("shown", ""))%>/>
+                        <input type="checkbox" name="shown" id="shown" <%="checked='checked'".equals(props.getProperty("shown", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     has shown or is showing a lack of competence to care for himself or herself
                 </td>
@@ -518,7 +518,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="harmHimself"
-                               id="harmHimself" <%=Encode.forHtmlAttribute(props.getProperty("harmHimself", ""))%>/>
+                               id="harmHimself" <%="checked='checked'".equals(props.getProperty("harmHimself", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     serious bodily harm to himself or herself,
                 </td>
@@ -527,7 +527,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="harmOthers"
-                               id="harmOthers" <%=Encode.forHtmlAttribute(props.getProperty("harmOthers", ""))%>/>
+                               id="harmOthers" <%="checked='checked'".equals(props.getProperty("harmOthers", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     serious bodily harm to another person,
                 </td>
@@ -536,7 +536,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="impairment"
-                               id="impairment" <%=Encode.forHtmlAttribute(props.getProperty("impairment", ""))%> />
+                               id="impairment" <%="checked='checked'".equals(props.getProperty("impairment", "")) ? "checked=\"checked\"" : ""%> />
                     </label>
                     serious physical impairment of himself or herself
                 </td>
@@ -583,7 +583,7 @@
                 <td>
                     <label>
                         <input name="harmHimselfB" type="checkbox"
-                               id="harmHimselfB" <%=Encode.forHtmlAttribute(props.getProperty("harmHimselfB", ""))%> />
+                               id="harmHimselfB" <%="checked='checked'".equals(props.getProperty("harmHimselfB", "")) ? "checked=\"checked\"" : ""%> />
                     </label>
                     serious bodily harm to himself or herself,
                 </td>
@@ -592,7 +592,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="harmOthersB"
-                               id="harmOthersB" <%=Encode.forHtmlAttribute(props.getProperty("harmOthersB", ""))%>/>
+                               id="harmOthersB" <%="checked='checked'".equals(props.getProperty("harmOthersB", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     serious bodily harm to another person,
                 </td>
@@ -601,7 +601,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="deteriorationB"
-                               id="deteriorationB" <%=Encode.forHtmlAttribute(props.getProperty("deteriorationB", ""))%>/>
+                               id="deteriorationB" <%="checked='checked'".equals(props.getProperty("deteriorationB", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     substantial mental or physical deterioration of himself or herself, or
                 </td>
@@ -610,7 +610,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="impairmentB"
-                               id="impairmentB" <%=Encode.forHtmlAttribute(props.getProperty("impairmentB", ""))%>/>
+                               id="impairmentB" <%="checked='checked'".equals(props.getProperty("impairmentB", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     serious physical impairment of himself or herself;
                 </td>
@@ -653,7 +653,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="harmHimselfB2"
-                               id="harmHimselfB2" <%=Encode.forHtmlAttribute(props.getProperty("harmHimselfB2", ""))%>/>
+                               id="harmHimselfB2" <%="checked='checked'".equals(props.getProperty("harmHimselfB2", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     cause serious bodily harm to himself or herself, or
                 </td>
@@ -662,7 +662,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="harmOthersB2"
-                               id="harmOthersB2" <%=Encode.forHtmlAttribute(props.getProperty("harmOthersB2", ""))%>/>
+                               id="harmOthersB2" <%="checked='checked'".equals(props.getProperty("harmOthersB2", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     cause serious bodily harm to another person, or
                 </td>
@@ -671,7 +671,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="deteriorationB2"
-                               id="deteriorationB2" <%=Encode.forHtmlAttribute(props.getProperty("deteriorationB2", ""))%>/>
+                               id="deteriorationB2" <%="checked='checked'".equals(props.getProperty("deteriorationB2", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     suffer substantial mental or physical deterioration, or
                 </td>
@@ -680,7 +680,7 @@
                 <td>
                     <label>
                         <input type="checkbox" name="impairmentB2"
-                               id="impairmentB2" <%=Encode.forHtmlAttribute(props.getProperty("impairmentB2", ""))%>/>
+                               id="impairmentB2" <%="checked='checked'".equals(props.getProperty("impairmentB2", "")) ? "checked=\"checked\"" : ""%>/>
                     </label>
                     suffer serious physical impairment
                 </td>

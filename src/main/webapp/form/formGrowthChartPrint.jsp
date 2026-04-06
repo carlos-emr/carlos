@@ -16,7 +16,6 @@
 <%@ page errorPage="/errorpage.jsp" import="java.util.*" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
     int nS = 1;
     int nE = 7;
