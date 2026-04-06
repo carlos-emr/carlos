@@ -44,7 +44,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("FrmRecordFactory whitelist validation")
 class FrmRecordFactoryUnitTest {
 
-    private final FrmRecordFactory factory = new FrmRecordFactory();
+    private static final FrmRecordFactory factory = new FrmRecordFactory();
 
     // -------------------------------------------------------------------------
     // Whitelist content

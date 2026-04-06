@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.form;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import java.util.Collections;
@@ -48,7 +49,7 @@ public class FrmRecordFactory {
      * <p>When a new {@code Frm*Record} class is added to the codebase, its name suffix must
      * also be added here.</p>
      */
-    static final Set<String> ALLOWED_FORM_CLASSES;
+    public static final Set<String> ALLOWED_FORM_CLASSES;
 
     static {
         Set<String> allowed = new HashSet<>();
@@ -131,7 +132,7 @@ public class FrmRecordFactory {
     public FrmRecord factory(String which) {
 
         if (which == null || !ALLOWED_FORM_CLASSES.contains(which)) {
-            MiscUtils.getLogger().warn("Rejected disallowed form class name: {}", which);
+            MiscUtils.getLogger().warn("Rejected disallowed form class name: {}", LogSanitizer.sanitize(which));
             return null;
         }
 
