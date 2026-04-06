@@ -366,7 +366,15 @@ public class NioFileManagerImpl implements NioFileManager {
         if (fileType == null) {
             fileType = DEFAULT_FILE_SUFFIX;
         }
-        Path file = Files.createFile(Paths.get(directory.toString(), String.format("%1$s.%2$s", fileName, fileType)));
+        String sanitizedName = sanitizeFileName(fileName);
+        Path file = Files.createFile(Paths.get(directory.toString(), String.format("%1$s.%2$s", sanitizedName, fileType)));
+        // Validate the resulting path is within the temp directory
+        try {
+            PathValidationUtils.validateExistingPath(file.toFile(), directory.toFile());
+        } catch (SecurityException e) {
+            Files.deleteIfExists(file);
+            throw new SecurityException("File can only be created in temporary directory.");
+        }
         return Files.write(file, os.toByteArray());
     }
 
