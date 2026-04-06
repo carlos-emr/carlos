@@ -171,7 +171,7 @@
                           - on click, go to the 'Edit Invoices' page
                         --%>
                     <td>
-                        <a href="javascript: popupPage( 700, 1000, '${e:forJavaScript(ctx)}/billing/CA/BC/billStatus.jsp?showPRIV=show&providerview=ALL&verCode=V03&Submit=Create+Report&xml_vdate=&xml_appointment_date=&demographicNo=${ e:forUriComponent(invoice.demographicNumber) }&filterPatient=true&submitted=yes' );">
+                        <a href="javascript: popupPage( 700, 1000, '${e:forUri(ctx)}/billing/CA/BC/billStatus.jsp?showPRIV=show&providerview=ALL&verCode=V03&Submit=Create+Report&xml_vdate=&xml_appointment_date=&demographicNo=${ e:forUriComponent(invoice.demographicNumber) }&filterPatient=true&submitted=yes' );">
                                 ${e:forHtml(invoice.billingCount)}
                         </a>
                     </td>
@@ -199,8 +199,12 @@
         function printItem(itemValue) {
             var billToClinic = document.getElementById('cbBillToClinic').checked;
             var values = itemValue.split('|');
-            var demographicNumber = parseInt(values[0], 10) || 0;
-            var recipientId = parseInt(values[1], 10) || 0;
+            var demographicNumber = parseInt(values[0], 10);
+            var recipientId = parseInt(values[1], 10);
+            if (isNaN(demographicNumber) || isNaN(recipientId)) {
+                console.warn('printItem: invalid bill ID value', itemValue);
+                return;
+            }
             var selectedBillIds = [{demographicNumber: demographicNumber, recipientId: recipientId}];
             generatePrintFriendlyPage(selectedBillIds, billToClinic);
         }
@@ -210,9 +214,13 @@
             var selectedBillIds = [];
             document.querySelectorAll("input.case:checked").forEach(function (el) {
                 var values = el.value.split('|');
-                var demographicNumber = parseInt(values[0], 10) || 0;
-                var recipientId = parseInt(values[1], 10) || 0;
-                selectedBillIds.push({demographicNumber: demographicNumber, recipientId: recipientId});
+                var demographicNumber = parseInt(values[0], 10);
+                var recipientId = parseInt(values[1], 10);
+                if (!isNaN(demographicNumber) && !isNaN(recipientId)) {
+                    selectedBillIds.push({demographicNumber: demographicNumber, recipientId: recipientId});
+                } else {
+                    console.warn('printSelected: invalid bill ID value', el.value);
+                }
             });
             generatePrintFriendlyPage(selectedBillIds, billToClinic);
         }
