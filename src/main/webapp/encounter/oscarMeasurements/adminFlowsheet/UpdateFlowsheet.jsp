@@ -125,7 +125,7 @@ if(scope != null && "clinic".equals(scope)) {
     <head>
         <title>Update Flowsheet <%=Encode.forHtml(flowsheet)%> <oscar:nameage demographicNo="<%=demographic%>"/></title><!--I18n-->
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
 
         <style type="text/css">
@@ -506,7 +506,7 @@ display:inline-block;
 
 
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
 
     <script src="<%=request.getContextPath() %>/library/jquery/jquery.validate.min.js"></script>

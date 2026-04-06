@@ -324,7 +324,7 @@
         </script>
             <%--        <oscar:customInterface section="monthview"/>--%>
 
-        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css"
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/bootstrap/5.3.8/css/bootstrap.min.css"
               type="text/css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/receptionistapptstyle.css" type="text/css">

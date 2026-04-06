@@ -184,7 +184,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
         <meta name="viewport" content="width=device-width, user-scalable=false;">
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
 
         <!-- Fav and touch icons -->
@@ -1000,7 +1000,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
     <script src="<%=request.getContextPath() %>/share/javascript/Oscar.js"></script>
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
     <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 

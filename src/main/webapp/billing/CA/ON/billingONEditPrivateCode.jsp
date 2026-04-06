@@ -167,7 +167,7 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePrivBillingCode"/></title>
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
 
@@ -371,7 +371,7 @@
 
     </div>
 
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
     </body>
