@@ -190,7 +190,10 @@ public class ConfigureFax2Action extends ActionSupport {
 
                         if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !isPasswordUnchanged(faxPasswds[idx])) {
                             savedFaxConfig.setFaxPasswd(faxPasswds[idx].trim());
-                            faxPasswds[idx] = null; // Clear per-row fax password after use
+                        }
+                        // Clear per-row fax password after use (covers both updated and sentinel cases)
+                        if (faxPasswds != null && idx < faxPasswds.length) {
+                            faxPasswds[idx] = null;
                         }
 
                         String faxNumber = faxNumbers[idx];
@@ -218,7 +221,10 @@ public class ConfigureFax2Action extends ActionSupport {
 
                         if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !isPasswordUnchanged(faxPasswds[idx])) {
                             faxConfig.setFaxPasswd(faxPasswds[idx].trim());
-                            faxPasswds[idx] = null; // Clear per-row fax password after use
+                        }
+                        // Clear per-row fax password after use (covers both updated and sentinel cases)
+                        if (faxPasswds != null && idx < faxPasswds.length) {
+                            faxPasswds[idx] = null;
                         }
 
                         String newFaxNumber = faxNumbers[idx];
