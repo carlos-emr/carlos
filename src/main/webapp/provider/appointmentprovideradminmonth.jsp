@@ -446,7 +446,7 @@
             }
 
             function callRefreshTabAlerts(id) {
-                setTimeout("refreshTabAlerts('" + id + "')", 10);
+                setTimeout(function() { refreshTabAlerts(id); }, 10);
             }
 
             function refreshTabAlerts(id) {
