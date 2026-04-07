@@ -412,7 +412,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 
 		            <%} else {%>
 						<security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w">
-							<a href="#" onclick="editFlowsheetByDemographic('<%=Encode.forJavaScript(flowsheet)%>')">Patient</a>
+							<a href="#" onclick="editFlowsheetByDemographic('<%=Encode.forJavaScriptAttribute(flowsheet)%>')">Patient</a>
 						</security:oscarSec>
 							| Your Patients
 						<security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w">
@@ -423,7 +423,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                     } else {
                     %>
 						<security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w">
-							<a href="#" onclick="editFlowsheetByDemographic('<%=Encode.forJavaScript(flowsheet)%>')">Patient</a>
+							<a href="#" onclick="editFlowsheetByDemographic('<%=Encode.forJavaScriptAttribute(flowsheet)%>')">Patient</a>
 							| <a href="EditFlowsheet.jsp?flowsheet=<%=Encode.forUriComponent(flowsheet)%>&displayName=<%=encodedDisplayNameForUri%>">Your Patients</a>
 						</security:oscarSec>
 							| All Patients
@@ -607,7 +607,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                                         <% if (isHigherScope) { %>
                                         <i class="fa-solid fa-lock action-icon" style="opacity:0.4;" title="Cannot remove - created at <%=Encode.forHtmlAttribute(custLevel)%> level"></i>
                                         <% } else { %>
-                                        <a href="javascript:void(0);" onclick="submitFlowsheetCustom({method:'archiveMod',id:'<%=cust.getId()%>',flowsheet:'<%=Encode.forJavaScript(flowsheet)%>'<%=demographic!=null?",demographic:'"+Encode.forJavaScript(demographic)+"'":""%><%=!htQueryString.isEmpty()?",htracker:'"+Encode.forJavaScript(htQueryString.contains("slim")?"slim":"true")+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScript(scope)+"'":""%>});"
+                                        <a href="javascript:void(0);" onclick="submitFlowsheetCustom({method:'archiveMod',id:'<%=cust.getId()%>',flowsheet:'<%=Encode.forJavaScriptAttribute(flowsheet)%>'<%=demographic!=null?",demographic:'"+Encode.forJavaScriptAttribute(demographic)+"'":""%><%=!htQueryString.isEmpty()?",htracker:'"+Encode.forJavaScriptAttribute(htQueryString.contains("slim")?"slim":"true")+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScriptAttribute(scope)+"'":""%>});"
                                            class="action-icon"><i class="fa-solid fa-trash"></i></a>
                                         <% } %>
                                     </td>
