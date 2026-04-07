@@ -106,6 +106,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         objectMapper.registerModule(module);
     }
 
+    // Whitelist for the 'from' request parameter — only "casemgmt" is a known valid value
+    private static final Set<String> ALLOWED_FROM_VALUES = Set.of("casemgmt");
+
+    // Whitelist for the 'note_sort' request parameter — matches values used in sortNotes/sortNotes_old
+    private static final Set<String> ALLOWED_NOTE_SORT_VALUES = Set.of(
+            "observation_date_asc", "observation_date_desc",
+            "providerName", "programName", "roleName", "update_date");
+
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
@@ -249,7 +257,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         /* prepare url for billing */
         if (request.getParameter("from") != null) {
-            request.setAttribute("from", request.getParameter("from"));
+            request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
         }
 
         String url = "";
@@ -504,12 +512,53 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
         }
 
-        setOrRemove(session, "note_sort", request.getParameter("note_sort"));
-        setOrRemove(session, "filter_roles", request.getParameterValues("filter_roles"));
-        setOrRemove(session, "filter_provider", request.getParameterValues("filter_providers"));
-        setOrRemove(session, "issues", request.getParameterValues("issues"));
+        setOrRemove(session, "note_sort", sanitizeNoteSortParam(request.getParameter("note_sort")));
+        setOrRemove(session, "filter_roles", sanitizeIdFilterArray(request.getParameterValues("filter_roles")));
+        setOrRemove(session, "filter_provider", sanitizeIdFilterArray(request.getParameterValues("filter_providers")));
+        setOrRemove(session, "issues", sanitizeIdFilterArray(request.getParameterValues("issues")));
 
         return fwd;
+    }
+
+    /**
+     * Returns {@code value} only when it is in the {@link #ALLOWED_FROM_VALUES} whitelist;
+     * otherwise returns {@code null}.  Prevents trust-boundary violations (CWE-501) when
+     * the raw "from" request parameter is stored as a request/session attribute.
+     */
+    static String sanitizeFromParam(String value) {
+        if (value == null) return null;
+        return ALLOWED_FROM_VALUES.contains(value) ? value : null;
+    }
+
+    /**
+     * Returns {@code value} only when it is in the {@link #ALLOWED_NOTE_SORT_VALUES} whitelist;
+     * otherwise returns {@code null}.  Prevents trust-boundary violations (CWE-501) when
+     * the raw "note_sort" request parameter is stored in the HttpSession.
+     */
+    static String sanitizeNoteSortParam(String value) {
+        if (value == null) return null;
+        return ALLOWED_NOTE_SORT_VALUES.contains(value) ? value : null;
+    }
+
+    /**
+     * Filters an array of filter-ID strings so that only well-formed values survive.
+     * <p>Accepted tokens: {@code "a"} (all), {@code "n"} (none), and digit-only strings
+     * representing database primary-key IDs.  Any other value is silently dropped.
+     * Returns an empty array (not {@code null}) if all values are rejected, which causes
+     * {@link #setOrRemove} to clear the session attribute rather than leave stale data.
+     *
+     * @param values raw parameter values from the HTTP request; may be {@code null}
+     * @return sanitized array, or {@code null} when the input is {@code null}
+     */
+    static String[] sanitizeIdFilterArray(String[] values) {
+        if (values == null) return null;
+        List<String> sanitized = new ArrayList<>();
+        for (String v : values) {
+            if (v != null && (v.equals("a") || v.equals("n") || v.matches("\\d+"))) {
+                sanitized.add(v);
+            }
+        }
+        return sanitized.toArray(new String[0]);
     }
 
     private void setOrRemove(HttpSession session, String key, String value) {
@@ -1633,7 +1682,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return "windowCloseError";
         }
 
-        request.setAttribute("from", request.getParameter("from"));
+        request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
         long noteId = noteSave();
 
         /* prepare the message */
@@ -2052,7 +2101,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoDOB", getDemoDOB(demono));
 
-        request.setAttribute("from", request.getParameter("from"));
+        request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
 
         this.setShowList("false");
         this.setSearString("");
@@ -2093,7 +2142,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         request.setAttribute("change_flag", "true");
 
-        request.setAttribute("from", request.getParameter("from"));
+        request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
         this.setShowList("true");
 
         String demono = getDemographicNo(request);
@@ -2185,7 +2234,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         logger.debug("issueAdd");
         request.setAttribute("change_flag", "true");
-        request.setAttribute("from", request.getParameter("from"));
+        request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
 
         String demono = getDemographicNo(request);
         request.setAttribute("demoName", getDemoName(demono));
@@ -2311,7 +2360,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("demoName", getDemoName(demono));
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoDOB", getDemoDOB(demono));
-        request.setAttribute("from", request.getParameter("from"));
+        request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
         request.setAttribute("change_diagnosis", Boolean.valueOf(true));
         request.setAttribute("change_diagnosis_id", inds);
         this.setShowList("false");
@@ -2324,7 +2373,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (request.getSession().getAttribute("userrole") == null) return "expired";
 
         request.setAttribute("change_flag", "true");
-        request.setAttribute("from", request.getParameter("from"));
+        request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
 
         String demono = getDemographicNo(request);
         request.setAttribute("demoName", getDemoName(demono));
@@ -2433,7 +2482,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName);
 
         request.setAttribute("change_flag", "true");
-        request.setAttribute("from", request.getParameter("from"));
+        request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
         request.setAttribute("demoName", getDemoName(demono));
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoDOB", getDemoDOB(demono));
@@ -2493,7 +2542,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return null;
         }
-        request.setAttribute("from", request.getParameter("from"));
+        request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
         request.setAttribute("change_flag", "true");
         session.setAttribute("issueStatusChanged", "true");
         String demono = getDemographicNo(request);

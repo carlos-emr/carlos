@@ -31,7 +31,7 @@
 <html>
 <head>
     <title>Private Billing Statement - Print Preview</title>
-    <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css">
     <style type="text/css">
         @media print, screen {
             body {
@@ -498,7 +498,7 @@
     </div>
 </div>
 
-<script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script type="text/javascript" src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 <script type="text/javascript">
     function handleClickBillToClinic() {
         var billToClinic = document.getElementById('cbBillToClinic').checked;

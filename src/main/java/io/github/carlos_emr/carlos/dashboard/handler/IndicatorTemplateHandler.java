@@ -44,9 +44,11 @@ import javax.xml.validation.SchemaFactory;
 import javax.xml.validation.Validator;
 
 import org.apache.logging.log4j.Logger;
+import org.xml.sax.SAXException;
 import io.github.carlos_emr.carlos.commn.model.IndicatorTemplate;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 
 /**
@@ -177,7 +179,14 @@ public class IndicatorTemplateHandler {
      */
     private void setSchema() {
 
-        SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+        SchemaFactory factory;
+        try {
+            factory = XmlUtils.createSecureSchemaFactory(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+        } catch (SAXException e) {
+            setValidationMessage("Failed to create secure schema factory", e);
+            logger.error(validationMessage.toString(), e);
+            return;
+        }
         URL schemaSource = Thread.currentThread().getContextClassLoader().getResource(IndicatorTemplateHandler.schemaFile);
 
         File schemaFile = null;
@@ -255,11 +264,10 @@ public class IndicatorTemplateHandler {
     private final Document byteToDocument(final byte[] bytearray) {
 
         Document document = null;
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.setNamespaceAware(true);
-        factory.setSchema(getSchema());
-
         try {
+            DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
+            factory.setNamespaceAware(true);
+            factory.setSchema(getSchema());
             DocumentBuilder builder = factory.newDocumentBuilder();
             document = builder.parse(new ByteArrayInputStream(bytearray));
             if (document != null) {

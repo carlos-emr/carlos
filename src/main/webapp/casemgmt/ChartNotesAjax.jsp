@@ -501,7 +501,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 }
 
                 if (rx != null) {
-                    String url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/oscarRx/StaticScript2.jsp?demographicNo=" + rx.getDemographicNo() + "&regionalIdentifier=" + rx.getRegionalIdentifier() + "&cn=" + response.encodeURL(rx.getCustomName()) + "');";
+                    String url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/oscarRx/StaticScript2.jsp?demographicNo=" + Encode.forUriComponent(String.valueOf(rx.getDemographicNo())) + "&regionalIdentifier=" + Encode.forUriComponent(StringUtils.noNull(rx.getRegionalIdentifier())) + "&cn=" + Encode.forUriComponent(StringUtils.noNull(rx.getCustomName())) + "');";
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
@@ -523,7 +523,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 url = "popupPage(1000,1200,'" + hash + "', '" + request.getContextPath() + "/documentManager/showDocument.jsp?inWindow=true&segmentID=" + encodedDispDocNo +"');";
                 url = url + "return false;";
 
-							String editUrl = "window.open('/oscar/annotation/annotation.jsp?display=Documents&amp;table_id=" + encodedDispDocNo + "&amp;demo=" + demographicNo + "','anwin','width=400,height=500');";
+							String editUrl = "window.open('/oscar/annotation/annotation.jsp?display=Documents&amp;table_id=" + encodedDispDocNo + "&amp;demo=" + Encode.forUriComponent(demographicNo) + "','anwin','width=400,height=500');";
 
                 if (!note.isReadOnly()) {
             %>
@@ -601,15 +601,15 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 String url = "popupPage(700,800,'"
                         + hash + "started" + "','"
                         + request.getContextPath()
-                        + StringEscapeUtils.escapeHtml4("/form/forwardshortcutname.do?formname=" + formEntry.getNote())
-                        + "&demographic_no=" + demographicNo
-                        + "&formId=" + formEntry.getNoteId()
+                        + "/form/forwardshortcutname.do?formname=" + Encode.forUriComponent(formEntry.getNote())
+                        + "&demographic_no=" + Encode.forUriComponent(demographicNo)
+                        + "&formId=" + Encode.forUriComponent(String.valueOf(formEntry.getNoteId()))
                         + "'); return false;";
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
                 <a class="links" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view.eformView"/>" id="view<%=globalNoteId%>"
-                   href="javascript:void(0)" onclick="<%=url%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view"/></a>
+                   href="javascript:void(0)" onclick="<%=Encode.forHtmlAttribute(url)%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view"/></a>
             </div>
             <%
             } else if (note.isEmailNote()) {
@@ -634,7 +634,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 }
                 if (!note.isDocument() && !note.isCpp() && !note.isEformData() && !note.isEncounterForm() && !note.isInvoice() && !note.isEmailNote()) {
                     String atbname = "anno" + String.valueOf(new Date().getTime());
-                    String addr = request.getContextPath() + "/annotation/annotation.jsp?atbname=" + atbname + "&table_id=" + String.valueOf(note.getNoteId()) + "&display=EChartNote&demo=" + demographicNo;
+                    String addr = request.getContextPath() + "/annotation/annotation.jsp?atbname=" + Encode.forUriComponent(atbname) + "&table_id=" + String.valueOf(note.getNoteId()) + "&display=EChartNote&demo=" + Encode.forUriComponent(demographicNo);
             %>
             <input type="image" id="anno<%=globalNoteId%>" src='<%=ctx %>/encounter/graphics/annotation.png'
                    title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnAnnotation"/>'

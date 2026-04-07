@@ -238,8 +238,8 @@
             }
         %>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css">
-        <script src="<%= request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
+        <script src="<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 

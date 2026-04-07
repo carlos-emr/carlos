@@ -152,7 +152,7 @@
                         credentials: 'same-origin',
                         body: data
                     }).then(function() {
-                        window.location.href = "<c:out value="${ctx}"/>" + "/oscarRx/StaticScript2.jsp?regionalIdentifier=" + '<%= Encode.forJavaScript(regionalIdentifier) %>' + "&cn=" + '<%= Encode.forJavaScript(cn) %>';
+                        window.location.href = "<c:out value="${ctx}"/>" + "/oscarRx/StaticScript2.jsp?regionalIdentifier=" + '<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier))) %>' + "&cn=" + '<%= Encode.forJavaScript(Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(cn))) %>';
                     });
                 }
             }
@@ -234,32 +234,32 @@
                                     </td>
                                     <td><%
                                         if (!drug.startDate.equals("0001/01/01")) {
-                                            out.print(partialDateDao.getDatePartial(drug.startDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_STARTDATE));
+                                            out.print(Encode.forHtml(partialDateDao.getDatePartial(drug.startDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_STARTDATE)));
 							/*
 							String startDate = drug.startDate;
 		            		PartialDate pd = partialDateDao.getPartialDate(PartialDate.DRUGS , drug.localDrugId, PartialDate.DRUGS_STARTDATE);
 		            		if(pd != null) {
 		            			startDate = startDate.substring(0,pd.getFormat().length());
 		            		}
-		            		
+
 							out.print(startDate);
 							*/
                                         }
                                     %></td>
                                     <td><%
                                         if (!drug.startDate.equals("0001/01/01")) {
-                                            out.print(drug.endDate);
+                                            out.print(Encode.forHtml(drug.endDate));
                                         }
                                     %></td>
                                     <td><%
                                         if (!drug.writtenDate.equals("0001/01/01")) {
-                                            out.print(partialDateDao.getDatePartial(drug.writtenDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_WRITTENDATE));
+                                            out.print(Encode.forHtml(partialDateDao.getDatePartial(drug.writtenDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_WRITTENDATE)));
                                         }
                                     %></td>
                                     <td>
                                         <%if (drug.localDrugId != null) { %>
                                         <a href="javascript:void(0);"
-                                           onclick="popup(600, 425,'<%= request.getContextPath() %>/oscarRx/DisplayRxRecord.jsp?id=<%=drug.localDrugId%>','displayRxWindow')">
+                                           onclick="popup(600, 425,'<%= request.getContextPath() %>/oscarRx/DisplayRxRecord.jsp?id=<%=Encode.forUriComponent(String.valueOf(drug.localDrugId))%>','displayRxWindow')">
                                             <%}%>
                                             <%=Encode.forHtml(drug.prescriptionDetails)%>
                                             <%if (drug.localDrugId != null) { %>
@@ -315,7 +315,7 @@
                                 if (drug.isLocal) {
                             %>
                             <input type="button" value="Annotation" title="Annotation" class="ControlPushButton"
-                                   onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=drug.localDrugId%>&demo=<%=currentDemographicNo%>','anwin','width=400,height=500');">
+                                   onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=Encode.forUriComponent(annotation_display)%>&table_id=<%=Encode.forUriComponent(String.valueOf(drug.localDrugId))%>&demo=<%=Encode.forUriComponent(String.valueOf(currentDemographicNo))%>','anwin','width=400,height=500');">
                             <%
                                 }
                             %>
@@ -331,17 +331,17 @@
   </form> --%>
                             <input type="button" align="top" value="Represcribe" style="width: 100px"
                                    class="ControlPushButton"
-                                   onclick="javascript:reRxDrugSearch3('<%=drug.localDrugId%>');"/>
+                                   onclick="javascript:reRxDrugSearch3('<%=Encode.forJavaScriptAttribute(String.valueOf(drug.localDrugId))%>');"/>
                             <input type="button" align="top" value="Add to Favorites" style="width: 100px"
                                    class="ControlPushButton"
-                                   onclick="javascript:addFavorite2(<%=drug.localDrugId%>, '<%=Encode.forJavaScript((drug.customName!=null&&(!drug.customName.equalsIgnoreCase("null")))?drug.customName:drug.brandName)%>');"/>
+                                   onclick="javascript:addFavorite2(<%=Encode.forJavaScriptAttribute(String.valueOf(drug.localDrugId))%>, '<%=Encode.forJavaScriptAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull((drug.customName!=null&&(!drug.customName.equalsIgnoreCase("null")))?drug.customName:drug.brandName))%>');"/>
 
 
                             <%
                             } else {
                             %>
                             <form action="<%=request.getContextPath()%>/oscarRx/searchDrug.do" method="post">
-                                <input type="hidden" name="demographicNo" value="<%=currentDemographicNo%>"/>
+                                <input type="hidden" name="demographicNo" value="<%=Encode.forHtmlAttribute(String.valueOf(currentDemographicNo))%>"/>
                                 <%
                                     String searchString = drug.brandName;
                                     if (searchString == null) searchString = drug.customName;

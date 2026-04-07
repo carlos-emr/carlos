@@ -1049,11 +1049,11 @@ input[id^='acklabel_']{
 
                                 <% if (bShortcutForm) { %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<%=Encode.forHtmlAttribute(formNameShort)%>"
-                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(formName))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demographicID)))%>', '<%=Encode.forJavaScriptAttribute(formNameShort)%>')">
+                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(formName))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.defaultString(demographicID)))%>', '<%=Encode.forJavaScriptAttribute(formNameShort)%>')">
                                 <% } %>
                                 <% if (bShortcutForm2) { %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<%=Encode.forHtmlAttribute(formName2Short)%>"
-                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(formName2))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demographicID)))%>', '<%=Encode.forJavaScriptAttribute(formName2Short)%>')">
+                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(formName2))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.defaultString(demographicID)))%>', '<%=Encode.forJavaScriptAttribute(formName2Short)%>')">
                                 <% } %>
 
                                 <% if (recall) {%>
@@ -2467,6 +2467,8 @@ input[id^='acklabel_']{
 </div>
 <%} %>
 
+<script type="text/javascript"
+        src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 

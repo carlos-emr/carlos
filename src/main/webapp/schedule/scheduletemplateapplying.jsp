@@ -256,7 +256,7 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title><fmt:message key="schedule.scheduletemplateapplying.title"/></title>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
         <fmt:message key="schedule.scheduletemplateapplying.msgDeleteConfirmation" var="jsDeleteConfirmation"/>
         <fmt:message key="schedule.scheduletemplateapplying.msgIncorrectOutput" var="jsIncorrectOutput"/>
