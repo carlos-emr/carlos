@@ -608,7 +608,15 @@
                                 <tr>
                                     <!--<input type="text" name="checkFlag" id="checkFlag" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("checkFlag"))) %>" />  -->
                                     <td style="white-space:nowrap; width:30%; text-align:center"><b>Service Date</b><br>
-                                        <%= request.getParameter("service_date") != null ? String.join("<br>", java.util.Arrays.stream(request.getParameter("service_date").split("\\n")).map(Encode::forHtml).toArray(String[]::new)) : "" %>
+                                        <%
+                                        if (request.getParameter("service_date") != null) {
+                                            String[] serviceDateLines = request.getParameter("service_date").split("\\n");
+                                            for (int sdi = 0; sdi < serviceDateLines.length; sdi++) {
+                                                if (sdi > 0) out.print("<br>");
+                                                out.print(Encode.forHtml(serviceDateLines[sdi]));
+                                            }
+                                        }
+                                        %>
                                     </td>
                                     <td style="text-align:center; width:33%"><b>Diagnostic Code</b><br>
                                         <%=Encode.forHtml(dxCode)%><br>
@@ -629,10 +637,10 @@
                                    class="myGreen">
                                 <tr>
                                     <td style="white-space:nowrap;width:30%"><b>Billing Physician</b></td>
-                                    <td style="width:20%"><%=providerBean.getProperty(request.getParameter("xml_provider") != null ? request.getParameter("xml_provider").substring(0, request.getParameter("xml_provider").indexOf("|")) : "", "")%>
+                                    <td style="width:20%"><%=Encode.forHtml(providerBean.getProperty(request.getParameter("xml_provider") != null && request.getParameter("xml_provider").contains("|") ? request.getParameter("xml_provider").substring(0, request.getParameter("xml_provider").indexOf("|")) : "", ""))%>
                                     </td>
                                     <td style="white-space:nowrap; width:30%"><b>MRP</b></td>
-                                    <td style="width:20%"><%=assgProvider_no == null ? "N/A" : providerBean.getProperty(assgProvider_no, "")%>
+                                    <td style="width:20%"><%=assgProvider_no == null ? "N/A" : Encode.forHtml(providerBean.getProperty(assgProvider_no, ""))%>
                                     </td>
                                 </tr>
                                 <tr>
@@ -1178,11 +1186,11 @@
                                         payee = payee.trim();
                                         if (payee.length() > 0) {
                                     %>
-                                    <textarea id="payee" name="payee" value="" cols=20 rows=6><%=payee%></textarea></td>
+                                    <textarea id="payee" name="payee" value="" cols=20 rows=6><%=Encode.forHtml(payee)%></textarea></td>
                                     <% } else { %>
-                                <textarea id="payee" name="payee" value="" cols=20 rows=6><%=payeename%></textarea>
+                                <textarea id="payee" name="payee" value="" cols=20 rows=6><%=Encode.forHtml(payeename)%></textarea>
                     </td>
-                    <input type="hidden" name="payeename1" id="payeename1" value="<%=payeename%>"/>
+                    <input type="hidden" name="payeename1" id="payeename1" value="<%=Encode.forHtmlAttribute(payeename)%>"/>
                     <% } %>
                 </tr>
             </table>
@@ -1240,8 +1248,8 @@
                 for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                     String temp = e.nextElement().toString();
             %>
-            <input type="hidden" name="<%= temp %>"
-                   value="<%=StringEscapeUtils.escapeHtml4(request.getParameter(temp))%>"/>
+            <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
+                   value="<%=Encode.forHtmlAttribute(request.getParameter(temp))%>"/>
             <%
                 }
 
