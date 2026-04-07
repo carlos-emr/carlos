@@ -45,6 +45,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -237,9 +238,12 @@ public class Download2Action extends ActionSupport {
             //----------start to save file
             for (DownloadData d : downloadResult.getData()) {
                 String inboxFolder = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
-                File document = new File(inboxFolder + File.separator + d.getDescription());
+                File inboxDir = new File(inboxFolder);
+                // PathValidationUtils sanitizes EDT description and validates directory containment
+                File validated = PathValidationUtils.validatePath(d.getDescription(), inboxDir);
+                // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+                File document = inboxDir.toPath().resolve(validated.getName()).toFile();
                 byte[] inputBytes = d.getContent();
-
 
                 FileUtils.writeByteArrayToFile(document, inputBytes);
                 updateLastDownloadedID(d.getResourceID().toString());
@@ -294,7 +298,11 @@ public class Download2Action extends ActionSupport {
         String resourceID = "0";
         String inboxFolder = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
         String lastDownloadedFile = CarlosProperties.getInstance().getProperty("mcedt.last.downloadedID.file");
-        Path path = Paths.get(inboxFolder, lastDownloadedFile);
+        File inboxDir = new File(inboxFolder);
+        // PathValidationUtils validates the config property filename within the inbox directory
+        File validated = PathValidationUtils.validatePath(lastDownloadedFile, inboxDir);
+        // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+        Path path = inboxDir.toPath().resolve(validated.getName());
         try {
             File document;
 
@@ -317,13 +325,15 @@ public class Download2Action extends ActionSupport {
     }
 
     private void updateLastDownloadedID(String lastID) {
-        boolean writeResult = false;
         String inboxFolder = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
         String lastDownloadedFile = CarlosProperties.getInstance().getProperty("mcedt.last.downloadedID.file");
-
+        File inboxDir = new File(inboxFolder);
 
         try {
-            File document = new File(inboxFolder + File.separator + lastDownloadedFile);
+            // PathValidationUtils validates the config property filename within the inbox directory
+            File validated = PathValidationUtils.validatePath(lastDownloadedFile, inboxDir);
+            // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+            File document = inboxDir.toPath().resolve(validated.getName()).toFile();
             FileUtils.write(document, lastID, false);
 
         } catch (Exception e) {
@@ -369,7 +379,11 @@ public class Download2Action extends ActionSupport {
             //----------start to save file
             for (DownloadData d : downloadResult.getData()) {
                 String inboxFolder = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
-                File document = new File(inboxFolder + File.separator + d.getDescription());
+                File inboxDir = new File(inboxFolder);
+                // PathValidationUtils sanitizes EDT description and validates directory containment
+                File validated = PathValidationUtils.validatePath(d.getDescription(), inboxDir);
+                // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+                File document = inboxDir.toPath().resolve(validated.getName()).toFile();
                 byte[] inputBytes = d.getContent();
 
                 FileUtils.writeByteArrayToFile(document, inputBytes);

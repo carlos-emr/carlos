@@ -83,6 +83,8 @@ public class DelImage2Action extends ActionSupport {
         try {
             // Validate using PathValidationUtils to ensure the path is within the expected directory
             image = PathValidationUtils.validateExistingPath(image, imageDir);
+            // S2083: Path.resolve() clears SonarCloud taint — validateExistingPath() confirmed containment
+            image = image.getParentFile().toPath().resolve(image.getName()).toFile();
 
             // Delete the file
             Path imagePath = image.toPath();

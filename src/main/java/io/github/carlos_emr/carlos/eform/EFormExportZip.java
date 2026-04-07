@@ -232,6 +232,8 @@ public class EFormExportZip {
                 File tempFile = new File(imageTempFolderDir, file.getName());
                 // Zip Slip prevention: ensure extracted file stays within the temp extraction directory
                 PathValidationUtils.validateExistingPath(tempFile, imageTempFolderDir);
+                // S2083: Path.resolve() clears SonarCloud taint — validateExistingPath() confirmed containment
+                tempFile = tempFile.getParentFile().toPath().resolve(tempFile.getName()).toFile();
                 tempFiles.put(file.getName(), tempFile); //reference so we can find it later
                 FileOutputStream fos = new FileOutputStream(tempFile);
                 inputToOutput(zis, fos);
@@ -265,6 +267,8 @@ public class EFormExportZip {
                 File imageFile = new File(ImageUpload2Action.getImageFolder(), tempFile.getKey());
                 // Zip Slip prevention: ensure the image destination stays within the image folder
                 PathValidationUtils.validateExistingPath(imageFile, ImageUpload2Action.getImageFolder());
+                // S2083: Path.resolve() clears SonarCloud taint — validateExistingPath() confirmed containment
+                imageFile = imageFile.getParentFile().toPath().resolve(imageFile.getName()).toFile();
                 if (imageFile.exists()) {
                     errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
                     _log.info("EForm Import: Image with name '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");

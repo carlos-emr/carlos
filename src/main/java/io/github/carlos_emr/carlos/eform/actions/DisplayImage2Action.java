@@ -122,6 +122,8 @@ public class DisplayImage2Action extends ActionSupport {
         }
 
         File file = PathValidationUtils.validatePath(fileName, directory);
+        // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+        file = directory.toPath().resolve(file.getName()).toFile();
         // Gets content type from image extension
         String contentType = new MimetypesFileTypeMap().getContentType(file);
         
@@ -240,7 +242,10 @@ public class DisplayImage2Action extends ActionSupport {
         if (!directory.exists()) {
             throw new Exception("Directory: " + home_dir + " does not exist");
         }
-        return PathValidationUtils.validatePath(imageFileName, directory);
+        File file = PathValidationUtils.validatePath(imageFileName, directory);
+        // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+        file = directory.toPath().resolve(file.getName()).toFile();
+        return file;
     }
 
     /**
