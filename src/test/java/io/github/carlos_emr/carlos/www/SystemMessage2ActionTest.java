@@ -40,7 +40,7 @@ import static org.mockito.Mockito.*;
  * @since 2026-04-06
  */
 @DisplayName("SystemMessage2Action Tests")
-@Tag("integration")
+@Tag("unit")
 @Tag("admin")
 class SystemMessage2ActionTest extends CarlosWebTestBase {
 
@@ -51,13 +51,12 @@ class SystemMessage2ActionTest extends CarlosWebTestBase {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
-
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(SystemMessageDao.class, mockSystemMessageDao);
 
         action = new SystemMessage2Action();
         injectField("systemMessageDao", mockSystemMessageDao);
+        injectField("securityInfoManager", mockSecurityInfoManager);
     }
 
     private void injectField(String fieldName, Object value) {
@@ -119,6 +118,55 @@ class SystemMessage2ActionTest extends CarlosWebTestBase {
             // Then
             assertThat(result).isEqualTo("edit");
             assertThat(getMockSession().getAttribute("systemMessageId")).isEqualTo("");
+        }
+
+        @Test
+        @DisplayName("should return list when message ID is non-numeric")
+        void shouldReturnList_whenMessageIdIsNonNumeric() throws Exception {
+            // Given - non-numeric ID
+            when(mockSystemMessageDao.findAll()).thenReturn(java.util.Collections.emptyList());
+            addRequestParameter("id", "abc");
+
+            // When
+            String result = executeActionMethod(action, "edit");
+
+            // Then - must NOT attempt DB lookup with invalid ID
+            assertThat(result).isEqualTo("list");
+            verify(mockSystemMessageDao, never()).find(anyInt());
+        }
+
+        @Test
+        @DisplayName("should clear session attribute when message not found in DB")
+        void shouldClearSessionAttribute_whenMessageNotFoundInDb() throws Exception {
+            // Given - valid ID but message not in DB, with stale session value
+            getMockSession().setAttribute("systemMessageId", "old-stale-value");
+            when(mockSystemMessageDao.find(999)).thenReturn(null);
+            when(mockSystemMessageDao.findAll()).thenReturn(java.util.Collections.emptyList());
+            addRequestParameter("id", "999");
+
+            // When
+            String result = executeActionMethod(action, "edit");
+
+            // Then - stale session attribute must be removed
+            assertThat(result).isEqualTo("list");
+            assertThat(getMockSession().getAttribute("systemMessageId")).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("execute() - Security")
+    class SecurityChecks {
+
+        @Test
+        @DisplayName("should throw SecurityException when privilege is denied")
+        void shouldThrowSecurityException_whenPrivilegeDenied() throws Exception {
+            // Given - deny _admin write privilege
+            denyPrivilege("_admin", "w");
+
+            // When/Then
+            assertThatThrownBy(() -> executeAction(action))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("missing required sec object");
         }
     }
 }
