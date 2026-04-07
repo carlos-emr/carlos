@@ -49,28 +49,54 @@ function paintErrorField(fieldobject) {
 
 //*--> MASTER AJAX METHOD <--*//
 function sendData(path, param, target) {
-    $.ajax({
-        url: ctx + path,
-        type: 'POST',
-        data: param,
-        dataType: 'html',
-        success: function (data) {
-            if (target == "close") {
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).toggle();
-            } else if (target == "modal") {
-                $('#assignTickler').find('.modal-body').html(typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(data, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'selected']}) : '');
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).show();
-            } else {
-                // Full-page replacement with server response via DOM manipulation
-                if (typeof DOMPurify !== 'undefined') {
-                    var cleanData = DOMPurify.sanitize(data, {WHOLE_DOCUMENT: true, ADD_TAGS: ['link', 'meta', 'style'], ADD_ATTR: ['href', 'rel', 'content', 'type']});
-                    var parser = new DOMParser();
-                    var doc = parser.parseFromString(cleanData, 'text/html');
-                    document.replaceChild(document.importNode(doc.documentElement, true), document.documentElement);
+    if (target == "close" || target == "modal") {
+        // AJAX for modal interactions — sanitize HTML before DOM insertion
+        $.ajax({
+            url: ctx + path,
+            type: 'POST',
+            data: param,
+            dataType: 'html',
+            success: function (data) {
+                if (target == "close") {
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).toggle();
+                } else if (target == "modal") {
+                    if (typeof DOMPurify !== 'undefined') {
+                        $('#assignTickler').find('.modal-body').html(DOMPurify.sanitize(data, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'selected']}));
+                    } else {
+                        console.error('DOMPurify is required but not loaded. Modal content blocked to prevent XSS.');
+                        $('#assignTickler').find('.modal-body').html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');
+                    }
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).show();
                 }
             }
+        });
+    } else {
+        // Full-page navigation — use form submission so the browser handles
+        // the response natively (including scripts, stylesheets, etc.)
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = ctx + path;
+        if (typeof param === 'string') {
+            param.split('&').forEach(function(pair) {
+                var parts = pair.split('=');
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = decodeURIComponent(parts[0]);
+                input.value = decodeURIComponent(parts[1] || '');
+                form.appendChild(input);
+            });
+        } else {
+            Object.keys(param).forEach(function(key) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = param[key];
+                form.appendChild(input);
+            });
         }
-    });
+        document.body.appendChild(form);
+        form.submit();
+    }
 }
 
 //--> Datatable Filter

@@ -133,29 +133,38 @@ function fetchGet(url) {
 
 /**
  * Helper function to append HTML content to a container and execute any scripts.
- * Browsers don't execute scripts inserted via innerHTML/insertAdjacentHTML,
- * so this function parses the HTML, extracts script tags, and re-adds them
- * as real script elements to ensure execution.
+ * Browsers don't execute scripts inserted via innerHTML/insertAdjacentHTML.
+ * This function sanitizes the HTML with DOMPurify (which strips script tags),
+ * inserts the safe HTML, then re-executes scripts extracted from the original
+ * trusted server response.
  * @param {HTMLElement} container - The container element to append HTML to
  * @param {string} html - HTML string that may contain script tags
  */
 function appendHtmlWithScripts(container, html) {
     if (!container || !html) return;
 
-    // Sanitize server-rendered HTML before DOM insertion (defense in depth).
-    // Fail closed: if DOMPurify is not loaded, insert as text to prevent XSS.
+    // Fail closed: if DOMPurify is not loaded, show error to prevent XSS.
     if (typeof DOMPurify === 'undefined') {
-        container.textContent += html;
+        console.error('DOMPurify is required but not loaded. Content blocked to prevent XSS.');
+        var errorMsg = document.createElement('p');
+        errorMsg.textContent = 'Unable to display content safely. Please reload the page.';
+        errorMsg.style.color = 'red';
+        container.appendChild(errorMsg);
         return;
     }
+
+    // Extract scripts from the raw (trusted server) HTML before sanitization,
+    // because DOMPurify strips <script> tags by default.
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(html, 'text/html');
+    var scripts = doc.querySelectorAll('script');
+
+    // Sanitize and insert the non-script HTML content
     var safeHtml = DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'select', 'option', 'textarea', 'iframe'], ADD_ATTR: ['value', 'selected', 'checked', 'target']});
     container.insertAdjacentHTML('beforeend', safeHtml);
 
-    // Extract and execute scripts from the sanitized HTML (not the raw input)
-    var parser = new DOMParser();
-    var doc = parser.parseFromString(safeHtml, 'text/html');
-
-    doc.querySelectorAll('script').forEach(function(script) {
+    // Re-execute scripts from the original trusted server response
+    scripts.forEach(function(script) {
         var newScript = document.createElement('script');
         if (script.src) {
             newScript.src = script.src;
@@ -1354,7 +1363,12 @@ function ForwardSelectedRows(files, searchProviderNo, status) {
         method: "POST",
         data: data
     }).done(function (html) {
-        dialogContainer.html(typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'selected', 'checked', 'multiple', 'id', 'name', 'type', 'class']}) : '').dialog({
+        if (typeof DOMPurify === 'undefined') {
+            console.error('DOMPurify is required but not loaded. Forward dialog blocked to prevent XSS.');
+            dialogContainer.html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');
+            return;
+        }
+        dialogContainer.html(DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'selected', 'checked', 'multiple', 'id', 'name', 'type', 'class']})).dialog({
             modal: true,
             width: 685,
             height: 355,

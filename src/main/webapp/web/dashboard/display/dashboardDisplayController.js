@@ -119,7 +119,12 @@ function buildIndicatorPanel(html, target, id) {
         indicatorGraph.destroy();
     }
 
-    let panel = $("#" + target + "_" + id).html(typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(html, {ADD_TAGS: ['input'], ADD_ATTR: ['value']}) : '');
+    if (typeof DOMPurify === 'undefined') {
+        console.error('DOMPurify is required but not loaded. Indicator panel blocked to prevent XSS.');
+        $("#" + target + "_" + id).html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');
+        return;
+    }
+    let panel = $("#" + target + "_" + id).html(DOMPurify.sanitize(html, {ADD_TAGS: ['input'], ADD_ATTR: ['value']}));
     let data = "[" + panel.find("#graphPlots_" + id).val() + "]";
     data = data.replace(/'/g, '"');
     data = JSON.parse(data)
@@ -158,26 +163,45 @@ function buildIndicatorPanel(html, target, id) {
 }
 
 function sendData(path, param, target) {
-    $.ajax({
-        url: ctx + path,
-        type: 'POST',
-        data: param,
-        dataType: 'html',
-        success: function (data) {
-            if (target === "indicatorId") {
+    if (target === "indicatorId") {
+        // AJAX load for indicator panels — sanitize HTML before DOM insertion
+        $.ajax({
+            url: ctx + path,
+            type: 'POST',
+            data: param,
+            dataType: 'html',
+            success: function (data) {
                 var panelList = buildIndicatorPanel(data, target, param.indicatorId);
                 if (panelList) {
                     console.log(panelList);
                 }
-            } else {
-                // Full-page replacement with server response via DOM manipulation
-                if (typeof DOMPurify !== 'undefined') {
-                    var cleanData = DOMPurify.sanitize(data, {WHOLE_DOCUMENT: true, ADD_TAGS: ['link', 'meta', 'style'], ADD_ATTR: ['href', 'rel', 'content', 'type']});
-                    var parser = new DOMParser();
-                    var doc = parser.parseFromString(cleanData, 'text/html');
-                    document.replaceChild(document.importNode(doc.documentElement, true), document.documentElement);
-                }
             }
+        });
+    } else {
+        // Full-page navigation — use form submission so the browser handles
+        // the response natively (including scripts, stylesheets, etc.)
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = ctx + path;
+        if (typeof param === 'string') {
+            param.split('&').forEach(function(pair) {
+                var parts = pair.split('=');
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = decodeURIComponent(parts[0]);
+                input.value = decodeURIComponent(parts[1] || '');
+                form.appendChild(input);
+            });
+        } else {
+            Object.keys(param).forEach(function(key) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = param[key];
+                form.appendChild(input);
+            });
         }
-    });
+        document.body.appendChild(form);
+        form.submit();
+    }
 }

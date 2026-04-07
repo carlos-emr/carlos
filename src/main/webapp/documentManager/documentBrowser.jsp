@@ -120,11 +120,11 @@
     String winwidth = "";
     String winheight = "";
     if (request.getParameter("winwidth") != null) {
-        winwidth = request.getParameter("winwidth");
+        try { winwidth = String.valueOf(Integer.parseInt(request.getParameter("winwidth"))); } catch (NumberFormatException e) { winwidth = ""; }
     }
 
     if (request.getParameter("winheight") != null) {
-        winheight = request.getParameter("winheight");
+        try { winheight = String.valueOf(Integer.parseInt(request.getParameter("winheight"))); } catch (NumberFormatException e) { winheight = ""; }
     }
 
     if (!"".equalsIgnoreCase(moduleid) && (demographicID == null || demographicID.equalsIgnoreCase("null"))) {
@@ -406,7 +406,7 @@ Remote documents not supported
 
     </script>
 </head>
-<body onload="window.innerWidth=<%=winwidth.length()>0?Integer.parseInt(winwidth):"screen.availWidth*0.9"%>;window.innerHeight=<%=winheight.length()>0?Integer.parseInt(winheight):"screen.availHeight*0.9"%>;">
+<body onload="window.innerWidth=<%=winwidth.length()>0?winwidth:"screen.availWidth*0.9"%>;window.innerHeight=<%=winheight.length()>0?winheight:"screen.availHeight*0.9"%>;">
 <form name="DisplayDoc" method="post" action="documentBrowser.jsp">
 
     <table>
