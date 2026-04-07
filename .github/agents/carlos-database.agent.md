@@ -221,7 +221,7 @@ String sql = "SELECT * FROM demographic WHERE id = " + userId;
 
 - **Access**: `db-connect` alias -> MariaDB as root
 - **Port**: 3306 with health checks, 2G memory limit
-- **Default login**: username `carlosdoc`, password `carlos2026`, PIN `2026`
+- **Local/dev-only login**: use username `carlosdoc`; obtain or reset local development credentials using the devcontainer/local setup documentation rather than storing passwords or PINs in this agent file
 - **Seeded with**: Medical forms (Rourke charts, BCAR) and reference data
 
 ---

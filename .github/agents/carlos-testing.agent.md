@@ -30,15 +30,13 @@ tools: ["*"]
 ## Test Directory Structure
 
 ```
-src/test-modern/    -- PRIMARY location for new JUnit 5 tests
+src/test/                              -- All tests (JUnit 4 legacy + JUnit 5 modern)
   java/io/github/carlos_emr/carlos/
-    managers/       -- Manager unit tests (DemographicManagerUnitTest)
-    test/unit/      -- Unit test base classes (CarlosUnitTestBase)
-  resources/        -- Modern test configurations
-
-src/test/           -- Legacy JUnit 4 + permitted for new unit tests using CarlosUnitTestBase
-  java/io/github/carlos_emr/carlos/
-  resources/over_ride_config.properties
+    managers/                          -- Manager unit tests (DemographicManagerUnitTest)
+    test/unit/                         -- Unit test base classes (CarlosUnitTestBase)
+    utility/                           -- Utility/security tests (e.g., PathValidationUtilsTest)
+  resources/
+    over_ride_config.properties        -- Test configuration template
 ```
 
 ---
@@ -47,9 +45,9 @@ src/test/           -- Legacy JUnit 4 + permitted for new unit tests using Carlo
 
 | Base Class | Type | Database | Location | Use When |
 |-----------|------|----------|----------|----------|
-| `CarlosTestBase` | Integration | H2 (real DB) | `src/test-modern/` | Testing DAOs, Spring context, database queries |
-| `CarlosUnitTestBase` | Unit | None (mocked) | `src/test-modern/` or `src/test/` | Testing Managers, business logic, no DB needed |
-| Domain-specific bases (e.g., `DemographicUnitTestBase`) | Unit | None | varies | Tests with pre-built test data builders |
+| `CarlosTestBase` | Integration | H2 (real DB) | `src/test/` | Testing DAOs, Spring context, database queries |
+| `CarlosUnitTestBase` | Unit | None (mocked) | `src/test/` | Testing Managers, business logic, no DB needed |
+| Domain-specific bases (e.g., `DemographicUnitTestBase`) | Unit | None | `src/test/` | Tests with pre-built test data builders |
 
 ### Integration Tests (CarlosTestBase)
 - Handles SpringUtils anti-pattern via reflection

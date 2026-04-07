@@ -1,6 +1,6 @@
 ---
 description: "JUnit 5 test writing rules and pitfall avoidance"
-applyTo: "src/test-modern/**/*.java,src/test/**/*Test.java"
+applyTo: "src/test/**/*.java"
 ---
 
 # Test Writing Rules
