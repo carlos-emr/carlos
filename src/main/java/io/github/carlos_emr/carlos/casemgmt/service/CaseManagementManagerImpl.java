@@ -628,30 +628,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     @Override
-    public Integer getTableNameByDisplay(String disp) {
-        if (!filled(disp))
-            return null;
-        Integer tName = CaseManagementNoteLink.CASEMGMTNOTE;
-
-        if (disp.equals(CaseManagementNoteLink.DISP_ALLERGY))
-            tName = CaseManagementNoteLink.ALLERGIES;
-        else if (disp.equals(CaseManagementNoteLink.DISP_DOCUMENT))
-            tName = CaseManagementNoteLink.DOCUMENT;
-        else if (disp.equals(CaseManagementNoteLink.DISP_LABTEST))
-            tName = CaseManagementNoteLink.LABTEST;
-        else if (disp.equals(CaseManagementNoteLink.DISP_PRESCRIP))
-            tName = CaseManagementNoteLink.DRUGS;
-        else if (disp.equals(CaseManagementNoteLink.DISP_DEMO))
-            tName = CaseManagementNoteLink.DEMOGRAPHIC;
-        else if (disp.equals(CaseManagementNoteLink.DISP_PREV))
-            tName = CaseManagementNoteLink.PREVENTIONS;
-        else if (disp.equals(CaseManagementNoteLink.DISP_APPOINTMENT))
-            tName = CaseManagementNoteLink.APPOINTMENT;
-
-        return tName;
-    }
-
-    @Override
     public CaseManagementCPP getCPP(String demographic_no) {
         return this.caseManagementCPPDAO.getCPP(demographic_no);
     }

@@ -364,7 +364,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             rx.setAtcCode("");
             RxUtil.setDefaultSpecialQuantityRepeat(rx);
             rx = setCustomRxDurationQuantity(rx);
-            bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
+
             List<RxPrescriptionData.Prescription> listRxDrugs = new ArrayList();
 
             if (RxUtil.isRxUniqueInStash(bean, rx)) {
@@ -457,7 +457,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             rx.setAtcCode("");
             RxUtil.setDefaultSpecialQuantityRepeat(rx); // 1 OD, 20, 0;
             rx = setCustomRxDurationQuantity(rx);
-            bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
+
             List<RxPrescriptionData.Prescription> listRxDrugs = new ArrayList();
 
             if (RxUtil.isRxUniqueInStash(bean, rx)) {
@@ -702,7 +702,6 @@ public final class RxWriteScript2Action extends ActionSupport {
             if (RxUtil.isRxUniqueInStash(bean, rx)) {
                 listRxDrugs.add(rx);
             }
-			bean.addAttributeName(rx.getAtcCode() + "-" + bean.getStashIndex());
             int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
             bean.setStashIndex(rxStashIndex);
             String today = null;
@@ -752,7 +751,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 logger.debug("instruction:" + instructions);
                 rx.setSpecial(instructions);
                 RxUtil.instrucParser(rx);
-                bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getIndexFromRx(Integer.parseInt(randomId))));
                 bean.setStashItem(bean.getIndexFromRx(Integer.parseInt(randomId)), rx);
 
                 HashMap<String, Object> hm = new HashMap<String, Object>();
@@ -839,7 +837,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                     // if not, recalculate duration based on frequency if frequency is not empty
                     // if there is already a duration uni present, use that duration unit. if not, set duration unit to days, and output duration in days
                 }
-                bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getIndexFromRx(Integer.parseInt(randomId))));
                 bean.setStashItem(bean.getIndexFromRx(Integer.parseInt(randomId)), rx);
 
                 if (rx.getRoute() == null) {
@@ -1208,7 +1205,6 @@ public final class RxWriteScript2Action extends ActionSupport {
 
                     rx.setSpecial(special.trim());
 
-                    bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(stashIndex));
                     bean.setStashItem(stashIndex, rx);
                 }
             } catch (Exception e) {

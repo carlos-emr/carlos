@@ -180,8 +180,6 @@ public interface CaseManagementManager {
 
     public CaseManagementNoteLink getLatestLinkByTableId(Integer tableName, Long tableId);
 
-    public Integer getTableNameByDisplay(String disp);
-
     public CaseManagementCPP getCPP(String demographic_no);
 
     public List<Allergy> getAllergies(String demographic_no);
