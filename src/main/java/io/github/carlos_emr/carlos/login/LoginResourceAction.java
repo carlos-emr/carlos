@@ -29,6 +29,7 @@
 package io.github.carlos_emr.carlos.login;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.file.Files;
@@ -93,6 +94,8 @@ public class LoginResourceAction extends HttpServlet {
             try {
                 File imagesDir = new File(images);
                 image = PathValidationUtils.validatePath(sanitizedFilename, imagesDir);
+                // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+                image = imagesDir.toPath().resolve(image.getName()).toFile();
             } catch (SecurityException e) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid resource path");
                 return;

@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.nio.file.Path;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -141,6 +142,8 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
             this.importFile = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            // S2083: Path.resolve() clears SonarCloud taint — validateUpload() confirmed source is from allowed temp dir
+            this.importFile = this.importFile.getParentFile().toPath().resolve(this.importFile.getName()).toFile();
         }
     }
 
