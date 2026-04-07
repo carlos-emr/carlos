@@ -135,8 +135,6 @@
 
     List<Map<String, String>> pdList = new ProviderData().getProviderList();
     ArrayList<String> doctypes = EDocUtil.getDoctypes(module);
-    String annotation_tableid = editDocumentNo;
-    Long now = new Date().getTime();
 
     CtlDocClassDao docClassDao = (CtlDocClassDao) SpringUtils.getBean(CtlDocClassDao.class);
     List<String> reportClasses = docClassDao.findUniqueReportClasses();

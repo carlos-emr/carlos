@@ -786,9 +786,6 @@
         $(editElem).style.top = top + "px";
         $(editElem).style.display = "table";
 
-        //Prepare Extra Fields
-        var now = new Date();
-        document.getElementById('annotation_attrib').value = "anno" + now.getTime();
         prepareExtraFields(cppDisplay, noteExts);
 
         //Set note position order
