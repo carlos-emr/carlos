@@ -74,6 +74,7 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -310,7 +311,7 @@ public class ManageDocument2Action extends ActionSupport {
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
             response.setContentType("application/json;charset=UTF-8");
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -335,7 +336,7 @@ public class ManageDocument2Action extends ActionSupport {
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
             response.setContentType("application/json;charset=UTF-8");
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -362,7 +363,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -831,7 +832,7 @@ public class ManageDocument2Action extends ActionSupport {
             HashMap hm = new HashMap();
             hm.put("numOfPage", numOfPage);
             ObjectNode jsonObject = objectMapper.valueToTree(hm);
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);
         }

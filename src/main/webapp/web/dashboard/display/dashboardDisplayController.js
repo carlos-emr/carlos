@@ -119,7 +119,7 @@ function buildIndicatorPanel(html, target, id) {
         indicatorGraph.destroy();
     }
 
-    let panel = $("#" + target + "_" + id).html(typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(html, {ADD_TAGS: ['input'], ADD_ATTR: ['value', 'onclick']}) : html);
+    let panel = $("#" + target + "_" + id).html(typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(html, {ADD_TAGS: ['input'], ADD_ATTR: ['value']}) : '');
     let data = "[" + panel.find("#graphPlots_" + id).val() + "]";
     data = data.replace(/'/g, '"');
     data = JSON.parse(data)
@@ -170,9 +170,13 @@ function sendData(path, param, target) {
                     console.log(panelList);
                 }
             } else {
-                document.open();
-                document.write(data);
-                document.close();
+                // Full-page replacement with server response via DOM manipulation
+                if (typeof DOMPurify !== 'undefined') {
+                    var cleanData = DOMPurify.sanitize(data, {WHOLE_DOCUMENT: true, ADD_TAGS: ['link', 'meta', 'style'], ADD_ATTR: ['href', 'rel', 'content', 'type']});
+                    var parser = new DOMParser();
+                    var doc = parser.parseFromString(cleanData, 'text/html');
+                    document.replaceChild(document.importNode(doc.documentElement, true), document.documentElement);
+                }
             }
         }
     });

@@ -962,7 +962,21 @@ function submitFaxButton() {
 			$.ajax({
 				url : "efmformrtl_templates.jsp",
 				success : function(data) {
-					$("#template").html(typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(data, {ADD_TAGS: ['option'], ADD_ATTR: ['value', 'selected']}) : data);
+					if (typeof DOMPurify !== 'undefined') {
+						$("#template").html(DOMPurify.sanitize(data, {ADD_TAGS: ['option'], ADD_ATTR: ['value', 'selected']}));
+					} else {
+						// DOMPurify not available in eForm context — parse and extract only safe <option> elements
+						var parser = new DOMParser();
+						var doc = parser.parseFromString(data, 'text/html');
+						var templateSelect = $("#template").empty();
+						doc.querySelectorAll('option').forEach(function(opt) {
+							var safeOpt = document.createElement('option');
+							safeOpt.value = opt.value;
+							safeOpt.textContent = opt.textContent;
+							if (opt.selected) safeOpt.selected = true;
+							templateSelect.append(safeOpt);
+						});
+					}
 					loadDefaultTemplate();
 				},
 				error : function(xhr, status, error) {

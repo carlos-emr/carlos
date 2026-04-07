@@ -142,14 +142,18 @@ function fetchGet(url) {
 function appendHtmlWithScripts(container, html) {
     if (!container || !html) return;
 
-    // Sanitize server-rendered HTML before DOM insertion (defense in depth)
-    var safeHtml = typeof DOMPurify !== 'undefined'
-        ? DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'select', 'option', 'textarea', 'iframe'], ADD_ATTR: ['value', 'onclick', 'onchange', 'onload', 'selected', 'checked', 'target']})
-        : html;
+    // Sanitize server-rendered HTML before DOM insertion (defense in depth).
+    // Fail closed: if DOMPurify is not loaded, insert as text to prevent XSS.
+    if (typeof DOMPurify === 'undefined') {
+        container.textContent += html;
+        return;
+    }
+    var safeHtml = DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'select', 'option', 'textarea', 'iframe'], ADD_ATTR: ['value', 'selected', 'checked', 'target']});
     container.insertAdjacentHTML('beforeend', safeHtml);
 
+    // Extract and execute scripts from the sanitized HTML (not the raw input)
     var parser = new DOMParser();
-    var doc = parser.parseFromString(html, 'text/html');
+    var doc = parser.parseFromString(safeHtml, 'text/html');
 
     doc.querySelectorAll('script').forEach(function(script) {
         var newScript = document.createElement('script');
@@ -1350,7 +1354,7 @@ function ForwardSelectedRows(files, searchProviderNo, status) {
         method: "POST",
         data: data
     }).done(function (html) {
-        dialogContainer.html(typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'onclick', 'onchange', 'selected', 'checked', 'multiple', 'id', 'name']}) : html).dialog({
+        dialogContainer.html(typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'selected', 'checked', 'multiple', 'id', 'name', 'type', 'class']}) : '').dialog({
             modal: true,
             width: 685,
             height: 355,

@@ -58,12 +58,16 @@ function sendData(path, param, target) {
             if (target == "close") {
                 bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).toggle();
             } else if (target == "modal") {
-                $('#assignTickler').find('.modal-body').html(typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(data, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'onclick', 'selected']}) : data);
+                $('#assignTickler').find('.modal-body').html(typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(data, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'selected']}) : '');
                 bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).show();
             } else {
-                document.open();
-                document.write(data);
-                document.close();
+                // Full-page replacement with server response via DOM manipulation
+                if (typeof DOMPurify !== 'undefined') {
+                    var cleanData = DOMPurify.sanitize(data, {WHOLE_DOCUMENT: true, ADD_TAGS: ['link', 'meta', 'style'], ADD_ATTR: ['href', 'rel', 'content', 'type']});
+                    var parser = new DOMParser();
+                    var doc = parser.parseFromString(cleanData, 'text/html');
+                    document.replaceChild(document.importNode(doc.documentElement, true), document.documentElement);
+                }
             }
         }
     });
