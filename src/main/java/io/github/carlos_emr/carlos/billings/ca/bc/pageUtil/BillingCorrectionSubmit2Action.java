@@ -149,6 +149,10 @@ public final class BillingCorrectionSubmit2Action extends ActionSupport {
 
         } catch (ArrayIndexOutOfBoundsException e) {
             MiscUtils.getLogger().warn("ArrayIndexOutOfBoundsException during BC billing correction submit", e);
+            return ERROR;
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Invalid billing number format during BC billing correction submit: billingNoStr=" + billingDataBean.getBilling_no(), e);
+            return ERROR;
         }
 
         return SUCCESS;
