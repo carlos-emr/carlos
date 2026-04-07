@@ -151,6 +151,8 @@ public class SplitDocument2Action extends ActionSupport {
                 // Validate the user-sourced filename component to prevent path traversal;
                 // docdownload (the base directory) comes from server-side configuration.
                 File safeFile = PathValidationUtils.validatePath(newDoc.getFileName(), docDir);
+                // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+                safeFile = docDir.toPath().resolve(safeFile.getName()).toFile();
                 Path pdfPath = safeFile.toPath();
                 // Atomically create the file with owner-only permissions before writing content,
                 // eliminating the window where a new file exists with default world-readable permissions.

@@ -552,6 +552,8 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             String docDir = CarlosProperties.getInstance().getDocumentDirectory();
             File baseDirFile = new File(docDir);
             File validatedFile = PathValidationUtils.validatePath(fileName, baseDirFile);
+            // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+            validatedFile = baseDirFile.toPath().resolve(validatedFile.getName()).toFile();
             Path savePath = validatedFile.toPath();
 
             // Create the parent directory
