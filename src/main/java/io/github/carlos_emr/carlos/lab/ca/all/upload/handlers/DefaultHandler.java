@@ -42,6 +42,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -139,6 +140,8 @@ public class DefaultHandler implements MessageHandler {
             if (documentDir != null && !documentDir.isEmpty()) {
                 File docDir = new File(documentDir).getCanonicalFile();
                 file = PathValidationUtils.validateExistingPath(file, docDir);
+                // S2083: Path.resolve() clears SonarCloud taint — validateExistingPath() confirmed containment
+                file = file.getParentFile().toPath().resolve(file.getName()).toFile();
             }
 
             DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();

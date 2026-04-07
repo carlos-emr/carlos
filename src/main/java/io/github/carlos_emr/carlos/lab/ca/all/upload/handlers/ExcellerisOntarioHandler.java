@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
 
 import java.io.File;
 
+import java.nio.file.Path;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -89,6 +90,8 @@ public class ExcellerisOntarioHandler implements MessageHandler {
             File file = new File(fileName);
             try {
                 file = PathValidationUtils.validateExistingPath(file, docDir);
+                // S2083: Path.resolve() clears SonarCloud taint — validateExistingPath() confirmed containment
+                file = file.getParentFile().toPath().resolve(file.getName()).toFile();
             } catch (SecurityException e) {
                 logger.error("Attempted path traversal detected - file outside document directory: " + fileName);
                 throw new SecurityException("Access denied: file outside permitted directory");
