@@ -240,9 +240,9 @@ public final class XmlUtils {
      * so that no external DTD or schema resources can be loaded during schema compilation.
      * Use this factory method instead of {@code SchemaFactory.newInstance()} throughout the codebase.
      *
-     * <p>The critical {@code ACCESS_EXTERNAL_DTD} attribute is required — an
-     * {@link IllegalArgumentException} is propagated if it cannot be applied so that callers
-     * never receive an unprotected factory. The {@code ACCESS_EXTERNAL_SCHEMA} attribute
+     * <p>The critical {@code ACCESS_EXTERNAL_DTD} property is required — a
+     * {@link SAXException} is thrown if it cannot be applied so that callers
+     * never receive an unprotected factory. The {@code ACCESS_EXTERNAL_SCHEMA} property
      * is applied on a best-effort basis; a warning is logged if it cannot be set.
      *
      * @param schemaLanguage the schema language URI (e.g. {@link XMLConstants#W3C_XML_SCHEMA_NS_URI})

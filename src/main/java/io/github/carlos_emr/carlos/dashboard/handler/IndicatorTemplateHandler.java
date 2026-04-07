@@ -44,6 +44,7 @@ import javax.xml.validation.SchemaFactory;
 import javax.xml.validation.Validator;
 
 import org.apache.logging.log4j.Logger;
+import org.xml.sax.SAXException;
 import io.github.carlos_emr.carlos.commn.model.IndicatorTemplate;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -181,8 +182,8 @@ public class IndicatorTemplateHandler {
         SchemaFactory factory;
         try {
             factory = XmlUtils.createSecureSchemaFactory(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-        } catch (Exception e) {
-            setValidationMessage("Failed to create secure schema factory ", e);
+        } catch (SAXException e) {
+            setValidationMessage("Failed to create secure schema factory", e);
             logger.error(validationMessage.toString(), e);
             return;
         }

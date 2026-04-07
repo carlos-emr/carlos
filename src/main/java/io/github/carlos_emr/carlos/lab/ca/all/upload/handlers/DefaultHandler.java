@@ -146,7 +146,9 @@ public class DefaultHandler implements MessageHandler {
             Document doc = factory.newDocumentBuilder().parse(file);
             return (doc);
 
-            // Ignore exceptions and return null
+            // Re-throw security exceptions from path validation
+        } catch (SecurityException e) {
+            throw e;
         } catch (Exception e) {
             logger.error("Error parsing XML file: " + fileName, e);
             return (null);
