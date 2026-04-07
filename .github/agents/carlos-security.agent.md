@@ -224,7 +224,7 @@ logger.info("User SIN: " + socialInsuranceNumber);
 try { securityCheck(); } catch (SecurityException e) { /* Ignored */ }
 
 // NEVER: Using weak encryption
-MD5 md5 = new MD5();  // Use BCrypt or Argon2
+MD5 md5 = new MD5();  // Use SHA-256 (general) or BCrypt (passwords)
 
 // NEVER: Hardcoded credentials
 String password = "admin123";
