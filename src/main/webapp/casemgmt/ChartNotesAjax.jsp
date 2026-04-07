@@ -601,9 +601,9 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 String url = "popupPage(700,800,'"
                         + hash + "started" + "','"
                         + request.getContextPath()
-                        + StringEscapeUtils.escapeHtml4("/form/forwardshortcutname.do?formname=" + formEntry.getNote())
+                        + "/form/forwardshortcutname.do?formname=" + Encode.forUriComponent(formEntry.getNote())
                         + "&demographic_no=" + Encode.forUriComponent(demographicNo)
-                        + "&formId=" + formEntry.getNoteId()
+                        + "&formId=" + Encode.forUriComponent(String.valueOf(formEntry.getNoteId()))
                         + "'); return false;";
             %>
             <div class="view-links"

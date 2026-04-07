@@ -61,16 +61,9 @@ function sendData(path, param, target) {
                 $('#assignTickler').find('.modal-body').html(typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(data, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'onclick', 'selected']}) : data);
                 bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).show();
             } else {
-                // Replace page content with server response using DOMPurify if available
-                var cleanData = typeof DOMPurify !== 'undefined'
-                    ? DOMPurify.sanitize(data, {WHOLE_DOCUMENT: true, ADD_TAGS: ['link', 'meta'], ADD_ATTR: ['href', 'rel', 'content']})
-                    : data;
-                var parser = new DOMParser();
-                var doc = parser.parseFromString(cleanData, 'text/html');
-                document.replaceChild(
-                    document.importNode(doc.documentElement, true),
-                    document.documentElement
-                );
+                document.open();
+                document.write(data);
+                document.close();
             }
         }
     });

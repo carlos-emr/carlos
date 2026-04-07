@@ -87,7 +87,7 @@
                     error = "true";
                 } else {
 
-                    String keyPairOut = "-------- Service Name --------\n" + Encode.forHtml(name) + "\n------------------------------\n" +
+                    String keyPairOut = "-------- Service Name --------\n" + name + "\n------------------------------\n" +
                             "----- Client Private Key -----\n" + clientKey + "\n------------------------------\n" +
                             "------ Oscar Public Key ------\n" + oscarKey + "\n------------------------------";
                     response.setContentType("text/plain");
