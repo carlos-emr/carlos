@@ -65,7 +65,7 @@ public final class dxResearchCodeSearch2Action extends ActionSupport {
      * Spaces are allowed because users may search by partial description
      * (e.g., "diabetes mellitus") in addition to searching by code prefix.
      */
-    private static final Pattern RESEARCH_CODE_PATTERN = Pattern.compile("^[A-Za-z0-9.\\-\\s]{0,100}$");
+    private static final Pattern RESEARCH_CODE_PATTERN = Pattern.compile("^[A-Za-z0-9.\\- ]{0,100}$");
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -83,7 +83,9 @@ public final class dxResearchCodeSearch2Action extends ActionSupport {
         String codeType = request.getParameter("codeType");
         if (codeType == null || !ALLOWED_CODE_TYPES.contains(codeType)) {
             MiscUtils.getLogger().warn("dxResearchCodeSearch: rejected invalid codeType from request");
-            throw new RuntimeException("invalid codeType parameter");
+            addActionError("Invalid codeType parameter");
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return ERROR;
         }
 
         // --- Trust boundary: sanitize xml_research keywords before use ---
