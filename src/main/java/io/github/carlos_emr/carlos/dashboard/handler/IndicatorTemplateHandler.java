@@ -178,7 +178,14 @@ public class IndicatorTemplateHandler {
      */
     private void setSchema() {
 
-        SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+        SchemaFactory factory;
+        try {
+            factory = XmlUtils.createSecureSchemaFactory(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+        } catch (Exception e) {
+            setValidationMessage("Failed to create secure schema factory ", e);
+            logger.error(validationMessage.toString(), e);
+            return;
+        }
         URL schemaSource = Thread.currentThread().getContextClassLoader().getResource(IndicatorTemplateHandler.schemaFile);
 
         File schemaFile = null;

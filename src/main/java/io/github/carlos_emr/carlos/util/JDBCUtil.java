@@ -111,7 +111,6 @@ public class JDBCUtil {
     }
 
     public static void toDataBase(InputStream inputStream, String fileName) {
-        boolean validation = true;
         Document doc;
 
         try {
@@ -138,9 +137,7 @@ public class JDBCUtil {
                 MiscUtils.getLogger().debug("sql: " + sql);
                 rs = DBHandler.GetSQL(sql, true);
                 rs.moveToInsertRow();
-                //To validate or not
                 DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
-                factory.setValidating(validation);
                 DocumentBuilder builder = factory.newDocumentBuilder();
                 doc = builder.parse(source);
                 rs = toResultSet(doc, rs);

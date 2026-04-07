@@ -234,6 +234,35 @@ public final class XmlUtils {
     }
 
     /**
+     * Creates a {@link SchemaFactory} with external access disabled.
+     *
+     * <p>Sets {@code ACCESS_EXTERNAL_DTD} and {@code ACCESS_EXTERNAL_SCHEMA} to empty strings
+     * so that no external DTD or schema resources can be loaded during schema compilation.
+     * Use this factory method instead of {@code SchemaFactory.newInstance()} throughout the codebase.
+     *
+     * <p>The critical {@code ACCESS_EXTERNAL_DTD} attribute is required — an
+     * {@link IllegalArgumentException} is propagated if it cannot be applied so that callers
+     * never receive an unprotected factory. The {@code ACCESS_EXTERNAL_SCHEMA} attribute
+     * is applied on a best-effort basis; a warning is logged if it cannot be set.
+     *
+     * @param schemaLanguage the schema language URI (e.g. {@link XMLConstants#W3C_XML_SCHEMA_NS_URI})
+     * @return SchemaFactory configured with external-access restrictions
+     * @throws SAXException if the critical ACCESS_EXTERNAL_DTD property cannot be set
+     */
+    public static javax.xml.validation.SchemaFactory createSecureSchemaFactory(String schemaLanguage) throws SAXException {
+        javax.xml.validation.SchemaFactory sf = javax.xml.validation.SchemaFactory.newInstance(schemaLanguage);
+        // Critical protection — fail closed if it cannot be applied
+        sf.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        // Defense-in-depth — warn if unavailable
+        try {
+            sf.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+        } catch (SAXException ex) {
+            logger.warn("Could not restrict ACCESS_EXTERNAL_SCHEMA on SchemaFactory", ex);
+        }
+        return sf;
+    }
+
+    /**
      * Creates a secure {@link SAXSource} suitable for passing to a JAXB {@code Unmarshaller}.
      *
      * <p>Wraps the given {@link InputStream} in a SAX reader that has DOCTYPE declarations
