@@ -46,6 +46,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -95,8 +97,8 @@ public class dxResearchUpdate2Action extends ActionSupport {
         }
 
         StringBuffer forward = new StringBuffer(request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch.do");
-        forward.append("?demographicNo=").append(demographicNo);
-        forward.append("&providerNo=").append(providerNo);
+        forward.append("?demographicNo=").append(URLEncoder.encode(demographicNo != null ? demographicNo : "", StandardCharsets.UTF_8));
+        forward.append("&providerNo=").append(URLEncoder.encode(providerNo != null ? providerNo : "", StandardCharsets.UTF_8));
         forward.append("&quickList=");
 
         String ip = request.getRemoteAddr();
