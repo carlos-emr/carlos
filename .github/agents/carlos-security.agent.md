@@ -18,7 +18,7 @@ tools: ["*"]
 - Java 21, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3
 - Tomcat 11.0, MariaDB/MySQL, Spring Security 7.0.4
 - OWASP CSRFGuard 4.5, OWASP Encoder 1.4.0 (Jakarta edition)
-- Apache CXF 4.1.5, HAPI FHIR 6.10.5, Drools 10.1.0
+- Apache CXF 4.1.5, HAPI FHIR 8.4.0, Drools 10.1.0
 
 **Package Namespace**: `io.github.carlos_emr.carlos.*`
 - DAOs: `...commn.dao.*` (note: "commn" NOT "common")
@@ -251,7 +251,7 @@ Before submitting ANY code:
 
 ## Key Security Files
 
-```
+```text
 SecurityInfoManager.java          -- Core authorization patterns
 LoggedInInfo.java                 -- Session management
 PathValidationUtils.java          -- File path security

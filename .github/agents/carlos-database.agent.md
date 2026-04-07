@@ -50,7 +50,7 @@ Both coexist and share a single JDBC connection via `TransactionAwareDataSourceP
 
 **Format**: Date-based SQL scripts in `database/mysql/updates/`
 
-```
+```text
 update-YYYY-MM-DD-description.sql
 ```
 
@@ -58,7 +58,7 @@ Example: `update-2025-08-26-remove-waitlist-email.sql`
 
 ### Core Database Files (`database/mysql/`)
 
-```
+```text
 oscarinit.sql          -- Core database schema
 oscarinit_2025.sql     -- Current 2025 schema version
 oscardata.sql          -- Initial reference data
@@ -109,7 +109,7 @@ Province-specific billing with diagnostic codes and claims processing (BC Telepl
 
 ## Audit Trail Requirement (MANDATORY)
 
-**Every table MUST include:**
+**Every new or materially modified table MUST include:**
 
 ```sql
 lastUpdateUser VARCHAR(100) NOT NULL,
@@ -228,7 +228,7 @@ String sql = "SELECT * FROM demographic WHERE id = " + userId;
 
 ## Key Database Files
 
-```
+```text
 src/main/resources/OscarDatabaseBase.xml    -- Hibernate configuration
 database/mysql/oscarinit_2025.sql           -- Current database schema
 database/mysql/updates/update-2025-*.sql    -- Recent migrations

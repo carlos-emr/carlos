@@ -62,7 +62,7 @@ ${fn:escapeXml(name)}
 ${e:forHtml(name)}
 ```
 
-`${e:forHtml()}` is a **drop-in replacement** for `<c:out>` and `fn:escapeXml()`.
+`${e:forHtml()}` is a **drop-in replacement** for `<c:out>` and `fn:escapeXml()` for new code. Note: `Encode.forHtml(null)` throws NPE unlike `<c:out>` which outputs empty string -- ensure values are non-null before encoding.
 
 **Rule**: `<c:out>` is legacy -- acceptable in existing code, but use `${e:forHtml()}` for ALL new code.
 
@@ -199,7 +199,7 @@ The encounter window is a core clinical interface. See `docs/encounter-window-ar
 
 ## Key Frontend Files
 
-```
+```text
 src/main/webapp/              -- Web resources root
   WEB-INF/
     classes/struts.xml        -- Parent Struts config

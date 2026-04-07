@@ -18,7 +18,7 @@ tools: ["*"]
 - Java 21, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3
 - Tomcat 11.0, MariaDB/MySQL, Spring Security 7.0.4
 - OWASP CSRFGuard 4.5, OWASP Encoder 1.4.0 (Jakarta edition)
-- Apache CXF 4.1.5, HAPI FHIR 6.10.5, Drools 10.1.0
+- Apache CXF 4.1.5, HAPI FHIR 8.4.0, Drools 10.1.0
 
 **Package Namespace**: `io.github.carlos_emr.carlos.*`
 - DAOs: `...commn.dao.*` (note: "commn" NOT "common")
@@ -75,7 +75,7 @@ public class Feature2Action extends ActionSupport {
 ```
 
 ### Struts 7.1.1 Notes
-- All 458 *2Action files use `org.apache.struts2.ActionSupport` (Struts 7 package)
+- All *2Action files use `org.apache.struts2.ActionSupport` (Struts 7 package)
 - Migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*` (March 2026)
 - Requires Caffeine 3.2.3 cache dependency for internal caching
 - Maintains `.do` extension for backward URL compatibility
@@ -97,7 +97,7 @@ public class Feature2Action extends ActionSupport {
 ### Struts Configuration (Modular)
 
 Struts config is split into 17 domain-specific files:
-```
+```text
 struts.xml                  -- Parent: global constants + <include> directives
 struts-admin.xml            -- Admin actions
 struts-billing.xml          -- Billing actions
@@ -153,7 +153,7 @@ Multiple modular application contexts:
 
 ## Layered Architecture
 
-```
+```text
 Web Layer (2Actions)  -->  Service Layer (Managers)  -->  DAO Layer  -->  Model Layer
      |                          |                          |               |
   *2Action.java           *Manager.java              *Dao.java       *.java / .hbm.xml
@@ -227,7 +227,7 @@ Details: `docs/fax-provider-configuration-and-ux.md`
 - **lab/**: HL7 lab results
 - **prevention/**: Immunization tracking with provincial schedules
 - **demographic/**: Patient data with HIN management
-- **fhir/**: FHIR R4 with HAPI FHIR 6.10.5
+- **fhir/**: FHIR R4 with HAPI FHIR 8.4.0
 - **hl7/**: HL7 v2/v3 message processing
 
 ---
@@ -262,7 +262,7 @@ Details: `docs/fax-provider-configuration-and-ux.md`
 
 ## Key Reference Files
 
-```
+```text
 # 2Action Examples
 AddTickler2Action.java            -- Simple execute pattern
 SystemMessage2Action.java         -- Method-based routing

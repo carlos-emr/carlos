@@ -9,7 +9,7 @@ applyTo: "**/*2Action.java"
 
 ```java
 LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-if (!securityInfoManager.hasPrivilege(loggedInInfo, "_objectname", "r", null)) {
+if (!securityInfoManager.hasPrivilege(loggedInInfo, "_objectname", "r" /* or "w"/"d" per operation */, null)) {
     throw new SecurityException("missing required security object: _objectname");
 }
 ```

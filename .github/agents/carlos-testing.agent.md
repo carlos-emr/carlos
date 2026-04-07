@@ -29,14 +29,15 @@ tools: ["*"]
 
 ## Test Directory Structure
 
-```
-src/test/                              -- All tests (JUnit 4 legacy + JUnit 5 modern)
+```text
+src/test/                              -- All tests (JUnit 5)
   java/io/github/carlos_emr/carlos/
     managers/                          -- Manager unit tests (DemographicManagerUnitTest)
     test/unit/                         -- Unit test base classes (CarlosUnitTestBase)
     utility/                           -- Utility/security tests (e.g., PathValidationUtilsTest)
   resources/
-    over_ride_config.properties        -- Test configuration template
+    over_ride_config.properties        -- Test configuration (active)
+    over_ride_config.properties.template -- Test configuration template
 ```
 
 ---
@@ -255,6 +256,7 @@ void shouldReturnTickler_whenValidIdProvided() {
 ## Test Configuration Patterns
 
 ### SpringUtils Anti-Pattern Resolution
+
 ```java
 @BeforeEach
 void setUpSpringUtils() throws Exception {
@@ -265,6 +267,7 @@ void setUpSpringUtils() throws Exception {
 ```
 
 ### Dual Hibernate/JPA Configuration
+
 ```xml
 <!-- Hibernate for XML mappings -->
 <bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
@@ -282,11 +285,13 @@ void setUpSpringUtils() throws Exception {
 ```
 
 ### Manual Bean Definitions (avoid circular dependencies)
+
 ```xml
 <bean id="ticklerDao" class="io.github.carlos_emr.carlos.commn.dao.TicklerDaoImpl" autowire="byName" />
 ```
 
 ### Entity Discovery (explicit, no scanning)
+
 ```xml
 <persistence-unit name="testPersistenceUnit">
     <class>io.github.carlos_emr.carlos.commn.model.Tickler</class>
@@ -295,6 +300,7 @@ void setUpSpringUtils() throws Exception {
 ```
 
 ### Security Mock
+
 ```xml
 <bean id="securityInfoManager" class="io.github.carlos_emr.carlos.test.mocks.MockSecurityInfoManager" />
 ```
@@ -329,15 +335,13 @@ mvn test -Dgroups="create,update"
 make install --run-tests
 make install --run-unit-tests
 make install --run-integration-tests
-make install --run-modern-tests
-make install --run-legacy-tests
 ```
 
 ---
 
 ## Key Test Documentation
 
-```
+```text
 docs/test/modern-test-framework-complete.md  -- Complete test framework guide
 docs/test/test-writing-guide.md              -- Test writing patterns and static mocking
 docs/test/claude-test-context.md             -- Auto-injected context for test work

@@ -12,6 +12,7 @@ Format: `update-YYYY-MM-DD-description.sql`
 ## Audit Trail Requirement
 
 Every new table MUST include:
+
 ```sql
 lastUpdateUser VARCHAR(100) NOT NULL,
 lastUpdateDate TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -26,6 +27,7 @@ lastUpdateDate TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ## Reserved Words
 
 Column names like `value`, `key`, `order`, `group`, `status` must be backtick-quoted:
+
 ```sql
 `value` VARCHAR(255),
 `key` VARCHAR(255),

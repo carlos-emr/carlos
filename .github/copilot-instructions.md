@@ -26,7 +26,7 @@
 | Database | MariaDB/MySQL | - |
 | CSRF | OWASP CSRFGuard | 4.5 (Jakarta) |
 | XSS | OWASP Encoder | 1.4.0 (Jakarta) |
-| FHIR | HAPI FHIR | 6.10.5 |
+| FHIR | HAPI FHIR | 8.4.0 |
 | Web Services | Apache CXF | 4.1.5 |
 | Rules | Drools | 10.1.0 |
 | Caching | Caffeine | 3.2.3 |
@@ -42,8 +42,6 @@ make install                         # Build and deploy without tests
 make install --run-tests             # Build, test, and deploy (all tests)
 make install --run-unit-tests        # Build and run only unit tests
 make install --run-integration-tests # Build and run only integration tests
-make install --run-modern-tests      # Build and run only modern tests (JUnit 5)
-make install --run-legacy-tests      # Build and run only legacy tests (JUnit 4)
 
 # Server & Database
 server start/stop/restart            # Tomcat management
@@ -134,7 +132,7 @@ See `carlos-testing` agent for the full test framework guide with all 13 integra
 See `carlos-database` agent for full schema patterns and migration details.
 
 - **Migration format**: `update-YYYY-MM-DD-description.sql` in `database/mysql/updates/`
-- **Audit trail required**: Every table must have `lastUpdateUser` + `lastUpdateDate`
+- **Audit trail required**: Every new or materially modified table must have `lastUpdateUser` + `lastUpdateDate`
 - **Dual persistence**: HBM XML mappings + JPA annotations coexist
 
 ## Documentation Standards
