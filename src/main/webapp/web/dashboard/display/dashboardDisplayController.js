@@ -113,7 +113,7 @@ $(document).ready(function () {
 // build Indicator panel with Pie chart.
 function buildIndicatorPanel(html, target, id) {
 
-    let indicatorGraph;
+    let indicatorGraph, data;
 
     if (indicatorGraph) {
         indicatorGraph.destroy();
