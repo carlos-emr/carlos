@@ -191,7 +191,7 @@
                             <input type="button"
                                    class="btn btn-danger btn-sm"
                                    value="<fmt:message key='oscarReport.RptByExample.MsgDelete'/>"
-                                   onclick="confirmDelete('${e:forJavaScriptAttribute(favorite.id)}'); return false;"/>
+                                   onclick="confirmDelete('${e:forJavaScript(favorite.id)}'); return false;"/>
                         </td>
                     </tr>
                 </c:forEach>
