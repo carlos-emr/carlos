@@ -58,7 +58,9 @@
 
     boolean caisi = Boolean.valueOf(request.getParameter("caisi")).booleanValue();
 
-    // Validate originalpage to prevent open redirect: must be a relative URL
+    // Validate originalpage to prevent open redirect: must be a relative URL.
+    // Note: getParameter() auto-decodes URL-encoded values, so %2F%2F decodes to // and is
+    // caught by startsWith("//"). Backslash bypass (/\) is also rejected explicitly.
     String originalpage = request.getParameter("originalpage");
     if (originalpage == null || originalpage.isEmpty() || !originalpage.startsWith("/") || originalpage.startsWith("//") || originalpage.startsWith("/\\")) {
         originalpage = request.getContextPath() + "/appointment/addappointment.jsp";
