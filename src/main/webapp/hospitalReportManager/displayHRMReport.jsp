@@ -164,7 +164,10 @@
                 for (String tempId : duplicateLabIdsStringSplit) {
                     tempId = tempId.trim();
                     int parsedId;
-                    try { parsedId = Integer.parseInt(tempId); } catch (NumberFormatException e) { continue; }
+                    try { parsedId = Integer.parseInt(tempId); } catch (NumberFormatException e) {
+                        MiscUtils.getLogger().warn("Skipping invalid HRM duplicate lab ID: {}", tempId);
+                        continue;
+                    }
                     HRMDocument doc = hrmDocumentDao.find(parsedId);
                     dupReportDates.put(parsedId, doc.getReportDate());
                     dupTimeReceived.put(parsedId, doc.getTimeReceived());
@@ -962,7 +965,10 @@
                 for (String tempId : duplicateLabIdsStringSplit) {
                     tempId = tempId.trim();
                     int parsedId;
-                    try { parsedId = Integer.parseInt(tempId); } catch (NumberFormatException e) { continue; }
+                    try { parsedId = Integer.parseInt(tempId); } catch (NumberFormatException e) {
+                        MiscUtils.getLogger().warn("Skipping invalid HRM duplicate lab ID in display: {}", tempId);
+                        continue;
+                    }
             %>
             <tr>
                 <td><%=Encode.forHtml(String.valueOf(parsedId)) %>

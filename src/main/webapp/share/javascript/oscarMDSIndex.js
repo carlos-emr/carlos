@@ -104,9 +104,16 @@ function sanitizeWithHandlers(html, config) {
         }
     });
 
-    var fragment = DOMPurify.sanitize(html,
-        Object.assign({}, config, { RETURN_DOM_FRAGMENT: true }));
-    DOMPurify.removeAllHooks();
+    var fragment;
+    try {
+        fragment = DOMPurify.sanitize(html,
+            Object.assign({}, config, { RETURN_DOM_FRAGMENT: true }));
+    } catch (e) {
+        console.error('DOMPurify.sanitize() threw an error:', e);
+        fragment = document.createDocumentFragment();
+    } finally {
+        DOMPurify.removeAllHooks();
+    }
 
     // Re-attach event handlers to elements that survived sanitization.
     handlerStore.forEach(function(node) {

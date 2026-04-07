@@ -191,7 +191,7 @@ function sendData(path, param, target) {
         form.action = ctx + path;
         if (typeof param === 'string') {
             param.split('&').forEach(function(pair) {
-                var parts = pair.split('=');
+                var parts = pair.split('=', 2);
                 var input = document.createElement('input');
                 input.type = 'hidden';
                 input.name = decodeURIComponent(parts[0]);
