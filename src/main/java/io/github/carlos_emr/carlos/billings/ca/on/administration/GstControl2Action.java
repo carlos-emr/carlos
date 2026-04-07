@@ -42,6 +42,8 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.billing.CA.dao.GstControlDao;
 import io.github.carlos_emr.carlos.billing.CA.model.GstControl;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -62,12 +64,20 @@ public class GstControl2Action extends ActionSupport implements ServletRequestAw
         this.response = response;
     }
 
-
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private GstControlDao dao = SpringUtils.getBean(GstControlDao.class);
 
 
+    @Override
     public String execute() throws ServletException, IOException {
-        writeDatabase(this.getGstPercent());
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.billing)");
+        }
+
+        String percent = this.getGstPercent();
+        if (percent != null && !percent.isEmpty()) {
+            writeDatabase(percent);
+        }
 
         return SUCCESS;
     }

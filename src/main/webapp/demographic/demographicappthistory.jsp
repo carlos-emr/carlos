@@ -74,7 +74,6 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.AppointmentManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 
 
@@ -185,10 +184,10 @@
                 if (value) {
                     //show deleted
                     //appt_history_w_deleted
-                    location.href = '<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographic_no))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(orderby))%>&displaymode=appt_history&dboperation=appt_history_w_deleted&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>&deleted=true';
+                    location.href = '<%=request.getContextPath()%>/demographic/DemographicApptHistory.do?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographic_no))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(orderby))%>&dboperation=appt_history_w_deleted&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>&deleted=true';
                 } else {
                     //don't show deleted
-                    location.href = '<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographic_no))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(orderby))%>&displaymode=appt_history&dboperation=appt_history&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>';
+                    location.href = '<%=request.getContextPath()%>/demographic/DemographicApptHistory.do?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographic_no))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(orderby))%>&dboperation=appt_history&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>';
                 }
             }
 
@@ -240,7 +239,7 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn" valign="top"><a
-                    href="<%=request.getContextPath()%>/demographic/DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&apptProvider=<%=session.getAttribute("user") %>"
+                    href="<%=request.getContextPath()%>/demographic/DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&apptProvider=<%=Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull((String) session.getAttribute("user")))%>"
                     onMouseOver="self.status=document.referrer;return true">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></a>
                 <br/>
@@ -267,10 +266,14 @@
                         int iRSOffSet = 0;
                         int iPageSize = 10;
                         int iRow = 0;
-                        if (request.getParameter("limit1") != null)
-                            iRSOffSet = Integer.parseInt(request.getParameter("limit1"));
-                        if (request.getParameter("limit2") != null)
-                            iPageSize = Integer.parseInt(request.getParameter("limit2"));
+                        if (request.getParameter("limit1") != null) {
+                            try { iRSOffSet = Integer.parseInt(request.getParameter("limit1")); }
+                            catch (NumberFormatException ignored) { /* keep default */ }
+                        }
+                        if (request.getParameter("limit2") != null) {
+                            try { iPageSize = Integer.parseInt(request.getParameter("limit2")); }
+                            catch (NumberFormatException ignored) { /* keep default */ }
+                        }
                         List<Object> appointmentList;
                         AppointmentManager appointmentManager = SpringUtils.getBean(AppointmentManager.class);
 
@@ -331,14 +334,14 @@
 
                     %>
                     <tr <%=(deleted) ? "style='text-decoration: line-through' " : "" %>
-                            bgcolor="<%=bodd?weakColor:"white"%>" appt_no="<%=appointment.getId().toString()%>"
-                            demographic_no="<%=demographic_no%>" provider_no="<%=provider!=null?provider.getId():""%>">
+                            bgcolor="<%=bodd?weakColor:"white"%>" appt_no="<%=Encode.forHtmlAttribute(appointment.getId().toString())%>"
+                            demographic_no="<%=Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no))%>" provider_no="<%=Encode.forHtmlAttribute(provider!=null?provider.getId():"")%>">
                         <td align="center"><a href=#
-                                              onClick="popupPageNew(360,680, '<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&appointment_no=<%=Encode.forJavaScriptAttribute(appointment.getId().toString())%>&displaymode=edit&dboperation=search');return false;"><%=appointment.getAppointmentDate()%>
+                                              onClick="popupPageNew(360,680, '<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&appointment_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(appointment.getId().toString()))%>&displaymode=edit&dboperation=search');return false;"><%=Encode.forHtml(appointment.getAppointmentDate() != null ? appointment.getAppointmentDate().toString() : "")%>
                         </a></td>
-                        <td align="center"><%=appointment.getStartTime()%>
+                        <td align="center"><%=Encode.forHtml(appointment.getStartTime() != null ? appointment.getStartTime().toString() : "")%>
                         </td>
-                        <td align="center"><%=appointment.getEndTime()%>
+                        <td align="center"><%=Encode.forHtml(appointment.getEndTime() != null ? appointment.getEndTime().toString() : "")%>
                         </td>
                         <td align="center">
                             <%if (as != null && as.getDescription() != null) {%>
@@ -347,7 +350,7 @@
                         </td>
                         <td><%=Encode.forHtml(appointment.getType())%>
                         </td>
-                        <td><%=(reasonCodeName != null && !reasonCodeName.isEmpty()) ? reasonCodeName : ""%><%=(appointment.getReason() != null && !appointment.getReason().isEmpty()) ? ((reasonCodeName != null && !reasonCodeName.isEmpty()) ? " - " : "") + UtilMisc.htmlEscape(appointment.getReason()) : ""%>
+                        <td><%=(reasonCodeName != null && !reasonCodeName.isEmpty()) ? Encode.forHtml(reasonCodeName) : ""%><%=(appointment.getReason() != null && !appointment.getReason().isEmpty()) ? ((reasonCodeName != null && !reasonCodeName.isEmpty()) ? " - " : "") + Encode.forHtml(appointment.getReason()) : ""%>
                         </td>
                         <% if (provider != null) {%>
                         <td><%=Encode.forHtml((provider.getLastName() == null ? "N/A" : provider.getLastName()) + "," + (provider.getFirstName() == null ? "N/A" : provider.getFirstName()))%>
@@ -377,13 +380,15 @@
                                 newline = true;
                             }
                         %>
-                        <td>&nbsp;<%=remarks%><% if (newline) {%><br/>&nbsp;<%}%><%=comments%>
+                        <td>&nbsp;<%=Encode.forHtml(remarks)%><% if (newline) {%><br/>&nbsp;<%}%><%=Encode.forHtml(comments)%>
                         </td>
                         <%
                             if (IsPropertiesOn.isMultisitesEnable()) {
                                 String[] sbc = siteBgColor.get(appointment.getLocation());
+                                String siteColor = sbc != null && sbc.length > 0 ? sbc[0] : "";
+                                String siteLabel = sbc != null && sbc.length > 1 ? sbc[1] : io.github.carlos_emr.carlos.util.StringUtils.noNull(appointment.getLocation());
                         %>
-                        <td style='background-color:<%= sbc[0] %>'><%= sbc[1] %>
+                        <td style='background-color:<%= Encode.forCssString(siteColor) %>'><%= Encode.forHtml(siteLabel) %>
                         </td>
                         <%
                             }
@@ -402,14 +407,14 @@
                     nPrevPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
                     if (nPrevPage >= 0) {
                 %>
-                <a href="demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&displaymode=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("displaymode"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nPrevPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
+                <a href="DemographicApptHistory.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nPrevPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.btnPrevPage"/></a>
                 <%
                     }
 
                     if (nItems >= Integer.parseInt(strLimit2)) {
                 %>
-                <a href="demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&displaymode=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("displaymode"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
+                <a href="DemographicApptHistory.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.btnNextPage"/></a>
                 <%
                     }
@@ -426,7 +431,7 @@
                     <%
                         for (ProviderData prov : providerMap.values()) {
                     %>
-                    <option value="<%=prov.getId()%>"><%=prov.getLastName() + ", " + prov.getFirstName() %>
+                    <option value="<%=Encode.forHtmlAttribute(prov.getId())%>"><%=Encode.forHtml(prov.getLastName() + ", " + prov.getFirstName()) %>
                     </option>
                     <%
                         }

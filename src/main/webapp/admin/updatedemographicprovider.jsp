@@ -69,27 +69,35 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnUpdatePatientProvider"/></title>
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     </head>
     <script type="text/javascript">
+        function escapeRegex(str) {
+            return str.replace(/[.*+?^$\x7b\x7d()|[\]\\-]/g, '\\$&');
+        }
+
         function setregexp() {
-            document.ADDAPPT.regexp.value = "^[" + document.ADDAPPT.last_name_from.value + "-"
-                + document.ADDAPPT.last_name_to.value + "]";
+            var from = escapeRegex(document.ADDAPPT.last_name_from.value);
+            var to = escapeRegex(document.ADDAPPT.last_name_to.value);
+            document.ADDAPPT.regexp.value = "^[" + from + "-" + to + "]";
         }
 
         function setregexp1() {
-            document.ADDAPPT1.regexp.value = "^[" + document.ADDAPPT1.last_name_from.value + "-"
-                + document.ADDAPPT1.last_name_to.value + "]";
+            var from = escapeRegex(document.ADDAPPT1.last_name_from.value);
+            var to = escapeRegex(document.ADDAPPT1.last_name_to.value);
+            document.ADDAPPT1.regexp.value = "^[" + from + "-" + to + "]";
         }
 
         function setregexp2() {
-            document.ADDAPPT2.regexp.value = "^[" + document.ADDAPPT2.last_name_from.value + "-"
-                + document.ADDAPPT2.last_name_to.value + "]";
+            var from = escapeRegex(document.ADDAPPT2.last_name_from.value);
+            var to = escapeRegex(document.ADDAPPT2.last_name_to.value);
+            document.ADDAPPT2.regexp.value = "^[" + from + "-" + to + "]";
         }
 
         function setregexp3() {
-            document.ADDMRP.regexp.value = "^[" + document.ADDMRP.last_name_from.value + "-"
-                + document.ADDMRP.last_name_to.value + "]";
+            var from = escapeRegex(document.ADDMRP.last_name_from.value);
+            var to = escapeRegex(document.ADDMRP.last_name_to.value);
+            document.ADDMRP.regexp.value = "^[" + from + "-" + to + "]";
         }
     </script>
     <%

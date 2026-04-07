@@ -37,12 +37,12 @@
          errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="javax.xml.parsers.SAXParserFactory" %>
 <%@ page import="javax.xml.parsers.SAXParser" %>
 <%@ page import="javax.xml.parsers.ParserConfigurationException" %>
 <%@ page import="org.xml.sax.InputSource" %>
 <%@ page import="org.xml.sax.SAXException" %>
 <%@ page import="org.xml.sax.helpers.DefaultHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.XmlUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -82,17 +82,10 @@
             String checklist = request.getParameter("checklist");
             if (checklist != null) {
                 // Validate submitted XML with a hardened SAX parser.
-                // Disabling DOCTYPE processing prevents XXE injection; parsing ensures the document
-                // is well-formed before it is written to disk and later consumed by DesAntenatalPlannerChecklist_99_12.
+                // Parsing ensures the document is well-formed before it is written to disk
+                // and later consumed by DesAntenatalPlannerChecklist_99_12.
                 try {
-                    SAXParserFactory validationFactory = SAXParserFactory.newInstance();
-                    // Reject any DOCTYPE declaration — primary XXE defence
-                    validationFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-                    // Belt-and-suspenders: disable external entity resolution if the above is unsupported
-                    validationFactory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-                    validationFactory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-                    validationFactory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-                    SAXParser saxParser = validationFactory.newSAXParser();
+                    SAXParser saxParser = XmlUtils.createSecureSAXParserFactory().newSAXParser();
                     saxParser.parse(new InputSource(new StringReader(checklist)), new DefaultHandler());
 
                     // XML is well-formed and safe — write the raw (un-encoded) document to disk

@@ -298,29 +298,29 @@
     <form action="${pageContext.request.contextPath}/form/formname.do" method="post">
 
         <input type="hidden" name="demographic_no"
-               value="<%= props.getProperty("demographic_no", "0") %>"/>
+               value="<%= Encode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
         <input type="hidden" name="patientLastName"
-               value="<%=patientNames[0].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientNames[0].trim())%>"/>
         <input type="hidden" name="patientFirstName"
-               value="<%=patientNames[1].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientNames[1].trim())%>"/>
         <input type="hidden" name="patientBirthYear"
-               value="<%=patientDOB[0].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientDOB[0].trim())%>"/>
         <input type="hidden" name="patientBirthMth"
-               value="<%=patientDOB[1].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientDOB[1].trim())%>"/>
         <input type="hidden" name="patientBirthDay"
-               value="<%=patientDOB[2].trim()%>"/>
+               value="<%=Encode.forHtmlAttribute(patientDOB[2].trim())%>"/>
         <input type="hidden" name="ID"
-               value="<%= props.getProperty("ID", "0") %>"/>
+               value="<%= Encode.forHtmlAttribute(props.getProperty("ID", "0")) %>"/>
         <input type="hidden" name="provider_no"
                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provNo"))) %>"/>
         <input type="hidden" name="formCreated"
-               value="<%= props.getProperty("formCreated", "") %>"/>
-        <input type="hidden" name="form_class" value="<%=formClass%>"/>
-        <input type="hidden" name="form_link" value="<%=formLink%>"/>
+               value="<%= Encode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
+        <input type="hidden" name="form_class" value="<%=Encode.forHtmlAttribute(formClass)%>"/>
+        <input type="hidden" name="form_link" value="<%=Encode.forHtmlAttribute(formLink)%>"/>
         <input type="hidden" name="provNo"
                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provNo"))) %>"/>
         <input type="hidden" name="submit" value="exit"/>
-        <input type="hidden" name="formId" value="<%=formId%>"/>
+        <input type="hidden" name="formId" value="<%=Encode.forHtmlAttribute(String.valueOf(formId))%>"/>
 
         <table class="Head" class="hidePrint">
             <tr>
@@ -351,23 +351,23 @@
                             <td colspan="3" nowrap="true">Requisitioning
                                 Physician/Practitioner:<br>
                                 <input type="hidden" style="width: 100%" name="provName"
-                                       value="<%=props.getProperty("provName", "")%>"/> <input
+                                       value="<%=Encode.forHtmlAttribute(props.getProperty("provName", ""))%>"/> <input
                                         type="hidden" style="width: 100%" name="reqProvName"
-                                        value="<%=props.getProperty("reqProvName", "")%>"/> <%=props.getProperty("reqProvName", "")%>&nbsp;<br>
+                                        value="<%=Encode.forHtmlAttribute(props.getProperty("reqProvName", ""))%>"/> <%=Encode.forHtml(props.getProperty("reqProvName", ""))%>&nbsp;<br>
                                     <%-- Dr. Hunter wants the form to say "Physician" instead of "Family Physician".  This is a quick and dirty hack to make it work.  This
                      should really be rewritten more elegantly at some later point in time. --%>
                                 <br><%=oscarProps.getProperty("clinic_no", "").startsWith("1022") ? "Physician:" : "Family Physician:"%>
                                 <br>
-                                <%=props.getProperty("provName", "") == null ? "" : props.getProperty("provName", "")%>&nbsp;<br>
+                                <%=Encode.forHtml(props.getProperty("provName", "") == null ? "" : props.getProperty("provName", ""))%>&nbsp;<br>
                                 <input type="hidden" style="width: 100%" name="clinicName"
-                                       value="<%=props.getProperty("clinicName","")%>"/> <%=props.getProperty("clinicName", "")%>&nbsp;<br>
+                                       value="<%=Encode.forHtmlAttribute(props.getProperty("clinicName",""))%>"/> <%=Encode.forHtml(props.getProperty("clinicName", ""))%>&nbsp;<br>
                                 <input type="hidden" style="width: 100%" name="clinicAddress"
-                                       value="<%=props.getProperty("clinicAddress", "")%>"/> <%=props.getProperty("clinicAddress", "")%>&nbsp;<br>
+                                       value="<%=Encode.forHtmlAttribute(props.getProperty("clinicAddress", ""))%>"/> <%=Encode.forHtml(props.getProperty("clinicAddress", ""))%>&nbsp;<br>
                                 <input type="hidden" style="width: 100%" name="clinicCity"
-                                       value="<%=props.getProperty("clinicCity", "")%>"/> <%=props.getProperty("clinicCity", "")%>
-                                ,<%=props.getProperty("clinicProvince", "") %><br>
+                                       value="<%=Encode.forHtmlAttribute(props.getProperty("clinicCity", ""))%>"/> <%=Encode.forHtml(props.getProperty("clinicCity", ""))%>
+                                ,<%=Encode.forHtml(props.getProperty("clinicProvince", "")) %><br>
                                 <input type="hidden" style="width: 100%" name="clinicPC"
-                                       value="<%=props.getProperty("clinicPC", "")%>"/> <%=props.getProperty("clinicPC", "")%>&nbsp;<br>
+                                       value="<%=Encode.forHtmlAttribute(props.getProperty("clinicPC", ""))%>"/> <%=Encode.forHtml(props.getProperty("clinicPC", ""))%>&nbsp;<br>
                             </td>
                         </tr>
                         <tr>
@@ -377,7 +377,7 @@
                                     <tr>
                                         <td colspan="3">Physician/Practitioner Number<br>
                                             <input type="hidden" name="practitionerNo"
-                                                   value="<%=props.getProperty("practitionerNo", "")%>"/> <%=props.getProperty("practitionerNo", "")%>&nbsp;
+                                                   value="<%=Encode.forHtmlAttribute(props.getProperty("practitionerNo", ""))%>"/> <%=Encode.forHtml(props.getProperty("practitionerNo", ""))%>&nbsp;
                                         </td>
                                     </tr>
                                     <tr>
@@ -386,11 +386,11 @@
                                                 <tr>
                                                     <td nowrap="true" valign="top">Check one:</td>
                                                     <td><input type="checkbox" name="ohip"
-                                                            <%=props.getProperty("ohip", "")%> /><br>
+                                                            <%="checked='checked'".equals(props.getProperty("ohip", "")) ? "checked='checked'" : ""%> /><br>
                                                         <input type="checkbox" name="thirdParty"
-                                                                <%=props.getProperty("thirdParty", "")%> /><br>
+                                                                <%="checked='checked'".equals(props.getProperty("thirdParty", "")) ? "checked='checked'" : ""%> /><br>
                                                         <input type="checkbox" name="wcb"
-                                                                <%=props.getProperty("wcb", "")%> /><br>
+                                                                <%="checked='checked'".equals(props.getProperty("wcb", "")) ? "checked='checked'" : ""%> /><br>
                                                     </td>
                                                     <td nowrap="true">OHIP/Insured<br>
                                                         Third Party/Uninsured<br>
@@ -403,7 +403,7 @@
                                     <tr>
                                         <td colspan="3">Additional Clinical Information<br>
                                             <textarea name="aci"
-                                                      style="width: 100%; height: 59px;"><%=props.getProperty("aci", "")%></textarea>
+                                                      style="width: 100%; height: 59px;"><%=Encode.forHtml(props.getProperty("aci", ""))%></textarea>
                                         </td>
                                     </tr>
                                 </table>
@@ -445,52 +445,52 @@
                                     <tr>
                                         <td width="33%"><input type="hidden" style="width: 90%"
                                                                name="patientName"
-                                                               value="<%=props.getProperty("patientName", "")%>"/> <%=props.getProperty("patientName", "")%>&nbsp;
+                                                               value="<%=Encode.forHtmlAttribute(props.getProperty("patientName", ""))%>"/> <%=Encode.forHtml(props.getProperty("patientName", ""))%>&nbsp;
                                         </td>
                                         <td>Health Number:</td>
                                         <td><input type="hidden" name="healthNumber" size="10"
-                                                   value="<%=props.getProperty("healthNumber", "")%>"/> <%=props.getProperty("healthNumber", "")%>&nbsp;
+                                                   value="<%=Encode.forHtmlAttribute(props.getProperty("healthNumber", ""))%>"/> <%=Encode.forHtml(props.getProperty("healthNumber", ""))%>&nbsp;
                                         </td>
                                         <td>Province:</td>
                                         <td><input type="hidden" name="province" size="12"
-                                                   value="<%=props.getProperty("province", "")%>"/> <%=props.getProperty("province", "")%>&nbsp;
+                                                   value="<%=Encode.forHtmlAttribute(props.getProperty("province", ""))%>"/> <%=Encode.forHtml(props.getProperty("province", ""))%>&nbsp;
                                         </td>
                                     </tr>
                                     <tr>
                                         <td><input type="hidden" style="width: 90%"
                                                    name="patientAddress"
-                                                   value="<%=props.getProperty("patientAddress", "")%>"/> <%=props.getProperty("patientAddress", "")%>
+                                                   value="<%=Encode.forHtmlAttribute(props.getProperty("patientAddress", ""))%>"/> <%=Encode.forHtml(props.getProperty("patientAddress", ""))%>
                                         </td>
                                         <td>Version:</td>
                                         <td><input type="hidden" name="version" size="10"
-                                                   value="<%=props.getProperty("version", "")%>"/> <%=props.getProperty("version", "")%>
+                                                   value="<%=Encode.forHtmlAttribute(props.getProperty("version", ""))%>"/> <%=Encode.forHtml(props.getProperty("version", ""))%>
                                         </td>
                                         <td>Other Registration Number:</td>
                                         <td><input type="text" name="orn" size="12"
-                                                   value="<%=props.getProperty("orn", "")%>"/></td>
+                                                   value="<%=Encode.forHtmlAttribute(props.getProperty("orn", ""))%>"/></td>
                                     </tr>
                                     <td><input type="hidden" style="width: 90%"
                                                name="patientCity"
-                                               value="<%=props.getProperty("patientCity", "")%>"/> <%=props.getProperty("patientCity", "")%>
+                                               value="<%=Encode.forHtmlAttribute(props.getProperty("patientCity", ""))%>"/> <%=Encode.forHtml(props.getProperty("patientCity", ""))%>
                                     </td>
                                     <td>Date of Birth:</td>
                                     <td><input type="hidden" name="birthDate" size="10"
-                                               value="<%=props.getProperty("birthDate", "")%>"/> <%=props.getProperty("birthDate", "")%>
+                                               value="<%=Encode.forHtmlAttribute(props.getProperty("birthDate", ""))%>"/> <%=Encode.forHtml(props.getProperty("birthDate", ""))%>
                                     </td>
                                     <td>Phone Number:</td>
                                     <td><input type="hidden" name="phoneNumber" size="12"
-                                               value="<%=props.getProperty("phoneNumber", "")%>"/> <%=props.getProperty("phoneNumber", "")%>
+                                               value="<%=Encode.forHtmlAttribute(props.getProperty("phoneNumber", ""))%>"/> <%=Encode.forHtml(props.getProperty("phoneNumber", ""))%>
                                     </td>
                         </tr>
                         <td><input type="hidden" style="width: 90%" name="patientPC"
-                                   value="<%=props.getProperty("patientPC", "")%>"/> <%=props.getProperty("patientPC", "")%>
+                                   value="<%=Encode.forHtmlAttribute(props.getProperty("patientPC", ""))%>"/> <%=Encode.forHtml(props.getProperty("patientPC", ""))%>
                         </td>
                         <td>Payment Program:</td>
                         <td><input type="text" name="paymentProgram" size="10"
-                                   value="<%=props.getProperty("paymentProgram", "")%>"/></td>
+                                   value="<%=Encode.forHtmlAttribute(props.getProperty("paymentProgram", ""))%>"/></td>
                         <td>Sex:</td>
                         <td><input type="hidden" name="sex" size="12"
-                                   value="<%=props.getProperty("sex", "")%>"/> <%=props.getProperty("sex", "")%>
+                                   value="<%=Encode.forHtmlAttribute(props.getProperty("sex", ""))%>"/> <%=Encode.forHtml(props.getProperty("sex", ""))%>
                         </td>
             </tr>
         </table>
@@ -516,84 +516,84 @@
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="b_glucose"
-                                            <%=props.getProperty("b_glucose", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("b_glucose", "")) ? "checked='checked'" : ""%> /></td>
                                     <td>Glucose</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="b_creatine"
-                                            <%=props.getProperty("b_creatine", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("b_creatine", "")) ? "checked='checked'" : ""%> /></td>
                                     <td>Creatinine</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="b_uricAcid"
-                                            <%=props.getProperty("b_uricAcid", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("b_uricAcid", "")) ? "checked='checked'" : ""%> /></td>
                                     <td>Uric Acid</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="b_sodium"
-                                            <%=props.getProperty("b_sodium", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("b_sodium", "")) ? "checked='checked'" : ""%> /></td>
                                     <td>Sodium</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="b_potassium"
-                                            <%=props.getProperty("b_potassium", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("b_potassium", "")) ? "checked='checked'" : ""%> /></td>
                                     <td>Potassium</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="b_chloride"
-                                            <%=props.getProperty("b_chloride", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("b_chloride", "")) ? "checked='checked'" : ""%> /></td>
                                     <td>Chloride</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="b_ast"
-                                            <%=props.getProperty("b_ast", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("b_ast", "")) ? "checked='checked'" : ""%> /></td>
                                     <td>AST (SGOT)</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="b_alkPhosphate"
-                                            <%=props.getProperty("b_alkPhosphate", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("b_alkPhosphate", "")) ? "checked='checked'" : ""%> /></td>
                                     <td>Alk. Phosphate</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="b_bilirubin"
-                                            <%=props.getProperty("b_bilirubin", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("b_bilirubin", "")) ? "checked='checked'" : ""%> /></td>
                                     <td>Bilirubin</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="b_cholesterol"
-                                            <%=props.getProperty("b_cholesterol", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("b_cholesterol", "")) ? "checked='checked'" : ""%> /></td>
                                     <td>Cholesterol</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="b_triglyceride"
-                                            <%=props.getProperty("b_triglyceride", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("b_triglyceride", "")) ? "checked='checked'" : ""%> /></td>
                                     <td>Triglyceride</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="b_urinalysis"
-                                            <%=props.getProperty("b_urinalysis", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("b_urinalysis", "")) ? "checked='checked'" : ""%> /></td>
                                     <td nowrap="true">Urinalysis (chemical)</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
@@ -606,30 +606,30 @@
                                             </tr>
                                             <tr>
                                                 <td><input type="checkbox" name="v_acuteHepatitis"
-                                                        <%=props.getProperty("v_acuteHepatitis", "")%> /></td>
+                                                        <%="checked='checked'".equals(props.getProperty("v_acuteHepatitis", "")) ? "checked='checked'" : ""%> /></td>
                                                 <td colspan="3">Acute hepatitis</td>
                                             </tr>
                                             <tr>
                                                 <td><input type="checkbox" name="v_chronicHepatitis"
-                                                        <%=props.getProperty("v_chronicHepatitis", "")%> /></td>
+                                                        <%="checked='checked'".equals(props.getProperty("v_chronicHepatitis", "")) ? "checked='checked'" : ""%> /></td>
                                                 <td colspan="3">Chronic hepatitis</td>
                                             </tr>
                                             <tr>
                                                 <td><input type="checkbox" name="v_immune"
-                                                        <%=props.getProperty("v_immune", "")%> /></td>
+                                                        <%="checked='checked'".equals(props.getProperty("v_immune", "")) ? "checked='checked'" : ""%> /></td>
                                                 <td colspan="3">Immune status / prev. exposure</td>
                                             <tr>
                                                 <td colspan="2">Specify:</td>
                                                 <td>Hepatitis A</td>
                                                 <td><input type="text" name="v_hepA"
-                                                           value="<%=props.getProperty("v_hepA", "")%>"
+                                                           value="<%=Encode.forHtmlAttribute(props.getProperty("v_hepA", ""))%>"
                                                            style="width: 100%;"/></td>
                                             </tr>
                                             <tr>
                                                 <td colspan="2">&nbsp;</td>
                                                 <td>Hepatitis B</td>
                                                 <td><input type="text" name="v_hepB"
-                                                           value="<%=props.getProperty("v_hepB", "")%>"
+                                                           value="<%=Encode.forHtmlAttribute(props.getProperty("v_hepB", ""))%>"
                                                            style="width: 100%;"/></td>
                                             </tr>
                                         </table>
@@ -651,7 +651,7 @@
                                             <tr>
                                                 <td>_________________</td>
                                                 <td><input type="text" name="formDate" size="10"
-                                                           value="<%=props.getProperty("formDate", "")%>"/></td>
+                                                           value="<%=Encode.forHtmlAttribute(props.getProperty("formDate", ""))%>"/></td>
                                             </tr>
                                         </table>
                                     </td>
@@ -670,45 +670,45 @@
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="h_bloodFilmExam"
-                                            <%=props.getProperty("h_bloodFilmExam", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("h_bloodFilmExam", "")) ? "checked='checked'" : ""%> /></td>
                                     <td nowrap="true">Blood Film Exam</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="h_hemoglobin"
-                                            <%=props.getProperty("h_hemoglobin", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("h_hemoglobin", "")) ? "checked='checked'" : ""%> /></td>
                                     <td nowrap="true">Hemoglobin</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="h_wcbCount"
-                                            <%=props.getProperty("h_wcbCount", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("h_wcbCount", "")) ? "checked='checked'" : ""%> /></td>
                                     <td nowrap="true">W.C.B. count</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="h_hematocrit"
-                                            <%=props.getProperty("h_hematocrit", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("h_hematocrit", "")) ? "checked='checked'" : ""%> /></td>
                                     <td nowrap="true">Hematocrit</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="h_prothrombTime"
-                                            <%=props.getProperty("h_prothrombTime", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("h_prothrombTime", "")) ? "checked='checked'" : ""%> /></td>
                                     <td nowrap="true">Prothromb. time</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="h_otherC"
-                                            <%=props.getProperty("h_otherC", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("h_otherC", "")) ? "checked='checked'" : ""%> /></td>
                                     <td style="padding-bottom: 1px"><input type="text"
                                                                            name="h_other"
-                                                                           value="<%=props.getProperty("h_other", "")%>"/>
+                                                                           value="<%=Encode.forHtmlAttribute(props.getProperty("h_other", ""))%>"/>
                                     </td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
@@ -720,28 +720,28 @@
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="i_pregnancyTest"
-                                            <%=props.getProperty("i_pregnancyTest", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("i_pregnancyTest", "")) ? "checked='checked'" : ""%> /></td>
                                     <td nowrap="true">Pregnancy Test</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="i_heterophile"
-                                            <%=props.getProperty("i_heterophile", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("i_heterophile", "")) ? "checked='checked'" : ""%> /></td>
                                     <td>Heterophile antibodies screen</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="i_rubella"
-                                            <%=props.getProperty("i_rubella", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("i_rubella", "")) ? "checked='checked'" : ""%> /></td>
                                     <td nowrap="true">Rubella</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="i_prenatal"
-                                            <%=props.getProperty("i_prenatal", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("i_prenatal", "")) ? "checked='checked'" : ""%> /></td>
                                     <td>Prenatal: <small>ABO, RhD, anitbody screen
                                         (titre and ident. if positive</small></td>
                                     <td>&nbsp;</td>
@@ -749,31 +749,31 @@
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="i_repeatPrenatal"
-                                            <%=props.getProperty("i_repeatPrenatal", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("i_repeatPrenatal", "")) ? "checked='checked'" : ""%> /></td>
                                     <td>Repeat Prenatal antibodies</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="i_prenatalHepatitisB"
-                                            <%=props.getProperty("i_prenatalHepatitisB", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("i_prenatalHepatitisB", "")) ? "checked='checked'" : ""%> /></td>
                                     <td nowrap="true">Prenatal Hepatitis B</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="i_vdrl"
-                                            <%=props.getProperty("i_vdrl", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("i_vdrl", "")) ? "checked='checked'" : ""%> /></td>
                                     <td nowrap="true">VDRL</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="i_otherC"
-                                            <%=props.getProperty("i_otherC", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("i_otherC", "")) ? "checked='checked'" : ""%> /></td>
                                     <td style="padding-bottom: 1px"><input type="text"
                                                                            name="i_other"
-                                                                           value="<%=props.getProperty("i_other", "")%>"/>
+                                                                           value="<%=Encode.forHtmlAttribute(props.getProperty("i_other", ""))%>"/>
                                     </td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
@@ -786,45 +786,45 @@
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="m_cervicalVaginal"
-                                            <%=props.getProperty("m_cervicalVaginal", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("m_cervicalVaginal", "")) ? "checked='checked'" : ""%> /></td>
                                     <td nowrap="true">Cervical, vaginal</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="m_sputum"
-                                            <%=props.getProperty("m_sputum", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("m_sputum", "")) ? "checked='checked'" : ""%> /></td>
                                     <td nowrap="true">Sputum</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="m_throat"
-                                            <%=props.getProperty("m_throat", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("m_throat", "")) ? "checked='checked'" : ""%> /></td>
                                     <td nowrap="true">Throat</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="m_urine"
-                                            <%=props.getProperty("m_urine", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("m_urine", "")) ? "checked='checked'" : ""%> /></td>
                                     <td nowrap="true">Urine</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td><input type="checkbox" name="m_stoolCulture"
-                                            <%=props.getProperty("m_stoolCulture", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("m_stoolCulture", "")) ? "checked='checked'" : ""%> /></td>
                                     <td nowrap="true">Stool culture</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
                                     <td valign="top"><input type="checkbox" name="m_otherSwabs"
-                                            <%=props.getProperty("m_otherSwabs", "")%> /></td>
+                                            <%="checked='checked'".equals(props.getProperty("m_otherSwabs", "")) ? "checked='checked'" : ""%> /></td>
                                     <td nowrap="true" style="padding-bottom: 2px"><input
                                             type="text" style="width: 100%;" name="m_other"
-                                            value="<%=props.getProperty("m_other", "")%>"/></td>
+                                            value="<%=Encode.forHtmlAttribute(props.getProperty("m_other", ""))%>"/></td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
@@ -844,7 +844,7 @@
                                 </tr>
                                 <tr>
                                     <td rowspan="9"><textarea name="otherTest"
-                                                              style="width: 100%; height: 159px; overflow: auto;"><%=props.getProperty("otherTest", "")%></textarea>
+                                                              style="width: 100%; height: 159px; overflow: auto;"><%=Encode.forHtml(props.getProperty("otherTest", ""))%></textarea>
                                     </td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>

@@ -401,7 +401,7 @@
                 loc = loc + "/oscarMDS/Split.jsp?document=";
                 loc = loc + id;
                 loc = loc + "&queueID=";
-                loc = loc + "<%=inQueue%>";
+                loc = loc + "<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.defaultString(inQueue)))%>";
                 loc = loc + "&demoName=" + encodeURIComponent(demoName);
                 popupStart(1400, 1400, loc, "Splitter");
             }
@@ -534,7 +534,7 @@
                onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/DemographicEdit.do?demographic_no=','master','<%=docId%>')" <%=btnDisabled %>>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainApptHistory_<%=docId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnApptHist"/>"
-               onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/demographiccontrol.jsp?orderby=appttime&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25&demographic_no=','ApptHist','<%=docId%>')" <%=btnDisabled %>>
+               onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/DemographicApptHistory.do?orderby=appttime&dboperation=appt_history&limit1=0&limit2=25&demographic_no=','ApptHist','<%=docId%>')" <%=btnDisabled %>>
 
         <input type="button" class="btn btn-outline-secondary btn-sm" id="refileDoc_<%=docId%>"
                value="<fmt:message key="encounter.noteBrowser.msgRefile"/>" onclick="refileDoc('<%=docId%>');" <%=refileBtnVisibility%> >
@@ -661,7 +661,7 @@
                     <form id="forms_<%=docId%>" method="post" onsubmit="return updateDocument('forms_<%=docId%>');">
                         <input type="hidden" name="method" value="documentUpdateAjax">
                         <input type="hidden" name="documentId" value="<%=docId%>">
-                        <input type="hidden" name="providerNo" value="<%= providerNo%>">
+                        <input type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo)%>">
                         <input type="hidden" name="curPage_<%=docId%>" id="curPage_<%=docId%>" value="1">
                         <input type="hidden" name="totalPage_<%=docId%>" id="totalPage_<%=docId%>"
                                value="<%=numOfPage%>">
@@ -922,6 +922,8 @@
     </table>
 </div>
 
+<script type="text/javascript"
+        src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 <script type="text/javascript" src="showDocument.js"></script>

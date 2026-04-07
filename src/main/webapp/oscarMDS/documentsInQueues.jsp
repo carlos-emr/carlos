@@ -45,6 +45,7 @@
 %>
 
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ page import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.CarlosProperties" %>
 <!DOCTYPE HTML >
@@ -62,7 +63,7 @@
           href="${pageContext.servletContext.contextPath}/share/css/oscarMDSIndex.css"/>
     <link rel="stylesheet" type="text/css"
           href="${pageContext.servletContext.contextPath}/oscarMDS/encounterStyles.css">
-    <link href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/share/calendar/calendar.css" title="win2k-cold-1"/>
     <link rel="stylesheet" type="text/css"
@@ -97,15 +98,9 @@
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/Oscar.js"></script>
     <script type="text/javascript"
+            src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
+    <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/yui/js/yahoo-dom-event.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/yui/js/connection-min.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/yui/js/animation-min.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/yui/js/datasource-min.js"></script>
 
 
     <script type="text/javascript">
@@ -257,7 +252,15 @@
 
             var url = cp + '/documentManager/ManageDocument.do?method=display&doc_no=' + docid + '&rand=' + Math.random() + '#view=fitV&page=1';
 
-            document.getElementById('docDispPDF_' + docid).innerHTML = '<object width="' + (width) + '" height="' + (height) + '" type="application/pdf" data="' + url + '" id="docPDF_' + docid + '"></object>';
+            var pdfContainer = document.getElementById('docDispPDF_' + docid);
+            while (pdfContainer.firstChild) { pdfContainer.removeChild(pdfContainer.firstChild); }
+            var pdfObj = document.createElement('object');
+            pdfObj.setAttribute('width', width);
+            pdfObj.setAttribute('height', height);
+            pdfObj.setAttribute('type', 'application/pdf');
+            pdfObj.setAttribute('data', url);
+            pdfObj.setAttribute('id', 'docPDF_' + docid);
+            pdfContainer.appendChild(pdfObj);
         }
 
         function removeFirstPage(id) {
@@ -952,7 +955,7 @@
         function clearDocView() {
             var docview = $('docViews');
             //var docview=window.frames[0].document.getElementById('docViews');
-            docview.innerHTML = '';
+            docview.textContent = '';
         }
 
         function showhideSubCat(plus_minus, patientId) {
@@ -1347,13 +1350,20 @@
                 if ($('msgPrevious')) $('msgPrevious').hide();
             }
             //oscarLog("current_numberofpages "+current_numberofpages);
-            if ($('current_individual_pages')) $('current_individual_pages').innerHTML = "";
+            if ($('current_individual_pages')) $('current_individual_pages').textContent = "";
             if (current_numberofpages > 1) {
-                var html = "";
-                for (var i = 1; i <= current_numberofpages; i++) {
-                    if ($('current_individual_pages')) html += "<a style=\"text-decoration:none;\" href=\"javascript:void(0);\" onclick=\"navigatePage(" + i + ")\"> [ " + i + " ] </a>";
+                var pagesContainer = document.getElementById('current_individual_pages');
+                if (pagesContainer) {
+                    pagesContainer.textContent = "";
+                    for (var i = 1; i <= current_numberofpages; i++) {
+                        var pageLink = document.createElement('a');
+                        pageLink.style.textDecoration = 'none';
+                        pageLink.href = 'javascript:void(0);';
+                        pageLink.setAttribute('onclick', 'navigatePage(' + i + ')');
+                        pageLink.textContent = ' [ ' + i + ' ] ';
+                        pagesContainer.appendChild(pageLink);
+                    }
                 }
-                document.getElementById('current_individual_pages').innerHTML = html; // Safe: html built from page numbers only
             }
         }
 
@@ -1819,13 +1829,12 @@
 //console.log('foundQ='+foundQ);
             //descrease the queue's doc number by 1
             if (foundQ.length > 0) {
-                var n = $('docNo_' + foundQ).innerHTML;
+                var n = parseInt($('docNo_' + foundQ).textContent);
                 //console.log('not found11');
-                n = parseInt(n);
                 //console.log('not found22');
                 if (n > 0) {
                     //console.log('not found33');
-                    $('docNo_' + foundQ).innerHTML = n - 1;
+                    $('docNo_' + foundQ).textContent = n - 1;
                 }
             }
             //console.log('not found44');
@@ -1883,24 +1892,21 @@
                 //update patient and patient's subtype
                 var patientId = getPatientIdFromDocLabId(doclabid);
                 //oscarLog('xx '+patientId+'--'+n);
-                n = $('patientNumDocs' + patientId).innerHTML;
+                n = parseInt($('patientNumDocs' + patientId).textContent);
                 //oscarLog('xx xx '+patientId+'--'+n);
-                n = parseInt(n);
                 if (n > 0) {
-                    $('patientNumDocs' + patientId).innerHTML = n - 1;
+                    $('patientNumDocs' + patientId).textContent = n - 1;
                 }
 
                 if (type == 'DOC') {
-                    n = $('pDocNum_' + patientId).innerHTML;
-                    n = parseInt(n);
+                    n = parseInt($('pDocNum_' + patientId).textContent);
                     if (n > 0) {
-                        $('pDocNum_' + patientId).innerHTML = n - 1;
+                        $('pDocNum_' + patientId).textContent = n - 1;
                     }
                 } else if (type == 'HL7') {
-                    n = $('pLabNum_' + patientId).innerHTML;
-                    n = parseInt(n);
+                    n = parseInt($('pLabNum_' + patientId).textContent);
                     if (n > 0) {
-                        $('pLabNum_' + patientId).innerHTML = n - 1;
+                        $('pLabNum_' + patientId).textContent = n - 1;
                     }
                 }
             }
@@ -2364,10 +2370,6 @@
             src="${pageContext.servletContext.contextPath}/documentManager/showDocument.js"></script>
 
 
-    <link rel="stylesheet" type="text/css"
-          href="${pageContext.servletContext.contextPath}/share/yui/css/fonts-min.css"/>
-    <link rel="stylesheet" type="text/css"
-          href="${pageContext.servletContext.contextPath}/share/yui/css/autocomplete.css"/>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/share/css/demographicProviderAutocomplete.css"/>
     <style type="text/css">
@@ -2404,11 +2406,11 @@
 
 <div class="page-header-bar" style="font-size:14px !important;">
     <h4 class="page-header-title" style="font-size:18px !important;font-weight:normal !important;"><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.documentsInQueues"/></h4>
-    <input type="hidden" name="providerNo" value="<%= providerNo %>">
-    <input type="hidden" name="searchProviderNo" value="<%= searchProviderNo %>">
-    <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + request.getParameter("lname") + "\">") %>
-    <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + request.getParameter("fname") + "\">") %>
-    <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + request.getParameter("hnum") + "\">") %>
+    <input type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo) %>">
+    <input type="hidden" name="searchProviderNo" value="<%= Encode.forHtmlAttribute(searchProviderNo) %>">
+    <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>
+    <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
+    <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + Encode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
     <input type="hidden" name="selectedProviders">
     <button type="button" class="btn btn-secondary btn-sm" style="font-size:14px !important;" onclick="window.close();">Back</button>
 </div>
@@ -2426,7 +2428,7 @@
                     List dos = (List) queueDocNos.get(qId);
                     Integer numberOfDocs = dos.size();
             %>
-            <a href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showDocInQueue('<%=qId%>')"><%=name%>&nbsp;(<span
+            <a href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showDocInQueue('<%=qId%>')"><%=Encode.forHtml(name)%>&nbsp;(<span
                     id="docNo_<%=qId%>"><%=numberOfDocs%></span>)</a><br/>
             <%}%>
 
@@ -2446,9 +2448,9 @@
     var abnormals = initAbnormals('<%=abnormals%>');//[123,567]
     var patientIds = initPatientIds('<%=patientIdStr%>');
     var queueDocNos = initHashtblWithList('<%=queueDocNos%>');
-    var providerNo = '<%=providerNo%>';
+    var providerNo = '<%=Encode.forJavaScript(providerNo)%>';
 
-    var searchProviderNo = '<%=searchProviderNo%>';
+    var searchProviderNo = '<%=Encode.forJavaScript(searchProviderNo)%>';
     var types = ['DOC'];
 
     var contextpath = '${pageContext.servletContext.contextPath}';

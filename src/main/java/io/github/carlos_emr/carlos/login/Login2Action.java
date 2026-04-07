@@ -379,7 +379,7 @@ public final class Login2Action extends ActionSupport {
             // Validate nextPage retrieved from session to prevent open redirect (CWE-601 defense in depth)
             if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
                 if (nextPage != null) {
-                    logger.warn("Rejected invalid nextPage from session: " + Encode.forJava(nextPage));
+                    logger.warn("Rejected invalid nextPage from session: {}", Encode.forJava(nextPage));
                 }
                 nextPage = null;
             }
@@ -436,19 +436,38 @@ public final class Login2Action extends ActionSupport {
             }
             nextPage = request.getParameter("nextPage");
 
-            logger.debug("nextPage: " + Encode.forJava(nextPage));
+            logger.debug("nextPage: {}", Encode.forJava(nextPage));
             if (nextPage != null) {
                 if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
-                    logger.warn("Rejected redirect URL: " + Encode.forJava(nextPage));
+                    logger.warn("Rejected redirect URL: {}", Encode.forJava(nextPage));
                     response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
                     return NONE;
                 } else {
-                    // set current facility
+                    // set current facility - validate format and verify the authenticated user has access
                     String facilityIdString = request.getParameter(SELECTED_FACILITY_ID);
-                    Facility facility = facilityDao.find(Integer.parseInt(facilityIdString));
-                    request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility);
+                    // Validate format: must be non-null positive integer (max 10 digits)
+                    if (facilityIdString == null || !facilityIdString.matches("\\d{1,10}")) {
+                        logger.warn("Invalid or missing facility ID in facility selection request");
+                        response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+                        return NONE;
+                    }
+                    int facilityId = Integer.parseInt(facilityIdString);
                     String username = (String) request.getSession().getAttribute("user");
-                    LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIdString, ip);
+                    // Authorization check: verify the authenticated provider is permitted to access this facility (CWE-501)
+                    List<Integer> allowedFacilityIds = providerDao.getFacilityIds(username);
+                    if (!allowedFacilityIds.contains(facilityId)) {
+                        logger.warn("Provider {} attempted unauthorized facility selection: {}", Encode.forJava(username), facilityId);
+                        response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+                        return NONE;
+                    }
+                    Facility facility = facilityDao.find(facilityId);
+                    if (facility == null) {
+                        logger.warn("Selected facility not found: " + facilityId);
+                        response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+                        return NONE;
+                    }
+                    request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility);
+                    LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityId, ip);
                     response.sendRedirect(nextPage);
                     return NONE;
                 }
@@ -563,13 +582,13 @@ public final class Login2Action extends ActionSupport {
             // initial db setting
             Properties pvar = CarlosProperties.getInstance();
 
-            String providerNo = strAuth[0];
-            session.setAttribute("user", strAuth[0]);
-            session.setAttribute("userfirstname", strAuth[1]);
-            session.setAttribute("userlastname", strAuth[2]);
-            session.setAttribute("userrole", strAuth[4]);
+            String providerNo = strAuth[0] != null ? strAuth[0].trim() : "";
+            session.setAttribute("user", providerNo);
+            session.setAttribute("userfirstname", strAuth[1] != null ? strAuth[1].trim() : "");
+            session.setAttribute("userlastname", strAuth[2] != null ? strAuth[2].trim() : "");
+            session.setAttribute("userrole", strAuth[4] != null ? strAuth[4].trim() : "");
             session.setAttribute("oscar_context_path", request.getContextPath());
-            session.setAttribute("expired_days", strAuth[5]);
+            session.setAttribute("expired_days", strAuth[5] != null ? strAuth[5].trim() : "");
             // If a new session has been created, we must set the mobile attribute again
             if (isMobileOptimized) {
                 if ("Full".equalsIgnoreCase(submitType)) {
@@ -901,7 +920,7 @@ public final class Login2Action extends ActionSupport {
         // Validate nextPage before session storage to prevent open redirect via session (CWE-601 defense in depth)
         if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
             if (nextPage != null) {
-                logger.warn("Rejected invalid nextPage before session storage: " + Encode.forJava(nextPage));
+                logger.warn("Rejected invalid nextPage before session storage: {}", Encode.forJava(nextPage));
             }
             nextPage = null;
         }

@@ -180,7 +180,7 @@
             <fmt:message key="messenger.DisplayMessages.title"/>
         </title>
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <%-- global.css overrides Bootstrap's default blue (#0d6efd) with CARLOS
              primary (#337ab7). Required because messenger pages don't use global-head.jspf. --%>
         <link rel="stylesheet" href="<%=request.getContextPath() %>/share/css/global.css">
@@ -256,7 +256,7 @@
             });
 
         </script>
-        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     </head>
 
     <body class="BodyStyle" onload="window.focus()" onunload="return uload()">

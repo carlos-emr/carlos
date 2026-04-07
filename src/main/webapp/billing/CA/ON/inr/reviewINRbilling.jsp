@@ -212,7 +212,7 @@ if (errorCode.compareTo("") != 0) {
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="service_code" size="10" value="<%=Encode.forHtmlAttribute(service_code)%>"
                                     readonly> <input type="text" name="service_amount"
-                                                     size="10" value="<%=service_amount%>" readonly> <input
+                                                     size="10" value="<%=Encode.forHtmlAttribute(service_amount)%>" readonly> <input
                                     type="hidden" name="service_unit" value="1"> </font></td>
                         </tr>
                         <tr>

@@ -31,6 +31,7 @@
         <action name="notification/create" class="io.github.carlos_emr.carlos.commn.web.ProviderNotification2Action"/>
         <action name="waitinglist/SetupDisplayPatientWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action">
             <result name="continue">/waitinglist/DisplayPatientWaitingList.jsp</result>
+            <result name="error">/errorpage.jsp</result>
         </action>
         <action name="waitinglist/SetupDisplayWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action">
             <result name="continue">/waitinglist/DisplayWaitingList.jsp</result>
@@ -64,10 +65,10 @@
             <result name="ajax">/demographic/demographiceditdemographic.jsp</result>
         </action>
         <action name="PopulationReport" class="io.github.carlos_emr.carlos.commn.web.PopulationReport2Action" method="execute">
-            <result name="report">/report/PopulationReport.jsp</result>
+            <result name="report">/WEB-INF/jsp/report/PopulationReport.jsp</result>
         </action>
         <action name="admin/ManageClinic" class="io.github.carlos_emr.carlos.commn.web.ClinicManage2Action" method="execute">
-            <result name="success">/admin/clinicAdmin.jsp</result>
+            <result name="success">/WEB-INF/jsp/admin/clinicAdmin.jsp</result>
         </action>
         <action name="admin/ManageSites" class="io.github.carlos_emr.carlos.commn.web.SitesManage2Action" method="execute">
             <result name="list">/admin/sitesAdmin.jsp</result>

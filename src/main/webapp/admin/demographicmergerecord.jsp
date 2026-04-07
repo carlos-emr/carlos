@@ -61,8 +61,21 @@
     if (request.getParameter("limit2") != null)
         strLimit = request.getParameter("limit2");
 
-    int offset = Integer.parseInt(strOffset);
-    int limit = Integer.parseInt(strLimit);
+    int offset;
+    try {
+        offset = Integer.parseInt(strOffset);
+    } catch (NumberFormatException e) {
+        offset = 0;
+    }
+    int limit;
+    try {
+        limit = Integer.parseInt(strLimit);
+    } catch (NumberFormatException e) {
+        limit = 10;
+    }
+    // Sanitize: replace raw request strings with parsed integer values to prevent XSS
+    strOffset = String.valueOf(offset);
+    strLimit = String.valueOf(limit);
 
     String outcome = request.getParameter("outcome");
     boolean mergedSearch = false;
@@ -133,7 +146,7 @@
 <html>
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mergeRec"/></title>
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <script language="JavaScript">
         function setfocus() {
             document.titlesearch.keyword.focus();
@@ -233,7 +246,7 @@
 <CENTER>
     <form method="post" name="mergeform" action="MergeRecords.do" onSubmit="return confirmMerge()">
         <input type="hidden" name="mergeAction" value="merge"/>
-        <input type="hidden" name="provider_no" value="<%= session.getAttribute("user") %>"/>
+        <input type="hidden" name="provider_no" value="<%= Encode.forHtmlAttribute(session.getAttribute("user") != null ? (String)session.getAttribute("user") : "") %>"/>
 
         <table class="table table-striped  table-sm">
             <tr>
@@ -336,7 +349,7 @@
 
                     if (mergedSearch || isHeadRecord) {%>
                 <td align="center" width="5%" height="25"><input type="checkbox" name="records"
-                                                                 value="<%= demographicNo%>"></td>
+                                                                 value="<%= Encode.forHtmlAttribute(demographicNo)%>"></td>
                 <%} else {%>
                 <td align="center" width="5%" height="25">&nbsp;</td>
                 <%
@@ -344,7 +357,7 @@
                     if (!mergedSearch) {
                         if (isHeadRecord) {
                 %>
-                <td align="center" width="5%" height="25"><input type="radio" name="head" value="<%= demographicNo %>">
+                <td align="center" width="5%" height="25"><input type="radio" name="head" value="<%= Encode.forHtmlAttribute(demographicNo) %>">
                 </td>
                 <%} else {%>
                 <td align="center" width="5%" height="25">&nbsp;</td>
@@ -354,7 +367,7 @@
                 %>
                 <td width="15%" align="center" height="25">
                     <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                        <a href="javascript:popupWindow('<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%= head %>')"><%=demographicNo%>
+                        <a href="javascript:popupWindow('<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(head != null ? head : "") %>')"><%=Encode.forHtml(demographicNo)%>
                         </a>
                     </caisi:isModuleLoad></td>
                 <td align="center" width="20%" height="25"><%=Encode.forHtml(demo.getLastName())%>

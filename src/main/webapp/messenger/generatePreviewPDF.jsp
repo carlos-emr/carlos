@@ -117,7 +117,24 @@
 
 
 <%
-    String demographic_no = request.getParameter("demographic_no");
+    String demographic_no_raw = request.getParameter("demographic_no");
+    // Validate and parse demographic_no as integer to prevent trust boundary violation (CWE-501)
+    // Reject null/missing or non-integer values before any session writes.
+    int demographicNoInt;
+    if (demographic_no_raw == null || demographic_no_raw.isEmpty()) {
+        response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");
+        return;
+    }
+    try {
+        demographicNoInt = Integer.parseInt(demographic_no_raw);
+    } catch (NumberFormatException e) {
+        response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");
+        return;
+    }
+    // Use the validated integer value as the canonical demographic number string
+    String demographic_no = String.valueOf(demographicNoInt);
+    // Pre-encode for reuse in URI construction below
+    String encDemoNo = Encode.forUriComponent(demographic_no);
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -136,6 +153,7 @@
 <%
 
     EctSessionBean bean = new EctSessionBean();
+    // Use validated integer-derived string to prevent raw request data in session (CWE-501)
     bean.demographicNo = demographic_no;
 
     MsgSessionBean MsgSessionBean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
@@ -297,7 +315,7 @@
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td>Attach document for: <%=demoName%>
+                        <td>Attach document for: <%=Encode.forHtml(demoName)%>
                         </td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
@@ -345,18 +363,18 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <% String currentURI = request.getContextPath() + "/demographic/demographiccontrol.jsp?demographic_no=" + demographic_no + "&displaymode=pdflabel&dboperation=search_detail"; %>
-                                        <input type="checkbox" name="uriArray" value="<%=currentURI%>"
+                                        <% String currentURI = request.getContextPath() + "/demographic/DemographicPdfLabel.do?demographic_no=" + encDemoNo; %>
+                                        <input type="checkbox" name="uriArray" value="<%=Encode.forHtmlAttribute(currentURI)%>"
                                                        style="display:none"/>
 
                                         <input type="checkbox" name="indexArray" value="<%= Integer.toString(indexCount++) %>"/>
                                         <input
                                                 type=checkbox name="titleArray"
-                                                value="<%=demoName%> information" style="display: none"/></td>
-                                    <td><%=demoName%> Information</td>
+                                                value="<%=Encode.forHtmlAttribute(demoName)%> information" style="display: none"/></td>
+                                    <td><%=Encode.forHtml(demoName)%> Information</td>
                                     <td>
                                         <% if (request.getParameter("isAttaching") == null) { %> <input
-                                            type="button" value=Preview onclick="PreviewPDF( '<%=currentURI%>')"/>
+                                            type="button" value=Preview onclick="PreviewPDF( '<%=Encode.forJavaScriptAttribute(currentURI)%>')"/>
                                         <% } %> &nbsp;
                                     </td>
                                 </tr>
@@ -378,19 +396,19 @@
                                 %>
                                 <tr>
                                     <td>
-                                        <% currentURI = request.getContextPath() + "/encounter/echarthistoryprint.jsp?echartid=" + ec.getId() + "&demographic_no=" + demographic_no; %>
-                                        <input type="checkbox" name="uriArray" value="<%=currentURI%>"
+                                        <% currentURI = request.getContextPath() + "/encounter/echarthistoryprint.jsp?echartid=" + Encode.forUriComponent(String.valueOf(ec.getId())) + "&demographic_no=" + encDemoNo; %>
+                                        <input type="checkbox" name="uriArray" value="<%=Encode.forHtmlAttribute(currentURI)%>"
                                                        style="display:none"/>
                                         <input type="checkbox" name="indexArray" value="<%= Integer.toString(indexCount++) %>"/>
                                         <input
                                                 type=checkbox name="titleArray"
-                                                value='Encounter: <%=ec.getTimestamp().toString()%>'
+                                                value='Encounter: <%=Encode.forHtmlAttribute(ec.getTimestamp().toString())%>'
                                                 style="display: none"/></td>
-                                    <td><%=ec.getTimestamp().toString()%>
+                                    <td><%=Encode.forHtml(ec.getTimestamp().toString())%>
                                     </td>
                                     <td>
                                         <% if (request.getParameter("isAttaching") == null) { %> <input
-                                            type=button value="Preview" onclick="PreviewPDF( '<%=currentURI%>')"/>
+                                            type=button value="Preview" onclick="PreviewPDF( '<%=Encode.forJavaScriptAttribute(currentURI)%>')"/>
                                         <% } %> &nbsp;
                                     </td>
                                 </tr>
@@ -432,11 +450,11 @@
 
                                             // Set provider and demographic context for prescription profile
                                             Rxbean.setProviderNo((String) request.getSession().getAttribute("user"));
-                                            Rxbean.setDemographicNo(Integer.parseInt(demographic_no));
+                                            Rxbean.setDemographicNo(demographicNoInt);
 
-                                        %> <% currentURI = request.getContextPath() + "/oscarRx/PrintDrugProfile2.jsp?demographic_no=" + demographic_no; %>
+                                        %> <% currentURI = request.getContextPath() + "/oscarRx/PrintDrugProfile2.jsp?demographic_no=" + encDemoNo; %>
 
-                                        <input type="checkbox" name="uriArray" value="<%=currentURI%>"
+                                        <input type="checkbox" name="uriArray" value="<%=Encode.forHtmlAttribute(currentURI)%>"
                                                        style="display:none"/>
                                         <input type="checkbox" name="indexArray" value="<%= Integer.toString(indexCount++) %>"/>
                                         <input
@@ -445,7 +463,7 @@
                                     <td>Current prescriptions</td>
                                     <td>
                                         <% if (request.getParameter("isAttaching") == null) { %> <input
-                                            type="button" value=Preview onclick="PreviewPDF( '<%=currentURI%>')"/>
+                                            type="button" value=Preview onclick="PreviewPDF( '<%=Encode.forJavaScriptAttribute(currentURI)%>')"/>
                                         <% } %> &nbsp;
                                     </td>
                                 </tr>
@@ -463,7 +481,7 @@
                                     <td colspan="3"><input type="hidden" name="srcText" id="srcText" value=''/>
 
                                         <input type="hidden" name="attachmentCount" id="attachmentCount" value='<%= Encode.forHtmlAttribute(request.getParameter("attachmentCount")==null?"0":request.getParameter("attachmentCount")) %>'/>
-                                        <input type="hidden" name="demographic_no" id="demographic_no" value='<%= Encode.forHtmlAttribute(demographic_no) %>'/>
+                                        <input type="hidden" name="demographic_no" id="demographic_no" value='<%= Encode.forHtmlAttribute(demographic_no != null ? demographic_no : "") %>'/>
                                         <input type="hidden" name="isPreview" id="isPreview" value='<%= Encode.forHtmlAttribute(request.getParameter("isPreview")==null?"false":request.getParameter("isPreview")) %>'/>
                                         <input type="hidden" name="isAttaching" id="isAttaching" value='<%= Encode.forHtmlAttribute(request.getParameter("isAttaching")==null?"false":request.getParameter("isAttaching")) %>'/>
                                         <input type="hidden" name="isNew" id="isNew" value='true'/>

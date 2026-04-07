@@ -51,7 +51,6 @@ public class LogConst {
     public static final String NORIGHT = "no right";
     public static final String EDIT = "edit";
     public static final String REPRESCRIBE = "represcribe";
-    public static final String ANNOTATE = "annotate";
     public static final String VERIFY = "verify";
     public static final String REFUSED = "refused";
     public static final String UNLINK = "unlink";
@@ -83,7 +82,6 @@ public class LogConst {
     public static final String CON_PATHNET_LAB = "pathnet lab";
     public static final String CON_FLOWSHEET = "FLWST_";
     public static final String CON_SECURITY = "securityRecord";
-    public static final String CON_ANNOTATION = "annotation";
     public static final String CON_DOCUMENTDESCRIPTIONTEMPLATE = "documentDescriptionTemplate";
     public static final String CON_DOCUMENTDESCRIPTIONTEMPLATEPREFERENCE = "documentDescriptionTemplatePreference";
     public static final String CON_FAX = "fax";

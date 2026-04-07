@@ -62,6 +62,14 @@
     StringBuffer bufChart = null, bufName = null, bufNo = null;
     if (request.getParameter("limit1") != null) strLimit1 = request.getParameter("limit1");
     if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
+
+    int parsedLimit1;
+    try { parsedLimit1 = Integer.parseInt(strLimit1); } catch (NumberFormatException e) { parsedLimit1 = 0; }
+    strLimit1 = String.valueOf(parsedLimit1);
+
+    int parsedLimit2;
+    try { parsedLimit2 = Integer.parseInt(strLimit2); } catch (NumberFormatException e) { parsedLimit2 = 10; }
+    strLimit2 = String.valueOf(parsedLimit2);
 %>
 
 
@@ -328,24 +336,24 @@
 
             <tr bgcolor="<%=bodd?"ivory":"white"%>" align="center">
                 <td><input type="submit" name="demographicNo"
-                           value="<%=io.github.carlos_emr.Misc.getString(rs,"demographic_no")%>"
-                           onclick="updateOpener('<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("labNo"))) %>','<%=io.github.carlos_emr.Misc.getString(rs,"demographic_no")%>');">
+                           value="<%=Encode.forHtmlAttribute(io.github.carlos_emr.Misc.getString(rs,"demographic_no"))%>"
+                           onclick="updateOpener('<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("labNo"))) %>','<%=Encode.forJavaScriptAttribute(io.github.carlos_emr.Misc.getString(rs,"demographic_no"))%>');">
                 </td>
-                <td><%=nbsp(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "last_name")))%>
+                <td><%=nbsp(Encode.forHtml(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "last_name"))))%>
                 </td>
-                <td><%=nbsp(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "first_name")))%>
+                <td><%=nbsp(Encode.forHtml(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "first_name"))))%>
                 </td>
                 <td><%= age %>
                 </td>
-                <td><%=nbsp(io.github.carlos_emr.Misc.getString(rs, "roster_status"))%>
+                <td><%=nbsp(Encode.forHtml(io.github.carlos_emr.Misc.getString(rs, "roster_status")))%>
                 </td>
-                <td><%=nbsp(io.github.carlos_emr.Misc.getString(rs, "patient_status"))%>
+                <td><%=nbsp(Encode.forHtml(io.github.carlos_emr.Misc.getString(rs, "patient_status")))%>
                 </td>
-                <td><%=nbsp(io.github.carlos_emr.Misc.getString(rs, "sex"))%>
+                <td><%=nbsp(Encode.forHtml(io.github.carlos_emr.Misc.getString(rs, "sex")))%>
                 </td>
-                <td><%=nbsp(io.github.carlos_emr.Misc.getString(rs, "year_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "month_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "date_of_birth"))%>
+                <td><%=nbsp(Encode.forHtml(io.github.carlos_emr.Misc.getString(rs, "year_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "month_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "date_of_birth")))%>
                 </td>
-                <td><%=providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no")) == null ? "&nbsp;" : providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no")) %>
+                <td><%=providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no")) == null ? "&nbsp;" : Encode.forHtml(providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no"))) %>
                 </td>
 
             </tr>
@@ -368,12 +376,12 @@
     <script language="JavaScript">
         <!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/PatientSearch.jsp?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
+            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/PatientSearch.jsp?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%= Encode.forJavaScript(Encode.forUriComponent(strLimit2)) %>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
             //document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/PatientSearch.jsp?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
+            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/PatientSearch.jsp?keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&displaymode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")))) %>&dboperation=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%= Encode.forJavaScript(Encode.forUriComponent(strLimit2)) %>&from=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("from")))) %>";
             //document.nextform.submit();
         }
 
@@ -381,7 +389,7 @@
     </SCRIPT>
 
     <form method="post" name="nextform"
-          action="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp"><input
+          action="<%= request.getContextPath() %>/demographic/DemographicSearch.do"><input
             type="hidden" name="labNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labNo"))) %>">
         <input type="hidden" name="labType"
                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("labType"))) %>"/> <%

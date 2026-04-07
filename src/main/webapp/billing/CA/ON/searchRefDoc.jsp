@@ -53,6 +53,36 @@
     String tophone = request.getParameter("tophone") == null ? "" : request.getParameter("tophone");
     String tofax = request.getParameter("tofax") == null ? "" : request.getParameter("tofax");
     String keyword = request.getParameter("keyword");
+
+    // Safely extract form index + element name from full JS path expressions like
+    // "document.forms[0].elements['fieldname'].value" or "document.forms[1].elements['fieldname'].value"
+    // passed by callers (e.g. billingON.jsp uses forms[0], billingONCorrection.jsp uses forms[1])
+    // Allows dots in element names (e.g. "pref.default_dx_code" from UserPreferences.jsp)
+    java.util.regex.Pattern pathPattern = java.util.regex.Pattern.compile(
+        "^document\\.forms\\[(\\d+)\\]\\.elements\\['([a-zA-Z0-9_.]+)'\\]\\.value$");
+    String[] paramParts = extractJsPath(pathPattern, param, "param");
+    String paramFormIdx = paramParts != null ? paramParts[0] : null;
+    String paramField = paramParts != null ? paramParts[1] : null;
+
+    String[] param2Parts = extractJsPath(pathPattern, param2, "param2");
+    String param2FormIdx = param2Parts != null ? param2Parts[0] : null;
+    String param2Field = param2Parts != null ? param2Parts[1] : null;
+
+    String[] tonameParts = extractJsPath(pathPattern, toname, "toname");
+    String tonameFormIdx = tonameParts != null ? tonameParts[0] : null;
+    String tonameField = tonameParts != null ? tonameParts[1] : null;
+
+    String[] toaddress1Parts = extractJsPath(pathPattern, toaddress1, "toaddress1");
+    String toaddress1FormIdx = toaddress1Parts != null ? toaddress1Parts[0] : null;
+    String toaddress1Field = toaddress1Parts != null ? toaddress1Parts[1] : null;
+
+    String[] tophoneParts = extractJsPath(pathPattern, tophone, "tophone");
+    String tophoneFormIdx = tophoneParts != null ? tophoneParts[0] : null;
+    String tophoneField = tophoneParts != null ? tophoneParts[1] : null;
+
+    String[] tofaxParts = extractJsPath(pathPattern, tofax, "tofax");
+    String tofaxFormIdx = tofaxParts != null ? tofaxParts[0] : null;
+    String tofaxField = tofaxParts != null ? tofaxParts[1] : null;
     List<ProfessionalSpecialist> professionalSpecialists = null;
 
     if (request.getParameter("submit") != null && (request.getParameter("submit").equals("Search")
@@ -103,6 +133,26 @@
 <%@ page import="java.util.List" %>
 <%@ page import="java.util.Properties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
+<%!
+    /**
+     * Extracts form index and element name from a JS path expression like
+     * "document.forms[0].elements['fieldname'].value".
+     * @return String[]{formIdx, elementName} or null if value is empty or doesn't match
+     */
+    private String[] extractJsPath(java.util.regex.Pattern pattern, String value, String paramName) {
+        if (value == null || value.isEmpty()) return null;
+        java.util.regex.Matcher m = pattern.matcher(value);
+        if (m.matches()) return new String[]{m.group(1), m.group(2)};
+        String truncated = value.length() > 120 ? value.substring(0, 120) + "..." : value;
+        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+            "searchRefDoc.jsp: '" + paramName + "' did not match expected JS path format: '"
+            + truncated + "' (length=" + value.length() + ")");
+        return null;
+    }
+%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -112,7 +162,7 @@
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></title>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
               rel="stylesheet">
@@ -121,40 +171,50 @@
         <!-- DataTables 1.13.4 -->
 
         <script>
-            <%if(param.length()>0) {%>
-
-            function typeInData1(data) {
-                self.close();
-                opener.<%=param%> = data;
-            }
-
-            <%if(param2.length()>0) {%>
+            <%if(paramField != null && param2Field != null) {%>
 
             function typeInData2(data1, data2) {
-                opener.<%=param%> = data1;
-                opener.<%=param2%> = data2;
+                opener.document.forms[<%= paramFormIdx %>].elements["<%= Encode.forJavaScript(paramField) %>"].value = data1;
+                opener.document.forms[<%= param2FormIdx %>].elements["<%= Encode.forJavaScript(param2Field) %>"].value = data2;
                 self.close();
             }
 
-            <%}}%>
+            <%} else if(param2Field != null) {%>
+
+            function typeInData2(data1, data2) {
+                opener.document.forms[<%= param2FormIdx %>].elements["<%= Encode.forJavaScript(param2Field) %>"].value = data2;
+                self.close();
+            }
+
+            <%}%>
 
             function typeInData3(billno, toname, toaddress, tophone, tofax) {
-                self.close();
-                <%if( param.length() > 0 ) {%>
-                opener.<%=param%> = billno;
+                var fieldsSet = false;
+                <%if(paramField != null) {%>
+                opener.document.forms[<%= paramFormIdx %>].elements["<%= Encode.forJavaScript(paramField) %>"].value = billno;
+                fieldsSet = true;
                 <%}
-                  if( toname.length() > 0 ) {%>
-                opener.<%=toname%> = toname;
+                  if(tonameField != null) {%>
+                opener.document.forms[<%= tonameFormIdx %>].elements["<%= Encode.forJavaScript(tonameField) %>"].value = toname;
+                fieldsSet = true;
                 <%}
-                  if( toaddress1.length() > 0 ) {%>
-                opener.<%=toaddress1%> = toaddress;
+                  if(toaddress1Field != null) {%>
+                opener.document.forms[<%= toaddress1FormIdx %>].elements["<%= Encode.forJavaScript(toaddress1Field) %>"].value = toaddress;
+                fieldsSet = true;
                 <%}
-                  if( tophone.length() > 0 ) {%>
-                opener.<%=tophone%> = tophone;
+                  if(tophoneField != null) {%>
+                opener.document.forms[<%= tophoneFormIdx %>].elements["<%= Encode.forJavaScript(tophoneField) %>"].value = tophone;
+                fieldsSet = true;
                 <%}
-                  if( tofax.length() > 0 ) {%>
-                opener.<%=tofax%> = tofax;
+                  if(tofaxField != null) {%>
+                opener.document.forms[<%= tofaxFormIdx %>].elements["<%= Encode.forJavaScript(tofaxField) %>"].value = tofax;
+                fieldsSet = true;
                 <%}%>
+                if (!fieldsSet) {
+                    alert("Error: Unable to transfer referral doctor data to the billing form. Please close this window and try again.");
+                    return;
+                }
+                self.close();
             }
         </script>
         <script>
@@ -170,7 +230,7 @@
         </script>
     </head>
     <body>
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></h3>&nbsp;<%=keyword == null ? "" : keyword %>&nbsp;<input
+    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></h3>&nbsp;<%= Encode.forHtml(keyword == null ? "" : keyword) %>&nbsp;<input
             type="button" class="btn-link" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formAllProviders"/>"
             onclick="location = location.href.replace(/(\?|\&)(keyword)([^&]*)/, '').replace(/(\?|\&)(submit)([^&]*)/, '');">
     <div class="container-fluid">
@@ -191,11 +251,12 @@
                     prop = (Properties) alist.get(i);
                     String bgColor = i % 2 == 0 ? "#f9f9f9" : "#ffffff";
                     String strOnClick;
-                    if (param2.length() <= 0) {
-                        strOnClick = "typeInData3('" + Encode.forJavaScript(prop.getProperty("referral_no", "")) + "', '" + Encode.forJavaScript(prop.getProperty("to_name", "")) + "', '" + Encode.forJavaScript(prop.getProperty("to_address", "")) + "', '" + Encode.forJavaScript(prop.getProperty("phone", "")) + "', '" + Encode.forJavaScript(prop.getProperty("to_fax", "")) + "')";
+                    // When param2 was provided and matched (two-field update), use typeInData2;
+                    // otherwise fall back to typeInData3 for multi-field update
+                    if (param2Field != null) {
+                        strOnClick = "typeInData2('" + Encode.forJavaScriptAttribute(prop.getProperty("referral_no", "")) + "','" + Encode.forJavaScriptAttribute(prop.getProperty("last_name", "") + "," + prop.getProperty("first_name", "")) + "')";
                     } else {
-                        strOnClick = param2.length() > 0 ? "typeInData2('" + Encode.forJavaScript(prop.getProperty("referral_no", "")) + "','" + Encode.forJavaScript(prop.getProperty("last_name", "") + "," + prop.getProperty("first_name", "")) + "')"
-                                : "typeInData1('" + prop.getProperty("referral_no", "") + "')";
+                        strOnClick = "typeInData3('" + Encode.forJavaScriptAttribute(prop.getProperty("referral_no", "")) + "', '" + Encode.forJavaScriptAttribute(prop.getProperty("to_name", "")) + "', '" + Encode.forJavaScriptAttribute(prop.getProperty("to_address", "")) + "', '" + Encode.forJavaScriptAttribute(prop.getProperty("phone", "")) + "', '" + Encode.forJavaScriptAttribute(prop.getProperty("to_fax", "")) + "')";
                     }
             %>
             <tr style="background-color:<%=bgColor%>"

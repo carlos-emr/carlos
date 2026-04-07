@@ -364,7 +364,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%=Encode.forHtml(error)%></li>
             <% } %>
         </ul>
     </div>
@@ -394,7 +394,7 @@
                     <div style="float:left;margin-left:30px;">
                         <label for="prevDate<%=iDate%>" class="fields">Obs Date/Time: </label>
 
-                        <input type="text" name="date-<%=iDate%>" id="prevDate<%=iDate%>" value="<%=prevDate%>"
+                        <input type="text" name="date-<%=iDate%>" id="prevDate<%=iDate%>" value="<%=Encode.forHtmlAttribute(prevDate)%>"
                                size="17" onchange="javascript:masterDateFill(this.value);">
                         <% if (id == null) { %>
                         <a id="date<%=iDate%>"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar"
@@ -450,11 +450,11 @@
 
                     <input type="hidden" name="measurement" value="<%= Encode.forHtmlAttribute(measurement) %>"/>
 
-                    <input type="hidden" name="<%= "inputType-" + ctr %>" value="<%=mtypeBean.getType()%>"/>
+                    <input type="hidden" name="<%= "inputType-" + ctr %>" value="<%=Encode.forHtmlAttribute(mtypeBean.getType())%>"/>
                     <input type="hidden" name="<%= "inputTypeDisplayName-" + ctr %>"
-                           value="<%=mtypeBean.getTypeDisplayName()%>"/>
+                           value="<%=Encode.forHtmlAttribute(mtypeBean.getTypeDisplayName())%>"/>
                     <input type="hidden" name="<%= "validation-" + ctr %>"
-                           value="<%=mtypeBean.getValidation()%>"/>
+                           value="<%=Encode.forHtmlAttribute(mtypeBean.getValidation())%>"/>
 
                     <% if (id != null) { %>
                     <input type="hidden" name="id" value="<%= Encode.forHtmlAttribute(id) %>"/>
@@ -463,17 +463,17 @@
 
                     <div class="prevention">
                         <fieldset>
-                            <legend>Measurement : <%=mtypeBean.getTypeDisplayName()%>
+                            <legend>Measurement : <%=Encode.forHtml(mtypeBean.getTypeDisplayName())%>
                             </legend>
                             <div style="float:left;display:none;">
                                 <input type="radio" name="<%= "inputMInstrc-" + ctr %>"
-                                       value="<%=mtypeBean.getMeasuringInstrc()%>" checked/>
+                                       value="<%=Encode.forHtmlAttribute(mtypeBean.getMeasuringInstrc())%>" checked/>
                             </div>
                             <div style="float:left;margin-left:30px;">
                                 <label for="prevDate<%=ctr%>" class="fields">Obs Date/Time:</label>
 
                                 <input type="text" name="<%= "date-" + ctr %>" id="prevDate<%=ctr%>"
-                                       value="<%=prevDate%>" size="17">
+                                       value="<%=Encode.forHtmlAttribute(prevDate)%>" size="17">
 
                                 <% if (id == null) { %>
                                 <a id="date<%=ctr%>"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar"
@@ -489,7 +489,7 @@
                                     <option value=""></option>
                                     <% String[] opts = validations.getName().contains("/") ? validations.getName().split("/") : validations.getRegularExp().split("\\|");
                                         for (String opt : opts) {%>
-                                    <option value="<%=opt%>"  <%=sel(opt, val)%>><%=opt%>
+                                    <option value="<%=Encode.forHtmlAttribute(opt)%>"  <%=sel(opt, val)%>><%=Encode.forHtml(opt)%>
                                     </option>
                                     <% }%>
                                 </select>
@@ -504,7 +504,7 @@
                                 </select>
                                 <%} else {%>
                                 <input type="text" id="<%= "inputValue-" + ctr %>"
-                                       name="<%= "inputValue-" + ctr %>" size="5" value="<%=val%>"/> <br/>
+                                       name="<%= "inputValue-" + ctr %>" size="5" value="<%=Encode.forHtmlAttribute(val)%>"/> <br/>
                                 <%}%>
                             </div>
                             <br/>
@@ -516,7 +516,7 @@
                             </div>
                             <fieldset>
                                 <legend>Comments</legend>
-                                <textarea name="<%= "comments-" + ctr %>"><%=comment%></textarea>
+                                <textarea name="<%= "comments-" + ctr %>"><%=Encode.forHtmlContent(comment)%></textarea>
                             </fieldset>
                         </fieldset>
 

@@ -113,16 +113,32 @@ $(document).ready(function () {
 // build Indicator panel with Pie chart.
 function buildIndicatorPanel(html, target, id) {
 
-    let indicatorGraph;
+    let indicatorGraph, data;
 
     if (indicatorGraph) {
         indicatorGraph.destroy();
     }
 
-    let panel = $("#" + target + "_" + id).html(html);
-    let data = "[" + panel.find("#graphPlots_" + id).val() + "]";
-    data = data.replace(/'/g, '"');
-    data = JSON.parse(data)
+    if (typeof DOMPurify === 'undefined') {
+        console.error('DOMPurify is required but not loaded. Indicator panel blocked to prevent XSS.');
+        $("#" + target + "_" + id).html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');
+        return;
+    }
+    // DOMPurify sanitization with defaults plus <input> and value attr. Event handlers are stripped by DOMPurify defaults.
+    let panel;
+    try {
+        panel = $("#" + target + "_" + id).html(DOMPurify.sanitize(html, {ADD_TAGS: ['input'], ADD_ATTR: ['value']}));
+        let plotVal = panel.find("#graphPlots_" + id).val();
+        if (!plotVal) {
+            console.error('Graph plot data not found for indicator ' + id);
+            return;
+        }
+        data = JSON.parse("[" + plotVal.replace(/'/g, '"') + "]");
+    } catch (e) {
+        console.error('Error rendering indicator panel ' + id + ':', e);
+        $("#" + target + "_" + id).html('<p style="color:red">Unable to render indicator panel.</p>');
+        return;
+    }
     indicatorGraph = $.jqplot('graphContainer_' + id, data, jqplotOptions).replot();
 
     window.onresize = function (event) {
@@ -158,22 +174,61 @@ function buildIndicatorPanel(html, target, id) {
 }
 
 function sendData(path, param, target) {
-    $.ajax({
-        url: ctx + path,
-        type: 'POST',
-        data: param,
-        dataType: 'html',
-        success: function (data) {
-            if (target === "indicatorId") {
+    if (target === "indicatorId") {
+        // AJAX load for indicator panels — sanitize HTML before DOM insertion
+        $.ajax({
+            url: ctx + path,
+            type: 'POST',
+            data: param,
+            dataType: 'html',
+            success: function (data) {
                 var panelList = buildIndicatorPanel(data, target, param.indicatorId);
                 if (panelList) {
                     console.log(panelList);
                 }
-            } else {
-                document.open();
-                document.write(data);
-                document.close();
+            },
+            error: function (xhr, status, error) {
+                console.error('Dashboard indicator request failed:', status, error);
+                $("#" + target + "_" + param.indicatorId).html(
+                    '<p style="color:red">Failed to load indicator. Please reload the page.</p>');
             }
+        });
+    } else {
+        // Full-page navigation — use form submission so the browser handles
+        // the response natively (including scripts, stylesheets, etc.)
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = ctx + path;
+        if (typeof param === 'string') {
+            param.split('&').forEach(function(pair) {
+                var parts = pair.split('=', 2);
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = decodeURIComponent(parts[0]);
+                input.value = decodeURIComponent(parts[1] || '');
+                form.appendChild(input);
+            });
+        } else {
+            Object.keys(param).forEach(function(key) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = param[key];
+                form.appendChild(input);
+            });
         }
-    });
+        // Explicitly add CSRF token rather than relying on MutationObserver timing
+        var csrfTokenEl = document.querySelector('input[name="CSRF-TOKEN"]');
+        if (csrfTokenEl) {
+            var csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'CSRF-TOKEN';
+            csrfInput.value = csrfTokenEl.value;
+            form.appendChild(csrfInput);
+        } else {
+            console.warn('CSRF token not found on page; form submission may be rejected by server.');
+        }
+        document.body.appendChild(form);
+        form.submit();
+    }
 }

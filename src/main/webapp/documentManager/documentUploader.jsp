@@ -105,7 +105,7 @@
 	<link rel="stylesheet" href="${pageContext.request.contextPath}/share/css/OscarStandardLayout.css" />
 
      <!-- Bootstrap -->
-    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/global.css"/>
 
     <!-- jQuery for preference AJAX calls (CSRFGuard auto-patches jQuery XHR) -->

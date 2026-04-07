@@ -12,15 +12,15 @@
     <title>CARLOS Email</title>
 
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
-    <link rel="stylesheet" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css" type="text/css"/>
+    <link rel="stylesheet" href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css" type="text/css"/>
     <link href="${ctx}/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet" type="text/css"/>
     <link href="${ctx}/css/fontawesome-all.min.css" rel="stylesheet">
 
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="${ctx}/library/jquery/jquery-compat.js"></script>
-    <script type="text/javascript" src="${ctx}/library/jquery/jquery.validate.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/jquery/jquery.validate-1.21.0.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-ui-1.14.2.min.js"></script>
-    <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
     <%--
         Action return flashy confirmation messages.

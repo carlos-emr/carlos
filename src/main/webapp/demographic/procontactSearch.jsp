@@ -208,13 +208,13 @@
 
         <!-- table width="95%" border="0">
 	<tr>
-		<td align="left">Results based on keyword(s): <%=keyword==null?"":keyword%></td>
+		<td align="left">Results based on keyword(s): <%=Encode.forHtml(keyword == null ? "" : keyword)%></td>
 	</tr>
 </table  -->
 
-        <input type='hidden' name='form' value="<%=StringEscapeUtils.escapeHtml4(form)%>"/>
-        <input type='hidden' name='elementName' value="<%=StringEscapeUtils.escapeHtml4(elementName)%>"/>
-        <input type='hidden' name='elementId' value="<%=StringEscapeUtils.escapeHtml4(elementId)%>"/>
+        <input type='hidden' name='form' value="<%=Encode.forHtmlAttribute(form)%>"/>
+        <input type='hidden' name='elementName' value="<%=Encode.forHtmlAttribute(elementName)%>"/>
+        <input type='hidden' name='elementId' value="<%=Encode.forHtmlAttribute(elementId)%>"/>
 
     </form>
 
@@ -245,7 +245,7 @@
             %>
             <tr bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.cursor='pointer';this.style.backgroundColor='pink';"
-                onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<%=strOnClick%>">
+                onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<%=Encode.forHtmlAttribute(strOnClick)%>">
                 <td><c:out value="${contact.lastName}"/></td>
                 <td><c:out value="${contact.firstName}"/></td>
                 <td><c:out value="${contact.residencePhone}"/></td>
@@ -291,7 +291,7 @@
 
         <tr>
             <td>
-                <a href="<%= request.getContextPath() %>/demographic/Contact.do?method=addProContact&keyword=<%= Encode.forUriComponent(keyword) %>&contactRole=<%= Encode.forUriComponent(contactRole) %>&contactType=3"
+                <a href="<%= request.getContextPath() %>/demographic/Contact.do?method=addProContact&keyword=<%= Encode.forUriComponent(StringUtils.noNull(keyword)) %>&contactRole=<%= Encode.forUriComponent(contactRole) %>&contactType=3"
                    style="font:inherit;display:block;margin:10px;">
                     Add/Edit Professional Contact
                 </a>
@@ -303,12 +303,12 @@
     <script type="text/javascript">
         //<!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=Encode.forJavaScript(Encode.forUriComponent(form))%>&elementName=<%=Encode.forJavaScript(Encode.forUriComponent(elementName))%>&elementId=<%=Encode.forJavaScript(Encode.forUriComponent(elementId))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
             document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=URLEncoder.encode(form,"UTF-8")%>&elementName=<%=URLEncoder.encode(elementName,"UTF-8")%>&elementId=<%=URLEncoder.encode(elementId,"UTF-8")%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/procontactSearch.jsp?form=<%=Encode.forJavaScript(Encode.forUriComponent(form))%>&elementName=<%=Encode.forJavaScript(Encode.forUriComponent(elementName))%>&elementId=<%=Encode.forJavaScript(Encode.forUriComponent(elementId))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
             document.nextform.submit();
         }
 

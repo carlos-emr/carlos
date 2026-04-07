@@ -32,6 +32,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page import="java.util.*,java.io.*,io.github.carlos_emr.carlos.lab.ca.all.util.KeyPairGen" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + ","
@@ -89,7 +90,8 @@
                     String keyPairOut = "-------- Service Name --------\n" + name + "\n------------------------------\n" +
                             "----- Client Private Key -----\n" + clientKey + "\n------------------------------\n" +
                             "------ Oscar Public Key ------\n" + oscarKey + "\n------------------------------";
-                    response.setContentType("text");
+                    response.setContentType("text/plain");
+                    response.setHeader("X-Content-Type-Options", "nosniff");
                     response.setContentLength(keyPairOut.length());
                     response.setHeader("Content-Disposition", "attachment; filename=keyPair.key");
                     ServletOutputStream output = null;
@@ -167,9 +169,9 @@
                                 <%
                                     if (message != null) {
                                         if (error.equals("false")) {
-                                            out.print(message);
+                                            out.print(Encode.forHtml(message));
                                         } else {
-                                %><font color="red"><%= message %>
+                                %><font color="red"><%= Encode.forHtml(message) %>
                             </font>
                                 <%
                                         }
