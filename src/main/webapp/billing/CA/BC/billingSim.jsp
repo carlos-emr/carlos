@@ -52,6 +52,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 
 <%
@@ -181,10 +182,10 @@
 
             </select></td>
             <td width="277"><font color="#003366"> <input
-                    type="hidden" name="monthCode" value="<%=monthCode%>"> <input
+                    type="hidden" name="monthCode" value="<%=Encode.forHtmlAttribute(monthCode)%>"> <input
                     type="hidden" name="verCode" value="V03"> <input
-                    type="hidden" name="curUser" value="<%=user_no%>"> <input
-                    type="hidden" name="curDate" value="<%=nowDate%>"> </font></td>
+                    type="hidden" name="curUser" value="<%=Encode.forHtmlAttribute(StringUtils.noNull(user_no))%>"> <input
+                    type="hidden" name="curDate" value="<%=Encode.forHtmlAttribute(nowDate)%>"> </font></td>
         </tr>
         <tr>
             <td><font face="Arial, Helvetica, sans-serif" size="2"><b>

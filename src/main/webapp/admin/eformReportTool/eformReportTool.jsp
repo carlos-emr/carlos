@@ -63,7 +63,7 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <script src="<%=request.getContextPath()%>/js/global.js"></script>
         <title>CARLOS Products</title>
-        <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link href="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
 
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
@@ -73,9 +73,9 @@
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css">
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
 
-        <script src="<%=request.getContextPath()%>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.js"></script>
-        <script src="<%=request.getContextPath()%>/library/jquery/jquery.validate.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery.validate-1.21.0.min.js"></script>
 
         <script src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
 

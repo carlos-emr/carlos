@@ -49,8 +49,10 @@
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
-    <link href="<%=request.getContextPath()%>/library/jquery/jquery-ui.min.css" rel="stylesheet" type="text/css"/>
-    <script src="<%=request.getContextPath()%>/js/jquery.validate.min.js"></script>
+    <link href="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet" type="text/css"/>
+    <link rel="stylesheet" href="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.css">
+    <script src="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.js"></script>
+    <script src="<%=request.getContextPath()%>/library/jquery/jquery.validate-1.21.0.min.js"></script>
 </head>
 <body>
 

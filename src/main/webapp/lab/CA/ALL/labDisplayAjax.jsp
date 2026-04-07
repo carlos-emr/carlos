@@ -396,7 +396,7 @@
     </form>
     <form name="labLabelForm" id="labLabelForm<%=Encode.forHtmlAttribute(segmentID)%>" method='POST'
           onsubmit="createLabLabel('labLabelForm<%=Encode.forJavaScriptAttribute(segmentID)%>');" action="javascript:void(0);">
-        <input type="hidden" id="labNum" name="lab_no" value="<%=lab_no%>">
+        <input type="hidden" id="labNum" name="lab_no" value="<%=Encode.forHtmlAttribute(String.valueOf(lab_no))%>">
         <input type="hidden" id="label" name="label" value="<%=Encode.forHtmlAttribute(label)%>">
     </form>
     <form name="acknowledgeForm" id="acknowledgeForm_<%=Encode.forHtmlAttribute(segmentID)%>" onsubmit="javascript:void(0);" method="post"
@@ -420,7 +420,7 @@
                                 <% if (!ackFlag) { %>
                                 <input type="button"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
-                                       onclick="<%=ackLabFunc%>">
+                                       onclick="<%=Encode.forHtmlAttribute(ackLabFunc)%>">
                                 <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                                        onclick="return getComment('<%=Encode.forJavaScriptAttribute(segmentID)%>','addComment');">
                                 <% } %>
@@ -438,8 +438,8 @@
                                 <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                                        onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID)) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
                                 <% } %>
-                                <input type="button" value="Req# <%=reqTableID%>" title="Link to Requisition"
-                                       onclick="linkreq('<%=Encode.forJavaScriptAttribute(segmentID)%>','<%=reqID%>');"/>
+                                <input type="button" value="Req# <%=Encode.forHtmlAttribute(reqTableID)%>" title="Link to Requisition"
+                                       onclick="linkreq('<%=Encode.forJavaScriptAttribute(segmentID)%>','<%=Encode.forJavaScriptAttribute(reqID)%>');"/>
 
                                 <% if (recall) {%>
                                 <input type="button" value="Recall"
@@ -1285,12 +1285,12 @@
                     <td align="left" width="50%">
                         <% if (!ackFlag) { %>
                         <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
-                               onclick="<%=ackLabFunc%>">
+                               onclick="<%=Encode.forHtmlAttribute(ackLabFunc)%>">
                         <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                                onclick="getComment('<%=Encode.forJavaScriptAttribute(segmentID)%>','addComment')">
                         <% } %>
                         <input type="button" class="smallButton" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
-                               onClick="popupStart(300, 400, '${pageContext.request.contextPath}/oscarMDS/SelectProviderAltView.jsp?doc_no=<%=Encode.forJavaScriptAttribute(segmentID)%>&providerNo=<%=Encode.forJavaScriptAttribute(providerNo)%>&searchProviderNo=<%=Encode.forJavaScriptAttribute(searchProviderNo)%>', 'providerselect')">
+                               onClick="popupStart(300, 400, '${pageContext.request.contextPath}/oscarMDS/SelectProviderAltView.jsp?doc_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID))%>&providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo))%>&searchProviderNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(searchProviderNo))%>', 'providerselect')">
 
                         <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
                                onClick="printPDF('<%=Encode.forJavaScriptAttribute(segmentID)%>')">
