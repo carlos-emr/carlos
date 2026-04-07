@@ -78,7 +78,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * configuration properties and JDBC metadata — not from external user input.
  * This class has no external attack surface (test harness only).</p>
  */
-@SuppressWarnings({"java:S2077", "java:S3649"})
+@SuppressWarnings({"java:S2077", "java:S3649"}) // Sonar rules; CodeQL suppressed via inline lgtm comments below
 public class SchemaUtils {
     private static Logger logger = MiscUtils.getLogger();
 
@@ -137,7 +137,7 @@ public class SchemaUtils {
 
         try {
             Statement s = c.createStatement();
-            s.executeUpdate("drop database if exists " + ConfigUtils.getProperty("db_schema"));
+            s.executeUpdate("drop database if exists " + ConfigUtils.getProperty("db_schema")); // lgtm[java/sql-injection]
         } finally {
             c.close();
         }
@@ -171,9 +171,9 @@ public class SchemaUtils {
             Statement s = c.createStatement();
 
             if (!skipDbInit) {
-                s.executeUpdate("create database " + schema + " DEFAULT CHARACTER SET utf8  DEFAULT COLLATE utf8_general_ci");
+                s.executeUpdate("create database " + schema + " DEFAULT CHARACTER SET utf8  DEFAULT COLLATE utf8_general_ci"); // lgtm[java/sql-injection]
             }
-            s.executeUpdate("use " + schema);
+            s.executeUpdate("use " + schema); // lgtm[java/sql-injection]
 
             runCreateTablesScript(c);
         } finally {
@@ -194,10 +194,10 @@ public class SchemaUtils {
         Connection c = getConnection();
         try {
             Statement s = c.createStatement();
-            s.executeUpdate("use " + schema);
+            s.executeUpdate("use " + schema); // lgtm[java/sql-injection]
             s.executeUpdate("set foreign_key_checks = 0");
             for (int i = 0; i < tableNames.length; i++) {
-                s.executeUpdate("drop table if exists " + tableNames[i]);
+                s.executeUpdate("drop table if exists " + tableNames[i]); // lgtm[java/sql-injection]
             }
             s.executeUpdate("set foreign_key_checks = 1");
             s.close();
@@ -219,7 +219,7 @@ public class SchemaUtils {
         Connection c = getConnection();
         try {
             Statement s = c.createStatement();
-            s.executeUpdate("use " + schema);
+            s.executeUpdate("use " + schema); // lgtm[java/sql-injection]
             s.executeUpdate("set foreign_key_checks = 0");
             for (int i = 0; i < tableNames.length; i++) {
                 String tableName = tableNames[i];
@@ -231,25 +231,25 @@ public class SchemaUtils {
                 Statement s1 = c.createStatement();
                 ResultSet newrs = s1.executeQuery("SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE " +
                         "WHERE TABLE_NAME = '" + tableName + "_maventest" + "' AND " +
-                        "CONSTRAINT_NAME LIKE 'fk_%'");
+                        "CONSTRAINT_NAME LIKE 'fk_%'"); // lgtm[java/sql-injection]
                 while (newrs.next()) {
 
                     String constraintName = newrs.getString("CONSTRAINT_NAME");
-                    s.executeUpdate("ALTER TABLE " + tableName + "_maventest" + " DROP FOREIGN KEY " + constraintName);
+                    s.executeUpdate("ALTER TABLE " + tableName + "_maventest" + " DROP FOREIGN KEY " + constraintName); // lgtm[java/sql-injection]
                 }
                 newrs.close();
                 s1.close();
 
-                s.executeUpdate("drop table if exists " + tableName);
+                s.executeUpdate("drop table if exists " + tableName); // lgtm[java/sql-injection]
 
                 String createTableStatement = createTableStatements.get(tableName);
                 if (createTableStatement == null) {
                     throw new IllegalStateException("Unable to locate create table statement for " + tableName + ". Please make sure that the table exists in the schema.");
                 }
-                s.executeUpdate(createTableStatement.replaceAll("_maventest", ""));
+                s.executeUpdate(createTableStatement.replaceAll("_maventest", "")); // lgtm[java/sql-injection]
 
                 if (includeInitData)
-                    s.executeUpdate("insert into " + tableName + " select * from " + tableName + "_maventest");
+                    s.executeUpdate("insert into " + tableName + " select * from " + tableName + "_maventest"); // lgtm[java/sql-injection]
             }
             s.executeUpdate("set foreign_key_checks = 1");
             s.close();
@@ -274,7 +274,7 @@ public class SchemaUtils {
         Connection c = getConnection();
         try {
             Statement s = c.createStatement();
-            s.executeUpdate("use " + schema);
+            s.executeUpdate("use " + schema); // lgtm[java/sql-injection]
             s.executeUpdate("SET foreign_key_checks = 0");
 
             // Drop foreign key constraints associated with tableName_maventest
@@ -282,17 +282,17 @@ public class SchemaUtils {
                 Statement s1 = c.createStatement();
                 ResultSet newrs = s1.executeQuery("SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE " +
                         "WHERE TABLE_NAME = '" + tableName + "_maventest" + "' AND " +
-                        "CONSTRAINT_NAME LIKE 'fk_%'");
+                        "CONSTRAINT_NAME LIKE 'fk_%'"); // lgtm[java/sql-injection]
                 while (newrs.next()) {
                     String constraintName = newrs.getString("CONSTRAINT_NAME");
-                    s.executeUpdate("ALTER TABLE " + tableName + "_maventest" + " DROP FOREIGN KEY " + constraintName);
+                    s.executeUpdate("ALTER TABLE " + tableName + "_maventest" + " DROP FOREIGN KEY " + constraintName); // lgtm[java/sql-injection]
                 }
                 newrs.close();
                 s1.close();
 
-                s.executeUpdate("drop table if exists " + tableName);
-                s.executeUpdate(createTableStatements.get(tableName));
-                s.executeUpdate("insert into " + tableName + " select * from " + tableName + "_maventest");
+                s.executeUpdate("drop table if exists " + tableName); // lgtm[java/sql-injection]
+                s.executeUpdate(createTableStatements.get(tableName)); // lgtm[java/sql-injection]
+                s.executeUpdate("insert into " + tableName + " select * from " + tableName + "_maventest"); // lgtm[java/sql-injection]
             }
 
             s.executeUpdate("SET foreign_key_checks = 1");
@@ -398,13 +398,13 @@ public class SchemaUtils {
                     String tableName = rs.getString("TABLE_NAME");
 
                     Statement stmt2 = c.createStatement();
-                    ResultSet rs2 = stmt2.executeQuery("show create table " + tableName + ";");
+                    ResultSet rs2 = stmt2.executeQuery("show create table " + tableName + ";"); // lgtm[java/sql-injection]
                     if (rs2.next()) {
                         String sql = rs2.getString(2);
                         createTableStatements.put(tableName, sql);
 
                         Statement stmt = c.createStatement();
-                        stmt.executeUpdate("alter table " + tableName + " rename to " + tableName + "_maventest");
+                        stmt.executeUpdate("alter table " + tableName + " rename to " + tableName + "_maventest"); // lgtm[java/sql-injection]
                         stmt.close();
                     }
                     rs2.close();
@@ -426,7 +426,7 @@ public class SchemaUtils {
                     if (!tableName.endsWith("_maventest"))
                         continue;
                     Statement stmt2 = c.createStatement();
-                    ResultSet rs2 = stmt2.executeQuery("show create table " + tableName + ";");
+                    ResultSet rs2 = stmt2.executeQuery("show create table " + tableName + ";"); // lgtm[java/sql-injection]
                     if (rs2.next()) {
                         String sql = rs2.getString(2).replaceAll(tableName, tableName.substring(0, tableName.length() - 10));
                         createTableStatements.put(tableName.substring(0, tableName.length() - 10), sql);

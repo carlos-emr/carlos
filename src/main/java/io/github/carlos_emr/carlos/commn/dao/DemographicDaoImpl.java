@@ -100,12 +100,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         "fnLike", "lnLike", "fnSoundex", "lnSoundex", "hin", "ver", "dob", "yob", "mob", "dayob"
     );
 
-    /** Allowlist of valid HQL property names for findByField() queries. */
-    private static final Set<String> VALID_FIND_BY_FIELDS = Set.of(
-        "DemographicNo", "LastName", "FirstName", "ChartNo",
-        "Sex", "YearOfBirth", "PatientStatus"
-    );
-
     static Logger log = MiscUtils.getLogger();
 
     private ApplicationEventPublisher publisher;
@@ -2427,21 +2421,43 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             return q.list();
     }
 
+    /**
+     * Maps a caller-supplied HQL property name to an allowlisted literal, preventing HQL injection.
+     * Uses an explicit if-else chain so CodeQL's taint analysis can see that only string literals
+     * are returned, making the value safe for HQL string concatenation.
+     *
+     * @param fieldName the raw field name (may be user-supplied)
+     * @return a safe HQL property name from the allowlist; defaults to {@code "LastName"}
+     */
+    private static String getSafeFieldName(String fieldName) {
+        if ("DemographicNo".equals(fieldName)) {
+            return "DemographicNo";
+        } else if ("FirstName".equals(fieldName)) {
+            return "FirstName";
+        } else if ("ChartNo".equals(fieldName)) {
+            return "ChartNo";
+        } else if ("Sex".equals(fieldName)) {
+            return "Sex";
+        } else if ("YearOfBirth".equals(fieldName)) {
+            return "YearOfBirth";
+        } else if ("PatientStatus".equals(fieldName)) {
+            return "PatientStatus";
+        } else {
+            return "LastName";
+        }
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public List<Demographic> findByField(String fieldName, Object fieldValue, String orderBy, int offset) {
-        // Validate fieldName against allowlist to prevent HQL injection
-        if (fieldName == null || !VALID_FIND_BY_FIELDS.contains(fieldName)) {
-            fieldName = "LastName";
-        }
+        // Map fieldName to an allowlisted HQL property via explicit if-else (CodeQL-visible sanitizer)
+        String safeFieldName = getSafeFieldName(fieldName);
 
         boolean isFieldValueEmpty = fieldValue == null || fieldValue.equals("");
 
-        // Validate orderBy via existing allowlist method (returns safe default on mismatch)
+        // safeFieldName and safeOrderBy both come from explicit string-literal returns in allowlist methods
         String safeOrderBy = getOrderField(orderBy != null ? orderBy : "LastName");
-
-        // fieldName is allowlist-validated; safeOrderBy is from getOrderField() allowlist
-        String hql = "FROM Demographic d WHERE d." + fieldName + " LIKE :fieldValue ORDER BY " + safeOrderBy;
+        String hql = "FROM Demographic d WHERE d." + safeFieldName + " LIKE :fieldValue ORDER BY " + safeOrderBy;
 
         Session s = currentSession();
         Query q = s.createQuery(hql);
