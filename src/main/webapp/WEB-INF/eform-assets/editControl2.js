@@ -962,7 +962,7 @@ function submitFaxButton() {
 			$.ajax({
 				url : "efmformrtl_templates.jsp",
 				success : function(data) {
-					$("#template").html(data);
+					$("#template").html(typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(data, {ADD_TAGS: ['option'], ADD_ATTR: ['value', 'selected']}) : data);
 					loadDefaultTemplate();
 				},
 				error : function(xhr, status, error) {

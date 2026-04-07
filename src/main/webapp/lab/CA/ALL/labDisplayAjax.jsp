@@ -390,7 +390,7 @@
         <input type="hidden" name="flaggedLabs" value="<%= Encode.forHtmlAttribute(segmentID) %>"/>
         <input type="hidden" name="selectedProviders" value=""/>
         <input type="hidden" name="labType" value="HL7"/>
-        <input type="hidden" name="labType<%=segmentID%>HL7" value="imNotNull"/> <%-- segmentID is a numeric DB key; encoding would break server-side getParameter lookup --%>
+        <input type="hidden" name="labType<%=Encode.forHtmlAttribute(segmentID)%>HL7" value="imNotNull"/>
         <input type="hidden" name="providerNo" id="providerNo" value="<%= Encode.forHtmlAttribute(providerNo) %>"/>
         <input type="hidden" name="ajax" value="yes"/>
     </form>
@@ -880,8 +880,8 @@
                                                         commentTitle = "comment: ";
                                                     }
                                                 %>
-                                                <span id="<%="V" + j + "commentLabel" + Encode.forHtmlAttribute(segmentID) + report.getProviderNo()%>"><%=commentTitle%></span><span
-                                                    id="<%="V" + j + "commentText" + Encode.forHtmlAttribute(segmentID) + report.getProviderNo()%>"> <%=report.getComment() == null ? "" : Encode.forHtml(report.getComment())%></span>
+                                                <span id="<%="V" + j + "commentLabel" + Encode.forHtmlAttribute(segmentID) + Encode.forHtmlAttribute(report.getProviderNo())%>"><%=commentTitle%></span><span
+                                                    id="<%="V" + j + "commentText" + Encode.forHtmlAttribute(segmentID) + Encode.forHtmlAttribute(report.getProviderNo())%>"> <%=report.getComment() == null ? "" : Encode.forHtml(report.getComment())%></span>
 
                                                 <br>
                                                 <% }

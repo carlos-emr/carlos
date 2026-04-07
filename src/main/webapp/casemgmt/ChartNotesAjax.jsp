@@ -602,14 +602,14 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                         + hash + "started" + "','"
                         + request.getContextPath()
                         + StringEscapeUtils.escapeHtml4("/form/forwardshortcutname.do?formname=" + formEntry.getNote())
-                        + "&demographic_no=" + demographicNo
+                        + "&demographic_no=" + Encode.forUriComponent(demographicNo)
                         + "&formId=" + formEntry.getNoteId()
                         + "'); return false;";
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
                 <a class="links" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view.eformView"/>" id="view<%=globalNoteId%>"
-                   href="javascript:void(0)" onclick="<%=url%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view"/></a>
+                   href="javascript:void(0)" onclick="<%=Encode.forHtmlAttribute(url)%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view"/></a>
             </div>
             <%
             } else if (note.isEmailNote()) {

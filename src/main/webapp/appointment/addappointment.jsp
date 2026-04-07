@@ -812,7 +812,7 @@ Ontario, Canada
                         data: {
                             method: "update",
                             page: "addappointment",
-                            pageId: "<%=Encode.forJavaScriptBlock(curProvider_no)%>|" + apptDate + "|" + startTime + "|" + endTime,
+                            pageId: "<%=Encode.forJavaScript(curProvider_no)%>|" + apptDate + "|" + startTime + "|" + endTime,
                             lock: true,
                             timeout: <%=timeoutSeconds%>,
                             cleanupExisting: true
@@ -884,7 +884,7 @@ Ontario, Canada
                     data: {
                         method: "cancel",
                         page: "addappointment",
-                        pageId: "<%=Encode.forJavaScriptBlock(curProvider_no)%>|" + apptDate + "|" + startTime + "|" + endTime
+                        pageId: "<%=Encode.forJavaScript(curProvider_no)%>|" + apptDate + "|" + startTime + "|" + endTime
                     },
                     dataType: 'json',
                     async: false,

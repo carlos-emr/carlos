@@ -87,6 +87,9 @@
 
     int offset = Integer.parseInt(strLimit1);
     int limit = Integer.parseInt(strLimit2);
+    // Sanitize: replace raw request strings with parsed integer values to prevent XSS
+    strLimit1 = String.valueOf(offset);
+    strLimit2 = String.valueOf(limit);
     boolean caisi = Boolean.valueOf(request.getParameter("caisi")).booleanValue();
 
     CarlosProperties props = CarlosProperties.getInstance();

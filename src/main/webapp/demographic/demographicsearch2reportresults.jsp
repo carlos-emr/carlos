@@ -55,6 +55,9 @@
 
     int limit = Integer.parseInt(strLimit);
     int offset = Integer.parseInt(strOffset);
+    // Sanitize: replace raw request strings with parsed integer values to prevent XSS
+    strLimit = String.valueOf(limit);
+    strOffset = String.valueOf(offset);
 
     boolean caisi = Boolean.valueOf(request.getParameter("caisi")).booleanValue();
 

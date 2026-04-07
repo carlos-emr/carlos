@@ -63,7 +63,7 @@
     private String getSiteHTML(String scDate, String provider_no, List<Site> sites) {
         if (!bMultisites) return "";
         String _loc = jdbc.getLocationFromSchedule(scDate, provider_no);
-        return "<span style='background-color:" + ApptUtil.getColorFromLocation(sites, _loc) + "'>" + ApptUtil.getShortNameFromLocation(sites, _loc) + "</span>";
+        return "<span style='background-color:" + Encode.forCssString(ApptUtil.getColorFromLocation(sites, _loc)) + "'>" + Encode.forHtml(ApptUtil.getShortNameFromLocation(sites, _loc)) + "</span>";
     }
 %>
 <% if (bMultisites) {
@@ -401,7 +401,7 @@
                     </tr>
                     <tr>
                         <td style="vertical-align:bottom; font-size: x-small;"
-                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleflipview.msgbookinglimit"/>"><%=bookinglimit%>
+                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduleflipview.msgbookinglimit"/>"><%=Encode.forHtml(bookinglimit)%>
                         </td>
                     </tr>
                 </table>

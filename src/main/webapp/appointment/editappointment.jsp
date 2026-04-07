@@ -958,7 +958,7 @@
                     </td>
                     <td>
                 <input type="date" class="form-control" name="appointment_date" id="date"
-                               value="<%=bFirstDisp?ConversionUtils.toDateString(appt.getAppointmentDate()):strApptDate%>"
+                               value="<%=Encode.forHtmlAttribute(bFirstDisp?ConversionUtils.toDateString(appt.getAppointmentDate()):strApptDate)%>"
                         >
                     </td>
                 </tr>
@@ -1094,7 +1094,7 @@
                                 if (isSiteSelected) {
                                     out.println(sb.toString());
                                 } else {
-                                    out.println("<option value='" + loc + "'>" + loc + "</option>");
+                                    out.println("<option value='" + Encode.forHtmlAttribute(loc) + "'>" + Encode.forHtml(loc) + "</option>");
                                 }
                             %>
 
@@ -1167,8 +1167,8 @@
                     <td>
                 <div class="card">
                     <div class="card-body">
-                        <input type="hidden" class="form-control" name="createDate" value="<%=origDate%>">
-                        <%=dateString1%>
+                        <input type="hidden" class="form-control" name="createDate" value="<%=Encode.forHtmlAttribute(origDate)%>">
+                        <%=Encode.forHtml(dateString1)%>
                     </div>
                 </div>
                     </td>
@@ -1203,7 +1203,7 @@
                             <% for (int i = 0; i < allStatus.size(); i++) { %>
                             <option class="<%=((AppointmentStatus)allStatus.get(i)).getStatus()%>"
                                     style="background-color:<%=((AppointmentStatus)allStatus.get(i)).getColor()%>"
-                                    value="<%=((AppointmentStatus)allStatus.get(i)).getStatus()+signOrVerify%>"
+                                    value="<%=Encode.forHtmlAttribute(((AppointmentStatus)allStatus.get(i)).getStatus()+signOrVerify)%>"
                                     <%=((AppointmentStatus) allStatus.get(i)).getStatus().equals(statusCode) ? "SELECTED" : ""%>><%=((AppointmentStatus) allStatus.get(i)).getDescription()%>
                             </option>
                             <% } %>
@@ -1272,7 +1272,7 @@
                     </td>
                     <td>
                 <input type="text" name="chart_no" class="form-control"
-                    readonly value="<%=bFirstDisp?StringUtils.trimToEmpty(chartno):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("chart_no")))%>"
+                    readonly value="<%=Encode.forHtmlAttribute(bFirstDisp?StringUtils.trimToEmpty(chartno):io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("chart_no")))%>"
                         >
                     </td>
                 </tr>

@@ -272,7 +272,7 @@
                                     <% if ("admin".equals(provider.getProviderType())) { %>
                                     SELECTED <%}%>><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formType.optionAdmin"/></option>
                         </select>
-                        <!--input type="text" name="provider_type" value="<%= provider.getProviderType() %>" maxlength="15" -->
+                        <!--input type="text" name="provider_type" value="<%= Encode.forHtmlAttribute(provider.getProviderType()) %>" maxlength="15" -->
                     </td>
                 </tr>
                 <%

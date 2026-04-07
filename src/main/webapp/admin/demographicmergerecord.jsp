@@ -63,6 +63,9 @@
 
     int offset = Integer.parseInt(strOffset);
     int limit = Integer.parseInt(strLimit);
+    // Sanitize: replace raw request strings with parsed integer values to prevent XSS
+    strOffset = String.valueOf(offset);
+    strLimit = String.valueOf(limit);
 
     String outcome = request.getParameter("outcome");
     boolean mergedSearch = false;

@@ -959,14 +959,14 @@
                 for (String tempId : duplicateLabIdsStringSplit) {
             %>
             <tr>
-                <td><%=tempId %>
+                <td><%=Encode.forHtml(tempId) %>
                 </td>
                 <td><%=formatter.format(dupReportDates.get(Integer.parseInt(tempId))) %>
                 </td>
                 <td><%=formatter.format(dupTimeReceived.get(Integer.parseInt(tempId))) %>
                 </td>
                 <td><input type="button" value="Open Report"
-                           onclick="window.open('?id=<%=tempId%>&segmentId=<%=tempId%>&providerNo=<%=Encode.forJavaScriptAttribute(request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "")%>&searchProviderNo=<%=Encode.forJavaScriptAttribute(request.getParameter("searchProviderNo") != null ? request.getParameter("searchProviderNo") : "")%>&status=<%=Encode.forJavaScriptAttribute(request.getParameter("status") != null ? request.getParameter("status") : "")%>&demoName=<%=Encode.forJavaScriptAttribute(request.getParameter("demoName") != null ? request.getParameter("demoName") : "")%>', null)"/>
+                           onclick="window.open('?id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(tempId))%>&segmentId=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(tempId))%>&providerNo=<%=Encode.forJavaScriptAttribute(request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "")%>&searchProviderNo=<%=Encode.forJavaScriptAttribute(request.getParameter("searchProviderNo") != null ? request.getParameter("searchProviderNo") : "")%>&status=<%=Encode.forJavaScriptAttribute(request.getParameter("status") != null ? request.getParameter("status") : "")%>&demoName=<%=Encode.forJavaScriptAttribute(request.getParameter("demoName") != null ? request.getParameter("demoName") : "")%>', null)"/>
                 </td>
             </tr>
 

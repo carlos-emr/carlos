@@ -316,7 +316,7 @@
     <input type="hidden" name="functionId"
            value="<%=Encode.forHtmlAttribute(formdata.getFunctionId())%>" size="20"/>
     <input type="hidden" name="functionid" value="<%=Encode.forHtmlAttribute(moduleid)%>" size="20"/>
-    <input type="hidden" name="mode" value="<%=mode%>"/>
+    <input type="hidden" name="mode" value="<%=Encode.forHtmlAttribute(mode)%>"/>
     <input type="hidden" name="docCreator"
            value="<%=formdata.getDocCreator()%>"/>
     <input type="hidden" name="reviewerId" value="<%=formdata.getReviewerId()%>"/>
@@ -439,7 +439,7 @@
         <tr>
             <td colspan="2">
                 <input type="button" value="Annotation"
-                       onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?atbname=<%=annotation_attrib%>&display=<%=annotation_display%>&table_id=<%=annotation_tableid%>&demo=<%=moduleid%>','anwin','width=400,height=500');"/>
+                       onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?atbname=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(annotation_attrib)) %>&display=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(annotation_display)) %>&table_id=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(annotation_tableid)) %>&demo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(moduleid)) %>','anwin','width=400,height=500');"/>
             </td>
         </tr>
         <tr>

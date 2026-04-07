@@ -142,13 +142,17 @@ function fetchGet(url) {
 function appendHtmlWithScripts(container, html) {
     if (!container || !html) return;
 
-    container.insertAdjacentHTML('beforeend', html);
+    // Sanitize server-rendered HTML before DOM insertion (defense in depth)
+    var safeHtml = typeof DOMPurify !== 'undefined'
+        ? DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'select', 'option', 'textarea', 'iframe'], ADD_ATTR: ['value', 'onclick', 'onchange', 'onload', 'selected', 'checked', 'target']})
+        : html;
+    container.insertAdjacentHTML('beforeend', safeHtml);
 
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(html, 'text/html');
 
-    doc.querySelectorAll('script').forEach(script => {
-        const newScript = document.createElement('script');
+    doc.querySelectorAll('script').forEach(function(script) {
+        var newScript = document.createElement('script');
         if (script.src) {
             newScript.src = script.src;
         } else {
@@ -1346,7 +1350,7 @@ function ForwardSelectedRows(files, searchProviderNo, status) {
         method: "POST",
         data: data
     }).done(function (html) {
-        dialogContainer.html(html).dialog({
+        dialogContainer.html(typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'onclick', 'onchange', 'selected', 'checked', 'multiple', 'id', 'name']}) : html).dialog({
             modal: true,
             width: 685,
             height: 355,

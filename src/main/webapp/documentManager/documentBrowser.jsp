@@ -406,7 +406,7 @@ Remote documents not supported
 
     </script>
 </head>
-<body onload="window.innerWidth=<%=winwidth.length()>0?winwidth:"screen.availWidth*0.9"%>;window.innerHeight=<%=winheight.length()>0?winheight:"screen.availHeight*0.9"%>;">
+<body onload="window.innerWidth=<%=winwidth.length()>0?Encode.forJavaScriptAttribute(winwidth):"screen.availWidth*0.9"%>;window.innerHeight=<%=winheight.length()>0?Encode.forJavaScriptAttribute(winheight):"screen.availHeight*0.9"%>;">
 <form name="DisplayDoc" method="post" action="documentBrowser.jsp">
 
     <table>
