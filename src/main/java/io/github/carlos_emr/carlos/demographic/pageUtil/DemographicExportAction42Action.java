@@ -3649,14 +3649,6 @@ public class DemographicExportAction42Action extends ActionSupport {
             logger.error("Failed to create secure XML parser factory", e);
             return false;
         }
-        
-        DocumentBuilder builder = null;
-        try {
-            builder = factory.newDocumentBuilder();
-        } catch (ParserConfigurationException e1) {
-            logger.error("Parse exception", e1);
-            return false;
-        }
 
         URL url = getClass().getResource("/omdDataMigration/EMR_Data_Migration_Schema.xsd");
         SchemaFactory xsdFactory;
@@ -3673,8 +3665,14 @@ public class DemographicExportAction42Action extends ActionSupport {
             logger.error("Parse exception", e);
             return false;
         }
-        factory.setSchema(schema);
 
+        DocumentBuilder builder = null;
+        try {
+            builder = factory.newDocumentBuilder();
+        } catch (ParserConfigurationException e1) {
+            logger.error("Parse exception", e1);
+            return false;
+        }
 
         Document doc = null;
         try {

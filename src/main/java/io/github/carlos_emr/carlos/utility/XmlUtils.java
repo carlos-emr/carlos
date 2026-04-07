@@ -68,8 +68,9 @@ import org.xml.sax.XMLReader;
  *
  * <p>Provides secure XML parser construction via {@link #createSecureSAXBuilder()},
  * {@link #createSecureDocumentBuilderFactory()}, {@link #createSecureSAXParserFactory()},
- * and {@link #createSecureTransformerFactory()}. All factory methods disable DOCTYPE
- * declarations and external entity resolution to prevent XXE attacks (CWE-611).
+ * {@link #createSecureTransformerFactory()}, {@link #createSecureSchemaFactory(String)},
+ * and {@link #createSecureJaxbSource(InputStream)}. All factory methods restrict external
+ * resource access to prevent XXE attacks (CWE-611).
  *
  * <p>Also includes DOM document building, node-to-string conversion, and element helper
  * methods used across CARLOS EMR for clinical data exchange (HL7, FHIR, e-forms).</p>

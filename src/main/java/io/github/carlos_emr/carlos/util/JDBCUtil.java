@@ -137,6 +137,7 @@ public class JDBCUtil {
                 MiscUtils.getLogger().debug("sql: " + sql);
                 rs = DBHandler.GetSQL(sql, true);
                 rs.moveToInsertRow();
+                // setValidating(true) was removed — incompatible with disallow-doctype-decl which rejects all DOCTYPEs
                 DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
                 DocumentBuilder builder = factory.newDocumentBuilder();
                 doc = builder.parse(source);
