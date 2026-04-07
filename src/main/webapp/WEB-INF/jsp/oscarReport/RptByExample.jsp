@@ -136,11 +136,11 @@
             <div class="col-12 col-md-2">
                 <nav class="d-flex flex-column gap-2 pt-1">
                     <a href="#"
-                       onclick="popupPage(600, 1000, 'RptViewAllQueryByExamples.do'); return false;">
+                       onclick="window.open('RptViewAllQueryByExamples.do'); return false;">
                         <fmt:message key="oscarReport.RptByExample.MsgViewQueryHistory"/>
                     </a>
                     <a href="#"
-                       onclick="popupPage(600, 1000, 'RptByExamplesAllFavorites.do'); return false;">
+                       onclick="window.open('RptByExamplesAllFavorites.do'); return false;">
                         <fmt:message key="oscarReport.RptByExample.MsgEditMyFavorite"/>
                     </a>
                 </nav>
