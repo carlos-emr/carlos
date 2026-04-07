@@ -166,8 +166,8 @@
             }
 
             int start = Integer.parseInt(startLimit);
-            String next = url + "&orderby=" + orderby + "&startLimit=" + (start + 10),
-                    previous = url + "&orderby=" + orderby + "&startLimit=" + (start - 10);
+            String next = url + "&orderby=" + URLEncoder.encode(orderby, StandardCharsets.UTF_8) + "&startLimit=" + (start + 10),
+                    previous = url + "&orderby=" + URLEncoder.encode(orderby, StandardCharsets.UTF_8) + "&startLimit=" + (start - 10);
         %>
         <tr>
             <td width="50%" colspan="3" align="right" class="SmallerText">
