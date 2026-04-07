@@ -80,7 +80,7 @@ public final class DBHandler {
 		}
 
 		ResultSet rs = stmt.executeQuery(SQLStatement);
-		return rs;
+		return StatementClosingResultSet.wrap(rs, stmt);
 	}
 
 	private static void bindParams(PreparedStatement ps, Object... params) throws SQLException {
@@ -99,7 +99,8 @@ public final class DBHandler {
 			.getThreadLocalDbConnection()
 			.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
 		bindParams(ps, params);
-		return ps.executeQuery();
+		ResultSet rs = ps.executeQuery();
+		return StatementClosingResultSet.wrap(rs, ps);
 	}
 
 }
