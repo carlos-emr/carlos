@@ -249,10 +249,14 @@ and other liscences (MIT, LGPL etc) as indicated
 
         function escapeJsStringInHtml(str) {
             return String(str)
+                .replace(/&/g, '\\x26')        // ampersand — MUST be first to avoid double-escaping
                 .replace(/\\/g, '\\\\')
                 .replace(/"/g, '\\"')
+                .replace(/'/g, "\\'")
                 .replace(/\r/g, '\\r')
                 .replace(/\n/g, '\\n')
+                .replace(/\u2028/g, '\\u2028') // line separator
+                .replace(/\u2029/g, '\\u2029') // paragraph separator
                 .replace(/</g, '\\x3c')
                 .replace(/>/g, '\\x3e');
         }
