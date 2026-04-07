@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.drools;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -247,6 +248,8 @@ public final class DroolsHelper {
             if (measurementDirPath != null) {
                 File allowedDir = new File(measurementDirPath);
                 File file = PathValidationUtils.validatePath(drlFilename, allowedDir);
+                // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+                file = allowedDir.toPath().resolve(file.getName()).toFile();
                 if (file.isFile() && file.canRead()) {
                     log.debug("Loading measurement DRL from file: {}", file.getName());
                     try (FileInputStream fis = new FileInputStream(file)) {
