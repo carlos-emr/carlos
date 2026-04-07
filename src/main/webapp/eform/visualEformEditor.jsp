@@ -119,25 +119,35 @@ FOR STAND ALONE USE
         if (!window.jQuery){
             (function() {
                 var head = document.head || document.getElementsByTagName('head')[0];
-                var s1 = document.createElement('script');
-                s1.src = 'https://code.jquery.com/jquery-3.6.4.min.js';
-                s1.integrity = 'sha256-oP6HI9z1XaZNBrJURtCoUT5SUnxFr8s3BzRl+cbzUq8=';
-                s1.crossOrigin = 'anonymous';
-                head.appendChild(s1);
-                var s2 = document.createElement('script');
-                s2.src = 'https://code.jquery.com/ui/1.12.1/jquery-ui.min.js';
-                s2.integrity = 'sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=';
-                s2.crossOrigin = 'anonymous';
-                head.appendChild(s2);
-                var l1 = document.createElement('link');
-                l1.href = 'https://code.jquery.com/ui/1.12.0/themes/base/jquery-ui.min.css';
-                l1.rel = 'stylesheet';
-                l1.type = 'text/css';
-                head.appendChild(l1);
-                /* local javascript file for the signature pads */
-                var s3 = document.createElement('script');
-                s3.src = 'signature_pad.min.js';
-                head.appendChild(s3);
+
+                /* CSS has no dependency ordering — load immediately */
+                var css = document.createElement('link');
+                css.rel = 'stylesheet';
+                css.type = 'text/css';
+                css.href = 'https://code.jquery.com/ui/1.12.0/themes/base/jquery-ui.min.css';
+                head.appendChild(css);
+
+                /* Load jQuery first, then dependents in its onload callback
+                   to avoid a race condition (jQuery UI and signature_pad
+                   require window.jQuery to be defined). */
+                var jq = document.createElement('script');
+                jq.src = 'https://code.jquery.com/jquery-3.6.4.min.js';
+                jq.integrity = 'sha256-oP6HI9z1XaZNBrJURtCoUT5SUnxFr8s3BzRl+cbzUq8=';
+                jq.crossOrigin = 'anonymous';
+                jq.onload = function() {
+                    /* jQuery loaded — now safe to load jQuery UI */
+                    var jqui = document.createElement('script');
+                    jqui.src = 'https://code.jquery.com/ui/1.12.1/jquery-ui.min.js';
+                    jqui.integrity = 'sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=';
+                    jqui.crossOrigin = 'anonymous';
+                    head.appendChild(jqui);
+
+                    /* Also load signature_pad after jQuery */
+                    var sp = document.createElement('script');
+                    sp.src = 'signature_pad.min.js';
+                    head.appendChild(sp);
+                };
+                head.appendChild(jq);
             })();
             runStandaloneVersion = true;
         }
