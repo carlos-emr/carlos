@@ -36,6 +36,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%@ page
         import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBeanHandler, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBean" %>
@@ -55,7 +56,7 @@
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><c:if test="${not empty groupName}">
-            <c:out value="${groupName}"/>
+            ${e:forHtml(groupName)}
         </c:if> <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.measurements"/></title>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
