@@ -1239,7 +1239,7 @@ Ontario, Canada
                                         <c:when test="${ not empty reasonCodes  }">
                                             <c:forEach items="${ reasonCodes.items }" var="reason">
                                                 <c:if test="${ reason.active }">
-                                                    <option value="${ reason.id }" id="${ reason.value }">
+                                                    <option value="${e:forHtmlAttribute(reason.id)}" id="${e:forHtmlAttribute(reason.value)}">
                                                         ${e:forHtml(reason.label)}
                                                     </option>
                                                 </c:if>
