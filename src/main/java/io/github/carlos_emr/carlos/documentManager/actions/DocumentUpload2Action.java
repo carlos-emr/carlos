@@ -189,16 +189,16 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
             String queueId = request.getParameter("queue");
             if (queueId != null && !queueId.equals("-1")) {
-                try {
+                if (!queueId.trim().matches("\\d+")) {
+                    logger.warn("Invalid queue ID format — skipping queue link");
+                    request.getSession().removeAttribute("preferredQueue");
+                } else {
                     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
                     QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
                     Integer qid = Integer.parseInt(queueId.trim());
                     Integer did = Integer.parseInt(doc_no.trim());
                     queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
                     request.getSession().setAttribute("preferredQueue", String.valueOf(qid));
-                } catch (NumberFormatException e) {
-                    logger.warn("Invalid queue ID format — skipping queue link");
-                    request.getSession().removeAttribute("preferredQueue");
                 }
             }
 
