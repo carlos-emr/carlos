@@ -456,7 +456,7 @@ public final class Login2Action extends ActionSupport {
                     // Authorization check: verify the authenticated provider is permitted to access this facility (CWE-501)
                     List<Integer> allowedFacilityIds = providerDao.getFacilityIds(username);
                     if (!allowedFacilityIds.contains(facilityId)) {
-                        logger.warn("Provider {} attempted unauthorized facility selection: {}", Encode.forJava(String.valueOf(username)), facilityId);
+                        logger.warn("Provider {} attempted unauthorized facility selection: {}", Encode.forJava(username), facilityId);
                         response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
                         return NONE;
                     }
