@@ -124,7 +124,7 @@ function buildIndicatorPanel(html, target, id) {
         $("#" + target + "_" + id).html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');
         return;
     }
-    // DOMPurify config: only allow safe form elements/attrs. NEVER add href, src, style, or event handlers.
+    // DOMPurify sanitization with defaults plus <input> and value attr. Event handlers are stripped by DOMPurify defaults.
     let panel = $("#" + target + "_" + id).html(DOMPurify.sanitize(html, {ADD_TAGS: ['input'], ADD_ATTR: ['value']}));
     let data = "[" + panel.find("#graphPlots_" + id).val() + "]";
     data = data.replace(/'/g, '"');

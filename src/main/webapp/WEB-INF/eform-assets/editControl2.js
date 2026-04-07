@@ -963,8 +963,8 @@ function submitFaxButton() {
 				url : "efmformrtl_templates.jsp",
 				success : function(data) {
 					if (typeof DOMPurify !== 'undefined') {
-						// DOMPurify config: restrict to <option> with value/selected only.
-						$("#template").html(DOMPurify.sanitize(data, {ADD_TAGS: ['option'], ADD_ATTR: ['value', 'selected']}));
+						// DOMPurify config: only allow <option> elements with value/selected attributes.
+						$("#template").html(DOMPurify.sanitize(data, {ALLOWED_TAGS: ['option'], ALLOWED_ATTR: ['value', 'selected']}));
 					} else {
 						// DOMPurify not available in eForm context — fallback safely constructs <option> elements
 						var parser = new DOMParser();

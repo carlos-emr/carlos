@@ -61,7 +61,7 @@ function sendData(path, param, target) {
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).toggle();
                 } else if (target == "modal") {
                     if (typeof DOMPurify !== 'undefined') {
-                        // DOMPurify config: only allow safe form elements/attrs. NEVER add href, src, style, or event handlers.
+                        // DOMPurify sanitization with defaults plus form elements. Event handlers are stripped by DOMPurify defaults.
                         $('#assignTickler').find('.modal-body').html(DOMPurify.sanitize(data, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'selected']}));
                     } else {
                         console.error('DOMPurify is required but not loaded. Modal content blocked to prevent XSS.');

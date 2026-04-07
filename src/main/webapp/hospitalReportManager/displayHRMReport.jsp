@@ -162,9 +162,12 @@
             if (duplicateLabIdsString != null) {
                 String[] duplicateLabIdsStringSplit = duplicateLabIdsString.split(",");
                 for (String tempId : duplicateLabIdsStringSplit) {
-                    HRMDocument doc = hrmDocumentDao.find(Integer.parseInt(tempId));
-                    dupReportDates.put(Integer.parseInt(tempId), doc.getReportDate());
-                    dupTimeReceived.put(Integer.parseInt(tempId), doc.getTimeReceived());
+                    tempId = tempId.trim();
+                    int parsedId;
+                    try { parsedId = Integer.parseInt(tempId); } catch (NumberFormatException e) { continue; }
+                    HRMDocument doc = hrmDocumentDao.find(parsedId);
+                    dupReportDates.put(parsedId, doc.getReportDate());
+                    dupTimeReceived.put(parsedId, doc.getTimeReceived());
                 }
 
             }
