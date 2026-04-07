@@ -62,6 +62,14 @@
     StringBuffer bufChart = null, bufName = null, bufNo = null;
     if (request.getParameter("limit1") != null) strLimit1 = request.getParameter("limit1");
     if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
+
+    int parsedLimit1;
+    try { parsedLimit1 = Integer.parseInt(strLimit1); } catch (NumberFormatException e) { parsedLimit1 = 0; }
+    strLimit1 = String.valueOf(parsedLimit1);
+
+    int parsedLimit2;
+    try { parsedLimit2 = Integer.parseInt(strLimit2); } catch (NumberFormatException e) { parsedLimit2 = 10; }
+    strLimit2 = String.valueOf(parsedLimit2);
 %>
 
 

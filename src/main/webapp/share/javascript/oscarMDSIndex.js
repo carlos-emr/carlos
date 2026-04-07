@@ -70,6 +70,14 @@ function escapeHtml(str) {
  * are handled separately by callers (extracted before DOMPurify and re-executed
  * unconditionally) — DOMPurify only sanitizes the non-script HTML structure.
  *
+ * IMPORTANT SECURITY TRADE-OFF: This function intentionally bypasses DOMPurify's
+ * event handler protection. DOMPurify would normally strip onclick/ondblclick/onchange
+ * attributes, but we re-attach them because same-origin JSP content relies on inline
+ * handlers for UI functionality. This means DOMPurify provides NO defense-in-depth
+ * against XSS via inline event handlers — server-side OWASP encoding is the SOLE
+ * defense for handler content. DOMPurify still protects against structural HTML
+ * injection (e.g., injected iframes, rogue img onerror on NEW elements).
+ *
  * @param {string} html - Raw HTML string from same-origin AJAX response
  * @param {Object} config - DOMPurify configuration (ADD_TAGS, ADD_ATTR, etc.)
  * @returns {DocumentFragment} Sanitized DOM fragment with handlers re-attached
@@ -80,6 +88,8 @@ function sanitizeWithHandlers(html, config) {
         return document.createDocumentFragment();
     }
 
+    // These event attributes are intentionally re-attached after DOMPurify sanitization.
+    // Server-side OWASP encoding is the sole XSS defense for these handler values.
     var EVENT_ATTRS = ['onclick', 'ondblclick', 'onchange'];
     var handlerStore = [];
 

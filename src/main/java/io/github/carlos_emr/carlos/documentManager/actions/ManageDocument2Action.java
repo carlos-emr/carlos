@@ -836,7 +836,7 @@ public class ManageDocument2Action extends ActionSupport {
             response.setContentType("application/json;charset=UTF-8");
             response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("IOException reading PDF page count for doc_no: " + LogSanitizer.sanitize(doc_no), e);
         }
     }
 

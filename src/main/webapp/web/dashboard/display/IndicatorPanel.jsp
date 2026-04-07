@@ -52,20 +52,20 @@
     <div class="row indicatorFooter">
         <div class="col-md-12 text-end">
             <div class="dropdown d-inline-block">
-            <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown" role="button"
+            <a href="javascript:void(0)" class="dropdown-toggle" data-bs-toggle="dropdown" role="button"
                aria-haspopup="true" aria-expanded="false">
                 options
             </a>
 
             <ul class="dropdown-menu float-end text-start">
                 <li>
-                    <a class="dropdown-item" href="#" data-bs-toggle="modal"
+                    <a class="dropdown-item" href="javascript:void(0)" data-bs-toggle="modal"
                        data-bs-target="#indicatorInfo_${ indicatorPanel.id }">
                         Indicator Info
                     </a>
                 </li>
                 <li>
-                    <a class="dropdown-item indicatorDrilldownBtn" href="#" id="getDrilldown_${ indicatorPanel.id }">
+                    <a class="dropdown-item indicatorDrilldownBtn" href="javascript:void(0)" id="getDrilldown_${ indicatorPanel.id }">
                         Drill Down
                     </a>
                 </li>
