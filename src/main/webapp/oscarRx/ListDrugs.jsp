@@ -407,16 +407,6 @@
         		<% } %>
             </td>
 
-			<%if(securityManager.hasWriteAccess("_rx",roleName$,true)) {%>
-            <td width="10px" align="center">
-                <a href="javascript:void(0);" title="Annotation"
-                   onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=prescriptIdInt%>&amp;demo=<%=bean.getDemographicNo()%>&amp;drugSpecial=<%=StringEscapeUtils.escapeEcmaScript(specialText)%>','anwin','width=400,height=500');">
-                    <%if (!isPrevAnnotation) {%> <img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
-                                                      width="13" border="0"><%} else {%><img
-                        src="<%= request.getContextPath() %>/images/filledNotes.gif" height="16" width="13" alt="rxFilledNotes" border="0"> <%}%></a>
-            </td>
-            <% } %>
-
             <td width="10px" align="center">
                 <%if (prescriptDrug.getOutsideProviderName() != null && !prescriptDrug.getOutsideProviderName().equals("")) {%>
                 <span class="external"><%=prescriptDrug.getOutsideProviderName()%></span>

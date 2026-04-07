@@ -780,8 +780,7 @@
                             <%
                                 }
                             %>
-                            <input type="button" value="Annotations"
-                                   onClick="popupPage(500, 400, '<%=request.getContextPath() %>/annotation/annotation.jsp?display=HRM&table_id=<%=hrmReportId%>&demo=<%=demographicNo%>')"/>
+
                         </form>
                     </td>
                 </tr>

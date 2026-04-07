@@ -786,11 +786,9 @@
         $(editElem).style.top = top + "px";
         $(editElem).style.display = "table";
 
-        //Prepare Annotation Window & Extra Fields
+        //Prepare Extra Fields
         var now = new Date();
         document.getElementById('annotation_attrib').value = "anno" + now.getTime();
-        var obj = {};
-        Element.observe('anno', 'click', openAnnotation.bindAsEventListener(obj, noteId, cppDisplay, demoNo));
         prepareExtraFields(cppDisplay, noteExts);
 
         //Set note position order
@@ -942,13 +940,6 @@
 
     }
 
-    function openAnnotation() {
-        var atbname = document.getElementById('annotation_attrib').value;
-        var data = $A(arguments);
-        var addr = ctx + "/annotation/annotation.jsp?atbname=" + atbname + "&table_id=" + data[1] + "&display=" + data[2] + "&demo=" + data[3];
-        window.open(addr, "anwin", "width=400,height=500");
-        Event.stop(data[0]);
-    }
 
 function updateCPPNote() {
     try {
@@ -1493,10 +1484,6 @@ function updateCPPNote() {
             var editAnchor = "<a title='Edit' id='edit" + nId + "' href='#' onclick='" + func + " return false;' style='float: right; margin-right: 5px;'>" + editLabel + "</a>";
             var editId = "edit" + nId;
 
-            var attribName = "anno" + (new Date().getTime());
-            var attribAnchor = "<input id='anno" + nId + "' height='10px;' width='10px' type='image' src='" + ctx + "/encounter/graphics/annotation.png' title='" + annotationLabel + "' style='float: right; margin-right: 5px; margin-bottom: 3px;'" +
-                "onclick=\"window.open('" + ctx + "/annotation/annotation.jsp?atbname=" + attribName + "&table_id=" + nId + "&display=EChartNote&demo=" + demographicNo + "','anwin','width=400,height=500');$('annotation_attribname').value='" + attribName + "'; return false;\">";
-
             $(parent).insertAdjacentHTML('afterbegin', editAnchor);
             $(editId).insertAdjacentHTML('afterend', input);
 
@@ -1504,7 +1491,6 @@ function updateCPPNote() {
             if (nId.substr(0, 1) != "0") {
                 Element.remove(printImg);
                 $(editId).insertAdjacentHTML('beforebegin', printimg);
-                $(editId).insertAdjacentHTML('afterend', attribAnchor);
                 $(parent).insertAdjacentHTML('afterbegin', img);
             }
 
@@ -3604,10 +3590,6 @@ function autoSave() {
                 var editAnchor = "<a title='Edit' id='edit" + nId + "' href='#' onclick='" + func + " return false;' style='float: right; margin-right: 5px;'>" + editLabel + "</a>";
                 var editId = "edit" + nId;
 
-                var attribName = "anno" + (new Date().getTime());
-                var attribAnchor = "<input id='anno" + nId + "' height='10px;' width='10px' type='image' src='" + ctx + "/encounter/graphics/annotation.png' title='" + annotationLabel + "' style='float: right; margin-right: 5px; margin-bottom: 3px;'" +
-                    "onclick=\"window.open('" + ctx + "/annotation/annotation.jsp?atbname=" + attribName + "&table_id=" + nId + "&display=EChartNote&demo=" + demographicNo + "','anwin','width=400,height=500');$('annotation_attribname').value='" + attribName + "'; return false;\">";
-
                 $(parent).insertAdjacentHTML('afterbegin', editAnchor);
                 $(editId).insertAdjacentHTML('afterend', input);
 
@@ -3615,7 +3597,6 @@ function autoSave() {
                 if (nId.substr(0, 1) != "0") {
                     Element.remove(printImg);
                     $(editId).insertAdjacentHTML('beforebegin', printimg);
-                    $(editId).insertAdjacentHTML('afterend', attribAnchor);
                     $(parent).insertAdjacentHTML('afterbegin', img);
                 }
 

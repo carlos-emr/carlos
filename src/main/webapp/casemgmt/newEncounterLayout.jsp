@@ -621,7 +621,7 @@
             <input type="hidden" id="containerDiv" name="containerDiv" value="">
             <input type="hidden" id="issueChange" name="issueChange" value="">
             <input type="hidden" id="archived" name="archived" value="false">
-            <input type="hidden" id="annotation_attrib" name="annotation_attrib">
+
             <h3 id="winTitle"></h3>
 
             <textarea cols="50" rows="15" id="noteEditTxt"

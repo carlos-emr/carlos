@@ -2566,16 +2566,6 @@
                                                                 <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formNotes"/></h3>
 
                                                                 <%=StringEscapeUtils.escapeHtml4(notes)%>&nbsp;
-                                                                <%if (hasImportExtra) { %>
-                                                                <a href="javascript:void(0);"
-                                                                   title="Extra data from Import"
-                                                                   onclick="window.open('<%= request.getContextPath() %>/annotation/importExtra.jsp?display=<%=Encode.forJavaScriptAttribute(annotation_display)%>&amp;table_id=<%=Encode.forJavaScriptAttribute(demographic_no)%>&amp;demo=<%=Encode.forJavaScriptAttribute(demographic_no)%>','anwin','width=400,height=250');">
-                                                                    <img src="<%= request.getContextPath() %>/images/notes.gif" align="right"
-                                                                         alt="Extra data from Import" height="16"
-                                                                         width="13" border="0"> </a>
-                                                                <%} %>
-
-
                                                             </div>
 
                                                                 <%-- TOGGLED OFF PROGRAM ADMISSIONS --%>

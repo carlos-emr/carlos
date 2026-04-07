@@ -309,17 +309,6 @@
 							}
 						%>
                         </td>
-                        <%if (securityManager.hasWriteAccess("_rx", roleName2$, true)) {%>
-                        <td>
-                            <%
-                                if (drug.isLocal) {
-                            %>
-                            <input type="button" value="Annotation" title="Annotation" class="ControlPushButton"
-                                   onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=Encode.forUriComponent(annotation_display)%>&table_id=<%=Encode.forUriComponent(String.valueOf(drug.localDrugId))%>&demo=<%=Encode.forUriComponent(String.valueOf(currentDemographicNo))%>','anwin','width=400,height=500');">
-                            <%
-                                }
-                            %>
-                        </td>
                         <td>
                             <%
                                 if (drug.isLocal) {

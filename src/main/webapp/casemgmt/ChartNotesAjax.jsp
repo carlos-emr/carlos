@@ -523,7 +523,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 url = "popupPage(1000,1200,'" + hash + "', '" + request.getContextPath() + "/documentManager/showDocument.jsp?inWindow=true&segmentID=" + encodedDispDocNo +"');";
                 url = url + "return false;";
 
-							String editUrl = "window.open('/oscar/annotation/annotation.jsp?display=Documents&amp;table_id=" + encodedDispDocNo + "&amp;demo=" + Encode.forUriComponent(demographicNo) + "','anwin','width=400,height=500');";
+							String editUrl = "";
 
                 if (!note.isReadOnly()) {
             %>
@@ -632,17 +632,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             </div>
             <%
                 }
-                if (!note.isDocument() && !note.isCpp() && !note.isEformData() && !note.isEncounterForm() && !note.isInvoice() && !note.isEmailNote()) {
-                    String atbname = "anno" + String.valueOf(new Date().getTime());
-                    String addr = request.getContextPath() + "/annotation/annotation.jsp?atbname=" + Encode.forUriComponent(atbname) + "&table_id=" + String.valueOf(note.getNoteId()) + "&display=EChartNote&demo=" + Encode.forUriComponent(demographicNo);
-            %>
-            <input type="image" id="anno<%=globalNoteId%>" src='<%=ctx %>/encounter/graphics/annotation.png'
-                   title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnAnnotation"/>'
-                   style="float: right; margin-right: 5px; margin-bottom: 3px; height:10px;width:10px"
-                   onclick="window.open('<%=addr%>','anwin','width=400,height=500');document.getElementById('annotation_attribname').value='<%=atbname%>'; return false;"/>
-            <%
-                }
-            %>
+
 
 							<div id="wrapper<%=globalNoteId%>" style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
                     <%-- render the note contents here --%>

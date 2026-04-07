@@ -586,15 +586,6 @@
                         </td>
                         <td align="center"><%=""/*thisResult.resultStatus*/ %>
                         </td>
-                        <td align="center" valign="top">
-                            <a href="javascript:void(0);" title="Annotation"
-                               onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=Encode.forJavaScriptAttribute(annotation_display)%>&amp;table_id=<%=Encode.forJavaScriptAttribute(segmentID)%>&amp;demo=<%=Encode.forJavaScriptAttribute(lab.getDemographicNo())%>&amp;other_id=<%=Encode.forJavaScriptAttribute(String.valueOf(i) + "-" + String.valueOf(l))%>','anwin','width=400,height=500');">
-                                <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation"
-                                                                  height="16" width="13" border="0"/><%} else { %><img
-                                    src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
-                                    border="0"/> <%} %>
-                            </a>
-                        </td>
                     </tr>
                     <% } else {%>
                     <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>"
