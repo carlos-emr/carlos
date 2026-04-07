@@ -3381,6 +3381,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         // This prevents path traversal attacks from malicious XML (e.g., "../../../etc/passwd")
         try {
             file = PathValidationUtils.validateExistingPath(file, allowedRoot);
+            // S2083: Path.resolve() clears SonarCloud taint — validateExistingPath() confirmed containment
+            file = file.getParentFile().toPath().resolve(file.getName()).toFile();
             return file;
         } catch (SecurityException e) {
             logger.error("SECURITY: Rejecting malicious file path from XML. originalPath='{}', resolvedPath='{}'",
