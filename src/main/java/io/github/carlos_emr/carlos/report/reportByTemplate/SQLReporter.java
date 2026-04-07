@@ -123,14 +123,9 @@ public class SQLReporter implements Reporter {
             sql = parameterizedResult[0];
             sqlParams = extractParams(parameterizedResult);
         } else {
-            MiscUtils.getLogger().warn("Report template {} uses legacy non-parameterized SQL path", templateId);
-            sql = curReport.getPreparedSQL(parameterMap);
-            if (sql == null || sql.trim().isEmpty()) {
-                request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
-                request.setAttribute("templateid", templateId);
-                return false;
-            }
-            sqlParams = null;
+            MiscUtils.getLogger().error("Unexpected report type for template {}: {}", templateId, curReport.getClass().getName());
+            request.setAttribute("errormsg", "Error: Unsupported report template type.");
+            return false;
         }
 
         String[] result = executeQuery(sql, sqlParams, false);
@@ -183,20 +178,9 @@ public class SQLReporter implements Reporter {
                 x++;
             }
         } else {
-            MiscUtils.getLogger().warn("Report template {} uses legacy non-parameterized SQL path (sequenced)", templateId);
-            String sql = null;
-            while ((sql = curReport.getPreparedSQL(x, parameterMap)) != null) {
-                if (sql.isEmpty()) {
-                    request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
-                    request.setAttribute("templateid", templateId);
-                    return false;
-                }
-                String[] result = executeQuery(sql, null, true);
-                request.setAttribute("csv-" + x, result[1]);
-                request.setAttribute("sql-" + x, sql);
-                request.setAttribute("resultsethtml-" + x, result[0]);
-                x++;
-            }
+            MiscUtils.getLogger().error("Unexpected report type for sequenced template {}: {}", templateId, curReport.getClass().getName());
+            request.setAttribute("errormsg", "Error: Unsupported report template type.");
+            return false;
         }
 
         request.setAttribute("sequenceLength", x);

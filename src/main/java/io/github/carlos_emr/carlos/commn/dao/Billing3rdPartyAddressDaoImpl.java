@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import jakarta.persistence.Query;
 
@@ -47,6 +48,12 @@ import org.springframework.stereotype.Repository;
 @Repository
 @SuppressWarnings("unchecked")
 public class Billing3rdPartyAddressDaoImpl extends AbstractDaoImpl<Billing3rdPartyAddress> implements Billing3rdPartyAddressDao {
+
+    private static final Set<String> VALID_SEARCH_COLUMNS = Set.of(
+            "company_name", "postcode", "telephone");
+
+    private static final Set<String> VALID_ORDER_COLUMNS = Set.of(
+            "company_name", "attention", "address", "city", "postcode", "telephone", "fax");
 
     public Billing3rdPartyAddressDaoImpl() {
         super(Billing3rdPartyAddress.class);
@@ -67,43 +74,63 @@ public class Billing3rdPartyAddressDaoImpl extends AbstractDaoImpl<Billing3rdPar
 
     @NativeSql("billing_on_3rdPartyAddress")
     public List<Billing3rdPartyAddress> findAddresses(String searchModeParam, String orderByParam, String keyword, String limit1, String limit2) {
-        String search_mode = searchModeParam == null ? "search_name" : searchModeParam;
-        String orderBy = orderByParam == null ? "company_name" : orderByParam;
-        String where = "";
+        // Validate search_mode against allowlist (JSP provides: search_name, postcode, telephone)
+        String searchColumn;
+        if (searchModeParam == null || "search_name".equals(searchModeParam)) {
+            searchColumn = "company_name";
+        } else if (VALID_SEARCH_COLUMNS.contains(searchModeParam)) {
+            searchColumn = searchModeParam;
+        } else {
+            MiscUtils.getLogger().warn("Invalid search_mode rejected: {}", searchModeParam);
+            searchColumn = "company_name";
+        }
+
+        // Validate orderBy against allowlist
+        String safeOrderBy = (orderByParam != null && VALID_ORDER_COLUMNS.contains(orderByParam))
+                ? orderByParam : "company_name";
+
+        // Parse limits to int to prevent injection
+        int offset;
+        int maxResults;
+        try {
+            offset = (limit1 != null) ? Math.max(0, Integer.parseInt(limit1)) : 0;
+        } catch (NumberFormatException e) {
+            offset = 0;
+        }
+        try {
+            maxResults = (limit2 != null) ? Math.max(1, Math.min(Integer.parseInt(limit2), 100)) : 20;
+        } catch (NumberFormatException e) {
+            maxResults = 20;
+        }
+
+        // Build query — searchColumn and safeOrderBy are allowlist-validated identifiers
         Map<String, Object> params = new HashMap<String, Object>();
-        if ("search_name".equals(search_mode)) {
+        String sql;
+        if ("company_name".equals(searchColumn) && (searchModeParam == null || "search_name".equals(searchModeParam))) {
             if (keyword == null) {
                 keyword = "";
             }
-
             String[] temp = keyword.split("\\,\\p{Space}*");
             if (temp.length > 1) {
-                where = "company_name like :compName0 and company_name like :compName1";
+                sql = "select * from billing_on_3rdPartyAddress where company_name like :compName0 and company_name like :compName1 order by " + safeOrderBy;
                 params.put("compName0", temp[0] + "%");
                 params.put("compName1", temp[1] + "%");
             } else {
-                where = "company_name like :compName0";
+                sql = "select * from billing_on_3rdPartyAddress where company_name like :compName0 order by " + safeOrderBy;
                 params.put("compName0", temp[0] + "%");
             }
         } else {
-            where = search_mode + " like :searchMode";
-            params.put("searchMode", keyword + "%");
+            sql = "select * from billing_on_3rdPartyAddress where " + searchColumn + " like :searchMode order by " + safeOrderBy;
+            params.put("searchMode", (keyword == null ? "" : keyword) + "%");
         }
-
-        String strLimit1 = "0";
-        String strLimit2 = "20";
-        if (limit1 != null)
-            strLimit1 = limit1;
-        if (limit2 != null)
-            strLimit2 = limit2;
-        String sql = "select * from billing_on_3rdPartyAddress where " + where + " order by " + orderBy + " limit "
-                + strLimit1 + "," + strLimit2;
 
         try {
             Query q = entityManager.createNativeQuery(sql, modelClass);
             for (Entry<String, Object> o : params.entrySet()) {
                 q.setParameter(o.getKey(), o.getValue());
             }
+            q.setFirstResult(offset);
+            q.setMaxResults(maxResults);
             return q.getResultList();
         } catch (Exception e) {
             MiscUtils.getLogger().error("error", e);

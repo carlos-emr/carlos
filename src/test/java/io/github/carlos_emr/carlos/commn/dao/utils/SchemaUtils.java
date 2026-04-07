@@ -73,7 +73,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * This class is a utility class to create and drop the database schema and all it's bits.
  * This class is highly database specific and alternate versions of this class will have to be
  * written for other databases.
+ *
+ * <p>SQL injection warnings are suppressed because all dynamic values come from test
+ * configuration properties and JDBC metadata — not from external user input.
+ * This class has no external attack surface (test harness only).</p>
  */
+@SuppressWarnings({"java:S2077", "java:S3649"})
 public class SchemaUtils {
     private static Logger logger = MiscUtils.getLogger();
 

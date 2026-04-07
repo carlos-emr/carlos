@@ -100,6 +100,12 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         "fnLike", "lnLike", "fnSoundex", "lnSoundex", "hin", "ver", "dob", "yob", "mob", "dayob"
     );
 
+    /** Allowlist of valid HQL property names for findByField() queries. */
+    private static final Set<String> VALID_FIND_BY_FIELDS = Set.of(
+        "DemographicNo", "LastName", "FirstName", "ChartNo",
+        "Sex", "YearOfBirth", "PatientStatus"
+    );
+
     static Logger log = MiscUtils.getLogger();
 
     private ApplicationEventPublisher publisher;
@@ -2420,29 +2426,28 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     @SuppressWarnings("unchecked")
     @Override
     public List<Demographic> findByField(String fieldName, Object fieldValue, String orderBy, int offset) {
+        // Validate fieldName against allowlist to prevent HQL injection
+        if (fieldName == null || !VALID_FIND_BY_FIELDS.contains(fieldName)) {
+            fieldName = "LastName";
+        }
+
         boolean isFieldValueEmpty = fieldValue == null || fieldValue.equals("");
 
-        String sql = "FROM Demographic d WHERE d." + fieldName + " LIKE :fieldValue";
-        if (isFieldValueEmpty) {
-            sql = "FROM Demographic d";
-        }
+        // Validate orderBy via existing allowlist method (returns safe default on mismatch)
+        String safeOrderBy = getOrderField(orderBy != null ? orderBy : "LastName");
 
-        if (orderBy != null && !orderBy.isEmpty()) {
-            sql = sql + " ORDER BY d." + orderBy;
-        }
+        // fieldName is allowlist-validated; safeOrderBy is from getOrderField() allowlist
+        String hql = "FROM Demographic d WHERE d." + fieldName + " LIKE :fieldValue ORDER BY " + safeOrderBy;
 
         Session s = currentSession();
-            Query q = s.createQuery(sql);
-            if (!isFieldValueEmpty) {
-                q.setParameter("fieldValue", fieldValue);
-            }
+        Query q = s.createQuery(hql);
+        q.setParameter("fieldValue", isFieldValueEmpty ? "%" : fieldValue);
+        q.setMaxResults(10);
 
-            q.setMaxResults(10);
-
-            if (offset > 0) {
-                q.setFirstResult(offset);
-            }
-            return q.list();
+        if (offset > 0) {
+            q.setFirstResult(offset);
+        }
+        return q.list();
     }
 
     @SuppressWarnings("unchecked")
@@ -2463,7 +2468,9 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findDemographicsForFluReport(String providerNo) {
-        String sql = "select demographic_no, CONCAT(last_name,',',first_name) as demoname, phone, roster_status, patient_status, "
+        boolean filterByProvider = providerNo != null && !providerNo.equals("-1");
+
+        String baseSql = "select demographic_no, CONCAT(last_name,',',first_name) as demoname, phone, roster_status, patient_status, "
             + "DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth), '-',(date_of_birth)),'%Y-%m-%d') as dob, "
             + "(YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d')))-"
             + "(RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) as age "
@@ -2471,15 +2478,16 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             + "(RIGHT(CURRENT_DATE,5)<"
             + "RIGHT(DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) >= 65 "
             + "and (patient_status = 'AC' or patient_status = 'UHIP') "
-            + "and (roster_status='RO' or roster_status='NR' or roster_status='FS' or roster_status='RF' or roster_status='PL')";
-        if (providerNo != null && !providerNo.equals("-1")) {
-            sql = sql + " and provider_no = '" + providerNo + "' ";
-        }
-        sql = sql + " order by last_name ";
+            + "and (roster_status='RO' or roster_status='NR' or roster_status='FS' or roster_status='RF' or roster_status='PL')"
+            + (filterByProvider ? " and provider_no = :providerNo" : "")
+            + " order by last_name";
 
         Session session = currentSession();
-            NativeQuery sqlQuery = session.createNativeQuery(sql);
-            return sqlQuery.list();
+        NativeQuery sqlQuery = session.createNativeQuery(baseSql);
+        if (filterByProvider) {
+            sqlQuery.setParameter("providerNo", providerNo);
+        }
+        return sqlQuery.list();
     }
 
     @SuppressWarnings("unchecked")
