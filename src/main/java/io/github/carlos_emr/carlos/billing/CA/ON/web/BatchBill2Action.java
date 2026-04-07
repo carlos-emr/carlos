@@ -221,18 +221,20 @@ public class BatchBill2Action extends ActionSupport {
         String billingProviderNo = providersParam != null ? providersParam.trim() : "";
         String creatorParam = request.getParameter("creator");
         String creatorProviderNo = creatorParam != null ? creatorParam.trim() : "";
-        String service_code = request.getParameter("xml_other1");
-        String dxcode = request.getParameter("xml_diagnostic_detail");
+        String service_code = request.getParameter("xml_other1") != null ? request.getParameter("xml_other1") : "";
+        String dxcodeRaw = request.getParameter("xml_diagnostic_detail");
+        String dxcode = dxcodeRaw != null ? dxcodeRaw : "";
         String createdDate = request.getParameter("createdate");
+        if (createdDate == null || createdDate.trim().isEmpty()) {
+            addActionError("Missing required parameter: createdate");
+            return "error";
+        }
         Date date = DateUtils.parseDate(createdDate, new String[]{"yyyy/MM/dd HH:mm:ss"});
         Timestamp created = new Timestamp(date.getTime());
         int pipePos;
 
-        if (dxcode != null && (pipePos = dxcode.indexOf("|")) != -1) {
-            String tmp = dxcode.substring(0, pipePos);
-            dxcode = tmp;
-        } else if (dxcode == null) {
-            dxcode = "";
+        if ((pipePos = dxcode.indexOf("|")) != -1) {
+            dxcode = dxcode.substring(0, pipePos);
         }
 
         List<BatchBilling> batchBillingList = batchBillingDAO.find(demographicNo, service_code);
