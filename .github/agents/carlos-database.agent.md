@@ -34,7 +34,7 @@ tools: ["*"]
 ## Database Architecture
 
 **Database**: MariaDB/MySQL with comprehensive healthcare schema dating back to 2006
-**Schema History**: 19+ years of healthcare schema evolution (2006-2026)
+**Schema History**: 19+ years of healthcare schema evolution (2006-2025)
 **Hibernate Configuration**: `src/main/resources/OscarDatabaseBase.xml`
 
 ### Dual Persistence Model

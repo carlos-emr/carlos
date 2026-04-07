@@ -21,6 +21,8 @@ Every JSP file MUST include OWASP Encoder output encoding for ALL user data.
 - **HTML attribute**: `${e:forHtmlAttribute(value)}`
 - **JavaScript string**: `${e:forJavaScript(value)}`
 - **JS in HTML attr**: `${e:forJavaScriptAttribute(value)}`
+- **CSS string**: `${e:forCssString(value)}`
+- **URL path**: `${e:forUri(value)}`
 - **URL parameter**: `${e:forUriComponent(value)}`
 
 ## CSRF Protection
