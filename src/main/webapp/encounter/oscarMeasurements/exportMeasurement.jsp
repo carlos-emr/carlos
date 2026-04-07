@@ -38,6 +38,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.ExportMeasurementType" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String mstring = StringUtils.noNull(request.getParameter("mType")).trim();
     String export = "<ERROR/>";
@@ -45,7 +46,14 @@
         EctMeasurementTypeBeanHandler mType = new EctMeasurementTypeBeanHandler();
         EctMeasurementTypesBean measurementTypesBean = mType.getMeasurementType(mstring);
 
-        ExportMeasurementType emt = new ExportMeasurementType();
-        export = emt.export(measurementTypesBean);
+        if (measurementTypesBean != null) {
+            // Output is JDOM2 XMLOutputter-generated XML which handles XML escaping internally.
+            // Do NOT wrap with Encode.forHtml() as that would double-encode and break the XML structure.
+            ExportMeasurementType emt = new ExportMeasurementType();
+            export = emt.export(measurementTypesBean);
+        } else {
+            // Return safe error with the encoded parameter value for debugging
+            export = "<ERROR type=\"" + Encode.forXmlAttribute(mstring) + "\"/>";
+        }
     }
 %><%=export%>
