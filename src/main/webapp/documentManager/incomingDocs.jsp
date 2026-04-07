@@ -221,15 +221,18 @@
     ArrayList pdfListModifiedDate = myIncomingDocUtil.getPdfListModifiedDate();
 
     pdfNo = request.getParameter("pdfNo") == null ? "1" : request.getParameter("pdfNo");
-    if (Integer.parseInt(pdfNo) <= 0) {
-        pdfNo = "1";
+    int pdfNoInt;
+    try { pdfNoInt = Integer.parseInt(pdfNo); } catch (NumberFormatException e) { pdfNoInt = 1; }
+    if (pdfNoInt <= 0) {
+        pdfNoInt = 1;
     }
 
-    if (pdfList.size() < Integer.parseInt(pdfNo)) {
-        pdfNo = (new Integer(pdfList.size())).toString();
+    if (pdfList.size() < pdfNoInt) {
+        pdfNoInt = pdfList.size();
     }
+    pdfNo = String.valueOf(pdfNoInt);
 
-    int PdfIndex = Integer.parseInt(pdfNo) - 1;
+    int PdfIndex = pdfNoInt - 1;
     if (pdfList.size() >= 1 && PdfIndex <= (pdfList.size() - 1)) {
         pdfName = (String) pdfList.get(PdfIndex);
     } else {
@@ -874,8 +877,8 @@
                         <tr>
                             <td>
                                 <fieldset>
-                                    <legend>[<%=Encode.forHtml(pdfDir)%>]: <% if (Integer.parseInt(pdfNo) <= 0) {%><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.noFile"/><% } else {%> <%=Encode.forHtml(pdfNo)%>/ <%=pdfList.size()%>
-                                        <b><%=Encode.forHtml(String.valueOf(pdfList.get(Integer.parseInt(pdfNo) - 1)))%>
+                                    <legend>[<%=Encode.forHtml(pdfDir)%>]: <% if (pdfNoInt <= 0) {%><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.noFile"/><% } else {%> <%=Encode.forHtml(pdfNo)%>/ <%=pdfList.size()%>
+                                        <b><%=Encode.forHtml(String.valueOf(pdfList.get(pdfNoInt - 1)))%>
                                         </b> <%}%></legend>
                                     <table>
                                         <tr>

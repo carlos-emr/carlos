@@ -48,11 +48,59 @@ function hideElement(el) {
  * Helper function to escape HTML special characters for safe interpolation
  * into HTML strings. Prevents XSS when building HTML via string concatenation.
  * @param {string} str - The string to escape
- * @returns {string} The escaped string safe for HTML body and attribute contexts
+ * @returns {string} The escaped string safe for HTML body and quoted attribute contexts
  */
 function escapeHtml(str) {
     if (str == null) return '';
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/**
+ * Sanitize HTML with DOMPurify while preserving same-origin event handlers.
+ *
+ * DOMPurify strips event handler attributes (onclick, etc.) by default, which
+ * is the correct security posture. However, AJAX-loaded same-origin JSP content
+ * uses inline handlers for UI functionality. This function extracts handlers
+ * from the parsed DOM before sanitization and re-attaches them only to elements
+ * that survive DOMPurify (i.e., structurally safe elements).
+ *
+ * Server-side OWASP encoding is the primary XSS defense; this pattern provides
+ * defense-in-depth for the HTML structure while preserving handler functionality.
+ *
+ * @param {string} html - Raw HTML string from same-origin AJAX response
+ * @param {Object} config - DOMPurify configuration (ADD_TAGS, ADD_ATTR, etc.)
+ * @returns {DocumentFragment} Sanitized DOM fragment with handlers re-attached
+ */
+function sanitizeWithHandlers(html, config) {
+    var EVENT_ATTRS = ['onclick', 'ondblclick', 'onchange'];
+    var handlerStore = [];
+
+    // Hook: capture event handler values before DOMPurify strips them.
+    DOMPurify.addHook('uponSanitizeAttribute', function(node, data) {
+        if (EVENT_ATTRS.indexOf(data.attrName) !== -1) {
+            if (!node.__dpHandlers) {
+                node.__dpHandlers = {};
+                handlerStore.push(node);
+            }
+            node.__dpHandlers[data.attrName] = data.attrValue;
+        }
+    });
+
+    var fragment = DOMPurify.sanitize(html,
+        Object.assign({}, config, { RETURN_DOM_FRAGMENT: true }));
+    DOMPurify.removeAllHooks();
+
+    // Re-attach event handlers to elements that survived sanitization.
+    handlerStore.forEach(function(node) {
+        if (node.__dpHandlers && fragment.contains(node)) {
+            Object.keys(node.__dpHandlers).forEach(function(attr) {
+                node.setAttribute(attr, node.__dpHandlers[attr]);
+            });
+        }
+        delete node.__dpHandlers;
+    });
+
+    return fragment;
 }
 
 /**
@@ -171,15 +219,12 @@ function appendHtmlWithScripts(container, html) {
     var doc = parser.parseFromString(html, 'text/html');
     var scripts = Array.from(doc.querySelectorAll('script'));
 
-    // Sanitize and insert the non-script HTML content.
-    // DOMPurify strips <script> tags and dangerous elements from data values.
-    // Event handler attrs (onclick, etc.) are preserved because the content is
-    // same-origin JSP output where server-side OWASP encoding is the primary defense.
-    var safeHtml = DOMPurify.sanitize(html, {
+    // Sanitize the HTML and re-attach same-origin event handlers to surviving elements.
+    var fragment = sanitizeWithHandlers(html, {
         ADD_TAGS: ['input', 'select', 'option', 'textarea'],
-        ADD_ATTR: ['value', 'selected', 'checked', 'target', 'onclick', 'ondblclick', 'onchange']
+        ADD_ATTR: ['value', 'selected', 'checked', 'target']
     });
-    container.insertAdjacentHTML('beforeend', safeHtml);
+    container.appendChild(fragment);
 
     // Re-execute scripts extracted from the same-origin response.
     // External: only same-origin src. Inline: re-execute to define page functions.
@@ -1399,14 +1444,13 @@ function ForwardSelectedRows(files, searchProviderNo, status) {
         var doc = parser.parseFromString(html, 'text/html');
         var inlineScripts = Array.from(doc.querySelectorAll('script:not([src])')).filter(function(s) { return s.textContent; });
 
-        // Sanitize HTML, preserving event handlers for same-origin JSP content.
-        // Server-side OWASP encoding is the primary XSS defense.
-        var safeHtml = DOMPurify.sanitize(html, {
+        // Sanitize HTML and re-attach same-origin event handlers to surviving elements.
+        var fragment = sanitizeWithHandlers(html, {
             ADD_TAGS: ['input', 'select', 'option', 'textarea'],
-            ADD_ATTR: ['value', 'selected', 'checked', 'multiple', 'id', 'name', 'type', 'class', 'onclick', 'ondblclick']
+            ADD_ATTR: ['value', 'selected', 'checked', 'multiple', 'id', 'name', 'type', 'class']
         });
 
-        dialogContainer.html(safeHtml).dialog({
+        dialogContainer.empty().append(fragment).dialog({
             modal: true,
             width: 685,
             height: 355,
@@ -1451,6 +1495,10 @@ function ForwardSelectedRows(files, searchProviderNo, status) {
                 jQuery(this).find("select[multiple]#fwdFavorites").val('');
             }
         }).dialog("open");
+    }).fail(function (xhr, status, error) {
+        console.error('Forward dialog request failed:', status, error);
+        dialogContainer.html('<p style="color:red">Failed to load the forwarding dialog. Please reload the page and try again.</p>');
+        dialogContainer.dialog({ modal: true, title: "Error", buttons: { "Close": function() { jQuery(this).dialog("close"); } } });
     });
 }
 

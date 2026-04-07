@@ -63,7 +63,9 @@
     private String getSiteHTML(String scDate, String provider_no, List<Site> sites) {
         if (!bMultisites) return "";
         String _loc = jdbc.getLocationFromSchedule(scDate, provider_no);
-        return "<span style='background-color:" + Encode.forCssString(ApptUtil.getColorFromLocation(sites, _loc)) + "'>" + Encode.forHtml(ApptUtil.getShortNameFromLocation(sites, _loc)) + "</span>";
+        String color = ApptUtil.getColorFromLocation(sites, _loc);
+        if (!color.matches("[a-zA-Z0-9#]+")) { color = "white"; }
+        return "<span style='background-color:" + color + "'>" + Encode.forHtml(ApptUtil.getShortNameFromLocation(sites, _loc)) + "</span>";
     }
 %>
 <% if (bMultisites) {
