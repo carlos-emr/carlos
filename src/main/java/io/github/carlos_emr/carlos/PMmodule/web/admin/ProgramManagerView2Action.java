@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -70,7 +71,6 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
-import org.owasp.encoder.Encode;
 
 public class ProgramManagerView2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -78,6 +78,7 @@ public class ProgramManagerView2Action extends ActionSupport {
 
 
     private static Logger logger = MiscUtils.getLogger();
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private ClientRestrictionManager clientRestrictionManager = SpringUtils.getBean(ClientRestrictionManager.class);
     private FacilityDao facilityDao = SpringUtils.getBean(FacilityDao.class);
     private CaseManagementManager caseManagementManager = SpringUtils.getBean(CaseManagementManager.class);
@@ -93,6 +94,10 @@ public class ProgramManagerView2Action extends ActionSupport {
     }
 
     public String execute() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_pmm_management", "r", null)) {
+            throw new SecurityException("missing required sec object (_pmm_management)");
+        }
+
         String method = request.getParameter("method");
         if ("admit".equals(method)) {
             return admit();
@@ -287,6 +292,10 @@ public class ProgramManagerView2Action extends ActionSupport {
 
     public String admit() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "w", null)) {
+            throw new SecurityException("missing required sec object (_pmm_management)");
+        }
+
         String programId = request.getParameter("id");
         // Validate programId is numeric before use (CWE-501: Trust Boundary Violation)
         if (programId != null) {
@@ -297,22 +306,37 @@ public class ProgramManagerView2Action extends ActionSupport {
                 programId = null;
             }
         }
-        String clientId = request.getParameter("clientId");
-        String queueId = request.getParameter("queueId");
+        // Validate clientId is numeric (CWE-501: Trust Boundary Violation)
+        String clientIdStr = request.getParameter("clientId");
+        Integer clientIdInt;
+        try {
+            clientIdInt = Integer.parseInt(clientIdStr);
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid non-numeric clientId received: {}", LogSanitizer.sanitize(clientIdStr));
+            return view();
+        }
+        String clientId = String.valueOf(clientIdInt);
 
-        ProgramQueue queue = programQueueManager.getProgramQueue(queueId);
+        // Validate queueId is numeric (CWE-501: Trust Boundary Violation)
+        String queueIdStr = request.getParameter("queueId");
+        Long queueIdLong;
+        try {
+            queueIdLong = Long.parseLong(queueIdStr);
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid non-numeric queueId received: {}", LogSanitizer.sanitize(queueIdStr));
+            return view();
+        }
+
+        ProgramQueue queue = programQueueManager.getProgramQueue(String.valueOf(queueIdLong));
         Program fullProgram = programManager.getProgram(String.valueOf(programId));
         String dischargeNotes = request.getParameter("admission.dischargeNotes");
         String admissionNotes = request.getParameter("admission.admissionNotes");
-        // Sanitize notes before session storage to prevent trust boundary violation (CWE-501)
-        String sanitizedDischargeNotes = dischargeNotes != null ? Encode.forHtml(dischargeNotes) : null;
-        String sanitizedAdmissionNotes = admissionNotes != null ? Encode.forHtml(admissionNotes) : null;
         String formattedAdmissionDate = request.getParameter("admissionDate");
         Date admissionDate = DateUtils.toDate(formattedAdmissionDate);
-        List<Integer> dependents = clientManager.getDependentsList(Integer.valueOf(clientId));
+        List<Integer> dependents = clientManager.getDependentsList(clientIdInt);
 
         try {
-            admissionManager.processAdmission(Integer.valueOf(clientId), loggedInInfo.getLoggedInProviderNo(), fullProgram, dischargeNotes, admissionNotes, queue.isTemporaryAdmission(), dependents, admissionDate);
+            admissionManager.processAdmission(clientIdInt, loggedInInfo.getLoggedInProviderNo(), fullProgram, dischargeNotes, admissionNotes, queue.isTemporaryAdmission(), dependents, admissionDate);
 
             //change vacancy status to filled after one patient is admitted to associated program in that vacancy.
             Vacancy vacancy = VacancyTemplateManager.getVacancyByName(queue.getVacancyName());
@@ -333,8 +357,8 @@ public class ProgramManagerView2Action extends ActionSupport {
             this.setServiceRestriction(e.getRestriction());
 
             request.getSession().setAttribute("programId", programId);
-            request.getSession().setAttribute("admission.dischargeNotes", sanitizedDischargeNotes);
-            request.getSession().setAttribute("admission.admissionNotes", sanitizedAdmissionNotes);
+            request.getSession().setAttribute("admission.dischargeNotes", dischargeNotes);
+            request.getSession().setAttribute("admission.admissionNotes", admissionNotes);
 
             request.setAttribute("id", programId);
 
@@ -350,10 +374,32 @@ public class ProgramManagerView2Action extends ActionSupport {
 
     public String override_restriction() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "w", null)) {
+            throw new SecurityException("missing required sec object (_pmm_management)");
+        }
 
         String programId = (String) request.getSession().getAttribute("programId");
-        String clientId = request.getParameter("clientId");
-        String queueId = request.getParameter("queueId");
+
+        // Validate clientId is numeric (CWE-501: Trust Boundary Violation)
+        String clientIdStr = request.getParameter("clientId");
+        Integer clientIdInt;
+        try {
+            clientIdInt = Integer.parseInt(clientIdStr);
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid non-numeric clientId received: {}", LogSanitizer.sanitize(clientIdStr));
+            return view();
+        }
+        String clientId = String.valueOf(clientIdInt);
+
+        // Validate queueId is numeric (CWE-501: Trust Boundary Violation)
+        String queueIdStr = request.getParameter("queueId");
+        Long queueIdLong;
+        try {
+            queueIdLong = Long.parseLong(queueIdStr);
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid non-numeric queueId received: {}", LogSanitizer.sanitize(queueIdStr));
+            return view();
+        }
 
         String dischargeNotes = (String) request.getSession().getAttribute("admission.dischargeNotes");
         String admissionNotes = (String) request.getSession().getAttribute("admission.admissionNotes");
@@ -364,11 +410,11 @@ public class ProgramManagerView2Action extends ActionSupport {
             return view();
         }
 
-        ProgramQueue queue = programQueueManager.getProgramQueue(queueId);
+        ProgramQueue queue = programQueueManager.getProgramQueue(String.valueOf(queueIdLong));
         Program fullProgram = programManager.getProgram(String.valueOf(programId));
 
         try {
-            admissionManager.processAdmission(Integer.valueOf(clientId), loggedInInfo.getLoggedInProviderNo(), fullProgram, dischargeNotes, admissionNotes, queue.isTemporaryAdmission(), true);
+            admissionManager.processAdmission(clientIdInt, loggedInInfo.getLoggedInProviderNo(), fullProgram, dischargeNotes, admissionNotes, queue.isTemporaryAdmission(), true);
             addActionMessage(getText("admit.success"));
         } catch (ProgramFullException e) {
             addActionMessage(getText("admit.full"));
@@ -388,6 +434,10 @@ public class ProgramManagerView2Action extends ActionSupport {
     }
 
     public String assign_team_client() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_pmm_management", "w", null)) {
+            throw new SecurityException("missing required sec object (_pmm_management)");
+        }
+
         String admissionId = request.getParameter("admissionId");
         String teamId = request.getParameter("teamId");
         String programName = request.getParameter("program_name");
@@ -403,6 +453,10 @@ public class ProgramManagerView2Action extends ActionSupport {
     }
 
     public String assign_status_client() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_pmm_management", "w", null)) {
+            throw new SecurityException("missing required sec object (_pmm_management)");
+        }
+
         String admissionId = request.getParameter("admissionId");
         String statusId = request.getParameter("clientStatusId");
         String programName = request.getParameter("program_name");
@@ -420,6 +474,10 @@ public class ProgramManagerView2Action extends ActionSupport {
     public String batch_discharge() {
         logger.info("do batch discharge");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "w", null)) {
+            throw new SecurityException("missing required sec object (_pmm_management)");
+        }
+
         String type = request.getParameter("type");
         String admitToProgramId;
         if (type != null && type.equalsIgnoreCase("community")) {
@@ -518,12 +576,37 @@ public class ProgramManagerView2Action extends ActionSupport {
 
     public String reject_from_queue() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "w", null)) {
+            throw new SecurityException("missing required sec object (_pmm_management)");
+        }
+
         String notes = request.getParameter("admission.admissionNotes");
+
+        // Validate programId is numeric (CWE-501: Trust Boundary Violation)
         String programId = request.getParameter("id");
-        String clientId = request.getParameter("clientId");
+        if (programId != null) {
+            try {
+                programId = String.valueOf(Integer.parseInt(programId));
+            } catch (NumberFormatException e) {
+                logger.warn("Invalid non-numeric program ID received: {}", LogSanitizer.sanitize(programId));
+                programId = null;
+            }
+        }
+
+        // Validate clientId is numeric (CWE-501: Trust Boundary Violation)
+        String clientIdStr = request.getParameter("clientId");
+        Integer clientIdInt;
+        try {
+            clientIdInt = Integer.parseInt(clientIdStr);
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid non-numeric clientId received: {}", LogSanitizer.sanitize(clientIdStr));
+            return view();
+        }
+        String clientId = String.valueOf(clientIdInt);
+
         String rejectionReason = request.getParameter("radioRejectionReason");
 
-        List<Integer> dependents = clientManager.getDependentsList(Integer.valueOf(clientId));
+        List<Integer> dependents = clientManager.getDependentsList(clientIdInt);
 
         logger.debug("rejecting from queue: program_id={},clientId={}", LogSanitizer.sanitize(programId), LogSanitizer.sanitize(clientId));
 
