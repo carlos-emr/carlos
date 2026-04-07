@@ -49,11 +49,15 @@ def check_jsp_unsafe_patterns(content: str) -> list[str]:
     # This regex finds ${...} expressions
     el_pattern = r'\$\{([^}]+)\}'
 
-    # Safe wrappers that indicate proper encoding
+    # Safe wrappers that indicate proper encoding.
+    # Anchored to the start of the EL content so that only expressions whose
+    # *outermost* call is an encoder function are treated as safe.  Without the
+    # anchor, a crafted expression like ${param.x + 'e:forHtml('} could bypass
+    # the check.
     safe_wrappers = [
-        r'Encode\.for\w+\s*\(',  # Encode.forHtml(), Encode.forJavaScript(), etc.
-        r'e:for\w+\s*\(',        # OWASP Encoder EL functions: ${e:forHtml()}, ${e:forHtmlAttribute()}, etc.
-        r'fn:escapeXml\s*\(',    # JSTL escapeXml function
+        r'^\s*Encode\.for\w+\s*\(',  # Encode.forHtml(), Encode.forJavaScript(), etc.
+        r'^\s*e:for\w+\s*\(',        # OWASP Encoder EL functions: ${e:forHtml()}, ${e:forHtmlAttribute()}, etc.
+        r'^\s*fn:escapeXml\s*\(',    # JSTL escapeXml function
     ]
 
     for match in re.finditer(el_pattern, content):
