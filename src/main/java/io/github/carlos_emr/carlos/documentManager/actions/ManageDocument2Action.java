@@ -74,6 +74,7 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -309,9 +310,13 @@ public class ManageDocument2Action extends ActionSupport {
         hm.put("patientId", demog);
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.setContentType("application/json;charset=UTF-8");
+            response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("IOException writing JSON response in documentUpdateAjax", e);
+            if (!response.isCommitted()) {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
         }
 
     }
@@ -333,9 +338,13 @@ public class ManageDocument2Action extends ActionSupport {
         hm.put("demoName", getDemoName(LoggedInInfo.getLoggedInInfoFromSession(request), dn));
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.setContentType("application/json;charset=UTF-8");
+            response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("IOException writing JSON response in getDemoNameAjax", e);
+            if (!response.isCommitted()) {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
         }
     }
 
@@ -360,9 +369,13 @@ public class ManageDocument2Action extends ActionSupport {
 
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.setContentType("application/json;charset=UTF-8");
+            response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("IOException writing JSON response in removeLinkFromDocument", e);
+            if (!response.isCommitted()) {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
         }
     }
 
@@ -829,9 +842,13 @@ public class ManageDocument2Action extends ActionSupport {
             HashMap hm = new HashMap();
             hm.put("numOfPage", numOfPage);
             ObjectNode jsonObject = objectMapper.valueToTree(hm);
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.setContentType("application/json;charset=UTF-8");
+            response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("IOException reading PDF page count for doc_no: " + LogSanitizer.sanitize(doc_no), e);
+            if (!response.isCommitted()) {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
         }
     }
 

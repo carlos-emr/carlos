@@ -120,11 +120,11 @@
     String winwidth = "";
     String winheight = "";
     if (request.getParameter("winwidth") != null) {
-        winwidth = request.getParameter("winwidth");
+        try { winwidth = String.valueOf(Integer.parseInt(request.getParameter("winwidth"))); } catch (NumberFormatException e) { winwidth = ""; }
     }
 
     if (request.getParameter("winheight") != null) {
-        winheight = request.getParameter("winheight");
+        try { winheight = String.valueOf(Integer.parseInt(request.getParameter("winheight"))); } catch (NumberFormatException e) { winheight = ""; }
     }
 
     if (!"".equalsIgnoreCase(moduleid) && (demographicID == null || demographicID.equalsIgnoreCase("null"))) {
