@@ -1050,7 +1050,7 @@
                                         <c:if test="${ reason.active }">
                                             <option value="${ reason.id }"
                                                     id="${ reason.value }" ${ rCode eq reason.id ? 'selected="selected"' : '' } >
-                                                <c:out value="${ reason.label }"/>
+                                                ${e:forHtml(reason.label)}
                                             </option>
                                         </c:if>
                                     </c:forEach>
@@ -1538,7 +1538,7 @@
         <% } %>
 
         <tr style="background-color:#c0c0c0; text-align:left">
-            <th style="padding-right: 20px"><c:out value="${formName}:"/></th>
+            <th style="padding-right: 20px">${e:forHtml(formName)}:</th>
             <% if (formComplete) { %>
             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgFormCompleted"/></td>
             <% } else { %>
