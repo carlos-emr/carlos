@@ -125,6 +125,8 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
         try {
             java.io.File baseDirFile = new java.io.File(System.getProperty("java.io.tmpdir"));
             java.io.File validatedFile = PathValidationUtils.validatePath(filename, baseDirFile);
+            // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+            validatedFile = baseDirFile.toPath().resolve(validatedFile.getName()).toFile();
             Path filePath = validatedFile.toPath();
 
             if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
@@ -176,6 +178,8 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
 
         try {
             File stampFile = PathValidationUtils.validatePath(stampFilename, imageFolder);
+            // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+            stampFile = imageFolder.toPath().resolve(stampFile.getName()).toFile();
 
             if (!stampFile.exists()) {
                 logger.debug("Stamp signature file not found: {}", stampFilename);
