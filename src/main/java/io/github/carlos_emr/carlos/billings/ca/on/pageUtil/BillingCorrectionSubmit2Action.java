@@ -83,6 +83,13 @@ public final class BillingCorrectionSubmit2Action extends ActionSupport {
 
         try {
             String billingNoStr = billingDataBean.getBilling_no();
+            int billingNo;
+            try {
+                billingNo = Integer.parseInt(billingNoStr);
+            } catch (NumberFormatException e) {
+                MiscUtils.getLogger().warn("Invalid billing number during billing correction submit: " + billingNoStr, e);
+                return ERROR;
+            }
             String content = billingDataBean.getContent();
             String total = billingDataBean.getTotal();
             if (total == null) {
@@ -98,12 +105,12 @@ public final class BillingCorrectionSubmit2Action extends ActionSupport {
             recycleBin.setUpdateDateTime(new java.util.Date());
             recycleBinDao.persist(recycleBin);
 
-            for (BillingDetail bd : billingDetailDao.findByBillingNo(Integer.parseInt(billingNoStr))) {
+            for (BillingDetail bd : billingDetailDao.findByBillingNo(billingNo)) {
                 bd.setStatus("D");
                 billingDetailDao.merge(bd);
             }
 
-            Billing b = billingDao.find(Integer.parseInt(billingNoStr));
+            Billing b = billingDao.find(billingNo);
             if (b != null) {
                 b.setHin(billingDataBean.getHin());
                 b.setDob(billingDataBean.getDob());
@@ -125,7 +132,7 @@ public final class BillingCorrectionSubmit2Action extends ActionSupport {
                 BillingItemBean billingItem = (BillingItemBean) it.next();
 
                 BillingDetail bd = new BillingDetail();
-                bd.setBillingNo(Integer.parseInt(billingNoStr));
+                bd.setBillingNo(billingNo);
                 bd.setServiceCode(billingItem.getService_code());
                 bd.setServiceDesc(billingItem.getDesc());
                 bd.setBillingAmount(billingItem.getService_value());
