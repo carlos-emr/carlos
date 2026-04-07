@@ -88,7 +88,7 @@ public class JDBCUtil {
 
     public static void saveAsXML(Document doc, String fileName) {
         try {
-            TransformerFactory transFactory = TransformerFactory.newInstance();
+            TransformerFactory transFactory = XmlUtils.createSecureTransformerFactory();
             Transformer transformer = transFactory.newTransformer();
             DOMSource source = new DOMSource(doc);
             File newXML = new File(fileName);

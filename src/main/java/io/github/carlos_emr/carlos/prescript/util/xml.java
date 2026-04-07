@@ -33,9 +33,7 @@ package io.github.carlos_emr.carlos.prescript.util;
 import java.io.StringReader;
 import java.io.StringWriter;
 
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
@@ -78,7 +76,7 @@ public class xml {
         DOMSource src = new DOMSource(xmlDoc);
         StreamResult rslt = new StreamResult(ret);
         try {
-            Transformer trans = TransformerFactory.newInstance().newTransformer();
+            Transformer trans = XmlUtils.createSecureTransformerFactory().newTransformer();
             trans.transform(src, rslt);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);

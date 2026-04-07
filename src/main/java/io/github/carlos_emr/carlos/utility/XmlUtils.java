@@ -167,6 +167,7 @@ public final class XmlUtils {
         spf.setFeature("http://xml.org/sax/features/external-general-entities", false);
         spf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
         spf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        spf.setXIncludeAware(false);
         return spf;
     }
 
@@ -182,11 +183,7 @@ public final class XmlUtils {
      * @throws SAXException if the XMLReader cannot be obtained
      */
     public static SAXSource createSecureJaxbSource(InputStream inputStream) throws ParserConfigurationException, SAXException {
-        SAXParserFactory spf = SAXParserFactory.newInstance();
-        spf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        spf.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        spf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        spf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        SAXParserFactory spf = createSecureSAXParserFactory();
         spf.setNamespaceAware(true);
         XMLReader xr = spf.newSAXParser().getXMLReader();
         return new SAXSource(xr, new InputSource(inputStream));
