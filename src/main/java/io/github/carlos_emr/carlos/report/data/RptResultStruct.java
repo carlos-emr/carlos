@@ -1,4 +1,4 @@
-=/**
+/**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -28,6 +28,13 @@
  */
 
 
+/** 
+* Utility class for generating HTML table structures from JDBC ResultSet data.
+* Provides HTML-encoded output to prevent XSS vulnerabilities.
+*
+* `@since` 1.0
+*/
+
 package io.github.carlos_emr.carlos.report.data;
 
 import io.github.carlos_emr.Misc;
@@ -38,9 +45,21 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
 public class RptResultStruct {
+    
     public static String getStructure(ResultSet rs) throws SQLException {
+        
+    /**
+    * Generates an HTML table from a ResultSet with enhanced styling for report templates.
+    * Includes proper thead/tbody structure, alternating row classes, and XSS protection.
+    * Each column header and cell value is HTML-encoded using OWASP Encoder.
+    *
+    * `@param` rs the ResultSet containing data to display; must be positioned before the first row
+    * `@return` an HTML string containing a complete table with id="results" 
+    * `@throws` SQLException if a database access error occurs or the ResultSet is closed
+    * `@since` 1.0
+    */
 
-// assuming  multiple rows in rs
+    // assuming  multiple rows in rs
         StringBuilder sb = new StringBuilder();
 
         ResultSetMetaData rsmd = rs.getMetaData();
@@ -86,6 +105,17 @@ CSS:
  */
 //~apavel (Paul)
     public static String getStructure2(ResultSet rs) throws SQLException {
+
+    /**
+    * Generates an HTML table from a ResultSet with enhanced styling for report templates.
+    * Includes proper thead/tbody structure, DataTables-compatible classes, and XSS protection.
+    * Each column header and cell value is HTML-encoded using OWASP Encoder.
+    *
+    * `@param` rs the ResultSet containing data to display; must be positioned before the first row
+    * `@return` an HTML string containing a complete table with id="report2" and DataTables classes
+    * `@throws` SQLException if a database access error occurs or the ResultSet is closed
+    * `@since` 1.0
+    */
 
 // assuming  multiple rows in rs
         StringBuilder sb = new StringBuilder();
