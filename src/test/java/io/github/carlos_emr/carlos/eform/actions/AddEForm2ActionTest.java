@@ -52,59 +52,53 @@ class AddEForm2ActionTest extends CarlosUnitTestBase {
     @DisplayName("eform_link session-key pattern")
     class EformLinkPattern {
 
-        /**
-         * Regex used in the action to guard the session key:
-         * {@code eform_link.matches("\\d+_\\d+_\\d+_\\w+")}
-         */
-        private static final String EFORM_LINK_PATTERN = "\\d+_\\d+_\\d+_\\w+";
-
         @Test
         @DisplayName("should accept valid eform_link pattern with numeric segments and word suffix")
         void shouldAccept_validEformLinkPattern() {
-            assertThat("1_100_5_fieldName".matches(EFORM_LINK_PATTERN)).isTrue();
+            assertThat("1_100_5_fieldName".matches(AddEForm2Action.EFORM_LINK_PATTERN)).isTrue();
         }
 
         @Test
         @DisplayName("should accept eform_link with underscore in suffix segment")
         void shouldAccept_eformLinkWithUnderscoreInSuffix() {
-            assertThat("12_34_56_my_field".matches(EFORM_LINK_PATTERN)).isTrue();
+            assertThat("12_34_56_my_field".matches(AddEForm2Action.EFORM_LINK_PATTERN)).isTrue();
         }
 
         @Test
         @DisplayName("should reject eform_link that is a plain session attribute name")
         void shouldReject_plainSessionAttributeName() {
             // Attempts to overwrite 'user' session attribute
-            assertThat("user".matches(EFORM_LINK_PATTERN)).isFalse();
+            assertThat("user".matches(AddEForm2Action.EFORM_LINK_PATTERN)).isFalse();
         }
 
         @Test
         @DisplayName("should reject eform_link that targets userrole session attribute")
         void shouldReject_userRoleSessionAttributeName() {
-            assertThat("userrole".matches(EFORM_LINK_PATTERN)).isFalse();
+            assertThat("userrole".matches(AddEForm2Action.EFORM_LINK_PATTERN)).isFalse();
         }
 
         @Test
         @DisplayName("should reject eform_link with injected SQL-like content")
         void shouldReject_sqlInjectionAttempt() {
-            assertThat("1'; DROP TABLE eform;--".matches(EFORM_LINK_PATTERN)).isFalse();
+            assertThat("1'; DROP TABLE eform;--".matches(AddEForm2Action.EFORM_LINK_PATTERN)).isFalse();
         }
 
         @Test
         @DisplayName("should reject eform_link missing numeric prefix segments")
         void shouldReject_missingNumericSegments() {
-            assertThat("abc_def_ghi_field".matches(EFORM_LINK_PATTERN)).isFalse();
+            assertThat("abc_def_ghi_field".matches(AddEForm2Action.EFORM_LINK_PATTERN)).isFalse();
         }
 
         @Test
         @DisplayName("should reject eform_link with only two numeric segments")
         void shouldReject_onlyTwoNumericSegments() {
-            assertThat("1_2_field".matches(EFORM_LINK_PATTERN)).isFalse();
+            assertThat("1_2_field".matches(AddEForm2Action.EFORM_LINK_PATTERN)).isFalse();
         }
 
         @Test
         @DisplayName("should reject empty string eform_link")
         void shouldReject_emptyString() {
-            assertThat("".matches(EFORM_LINK_PATTERN)).isFalse();
+            assertThat("".matches(AddEForm2Action.EFORM_LINK_PATTERN)).isFalse();
         }
     }
 

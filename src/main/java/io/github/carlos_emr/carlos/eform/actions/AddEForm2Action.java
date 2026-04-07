@@ -72,6 +72,13 @@ public class AddEForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    /**
+     * Regex pattern that a valid {@code eform_link} session-key must match.
+     * Format: {@code providerNo_demographicNo_fid_fieldName} (e.g., {@code 1_100_5_fieldName}).
+     * Prevents session-key injection by rejecting arbitrary attacker-controlled attribute names.
+     * Package-private so the pattern can be referenced directly in unit tests.
+     */
+    static final String EFORM_LINK_PATTERN = "\\d+_\\d+_\\d+_\\w+";
 
     private static final Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -217,7 +224,7 @@ public class AddEForm2Action extends ActionSupport {
             // An unvalidated session key allows an attacker to overwrite arbitrary session
             // attributes (e.g., "user", "userrole") by crafting the eform_link parameter
             // (CWE-501 Trust Boundary Violation).
-            if (eform_link != null && eform_link.matches("\\d+_\\d+_\\d+_\\w+")) {
+            if (eform_link != null && eform_link.matches(EFORM_LINK_PATTERN)) {
                 se.setAttribute(eform_link, fdid);
             }
 
@@ -510,7 +517,7 @@ public class AddEForm2Action extends ActionSupport {
         try {
             return String.valueOf(Integer.parseInt(id));
         } catch (NumberFormatException e) {
-            logger.warn("Rejected non-integer ID from session storage (trust boundary enforcement): {}", id);
+            logger.warn("Rejected non-integer ID from session storage (trust boundary enforcement)");
             return null;
         }
     }
