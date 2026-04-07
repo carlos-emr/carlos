@@ -31,7 +31,7 @@ import static org.assertj.core.api.Assertions.*;
  *
  * <p>Covers CWE-501 (Trust Boundary Violation) mitigations:</p>
  * <ul>
- *   <li>eform_link session-key injection fix (line ~220 in the action)</li>
+ *   <li>eform_link session attribute write guarded against session-key injection</li>
  *   <li>{@code validateIntId} — safe integer-string canonicalisation</li>
  *   <li>{@code validateIntIdArray} — array-wide integer validation</li>
  * </ul>
