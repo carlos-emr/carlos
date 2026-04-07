@@ -1,4 +1,4 @@
-/**
+=/**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -94,7 +94,7 @@ CSS:
 
         int columns = rsmd.getColumnCount();
         String[] columnNames = new String[columns];
-        sb.append("<table class=\"reportTable display compact\">");
+        sb.append("<table id=\"report2\" class=\"reportTable display compact\">");
         sb.append("<thead><tr>");
         for (int i = 0; i < columns; i++) {  // for each column in result set
             columnNames[i] = rsmd.getColumnName(i + 1);
@@ -102,7 +102,7 @@ CSS:
             // use i+1 or else you're going to get an exception
             //  insert headings for table
             sb.append("<th class=\"reportHeader\">");
-            sb.append(columnNames[i]);
+            sb.append(Encode.forHtml(columnNames[i]));
             sb.append("</th>");
         }
         sb.append("</tr></thead><tbody>");
