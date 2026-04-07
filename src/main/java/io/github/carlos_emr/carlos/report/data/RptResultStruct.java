@@ -48,14 +48,14 @@ public class RptResultStruct {
         int columns = rsmd.getColumnCount();
         String rowColor = "rowColor1";
         String[] columnNames = new String[columns];
-        sb.append("<table>");
+        sb.append("<table id='results'>");
         for (int i = 0; i < columns; i++) {  // for each column in result set
             columnNames[i] = rsmd.getColumnName(i + 1);
             // put names in array
             // use i+1 or else you're going to get an exception
             //  insert headings for table
             sb.append("<th class='headerColor'>");
-            sb.append(columnNames[i]);
+            sb.append(Encode.forHtml(columnNames[i]));
             sb.append("</th>");
         }
         while (rs.next()) {
