@@ -487,7 +487,7 @@
                                                     <td>
                                                             <span class="rcvPayment">
                                                             <a href="#"
-                                                               onClick="popupPage(300,450,'viewReceivePaymentAction.do?lineNo=<%=Encode.forJavaScriptAttribute(String.valueOf(bi.getLineNo()))%>&amp;billNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(bean.getBillingNo())))%> ')">Receive Payment</a>
+                                                               onClick="popupPage(300,450,'viewReceivePaymentAction.do?lineNo=<%=Encode.forJavaScriptAttribute(String.valueOf(bi.getLineNo()))%>&amp;billNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(bean.getBillingNo())))%>')">Receive Payment</a>
                                                             </span>
                                                     </td>
                                                     <td><%=bi.getLineNo()%>
