@@ -53,6 +53,26 @@
         String[] formPath = (new FrmData()).getShortcutFormValue(request.getParameter("demographic_no"), strFrm);
         formPath[0] = formPath[0].trim();
 
+        // Normalize the deprecated "../" prefix used in older DB entries
+        // (e.g. "../form/formX.jsp?..." → "/form/formX.jsp?...").
+        if (formPath[0].startsWith("../")) {
+            formPath[0] = formPath[0].substring(2);
+        }
+
+        // Validate the DB-resolved path to prevent path traversal (CWE-22).
+        // Extract the path portion (before the query string) and ensure it is an
+        // absolute webapp path with no ".." traversal sequences that could escape
+        // the webapp root.
+        String pathPortion = formPath[0].contains("?")
+                ? formPath[0].substring(0, formPath[0].indexOf('?'))
+                : formPath[0];
+        if (!pathPortion.startsWith("/") || pathPortion.contains("..")) {
+            MiscUtils.getLogger().warn("forwardshortcutname.jsp: blocked invalid form path from DB: {}",
+                    LogSanitizer.sanitize(pathPortion));
+            response.sendError(400, "Invalid form path");
+            return;
+        }
+
         String appointmentNo = request.getParameter("appointmentNo");
 
         String nextPage = formPath[0] +
