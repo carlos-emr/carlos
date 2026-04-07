@@ -62,7 +62,12 @@ function sendData(path, param, target) {
                 } else if (target == "modal") {
                     if (typeof DOMPurify !== 'undefined') {
                         // DOMPurify sanitization with defaults plus form elements. Event handlers are stripped by DOMPurify defaults.
-                        $('#assignTickler').find('.modal-body').html(DOMPurify.sanitize(data, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'selected']}));
+                        try {
+                            $('#assignTickler').find('.modal-body').html(DOMPurify.sanitize(data, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'selected']}));
+                        } catch (e) {
+                            console.error('Error sanitizing modal content:', e);
+                            $('#assignTickler').find('.modal-body').html('<p style="color:red">Unable to display content safely.</p>');
+                        }
                     } else {
                         console.error('DOMPurify is required but not loaded. Modal content blocked to prevent XSS.');
                         $('#assignTickler').find('.modal-body').html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');

@@ -125,10 +125,20 @@ function buildIndicatorPanel(html, target, id) {
         return;
     }
     // DOMPurify sanitization with defaults plus <input> and value attr. Event handlers are stripped by DOMPurify defaults.
-    let panel = $("#" + target + "_" + id).html(DOMPurify.sanitize(html, {ADD_TAGS: ['input'], ADD_ATTR: ['value']}));
-    let data = "[" + panel.find("#graphPlots_" + id).val() + "]";
-    data = data.replace(/'/g, '"');
-    data = JSON.parse(data)
+    let panel;
+    try {
+        panel = $("#" + target + "_" + id).html(DOMPurify.sanitize(html, {ADD_TAGS: ['input'], ADD_ATTR: ['value']}));
+        let plotVal = panel.find("#graphPlots_" + id).val();
+        if (!plotVal) {
+            console.error('Graph plot data not found for indicator ' + id);
+            return;
+        }
+        data = JSON.parse("[" + plotVal.replace(/'/g, '"') + "]");
+    } catch (e) {
+        console.error('Error rendering indicator panel ' + id + ':', e);
+        $("#" + target + "_" + id).html('<p style="color:red">Unable to render indicator panel.</p>');
+        return;
+    }
     indicatorGraph = $.jqplot('graphContainer_' + id, data, jqplotOptions).replot();
 
     window.onresize = function (event) {

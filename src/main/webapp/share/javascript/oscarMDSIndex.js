@@ -75,8 +75,9 @@ function escapeHtml(str) {
  * attributes, but we re-attach them because same-origin JSP content relies on inline
  * handlers for UI functionality. This means DOMPurify provides NO defense-in-depth
  * against XSS via inline event handlers — server-side OWASP encoding is the SOLE
- * defense for handler content. DOMPurify still protects against structural HTML
- * injection (e.g., injected iframes, rogue img onerror on NEW elements).
+ * defense for handler content. DOMPurify still strips all event handler attributes
+ * except the three explicitly re-attached above (onclick, ondblclick, onchange).
+ * Adding more event attributes to EVENT_ATTRS weakens this protection.
  *
  * @param {string} html - Raw HTML string from same-origin AJAX response
  * @param {Object} config - DOMPurify configuration (ADD_TAGS, ADD_ATTR, etc.)
@@ -185,8 +186,8 @@ function getCsrfToken() {
 /**
  * Helper function to make a POST request with form-urlencoded data.
  * Centralizes fetch boilerplate for form submissions.
- * Automatically includes the CSRF-TOKEN (if available and not already
- * present in data) required by CSRFGuard.
+ * Automatically includes the CSRF-TOKEN as an HTTP header (if a CSRF
+ * token input exists in the DOM) required by CSRFGuard.
  * @param {string} url - The URL to POST to
  * @param {string|Object|URLSearchParams} data - Form data as a URL-encoded string, a key-value object, or URLSearchParams instance
  * @returns {Promise<Response>}
@@ -221,7 +222,7 @@ function fetchGet(url) {
  * This function sanitizes the HTML body with DOMPurify, inserts the safe HTML,
  * then re-executes both inline and same-origin external scripts.
  * Server-side OWASP encoding is the primary XSS defense; DOMPurify provides
- * defense-in-depth by stripping injected elements from data values.
+ * defense-in-depth by stripping disallowed elements and attributes from the HTML.
  * Note: inline scripts from the AJAX response are extracted before DOMPurify
  * runs and re-executed unconditionally. DOMPurify only sanitizes the non-script
  * HTML structure. The security model assumes trusted same-origin server endpoints.
@@ -255,7 +256,7 @@ function appendHtmlWithScripts(container, html) {
     container.appendChild(fragment);
 
     // Re-execute scripts extracted from the same-origin response.
-    // External: only same-origin src. Inline: re-execute to define page functions.
+    // External: only same-origin src. Inline: re-executed unconditionally (trusted server content).
     scripts.forEach(function(script) {
         var newScript = document.createElement('script');
         var src = script.getAttribute('src');

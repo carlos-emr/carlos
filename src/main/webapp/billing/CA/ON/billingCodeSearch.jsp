@@ -90,7 +90,7 @@
             <%
             String nameF = request.getParameter("nameF");
             if(nameF != null && nameF.matches("[a-zA-Z_][a-zA-Z0-9_.]*")) {
-                    out.println("self.opener." + Encode.forJavaScript(nameF) + " = File0;");
+                    out.println("self.opener." + nameF + " = File0;");
             } else {
             %>
             self.opener.document.serviceform.xml_other1.value = File0;
