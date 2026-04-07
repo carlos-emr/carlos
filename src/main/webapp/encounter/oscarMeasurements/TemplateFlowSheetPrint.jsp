@@ -598,9 +598,9 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <%if (!printView) {%>
                     <div style="position: relative; float: left; padding-right: 10px;" class="DoNotPrint">
 
-                        <input type="checkbox" name="printHP" id="printHP<%=measure%>" class="css-checkbox"
-                               value="<%=measure%>"  <%=setToPrint ? "checked" : ""%>/>
-                        <label for="printHP<%=measure%>" class="css-label"></label><!--needed for chkbox effect-->
+                        <input type="checkbox" name="printHP" id="printHP<%=Encode.forHtmlAttribute(measure)%>" class="css-checkbox"
+                               value="<%=Encode.forHtmlAttribute(measure)%>"  <%=setToPrint ? "checked" : ""%>/>
+                        <label for="printHP<%=Encode.forHtmlAttribute(measure)%>" class="css-label"></label><!--needed for chkbox effect-->
 
                     </div>
                     <%}%>
@@ -615,33 +615,33 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                         </p>
 
-                        <div id="refine-results-<%=measure%>" style="display:none;position:relative;">
+                        <div id="refine-results-<%=Encode.forHtmlAttribute(measure)%>" style="display:none;position:relative;">
 
-                            <select name="printStyle<%=measure%>" id="refineSelect-<%=measure%>" style="width:110px"
-                                    rel="<%=measure%>">
-                                <option value="all" selected>all <%=measure%>
+                            <select name="printStyle<%=Encode.forHtmlAttribute(measure)%>" id="refineSelect-<%=Encode.forHtmlAttribute(measure)%>" style="width:110px"
+                                    rel="<%=Encode.forHtmlAttribute(measure)%>">
+                                <option value="all" selected>all <%=Encode.forHtml(measure)%>
                                 </option>
                                 <option value="num"># Elements</option>
                                 <option value="range">date range</option>
                             </select>
 
 
-                            <input type="text" name="numEle<%=measure%>" class="num-<%=measure%>"
+                            <input type="text" name="numEle<%=Encode.forHtmlAttribute(measure)%>" class="num-<%=Encode.forHtmlAttribute(measure)%>"
                                    style="display:none;width:20px" placeholder=""/>
 
 
-                            <div class="range-<%=measure%>" style="display:none">
-                                <div class="input-group date" id="dp-startDate-<%=measure%>" data-date="<%=date%>"
+                            <div class="range-<%=Encode.forHtmlAttribute(measure)%>" style="display:none">
+                                <div class="input-group date" id="dp-startDate-<%=Encode.forHtmlAttribute(measure)%>" data-date="<%=date%>"
                                      title="Start Date">
-                                    <input style="width:90px" name="sDate<%=measure%>" id="sDate-<%=measure%>" size="16"
+                                    <input style="width:90px" name="sDate<%=Encode.forHtmlAttribute(measure)%>" id="sDate-<%=Encode.forHtmlAttribute(measure)%>" size="16"
                                            type="text" value="" placeholder="start" data-input
                                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$">
                                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                                 </div>
 
-                                <div class="input-group date" id="dp-endDate-<%=measure%>" data-date="<%=date%>"
+                                <div class="input-group date" id="dp-endDate-<%=Encode.forHtmlAttribute(measure)%>" data-date="<%=date%>"
                                      title="End Date">
-                                    <input style="width:90px" name="eDate<%=measure%>" id="eDate-<%=measure%>" size="16"
+                                    <input style="width:90px" name="eDate<%=Encode.forHtmlAttribute(measure)%>" id="eDate-<%=Encode.forHtmlAttribute(measure)%>" size="16"
                                            type="text" value="" placeholder="end" data-input
                                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$">
                                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
@@ -715,12 +715,12 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                         %>
                         <div class="preventionProcedure" <%=hider%>
-                             onclick="javascript:popup(465,635,'AddMeasurementData.jsp?measurement=<%= response.encodeURL( measure) %>&amp;id=<%=hdata.get("id")%>&amp;demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&amp;template=<%= URLEncoder.encode(temp,"UTF-8") %>','addMeasurementData')">
+                             onclick="javascript:popup(465,635,'AddMeasurementData.jsp?measurement=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(measure))%>&amp;id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&amp;template=<%= Encode.forJavaScriptAttribute(URLEncoder.encode(temp,"UTF-8")) %>','addMeasurementData')">
 
                             <p <%=indColour%>
                                     title="Entered By: <%=Encode.forHtmlAttribute(mdb.getProviderFirstName())%> <%=Encode.forHtmlAttribute(mdb.getProviderLastName())%>">
-                                <%=Encode.forHtml((String)h2.get("value_name"))%>: <%=Encode.forHtml((String)hdata.get("age"))%> <br/>
-                                <%=Encode.forHtml((String)hdata.get("prevention_date"))%>&nbsp;<%=Encode.forHtml(String.valueOf(mdb.getNumMonthSinceObserved()))%>M
+                                <%=Encode.forHtml(String.valueOf(h2.get("value_name")))%>: <%=Encode.forHtml(String.valueOf(hdata.get("age")))%> <br/>
+                                <%=Encode.forHtml(String.valueOf(hdata.get("prevention_date")))%>&nbsp;<%=Encode.forHtml(String.valueOf(mdb.getNumMonthSinceObserved()))%>M
                                 <%if (comb) {%>
                                 <span class="footnote"><%=comments.size()%></span>
                                 <%}%>
@@ -747,9 +747,9 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                 <div class="preventionSection" style="<%=hidden%>">
                     <%if (!printView) {%>
                     <div style="position: relative; float: left; padding-right: 10px;" class="DoNotPrint">
-                        <input type="checkbox" name="printHP" id="printHP<%=measure%>" class="css-checkbox"
-                               value="<%=measure%>"  <%=setToPrint ? "checked" : ""%>/>
-                        <label for="printHP<%=measure%>" class="css-label"></label><!--needed for chkbox effect-->
+                        <input type="checkbox" name="printHP" id="printHP<%=Encode.forHtmlAttribute(measure)%>" class="css-checkbox"
+                               value="<%=Encode.forHtmlAttribute(measure)%>"  <%=setToPrint ? "checked" : ""%>/>
+                        <label for="printHP<%=Encode.forHtmlAttribute(measure)%>" class="css-label"></label><!--needed for chkbox effect-->
                     </div>
                     <%}%>
 
@@ -807,11 +807,11 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                             //////PREV END
                     %>
                     <div class="preventionProcedure" <%=hider%>
-                         onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/oscarPrevention/AddPreventionData.jsp?id=<%=hdata.get("id")%>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no)) %>','addPreventionData')">
+                         onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/oscarPrevention/AddPreventionData.jsp?id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no)) %>','addPreventionData')">
                         <p <%=r(hdata.get("refused"))%>
                                 title="fade=[on] header=[<%=Encode.forHtmlAttribute(String.valueOf(hdata.get("age")))%> -- Date:<%=Encode.forHtmlAttribute(String.valueOf(hdata.get("prevention_date")))%>] body=[<%=Encode.forHtmlAttribute(com)%>]">
-                            Age: <%=Encode.forHtml((String)hdata.get("age"))%> <br/>
-                            <!--<%=refused(hdata.get("refused"))%>-->Date: <%=Encode.forHtml((String)hdata.get("prevention_date"))%>
+                            Age: <%=Encode.forHtml(String.valueOf(hdata.get("age")))%> <br/>
+                            <!--<%=refused(hdata.get("refused"))%>-->Date: <%=Encode.forHtml(String.valueOf(hdata.get("prevention_date")))%>
                             <%if (comb) {%>
                             <span class="footnote"><%=comments.size()%></span>
                             <%}%>

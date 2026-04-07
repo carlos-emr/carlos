@@ -315,7 +315,7 @@
             if (matcher.find()) {
                 windowName = matcher.group(1);
                 reloadUrl += "&numToDisplay=6&cmd=" + cmd;
-                divReloadInfo = "reloadWindows['" + windowName + "'] = '" + Encode.forJavaScript(reloadUrl) + "';reloadWindows['" + windowName + "div'] = '" + Encode.forJavaScript(cmd) + "'";
+                divReloadInfo = "reloadWindows['" + windowName + "'] = '" + Encode.forJavaScript(reloadUrl) + "';reloadWindows['" + windowName + "div'] = '" + Encode.forJavaScript(cmd) + "';";
             }
 
         }
