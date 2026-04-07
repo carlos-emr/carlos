@@ -522,7 +522,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 String encodedDispDocNo = Encode.forUriComponent(dispDocNo);
                 url = "popupPage(1000,1200,'" + hash + "', '" + request.getContextPath() + "/documentManager/showDocument.jsp?inWindow=true&segmentID=" + encodedDispDocNo +"');";
                 url = url + "return false;";
-
+            %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
                 <a class="links" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view.docView"/>" id="view<%=globalNoteId%>"
@@ -621,7 +621,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             </div>
             <%
                 }
-
+            %>
 
 							<div id="wrapper<%=globalNoteId%>" style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
                     <%-- render the note contents here --%>

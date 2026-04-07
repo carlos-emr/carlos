@@ -138,9 +138,6 @@
     boolean never = false;
     Map<String, String> extraData = new HashMap<String, String>();
     boolean hasImportExtra = false;
-    String annotation_display = CaseManagementNoteLink.DISP_PREV;
-
-
     boolean dhirEnabled = false;
 
     if ("true".equals(CarlosProperties.getInstance().getProperty("dhir.enabled", "false"))) {

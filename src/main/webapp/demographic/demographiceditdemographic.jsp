@@ -221,8 +221,6 @@
 
     List<CaseManagementNoteLink> cml = cmm.getLinkByTableId(CaseManagementNoteLink.DEMOGRAPHIC, Long.valueOf(demographic_no));
     boolean hasImportExtra = (cml.size() > 0);
-    String annotation_display = CaseManagementNoteLink.DISP_DEMO;
-
     LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_DEMOGRAPHIC, demographic_no, request.getRemoteAddr(), demographic_no);
 
     Boolean isMobileOptimized = session.getAttribute("mobileOptimized") != null;

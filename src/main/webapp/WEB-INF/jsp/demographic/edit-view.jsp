@@ -91,7 +91,6 @@
     List<Provider> midwifes = (List<Provider>) request.getAttribute("midwifes");
     List<CountryCode> countryList = (List<CountryCode>) request.getAttribute("countryList");
     boolean hasImportExtra = Boolean.TRUE.equals(request.getAttribute("hasImportExtra"));
-    String annotation_display = (String) request.getAttribute("annotation_display");
     String usSigned = (String) request.getAttribute("usSigned");
     String privacyConsent = (String) request.getAttribute("privacyConsent");
     String informedConsent = (String) request.getAttribute("informedConsent");

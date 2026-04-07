@@ -62,7 +62,6 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%
     DocumentExtraReviewerDao documentExtraReviewerDao = SpringUtils.getBean(DocumentExtraReviewerDao.class);
@@ -124,9 +123,6 @@
 
     List<Map<String, String>> pdList = new ProviderData().getProviderList();
     ArrayList doctypes = EDocUtil.getDoctypes(formdata.getFunction());
-    String annotation_display = CaseManagementNoteLink.DISP_DOCUMENT;
-    String annotation_tableid = editDocumentNo;
-
     CtlDocClassDao docClassDao = (CtlDocClassDao) SpringUtils.getBean(CtlDocClassDao.class);
     List<String> reportClasses = docClassDao.findUniqueReportClasses();
     ArrayList<String> subClasses = new ArrayList<String>();

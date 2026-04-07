@@ -74,7 +74,6 @@
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 
@@ -183,8 +182,6 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
                 drugref_route = "";
             }
             String[] d_route = ("Oral," + drugref_route).split(",");
-
-            String annotation_display = CaseManagementNoteLink.DISP_PRESCRIP;
 
             RxPrescriptionData.Prescription[] prescribedDrugs;
 

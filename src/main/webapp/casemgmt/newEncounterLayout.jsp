@@ -729,11 +729,7 @@
                         type="image"
                         src="<c:out value="${ctx}/encounter/graphics/copy.png"/>"
                         title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnCopy"/>'
-                        onclick="copyCppToCurrentNote(); return false;"> <input
-                    type="image"
-                    src="<c:out value="${ctx}/encounter/graphics/annotation.png"/>"
-                    title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnAnnotation"/>'
-                    id="anno" style="padding-right: 10px;"> <input type="image"
+                        onclick="copyCppToCurrentNote(); return false;"> <input type="image"
                                                                    src="<c:out value="${ctx}/encounter/graphics/edit-cut.png"/>"
                                                                    title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnArchive"/>'
                                                                    onclick="$('archived').value='true';"

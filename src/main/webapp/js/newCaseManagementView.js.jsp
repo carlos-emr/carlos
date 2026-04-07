@@ -1946,17 +1946,12 @@ function updateCPPNote() {
 
 
         var editAnchor = "edit" + nId;
-        var annoAnchor = "anno" + nId;
         var date = "d" + nId;
         var content = "c" + nId;
 
         // remove edit anchor
         if ($(editAnchor) != null)
             Element.remove(editAnchor);
-
-        // Remove annotation anchor
-        if ($(annoAnchor) != null)
-            Element.remove(annoAnchor);
 
         //check for line item displayed when note is minimized
         if ($(date) != null) {

@@ -44,7 +44,6 @@
     String user_no = (String) session.getAttribute("user");
     String demographicNo = (String) session.getAttribute("casemgmt_DemoNo");
 
-    String annotation_display = CaseManagementNoteLink.DISP_DOCUMENT;
     String appointment = request.getParameter("appointmentNo");
     int appointmentNo = 0;
     if (appointment != null && !appointment.isEmpty()) {
@@ -67,7 +66,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 
