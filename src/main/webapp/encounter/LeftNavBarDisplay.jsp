@@ -62,16 +62,23 @@
 <%
     long startTime = System.currentTimeMillis();
     NavBarDisplayDAO dao = (NavBarDisplayDAO) request.getAttribute("DAO");
-    String js = dao.getJavaScript();
     int maxColumnHeight = 40;  //break into columns after maxColumnHeight items reached
     int menuWidth = 125;
 
-
-    //Is there java script to insert in page?  Then do it
-    if (js != null) {
+    // Render auto-complete items with OWASP encoding (defense-in-depth, issue #1386)
+    java.util.List<NavBarDisplayDAO.AutoCompleteItem> acItems = dao.getAutoCompleteItems();
+    if (!acItems.isEmpty()) {
 %>
-<%=js%>
+<script type="text/javascript">
+<% for (NavBarDisplayDAO.AutoCompleteItem acItem : acItems) { %>
+itemColours['<%= Encode.forJavaScript(acItem.key()) %>'] = '<%= Encode.forJavaScript(acItem.bgColour()) %>';
+autoCompList.push('<%= Encode.forJavaScript(acItem.key()) %>');
+autoCompleted['<%= Encode.forJavaScript(acItem.key()) %>'] = "<%= Encode.forJavaScript(acItem.jsExpression()) %>";
 <% } %>
+</script>
+<%
+    }
+%>
 <input type=hidden name="reloadUrl" value="<%=Encode.forHtmlAttribute(dao.getReloadUrl())%>"/>
 <%
     //Do we have a '+' command to display on the right of the module header?
@@ -83,8 +90,13 @@
 %>
 <div class="nav-menu-heading" style="<%=getBackgroundColor(dao)%>">
     <div class="nav-menu-add-button" id='menuTitle<%=rh%>'>
-        <h3><a href="javascript:void(0);" <%=dao.numPopUpMenuItems() > 0 ? "onmouseover" : "onclick"%>=
-            "<%=dao.getRightURL()%>">&#43;</a></h3>
+<%      NavBarDisplayDAO.PopupConfig rightCfg = dao.getRightPopup();
+        String rightEvent = dao.numPopUpMenuItems() > 0 ? "onmouseover" : "onclick";
+        if (rightCfg != null) { %>
+        <h3><a href="javascript:void(0);" <%=rightEvent%>="popupPage(<%=rightCfg.width()%>,<%=rightCfg.height()%>,'<%=Encode.forJavaScript(rightCfg.windowName())%>','<%=Encode.forJavaScript(rightCfg.url())%>'); return false;">&#43;</a></h3>
+<%      } else { %>
+        <h3><a href="javascript:void(0);" <%=rightEvent%>="<%=Encode.forHtmlAttribute(dao.getRightURL())%>">&#43;</a></h3>
+<%      } %>
     </div>
     <%
         int num;
@@ -112,7 +124,12 @@
         <a href="javascript:void(0)" class="<%=style%>"
            onmouseover='this.style.color="black"'
            onmouseout='this.style.color="white"'
-           onclick="<%=dao.getPopUpUrl(idx) + ";"%> return false;"><%=Encode.forHtml(dao.getPopUpText(idx))%>
+<%         NavBarDisplayDAO.PopupConfig popCfg = dao.getPopUpConfig(idx);
+           if (popCfg != null) { %>
+           onclick="popupPage(<%=popCfg.width()%>,<%=popCfg.height()%>,'<%=Encode.forJavaScript(popCfg.windowName())%>','<%=Encode.forJavaScript(popCfg.url())%>'); return false;"><%=Encode.forHtml(dao.getPopUpText(idx))%>
+<%         } else { %>
+           onclick="<%=Encode.forHtmlAttribute(dao.getPopUpUrl(idx) + "; return false;")%>"><%=Encode.forHtml(dao.getPopUpText(idx))%>
+<%         } %>
         </a>
         <%
             if (columns && idx % 2 == 1) {
@@ -142,8 +159,14 @@
         //left hand module header comes last as it's displayed as a block
     %>
     <div class="nav-menu-title">
-        <h3 onclick="<%=dao.getLeftURL() + ";"%> return false;"><a href="javascript:void(0)"><%=Encode.forHtml(dao.getLeftHeading())%>
+<%      NavBarDisplayDAO.PopupConfig leftCfg = dao.getLeftPopup();
+        if (leftCfg != null) { %>
+        <h3 onclick="popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<%=Encode.forJavaScript(leftCfg.windowName())%>','<%=Encode.forJavaScript(leftCfg.url())%>'); return false;"><a href="javascript:void(0)"><%=Encode.forHtml(dao.getLeftHeading())%>
         </a></h3>
+<%      } else { %>
+        <h3 onclick="<%=Encode.forHtmlAttribute(dao.getLeftURL() + "; return false;")%>"><a href="javascript:void(0)"><%=Encode.forHtml(dao.getLeftHeading())%>
+        </a></h3>
+<%      } %>
     </div>
 </div>
 <ul id="<%=request.getAttribute("navbarName")%>list">
@@ -153,7 +176,9 @@
         String div = (String) request.getAttribute("navbarName");
         div = div.trim();
         int numItems = dao.numItems();
-        StringBuilder reloadURL = new StringBuilder(request.getParameter("reloadURL") + "&reloadURL=" + request.getParameter("reloadURL"));
+        String rawReloadURL = request.getParameter("reloadURL");
+        if (rawReloadURL == null) rawReloadURL = "";
+        StringBuilder reloadURL = new StringBuilder(rawReloadURL + "&reloadURL=" + rawReloadURL);
         String strToDisplay = request.getParameter("numToDisplay");
         int numToDisplay;
         boolean xpanded = false;
@@ -163,7 +188,7 @@
             numToDisplay = Integer.parseInt(strToDisplay);
             reloadURL.append("&numToDisplay=" + strToDisplay);
             if (numItems > numToDisplay) {
-                String xpandUrl = request.getParameter("reloadURL") + "&reloadURL=" + request.getParameter("reloadURL") + "&cmd=" + div;
+                String xpandUrl = rawReloadURL + "&reloadURL=" + rawReloadURL + "&cmd=" + div;
                 manageItems = xpandUrl;
             }
         } else {
@@ -264,7 +289,7 @@
             } else if (j == (numToDisplay - 1) && numItems > (curNum + 1)) {
                 imgName = "img" + request.getAttribute("navbarName") + curNum;
                 out.println("<a href='#' onclick=\"return false;\" title='" + String.valueOf(numItems - j - 1) + " more items' style=' text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + imgName + "' src='" + request.getContextPath() + "/encounter/graphics/expand.gif'/>&nbsp;&nbsp;</a>");
-                js.append("imgfunc['" + imgName + "'] = clickLoadDiv.bindAsEventListener(obj,'" + request.getAttribute("navbarName") + "','" + reloadUrl + "');");
+                js.append("imgfunc['" + imgName + "'] = clickLoadDiv.bindAsEventListener(obj,'" + Encode.forJavaScript(String.valueOf(request.getAttribute("navbarName"))) + "','" + Encode.forJavaScript(reloadUrl) + "');");
                 js.append("Element.observe($('" + imgName + "'), 'click', imgfunc['" + imgName + "']);");
             } else {
                 out.println("<a border=0 style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img  id='img" + request.getAttribute("navbarName") + curNum + "' src='" + request.getContextPath() + "/images/clear.gif'/>&nbsp;&nbsp;</a>");
