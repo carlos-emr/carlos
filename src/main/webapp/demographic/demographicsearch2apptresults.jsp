@@ -91,7 +91,7 @@
 
     // Validate originalpage to prevent open redirect: must be a relative URL
     String originalpage = request.getParameter("originalpage");
-    if (originalpage == null || originalpage.isEmpty() || !originalpage.startsWith("/") || originalpage.startsWith("//")) {
+    if (originalpage == null || originalpage.isEmpty() || !originalpage.startsWith("/") || originalpage.startsWith("//") || originalpage.startsWith("/\\")) {
         originalpage = request.getContextPath() + "/appointment/addappointment.jsp";
     }
 
