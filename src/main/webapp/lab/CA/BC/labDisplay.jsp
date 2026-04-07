@@ -102,10 +102,11 @@
         value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("segmentID"))) %>"/> <input
         type="hidden" name="selectedProviders" value=""/>
     <input type="hidden" name="favorites" value=""/>
-    <input type="hidden" name="labType" value="BCP"/> <input type="hidden"
-                                                             name="labType<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("segmentID"))) %>BCP"
-                                                             value="imNotNull"/> <input type="hidden" name="providerNo"
-                                                                                        value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>"/>
+    <input type="hidden" name="labType" value="BCP"/>
+    <input type="hidden" name="labType<%=StringUtils.noNull(request.getParameter("segmentID"))%>BCP"
+           value="imNotNull"/> <%-- segmentID is a numeric DB key; encoding would break server-side getParameter lookup --%>
+    <input type="hidden" name="providerNo"
+           value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>"/>
 </form>
 <form name="acknowledgeForm" method="post"
       action="<%=request.getContextPath()%>/oscarMDS/UpdateStatus.do">
