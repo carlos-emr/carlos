@@ -159,18 +159,18 @@
                         }
             %>
             <tr bgcolor='<%= yellow ? "yellow" : j%2 == 0 ? (i%2 == 0 ?weakcolor:deepcolor) : (i%2 == 0 ?"white":"#eeeeee")%>'>
-                <td><a href=# onClick="popupPageK('<%=hash + "started"%>','<%=request.getContextPath()
-									+ "/form/forwardshortcutname.do?formname=" + frm.getFormName()
-									+ "&demographic_no=" + demoNo 
+                <td><a href=# onClick="popupPageK('<%=Encode.forJavaScriptAttribute(hash + "started")%>','<%=Encode.forJavaScriptAttribute(request.getContextPath()
+									+ "/form/forwardshortcutname.do?formname=" + Encode.forUriComponent(frm.getFormName())
+									+ "&demographic_no=" + Encode.forUriComponent(demoNo)
 									+ "&formId=" + pfrm.getFormId()
-									+ "&provNo=" + provNo
+									+ "&provNo=" + Encode.forUriComponent(provNo))
 									%>'); return false;">
 
-                    <%=frm.getFormName() + (yellow ? " (current)" : "")%>
+                    <%=Encode.forHtml(frm.getFormName() + (yellow ? " (current)" : ""))%>
                 </a></td>
-                <td align='center'><%=pfrm.getCreated()%>
+                <td align='center'><%=Encode.forHtml(pfrm.getCreated())%>
                 </td>
-                <td align='center'><%=pfrm.getEdited()%>
+                <td align='center'><%=Encode.forHtml(pfrm.getEdited())%>
                 </td>
             </tr>
             <%
