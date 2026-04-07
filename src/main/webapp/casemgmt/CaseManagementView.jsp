@@ -221,13 +221,13 @@
                         %>
                         <td style="background-color: #555;<%=extra%>"><a
                                 href="javascript:void(0)"
-                                onclick="javascript:clickTab('<%=CaseManagementViewFormBean.tabs[x]%>'); return false;"><%=CaseManagementViewFormBean.tabs[x]%>
+                                onclick="javascript:clickTab('<%=Encode.forJavaScriptAttribute(CaseManagementViewFormBean.tabs[x])%>'); return false;"><%=Encode.forHtml(CaseManagementViewFormBean.tabs[x])%>
                         </a></td>
                         <%
                         } else {
                         %>
                         <td><a style="<%=extra%>" href="javascript:void(0)"
-                            onclick="javascript:clickTab('<%=CaseManagementViewFormBean.tabs[x]%>');return false;"><%=CaseManagementViewFormBean.tabs[x]%>
+                            onclick="javascript:clickTab('<%=Encode.forJavaScriptAttribute(CaseManagementViewFormBean.tabs[x])%>');return false;"><%=Encode.forHtml(CaseManagementViewFormBean.tabs[x])%>
                         </a></td>
                         <%
                             }
@@ -241,13 +241,13 @@
                     %>
                     <td style="background-color: #555;<%=extra%>"><a
                             href="javascript:void(0)"
-                            onclick="javascript:clickTab('<%=CaseManagementViewFormBean.tabs[x]%>'); return false;"><%=CaseManagementViewFormBean.tabs[x]%>
+                            onclick="javascript:clickTab('<%=Encode.forJavaScriptAttribute(CaseManagementViewFormBean.tabs[x])%>'); return false;"><%=Encode.forHtml(CaseManagementViewFormBean.tabs[x])%>
                     </a></td>
                     <%
                     } else {
                     %>
                     <td><a style="<%=extra%>" href="javascript:void(0)"
-                        onclick="javascript:clickTab('<%=CaseManagementViewFormBean.tabs[x]%>');return false;"><%=CaseManagementViewFormBean.tabs[x]%>
+                        onclick="javascript:clickTab('<%=Encode.forJavaScriptAttribute(CaseManagementViewFormBean.tabs[x])%>');return false;"><%=Encode.forHtml(CaseManagementViewFormBean.tabs[x])%>
                     </a></td>
                     <%
                         }

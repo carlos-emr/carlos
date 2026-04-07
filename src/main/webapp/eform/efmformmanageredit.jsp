@@ -102,7 +102,7 @@
                 document.getElementById("popupDisplay").style.display = 'none';
                 document.getElementById("panelDisplay").style.display = 'inline';
             } else {
-                document.write('<link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">');
+                document.write('<link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">');
             }
 
             <% if ((request.getAttribute("success") != null) && (errors.size() == 0)) { %>
@@ -112,7 +112,7 @@
             <%}%>
         </script>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
     </head>
 

@@ -657,7 +657,7 @@
                 <ul class="alert alert-danger"><%
                     for (String error : errorList) {
                 %>
-                    <li><%=error %>
+                    <li><%=Encode.forHtml(error) %>
                     </li>
                     <%
                         }
@@ -684,10 +684,10 @@
                     <div class="prevention">
                         <fieldset>
                             <legend><fmt:message key="oscarprevention.addpreventiondata.summary"/></legend>
-                            <textarea class="form-control form-control-sm" name="summary" readonly><%=summary%></textarea>
+                            <textarea class="form-control form-control-sm" name="summary" readonly><%=Encode.forHtml(summary != null ? summary : "")%></textarea>
                             <%if (hasImportExtra) { %>
                             <a href="javascript:void(0);" title="Extra data from Import"
-                               onclick="window.open('<%= request.getContextPath() %>/annotation/importExtra.jsp?display=<%=annotation_display %>&amp;table_id=<%=id %>&amp;demo=<%=demographic_no %>','anwin','width=400,height=250');">
+                               onclick="window.open('<%= request.getContextPath() %>/annotation/importExtra.jsp?display=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(annotation_display)) %>&amp;table_id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(id != null ? id : "")) %>&amp;demo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no != null ? demographic_no : "")) %>','anwin','width=400,height=250');">
                                 <img src="<%= request.getContextPath() %>/images/notes.gif" align="right" alt="Extra data from Import" height="16"
                                      width="13" border="0"> </a>
                             <%} %>
@@ -717,7 +717,7 @@
                                     <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
                                     <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
-                                                                                          value="<%=prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : prevDate%>"
+                                                                                          value="<%=Encode.forHtmlAttribute(prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : ""))%>"
                                                                                           required></div>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
@@ -985,7 +985,7 @@
                                 <%
                                     for (String lotnr : lotNrList) {
                                 %>
-                                <option value="<%=lotnr%>" <%= (lotnr.equals(lot) ? " selected" : "") %>><%=lotnr%>
+                                <option value="<%=Encode.forHtmlAttribute(lotnr)%>" <%= (lotnr.equals(lot) ? " selected" : "") %>><%=Encode.forHtml(lotnr)%>
                                 </option>
                                 <%}%>
                                 <option value="-1"><fmt:message key="oscarprevention.addpreventiondata.other"/></option>
@@ -1059,7 +1059,7 @@
                                     <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
                                     <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
-                                                                                          value="<%=prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : prevDate%>"
+                                                                                          value="<%=Encode.forHtmlAttribute(prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : ""))%>"
                                                                                           required></div>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
@@ -1312,7 +1312,7 @@
                                     <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
                                     <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                                           id="prevDate"
-                                                                                                          value="<%=prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : prevDate%>"
+                                                                                                          value="<%=Encode.forHtmlAttribute(prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : ""))%>"
                                                                                                           required></div>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
@@ -1395,7 +1395,7 @@
                                     <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
                                     <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
-                                                                                          value="<%=prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : prevDate%>"
+                                                                                          value="<%=Encode.forHtmlAttribute(prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : ""))%>"
                                                                                           required></div>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">

@@ -93,20 +93,7 @@ public class OntarioMD {
     private Hashtable parseReturn(InputStream is) {
         Hashtable h = null;
         try {
-            // Create secure SAXBuilder with XXE protection
-            SAXBuilder parser = new SAXBuilder();
-
-            // Security features to prevent XXE attacks
-            setFeatureSafely(parser, "http://apache.org/xml/features/disallow-doctype-decl", true);
-            setFeatureSafely(parser, "http://xml.org/sax/features/external-general-entities", false);
-            setFeatureSafely(parser, "http://xml.org/sax/features/external-parameter-entities", false);
-            setFeatureSafely(parser, "http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            
-            try {
-                parser.setExpandEntities(false);
-            } catch (Exception ex) {
-                MiscUtils.getLogger().error("Could not disable entity expansion: " + ex.getMessage());
-            }
+            SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
             Document doc = parser.build(is);
             Element root = doc.getRootElement();
 
@@ -124,14 +111,6 @@ public class OntarioMD {
             MiscUtils.getLogger().error("Error", e);
         }
         return h;
-    }
-
-    private void setFeatureSafely(SAXBuilder parser, String feature, boolean value) {
-        try {
-            parser.setFeature(feature, value);
-        } catch (Exception ex) {
-            MiscUtils.getLogger().warn("Could not set feature " + feature + ": " + ex.getMessage());
-        }
     }
 
     private String g(Iterator iter) {

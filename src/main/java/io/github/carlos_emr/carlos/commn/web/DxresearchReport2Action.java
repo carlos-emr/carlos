@@ -33,11 +33,15 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.owasp.encoder.Encode;
+
+import io.github.carlos_emr.carlos.commn.dao.AbstractCodeSystemDao;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.dao.MyGroupDao;
 import io.github.carlos_emr.carlos.commn.model.DxRegistedPTInfo;
@@ -69,6 +73,21 @@ public class DxresearchReport2Action extends ActionSupport {
     private MyGroupDao mygroupdao = SpringUtils.getBean(MyGroupDao.class);
     private static final String REPORTS_PATH = "org/oscarehr/common/web/DxResearchReport.jrxml";
 
+    /**
+     * Allowlist of valid values for the {@code radiovaluestatus} session attribute.
+     * Note: "patientRegistedDistincted" is an intentional legacy identifier used consistently
+     * across this Action class and the companion JSP (oscarReportDxReg.jsp). Changing it
+     * would require a coordinated rename of both server-side method names and JSP references,
+     * and is therefore preserved as-is to avoid breakage.
+     */
+    private static final Set<String> VALID_STATUS_VALUES = Set.of(
+            "patientRegistedAll",
+            "patientRegistedDistincted",
+            "patientRegistedDeleted",
+            "patientRegistedActive",
+            "patientRegistedResolve"
+    );
+
     @Override
     public String execute() throws Exception {
         String method = request.getParameter("method");
@@ -99,7 +118,15 @@ public class DxresearchReport2Action extends ActionSupport {
         request.getSession().setAttribute("allQuickLists", quicklistHd);
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
         request.getSession().setAttribute("codingSystem", codingSys);
-        request.getSession().setAttribute("radiovaluestatus", request.getSession().getAttribute("radiovaluestatus"));
+        // Whitelist-validate the existing session value before writing it back (CWE-501).
+        // If the value is null or not in the allowlist, remove it from session so that the
+        // JSP fallback defaults to "patientRegistedAll" (see oscarReportDxReg.jsp).
+        String radiovaluestatus = (String) request.getSession().getAttribute("radiovaluestatus");
+        if (radiovaluestatus != null && VALID_STATUS_VALUES.contains(radiovaluestatus)) {
+            request.getSession().setAttribute("radiovaluestatus", radiovaluestatus);
+        } else {
+            request.getSession().removeAttribute("radiovaluestatus");
+        }
         return SUCCESS;
     }
 
@@ -262,7 +289,8 @@ public class DxresearchReport2Action extends ActionSupport {
 
         dxQuickListItemsHandler.updatePatientCodeDesc(editingCodeType, editingCodeCode, editingCodeDesc);
 
-        editingCodeDesc = String.format("\"%s\"", editingCodeDesc);
+        // Encode before storing in session to prevent XSS via unsanitized session data (CWE-501)
+        editingCodeDesc = String.format("\"%s\"", Encode.forHtml(editingCodeDesc));
         request.getSession().setAttribute("editingCodeDesc", editingCodeDesc);
 
         return SUCCESS;
@@ -283,7 +311,18 @@ public class DxresearchReport2Action extends ActionSupport {
         String codeDescription = null;
 
         if (codeSystem != null && !codeSystem.isEmpty()) {
-            codeDescription = codingSystemManager.getCodeDescription(codeSystem.toLowerCase().trim(), codeSingle);
+            // Whitelist codeSystem against the known coding-system enum to prevent trust
+            // boundary violation (CWE-501) before storing request data in session.
+            String normalizedCodeSystem = codeSystem.toLowerCase().trim();
+            try {
+                // Use valueOf() as an allowlist check; the result is intentionally discarded —
+                // only validation is needed here, and getCodeDescription() accepts the String form.
+                AbstractCodeSystemDao.codingSystem.valueOf(normalizedCodeSystem);
+                codeDescription = codingSystemManager.getCodeDescription(normalizedCodeSystem, codeSingle);
+            } catch (IllegalArgumentException ignored) {
+                MiscUtils.getLogger().warn("addSearchCode: rejected unrecognised coding system: {}",
+                        Encode.forJava(codeSystem));
+            }
         }
 
         if (codeDescription != null && !codeDescription.isEmpty()) {

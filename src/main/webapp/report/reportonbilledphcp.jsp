@@ -40,6 +40,7 @@
 <%@ page errorPage="/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.sql.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%
@@ -134,10 +135,10 @@
                         <option value="ServiceCode">ServiceCode</option>
                     </select></td>
                 <td nowrap>start <input type="text" name="startDate"
-                                        id="startDate" value="<%=startDate!=null?startDate:""%>" size="10"
+                                        id="startDate" value="<%=Encode.forHtmlAttribute(startDate!=null?startDate:"")%>" size="10"
                                         readonly> <img src="<%= request.getContextPath() %>/images/cal.gif" id="startDate_cal">
                     end <input type="text" name="endDate" id="endDate"
-                               value="<%=endDate!=null?endDate:""%>" size="10" readonly> <img
+                               value="<%=Encode.forHtmlAttribute(endDate!=null?endDate:"")%>" size="10" readonly> <img
                             src="<%= request.getContextPath() %>/images/cal.gif" id="endDate_cal"></td>
                 <td>Provider: <select name="providerNoDoctor">
                     <option value="">------Doctor------</option>
@@ -675,7 +676,7 @@
     %>
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="<%="#669999"%>">
-            <th align="left"><font face="Helvetica" color="white"><%=providerName%>
+            <th align="left"><font face="Helvetica" color="white"><%=Encode.forHtml(providerName)%>
                 - PATIENT VISIT LIST </font></th>
             <th width="10%" nowrap><input type="button" name="Button"
                                           value="Print" onClick="window.print()"> <input type="button"
@@ -685,7 +686,7 @@
     </table>
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr>
-            <td>Period: ( <%= startDate %> ~ <%= endDate %> )</td>
+            <td>Period: ( <%= Encode.forHtml(startDate) %> ~ <%= Encode.forHtml(endDate) %> )</td>
         </tr>
     </table>
     <table width="100%" border="1" bgcolor="#ffffff" cellspacing="0"
@@ -771,55 +772,55 @@
             }
         %>
         <tr bgcolor="<%=color %>" align="center">
-            <td><%=vServiceCode.get(i)%>
+            <td><%=Encode.forHtml(String.valueOf(vServiceCode.get(i)))%>
             </td>
-            <td><%=vServiceDesc.get(i)%>
+            <td><%=Encode.forHtml(String.valueOf(vServiceDesc.get(i)))%>
             </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat" + vServiceDesc.get(i)), 0)%>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat" + vServiceDesc.get(i)), 0))%>
             </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis" + vServiceDesc.get(i)), 1)%>
-            </td>
-
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "patSexF" + vServiceDesc.get(i)), 2)%>
-            </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "visSexF" + vServiceDesc.get(i)), 3)%>
-            </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "patSexM" + vServiceDesc.get(i)), 4)%>
-            </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "visSexM" + vServiceDesc.get(i)), 5)%>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis" + vServiceDesc.get(i)), 1))%>
             </td>
 
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat0_1" + vServiceDesc.get(i)), 6)%>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "patSexF" + vServiceDesc.get(i)), 2))%>
             </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis0_1" + vServiceDesc.get(i)), 7)%>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "visSexF" + vServiceDesc.get(i)), 3))%>
             </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat2_11" + vServiceDesc.get(i)), 8)%>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "patSexM" + vServiceDesc.get(i)), 4))%>
             </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis2_11" + vServiceDesc.get(i)), 9)%>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "visSexM" + vServiceDesc.get(i)), 5))%>
             </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat12_20" + vServiceDesc.get(i)), 10)%>
+
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat0_1" + vServiceDesc.get(i)), 6))%>
             </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis12_20" + vServiceDesc.get(i)), 11)%>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis0_1" + vServiceDesc.get(i)), 7))%>
             </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat21_34" + vServiceDesc.get(i)), 12)%>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat2_11" + vServiceDesc.get(i)), 8))%>
             </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis21_34" + vServiceDesc.get(i)), 13)%>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis2_11" + vServiceDesc.get(i)), 9))%>
             </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat35_50" + vServiceDesc.get(i)), 14)%>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat12_20" + vServiceDesc.get(i)), 10))%>
             </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis35_50" + vServiceDesc.get(i)), 15)%>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis12_20" + vServiceDesc.get(i)), 11))%>
             </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat51_64" + vServiceDesc.get(i)), 16)%>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat21_34" + vServiceDesc.get(i)), 12))%>
             </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis51_64" + vServiceDesc.get(i)), 17)%>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis21_34" + vServiceDesc.get(i)), 13))%>
             </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat65_70" + vServiceDesc.get(i)), 18)%>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat35_50" + vServiceDesc.get(i)), 14))%>
             </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis65_70" + vServiceDesc.get(i)), 19)%>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis35_50" + vServiceDesc.get(i)), 15))%>
             </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat71_" + vServiceDesc.get(i)), 20)%>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat51_64" + vServiceDesc.get(i)), 16))%>
             </td>
-            <td><%=getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis71_" + vServiceDesc.get(i)), 21)%>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis51_64" + vServiceDesc.get(i)), 17))%>
+            </td>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat65_70" + vServiceDesc.get(i)), 18))%>
+            </td>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis65_70" + vServiceDesc.get(i)), 19))%>
+            </td>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat71_" + vServiceDesc.get(i)), 20))%>
+            </td>
+            <td><%=Encode.forHtml(getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis71_" + vServiceDesc.get(i)), 21))%>
             </td>
         </tr>
         <%

@@ -273,13 +273,13 @@
     <% } %> <form action="${pageContext.request.contextPath}/documentManager/addEditDocument.do" method="POST"
                        enctype="multipart/form-data" onsubmit="return submitUpload(this);">
     <input type="hidden" name="function"
-           value="<%=formdata.getFunction()%>" size="20"/>
+           value="<%=Encode.forHtmlAttribute(formdata.getFunction())%>" size="20"/>
     <input type="hidden" name="functionId"
-           value="<%=formdata.getFunctionId()%>" size="20"/>
-    <input type="hidden" name="functionid" value="<%=moduleid%>" size="20"/>
-    <input type="hidden" name="mode" value="<%=editDocumentNo%>"/>
-    <input type="hidden" name="reviewerId" value="<%=formdata.getReviewerId()%>"/>
-    <input type="hidden" name="reviewDateTime" value="<%=formdata.getReviewDateTime()%>"/>
+           value="<%=Encode.forHtmlAttribute(formdata.getFunctionId())%>" size="20"/>
+    <input type="hidden" name="functionid" value="<%=Encode.forHtmlAttribute(moduleid)%>" size="20"/>
+    <input type="hidden" name="mode" value="<%=Encode.forHtmlAttribute(editDocumentNo)%>"/>
+    <input type="hidden" name="reviewerId" value="<%=Encode.forHtmlAttribute(formdata.getReviewerId())%>"/>
+    <input type="hidden" name="reviewDateTime" value="<%=Encode.forHtmlAttribute(formdata.getReviewDateTime())%>"/>
     <input type="hidden" name="reviewDoc" value="false"/>
 
     <input type="hidden" name="extraReviewerId" value=""/>
@@ -469,7 +469,7 @@
         <tr>
             <td colspan=2>
                 <input type="button" value="Annotation"
-                       onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=annotation_tableid%>&demo=<%=moduleid%>','anwin','width=400,height=500');"/>
+                       onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(annotation_display)) %>&table_id=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(annotation_tableid)) %>&demo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(moduleid)) %>','anwin','width=400,height=500');"/>
             </td>
         </tr>
         <tr>

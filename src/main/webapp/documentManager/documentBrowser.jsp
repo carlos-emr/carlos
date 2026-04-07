@@ -120,11 +120,11 @@
     String winwidth = "";
     String winheight = "";
     if (request.getParameter("winwidth") != null) {
-        winwidth = request.getParameter("winwidth");
+        try { winwidth = String.valueOf(Integer.parseInt(request.getParameter("winwidth"))); } catch (NumberFormatException e) { winwidth = ""; }
     }
 
     if (request.getParameter("winheight") != null) {
-        winheight = request.getParameter("winheight");
+        try { winheight = String.valueOf(Integer.parseInt(request.getParameter("winheight"))); } catch (NumberFormatException e) { winheight = ""; }
     }
 
     if (!"".equalsIgnoreCase(moduleid) && (demographicID == null || demographicID.equalsIgnoreCase("null"))) {
@@ -412,7 +412,7 @@ Remote documents not supported
     <table>
         <%if (errorMessage.length() > 0) {%>
         <tr>
-            <td><b><font color="red"><%=errorMessage%>
+            <td><b><font color="red"><%=Encode.forHtml(errorMessage)%>
             </font></b></td>
         </tr>
         <%}%>
@@ -423,9 +423,9 @@ Remote documents not supported
                 <br>
 
                 <input type="hidden" name="viewstatus" value="<%= Encode.forHtmlAttribute(viewstatus) %>">
-                <input type="hidden" name="sortorder" value="<%=sortorder%>">
-                <input type="hidden" name="function" value="<%=module%>">
-                <input type="hidden" name="functionid" value="<%=moduleid%>">
+                <input type="hidden" name="sortorder" value="<%=Encode.forHtmlAttribute(sortorder)%>">
+                <input type="hidden" name="function" value="<%=Encode.forHtmlAttribute(module)%>">
+                <input type="hidden" name="functionid" value="<%=Encode.forHtmlAttribute(moduleid)%>">
                 <input type="hidden" name="categorykey" value="<%= Encode.forHtmlAttribute(categoryKey) %>">
 
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentBrowser.msgViewStatus"/> <select id="selviewstatus" name="selviewstatus"
@@ -450,7 +450,7 @@ Remote documents not supported
                 </select>
                 <fieldset>
                     <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentBrowser.msgView"/>:</legend>
-                    <input type="hidden" name="view" value="<%=view%>">
+                    <input type="hidden" name="view" value="<%=Encode.forHtmlAttribute(view)%>">
                     <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicID) %>">
                     <input type="hidden" name="undelDocumentNo" value="">
                     <input type="hidden" name="delDocumentNo" value="">
@@ -463,7 +463,7 @@ Remote documents not supported
                     </a> <% for (int i3 = 0; i3 < doctypes.size(); i3++) {%>
                     | <a
                         href="#"
-                        onclick="LoadView('<%=URLEncoder.encode((String) doctypes.get(i3),"UTF-8")%>')"><%=view.equals((String) doctypes.get(i3)) ? "<b>" : ""%><%=(String) doctypes.get(i3)%><%=view.equals((String) doctypes.get(i3)) ? "</b>" : ""%>
+                        onclick="LoadView('<%=Encode.forJavaScriptAttribute(URLEncoder.encode((String) doctypes.get(i3),"UTF-8"))%>')"><%=view.equals((String) doctypes.get(i3)) ? "<b>" : ""%><%=Encode.forHtml((String) doctypes.get(i3))%><%=view.equals((String) doctypes.get(i3)) ? "</b>" : ""%>
                 </a>
                     <%}%>
                 </fieldset>
@@ -479,8 +479,8 @@ Remote documents not supported
                             for (int i2 = 0; i2 < docs.size(); i2++) {
                                 EDoc cmicurdoc = docs.get(i2);
                         %>
-                        <option VALUE="<%=cmicurdoc.getDocId()%>-<%=cmicurdoc.getContentType()%>"><%=sortorder.equals("Content") ? UtilDateUtilities.DateToString(cmicurdoc.getContentDateTime(), "yyyy-MM-dd") : cmicurdoc.getDateTimeStamp()%>&nbsp;&nbsp; <%=cmicurdoc.getObservationDate()%>
-                            [<%=cmicurdoc.getType()%>] <%=cmicurdoc.getDescription()%>
+                        <option VALUE="<%=Encode.forHtmlAttribute(cmicurdoc.getDocId() + "-" + cmicurdoc.getContentType())%>"><%=Encode.forHtml(sortorder.equals("Content") ? UtilDateUtilities.DateToString(cmicurdoc.getContentDateTime(), "yyyy-MM-dd") : cmicurdoc.getDateTimeStamp())%>&nbsp;&nbsp; <%=Encode.forHtml(cmicurdoc.getObservationDate())%>
+                            [<%=Encode.forHtml(cmicurdoc.getType())%>] <%=Encode.forHtml(cmicurdoc.getDescription())%>
                         </option>
                         <%}%>
                     </SELECT>
@@ -504,7 +504,7 @@ Remote documents not supported
                                     int id = (Integer) ht.get("id");
                                     String qName = (String) ht.get("queue");
                             %>
-                            <option value="<%=id%>" <%=((id == queueId) ? " selected" : "")%>><%= qName%>
+                            <option value="<%=id%>" <%=((id == queueId) ? " selected" : "")%>><%= Encode.forHtml(qName)%>
                             </option>
                             <%}%>
                         </select>

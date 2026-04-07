@@ -114,18 +114,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/mouseover.js"></script>
 
         <!--Text Area text max limit code -->
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/javascript/txtCounter/x_core.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/javascript/txtCounter/x_dom.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/javascript/txtCounter/x_event.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/javascript/txtCounter/ylib.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/javascript/txtCounter/y_TextCounter.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/javascript/txtCounter/y_util.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/js/carlosTextCounter.js"></script>
 
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">

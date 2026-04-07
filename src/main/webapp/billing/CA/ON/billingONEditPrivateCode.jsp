@@ -30,7 +30,6 @@
 %>
 <%@ page errorPage="/errorpage.jsp" import="java.util.*,java.sql.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCodeImpl" %>
@@ -54,12 +53,12 @@
             if (serviceCode.equals(request.getParameter("action").substring("edit".length()))) {
                 if (dbObj.updateCodeByName(serviceCode, request.getParameter("description"), valuePara, "0.00",
                         request.getParameter("billingservice_date"), request.getParameter("gstFlag"))) {
-                    msg = serviceCode + " is updated.<br>"
+                    msg = Encode.forHtml(serviceCode) + " is updated.<br>"
                             + "Type in a service code and search first to see if it is available.";
                     action = "search";
                     prop.setProperty("service_code", serviceCode);
                 } else {
-                    msg = serviceCode
+                    msg = Encode.forHtml(serviceCode)
                             + " is <font color='red'>NOT</font> updated. Action failed! Try edit it again.";
                     action = "edit" + serviceCode;
                     prop.setProperty("service_code", serviceCode);
@@ -72,7 +71,7 @@
                     prop.setProperty("gstFlag", request.getParameter("gstFlag"));
                 }
             } else {
-                msg = "You can <font color='red'>NOT</font> save the service code - " + serviceCode
+                msg = "You can <font color='red'>NOT</font> save the service code - " + Encode.forHtml(serviceCode)
                         + ". Please search the service code first.";
                 action = "search";
                 prop.setProperty("service_code", serviceCode);
@@ -85,12 +84,12 @@
             if (serviceCode.equals(request.getParameter("action").substring("add".length()))) {
                 if (dbObj.addCodeByStr(serviceCode, request.getParameter("description"), valuePara, "0.00",
                         request.getParameter("billingservice_date"), request.getParameter("gstFlag")) > 0) {
-                    msg = serviceCode + " is added.<br>"
+                    msg = Encode.forHtml(serviceCode) + " is added.<br>"
                             + "Type in a service code and search first to see if it is available.";
                     action = "search";
                     prop.setProperty("service_code", serviceCode);
                 } else {
-                    msg = serviceCode
+                    msg = Encode.forHtml(serviceCode)
                             + " is not added. Action failed! Try edit it again.";
                     action = "add" + serviceCode;
                     prop.setProperty("service_code", serviceCode);
@@ -104,7 +103,7 @@
                     alert = "error";
                 }
             } else {
-                msg = "You can not save the service code - " + serviceCode
+                msg = "You can not save the service code - " + Encode.forHtml(serviceCode)
                         + ". Please search the service code first.";
                 action = "search";
                 prop.setProperty("service_code", serviceCode);
@@ -151,7 +150,7 @@
                 serviceCode = "";
             serviceCode = "_" + serviceCode;
             if (dbObj.deletePrivateCode(serviceCode)) {
-                msg = serviceCode + " is deleted.<br>"
+                msg = Encode.forHtml(serviceCode) + " is deleted.<br>"
                         + "Type in a service code and search first to see if it is available.";
                 action = "search";
                 prop.setProperty("service_code", "_");
@@ -167,7 +166,7 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePrivBillingCode"/></title>
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
 
@@ -180,7 +179,7 @@
                 document.forms[1].service_code.focus();
                 document.forms[1].service_code.select();
                 <% if ( prop.getProperty("gstFlag") != null ) {%>
-                if ("<%=prop.getProperty("gstFlag")%>" == "1") {
+                if ("<%=Encode.forJavaScript(prop.getProperty("gstFlag", ""))%>" == "1") {
                     document.getElementById("gstCheck").checked = true;
                     document.getElementById("gstFlag").value = 1;
                 } else {
@@ -308,7 +307,7 @@
                                 MiscUtils.getLogger().warn("NULL value set for a private billing code description (code is '" + strCode + "')");
                             }
                     %>
-                    <option value="<%=strCode%>"><%=(strCode + "| " + strDesc)%>
+                    <option value="<%=Encode.forHtmlAttribute(strCode)%>"><%=Encode.forHtml(strCode + "| " + strDesc)%>
                     </option>
                     <%
                         }
@@ -323,7 +322,7 @@
         <div class="card card-body bg-body-tertiary">
             <form method="post" name="baseurl" action="billingONEditPrivateCode.jsp">
 
-                <div class="alert alert-<%=alert%>">
+                <div class="alert alert-<%=Encode.forHtmlAttribute(alert)%>">
                     <%=msg%>
                 </div>
 
@@ -362,7 +361,7 @@
 
                 <br>
                 <input class="btn btn-secondary" type="submit" name="submit" value="Delete" onclick="javascript:return onDelete();">
-                <input type="hidden" name="action" value='<%=action%>'>
+                <input type="hidden" name="action" value='<%=Encode.forHtmlAttribute(action)%>'>
                 <input class="btn btn-secondary" type="submit" name="submit"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
                        onclick="javascript:return onSave();">
@@ -371,7 +370,7 @@
 
     </div>
 
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
     </body>
