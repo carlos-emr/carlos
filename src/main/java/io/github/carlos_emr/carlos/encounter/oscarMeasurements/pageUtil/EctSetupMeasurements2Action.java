@@ -40,6 +40,7 @@ import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBeanHandler;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -84,7 +85,7 @@ public final class EctSetupMeasurements2Action extends ActionSupport {
             request.getSession().setAttribute("EctSessionBean", bean);
             demo = bean.getDemographicNo();
         } else {
-            demo = request.getParameter("demographicNo");
+            demo = String.valueOf(ConversionUtils.fromIntString(request.getParameter("demographicNo")));
         }
         request.setAttribute("demographicNo", demo);
         EctMeasurementTypesBeanHandler hd = new EctMeasurementTypesBeanHandler(groupName, demo);

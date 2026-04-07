@@ -210,9 +210,9 @@
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
                                   size="2">
                 <% if (Dcode.compareTo(xcodeName) == 0 || Dcode.compareTo(xcodeName1) == 0 || Dcode.compareTo(xcodeName2) == 0) { %><input
-                    type="checkbox" name="code_<%=Dcode%>" checked>
-                <%} else {%><input type="checkbox" name="code_<%=Dcode%>">
-                <%}%><%=Dcode%>
+                    type="checkbox" name="code_<%=Encode.forHtmlAttribute(Dcode)%>" checked>
+                <%} else {%><input type="checkbox" name="code_<%=Encode.forHtmlAttribute(Dcode)%>">
+                <%}%><%=Encode.forHtml(Dcode)%>
             </font></td>
             <td width="22%"><font face="Arial, Helvetica, sans-serif"
                                   size="2"><%=Encode.forHtml(DcodeDesc)%>

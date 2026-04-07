@@ -32,6 +32,8 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Hashtable;
 
@@ -177,8 +179,10 @@ public class AddEditHtml2Action extends ActionSupport {
         }
         String contextPath = request.getContextPath();
         StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/documentReport.jsp");
-        redirect.append("?function=").append(request.getParameter("function"));
-        redirect.append("&functionid=").append(request.getParameter("functionid"));
+        String functionParam = request.getParameter("function");
+        String functionIdParam = request.getParameter("functionid");
+        redirect.append("?function=").append(functionParam != null ? URLEncoder.encode(functionParam, StandardCharsets.UTF_8) : "");
+        redirect.append("&functionid=").append(functionIdParam != null ? URLEncoder.encode(functionIdParam, StandardCharsets.UTF_8) : "");
         try {
             response.sendRedirect(redirect.toString());
         } catch (IOException e) {

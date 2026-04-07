@@ -80,6 +80,7 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
         BigDecimal updateAnaesthetistFeesValue = updateAnaesthetistFees ? getBDValue(request.getParameter("updateAnaesthetistFeesValue")) : null;
         try {
 
+            importFile = PathValidationUtils.validateUpload(importFile);
             InputStream is = new java.io.FileInputStream(importFile);
 
             ScheduleOfBenefits sob = new ScheduleOfBenefits();
