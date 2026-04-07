@@ -66,7 +66,8 @@ ENV PATH="${PATH}:/root/.local/bin"
 RUN npm install -g @google/gemini-cli
 
 # Install GitHub Copilot CLI (standalone coding agent with model selection)
-RUN npm install -g @github/copilot
+RUN npm install -g @github/copilot@0.0.113 && \
+    echo "✅ GitHub Copilot CLI installed: $(copilot --version)"
 
 # Install Playwright globally first to ensure it's available
 # Version 1.56.0 has correct Ubuntu 24.04 t64 package names in its dependency list
