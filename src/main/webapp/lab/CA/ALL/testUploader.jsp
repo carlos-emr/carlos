@@ -47,6 +47,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
 <%
@@ -311,7 +312,7 @@
 
         <c:forEach var="file" items="${filesStatusMap}">
             <script>
-                addFileNameWithStatus("<c:out value="${file.key}" />", "<c:out value="${file.value}" />");
+                addFileNameWithStatus("${e:forJavaScript(file.key)}", "${e:forJavaScript(file.value)}");
             </script>
         </c:forEach>
     </form>

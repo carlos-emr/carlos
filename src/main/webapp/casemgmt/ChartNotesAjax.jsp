@@ -601,15 +601,15 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 String url = "popupPage(700,800,'"
                         + hash + "started" + "','"
                         + request.getContextPath()
-                        + "/form/forwardshortcutname.do?formname=" + Encode.forUriComponent(formEntry.getNote())
-                        + "&demographic_no=" + Encode.forUriComponent(demographicNo)
-                        + "&formId=" + Encode.forUriComponent(String.valueOf(formEntry.getNoteId()))
+                        + StringEscapeUtils.escapeHtml4("/form/forwardshortcutname.do?formname=" + formEntry.getNote())
+                        + "&demographic_no=" + demographicNo
+                        + "&formId=" + formEntry.getNoteId()
                         + "'); return false;";
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
                 <a class="links" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view.eformView"/>" id="view<%=globalNoteId%>"
-                   href="javascript:void(0)" onclick="<%=Encode.forHtmlAttribute(url)%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view"/></a>
+                   href="javascript:void(0)" onclick="<%=url%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.view"/></a>
             </div>
             <%
             } else if (note.isEmailNote()) {
@@ -998,7 +998,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     var submitIssues = false;
     //AutoCompleter for Issues
     <%--    <c:url value="/CaseManagementEntry.do?method=issueList&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}" var="issueURL" />--%>
-    <%--    let issueAutoCompleter = new Ajax.Autocompleter("issueAutocomplete", "issueAutocompleteList", "<c:out value="${issueURL}"/>", {minChars: 3, indicator: 'busy', afterUpdateElement: saveIssueId, onShow: autoCompleteShowMenu, onHide: autoCompleteHideMenu});--%>
+
 
     <%int MaxLen = 20;
 			int TruncLen = 17;

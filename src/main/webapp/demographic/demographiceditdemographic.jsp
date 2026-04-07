@@ -722,7 +722,7 @@
 
             <security:oscarSec roleName="<%= roleName$ %>" objectName="_eChart" rights="r" reverse="<%= false %>" >
             var numMenus = 1;
-            var encURL = "<c:out value="${ctx}"/>/encounter/IncomingEncounter.do?providerNo=<%= Encode.forJavaScript(curProvider_no) %>&appointmentNo=&demographicNo=<%= Encode.forJavaScript(demographic_no) %>&curProviderNo=&reason=<%=Encode.forJavaScript(URLEncoder.encode(noteReason, StandardCharsets.UTF_8))%>&encType=<%=Encode.forJavaScript(URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8))%>&userName=<%=Encode.forJavaScript(URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8)) %>&curDate=<%= Encode.forJavaScript(dateString) %>&appointmentDate=&startTime=&status=";
+            var encURL = "<c:out value="${ctx}"/>/encounter/IncomingEncounter.do?providerNo=<%= Encode.forJavaScript(curProvider_no) %>&appointmentNo=&demographicNo=<%=demographic_no%>&curProviderNo=&reason=<%=URLEncoder.encode(noteReason, StandardCharsets.UTF_8)%>&encType=<%=URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8)%>&userName=<%=URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8) %>&curDate=<%=dateString%>&appointmentDate=&startTime=&status=";
 
             function showMenu(menuNumber, eventObj) {
                 var menuId = 'menu' + menuNumber;

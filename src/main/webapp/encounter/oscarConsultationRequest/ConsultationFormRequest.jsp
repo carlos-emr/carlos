@@ -1498,7 +1498,7 @@
 
         function updateEFormLink(eformID) {
             if (eformID > 0) {
-                let eFormURL = '<%=request.getContextPath()%>/eform/efmformadd_data.jsp?fid=' + eformID + '&demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(demo != null ? demo : "")) %>&appointment=null';
+                let eFormURL = '<%=request.getContextPath()%>/eform/efmformadd_data.jsp?fid=' + eformID + '&demographic_no=<%=demo%>&appointment=null';
                 document.getElementById("eFormButton").style.display = "inline";
                 document.getElementById("eFormButton").onclick = function () {
                     popup(eFormURL);
@@ -2210,7 +2210,7 @@ if (userAgent != null) {
                                                 <%-- <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.attachDoc"/> --%>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
                                                title="Add Attachment"
-                                               data-poload="${ ctx }/previewDocs.do?method=fetchConsultDocuments&amp;demographicNo=<%= Encode.forHtmlAttribute(Encode.forUriComponent(demo != null ? demo : "")) %>&amp;requestId=<%= Encode.forHtmlAttribute(Encode.forUriComponent(requestId != null ? requestId : "")) %>">
+                                               data-poload="${ ctx }/previewDocs.do?method=fetchConsultDocuments&amp;demographicNo=<%=demo%>&amp;requestId=<%=requestId%>">
                                                 Manage Attachments
                                             </a>
                                             <input type="hidden" id="isOceanEReferral"
@@ -2219,7 +2219,7 @@ if (userAgent != null) {
                                             } else { %>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
                                                title="Add Attachment"
-                                               data-poload="${ ctx }/previewDocs.do?method=fetchConsultDocuments&amp;demographicNo=<%= Encode.forHtmlAttribute(Encode.forUriComponent(demo != null ? demo : "")) %>&amp;requestId=<%= Encode.forHtmlAttribute(Encode.forUriComponent(requestId != null ? requestId : "")) %>">
+                                               data-poload="${ ctx }/previewDocs.do?method=fetchConsultDocuments&amp;demographicNo=<%=demo%>&amp;requestId=<%=requestId%>">
                                                 Manage Attachments
                                             </a>
 
@@ -2393,7 +2393,7 @@ if (userAgent != null) {
                                     <div class="card-header p-2 fw-semibold" style="font-size:0.85rem;">
                                         <i class="fa-solid fa-user me-1"></i>
                                         <a href="javascript:void(0);"
-                                           onClick="popupAttach(600,900,'<%=request.getContextPath()%>/demographic/DemographicEdit.do?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demo != null ? demo : "")) %>')"><%=Encode.forHtml(thisForm.getPatientName())%></a>
+                                           onClick="popupAttach(600,900,'<%=request.getContextPath()%>/demographic/DemographicEdit.do?demographic_no=<%=demo%>')"><%=Encode.forHtml(thisForm.getPatientName())%></a>
                                     </div>
                                     <div class="card-body p-2">
                                         <div class="row g-2" style="font-size:0.85rem;">
@@ -2546,7 +2546,7 @@ if (userAgent != null) {
                                             </td>
                                             <td class="consult-form-label" style="font-size:11px;">
                                                 <a href="javascript:void(0);"
-                                                   onclick="popupPage(500,700,'${ctx}/demographic/Contact.do?method=manageContactList&contactList=HCT&view=detached&demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demo != null ? demo : "")) %>' ); return false;">
+                                                   onclick="popupPage(500,700,'${ctx}/demographic/Contact.do?method=manageContactList&contactList=HCT&view=detached&demographic_no=<%=demo%>' ); return false;">
                                                     edit Health Care Team
                                                 </a>
                                             </td>

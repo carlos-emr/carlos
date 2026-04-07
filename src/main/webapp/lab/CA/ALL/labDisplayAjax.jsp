@@ -880,8 +880,8 @@
                                                         commentTitle = "comment: ";
                                                     }
                                                 %>
-                                                <span id="<%="V" + j + "commentLabel" + Encode.forHtmlAttribute(segmentID) + Encode.forHtmlAttribute(report.getProviderNo())%>"><%=commentTitle%></span><span
-                                                    id="<%="V" + j + "commentText" + Encode.forHtmlAttribute(segmentID) + Encode.forHtmlAttribute(report.getProviderNo())%>"> <%=report.getComment() == null ? "" : Encode.forHtml(report.getComment())%></span>
+                                                <span id="<%="V" + j + "commentLabel" + Encode.forHtmlAttribute(segmentID) + report.getProviderNo()%>"><%=commentTitle%></span><span
+                                                    id="<%="V" + j + "commentText" + Encode.forHtmlAttribute(segmentID) + report.getProviderNo()%>"> <%=report.getComment() == null ? "" : Encode.forHtml(report.getComment())%></span>
 
                                                 <br>
                                                 <% }

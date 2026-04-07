@@ -30,6 +30,7 @@
 --%>
 
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 
@@ -79,7 +80,7 @@
         <table width="100%" border="1" cellspacing="2" cellpadding="3">
             <tr class="b">
                 <td>Facility Id:</td>
-                <td><c:out value="${requestScope.id}"/></td>
+                <td>${e:forHtml(requestScope.id)}</td>
             </tr>
             <tr class="b">
                 <td>Name: *</td>

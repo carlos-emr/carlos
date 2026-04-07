@@ -30,13 +30,14 @@
 
 
 <%@ include file="/casemgmt/taglibs.jsp" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>Case Management</title>
     <c:set var="ctx" value="${pageContext.request.contextPath}"
            scope="request"/>
-    <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/casemgmt.css"
+    <link rel="stylesheet" href="${e:forHtmlAttribute(ctx)}/css/casemgmt.css"
           type="text/css">
 
     <script>

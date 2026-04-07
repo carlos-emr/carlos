@@ -50,8 +50,6 @@
           href="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"/>
     <script>var ctx = "${pageContext.request.contextPath}"</script>
     <script type="text/javascript"
-            src="${ pageContext.request.contextPath }/library/dompurify/purify.min.js"></script>
-    <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
             <script src="${ pageContext.request.contextPath }/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript"

@@ -156,7 +156,7 @@
                           - by default, show the bill recipient's name
                           - if it's empty, just display 'Patient'
                         --%>
-                    <td><c:out value="${invoice.recipientName}" default="Patient"/></td>
+                    <td>${e:forHtml(empty invoice.recipientName ? 'Patient' : invoice.recipientName)}</td>
 
                         <%-- Balance:
                           - by default, show balance in Canadian dollars

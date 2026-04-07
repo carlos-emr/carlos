@@ -985,7 +985,7 @@
                                 <%
                                     for (String lotnr : lotNrList) {
                                 %>
-                                <option value="<%=Encode.forHtmlAttribute(lotnr)%>" <%= (lotnr.equals(lot) ? " selected" : "") %>><%=Encode.forHtml(lotnr)%>
+                                <option value="<%=lotnr%>" <%= (lotnr.equals(lot) ? " selected" : "") %>><%=lotnr%>
                                 </option>
                                 <%}%>
                                 <option value="-1"><fmt:message key="oscarprevention.addpreventiondata.other"/></option>

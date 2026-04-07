@@ -46,6 +46,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData,java.util.*" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@page import="java.util.Calendar" %>
@@ -75,7 +76,7 @@
 %>
 
 <a onmouseover="this.style.cursor='pointer';" onMouseDown="parent.mb.hide();"><img
-        src="<c:out value="${ctx}/images/close.png"/>" border="0" TITLE="Close"
+        src="${e:forHtmlAttribute(ctx)}/images/close.png" border="0" TITLE="Close"
         style="position: absolute; top: 0.5em; right: 0.5em; "></a>
 <br/><br/>
 <table class="mhTable">

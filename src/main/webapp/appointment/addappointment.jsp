@@ -1240,7 +1240,7 @@ Ontario, Canada
                                             <c:forEach items="${ reasonCodes.items }" var="reason">
                                                 <c:if test="${ reason.active }">
                                                     <option value="${ reason.id }" id="${ reason.value }">
-                                                        <c:out value="${ reason.label }"/>
+                                                        ${e:forHtml(reason.label)}
                                                     </option>
                                                 </c:if>
                                             </c:forEach>

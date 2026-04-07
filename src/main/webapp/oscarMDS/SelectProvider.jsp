@@ -29,6 +29,7 @@
 
 --%>
 <%@include file="/casemgmt/taglibs.jsp" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page
         import="io.github.carlos_emr.carlos.providers.data.ProviderData, java.util.ArrayList,java.util.Map, java.util.List, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page
@@ -119,7 +120,7 @@
 </style>
 </head>
 <body>
-<input type="hidden" id="forwardList" value="<c:out value="${ param.forwardList }" />"/>
+<input type="hidden" id="forwardList" value="${e:forHtmlAttribute(param.forwardList)}"/>
 <form name="providerSelectForm" class="mx-1">
     <p style="font-weight:bold;">
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.forward.msgInstruction1"/>
