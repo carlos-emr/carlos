@@ -384,9 +384,6 @@ Remote documents not supported
             popup(450, 600, '<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&docId=' + docid + '&demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'tickler');
         }
 
-        function DocAnnotation() {
-            popup(350, 500, '<%= request.getContextPath() %>/annotation/annotation.jsp?display=Documents&table_id=' + docid + '&demo=<%=Encode.forJavaScript(Encode.forUriComponent(demographicID))%>', 'anwin');
-        }
 
         function DocEdit() {
             var th = document.getElementById('doclist');
@@ -490,8 +487,6 @@ Remote documents not supported
                     <% if (module.equalsIgnoreCase("demographic")) {%>
                     <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentBrowser.msgAddTickler"/>"
                            onclick="AddTickler();"> <%}%>
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentBrowser.msgAnnotate"/>"
-                           onclick="DocAnnotation()">
                     <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentBrowser.msgEdit"/>" onclick="DocEdit();">
                     <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentBrowser.msgDelete"/>"
                            onclick="DeleteDoc();">

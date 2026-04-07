@@ -22,7 +22,7 @@
 # to the licensing terms outlined in the repository's LICENSE file.
 #
 # Last Updated:
-# January 2026
+# April 2026
 
 name: SonarCloud Analysis
 
@@ -165,6 +165,7 @@ jobs:
               echo 'Running SonarCloud Analysis (Branch)'
               echo '========================================='
               mvn -B verify sonar:sonar \
+                -Ddependency-lock.skip=true \
                 -Dsonar.host.url=https://sonarcloud.io \
                 -Dsonar.projectKey=carlos-emr_carlos \
                             "
@@ -193,6 +194,7 @@ jobs:
               echo \"PR Base: \$PR_BASE\"
               echo '========================================='
               mvn -B verify sonar:sonar \
+                -Ddependency-lock.skip=true \
                 -Dsonar.host.url=https://sonarcloud.io \
                 -Dsonar.projectKey=carlos-emr_carlos \
                 \"-Dsonar.pullrequest.key=\$PR_NUMBER\" \

@@ -210,8 +210,6 @@ public final class RxRePrescribe2Action extends ActionSupport {
                 beanRX.setStashIndex(beanRX.addStashItem(loggedInInfo, rx));
                 auditStr.append(rx.getAuditString() + "\n");
 
-                // allocate space for annotation
-                beanRX.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(beanRX.getStashIndex()));
                 // p("beanRX.getStashIndex() in represcribe after", "" + beanRX.getStashIndex());
                 request.setAttribute("BoxNoFillFirstLoad", "true");
             }
@@ -332,9 +330,6 @@ public String saveDigitalSignature() throws IOException {
             bean.setStashIndex(rxStashIndex);
 
             auditStr.append(rx.getAuditString() + "\n");
-            bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
-            // p("brandName saved in stash", prescript.getBrandName());
-            // p("stashIndex becomes", "" + beanRX.getStashIndex());
 
             // RxUtil.printStashContent(beanRX);
         } catch (Exception e) {
@@ -398,9 +393,6 @@ public String saveDigitalSignature() throws IOException {
             beanRX.setStashIndex(rxStashIndex);
 
             auditStr.append(rx.getAuditString() + "\n");
-            beanRX.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(beanRX.getStashIndex()));
-            // p("brandName saved in stash", prescript.getBrandName());
-            // p("stashIndex becomes", "" + beanRX.getStashIndex());
 
             // RxUtil.printStashContent(beanRX);
             request.setAttribute("listRxDrugs", listReRx);
@@ -490,8 +482,6 @@ public String saveDigitalSignature() throws IOException {
             beanRX.setStashIndex(rxStashIndex);
             auditStr.append(rx.getAuditString() + "\n");
 
-            // allocate space for annotation
-            beanRX.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(beanRX.getStashIndex()));
         }
         // RxUtil.printStashContent(beanRX);
         request.setAttribute("listRxDrugs", listLongTerm);
@@ -560,7 +550,6 @@ public String saveDigitalSignature() throws IOException {
             }
             int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
             bean.setStashIndex(rxStashIndex);
-            bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
         }
         // Clear the session list after staging so the same drugs can be re-staged later
         bean.clearReRxDrugIdList();

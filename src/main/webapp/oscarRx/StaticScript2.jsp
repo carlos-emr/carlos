@@ -49,8 +49,6 @@
 <%@page import="java.util.ArrayList" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -129,7 +127,6 @@
             ArrayList<StaticScriptBean.DrugDisplayData> drugs = StaticScriptBean.getDrugList(loggedInInfo, currentDemographicNo, regionalIdentifier, cn, bn, atc);
 
             RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, currentDemographicNo);
-            String annotation_display = CaseManagementNoteLink.DISP_PRESCRIP;
         %>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
@@ -314,21 +311,6 @@
                             <%
                                 if (drug.isLocal) {
                             %>
-                            <input type="button" value="Annotation" title="Annotation" class="ControlPushButton"
-                                   onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=Encode.forUriComponent(annotation_display)%>&table_id=<%=Encode.forUriComponent(String.valueOf(drug.localDrugId))%>&demo=<%=Encode.forUriComponent(String.valueOf(currentDemographicNo))%>','anwin','width=400,height=500');">
-                            <%
-                                }
-                            %>
-                        </td>
-                        <td>
-                            <%
-                                if (drug.isLocal) {
-                            %>
-                                <%--  <form action="">
-      <input type="hidden" name="drugList" value="<%=drug.localDrugId.toString()%>" />
-      <input type="hidden" name="method" value="represcribe">
-                                                  <input type="submit" name="submit" style="width:100px" class="ControlPushButton"  onclick="javascript:reRxDrugSearch3('<%=drug.localDrugId%>');" value="Re-prescribe" />
-  </form> --%>
                             <input type="button" align="top" value="Represcribe" style="width: 100px"
                                    class="ControlPushButton"
                                    onclick="javascript:reRxDrugSearch3('<%=Encode.forJavaScriptAttribute(String.valueOf(drug.localDrugId))%>');"/>

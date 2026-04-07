@@ -183,8 +183,6 @@ public class DemographicEdit2Action extends ActionSupport {
         List<CaseManagementNoteLink> cml = cmm.getLinkByTableId(
                 CaseManagementNoteLink.DEMOGRAPHIC, Long.valueOf(demographic_no));
         boolean hasImportExtra = (cml != null && !cml.isEmpty());
-        String annotation_display = CaseManagementNoteLink.DISP_DEMO;
-
         // --- Consent values ---
         String usSigned = StringUtils.defaultString(demoExt.get("usSigned"));
         String privacyConsent = StringUtils.defaultString(demoExt.get("privacyConsent"), "");
@@ -323,7 +321,6 @@ public class DemographicEdit2Action extends ActionSupport {
         request.setAttribute("midwifes", midwifes);
         request.setAttribute("countryList", countryList);
         request.setAttribute("hasImportExtra", hasImportExtra);
-        request.setAttribute("annotation_display", annotation_display);
         request.setAttribute("usSigned", usSigned);
         request.setAttribute("privacyConsent", privacyConsent);
         request.setAttribute("informedConsent", informedConsent);

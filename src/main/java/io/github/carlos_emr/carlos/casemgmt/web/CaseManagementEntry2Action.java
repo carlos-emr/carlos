@@ -1220,43 +1220,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
         }
 
-        /* Save annotation */
-        String attrib_name = request.getParameter("annotation_attrib");
-        CaseManagementNote cmn = (CaseManagementNote) session.getAttribute(attrib_name);
-        if (cmn != null) {
-            // new annotation created and got it in session attribute
-            caseManagementMgr.saveNoteSimple(cmn);
-            CaseManagementNoteLink cml = new CaseManagementNoteLink(CaseManagementNoteLink.CASEMGMTNOTE, note.getId(), cmn.getId());
-            caseManagementMgr.saveNoteLink(cml);
-            LogAction.addLog(providerNo, LogConst.ANNOTATE, LogConst.CON_CME_NOTE, String.valueOf(cmn.getId()), request.getRemoteAddr(), demo, cmn.getNote());
-            session.removeAttribute(attrib_name);
-        }
-        if (!noteId.equals("0")) {
-            // Not a new note, look for old annotation
-            CaseManagementNoteLink cml_anno = null;
-            CaseManagementNoteLink cml_dump = null;
-            List<CaseManagementNoteLink> cmll = caseManagementMgr.getLinkByTableIdDesc(CaseManagementNoteLink.CASEMGMTNOTE, Long.valueOf(noteId));
-            for (CaseManagementNoteLink link : cmll) {
-                CaseManagementNote cmmn = caseManagementMgr.getNote(link.getNoteId().toString());
-                if (cmmn == null) continue;
-
-                if (cmmn.getNote().startsWith("imported.cms4.2011.06")) {
-                    if (cml_dump == null) cml_dump = link;
-                } else {
-                    if (cml_anno == null) cml_anno = link;
-                }
-                if (cml_anno != null && cml_dump != null) break;
-            }
-
-            if (cml_anno != null) {// old annotation exists - create new link
-                CaseManagementNoteLink cml_n = new CaseManagementNoteLink(CaseManagementNoteLink.CASEMGMTNOTE, note.getId(), cml_anno.getNoteId());
-                caseManagementMgr.saveNoteLink(cml_n);
-            }
-            if (cml_dump != null) {// old dump exists - create new link
-                CaseManagementNoteLink cml_n = new CaseManagementNoteLink(CaseManagementNoteLink.CASEMGMTNOTE, note.getId(), cml_dump.getNoteId());
-                caseManagementMgr.saveNoteLink(cml_n);
-            }
-        }
         caseManagementMgr.getEditors(note);
 
         if (newNote) {
@@ -1496,11 +1459,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             note.setAppointmentNo(Integer.parseInt(sessionBean.appointmentNo));
         }
 
-        /* Save annotation */
-        String attrib_name = request.getParameter("annotation_attribname");
-        CaseManagementNote annotationNote = (CaseManagementNote) session.getAttribute(attrib_name);
-
-        note = caseManagementMgr.saveCaseManagementNote(loggedInInfo, note, issuelist, cpp, ongoing, verify, request.getLocale(), now, annotationNote, userName, (String) session.getAttribute("user"), request.getRemoteAddr(), lastSavedNoteString);
+        note = caseManagementMgr.saveCaseManagementNote(
+                loggedInInfo, note, issuelist, cpp, ongoing, verify, request.getLocale(), now,
+                userName, (String) session.getAttribute("user"), request.getRemoteAddr(), lastSavedNoteString);
         caseManagementMgr.getEditors(note);
         this.setCaseNote(note);
 
@@ -1512,7 +1473,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             casemgmtNoteLockDao.merge(casemgmtNoteLockSession);
             session.setAttribute("casemgmtNoteLock" + demo, casemgmtNoteLockSession);
         }
-        session.removeAttribute(attrib_name);
 
         try {
             this.caseManagementMgr.deleteTmpSave(providerNo, note.getDemographic_no(), note.getProgram_no());

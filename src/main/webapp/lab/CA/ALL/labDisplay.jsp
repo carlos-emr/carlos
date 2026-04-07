@@ -95,9 +95,6 @@
 <%@ page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao" %>
@@ -359,9 +356,6 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
 <%
     }
 
-
-    String annotation_display = CaseManagementNoteLink.DISP_LABTEST;
-    CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
 
 %>
 <!DOCTYPE HTML>
@@ -1752,7 +1746,6 @@ input[id^='acklabel_']{
                                 <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
                                 <% } %>
                                 <td style="width:6%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
-                                <td style="width:6%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formAnnotate"/></td>
                                 <% if ("ExcellerisON".equals(handler.getMsgType())) { %>
                                 <td style="width:6%;  vertical-align:bottom" class="Cell">License #</td>
                             </tr>
@@ -1848,16 +1841,6 @@ input[id^='acklabel_']{
                     lineClass = "AbnormalRes";
                 }
 
-                boolean isPrevAnnotation = false;
-                CaseManagementNoteLink cml = caseManagementManager.getLatestLinkByTableId(CaseManagementNoteLink.LABTEST, Long.valueOf(segmentID), j + "-" + k);
-                CaseManagementNote p_cmn = null;
-                if (cml != null) {
-                    p_cmn = caseManagementManager.getNote(cml.getNoteId().toString());
-                }
-                if (p_cmn != null) {
-                    isPrevAnnotation = true;
-                }
-
                 String loincCode = null;
                 try {
                     List<MeasurementMap> mmapList = measurementMapDao.getMapsByIdent(handler.getOBXIdentifier(j, k));
@@ -1898,15 +1881,6 @@ input[id^='acklabel_']{
                 </td>
                 <td style="text-align:center"><%=Encode.forHtml(handler.getOBXResultStatus(j, k)) %>
                 </td>
-                <td style="text-align:center; vertical-align:top;  ">
-                    <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScriptAttribute(segmentID)%>&amp;demo=<%=Encode.forJavaScriptAttribute(demographicID)%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
-                        <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
-                                                          width="13"/><%} else { %><img
-                            src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
-                           /> <%} %>
-                    </a>
-                </td>
             </tr>
             <% } else if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && obxName.equals("")) { %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
@@ -1943,15 +1917,6 @@ input[id^='acklabel_']{
                 <td style="text-align:center"><%=Encode.forHtml(handler.getTimeStamp(j, k)) %>
                 </td>
                 <td style="text-align:center"><%=Encode.forHtml(handler.getOBXResultStatus(j, k)) %>
-                </td>
-                <td style="vertical-align:center; text-align:left;">
-                    <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScriptAttribute(segmentID)%>&amp;demo=<%=Encode.forJavaScriptAttribute(demographicID)%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
-                        <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
-                                                          width="13"/><%} else { %><img
-                            src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
-                           /> <%} %>
-                    </a>
                 </td>
             </tr>
 
@@ -2042,15 +2007,6 @@ input[id^='acklabel_']{
                 <td style="text-align:center"><%=Encode.forHtml(handler.getOBXResultStatus(j, k)) %>
                 </td>
 
-                <td style="vertical-align:top;  text-align:left;">
-                    <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScriptAttribute(segmentID)%>&amp;demo=<%=Encode.forJavaScriptAttribute(demographicID)%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
-                        <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
-                                                          width="13"/><%} else { %><img
-                            src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
-                           /> <%} %>
-                    </a>
-                </td>
             </tr>
 
             <%for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
@@ -2241,13 +2197,6 @@ input[id^='acklabel_']{
                 <%=status %>
 
             </td>
-            <td style="vertical-align:top;  text-align:left;"><a href="javascript:void(0);" title="Annotation"
-                                               onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScriptAttribute(segmentID)%>&amp;demo=<%=Encode.forJavaScriptAttribute(demographicID)%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
-                <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
-                                                  width="13"/><%} else { %><img
-                    src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"/> <%} %>
-            </a>
-            </td>
 
             <% if ("ExcellerisON".equals(handler.getMsgType())) {
                 lastLicenseNo = currentLicenseNo;
@@ -2285,15 +2234,6 @@ input[id^='acklabel_']{
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
                     <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXComment(j, k, l).replaceAll("<br />", " "))%></pre>
-                </td>
-                <td style="vertical-align:top;  text-align:left;">
-                    <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScriptAttribute(segmentID)%>&amp;demo=<%=Encode.forJavaScriptAttribute(demographicID)%>&amp;other_id=<%=String.valueOf(1) + "-" + String.valueOf(1) %>','anwin','width=400,height=500');">
-                        <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
-                                                          width="13"/><%} else { %><img
-                            src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
-                           /> <%} %>
-                    </a>
                 </td>
             </tr>
             <%
