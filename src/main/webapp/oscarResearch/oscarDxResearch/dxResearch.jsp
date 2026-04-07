@@ -275,7 +275,7 @@
                                                             <%=disabled%>>
                                                     <c:forEach var="codingSys" items="${codingSystem.codingSystems}">
                                                         <option value="${codingSys}">
-                                                            <c:out value="${codingSys}"/>
+                                                            ${e:forHtml(codingSys)}
                                                         </option>
                                                     </c:forEach>
                                                 </select>
@@ -286,9 +286,9 @@
                                         <td><input type="text" class="form-control" name="xml_research1"
                                                     <%=disabled%> />
                                             <input type="hidden" name="demographicNo"
-                                                   value="<c:out value="${demographicNo}"/>">
+                                                   value="${e:forHtmlAttribute(demographicNo)}">
                                             <input type="hidden" name="providerNo"
-                                                   value="<c:out value="${providerNo}"/>"></td>
+                                                   value="${e:forHtmlAttribute(providerNo)}"></td>
                                     </tr>
                                     <tr>
                                         <td><input type="text" class="form-control" name="xml_research2"
@@ -367,20 +367,20 @@
                                         <c:choose>
                                             <c:when test="${diagnotics.status == 'A'}">
                                                 <tr>
-                                                    <td><c:out value="${diagnotics.type}"/></td>
-                                                    <td class="notResolved"><c:out value="${diagnotics.dxSearchCode}"/></td>
-                                                    <td class="notResolved"><c:out value="${diagnotics.description}"/></td>
+                                                    <td>${e:forHtml(diagnotics.type)}</td>
+                                                    <td class="notResolved">${e:forHtml(diagnotics.dxSearchCode)}</td>
+                                                    <td class="notResolved">${e:forHtml(diagnotics.description)}</td>
                                                     <td class="notResolved">
                                                         <a href="#" onclick="showdatebox(${diagnotics.dxResearchNo});">
                                                             <div id="startdate1st${diagnotics.dxResearchNo}">
-                                                                <c:out value="${diagnotics.start_date}"/>
+                                                                ${e:forHtml(diagnotics.start_date)}
                                                             </div>
                                                             <input class="form-control" id="startdatenew${diagnotics.dxResearchNo}"
                                                                    type="text" name="start_date" size="8"
                                                                    value="${e:forHtmlAttribute(diagnotics.start_date)}" style="display:none"/>
                                                         </a>
                                                     </td>
-                                                    <td class="notResolved"><c:out value="${diagnotics.end_date}"/></td>
+                                                    <td class="notResolved">${e:forHtml(diagnotics.end_date)}</td>
                                                     <c:if test="${not disable}">
                                                         <td class="notResolved">
                                                             <a href="#" onclick="submitDxAction('C','','${diagnotics.dxResearchNo}','${demographicNo}','${providerNo}'); return false;">
@@ -398,10 +398,10 @@
                                             </c:when>
                                             <c:when test="${diagnotics.status == 'C'}">
                                                 <tr>
-                                                    <td><c:out value="${diagnotics.dxSearchCode}"/></td>
-                                                    <td><c:out value="${diagnotics.description}"/></td>
-                                                    <td><c:out value="${diagnotics.start_date}"/></td>
-                                                    <td><c:out value="${diagnotics.end_date}"/></td>
+                                                    <td>${e:forHtml(diagnotics.dxSearchCode)}</td>
+                                                    <td>${e:forHtml(diagnotics.description)}</td>
+                                                    <td>${e:forHtml(diagnotics.start_date)}</td>
+                                                    <td>${e:forHtml(diagnotics.end_date)}</td>
                                                     <c:if test="${not disable}">
                                                         <td>
                                                             <fmt:message key="oscarResearch.oscarDxResearch.dxResearch.btnResolve"/> |

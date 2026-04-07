@@ -2237,7 +2237,7 @@ if (userAgent != null) {
                                                 <c:forEach items="${ attachedEForms }" var="attachedEForm">
                                                     <tr id="entry_eFormNo${ attachedEForm.id }">
                                                         <td>
-                                                            <c:out value="${ attachedEForm.formName }"/>
+                                                            ${e:forHtml(attachedEForm.formName)}
                                                             <input name="eFormNo" value="${ attachedEForm.id }"
                                                                    id="delegate_eFormNo${ attachedEForm.id }"
                                                                    class="delegateAttachment" type="hidden">
@@ -2257,7 +2257,7 @@ if (userAgent != null) {
                                                 <c:forEach items="${ attachedDocuments }" var="attachedDocument">
                                                     <tr id="entry_docNo${ attachedDocument.docId }">
                                                         <td>
-                                                            <c:out value="${ attachedDocument.description }"/>
+                                                            ${e:forHtml(attachedDocument.description)}
                                                             <input name="docNo" value="${ attachedDocument.docId }"
                                                                    id="delegate_docNo${ attachedDocument.docId }"
                                                                    class="delegateAttachment" type="hidden">
@@ -2281,7 +2281,7 @@ if (userAgent != null) {
                                                                    value="${ fn:trim(attachedLab.label) != '' ? attachedLab.label : attachedLab.discipline}"/>
                                                             <c:if test="${empty labName}"><c:set var="labName"
                                                                                                  value="UNLABELLED"/></c:if>
-                                                            <c:out value="${attachedLab.description} ${ labName }"/>
+                                                            ${e:forHtml(attachedLab.description)} ${e:forHtml(labName)}
                                                             <input name="labNo" value="${ attachedLab.segmentID }"
                                                                    id="delegate_labNo${ attachedLab.segmentID }"
                                                                    class="delegateAttachment" type="hidden">
@@ -2301,7 +2301,7 @@ if (userAgent != null) {
                                                 <c:forEach items="${ attachedHRMDocuments }" var="attachedHrm">
                                                     <tr id="entry_hrmNo${ attachedHrm['id'] }">
                                                         <td>
-                                                            <c:out value="${ attachedHrm['name'] }"/>
+                                                            ${e:forHtml(attachedHrm['name'])}
                                                             <input name="hrmNo" value="${ attachedHrm['id'] }"
                                                                    id="delegate_hrmNo${ attachedHrm['id'] }"
                                                                    class="delegateAttachment" type="hidden">
@@ -2323,7 +2323,7 @@ if (userAgent != null) {
                                                         data-formName="${ attachedForm.formName }"
                                                         data-formDate="${ attachedForm.getEdited() }">
                                                         <td>
-                                                            <c:out value="${ attachedForm.formName }"/>
+                                                            ${e:forHtml(attachedForm.formName)}
                                                             <input name="formNo" value="${ attachedForm.formId }"
                                                                    id="delegate_formNo${ attachedForm.formId }"
                                                                    class="delegateAttachment" type="hidden">
@@ -2591,8 +2591,7 @@ if (userAgent != null) {
                                         <td class="consult-form-label">
                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formFax"/>
                                             <c:if test="${ not empty consultUtil.specialistFaxLog.status }">
-                                                <span style="font-size:80%;color:red;">Status: <c:out
-                                                        value="${ consultUtil.specialistFaxLog.status }"/></span>
+                                                <span style="font-size:80%;color:red;">Status: ${e:forHtml(consultUtil.specialistFaxLog.status)}</span>
                                             </c:if>
                                         </td>
                                         <td class="consult-form-value">
@@ -2625,7 +2624,7 @@ if (userAgent != null) {
                                                         <%-- Ensure that only active items are shown --%>
                                                         <c:if test="${ appointmentInstruction.active }">
                                                             <option value="${ appointmentInstruction.value }" ${ EctConsultationFormRequest2Form.appointmentInstructions eq appointmentInstruction.value ? 'selected' : '' }>
-                                                                <c:out value="${ appointmentInstruction.label }"/>
+                                                                ${e:forHtml(appointmentInstruction.label)}
                                                             </option>
                                                         </c:if>
                                                     </c:forEach>
@@ -2911,11 +2910,11 @@ if (userAgent != null) {
                                     <c:if test="${ not empty consultUtil.copyToFaxLog }">
                                         <c:forEach items="${ consultUtil.copyToFaxLog }" var="faxLog">
                                             <tr>
-                                                <td class="consult-form-label"><c:out value="${ faxLog.name }"/></td>
-                                                <td class="consult-form-label"><c:out value="${ faxLog.fax }"/></td>
+                                                <td class="consult-form-label">${e:forHtml(faxLog.name)}</td>
+                                                <td class="consult-form-label">${e:forHtml(faxLog.fax)}</td>
                                                 <td class="consult-form-label">
-                                                    <c:out value="${ faxLog.status }"/>
-                                                    <c:out value="${ faxLog.sent }"/>
+                                                    ${e:forHtml(faxLog.status)}
+                                                    ${e:forHtml(faxLog.sent)}
                                                 </td>
                                             </tr>
                                         </c:forEach>
