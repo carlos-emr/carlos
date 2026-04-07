@@ -204,7 +204,7 @@ public class BatchBill2Action extends ActionSupport {
     }
 
     //Add demographic to batch billing table and allow update of record if already present
-    public String add() throws ParseException {
+    public String add() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
@@ -216,7 +216,13 @@ public class BatchBill2Action extends ActionSupport {
             addActionError("Missing required parameter: demographic_no");
             return "error";
         }
-        Integer demographicNo = Integer.parseInt(demographicNoParam.trim());
+        Integer demographicNo;
+        try {
+            demographicNo = Integer.parseInt(demographicNoParam.trim());
+        } catch (NumberFormatException e) {
+            addActionError("Invalid demographic_no format");
+            return "error";
+        }
         String providersParam = request.getParameter("providers");
         String billingProviderNo = providersParam != null ? providersParam.trim() : "";
         String creatorParam = request.getParameter("creator");
@@ -229,7 +235,13 @@ public class BatchBill2Action extends ActionSupport {
             addActionError("Missing required parameter: createdate");
             return "error";
         }
-        Date date = DateUtils.parseDate(createdDate, new String[]{"yyyy/MM/dd HH:mm:ss"});
+        Date date;
+        try {
+            date = DateUtils.parseDate(createdDate, new String[]{"yyyy/MM/dd HH:mm:ss"});
+        } catch (ParseException e) {
+            addActionError("Invalid date format for createdate");
+            return "error";
+        }
         Timestamp created = new Timestamp(date.getTime());
         int pipePos;
 
