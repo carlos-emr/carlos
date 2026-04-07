@@ -60,22 +60,30 @@ function escapeHtml(str) {
  *
  * DOMPurify strips event handler attributes (onclick, etc.) by default, which
  * is the correct security posture. However, AJAX-loaded same-origin JSP content
- * uses inline handlers for UI functionality. This function extracts handlers
- * from the parsed DOM before sanitization and re-attaches them only to elements
- * that survive DOMPurify (i.e., structurally safe elements).
+ * uses inline handlers for UI functionality. This function registers a DOMPurify
+ * 'uponSanitizeAttribute' hook to capture event handler values during sanitization,
+ * before DOMPurify strips them. After sanitization completes, it re-attaches the
+ * captured handlers only to elements that survived DOMPurify's structural checks.
  *
- * Server-side OWASP encoding is the primary XSS defense; this pattern provides
- * defense-in-depth for the HTML structure while preserving handler functionality.
+ * Security model: server-side OWASP encoding is the primary XSS defense. DOMPurify
+ * provides defense-in-depth for HTML structure. Inline scripts from the AJAX response
+ * are handled separately by callers (extracted before DOMPurify and re-executed
+ * unconditionally) — DOMPurify only sanitizes the non-script HTML structure.
  *
  * @param {string} html - Raw HTML string from same-origin AJAX response
  * @param {Object} config - DOMPurify configuration (ADD_TAGS, ADD_ATTR, etc.)
  * @returns {DocumentFragment} Sanitized DOM fragment with handlers re-attached
  */
 function sanitizeWithHandlers(html, config) {
+    if (typeof DOMPurify === 'undefined') {
+        console.error('DOMPurify is required but not loaded. Returning empty fragment.');
+        return document.createDocumentFragment();
+    }
+
     var EVENT_ATTRS = ['onclick', 'ondblclick', 'onchange'];
     var handlerStore = [];
 
-    // Hook: capture event handler values before DOMPurify strips them.
+    // Hook: capture event handler values during DOMPurify processing, before it strips them.
     DOMPurify.addHook('uponSanitizeAttribute', function(node, data) {
         if (EVENT_ATTRS.indexOf(data.attrName) !== -1) {
             if (!node.__dpHandlers) {
@@ -197,6 +205,9 @@ function fetchGet(url) {
  * then re-executes both inline and same-origin external scripts.
  * Server-side OWASP encoding is the primary XSS defense; DOMPurify provides
  * defense-in-depth by stripping injected elements from data values.
+ * Note: inline scripts from the AJAX response are extracted before DOMPurify
+ * runs and re-executed unconditionally. DOMPurify only sanitizes the non-script
+ * HTML structure. The security model assumes trusted same-origin server endpoints.
  * @param {HTMLElement} container - The container element to append HTML to
  * @param {string} html - HTML string that may contain script tags
  */
@@ -1482,8 +1493,8 @@ function ForwardSelectedRows(files, searchProviderNo, status) {
                 // Applies Bootstrap 5 card styles if Bootstrap is included; otherwise, it will render as a normal jQuery dialog box.
                 styleDialogAsCard();
                 // Re-execute inline scripts from the same-origin JSP response.
-                // These define functions (copyProvider, removeProvider, initProviderAutocomplete)
-                // needed by the dialog's event handlers.
+                // These define dialog functions (copyProvider, removeProvider) and initialize
+                // the provider autocomplete widget needed by the dialog's event handlers.
                 inlineScripts.forEach(function(script) {
                     var newScript = document.createElement('script');
                     newScript.textContent = script.textContent;

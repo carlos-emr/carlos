@@ -215,6 +215,8 @@ function sendData(path, param, target) {
             csrfInput.name = 'CSRF-TOKEN';
             csrfInput.value = csrfTokenEl.value;
             form.appendChild(csrfInput);
+        } else {
+            console.warn('CSRF token not found on page; form submission may be rejected by server.');
         }
         document.body.appendChild(form);
         form.submit();

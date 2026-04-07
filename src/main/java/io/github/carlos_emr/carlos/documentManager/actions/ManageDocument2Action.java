@@ -313,7 +313,7 @@ public class ManageDocument2Action extends ActionSupport {
             response.setContentType("application/json;charset=UTF-8");
             response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("IOException writing JSON response in documentUpdateAjax", e);
         }
 
     }
@@ -338,7 +338,7 @@ public class ManageDocument2Action extends ActionSupport {
             response.setContentType("application/json;charset=UTF-8");
             response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("IOException writing JSON response in getDemoNameAjax", e);
         }
     }
 
@@ -366,7 +366,7 @@ public class ManageDocument2Action extends ActionSupport {
             response.setContentType("application/json;charset=UTF-8");
             response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("IOException writing JSON response in removeLinkFromDocument", e);
         }
     }
 

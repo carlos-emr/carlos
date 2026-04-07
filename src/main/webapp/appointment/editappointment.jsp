@@ -1089,7 +1089,7 @@
                                 StringBuilder sb = new StringBuilder();
                                 for (Site s : sites) {
                                     if (s.getName().equals(loc)) isSiteSelected = true;
-                                    sb.append("<option value=\"").append(s.getName()).append("\" class=\"").append(s.getShortName()).append("\" style=\"background-color: ").append(s.getBgColor()).append("\" ").append(s.getName().equals(loc) ? "selected" : "").append(">").append(s.getName()).append("</option>");
+                                    sb.append("<option value=\"").append(Encode.forHtmlAttribute(s.getName())).append("\" class=\"").append(Encode.forHtmlAttribute(s.getShortName())).append("\" style=\"background-color: ").append(Encode.forCssString(s.getBgColor())).append("\" ").append(s.getName().equals(loc) ? "selected" : "").append(">").append(Encode.forHtml(s.getName())).append("</option>");
                                 }
                                 if (isSiteSelected) {
                                     out.println(sb.toString());
@@ -1199,12 +1199,12 @@
 
                             if (strEditable != null && strEditable.equalsIgnoreCase("yes")) { %>
 
-                <select name="status" class="form-select" style="background-color:<%=((AppointmentStatus)allStatus.get(curSelect)).getColor()%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
+                <select name="status" class="form-select" style="background-color:<%=Encode.forCssString(((AppointmentStatus)allStatus.get(curSelect)).getColor())%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
                             <% for (int i = 0; i < allStatus.size(); i++) { %>
-                            <option class="<%=((AppointmentStatus)allStatus.get(i)).getStatus()%>"
-                                    style="background-color:<%=((AppointmentStatus)allStatus.get(i)).getColor()%>"
+                            <option class="<%=Encode.forHtmlAttribute(((AppointmentStatus)allStatus.get(i)).getStatus())%>"
+                                    style="background-color:<%=Encode.forCssString(((AppointmentStatus)allStatus.get(i)).getColor())%>"
                                     value="<%=Encode.forHtmlAttribute(((AppointmentStatus)allStatus.get(i)).getStatus()+signOrVerify)%>"
-                                    <%=((AppointmentStatus) allStatus.get(i)).getStatus().equals(statusCode) ? "SELECTED" : ""%>><%=((AppointmentStatus) allStatus.get(i)).getDescription()%>
+                                    <%=((AppointmentStatus) allStatus.get(i)).getStatus().equals(statusCode) ? "SELECTED" : ""%>><%=Encode.forHtml(((AppointmentStatus) allStatus.get(i)).getDescription())%>
                             </option>
                             <% } %>
                         </select> <%
@@ -1213,7 +1213,7 @@
               	<input type="text" class="form-control" name="status" value="<%= Encode.forHtmlAttribute(statusCode) %>" > <%
                     } else { %>
                 <input type="text" class="form-control" name="status" value="<%= Encode.forHtmlAttribute(statusCode) %>" >
-                <input type="text"  class="form-control" TITLE="Imported Status" value="<%=importedStatus%>" readonly> <%
+                <input type="text"  class="form-control" TITLE="Imported Status" value="<%=Encode.forHtmlAttribute(importedStatus)%>" readonly> <%
                             }
                         }
                     %>

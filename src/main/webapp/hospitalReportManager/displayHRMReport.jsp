@@ -957,13 +957,16 @@
                 //need datetime of report.
                 String[] duplicateLabIdsStringSplit = duplicateLabIdsString.split(",");
                 for (String tempId : duplicateLabIdsStringSplit) {
+                    tempId = tempId.trim();
+                    int parsedId;
+                    try { parsedId = Integer.parseInt(tempId); } catch (NumberFormatException e) { continue; }
             %>
             <tr>
-                <td><%=Encode.forHtml(tempId) %>
+                <td><%=Encode.forHtml(String.valueOf(parsedId)) %>
                 </td>
-                <td><%=formatter.format(dupReportDates.get(Integer.parseInt(tempId))) %>
+                <td><%=formatter.format(dupReportDates.get(parsedId)) %>
                 </td>
-                <td><%=formatter.format(dupTimeReceived.get(Integer.parseInt(tempId))) %>
+                <td><%=formatter.format(dupTimeReceived.get(parsedId)) %>
                 </td>
                 <td><input type="button" value="Open Report"
                            onclick="window.open('?id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(tempId))%>&segmentId=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(tempId))%>&providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(request.getParameter("providerNo") != null ? request.getParameter("providerNo") : ""))%>&searchProviderNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(request.getParameter("searchProviderNo") != null ? request.getParameter("searchProviderNo") : ""))%>&status=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(request.getParameter("status") != null ? request.getParameter("status") : ""))%>&demoName=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(request.getParameter("demoName") != null ? request.getParameter("demoName") : ""))%>', null)"/>

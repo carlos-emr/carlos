@@ -64,6 +64,7 @@
         if (!bMultisites) return "";
         String _loc = jdbc.getLocationFromSchedule(scDate, provider_no);
         String color = ApptUtil.getColorFromLocation(sites, _loc);
+        // Validate color against safe CSS characters to prevent CSS injection via style attribute
         if (!color.matches("[a-zA-Z0-9#]+")) { color = "white"; }
         return "<span style='background-color:" + color + "'>" + Encode.forHtml(ApptUtil.getShortNameFromLocation(sites, _loc)) + "</span>";
     }
