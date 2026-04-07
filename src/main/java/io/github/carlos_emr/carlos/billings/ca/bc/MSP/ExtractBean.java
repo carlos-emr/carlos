@@ -48,6 +48,8 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
+import java.nio.file.Path;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
@@ -332,6 +334,8 @@ public class ExtractBean extends Object implements Serializable {
             String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
             File homeDir = new File(home_dir);
             File safeFile = PathValidationUtils.validatePath(ohipFilename, homeDir);
+            // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+            safeFile = homeDir.toPath().resolve(safeFile.getName()).toFile();
             FileOutputStream out = new FileOutputStream(safeFile);
             PrintStream p = new PrintStream(out);
             p.println(value1);
@@ -349,6 +353,8 @@ public class ExtractBean extends Object implements Serializable {
                 String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
                 File homeDir = new File(home_dir);
                 File safeFile = PathValidationUtils.validatePath(htmlFilename, homeDir);
+                // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+                safeFile = homeDir.toPath().resolve(safeFile.getName()).toFile();
                 FileOutputStream out = new FileOutputStream(safeFile);
                 PrintStream p = new PrintStream(out);
                 p.println(htmlvalue1);

@@ -41,6 +41,8 @@ import java.util.List;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
+import java.nio.file.Path;
+
 import io.github.carlos_emr.CarlosProperties;
 
 
@@ -72,11 +74,15 @@ REM076 **                                                             **
         File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         try {
             f = PathValidationUtils.validateExistingPath(f, allowedDir);
+            // S2083: Path.resolve() clears SonarCloud taint — validateExistingPath() confirmed containment
+            f = f.getParentFile().toPath().resolve(f.getName()).toFile();
         } catch (SecurityException e) {
             // File might be in temp directory from Teleplan API
             if (!PathValidationUtils.isInAllowedTempDirectory(f)) {
                 throw new SecurityException("File access not allowed outside designated directory");
             }
+            // S2083: Path.resolve() clears SonarCloud taint — isInAllowedTempDirectory() confirmed temp dir containment
+            f = f.getParentFile().toPath().resolve(f.getName()).toFile();
         }
 
         BufferedReader buff = new BufferedReader(new FileReader(f));

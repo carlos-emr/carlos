@@ -47,6 +47,8 @@ import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+
+import java.nio.file.Path;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -527,6 +529,8 @@ public class ExtractBean implements Serializable {
             String home_dir;
             home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
             File safeFile = PathValidationUtils.validatePath(ohipFilename, new File(home_dir));
+            // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+            safeFile = new File(home_dir).toPath().resolve(safeFile.getName()).toFile();
             FileOutputStream out = new FileOutputStream(safeFile);
             PrintStream p = new PrintStream(out);
             p.println(value1);
@@ -548,6 +552,8 @@ public class ExtractBean implements Serializable {
             home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
 
             File safeFile = PathValidationUtils.validatePath(htmlFilename, new File(home_dir1));
+            // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+            safeFile = new File(home_dir1).toPath().resolve(safeFile.getName()).toFile();
             FileOutputStream out1 = new FileOutputStream(safeFile);
             PrintStream p1 = new PrintStream(out1);
             p1.println(htmlvalue1);

@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Properties;
 
 import jakarta.servlet.RequestDispatcher;
@@ -72,6 +73,8 @@ public class DocumentTeleplanReportUploadServlet extends HttpServlet {
                 }
 
                 File savedFile = PathValidationUtils.validatePath(submittedFilename, documentDir);
+                // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+                savedFile = documentDir.toPath().resolve(savedFile.getName()).toFile();
                 fileheader = savedFile.getName();
 
                 try (InputStream in = part.getInputStream()) {

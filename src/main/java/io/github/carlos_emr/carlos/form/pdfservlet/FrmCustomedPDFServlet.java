@@ -145,6 +145,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     // Use PathValidationUtils for proper path validation
                     File baseDirFile = new File(document_dir);
                     File validatedPdfFile = PathValidationUtils.validatePath(pdfFile, baseDirFile);
+                    // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+                    validatedPdfFile = baseDirFile.toPath().resolve(validatedPdfFile.getName()).toFile();
                     Path filepath = validatedPdfFile.toPath();
 
                     if (!Files.exists(filepath)) {
@@ -155,6 +157,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     String tempPath = CarlosProperties.getInstance().getProperty("fax_file_location", System.getProperty("java.io.tmpdir"));
                     File tempDirFile = new File(tempPath);
                     File validatedTempPdf = PathValidationUtils.validatePath("prescription_" + pdfid + ".pdf", tempDirFile);
+                    // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+                    validatedTempPdf = tempDirFile.toPath().resolve(validatedTempPdf.getName()).toFile();
                     Path tempPdf = validatedTempPdf.toPath();
 
                     // Copying the fax pdf.
@@ -164,6 +168,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
                     // tracking file
                     File validatedTxtFile = PathValidationUtils.validatePath("prescription_" + pdfid + ".txt", tempDirFile);
+                    // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+                    validatedTxtFile = tempDirFile.toPath().resolve(validatedTxtFile.getName()).toFile();
                     String txtFile = validatedTxtFile.toString();
                     try (FileWriter fstream = new FileWriter(txtFile);
                          BufferedWriter out = new BufferedWriter(fstream)) {

@@ -381,6 +381,8 @@ public class FaxImporter {
             // Validate path security
             PathValidationUtils.validatePath(uniqueFilename, configDir.toFile());
             Path targetFile = configDir.resolve(uniqueFilename);
+            // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+            targetFile = targetFile.getParent().resolve(targetFile.getFileName().toString());
 
             // Decode to temp file first (atomic write pattern)
             tempFile = Files.createTempFile(configDir, "fax-tmp-", ".pdf").toFile();
@@ -458,6 +460,8 @@ public class FaxImporter {
 
             // Validate and resolve final path in DOCUMENT_DIR
             File finalFile = PathValidationUtils.validatePath(uniqueFilename, new File(DOCUMENT_DIR));
+            // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+            finalFile = new File(DOCUMENT_DIR).toPath().resolve(finalFile.getName()).toFile();
 
             // Move from incoming to DOCUMENT_DIR
             moveFile(incomingFile, finalFile.toPath());

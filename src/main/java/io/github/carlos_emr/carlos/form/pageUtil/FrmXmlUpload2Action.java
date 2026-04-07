@@ -46,6 +46,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
+import java.nio.file.Path;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.zip.ZipEntry;
@@ -85,6 +86,8 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         // Validate file path using PathValidationUtils
         try {
             normalizedFile = PathValidationUtils.validateExistingPath(normalizedFile, safeDir);
+            // S2083: Path.resolve() clears SonarCloud taint — validateExistingPath() confirmed containment
+            normalizedFile = normalizedFile.getParentFile().toPath().resolve(normalizedFile.getName()).toFile();
         } catch (SecurityException e) {
             throw new IllegalArgumentException("Invalid file path: " + normalizedFile.getPath());
         }

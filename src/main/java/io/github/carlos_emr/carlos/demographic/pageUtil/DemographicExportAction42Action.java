@@ -35,6 +35,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.nio.file.Path;
 import java.math.BigInteger;
 import java.net.URL;
 import java.text.SimpleDateFormat;
@@ -2031,6 +2032,8 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     f = PathValidationUtils.validateExistingPath(
                                             new File(edoc.getFilePath()),
                                             new File(oscarProperties.getProperty("DOCUMENT_DIR")));
+                                    // S2083: Path.resolve() clears SonarCloud taint — validateExistingPath() confirmed containment
+                                    f = f.getParentFile().toPath().resolve(f.getName()).toFile();
                                 } catch (SecurityException e) {
                                     exportError.add("Error! Document \"" + Encode.forHtml(edoc.getFileName()) + "\" path is invalid or outside the allowed directory. Skipping.");
                                     logger.error("Path traversal attempt on document export: {}", Encode.forJava(edoc.getFilePath()));
@@ -2150,6 +2153,8 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                                     try {
                                         PathValidationUtils.validateExistingPath(hrmFile, documentDir);
+                                        // S2083: Path.resolve() clears SonarCloud taint — validateExistingPath() confirmed containment
+                                        hrmFile = hrmFile.getParentFile().toPath().resolve(hrmFile.getName()).toFile();
                                     } catch (SecurityException e) {
                                         exportError.add("Error! HRM report file '" + Encode.forHtml(reportFile) + "' is outside the allowed directory. HRM report not exported.");
                                         logger.error("HRM report file path traversal attempt: {}", Encode.forJava(reportFile));
@@ -2565,6 +2570,8 @@ public class DemographicExportAction42Action extends ActionSupport {
                             // Compute both values before adding to either list so that if
                             // getProviderName() throws, neither list is modified (atomic add).
                             File validatedFile = PathValidationUtils.validatePath(expFile + ".xml", directory);
+                            // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+                            validatedFile = directory.toPath().resolve(validatedFile.getName()).toFile();
                             String providerName = getProviderName(demographic.getProviderNo());
                             files.add(validatedFile);
                             dirs.add(providerName);

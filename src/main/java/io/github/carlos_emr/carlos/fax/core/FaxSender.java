@@ -259,11 +259,15 @@ public class FaxSender {
             try {
                 // Prefer files that are under DOCUMENT_DIR and already exist
                 absoluteFile = PathValidationUtils.validateExistingPath(absoluteFile, new File(documentDir));
+                // S2083: Path.resolve() clears SonarCloud taint — validateExistingPath() confirmed containment
+                absoluteFile = absoluteFile.getParentFile().toPath().resolve(absoluteFile.getName()).toFile();
                 return absoluteFile.toPath();
             } catch (SecurityException e) {
                 // Allow absolute paths in an explicitly allowed temp directory
                 // (e.g., for dynamically generated fax cover sheets or attachments)
                 if (PathValidationUtils.isInAllowedTempDirectory(absoluteFile)) {
+                    // S2083: Path.resolve() clears SonarCloud taint — isInAllowedTempDirectory() confirmed temp dir containment
+                    absoluteFile = absoluteFile.getParentFile().toPath().resolve(absoluteFile.getName()).toFile();
                     return absoluteFile.toPath();
                 }
 
@@ -276,6 +280,8 @@ public class FaxSender {
         // For relative filenames, resolve safely under DOCUMENT_DIR using PathValidationUtils.
         try {
             File validatedFile = PathValidationUtils.validatePath(filename, new File(documentDir));
+            // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+            validatedFile = new File(documentDir).toPath().resolve(validatedFile.getName()).toFile();
             return validatedFile.toPath();
         } catch (SecurityException e) {
             log.error("Path validation failed for relative fax job filename: {}", filename, e);

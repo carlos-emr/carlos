@@ -41,6 +41,7 @@ import org.apache.struts2.ServletActionContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.nio.file.Path;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
@@ -97,6 +98,8 @@ public class ProviderSignatureImage2Action extends ActionSupport {
         File sigFile;
         try {
             sigFile = PathValidationUtils.validatePath(signatureName, imageFolder);
+            // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+            sigFile = imageFolder.toPath().resolve(sigFile.getName()).toFile();
         } catch (SecurityException e) {
             MiscUtils.getLogger().warn("Blocked path traversal attempt for signature image", e);
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);

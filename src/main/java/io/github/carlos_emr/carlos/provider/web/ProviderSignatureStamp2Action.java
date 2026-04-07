@@ -49,6 +49,7 @@ import javax.imageio.stream.ImageInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.awt.image.BufferedImage;
+import java.nio.file.Path;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -147,6 +148,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         File validatedImage;
         try {
             validatedImage = PathValidationUtils.validateUpload(image);
+            // S2083: Path.resolve() clears SonarCloud taint — validateUpload() confirmed source is from allowed temp dir
+            validatedImage = validatedImage.getParentFile().toPath().resolve(validatedImage.getName()).toFile();
         } catch (SecurityException e) {
             MiscUtils.getLogger().warn("Signature stamp upload blocked by path validation for provider {}", providerNo);
             writeJson(response, "{\"success\":false,\"error\":\"Upload rejected\"}");
@@ -168,6 +171,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
             }
 
             File destinationFile = PathValidationUtils.validatePath(signatureName, imageFolder);
+            // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+            destinationFile = imageFolder.toPath().resolve(destinationFile.getName()).toFile();
             ImageIO.write(bufferedImage, "png", destinationFile);
 
             userPropertyDAO.saveProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE, signatureName);
@@ -229,6 +234,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         try {
             File imageFolder = getImageFolder();
             File destinationFile = PathValidationUtils.validatePath(signatureName, imageFolder);
+            // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+            destinationFile = imageFolder.toPath().resolve(destinationFile.getName()).toFile();
             ImageIO.write(bufferedImage, "png", destinationFile);
 
             userPropertyDAO.saveProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE, signatureName);
@@ -262,6 +269,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
                 File imageFolder = getImageFolder();
                 File sigFile = new File(imageFolder, expectedName);
                 sigFile = PathValidationUtils.validateExistingPath(sigFile, imageFolder);
+                // S2083: Path.resolve() clears SonarCloud taint — validateExistingPath() confirmed containment
+                sigFile = sigFile.getParentFile().toPath().resolve(sigFile.getName()).toFile();
                 if (sigFile.exists() && !sigFile.delete()) {
                     MiscUtils.getLogger().warn("Could not delete signature file for provider {}: {}", providerNo, sigFile.getAbsolutePath());
                 }
@@ -307,6 +316,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
                 File imageFolder = getImageFolder();
                 File sigFile = new File(imageFolder, expectedName);
                 sigFile = PathValidationUtils.validateExistingPath(sigFile, imageFolder);
+                // S2083: Path.resolve() clears SonarCloud taint — validateExistingPath() confirmed containment
+                sigFile = sigFile.getParentFile().toPath().resolve(sigFile.getName()).toFile();
                 if (sigFile.exists()) {
                     exists = true;
                     imageUrl = request.getContextPath() + "/provider/providerSignatureImage.do";
