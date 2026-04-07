@@ -213,7 +213,11 @@ public class AddEForm2Action extends ActionSupport {
             attachToEForm(loggedInInfo, attachedEForms, attachedDocuments, attachedLabs, attachedHRMDocuments, attachedForms, fdid, demographic_no, providerNo);
 
             //post fdid to {eform_link} attribute
-            if (eform_link != null) {
+            // Validate eform_link matches expected pattern before using as session key.
+            // An unvalidated session key allows an attacker to overwrite arbitrary session
+            // attributes (e.g., "user", "userrole") by crafting the eform_link parameter
+            // (CWE-501 Trust Boundary Violation).
+            if (eform_link != null && eform_link.matches("\\d+_\\d+_\\d+_\\w+")) {
                 se.setAttribute(eform_link, fdid);
             }
 
@@ -459,6 +463,10 @@ public class AddEForm2Action extends ActionSupport {
      * Stores email attachment data in session for use after redirect.
      * Session attributes survive redirects, unlike request attributes.
      *
+     * <p>All numeric IDs (fdid, demographicId, and attached-* arrays) are validated
+     * by parsing through {@code Integer.parseInt} before session storage to prevent
+     * CWE-501 Trust Boundary Violation (unsanitized HTTP request data in HttpSession).</p>
+     *
      * @param request HTTP request
      * @param settings EmailAttachmentSettings containing all attachment configuration
      */
@@ -470,13 +478,14 @@ public class AddEForm2Action extends ActionSupport {
         session.setAttribute("isEmailAutoSend", settings.isEmailAutoSend());
         session.setAttribute("openEFormAfterEmail", settings.openAfterEmail());
         session.setAttribute("attachEFormItSelf", settings.attachEFormItSelf());
-        session.setAttribute("fdid", settings.fdid());
-        session.setAttribute("demographicId", settings.demographicNo());
-        session.setAttribute("attachedEForms", settings.attachedEForms());
-        session.setAttribute("attachedDocuments", settings.attachedDocuments());
-        session.setAttribute("attachedLabs", settings.attachedLabs());
-        session.setAttribute("attachedHRMDocuments", settings.attachedHRMDocuments());
-        session.setAttribute("attachedForms", settings.attachedForms());
+        // Validate numeric IDs via Integer.parseInt to break the taint chain (CWE-501)
+        session.setAttribute("fdid", validateIntId(settings.fdid()));
+        session.setAttribute("demographicId", validateIntId(settings.demographicNo()));
+        session.setAttribute("attachedEForms", validateIntIdArray(settings.attachedEForms()));
+        session.setAttribute("attachedDocuments", validateIntIdArray(settings.attachedDocuments()));
+        session.setAttribute("attachedLabs", validateIntIdArray(settings.attachedLabs()));
+        session.setAttribute("attachedHRMDocuments", validateIntIdArray(settings.attachedHRMDocuments()));
+        session.setAttribute("attachedForms", validateIntIdArray(settings.attachedForms()));
         session.setAttribute("emailPDFPassword", settings.emailPDFPassword());
         session.setAttribute("emailPDFPasswordClue", settings.emailPDFPasswordClue());
         session.setAttribute("senderEmail", settings.senderEmail());
@@ -484,6 +493,46 @@ public class AddEForm2Action extends ActionSupport {
         session.setAttribute("bodyEmail", settings.bodyEmail());
         session.setAttribute("encryptedMessageEmail", settings.encryptedMessageEmail());
         session.setAttribute("emailPatientChartOption", settings.emailPatientChartOption());
+    }
+
+    /**
+     * Parses a string ID as an integer and returns its canonical string form,
+     * breaking the CodeQL taint chain for CWE-501 (Trust Boundary Violation).
+     *
+     * <p>Package-private for unit testing.</p>
+     *
+     * @param id the string representation of a numeric identifier
+     * @return the canonical integer string (e.g., "42"), or {@code null} if the input
+     *         is {@code null} or not a valid integer
+     */
+    static String validateIntId(String id) {
+        if (id == null) return null;
+        try {
+            return String.valueOf(Integer.parseInt(id));
+        } catch (NumberFormatException e) {
+            logger.warn("Rejected non-integer ID from session storage (trust boundary enforcement): {}", id);
+            return null;
+        }
+    }
+
+    /**
+     * Filters a string array to only integer-parseable elements and returns their
+     * canonical string forms, breaking the CodeQL taint chain for CWE-501.
+     *
+     * <p>Package-private for unit testing.</p>
+     *
+     * @param ids array of string IDs; may be {@code null}
+     * @return a new array containing only the valid integer IDs (empty array if none pass),
+     *         or an empty array if the input is {@code null}
+     */
+    static String[] validateIntIdArray(String[] ids) {
+        if (ids == null) return new String[0];
+        List<String> validated = new ArrayList<>();
+        for (String id : ids) {
+            String v = validateIntId(id);
+            if (v != null) validated.add(v);
+        }
+        return validated.toArray(new String[0]);
     }
 
     /**
