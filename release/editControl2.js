@@ -124,6 +124,42 @@ var cfg_sstyle = 'vertical-align: top; height:24px;';//the CSS of the option sel
 var cfg_sepstyle = 'width:6px;height:24px;border: solid 2px #ccccff; background-color: #ccccff;';	//the CSS of the seperator icon
 
 
+/**
+ * Sanitizes HTML for safe insertion via innerHTML.
+ * Strips script/iframe/object/embed elements and event handler attributes
+ * while preserving safe formatting elements for the eForm editor.
+ *
+ * @param {string} html - Raw HTML string to sanitize
+ * @returns {string} Sanitized HTML safe for innerHTML insertion
+ */
+function sanitizeEditorHtml(html) {
+    if (typeof html !== 'string') return '';
+    var doc = new DOMParser().parseFromString(html, 'text/html');
+    // Remove dangerous elements
+    var dangerous = doc.querySelectorAll('script, iframe, object, embed, applet, form, base, link[rel="import"]');
+    for (var i = 0; i < dangerous.length; i++) {
+        dangerous[i].parentNode.removeChild(dangerous[i]);
+    }
+    // Remove event handler attributes from all elements
+    var allElements = doc.body.querySelectorAll('*');
+    for (var j = 0; j < allElements.length; j++) {
+        var attrs = allElements[j].attributes;
+        for (var k = attrs.length - 1; k >= 0; k--) {
+            if (attrs[k].name.toLowerCase().indexOf('on') === 0) {
+                allElements[j].removeAttribute(attrs[k].name);
+            }
+        }
+        // Remove javascript: URLs in href/src/action
+        ['href', 'src', 'action', 'formaction', 'data'].forEach(function(attr) {
+            var val = allElements[j].getAttribute(attr);
+            if (val && val.trim().toLowerCase().indexOf('javascript:') === 0) {
+                allElements[j].removeAttribute(attr);
+            }
+        });
+    }
+    return doc.body.innerHTML;
+}
+
 function insertEditControl() {
 	// The main initialising function which writes the edit control as per passed variables
 	// ...OR... if it fails, degrades nicely by supplying a text area with the same ID (cfg_editorname)
@@ -297,7 +333,9 @@ function seteditControlContents(editorname, value){
 
 	// Converting image paths with template style tag to URL format using 'cfg_isrc' using imageControl library.
 	value = jQuery().convertImagePaths(value, cfg_isrc);
-	
+	// Sanitize to strip dangerous elements/attributes before innerHTML insertion
+	value = sanitizeEditorHtml(value);
+
     if (document.designMode) {
 		if (isIE()){
 		    window[editorname].document.body.innerHTML = value; //if browser supports M$ conventions
@@ -454,6 +492,8 @@ function parseText(obs) {
  * @param {string} value - HTML string to insert (e.g., "<b>Aleshia Jones</b>")
  */
 function doHtml(value) {
+	// Sanitize to strip dangerous elements/attributes before DOM insertion
+	value = sanitizeEditorHtml(value);
 	var editorDoc = document.getElementById(cfg_editorname).contentWindow.document;
 
 	// Insert at cursor using the Selection/Range API
@@ -597,7 +637,7 @@ function viewsource(source) {
 	} else {
 		html = document.getElementById(cfg_editorname).contentWindow.document.body.ownerDocument.createRange();
 		html.selectNodeContents(document.getElementById(cfg_editorname).contentWindow.document.body);
-		document.getElementById(cfg_editorname).contentWindow.document.body.innerHTML = jQuery().convertImagePaths(html.toString());
+		document.getElementById(cfg_editorname).contentWindow.document.body.innerHTML = sanitizeEditorHtml(jQuery().convertImagePaths(html.toString()));
 		document.getElementById("control1").style.visibility="visible";
 		document.getElementById("control2").style.visibility="visible";
 		document.getElementById("control3").style.visibility="visible";
