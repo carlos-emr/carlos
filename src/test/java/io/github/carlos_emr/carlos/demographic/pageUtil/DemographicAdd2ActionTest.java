@@ -169,7 +169,7 @@ class DemographicAdd2ActionTest extends CarlosWebTestBase {
         void setUpHappyPath() {
             MockitoAnnotations.openMocks(this);
 
-            // OscarLogDao must be registered so LogAction's static initialiser
+            // OscarLogDao must be registered so LogAction's static initializer
             // (SpringUtils.getBean(OscarLogDao.class)) can succeed on first load.
             replaceSpringUtilsBean(OscarLogDao.class, mockOscarLogDao);
             replaceSpringUtilsBean(CountryCodeDao.class, mockCountryCodeDao);

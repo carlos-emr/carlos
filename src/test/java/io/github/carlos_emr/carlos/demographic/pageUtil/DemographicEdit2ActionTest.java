@@ -269,7 +269,7 @@ class DemographicEdit2ActionTest extends CarlosWebTestBase {
 
             // Register all beans needed for the full execute() happy path.
             // OscarLogDao must be registered first so that LogAction's static
-            // initialiser (SpringUtils.getBean(OscarLogDao.class)) can succeed
+            // initializer (SpringUtils.getBean(OscarLogDao.class)) can succeed
             // when LogAction is loaded by the JVM during the first test run.
             replaceSpringUtilsBean(OscarLogDao.class, mockOscarLogDao);
             replaceSpringUtilsBean(DemographicExtDao.class, mockExtDao);
