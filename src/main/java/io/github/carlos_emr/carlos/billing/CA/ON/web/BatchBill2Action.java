@@ -227,6 +227,7 @@ public class BatchBill2Action extends ActionSupport {
         String billingProviderNo = providersParam != null ? providersParam.trim() : "";
         String creatorParam = request.getParameter("creator");
         String creatorProviderNo = creatorParam != null ? creatorParam.trim() : "";
+        // service_code may be absent for bulk batch billing entries; validated downstream by DAO
         String service_code = request.getParameter("xml_other1") != null ? request.getParameter("xml_other1") : "";
         String dxcodeRaw = request.getParameter("xml_diagnostic_detail");
         String dxcode = dxcodeRaw != null ? dxcodeRaw : "";
