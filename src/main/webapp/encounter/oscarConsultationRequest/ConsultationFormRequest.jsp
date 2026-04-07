@@ -1498,7 +1498,7 @@
 
         function updateEFormLink(eformID) {
             if (eformID > 0) {
-                let eFormURL = '<%=request.getContextPath()%>/eform/efmformadd_data.jsp?fid=' + eformID + '&demographic_no=<%= Encode.forJavaScript(Encode.forUriComponent(demo != null ? demo : "")) %>&appointment=null';
+                let eFormURL = '<%=request.getContextPath()%>/eform/efmformadd_data.jsp?fid=' + eformID + '&demographic_no=<%=demo%>&appointment=null';
                 document.getElementById("eFormButton").style.display = "inline";
                 document.getElementById("eFormButton").onclick = function () {
                     popup(eFormURL);
@@ -2210,7 +2210,7 @@ if (userAgent != null) {
                                                 <%-- <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.attachDoc"/> --%>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
                                                title="Add Attachment"
-                                               data-poload="${ ctx }/previewDocs.do?method=fetchConsultDocuments&amp;demographicNo=<%= Encode.forHtmlAttribute(Encode.forUriComponent(demo != null ? demo : "")) %>&amp;requestId=<%= Encode.forHtmlAttribute(Encode.forUriComponent(requestId != null ? requestId : "")) %>">
+                                               data-poload="${ ctx }/previewDocs.do?method=fetchConsultDocuments&amp;demographicNo=<%=demo%>&amp;requestId=<%=requestId%>">
                                                 Manage Attachments
                                             </a>
                                             <input type="hidden" id="isOceanEReferral"
@@ -2219,7 +2219,7 @@ if (userAgent != null) {
                                             } else { %>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
                                                title="Add Attachment"
-                                               data-poload="${ ctx }/previewDocs.do?method=fetchConsultDocuments&amp;demographicNo=<%= Encode.forHtmlAttribute(Encode.forUriComponent(demo != null ? demo : "")) %>&amp;requestId=<%= Encode.forHtmlAttribute(Encode.forUriComponent(requestId != null ? requestId : "")) %>">
+                                               data-poload="${ ctx }/previewDocs.do?method=fetchConsultDocuments&amp;demographicNo=<%=demo%>&amp;requestId=<%=requestId%>">
                                                 Manage Attachments
                                             </a>
 
@@ -2237,7 +2237,7 @@ if (userAgent != null) {
                                                 <c:forEach items="${ attachedEForms }" var="attachedEForm">
                                                     <tr id="entry_eFormNo${ attachedEForm.id }">
                                                         <td>
-                                                            <c:out value="${ attachedEForm.formName }"/>
+                                                            ${e:forHtml(attachedEForm.formName)}
                                                             <input name="eFormNo" value="${ attachedEForm.id }"
                                                                    id="delegate_eFormNo${ attachedEForm.id }"
                                                                    class="delegateAttachment" type="hidden">
@@ -2257,7 +2257,7 @@ if (userAgent != null) {
                                                 <c:forEach items="${ attachedDocuments }" var="attachedDocument">
                                                     <tr id="entry_docNo${ attachedDocument.docId }">
                                                         <td>
-                                                            <c:out value="${ attachedDocument.description }"/>
+                                                            ${e:forHtml(attachedDocument.description)}
                                                             <input name="docNo" value="${ attachedDocument.docId }"
                                                                    id="delegate_docNo${ attachedDocument.docId }"
                                                                    class="delegateAttachment" type="hidden">
@@ -2281,7 +2281,7 @@ if (userAgent != null) {
                                                                    value="${ fn:trim(attachedLab.label) != '' ? attachedLab.label : attachedLab.discipline}"/>
                                                             <c:if test="${empty labName}"><c:set var="labName"
                                                                                                  value="UNLABELLED"/></c:if>
-                                                            <c:out value="${attachedLab.description} ${ labName }"/>
+                                                            ${e:forHtml(attachedLab.description)} ${e:forHtml(labName)}
                                                             <input name="labNo" value="${ attachedLab.segmentID }"
                                                                    id="delegate_labNo${ attachedLab.segmentID }"
                                                                    class="delegateAttachment" type="hidden">
@@ -2301,7 +2301,7 @@ if (userAgent != null) {
                                                 <c:forEach items="${ attachedHRMDocuments }" var="attachedHrm">
                                                     <tr id="entry_hrmNo${ attachedHrm['id'] }">
                                                         <td>
-                                                            <c:out value="${ attachedHrm['name'] }"/>
+                                                            ${e:forHtml(attachedHrm['name'])}
                                                             <input name="hrmNo" value="${ attachedHrm['id'] }"
                                                                    id="delegate_hrmNo${ attachedHrm['id'] }"
                                                                    class="delegateAttachment" type="hidden">
@@ -2323,7 +2323,7 @@ if (userAgent != null) {
                                                         data-formName="${ attachedForm.formName }"
                                                         data-formDate="${ attachedForm.getEdited() }">
                                                         <td>
-                                                            <c:out value="${ attachedForm.formName }"/>
+                                                            ${e:forHtml(attachedForm.formName)}
                                                             <input name="formNo" value="${ attachedForm.formId }"
                                                                    id="delegate_formNo${ attachedForm.formId }"
                                                                    class="delegateAttachment" type="hidden">
@@ -2393,7 +2393,7 @@ if (userAgent != null) {
                                     <div class="card-header p-2 fw-semibold" style="font-size:0.85rem;">
                                         <i class="fa-solid fa-user me-1"></i>
                                         <a href="javascript:void(0);"
-                                           onClick="popupAttach(600,900,'<%=request.getContextPath()%>/demographic/DemographicEdit.do?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demo != null ? demo : "")) %>')"><%=Encode.forHtml(thisForm.getPatientName())%></a>
+                                           onClick="popupAttach(600,900,'<%=request.getContextPath()%>/demographic/DemographicEdit.do?demographic_no=<%=demo%>')"><%=Encode.forHtml(thisForm.getPatientName())%></a>
                                     </div>
                                     <div class="card-body p-2">
                                         <div class="row g-2" style="font-size:0.85rem;">
@@ -2546,7 +2546,7 @@ if (userAgent != null) {
                                             </td>
                                             <td class="consult-form-label" style="font-size:11px;">
                                                 <a href="javascript:void(0);"
-                                                   onclick="popupPage(500,700,'${ctx}/demographic/Contact.do?method=manageContactList&contactList=HCT&view=detached&demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demo != null ? demo : "")) %>' ); return false;">
+                                                   onclick="popupPage(500,700,'${ctx}/demographic/Contact.do?method=manageContactList&contactList=HCT&view=detached&demographic_no=<%=demo%>' ); return false;">
                                                     edit Health Care Team
                                                 </a>
                                             </td>
@@ -2591,8 +2591,7 @@ if (userAgent != null) {
                                         <td class="consult-form-label">
                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formFax"/>
                                             <c:if test="${ not empty consultUtil.specialistFaxLog.status }">
-                                                <span style="font-size:80%;color:red;">Status: <c:out
-                                                        value="${ consultUtil.specialistFaxLog.status }"/></span>
+                                                <span style="font-size:80%;color:red;">Status: ${e:forHtml(consultUtil.specialistFaxLog.status)}</span>
                                             </c:if>
                                         </td>
                                         <td class="consult-form-value">
@@ -2625,7 +2624,7 @@ if (userAgent != null) {
                                                         <%-- Ensure that only active items are shown --%>
                                                         <c:if test="${ appointmentInstruction.active }">
                                                             <option value="${ appointmentInstruction.value }" ${ EctConsultationFormRequest2Form.appointmentInstructions eq appointmentInstruction.value ? 'selected' : '' }>
-                                                                <c:out value="${ appointmentInstruction.label }"/>
+                                                                ${e:forHtml(appointmentInstruction.label)}
                                                             </option>
                                                         </c:if>
                                                     </c:forEach>
@@ -2911,11 +2910,11 @@ if (userAgent != null) {
                                     <c:if test="${ not empty consultUtil.copyToFaxLog }">
                                         <c:forEach items="${ consultUtil.copyToFaxLog }" var="faxLog">
                                             <tr>
-                                                <td class="consult-form-label"><c:out value="${ faxLog.name }"/></td>
-                                                <td class="consult-form-label"><c:out value="${ faxLog.fax }"/></td>
+                                                <td class="consult-form-label">${e:forHtml(faxLog.name)}</td>
+                                                <td class="consult-form-label">${e:forHtml(faxLog.fax)}</td>
                                                 <td class="consult-form-label">
-                                                    <c:out value="${ faxLog.status }"/>
-                                                    <c:out value="${ faxLog.sent }"/>
+                                                    ${e:forHtml(faxLog.status)}
+                                                    ${e:forHtml(faxLog.sent)}
                                                 </td>
                                             </tr>
                                         </c:forEach>

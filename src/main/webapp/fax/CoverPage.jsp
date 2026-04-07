@@ -246,7 +246,7 @@
 							  <select class="form-select" name="senderFaxNumber"  id="senderFaxAccount">
 									<c:forEach items="${ requestScope.accounts }" var="account">
 							    		<option value="<e:forHtmlAttribute value='${ account.faxNumber }' />" ${ account.id eq requestScope.faxAccount or account.faxNumber eq param.letterheadFax ? 'selected' : '' } >
-							    			<c:out value="${ account.accountName }"/> <c:out value="(${ account.faxNumber })"/>
+							    			${e:forHtml(account.accountName)} (${e:forHtml(account.faxNumber)})
 							    		</option>
 									</c:forEach>
 							  </select>
@@ -358,7 +358,7 @@
                                 <div class="row">
                                     <ol class="list-group list-group-numbered col-sm-12">
                                         <c:forEach items="${ documents }" var="document">
-                                            <li class="list-group-item"><c:out value="${ document }"/></li>
+                                            <li class="list-group-item">${e:forHtml(document)}</li>
                                             <input type="hidden" name="documents" value="<e:forHtmlAttribute value='${ document }' />"/>
                                         </c:forEach>
                                     </ol>
@@ -440,15 +440,13 @@
             <c:forEach items="${ faxJobList }" var="faxJob">
                 <c:choose>
                     <c:when test="${ faxJob.status eq 'ERROR' }">
-                        <div class="alert alert-success" role="alert">
-                            Failed to add fax to outgoing queue: <c:out
-                                value="${ faxJob.recipient } at ${ faxJob.destination } ${ faxJob.status }: ${ faxJob.statusString }"/>
+                        <div class="alert alert-danger" role="alert">
+                            Failed to add fax to outgoing queue: ${e:forHtml(faxJob.recipient)} at ${e:forHtml(faxJob.destination)} ${e:forHtml(faxJob.status)}: ${e:forHtml(faxJob.statusString)}
                         </div>
                     </c:when>
                     <c:otherwise>
                         <div class="alert alert-success" role="alert">
-                            Successfully added fax to outgoing queue: <c:out
-                                value="${ faxJob.recipient } at ${ faxJob.destination }"/>
+                            Successfully added fax to outgoing queue: ${e:forHtml(faxJob.recipient)} at ${e:forHtml(faxJob.destination)}
                         </div>
                     </c:otherwise>
                 </c:choose>

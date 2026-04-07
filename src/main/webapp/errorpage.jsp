@@ -178,6 +178,7 @@
                     </div>
                 </c:if>
                 <div id="support_text">
+                    <%-- Intentionally unescaped: supportText contains trusted HTML from server-side login .env configuration on disk, not user input --%>
                     <c:out value="${ LoginResourceBean.supportText }" escapeXml="false"/>
                 </div>
             </div>

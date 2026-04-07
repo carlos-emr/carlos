@@ -45,91 +45,6 @@ function hideElement(el) {
 }
 
 /**
- * Helper function to escape HTML special characters for safe interpolation
- * into HTML strings. Prevents XSS when building HTML via string concatenation.
- * @param {string} str - The string to escape
- * @returns {string} The escaped string safe for HTML body and quoted attribute contexts
- */
-function escapeHtml(str) {
-    if (str == null) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-/**
- * Sanitize HTML with DOMPurify while preserving same-origin event handlers.
- *
- * DOMPurify strips event handler attributes (onclick, etc.) by default, which
- * is the correct security posture. However, AJAX-loaded same-origin JSP content
- * uses inline handlers for UI functionality. This function registers a DOMPurify
- * 'uponSanitizeAttribute' hook to capture event handler values during sanitization,
- * before DOMPurify strips them. After sanitization completes, it re-attaches the
- * captured handlers only to elements that survived DOMPurify's structural checks.
- *
- * Security model: server-side OWASP encoding is the primary XSS defense. DOMPurify
- * provides defense-in-depth for HTML structure. Inline scripts from the AJAX response
- * are handled separately by callers (extracted before DOMPurify and re-executed
- * unconditionally) — DOMPurify only sanitizes the non-script HTML structure.
- *
- * IMPORTANT SECURITY TRADE-OFF: This function intentionally bypasses DOMPurify's
- * event handler protection. DOMPurify would normally strip onclick/ondblclick/onchange
- * attributes, but we re-attach them because same-origin JSP content relies on inline
- * handlers for UI functionality. This means DOMPurify provides NO defense-in-depth
- * against XSS via inline event handlers — server-side OWASP encoding is the SOLE
- * defense for handler content. DOMPurify still strips all event handler attributes
- * except the three explicitly re-attached above (onclick, ondblclick, onchange).
- * Adding more event attributes to EVENT_ATTRS weakens this protection.
- *
- * @param {string} html - Raw HTML string from same-origin AJAX response
- * @param {Object} config - DOMPurify configuration (ADD_TAGS, ADD_ATTR, etc.)
- * @returns {DocumentFragment} Sanitized DOM fragment with handlers re-attached
- */
-function sanitizeWithHandlers(html, config) {
-    if (typeof DOMPurify === 'undefined') {
-        console.error('DOMPurify is required but not loaded. Returning empty fragment.');
-        return document.createDocumentFragment();
-    }
-
-    // These event attributes are intentionally re-attached after DOMPurify sanitization.
-    // Server-side OWASP encoding is the sole XSS defense for these handler values.
-    var EVENT_ATTRS = ['onclick', 'ondblclick', 'onchange'];
-    var handlerStore = [];
-
-    // Hook: capture event handler values during DOMPurify processing, before it strips them.
-    DOMPurify.addHook('uponSanitizeAttribute', function(node, data) {
-        if (EVENT_ATTRS.indexOf(data.attrName) !== -1) {
-            if (!node.__dpHandlers) {
-                node.__dpHandlers = {};
-                handlerStore.push(node);
-            }
-            node.__dpHandlers[data.attrName] = data.attrValue;
-        }
-    });
-
-    var fragment;
-    try {
-        fragment = DOMPurify.sanitize(html,
-            Object.assign({}, config, { RETURN_DOM_FRAGMENT: true }));
-    } catch (e) {
-        console.error('DOMPurify.sanitize() threw an error:', e);
-        fragment = document.createDocumentFragment();
-    } finally {
-        DOMPurify.removeAllHooks();
-    }
-
-    // Re-attach event handlers to elements that survived sanitization.
-    handlerStore.forEach(function(node) {
-        if (node.__dpHandlers && fragment.contains(node)) {
-            Object.keys(node.__dpHandlers).forEach(function(attr) {
-                node.setAttribute(attr, node.__dpHandlers[attr]);
-            });
-        }
-        delete node.__dpHandlers;
-    });
-
-    return fragment;
-}
-
-/**
  * Helper function to serialize form data to URL-encoded string
  * @param {HTMLFormElement|string} form - Form element or form ID
  * @returns {string}
@@ -186,8 +101,8 @@ function getCsrfToken() {
 /**
  * Helper function to make a POST request with form-urlencoded data.
  * Centralizes fetch boilerplate for form submissions.
- * Automatically includes the CSRF-TOKEN as an HTTP header (if a CSRF
- * token input exists in the DOM) required by CSRFGuard.
+ * Automatically includes the CSRF-TOKEN (if available and not already
+ * present in data) required by CSRFGuard.
  * @param {string} url - The URL to POST to
  * @param {string|Object|URLSearchParams} data - Form data as a URL-encoded string, a key-value object, or URLSearchParams instance
  * @returns {Promise<Response>}
@@ -217,59 +132,27 @@ function fetchGet(url) {
 }
 
 /**
- * Helper function to append same-origin AJAX HTML and re-execute its scripts.
- * Browsers don't execute scripts inserted via innerHTML/insertAdjacentHTML.
- * This function sanitizes the HTML body with DOMPurify, inserts the safe HTML,
- * then re-executes both inline and same-origin external scripts.
- * Server-side OWASP encoding is the primary XSS defense; DOMPurify provides
- * defense-in-depth by stripping disallowed elements and attributes from the HTML.
- * Note: inline scripts from the AJAX response are extracted before DOMPurify
- * runs and re-executed unconditionally. DOMPurify only sanitizes the non-script
- * HTML structure. The security model assumes trusted same-origin server endpoints.
+ * Helper function to append HTML content to a container and execute any scripts.
+ * Browsers don't execute scripts inserted via innerHTML/insertAdjacentHTML,
+ * so this function parses the HTML, extracts script tags, and re-adds them
+ * as real script elements to ensure execution.
  * @param {HTMLElement} container - The container element to append HTML to
  * @param {string} html - HTML string that may contain script tags
  */
 function appendHtmlWithScripts(container, html) {
     if (!container || !html) return;
 
-    // Fail closed: if DOMPurify is not loaded, show error to prevent XSS.
-    if (typeof DOMPurify === 'undefined') {
-        console.error('DOMPurify is required but not loaded. Content blocked to prevent XSS.');
-        var errorMsg = document.createElement('p');
-        errorMsg.textContent = 'Unable to display content safely. Please reload the page.';
-        errorMsg.style.color = 'red';
-        container.appendChild(errorMsg);
-        return;
-    }
+    container.insertAdjacentHTML('beforeend', html);
 
-    // Extract all scripts (inline + external) before DOMPurify strips them.
-    // These are same-origin JSP-rendered scripts that define page functions.
-    var parser = new DOMParser();
-    var doc = parser.parseFromString(html, 'text/html');
-    var scripts = Array.from(doc.querySelectorAll('script'));
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
 
-    // Sanitize the HTML and re-attach same-origin event handlers to surviving elements.
-    var fragment = sanitizeWithHandlers(html, {
-        ADD_TAGS: ['input', 'select', 'option', 'textarea'],
-        ADD_ATTR: ['value', 'selected', 'checked', 'target']
-    });
-    container.appendChild(fragment);
-
-    // Re-execute scripts extracted from the same-origin response.
-    // External: only same-origin src. Inline: re-executed unconditionally (trusted server content).
-    scripts.forEach(function(script) {
-        var newScript = document.createElement('script');
-        var src = script.getAttribute('src');
-        if (src) {
-            if ((src.startsWith('/') && !src.startsWith('//')) || src.startsWith(location.origin + '/')) {
-                newScript.src = src;
-            } else {
-                return; // skip cross-origin external scripts
-            }
-        } else if (script.textContent) {
-            newScript.textContent = script.textContent;
+    doc.querySelectorAll('script').forEach(script => {
+        const newScript = document.createElement('script');
+        if (script.src) {
+            newScript.src = script.src;
         } else {
-            return;
+            newScript.textContent = script.textContent;
         }
         document.head.appendChild(newScript).parentNode.removeChild(newScript);
     });
@@ -1463,23 +1346,7 @@ function ForwardSelectedRows(files, searchProviderNo, status) {
         method: "POST",
         data: data
     }).done(function (html) {
-        if (typeof DOMPurify === 'undefined') {
-            console.error('DOMPurify is required but not loaded. Forward dialog blocked to prevent XSS.');
-            dialogContainer.html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');
-            return;
-        }
-        // Extract inline scripts before DOMPurify strips them.
-        var parser = new DOMParser();
-        var doc = parser.parseFromString(html, 'text/html');
-        var inlineScripts = Array.from(doc.querySelectorAll('script:not([src])')).filter(function(s) { return s.textContent; });
-
-        // Sanitize HTML and re-attach same-origin event handlers to surviving elements.
-        var fragment = sanitizeWithHandlers(html, {
-            ADD_TAGS: ['input', 'select', 'option', 'textarea'],
-            ADD_ATTR: ['value', 'selected', 'checked', 'multiple', 'id', 'name', 'type', 'class']
-        });
-
-        dialogContainer.empty().append(fragment).dialog({
+        dialogContainer.html(html).dialog({
             modal: true,
             width: 685,
             height: 355,
@@ -1510,24 +1377,12 @@ function ForwardSelectedRows(files, searchProviderNo, status) {
             open: function () {
                 // Applies Bootstrap 5 card styles if Bootstrap is included; otherwise, it will render as a normal jQuery dialog box.
                 styleDialogAsCard();
-                // Re-execute inline scripts from the same-origin JSP response.
-                // These define dialog functions (copyProvider, removeProvider) and initialize
-                // the provider autocomplete widget needed by the dialog's event handlers.
-                inlineScripts.forEach(function(script) {
-                    var newScript = document.createElement('script');
-                    newScript.textContent = script.textContent;
-                    document.head.appendChild(newScript).parentNode.removeChild(newScript);
-                });
             },
             close: function () {
                 jQuery(this).find("select[multiple]#fwdProviders").val('');
                 jQuery(this).find("select[multiple]#fwdFavorites").val('');
             }
         }).dialog("open");
-    }).fail(function (xhr, status, error) {
-        console.error('Forward dialog request failed:', status, error);
-        dialogContainer.html('<p style="color:red">Failed to load the forwarding dialog. Please reload the page and try again.</p>');
-        dialogContainer.dialog({ modal: true, title: "Error", buttons: { "Close": function() { jQuery(this).dialog("close"); } } });
     });
 }
 
@@ -1785,12 +1640,7 @@ function updatePatientDocLabNav(num, patientId) {
 
 function createPatientDocLabEle(patientId, doclabid) {
     const url = ctx + "/documentManager/ManageDocument.do";
-    var safeId = parseInt(patientId, 10);
-    if (isNaN(safeId)) {
-        console.error('Invalid patientId passed to createPatientDocLabEle:', patientId);
-        return;
-    }
-    const data = 'method=getDemoNameAjax&demo_no=' + safeId;
+    const data = 'method=getDemoNameAjax&demo_no=' + patientId;
 
     postForm(url, data)
         .then(response => response.json())
@@ -1798,20 +1648,19 @@ function createPatientDocLabEle(patientId, doclabid) {
         //oscarLog(json);
         if (json != null) {
             const patientName = json.demoName;//get name from id
-            const safeName = escapeHtml(patientName);
-            addPatientId(safeId);
-            addPatientIdName(safeId, patientName);
-            let e = '<dt><img id="plus' + safeId + '" alt="plus" src="' + ctx + '/images/plus.png" onclick="showhideSubCat(\'plus\',\'' + safeId + '\');"/><img id="minus' + safeId + '" alt="minus" style="display:none;" src="' + ctx + '/images/minus.png" onclick="showhideSubCat(\'minus\',\'' + safeId + '\');"/>' +
-            '<a id="patient' + safeId + 'all" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showThisPatientDocs(\'' + safeId + '\');un_bold(this);" title="' + safeName + '">' + safeName + ' (<span id="patientNumDocs' + safeId + '">1</span>)</a>' +
-            '<dl id="labdoc' + safeId + 'showSublist" style="display:none">';
+            addPatientId(patientId);
+            addPatientIdName(patientId, patientName);
+            let e = '<dt><img id="plus' + patientId + '" alt="plus" src="' + ctx + '/images/plus.png" onclick="showhideSubCat(\'plus\',\'' + patientId + '\');"/><img id="minus' + patientId + '" alt="minus" style="display:none;" src="' + ctx + '/images/minus.png" onclick="showhideSubCat(\'minus\',\'' + patientId + '\');"/>' +
+            '<a id="patient' + patientId + 'all" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showThisPatientDocs(\'' + patientId + '\');un_bold(this);" title="' + patientName + '">' + patientName + ' (<span id="patientNumDocs' + patientId + '">1</span>)</a>' +
+            '<dl id="labdoc' + patientId + 'showSublist" style="display:none">';
             const type = checkType(doclabid);
             let s;
             //oscarLog('type='+type);
             //oscarLog('eee='+e);
             if (type == 'DOC') {
-                s = createNewDocEle(safeId);
+                s = createNewDocEle(patientId);
             } else if (type == 'HL7') {
-                s = createNewHL7Ele(safeId);
+                s = createNewHL7Ele(patientId);
             } else {
                 return '';
             }
@@ -1829,23 +1678,13 @@ function createPatientDocLabEle(patientId, doclabid) {
 }
 
 function createNewDocEle(patientId) {
-    var safeId = parseInt(patientId, 10);
-    if (isNaN(safeId)) {
-        console.error('Invalid patientId passed to createNewDocEle:', patientId);
-        return '';
-    }
-    const newEle = '<dt><a id="patient' + safeId + 'docs" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + safeId + '\',\'DOC\');un_bold(this);" title="Documents">Documents(<span id="pDocNum_' + safeId + '">1</span>)</a></dt>';
+    const newEle = '<dt><a id="patient' + patientId + 'docs" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + patientId + '\',\'DOC\');un_bold(this);" title="Documents">Documents(<span id="pDocNum_' + patientId + '">1</span>)</a></dt>';
     //oscarLog('newEle='+newEle);
     return newEle;
 }
 
 function createNewHL7Ele(patientId) {
-    var safeId = parseInt(patientId, 10);
-    if (isNaN(safeId)) {
-        console.error('Invalid patientId passed to createNewHL7Ele:', patientId);
-        return '';
-    }
-    const newEle = '<dt><a id="patient' + safeId + 'hl7s" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + safeId + '\',\'HL7\');un_bold(this);" title="HL7s">HL7s(<span id="pLabNum_' + safeId + '">1</span>)</a></dt>';
+    const newEle = '<dt><a id="patient' + patientId + 'hl7s" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + patientId + '\',\'HL7\');un_bold(this);" title="HL7s">HL7s(<span id="pLabNum_' + patientId + '">1</span>)</a></dt>';
     //oscarLog('newEle='+newEle);
     return newEle;
 }

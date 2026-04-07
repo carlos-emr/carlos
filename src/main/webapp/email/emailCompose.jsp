@@ -192,7 +192,7 @@
                   onsubmit="return validateEmailForm()" novalidate>
                 <input type="hidden" name="demographicId" value="${demographicId}"/>
                 <input type="hidden" name="fdid" value="${fdid}"/>
-                <input type="hidden" name="fid" id="fid" value="<c:out value='${fid}'/>"/>
+                <input type="hidden" name="fid" id="fid" value="${e:forHtmlAttribute(fid)}"/>
                 <input type="hidden" name="openEFormAfterEmail" value="${openEFormAfterEmail}"/>
                 <input type="hidden" name="deleteEFormAfterEmail" value="${deleteEFormAfterEmail}"/>
                 <input type="hidden" name="transactionType" id="transactionType" value="${transactionType}"/>
@@ -209,12 +209,10 @@
                                     <select class="form-select" name="senderConfigId" id="senderEmailAddress"
                                             onchange="showAdditionalParamOption()">
                                         <c:forEach items="${ senderAccounts }" var="senderAccount">
-                                            <option value="<c:out value='${senderAccount.id}' />"
+                                            <option value="${e:forHtmlAttribute(senderAccount.id)}"
                                                     data-email-type="${ e:forHtmlAttribute(senderAccount.emailType) }"
                                                     <c:if test="${ senderAccount.id eq senderConfigId or senderAccount.senderEmail eq senderEmail }">selected</c:if>>
-                                                <c:out value="${ senderAccount.senderFirstName }"/> <c:out
-                                                    value="${ senderAccount.senderLastName }"/> <c:out
-                                                    value="(${ senderAccount.senderEmail })"/>
+                                                ${e:forHtml(senderAccount.senderFirstName)} ${e:forHtml(senderAccount.senderLastName)} (${e:forHtml(senderAccount.senderEmail)})
                                             </option>
                                         </c:forEach>
                                     </select>
@@ -266,8 +264,7 @@
                         </div>
                     </div>
                     <div class="card-footer">
-                        <span class="fa-solid fa-triangle-exclamation"></span> <c:out value="${ emailConsentName }"/>: <b><c:out
-                            value="${ emailConsentStatus }"/></b>
+                        <span class="fa-solid fa-triangle-exclamation"></span> ${e:forHtml(emailConsentName)}: <b>${e:forHtml(emailConsentStatus)}</b>
                         <input type="hidden" name="emailConsentStatus" value="${emailConsentStatus}"/>
                     </div>
                 </div>
@@ -277,8 +274,7 @@
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header">
-                                <h5 class="modal-title" id="errorMessageModalLabel"><c:out
-                                        value="${ empty receiverEmailList or empty senderAccounts ? 'Warning' : 'Additional Email Address Data' }"/></h5>
+                                <h5 class="modal-title" id="errorMessageModalLabel">${e:forHtml(empty receiverEmailList or empty senderAccounts ? 'Warning' : 'Additional Email Address Data')}</h5>
                                 <button type="button" name="close" class="btn-close" data-bs-dismiss="modal"
                                         aria-label="Close"></button>
                             </div>
@@ -307,7 +303,7 @@
                                                     class="alert-link">${ receiverName }</a></p>
                                         <ul>
                                             <c:forEach items="${ invalidReceiverEmailList }" var="invalidEmail">
-                                                <li><c:out value="${invalidEmail}"/></li>
+                                                <li>${e:forHtml(invalidEmail)}</li>
                                             </c:forEach>
                                         </ul>
                                     </c:when>
@@ -317,7 +313,7 @@
                                                                 class="alert-link">${ receiverName }</a></p>
                                         <ul>
                                             <c:forEach items="${ invalidReceiverEmailList }" var="invalidEmail">
-                                                <li><c:out value="${invalidEmail}"/></li>
+                                                <li>${e:forHtml(invalidEmail)}</li>
                                             </c:forEach>
                                         </ul>
                                     </c:when>
@@ -343,7 +339,7 @@
                                     <c:set var="subjectEmail"
                                            value="${ empty param.subjectEmail ? subjectEmail : param.subjectEmail }"/>
                                     <input class="form-control" type="text" name="subjectEmail" id="subjectEmail"
-                                           placeholder="Subject" value="<c:out value='${subjectEmail}' />"
+                                           placeholder="Subject" value="${e:forHtmlAttribute(subjectEmail)}"
                                            autocomplete="off"/>
                                     <div class="error-message" id="subjectError"></div>
                                 </div>
@@ -361,8 +357,7 @@
                             <div class="row">
                                 <div class="col-sm-12">
                                     <textarea class="form-control" name="bodyEmail" id="bodyEmail" rows="7"
-                                              placeholder="@message..."><c:out
-                                            value="${ empty param.bodyEmail ? bodyEmail : param.bodyEmail }"/></textarea>
+                                              placeholder="@message...">${e:forHtml(empty param.bodyEmail ? bodyEmail : param.bodyEmail)}</textarea>
                                     <div class="error-message" id="bodyError"></div>
                                 </div>
                             </div>
@@ -396,8 +391,7 @@
                                                                    data-bs-toggle="tooltip" data-bs-placement="right"
                                                                    title="Message will be added into the encrypted pdf"></span></label>
                                     <textarea class="form-control" name="encryptedMessage" id="encryptedMessage"
-                                              rows="5" placeholder="..."><c:out
-                                            value="${ empty param.encryptedMessageEmail ? encryptedMessageEmail : param.encryptedMessageEmail }"/></textarea>
+                                              rows="5" placeholder="...">${e:forHtml(empty param.encryptedMessageEmail ? encryptedMessageEmail : param.encryptedMessageEmail)}</textarea>
                                     <div class="error-message" id="encryptedMessageError"></div>
                                 </div>
                             </div>
@@ -421,8 +415,7 @@
                                 </div>
                                 <div class="col-sm-10">
                                     <textarea class="form-control" name="emailPDFPasswordClue" id="emailPDFPasswordClue"
-                                              rows="2" placeholder="..."><c:out
-                                            value="${ not empty param.passwordClueEmail ? param.passwordClueEmail : emailPDFPasswordClue }"/></textarea>
+                                              rows="2" placeholder="...">${e:forHtml(not empty param.passwordClueEmail ? param.passwordClueEmail : emailPDFPasswordClue)}</textarea>
                                     <div class="error-message" id="emailPDFPasswordClueError"></div>
                                 </div>
                             </div>
@@ -470,7 +463,7 @@
                                                 Chart as new note in patient's chart
                                             </label>
 										<div id="internalCommentContainer" class="d-none">
-											<textarea class="form-control" id="internalComment" name="internalComment" placeholder="Internal comment to include" rows="3"><c:out value="${ not empty param.internalComment ? param.internalComment : internalComment }" /></textarea>
+											<textarea class="form-control" id="internalComment" name="internalComment" placeholder="Internal comment to include" rows="3">${e:forHtml(not empty param.internalComment ? param.internalComment : internalComment)}</textarea>
                                         </div>
                                     </div>
                                 </div>
@@ -496,10 +489,8 @@
                                                         aria-expanded="false"
                                                         aria-controls="emailAttachmentBody${loop.index + 1}">
                                                     <i class="fa-solid fa-file attachmentIcon"></i> <span
-                                                        class="attachmentName"><c:out
-                                                        value="${emailAttachment.fileName}"/></span>
-                                                    <span class="text-muted attachmentSize"><c:out
-                                                            value="${emailAttachment.fileSize}"/></span>
+                                                        class="attachmentName">${e:forHtml(emailAttachment.fileName)}</span>
+                                                    <span class="text-muted attachmentSize">${e:forHtml(emailAttachment.fileSize)}</span>
                                                 </button>
                                             </div>
                                             <div id="emailAttachmentBody${loop.index + 1}"
@@ -533,7 +524,7 @@
                         <input type="text" class="form-control ${ not empty emailAdditionalParams ? '' : 'd-none' }"
                                name="additionalURLParams" id="additionalURLParams"
                                placeholder="Extra Parameters (if applicable)"
-                               value="<c:out value='${emailAdditionalParams}' />">
+                               value="${e:forHtmlAttribute(emailAdditionalParams)}">
                     </div>
                 </div>
 
@@ -561,16 +552,16 @@
             <c:choose>
                 <c:when test="${ emailLog.status eq 'SUCCESS' }">
 				<div class="alert alert-success" role="alert" id="successMessage">
-					<p>Your email to <b><c:out value="${fn:join(emailLog.toEmail, ', ')}" /></b> was successfully sent.</p>
+					<p>Your email to <b>${e:forHtml(fn:join(emailLog.toEmail, ', '))}</b> was successfully sent.</p>
                     </div>
 				<p class="mt-1" id="windowCloseMessage">This window will close in <b>3</b> seconds...</p>
                 </c:when>
                 <c:otherwise>
                     <div class="alert alert-danger" role="alert">
-                        <p> Your email to <b><c:out value="${fn:join(emailLog.toEmail, ', ')}"/></b> was NOT sent.
+                        <p> Your email to <b>${e:forHtml(fn:join(emailLog.toEmail, ', '))}</b> was NOT sent.
                             Please review the error message and try again.<br><br>
                             <b>Error Message:</b> <br>
-                            <c:out value="${emailLog.errorMessage}"/></p>
+                            ${e:forHtml(emailLog.errorMessage)}</p>
                     </div>
                 </c:otherwise>
             </c:choose>

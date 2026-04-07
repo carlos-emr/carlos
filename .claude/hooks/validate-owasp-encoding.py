@@ -52,6 +52,7 @@ def check_jsp_unsafe_patterns(content: str) -> list[str]:
     # Safe wrappers that indicate proper encoding
     safe_wrappers = [
         r'Encode\.for\w+\s*\(',  # Encode.forHtml(), Encode.forJavaScript(), etc.
+        r'e:for\w+\s*\(',        # OWASP Encoder EL functions: ${e:forHtml()}, ${e:forHtmlAttribute()}, etc.
         r'fn:escapeXml\s*\(',    # JSTL escapeXml function
     ]
 
@@ -82,6 +83,13 @@ def check_jsp_unsafe_patterns(content: str) -> list[str]:
         has_self_closing_after = bool(re.match(r'^["\']?\s*/>', context_after))
         has_cout_close_after = bool(re.search(r'</\s*c:out\s*>', context_after))
         if has_cout_open_before and (has_self_closing_after or has_cout_close_after):
+            is_safe = True
+
+        # Check if this ${} is inside an <e:for...> OWASP Encoder JSP tag
+        # e.g., <e:forHtmlAttribute value='${param.foo}' />
+        has_encoder_tag_before = bool(re.search(r'<e:for\w+[^>]*$', context_before))
+        has_tag_closing_after = bool(re.match(r'^["\'][^>]*/>', context_after))
+        if has_encoder_tag_before and has_tag_closing_after:
             is_safe = True
 
         if is_safe:

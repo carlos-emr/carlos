@@ -238,7 +238,7 @@
             <%if (lastCmn != null) {%>
             <div class="label">Documentation Date: <%=lastCmn.getCreate_date()%>
             </div>
-            <div class="label">Saved by <%=Encode.forHtml(lastCmn.getProviderName())%>
+            <div class="label">Saved by <%=lastCmn.getProviderName()%>
             </div>
             <%}%>
             <textarea name="note" rows="10"><%=Encode.forHtml("Lab Reports".equals(display) ? cmm.getNoteContentForDisplay(note) : note)%></textarea>
@@ -252,7 +252,7 @@
             </p>
             <% if (rev > 0) { %>
             <div class="revision" style="float: right;">
-                rev<a href="#" onclick="showHistory('<%= Encode.forJavaScriptAttribute(uuid) %>','<%= Encode.forJavaScriptAttribute(display) %>');"><%=rev%>
+                rev<a href="#" onclick="showHistory('<%=uuid%>','<%= Encode.forJavaScriptAttribute(display) %>');"><%=rev%>
             </a>
             </div>
             <% } %>
