@@ -211,9 +211,16 @@ public class BatchBill2Action extends ActionSupport {
         }
 
         BatchBillingDAO batchBillingDAO = (BatchBillingDAO) SpringUtils.getBean(BatchBillingDAO.class);
-        Integer demographicNo = Integer.parseInt(request.getParameter("demographic_no").trim());
-        String billingProviderNo = request.getParameter("providers").trim();
-        String creatorProviderNo = request.getParameter("creator").trim();
+        String demographicNoParam = request.getParameter("demographic_no");
+        if (demographicNoParam == null || demographicNoParam.trim().isEmpty()) {
+            addActionError("Missing required parameter: demographic_no");
+            return "error";
+        }
+        Integer demographicNo = Integer.parseInt(demographicNoParam.trim());
+        String providersParam = request.getParameter("providers");
+        String billingProviderNo = providersParam != null ? providersParam.trim() : "";
+        String creatorParam = request.getParameter("creator");
+        String creatorProviderNo = creatorParam != null ? creatorParam.trim() : "";
         String service_code = request.getParameter("xml_other1");
         String dxcode = request.getParameter("xml_diagnostic_detail");
         String createdDate = request.getParameter("createdate");
@@ -221,9 +228,11 @@ public class BatchBill2Action extends ActionSupport {
         Timestamp created = new Timestamp(date.getTime());
         int pipePos;
 
-        if ((pipePos = dxcode.indexOf("|")) != -1) {
+        if (dxcode != null && (pipePos = dxcode.indexOf("|")) != -1) {
             String tmp = dxcode.substring(0, pipePos);
             dxcode = tmp;
+        } else if (dxcode == null) {
+            dxcode = "";
         }
 
         List<BatchBilling> batchBillingList = batchBillingDAO.find(demographicNo, service_code);

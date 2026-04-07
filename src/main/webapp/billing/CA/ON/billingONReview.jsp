@@ -629,7 +629,7 @@
                                    class="myGreen">
                                 <tr>
                                     <td style="white-space:nowrap;width:30%"><b>Billing Physician</b></td>
-                                    <td style="width:20%"><%=providerBean.getProperty(request.getParameter("xml_provider") != null ? request.getParameter("xml_provider").substring(0, request.getParameter("xml_provider").indexOf("|")) : "", "")%>
+                                    <td style="width:20%"><%=providerBean.getProperty(request.getParameter("xml_provider") != null && request.getParameter("xml_provider").contains("|") ? request.getParameter("xml_provider").substring(0, request.getParameter("xml_provider").indexOf("|")) : "", "")%>
                                     </td>
                                     <td style="white-space:nowrap; width:30%"><b>MRP</b></td>
                                     <td style="width:20%"><%=assgProvider_no == null ? "N/A" : providerBean.getProperty(assgProvider_no, "")%>
