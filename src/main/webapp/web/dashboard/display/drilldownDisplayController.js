@@ -103,6 +103,15 @@ function sendData(path, param, target) {
                 form.appendChild(input);
             });
         }
+        // Explicitly add CSRF token rather than relying on MutationObserver timing
+        var csrfTokenEl = document.querySelector('input[name="CSRF-TOKEN"]');
+        if (csrfTokenEl) {
+            var csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'CSRF-TOKEN';
+            csrfInput.value = csrfTokenEl.value;
+            form.appendChild(csrfInput);
+        }
         document.body.appendChild(form);
         form.submit();
     }

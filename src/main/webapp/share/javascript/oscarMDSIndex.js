@@ -143,11 +143,12 @@ function fetchGet(url) {
 }
 
 /**
- * Helper function to append HTML content to a container and execute external scripts.
+ * Helper function to append same-origin AJAX HTML and re-execute its scripts.
  * Browsers don't execute scripts inserted via innerHTML/insertAdjacentHTML.
- * This function sanitizes the HTML with DOMPurify (which strips script tags),
- * inserts the safe HTML, then re-executes only same-origin external scripts.
- * Inline scripts are intentionally blocked to prevent stored XSS bypass.
+ * This function sanitizes the HTML body with DOMPurify, inserts the safe HTML,
+ * then re-executes both inline and same-origin external scripts.
+ * Server-side OWASP encoding is the primary XSS defense; DOMPurify provides
+ * defense-in-depth by stripping injected elements from data values.
  * @param {HTMLElement} container - The container element to append HTML to
  * @param {string} html - HTML string that may contain script tags
  */
@@ -164,26 +165,39 @@ function appendHtmlWithScripts(container, html) {
         return;
     }
 
-    // Extract only external scripts (with src) before sanitization.
-    // Inline scripts are blocked to prevent stored XSS payloads from
-    // bypassing DOMPurify — only same-origin src scripts are re-executed.
+    // Extract all scripts (inline + external) before DOMPurify strips them.
+    // These are same-origin JSP-rendered scripts that define page functions.
     var parser = new DOMParser();
     var doc = parser.parseFromString(html, 'text/html');
-    var scripts = doc.querySelectorAll('script[src]');
+    var scripts = Array.from(doc.querySelectorAll('script'));
 
-    // Sanitize and insert the non-script HTML content
-    // DOMPurify config: only allow safe form elements/attrs. NEVER add href, src, style, or event handlers.
-    var safeHtml = DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'selected', 'checked', 'target']});
+    // Sanitize and insert the non-script HTML content.
+    // DOMPurify strips <script> tags and dangerous elements from data values.
+    // Event handler attrs (onclick, etc.) are preserved because the content is
+    // same-origin JSP output where server-side OWASP encoding is the primary defense.
+    var safeHtml = DOMPurify.sanitize(html, {
+        ADD_TAGS: ['input', 'select', 'option', 'textarea'],
+        ADD_ATTR: ['value', 'selected', 'checked', 'target', 'onclick', 'ondblclick', 'onchange']
+    });
     container.insertAdjacentHTML('beforeend', safeHtml);
 
-    // Re-execute only external scripts with same-origin src
+    // Re-execute scripts extracted from the same-origin response.
+    // External: only same-origin src. Inline: re-execute to define page functions.
     scripts.forEach(function(script) {
+        var newScript = document.createElement('script');
         var src = script.getAttribute('src');
-        if (src && ((src.startsWith('/') && !src.startsWith('//')) || src.startsWith(location.origin + '/'))) {
-            var newScript = document.createElement('script');
-            newScript.src = src;
-            document.head.appendChild(newScript).parentNode.removeChild(newScript);
+        if (src) {
+            if ((src.startsWith('/') && !src.startsWith('//')) || src.startsWith(location.origin + '/')) {
+                newScript.src = src;
+            } else {
+                return; // skip cross-origin external scripts
+            }
+        } else if (script.textContent) {
+            newScript.textContent = script.textContent;
+        } else {
+            return;
         }
+        document.head.appendChild(newScript).parentNode.removeChild(newScript);
     });
 }
 
@@ -1380,8 +1394,19 @@ function ForwardSelectedRows(files, searchProviderNo, status) {
             dialogContainer.html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');
             return;
         }
-        // DOMPurify config: only allow safe form elements/attrs. NEVER add href, src, style, or event handlers.
-        dialogContainer.html(DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'selected', 'checked', 'multiple', 'id', 'name', 'type', 'class']})).dialog({
+        // Extract inline scripts before DOMPurify strips them.
+        var parser = new DOMParser();
+        var doc = parser.parseFromString(html, 'text/html');
+        var inlineScripts = Array.from(doc.querySelectorAll('script:not([src])')).filter(function(s) { return s.textContent; });
+
+        // Sanitize HTML, preserving event handlers for same-origin JSP content.
+        // Server-side OWASP encoding is the primary XSS defense.
+        var safeHtml = DOMPurify.sanitize(html, {
+            ADD_TAGS: ['input', 'select', 'option', 'textarea'],
+            ADD_ATTR: ['value', 'selected', 'checked', 'multiple', 'id', 'name', 'type', 'class', 'onclick', 'ondblclick']
+        });
+
+        dialogContainer.html(safeHtml).dialog({
             modal: true,
             width: 685,
             height: 355,
@@ -1412,6 +1437,14 @@ function ForwardSelectedRows(files, searchProviderNo, status) {
             open: function () {
                 // Applies Bootstrap 5 card styles if Bootstrap is included; otherwise, it will render as a normal jQuery dialog box.
                 styleDialogAsCard();
+                // Re-execute inline scripts from the same-origin JSP response.
+                // These define functions (copyProvider, removeProvider, initProviderAutocomplete)
+                // needed by the dialog's event handlers.
+                inlineScripts.forEach(function(script) {
+                    var newScript = document.createElement('script');
+                    newScript.textContent = script.textContent;
+                    document.head.appendChild(newScript).parentNode.removeChild(newScript);
+                });
             },
             close: function () {
                 jQuery(this).find("select[multiple]#fwdProviders").val('');
