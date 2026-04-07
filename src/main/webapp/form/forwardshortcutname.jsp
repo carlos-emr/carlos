@@ -61,12 +61,14 @@
 
         // Validate the DB-resolved path to prevent path traversal (CWE-22).
         // Extract the path portion (before the query string) and ensure it is an
-        // absolute webapp path with no ".." traversal sequences that could escape
-        // the webapp root.
+        // absolute webapp path with no traversal sequences — checking both the
+        // literal ".." and the common URL-encoded variant "%2e" to defend against
+        // canonicalization bypasses.
         String pathPortion = formPath[0].contains("?")
                 ? formPath[0].substring(0, formPath[0].indexOf('?'))
                 : formPath[0];
-        if (!pathPortion.startsWith("/") || pathPortion.contains("..")) {
+        String lowerPath = pathPortion.toLowerCase(java.util.Locale.ROOT);
+        if (!pathPortion.startsWith("/") || lowerPath.contains("..") || lowerPath.contains("%2e")) {
             MiscUtils.getLogger().warn("forwardshortcutname.jsp: blocked invalid form path from DB: {}",
                     LogSanitizer.sanitize(pathPortion));
             response.sendError(400, "Invalid form path");
