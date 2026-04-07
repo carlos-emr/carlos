@@ -178,7 +178,7 @@ $(document).ready(function () {
 
     $("#tool_savecontinue").click(function (e) {
         $("#builder").children().each(function () {
-            var num = $(this).find("span").html();
+            var num = $(this).find("span").text();
             var rotate = $(this).find("div").attr("rotate");
             $(this).attr("id", "page_" + num + "," + rotate);
         });

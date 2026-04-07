@@ -94,8 +94,18 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         log.debug("WLSetupDisplayWaitingList2Action/execute(): onListSinceSelected = " + onListSinceSelected);
 
 
-        if (request.getParameter("waitingListId") != null) {
-            waitingListId = request.getParameter("waitingListId");
+        String rawWaitingListId = request.getParameter("waitingListId");
+        if (rawWaitingListId != null && !rawWaitingListId.trim().isEmpty()) {
+            try {
+                int parsedId = Integer.parseInt(rawWaitingListId.trim());
+                if (parsedId > 0) {
+                    waitingListId = String.valueOf(parsedId);
+                } else {
+                    log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId '{}': must be a positive integer", rawWaitingListId);
+                }
+            } catch (NumberFormatException e) {
+                log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId '{}': not a valid integer", rawWaitingListId);
+            }
         }
 
         log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = " + waitingListId);

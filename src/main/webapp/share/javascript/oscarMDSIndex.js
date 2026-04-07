@@ -2342,7 +2342,7 @@ function addDocComment(docId, providerNo) {
     let comment = "";
     const text = jQuery("#comment_" + docId + "_" + providerNo);
     if (text.length > 0) {
-        comment = jQuery("#comment_" + docId + "_" + providerNo).html();
+        comment = jQuery("#comment_" + docId + "_" + providerNo).text();
         if (comment == null || comment == "no comment") {
             comment = "";
         }
@@ -2391,7 +2391,7 @@ function getDocComment(docId, providerNo, inQueueB) {
     let comment = "";
     const text = jQuery("#comment_" + docId + "_" + providerNo);
     if (text.length > 0) {
-        comment = jQuery("#comment_" + docId + "_" + providerNo).html();
+        comment = jQuery("#comment_" + docId + "_" + providerNo).text();
         if (comment == null || comment == "no comment") {
             comment = "";
         }

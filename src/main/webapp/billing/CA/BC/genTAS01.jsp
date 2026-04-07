@@ -50,6 +50,7 @@
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS00Dao" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS00" %>
 <%@page import="org.owasp.encoder.Encode" %>
+<%@page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%
     TeleplanS00Dao teleplanS00Dao = SpringUtils.getBean(TeleplanS00Dao.class);
@@ -116,7 +117,7 @@
     <tr bgcolor="#333333">
         <th align='CENTRE'>
             <form action="genTAS01.jsp"><input type="hidden" name="rano"
-                                               value="<%=Encode.forHtmlAttribute(raNo)%>"><select name="proNo">
+                                               value="<%=Encode.forHtmlAttribute(StringUtils.noNull(raNo))%>"><select name="proNo">
                 <option value="all" <%=proNo.equals("all") ? "selected" : ""%>>All
                     Providers
                 </option>
@@ -131,7 +132,7 @@
                         pfirst = (String) result[2];
                 %>
 
-                <option value="<%=pohipno%>" <%=proNo.equals(pohipno) ? "selected" : ""%>><%=plast%>,<%=pfirst%>
+                <option value="<%=Encode.forHtmlAttribute(StringUtils.noNull(pohipno))%>" <%=proNo.equals(pohipno) ? "selected" : ""%>><%=Encode.forHtml(StringUtils.noNull(plast))%>,<%=Encode.forHtml(StringUtils.noNull(pfirst))%>
                 </option>
                 <%
 
@@ -183,41 +184,41 @@
       %>
         <tr>
             <td width="10%" height="16"><a
-                    href="javascript: popupPage(700,750,'adjustBill.jsp?billing_no=<%=result.getOfficeNo()%>')"><%=result.getOfficeNo()%>
+                    href="javascript: popupPage(700,750,'adjustBill.jsp?billing_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(result.getOfficeNo())))%>')"><%=Encode.forHtml(StringUtils.noNull(result.getOfficeNo()))%>
             </a>&nbsp;
             </td>
-            <td width="10%" height="16"><%=result.getPractitionerNo()%>&nbsp;
+            <td width="10%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getPractitionerNo()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=result.getAjc1()%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getAjc1()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=moneyFormat(result.getAja1())%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(moneyFormat(result.getAja1()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=result.getAjc2()%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getAjc2()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=moneyFormat(result.getAja2())%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(moneyFormat(result.getAja2()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=result.getAjc3()%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getAjc3()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=moneyFormat(result.getAja3())%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(moneyFormat(result.getAja3()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=result.getAjc4()%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getAjc4()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=moneyFormat(result.getAja4())%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(moneyFormat(result.getAja4()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=result.getAjc5()%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getAjc5()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=moneyFormat(result.getAja5())%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(moneyFormat(result.getAja5()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=result.getAjc6()%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getAjc6()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=moneyFormat(result.getAja6())%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(moneyFormat(result.getAja6()))%>&nbsp;
             </td>
-            <td width="5%" height="16"><%=result.getAjc7()%>&nbsp;
+            <td width="5%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getAjc7()))%>&nbsp;
             </td>
-            <!--<td width="5%" height="16"><%=moneyFormat(result.getAja7())%>&nbsp; </td>-->
-            <td width="5%" height="16"><%=result.getS00Type()%>&nbsp;
+            <%-- <td width="5%" height="16"><%=Encode.forHtml(moneyFormat(result.getAja7()))%>&nbsp; </td> --%>
+            <td width="5%" height="16"><%=Encode.forHtml(StringUtils.noNull(result.getS00Type()))%>&nbsp;
             </td>
-            <td width="10%" height="16" align=right><%=moneyFormat(result.getPaidAmount())%>
+            <td width="10%" height="16" align=right><%=Encode.forHtml(moneyFormat(result.getPaidAmount()))%>
             </td>
         </tr>
 
@@ -237,10 +238,13 @@
 <%!
     String moneyFormat(String str) {
         String moneyStr = "0.00";
-        try {
-            moneyStr = new java.math.BigDecimal(str).movePointLeft(2).toString();
-        } catch (Exception moneyException) {
-            MiscUtils.getLogger().error("Error", moneyException);
+        if (str != null && !str.isEmpty()) {
+            try {
+                moneyStr = new java.math.BigDecimal(str).movePointLeft(2).toString();
+            } catch (NumberFormatException moneyException) {
+                MiscUtils.getLogger().error("Error", moneyException);
+                moneyStr = str;
+            }
         }
         return moneyStr;
     }
