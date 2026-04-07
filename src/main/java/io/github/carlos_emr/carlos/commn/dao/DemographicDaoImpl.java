@@ -1532,21 +1532,25 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
         String orderByField = "d.LastName,d.FirstName";
 
-        if (orderBy.equals("last_name") || orderBy.equals("last_name, first_name")) {
+        if (orderBy.equals("last_name") || orderBy.equals("last_name, first_name")
+                || orderBy.equals("LastName")) {
             orderByField = "d.LastName, d.FirstName";
-        } else if (orderBy.equals("demographic_no")) {
+        } else if (orderBy.equals("demographic_no") || orderBy.equals("DemographicNo")) {
             orderByField = "d.DemographicNo";
-        } else if (orderBy.equals("chart_no")) {
+        } else if (orderBy.equals("chart_no") || orderBy.equals("ChartNo")) {
             orderByField = "d.ChartNo";
-        } else if (orderBy.equals("sex")) {
+        } else if (orderBy.equals("sex") || orderBy.equals("Sex")) {
             orderByField = "d.Sex";
-        } else if (orderBy.equals("dob")) {
-            orderByField = "d.DateOfBirth";
+        } else if (orderBy.equals("dob") || orderBy.equals("YearOfBirth")) {
+            // "dob" and HQL property "YearOfBirth" both sort chronologically by date-of-birth
+            orderByField = "d.YearOfBirth, d.MonthOfBirth, d.DateOfBirth";
+        } else if (orderBy.equals("FirstName")) {
+            orderByField = "d.FirstName";
         } else if (orderBy.equals("provider_no")) {
             orderByField = "d.ProviderNo";
         } else if (orderBy.equals("roster_status")) {
             orderByField = "d.RosterStatus";
-        } else if (orderBy.equals("patient_status")) {
+        } else if (orderBy.equals("patient_status") || orderBy.equals("PatientStatus")) {
             orderByField = "d.PatientStatus";
         } else if (orderBy.equals("phone")) {
             orderByField = "d.Phone";
