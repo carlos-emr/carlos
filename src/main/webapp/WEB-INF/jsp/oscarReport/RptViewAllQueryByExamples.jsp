@@ -78,8 +78,12 @@
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
+<%
+    Locale requestLocale = request.getLocale();
+    pageContext.setAttribute("requestLanguageTag", requestLocale != null ? requestLocale.toLanguageTag() : "");
+%>
 <!DOCTYPE html>
-<html lang="${pageContext.request.locale.language}">
+<html lang="${requestLanguageTag}">
 <head>
     <meta charset="UTF-8">
     <title>
@@ -177,7 +181,7 @@
                                         <input type="button"
                                                class="btn btn-outline-secondary btn-sm"
                                                value="<fmt:message key="oscarReport.RptByExample.MsgAddToFavorite"/>"
-                                               onclick="set('${e:forJavaScriptAttribute(queryInfo.query)}'); document.getElementById('favouriteForm').submit();"/>
+                                               onclick="set('${e:forJavaScript(queryInfo.query)}'); document.getElementById('favouriteForm').submit();"/>
                                     </td>
                                 </tr>
                             </c:forEach>
