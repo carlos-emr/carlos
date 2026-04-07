@@ -58,6 +58,11 @@
 
     boolean caisi = Boolean.valueOf(request.getParameter("caisi")).booleanValue();
 
+    // Validate originalpage to prevent open redirect: must be a relative URL
+    String originalpage = request.getParameter("originalpage");
+    if (originalpage == null || originalpage.isEmpty() || !originalpage.startsWith("/") || originalpage.startsWith("//")) {
+        originalpage = request.getContextPath() + "/appointment/addappointment.jsp";
+    }
 
 %>
 
@@ -157,7 +162,7 @@
 
     function addName(demographic_no, lastname, firstname, chartno, messageID, doctorNo) {
         fullname = lastname + "," + firstname;
-        document.addform.action = "<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("originalpage"))) %>&demographicNoParam=" + demographic_no + "&demographic_no=" + demographic_no + "&firstNameParam=" + firstname + "&lastNameParam=" + lastname + "&chart_no=" + chartno;
+        document.addform.action = "<%= Encode.forJavaScript(originalpage) %>&demographicNoParam=" + demographic_no + "&demographic_no=" + demographic_no + "&firstNameParam=" + firstname + "&lastNameParam=" + lastname + "&chart_no=" + chartno;
         document.addform.submit();
         return true;
     }
@@ -288,12 +293,12 @@
     <script language="JavaScript">
         <!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("originalpage")))) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(originalpage)) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>";
             //document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("originalpage")))) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp?originalpage=<%= Encode.forJavaScript(Encode.forUriComponent(originalpage)) %>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>";
             //document.nextform.submit();
         }
 

@@ -89,6 +89,12 @@
     int limit = Integer.parseInt(strLimit2);
     boolean caisi = Boolean.valueOf(request.getParameter("caisi")).booleanValue();
 
+    // Validate originalpage to prevent open redirect: must be a relative URL
+    String originalpage = request.getParameter("originalpage");
+    if (originalpage == null || originalpage.isEmpty() || !originalpage.startsWith("/") || originalpage.startsWith("//")) {
+        originalpage = request.getContextPath() + "/appointment/addappointment.jsp";
+    }
+
     CarlosProperties props = CarlosProperties.getInstance();
 
     List<Demographic> demoList = null;
@@ -317,7 +323,7 @@
             function addName(demographic_no, lastname, firstname, chartno, messageID, doctorNo) {
                 fullname = lastname + "," + firstname;
 
-                document.addform.action = "<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("originalpage"))) %>?" + "demographic_no=" + demographic_no + "&name=" + fullname + "&chart_no=" + chartno + "&bFirstDisp=false" + "&messageID=" + messageID + "&doctor_no=" + doctorNo;
+                document.addform.action = "<%= Encode.forJavaScript(originalpage) %>?" + "demographic_no=" + demographic_no + "&name=" + fullname + "&chart_no=" + chartno + "&bFirstDisp=false" + "&messageID=" + messageID + "&doctor_no=" + doctorNo;
 
                 document.addform.submit();
                 return true;
