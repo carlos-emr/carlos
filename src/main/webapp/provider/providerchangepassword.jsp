@@ -31,6 +31,8 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
@@ -151,7 +153,7 @@
             </tr>
         </table>
 
-        <p><b><font color='red'><%=errormsg%>
+        <p><b><font color='red'><%= Encode.forHtml(StringUtils.noNull(errormsg)) %>
         </font></b>
 
         <table width="100%" border="0" cellpadding="2" bgcolor="#eeeeee">

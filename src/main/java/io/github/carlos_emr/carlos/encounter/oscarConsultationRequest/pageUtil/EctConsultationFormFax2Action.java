@@ -35,12 +35,14 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -227,6 +229,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 
                     // delete the source file to save some disc space
                     if (count == (faxRecipients.size() - 1)) {
+                        PathValidationUtils.validateExistingPath(faxPdf.toFile(), new File(NioFileManager.DOCUMENT_DIRECTORY));
                         Files.deleteIfExists(faxPdf);
                     }
                 }

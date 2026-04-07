@@ -205,9 +205,9 @@
             </tr>
     </table>
     <input type='hidden' name='param'
-           value="<%=StringEscapeUtils.escapeHtml4(param)%>">
+           value="<%=Encode.forHtmlAttribute(param)%>">
     <input type='hidden' name='param2'
-           value="<%=StringEscapeUtils.escapeHtml4(param2)%>">
+           value="<%=Encode.forHtmlAttribute(param2)%>">
     <table width="95%" border="0">
         <tr>
             <td align="left">Results based on keyword(s): <%= Encode.forHtml(keyword == null ? "" : keyword) %>
@@ -247,19 +247,19 @@
                 onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
                 onMouseout="this.style.backgroundColor='<%=bgColor%>';"
                 onClick="fillForm('<%= str(prop.getProperty("attention", ""))%>','<%= str(prop.getProperty("company_name", ""))%>','<%= str(prop.getProperty("address", ""))%>','<%=  str(prop.getProperty("city", ""))%>','<%=  str(prop.getProperty("province", ""))%>','<%=  str(prop.getProperty("telephone", ""))%>','<%=  str(prop.getProperty("fax", ""))%>','<%=  str(prop.getProperty("postcode", ""))%>');">
-                <td><%=prop.getProperty("attention", "")%>
+                <td><%=Encode.forHtml(prop.getProperty("attention", ""))%>
                 </td>
-                <td><%=WordUtils.capitalize(prop.getProperty("company_name", "").toLowerCase())%>
+                <td><%=Encode.forHtml(WordUtils.capitalize(prop.getProperty("company_name", "").toLowerCase()))%>
                 </td>
-                <td><%=WordUtils.capitalize(prop.getProperty("address", "").toLowerCase())%>
+                <td><%=Encode.forHtml(WordUtils.capitalize(prop.getProperty("address", "").toLowerCase()))%>
                 </td>
-                <td><%=prop.getProperty("city", "")%>
+                <td><%=Encode.forHtml(prop.getProperty("city", ""))%>
                 </td>
-                <td><%=prop.getProperty("postcode", "")%>
+                <td><%=Encode.forHtml(prop.getProperty("postcode", ""))%>
                 </td>
-                <td><%=prop.getProperty("telephone", "")%>
+                <td><%=Encode.forHtml(prop.getProperty("telephone", ""))%>
                 </td>
-                <!--td><%=prop.getProperty("fax", "")%></td-->
+                <%-- <td><%=Encode.forHtml(prop.getProperty("fax", ""))%></td> --%>
             </tr>
             <%
                 }
@@ -282,12 +282,12 @@
         <script language="JavaScript">
             <!--
             function last() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("keyword")))%>&search_mode=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("search_mode")))%>&orderby=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("orderby")))%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("keyword")))%>&search_mode=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("search_mode")))%>&orderby=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("orderby")))%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=URLEncoder.encode(param,"UTF-8")%>&param2=<%=URLEncoder.encode(param2,"UTF-8")%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
                 document.nextform.submit();
             }
 
@@ -319,6 +319,6 @@
         if (d == null || d.trim().equals("")) {
             return "";
         }
-        return StringEscapeUtils.escapeEcmaScript(d);
+        return org.owasp.encoder.Encode.forJavaScript(d);
     }
 %>

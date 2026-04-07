@@ -124,10 +124,15 @@ public class FrmData {
     public PatientForm[] getPatientForms(String demoNo, String table) throws SQLException {
         ArrayList<PatientForm> forms = new ArrayList<PatientForm>();
 
-
-        String sql = "SELECT ID, demographic_no, formCreated, formEdited FROM " + table
-                + " WHERE demographic_no=" + demoNo + " ORDER BY ID DESC";
-        ResultSet rs = DBHandler.GetSQL(sql);
+        // Validate table name: must be an alphanumeric identifier (no SQL-special characters)
+        if (table == null || !table.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
+            throw new IllegalArgumentException("Invalid form table name");
+        }
+        // Build query with validated table identifier and parameterized demoNo
+        String selectClause = "SELECT ID, demographic_no, formCreated, formEdited FROM ";
+        String whereClause = " WHERE demographic_no=? ORDER BY ID DESC";
+        String sql = selectClause + table + whereClause;
+        ResultSet rs = DBHandler.GetPreSQL(sql, demoNo);
         while (rs.next()) {
             PatientForm frm = new PatientForm(Misc.getString(rs, "ID"), Misc.getString(rs, "demographic_no"),
                     UtilDateUtilities.DateToString(rs.getDate("formCreated"), "yy/MM/dd"), UtilDateUtilities.DateToString(rs.getDate("formEdited"), "yy/MM/dd"));
@@ -143,17 +148,23 @@ public class FrmData {
     public PatientForm getCurrentPatientForm(String demoNo, String studyNo) throws SQLException {
         PatientForm frm = null;
 
-
-        String sql = "SELECT e.form_table from encounterForm e, study s where e.form_name = s.form_name and s.study_no = " + studyNo;
+        // Parameterize studyNo to prevent SQL injection
+        String sql = "SELECT e.form_table from encounterForm e, study s where e.form_name = s.form_name and s.study_no = ?";
         String table = "";
-        ResultSet rs = DBHandler.GetSQL(sql);
+        ResultSet rs = DBHandler.GetPreSQL(sql, studyNo);
         while (rs.next()) {
             table = Misc.getString(rs, "form_table");
         }
-        rs = null;
+        rs.close();
 
-        sql = "SELECT ID, demographic_no, formCreated, formEdited FROM " + table + " WHERE demographic_no=" + demoNo + " ORDER BY ID DESC limit 0,1";
-        rs = DBHandler.GetSQL(sql);
+        // table comes from DB (trusted source); validate identifier and parameterize demoNo
+        if (!table.isEmpty() && !table.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
+            throw new IllegalArgumentException("Invalid form table name returned from database");
+        }
+        String selectClause = "SELECT ID, demographic_no, formCreated, formEdited FROM ";
+        String whereClause = " WHERE demographic_no=? ORDER BY ID DESC limit 0,1";
+        sql = selectClause + table + whereClause;
+        rs = DBHandler.GetPreSQL(sql, demoNo);
         while (rs.next()) {
             frm = new PatientForm(Misc.getString(rs, "ID"), Misc.getString(rs, "demographic_no"),
                     UtilDateUtilities.DateToString(rs.getDate("formCreated"), "yy/MM/dd"), UtilDateUtilities.DateToString(rs.getDate("formEdited"), "yy/MM/dd"));
@@ -166,9 +177,9 @@ public class FrmData {
     public String[] getStudyNameLink(String studyNo) throws java.sql.SQLException {
         String[] ret = new String[2];
 
-
-        String sql = "SELECT study_name, study_link FROM study WHERE study_no=" + studyNo;
-        ResultSet rs = DBHandler.GetSQL(sql);
+        // Parameterize studyNo to prevent SQL injection
+        String sql = "SELECT study_name, study_link FROM study WHERE study_no=?";
+        ResultSet rs = DBHandler.GetPreSQL(sql, studyNo);
         while (rs.next()) {
             ret[0] = Misc.getString(rs, "study_name");
             ret[1] = Misc.getString(rs, "study_link");
@@ -201,8 +212,8 @@ public class FrmData {
             if (searchFormName.equals("AR1"))
                 searchFormName = "ar1_99_12"; // quick hack for ease of migration from old forms to new
             if (searchFormName.equals("AR2")) searchFormName = "ar2_99_08"; // ditto
-            sql = "SELECT form_no FROM " + table + " WHERE demographic_no=" + demoNo + " AND form_name='" + searchFormName + "' order by form_no desc limit 0,1";
-            rs = DBHandler.GetSQL(sql);
+            sql = "SELECT form_no FROM " + table + " WHERE demographic_no=? AND form_name=? order by form_no desc limit 0,1";
+            rs = DBHandler.GetPreSQL(sql, demoNo, searchFormName);
             while (rs.next()) {
                 ret[1] = Misc.getString(rs, "form_no");
             }
@@ -257,8 +268,8 @@ public class FrmData {
             rs = null;
             ret[1] = "0";
         } else {
-            sql = "SELECT ID FROM " + table + " WHERE demographic_no=" + demoNo + " order by formEdited desc limit 0,1";
-            rs = DBHandler.GetSQL(sql);
+            sql = "SELECT ID FROM " + table + " WHERE demographic_no=? order by formEdited desc limit 0,1";
+            rs = DBHandler.GetPreSQL(sql, demoNo);
             while (rs.next()) {
                 ret[1] = Misc.getString(rs, "ID");
             }

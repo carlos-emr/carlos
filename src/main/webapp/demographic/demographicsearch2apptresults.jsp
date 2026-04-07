@@ -129,9 +129,9 @@
     %>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
-    <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"
+    <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"
             type="text/javascript"></script>
-    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"
           type="text/css"/>
     <%-- global.css: CARLOS color overrides for Bootstrap (this page doesn't use global-head.jspf) --%>
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/global.css"/>
@@ -478,26 +478,26 @@
                 <tr style="background-color: <%=bgColor%>"
                     onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
                     onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                    onClick="document.forms[0].demographic_no.value=<%=demo.getDemographicNo()%>;<% if(caisi) { out.print("addNameCaisi");} else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo() == null ? "" : demo.getChartNo(), StandardCharsets.UTF_8)%>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("messageId"))) %>','<%=demo.getProviderNo()%>')">
+                    onClick="document.forms[0].demographic_no.value=<%=demo.getDemographicNo()%>;<% if(caisi) { out.print("addNameCaisi");} else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getLastName())))%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getFirstName())))%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demo.getChartNo() == null ? "" : demo.getChartNo()))%>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("messageId"))) %>','<%=Encode.forJavaScriptAttribute(StringUtils.noNull(demo.getProviderNo()))%>')">
 
                     <td class="demoId">
                         <input type="submit" class="mbttn btn btn-secondary btn-sm" name="demographic_no"
                                value="<%=demo.getDemographicNo()%>"
-                               onClick="<% if(caisi) {out.print("addNameCaisi");} else {out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo() == null ? "" : demo.getChartNo(), StandardCharsets.UTF_8)%>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("messageId"))) %>','<%=demo.getProviderNo()%>')">
+                               onClick="<% if(caisi) {out.print("addNameCaisi");} else {out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getLastName())))%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getFirstName())))%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demo.getChartNo() == null ? "" : demo.getChartNo()))%>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("messageId"))) %>','<%=Encode.forJavaScriptAttribute(StringUtils.noNull(demo.getProviderNo()))%>')">
                     </td>
                     <td class="lastName"><%=Encode.forHtml(Misc.toUpperLowerCase(demo.getLastName()))%>
                     </td>
                     <td class="firstName"><%=Encode.forHtml(Misc.toUpperLowerCase(demo.getFirstName())) + " " + Encode.forHtml(Misc.toUpperLowerCase(demo.getMiddleNames()))%>
                     </td>
-                    <td class="age"><%=demo.getAge()%>
+                    <td class="age"><%=Encode.forHtml(demo.getAge() == null ? "" : String.valueOf(demo.getAge()))%>
                     </td>
-                    <td class="rosterStatus"><%=demo.getRosterStatus() == null || demo.getRosterStatus().equals("") ? "&nbsp;" : demo.getRosterStatus()%>
+                    <td class="rosterStatus"><% if (demo.getRosterStatus() == null || demo.getRosterStatus().equals("")) { %>&nbsp;<% } else { %><%=Encode.forHtml(demo.getRosterStatus())%><% } %>
                     </td>
-                    <td class="sex"><%=demo.getSex()%>
+                    <td class="sex"><%=Encode.forHtml(demo.getSex() == null ? "" : demo.getSex())%>
                     </td>
-                    <td class="dob"><%=demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth()%>
+                    <td class="dob"><%=Encode.forHtml(demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth())%>
                     </td>
-                    <td class="doctor"><%=providerBean.getProperty(demo.getProviderNo() == null ? "" : demo.getProviderNo()) == null ? "" : providerBean.getProperty(demo.getProviderNo())%>
+                    <td class="doctor"><%=Encode.forHtml(providerBean.getProperty(demo.getProviderNo() == null ? "" : demo.getProviderNo()) == null ? "" : providerBean.getProperty(demo.getProviderNo()))%>
                     </td>
                 </tr>
 

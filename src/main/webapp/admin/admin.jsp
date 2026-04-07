@@ -326,8 +326,8 @@
                            onclick='popupPage(300,600, "${pageContext.request.contextPath}/billing/CA/ON/billingONEditPrivateCode.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePrivBillingCode"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(700,1000, "${pageContext.request.contextPath}/admin/manageCSSStyles.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageCodeStyles"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/admin/gstControl.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageGSTControl"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/admin/gstreport.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.gstReport"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/admin/GstControl.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageGSTControl"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/admin/GstReport.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.gstReport"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/manageBillingLocation.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
                     <li><a href="#"
@@ -467,7 +467,7 @@
                     <li><a href="#"
                            onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/FluBilling.do?orderby=");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(600,1000,"${pageContext.request.contextPath}/oscarReport/obec.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnOvernightChecking"/></a></li>
+                           onclick='popupPage(600,1000,"${pageContext.request.contextPath}/oscarReport/obec.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnOvernightChecking"/></a></li>
 
 
                     <li><a href="#"
@@ -715,7 +715,7 @@
 
                     <oscar:oscarPropertiesCheck property="LOGINTEST" value="yes">
                         <li><a href="#"
-                               onclick='popupPage(800,1000,"${pageContext.request.contextPath}/admin/uploadEntryText.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadEntryTxt"/></a>
+                               onclick='popupPage(800,1000,"${pageContext.request.contextPath}/admin/uploadEntryText.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadEntryTxt"/></a>
                         </li>
                     </oscar:oscarPropertiesCheck>
 

@@ -294,7 +294,7 @@
     <title>CARLOS Billing</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
 
 
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
@@ -751,7 +751,7 @@
                     <tr class="alert alert-danger">
                         <td align=center>
                             &nbsp;<br>
-                            Service code "<%=serviceCodeValue%>" is invalid. Please go back to correct it.
+                            Service code "<%= Encode.forHtml(StringUtils.noNull(serviceCodeValue)) %>" is invalid. Please go back to correct it.
                         </td>
                     </tr>
                         <%
@@ -1062,7 +1062,7 @@
                     tempLoc = request.getParameter("site");
                 }
             %>
-            <textarea name="comment" style="width:600px;"><%=tempLoc %></textarea>
+            <textarea name="comment" style="width:600px;"><%= Encode.forHtml(StringUtils.noNull(tempLoc)) %></textarea>
         </td>
     </tr>
     <tr>
@@ -1190,7 +1190,7 @@
                 <tr>
                     <td>
                         Billing Notes:<br>
-                        <textarea name="comment" cols=100 rows=6><%=tempLoc %></textarea>
+                        <textarea name="comment" cols=100 rows=6><%= Encode.forHtml(StringUtils.noNull(tempLoc)) %></textarea>
                     </td>
                     <td style="text-align:right">
                         <input type="hidden" name="provider_no"
@@ -1343,7 +1343,7 @@
         //alert("calling get NEW current Dx Code List");
         var url = "<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/currentCodeList.jsp";
         var ran_number = Math.round(Math.random() * 1000000);
-        var params = "demographicNo=<%= Encode.forJavaScript(demo_no) %>&rand=" + ran_number;  //hack to get around ie caching the page
+        var params = "demographicNo=<%= Encode.forJavaScript(StringUtils.noNull(demo_no)) %>&rand=" + ran_number;  //hack to get around ie caching the page
         //alert(params);
         //new Ajax.Updater('dxFullListing',url, {method:'get',parameters:params,asynchronous:true});
 
@@ -1370,7 +1370,7 @@
                                                    style="font-size:small;">show/hide</a></h3>
         <div class="wrapper" id="dxFullListing">
             <jsp:include page="/oscarResearch/oscarDxResearch/currentCodeList.jsp">
-                <jsp:param name="demographicNo" value="<%= demo_no %>"/>
+                <jsp:param name="demographicNo" value="<%= StringUtils.noNull(demo_no) %>"/>
             </jsp:include>
         </div>
     </div>
@@ -1380,13 +1380,13 @@
         <h3>&nbsp;Dx Quick Pick Add Lists &nbsp;<a href="#" onclick="toggle('dxForm'); return false;"
                                                    style="font-size:small;">show/hide</a></h3>
         <form id="dxForm">
-            <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demo_no) %>"/>
+            <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(demo_no)) %>"/>
             <input type="hidden" name="providerNo" value="<%=session.getAttribute("user")%>"/>
             <input type="hidden" name="forward" value=""/>
             <input type="hidden" name="forwardTo" value="codeList"/>
             <div class="wrapper" id="dxListing">
                 <jsp:include page="/oscarResearch/oscarDxResearch/quickCodeList.jsp">
-                    <jsp:param name="demographicNo" value="<%= demo_no %>"/>
+                    <jsp:param name="demographicNo" value="<%= StringUtils.noNull(demo_no) %>"/>
                 </jsp:include>
             </div>
             <input type="button" value="Add To Disease Registry" class="btn btn-secondary" onclick="addToDiseaseRegistry()"/>

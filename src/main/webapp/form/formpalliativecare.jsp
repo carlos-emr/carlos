@@ -62,7 +62,8 @@
         <title>Palliative Care</title>
         <link rel="stylesheet" type="text/css" href="palliativeCareStyles.css"/>
         <link rel="stylesheet" type="text/css" media="print" href="print.css"/>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <%-- S5131: getServerName() returns the Host header — safe when deployed behind a reverse proxy that validates the Host header (required for production) --%>
+        <base href="<%= Encode.forHtmlAttribute(request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/") %>"> <%-- NOSONAR --%>
     </head>
 
     <%
@@ -260,15 +261,15 @@
 
 
         <input type="hidden" name="demographic_no"
-               value="<%= props.getProperty("demographic_no", "0") %>"/>
+               value="<%= Encode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
         <input type="hidden" name="ID"
-               value="<%= props.getProperty("ID", "0") %>"/>
+               value="<%= Encode.forHtmlAttribute(props.getProperty("ID", "0")) %>"/>
         <input type="hidden" name="provider_no"
                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provNo"))) %>"/>
         <input type="hidden" name="formCreated"
-               value="<%= props.getProperty("formCreated", "") %>"/>
-        <input type="hidden" name="form_class" value="<%=formClass%>"/>
-        <input type="hidden" name="form_link" value="<%=formLink%>"/>
+               value="<%= Encode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
+        <input type="hidden" name="form_class" value="<%=Encode.forHtmlAttribute(formClass)%>"/>
+        <input type="hidden" name="form_link" value="<%=Encode.forHtmlAttribute(formLink)%>"/>
         <input type="hidden" name="provNo"
                value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provNo"))) %>"/>
         <input type="hidden" name="submit" value="exit"/>
@@ -298,11 +299,11 @@
             <tr>
                 <td width="50%" align="center">Patient Name: <input
                         type="hidden" name="pName"
-                        value="<%=props.getProperty("pName", "")%>"/> <%=props.getProperty("pName", "")%>
+                        value="<%=Encode.forHtmlAttribute(props.getProperty("pName", ""))%>"/> <%=Encode.forHtml(props.getProperty("pName", ""))%>
                 </td>
                 <td width="50%" align="center">Diagnosis: <input type="text"
                                                                  name="diagnosis" size="40"
-                                                                 value="<%=props.getProperty("diagnosis", "")%>"/><br>
+                                                                 value="<%=Encode.forHtmlAttribute(props.getProperty("diagnosis", ""))%>"/><br>
                     <br>
                 </td>
             </tr>
@@ -313,230 +314,230 @@
                             <td width="12%"><b>DATE</b></td>
                             <td width="22%" align="right">(yyyy/mm/dd) <input type="text"
                                                                               name="date1"
-                                                                              value="<%=props.getProperty("date1", "")%>"/>
+                                                                              value="<%=Encode.forHtmlAttribute(props.getProperty("date1", ""))%>"/>
                             </td>
                             <td width="22%" align="right">(yyyy/mm/dd) <input type="text"
                                                                               name="date2"
-                                                                              value="<%=props.getProperty("date2", "")%>"/>
+                                                                              value="<%=Encode.forHtmlAttribute(props.getProperty("date2", ""))%>"/>
                             </td>
                             <td width="22%" align="right">(yyyy/mm/dd) <input type="text"
                                                                               name="date3"
-                                                                              value="<%=props.getProperty("date3", "")%>"/>
+                                                                              value="<%=Encode.forHtmlAttribute(props.getProperty("date3", ""))%>"/>
                             </td>
                             <td width="22%" align="right">(yyyy/mm/dd) <input type="text"
                                                                               name="date4"
-                                                                              value="<%=props.getProperty("date4", "")%>"/>
+                                                                              value="<%=Encode.forHtmlAttribute(props.getProperty("date4", ""))%>"/>
                             </td>
                         </tr>
                         <tr class="pain">
                             <td><b><a
-                                    href="javascript: popupPage('<%=resource%>pain');">PAIN</a></b></td>
-                            <td><textarea name="pain1"><%=props.getProperty("pain1", "")%></textarea></td>
-                            <td><textarea name="pain2"><%=props.getProperty("pain2", "")%></textarea></td>
-                            <td><textarea name="pain3"><%=props.getProperty("pain3", "")%></textarea></td>
-                            <td><textarea name="pain4"><%=props.getProperty("pain4", "")%></textarea></td>
+                                    href="javascript: popupPage('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>pain');">PAIN</a></b></td>
+                            <td><textarea name="pain1"><%=Encode.forHtml(props.getProperty("pain1", ""))%></textarea></td>
+                            <td><textarea name="pain2"><%=Encode.forHtml(props.getProperty("pain2", ""))%></textarea></td>
+                            <td><textarea name="pain3"><%=Encode.forHtml(props.getProperty("pain3", ""))%></textarea></td>
+                            <td><textarea name="pain4"><%=Encode.forHtml(props.getProperty("pain4", ""))%></textarea></td>
                         </tr>
                         <tr class="giBowels">
-                            <td><b><a href="javascript: popupPage('<%=resource%>gi');">GI:</a></b><br>
+                            <td><b><a href="javascript: popupPage('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>gi');">GI:</a></b><br>
                                 Bowels<br>
                                 -diarrhea -constipation
                             </td>
-                            <td><textarea name="giBowels1"><%=props.getProperty("giBowels1", "")%></textarea></td>
-                            <td><textarea name="giBowels2"><%=props.getProperty("giBowels2", "")%></textarea></td>
-                            <td><textarea name="giBowels3"><%=props.getProperty("giBowels3", "")%></textarea></td>
-                            <td><textarea name="giBowels4"><%=props.getProperty("giBowels4", "")%></textarea></td>
+                            <td><textarea name="giBowels1"><%=Encode.forHtml(props.getProperty("giBowels1", ""))%></textarea></td>
+                            <td><textarea name="giBowels2"><%=Encode.forHtml(props.getProperty("giBowels2", ""))%></textarea></td>
+                            <td><textarea name="giBowels3"><%=Encode.forHtml(props.getProperty("giBowels3", ""))%></textarea></td>
+                            <td><textarea name="giBowels4"><%=Encode.forHtml(props.getProperty("giBowels4", ""))%></textarea></td>
                         </tr>
                         <tr class="giNausea">
                             <td>Nausea & Vomiting</td>
-                            <td><textarea name="giNausea1"><%=props.getProperty("giNausea1", "")%></textarea></td>
-                            <td><textarea name="giNausea2"><%=props.getProperty("giNausea2", "")%></textarea></td>
-                            <td><textarea name="giNausea3"><%=props.getProperty("giNausea3", "")%></textarea></td>
-                            <td><textarea name="giNausea4"><%=props.getProperty("giNausea4", "")%></textarea></td>
+                            <td><textarea name="giNausea1"><%=Encode.forHtml(props.getProperty("giNausea1", ""))%></textarea></td>
+                            <td><textarea name="giNausea2"><%=Encode.forHtml(props.getProperty("giNausea2", ""))%></textarea></td>
+                            <td><textarea name="giNausea3"><%=Encode.forHtml(props.getProperty("giNausea3", ""))%></textarea></td>
+                            <td><textarea name="giNausea4"><%=Encode.forHtml(props.getProperty("giNausea4", ""))%></textarea></td>
                         </tr>
                         <tr class="giDysphagia">
                             <td>Dysphagia</td>
-                            <td><textarea name="giDysphagia1"><%=props.getProperty("giDysphagia1", "")%></textarea></td>
-                            <td><textarea name="giDysphagia2"><%=props.getProperty("giDysphagia2", "")%></textarea></td>
-                            <td><textarea name="giDysphagia3"><%=props.getProperty("giDysphagia3", "")%></textarea></td>
-                            <td><textarea name="giDysphagia4"><%=props.getProperty("giDysphagia4", "")%></textarea></td>
+                            <td><textarea name="giDysphagia1"><%=Encode.forHtml(props.getProperty("giDysphagia1", ""))%></textarea></td>
+                            <td><textarea name="giDysphagia2"><%=Encode.forHtml(props.getProperty("giDysphagia2", ""))%></textarea></td>
+                            <td><textarea name="giDysphagia3"><%=Encode.forHtml(props.getProperty("giDysphagia3", ""))%></textarea></td>
+                            <td><textarea name="giDysphagia4"><%=Encode.forHtml(props.getProperty("giDysphagia4", ""))%></textarea></td>
                         </tr>
                         <tr class="giHiccups">
                             <td>Hiccups</td>
-                            <td><textarea name="giHiccups1"><%=props.getProperty("giHiccups1", "")%></textarea></td>
-                            <td><textarea name="giHiccups2"><%=props.getProperty("giHiccups2", "")%></textarea></td>
-                            <td><textarea name="giHiccups3"><%=props.getProperty("giHiccups3", "")%></textarea></td>
-                            <td><textarea name="giHiccups4"><%=props.getProperty("giHiccups4", "")%></textarea></td>
+                            <td><textarea name="giHiccups1"><%=Encode.forHtml(props.getProperty("giHiccups1", ""))%></textarea></td>
+                            <td><textarea name="giHiccups2"><%=Encode.forHtml(props.getProperty("giHiccups2", ""))%></textarea></td>
+                            <td><textarea name="giHiccups3"><%=Encode.forHtml(props.getProperty("giHiccups3", ""))%></textarea></td>
+                            <td><textarea name="giHiccups4"><%=Encode.forHtml(props.getProperty("giHiccups4", ""))%></textarea></td>
                         </tr>
                         <tr class="giMouth">
                             <td>Mouth problems</td>
-                            <td><textarea name="giMouth1"><%=props.getProperty("giMouth1", "")%></textarea></td>
-                            <td><textarea name="giMouth2"><%=props.getProperty("giMouth2", "")%></textarea></td>
-                            <td><textarea name="giMouth3"><%=props.getProperty("giMouth3", "")%></textarea></td>
-                            <td><textarea name="giMouth4"><%=props.getProperty("giMouth4", "")%></textarea></td>
+                            <td><textarea name="giMouth1"><%=Encode.forHtml(props.getProperty("giMouth1", ""))%></textarea></td>
+                            <td><textarea name="giMouth2"><%=Encode.forHtml(props.getProperty("giMouth2", ""))%></textarea></td>
+                            <td><textarea name="giMouth3"><%=Encode.forHtml(props.getProperty("giMouth3", ""))%></textarea></td>
+                            <td><textarea name="giMouth4"><%=Encode.forHtml(props.getProperty("giMouth4", ""))%></textarea></td>
                         </tr>
                         <tr class="gu">
-                            <td><b><a href="javascript: popupPage('<%=resource%>gu');">GU:</a></b><br>
+                            <td><b><a href="javascript: popupPage('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>gu');">GU:</a></b><br>
                                 Retention<br>
                                 Incontinence
                             </td>
-                            <td><textarea name="gu1"><%=props.getProperty("gu1", "")%></textarea></td>
-                            <td><textarea name="gu2"><%=props.getProperty("gu2", "")%></textarea></td>
-                            <td><textarea name="gu3"><%=props.getProperty("gu3", "")%></textarea></td>
-                            <td><textarea name="gu4"><%=props.getProperty("gu4", "")%></textarea></td>
+                            <td><textarea name="gu1"><%=Encode.forHtml(props.getProperty("gu1", ""))%></textarea></td>
+                            <td><textarea name="gu2"><%=Encode.forHtml(props.getProperty("gu2", ""))%></textarea></td>
+                            <td><textarea name="gu3"><%=Encode.forHtml(props.getProperty("gu3", ""))%></textarea></td>
+                            <td><textarea name="gu4"><%=Encode.forHtml(props.getProperty("gu4", ""))%></textarea></td>
                         </tr>
                         <tr class="skinUlcers">
                             <td><b><a
-                                    href="javascript: popupPage('<%=resource%>skin');">SKIN:</a></b><br>
+                                    href="javascript: popupPage('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>skin');">SKIN:</a></b><br>
                                 Ulcers
                             </td>
-                            <td><textarea name="skinUlcers1"><%=props.getProperty("skinUlcers1", "")%></textarea></td>
-                            <td><textarea name="skinUlcers2"><%=props.getProperty("skinUlcers2", "")%></textarea></td>
-                            <td><textarea name="skinUlcers3"><%=props.getProperty("skinUlcers3", "")%></textarea></td>
-                            <td><textarea name="skinUlcers4"><%=props.getProperty("skinUlcers4", "")%></textarea></td>
+                            <td><textarea name="skinUlcers1"><%=Encode.forHtml(props.getProperty("skinUlcers1", ""))%></textarea></td>
+                            <td><textarea name="skinUlcers2"><%=Encode.forHtml(props.getProperty("skinUlcers2", ""))%></textarea></td>
+                            <td><textarea name="skinUlcers3"><%=Encode.forHtml(props.getProperty("skinUlcers3", ""))%></textarea></td>
+                            <td><textarea name="skinUlcers4"><%=Encode.forHtml(props.getProperty("skinUlcers4", ""))%></textarea></td>
                         </tr>
                         <tr class="skinPruritis">
                             <td>Pruritis</td>
-                            <td><textarea name="skinPruritis1"><%=props.getProperty("skinPruritis1", "")%></textarea>
+                            <td><textarea name="skinPruritis1"><%=Encode.forHtml(props.getProperty("skinPruritis1", ""))%></textarea>
                             </td>
-                            <td><textarea name="skinPruritis2"><%=props.getProperty("skinPruritis2", "")%></textarea>
+                            <td><textarea name="skinPruritis2"><%=Encode.forHtml(props.getProperty("skinPruritis2", ""))%></textarea>
                             </td>
-                            <td><textarea name="skinPruritis3"><%=props.getProperty("skinPruritis3", "")%></textarea>
+                            <td><textarea name="skinPruritis3"><%=Encode.forHtml(props.getProperty("skinPruritis3", ""))%></textarea>
                             </td>
-                            <td><textarea name="skinPruritis4"><%=props.getProperty("skinPruritis4", "")%></textarea>
+                            <td><textarea name="skinPruritis4"><%=Encode.forHtml(props.getProperty("skinPruritis4", ""))%></textarea>
                             </td>
                         </tr>
                         <tr class="psychAgitation">
                             <td><b><a
-                                    href="javascript: popupPage('<%=resource%>psych');">PSYCH:</a></b><br>
+                                    href="javascript: popupPage('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>psych');">PSYCH:</a></b><br>
                                 Agitation<br>
                                 Myoclonus
                             </td>
                             <td><textarea
-                                    name="psychAgitation1"><%=props.getProperty("psychAgitation1", "")%></textarea></td>
+                                    name="psychAgitation1"><%=Encode.forHtml(props.getProperty("psychAgitation1", ""))%></textarea></td>
                             <td><textarea
-                                    name="psychAgitation2"><%=props.getProperty("psychAgitation2", "")%></textarea></td>
+                                    name="psychAgitation2"><%=Encode.forHtml(props.getProperty("psychAgitation2", ""))%></textarea></td>
                             <td><textarea
-                                    name="psychAgitation3"><%=props.getProperty("psychAgitation3", "")%></textarea></td>
+                                    name="psychAgitation3"><%=Encode.forHtml(props.getProperty("psychAgitation3", ""))%></textarea></td>
                             <td><textarea
-                                    name="psychAgitation4"><%=props.getProperty("psychAgitation4", "")%></textarea></td>
+                                    name="psychAgitation4"><%=Encode.forHtml(props.getProperty("psychAgitation4", ""))%></textarea></td>
                         </tr>
                         <tr class="psychAnorexia">
                             <td>Anorexia</td>
-                            <td><textarea name="psychAnorexia1"><%=props.getProperty("psychAnorexia1", "")%></textarea>
+                            <td><textarea name="psychAnorexia1"><%=Encode.forHtml(props.getProperty("psychAnorexia1", ""))%></textarea>
                             </td>
-                            <td><textarea name="psychAnorexia2"><%=props.getProperty("psychAnorexia2", "")%></textarea>
+                            <td><textarea name="psychAnorexia2"><%=Encode.forHtml(props.getProperty("psychAnorexia2", ""))%></textarea>
                             </td>
-                            <td><textarea name="psychAnorexia3"><%=props.getProperty("psychAnorexia3", "")%></textarea>
+                            <td><textarea name="psychAnorexia3"><%=Encode.forHtml(props.getProperty("psychAnorexia3", ""))%></textarea>
                             </td>
-                            <td><textarea name="psychAnorexia4"><%=props.getProperty("psychAnorexia4", "")%></textarea>
+                            <td><textarea name="psychAnorexia4"><%=Encode.forHtml(props.getProperty("psychAnorexia4", ""))%></textarea>
                             </td>
                         </tr>
                         <tr class="psychAnxiety">
                             <td>Anxiety</td>
-                            <td><textarea name="psychAnxiety1"><%=props.getProperty("psychAnxiety1", "")%></textarea>
+                            <td><textarea name="psychAnxiety1"><%=Encode.forHtml(props.getProperty("psychAnxiety1", ""))%></textarea>
                             </td>
-                            <td><textarea name="psychAnxiety2"><%=props.getProperty("psychAnxiety2", "")%></textarea>
+                            <td><textarea name="psychAnxiety2"><%=Encode.forHtml(props.getProperty("psychAnxiety2", ""))%></textarea>
                             </td>
-                            <td><textarea name="psychAnxiety3"><%=props.getProperty("psychAnxiety3", "")%></textarea>
+                            <td><textarea name="psychAnxiety3"><%=Encode.forHtml(props.getProperty("psychAnxiety3", ""))%></textarea>
                             </td>
-                            <td><textarea name="psychAnxiety4"><%=props.getProperty("psychAnxiety4", "")%></textarea>
+                            <td><textarea name="psychAnxiety4"><%=Encode.forHtml(props.getProperty("psychAnxiety4", ""))%></textarea>
                             </td>
                         </tr>
                         <tr class="psychDepression">
                             <td>Depression</td>
                             <td><textarea
-                                    name="psychDepression1"><%=props.getProperty("psychDepression1", "")%></textarea>
+                                    name="psychDepression1"><%=Encode.forHtml(props.getProperty("psychDepression1", ""))%></textarea>
                             </td>
                             <td><textarea
-                                    name="psychDepression2"><%=props.getProperty("psychDepression2", "")%></textarea>
+                                    name="psychDepression2"><%=Encode.forHtml(props.getProperty("psychDepression2", ""))%></textarea>
                             </td>
                             <td><textarea
-                                    name="psychDepression3"><%=props.getProperty("psychDepression3", "")%></textarea>
+                                    name="psychDepression3"><%=Encode.forHtml(props.getProperty("psychDepression3", ""))%></textarea>
                             </td>
                             <td><textarea
-                                    name="psychDepression4"><%=props.getProperty("psychDepression4", "")%></textarea>
+                                    name="psychDepression4"><%=Encode.forHtml(props.getProperty("psychDepression4", ""))%></textarea>
                             </td>
                         </tr>
                         <tr class="psychFatigue">
                             <td>Fatigue</td>
-                            <td><textarea name="psychFatigue1"><%=props.getProperty("psychFatigue1", "")%></textarea>
+                            <td><textarea name="psychFatigue1"><%=Encode.forHtml(props.getProperty("psychFatigue1", ""))%></textarea>
                             </td>
-                            <td><textarea name="psychFatigue2"><%=props.getProperty("psychFatigue2", "")%></textarea>
+                            <td><textarea name="psychFatigue2"><%=Encode.forHtml(props.getProperty("psychFatigue2", ""))%></textarea>
                             </td>
-                            <td><textarea name="psychFatigue3"><%=props.getProperty("psychFatigue3", "")%></textarea>
+                            <td><textarea name="psychFatigue3"><%=Encode.forHtml(props.getProperty("psychFatigue3", ""))%></textarea>
                             </td>
-                            <td><textarea name="psychFatigue4"><%=props.getProperty("psychFatigue4", "")%></textarea>
+                            <td><textarea name="psychFatigue4"><%=Encode.forHtml(props.getProperty("psychFatigue4", ""))%></textarea>
                             </td>
                         </tr>
                         <tr class="psychSomnolence">
                             <td>Somnolence</td>
                             <td><textarea
-                                    name="psychSomnolence1"><%=props.getProperty("psychSomnolence1", "")%></textarea>
+                                    name="psychSomnolence1"><%=Encode.forHtml(props.getProperty("psychSomnolence1", ""))%></textarea>
                             </td>
                             <td><textarea
-                                    name="psychSomnolence2"><%=props.getProperty("psychSomnolence2", "")%></textarea>
+                                    name="psychSomnolence2"><%=Encode.forHtml(props.getProperty("psychSomnolence2", ""))%></textarea>
                             </td>
                             <td><textarea
-                                    name="psychSomnolence3"><%=props.getProperty("psychSomnolence3", "")%></textarea>
+                                    name="psychSomnolence3"><%=Encode.forHtml(props.getProperty("psychSomnolence3", ""))%></textarea>
                             </td>
                             <td><textarea
-                                    name="psychSomnolence4"><%=props.getProperty("psychSomnolence4", "")%></textarea>
+                                    name="psychSomnolence4"><%=Encode.forHtml(props.getProperty("psychSomnolence4", ""))%></textarea>
                             </td>
                         </tr>
                         <tr class="respCough">
                             <td><b><a
-                                    href="javascript: popupPage('<%=resource%>resp');">RESP:</a></b><br>
+                                    href="javascript: popupPage('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>resp');">RESP:</a></b><br>
                                 Cough
                             </td>
-                            <td><textarea name="respCough1"><%=props.getProperty("respCough1", "")%></textarea></td>
-                            <td><textarea name="respCough2"><%=props.getProperty("respCough2", "")%></textarea></td>
-                            <td><textarea name="respCough3"><%=props.getProperty("respCough3", "")%></textarea></td>
-                            <td><textarea name="respCough4"><%=props.getProperty("respCough4", "")%></textarea></td>
+                            <td><textarea name="respCough1"><%=Encode.forHtml(props.getProperty("respCough1", ""))%></textarea></td>
+                            <td><textarea name="respCough2"><%=Encode.forHtml(props.getProperty("respCough2", ""))%></textarea></td>
+                            <td><textarea name="respCough3"><%=Encode.forHtml(props.getProperty("respCough3", ""))%></textarea></td>
+                            <td><textarea name="respCough4"><%=Encode.forHtml(props.getProperty("respCough4", ""))%></textarea></td>
                         </tr>
                         <tr class="respDyspnea">
                             <td>Dyspnea</td>
-                            <td><textarea name="respDyspnea1"><%=props.getProperty("respDyspnea1", "")%></textarea></td>
-                            <td><textarea name="respDyspnea2"><%=props.getProperty("respDyspnea2", "")%></textarea></td>
-                            <td><textarea name="respDyspnea3"><%=props.getProperty("respDyspnea3", "")%></textarea></td>
-                            <td><textarea name="respDyspnea4"><%=props.getProperty("respDyspnea4", "")%></textarea></td>
+                            <td><textarea name="respDyspnea1"><%=Encode.forHtml(props.getProperty("respDyspnea1", ""))%></textarea></td>
+                            <td><textarea name="respDyspnea2"><%=Encode.forHtml(props.getProperty("respDyspnea2", ""))%></textarea></td>
+                            <td><textarea name="respDyspnea3"><%=Encode.forHtml(props.getProperty("respDyspnea3", ""))%></textarea></td>
+                            <td><textarea name="respDyspnea4"><%=Encode.forHtml(props.getProperty("respDyspnea4", ""))%></textarea></td>
                         </tr>
                         <tr class="respFever">
                             <td>Fever</td>
-                            <td><textarea name="respFever1"><%=props.getProperty("respFever1", "")%></textarea></td>
-                            <td><textarea name="respFever2"><%=props.getProperty("respFever2", "")%></textarea></td>
-                            <td><textarea name="respFever3"><%=props.getProperty("respFever3", "")%></textarea></td>
-                            <td><textarea name="respFever4"><%=props.getProperty("respFever4", "")%></textarea></td>
+                            <td><textarea name="respFever1"><%=Encode.forHtml(props.getProperty("respFever1", ""))%></textarea></td>
+                            <td><textarea name="respFever2"><%=Encode.forHtml(props.getProperty("respFever2", ""))%></textarea></td>
+                            <td><textarea name="respFever3"><%=Encode.forHtml(props.getProperty("respFever3", ""))%></textarea></td>
+                            <td><textarea name="respFever4"><%=Encode.forHtml(props.getProperty("respFever4", ""))%></textarea></td>
                         </tr>
                         <tr class="respCaregiver">
                             <td>Caregiver coping</td>
-                            <td><textarea name="respCaregiver1"><%=props.getProperty("respCaregiver1", "")%></textarea>
+                            <td><textarea name="respCaregiver1"><%=Encode.forHtml(props.getProperty("respCaregiver1", ""))%></textarea>
                             </td>
-                            <td><textarea name="respCaregiver2"><%=props.getProperty("respCaregiver2", "")%></textarea>
+                            <td><textarea name="respCaregiver2"><%=Encode.forHtml(props.getProperty("respCaregiver2", ""))%></textarea>
                             </td>
-                            <td><textarea name="respCaregiver3"><%=props.getProperty("respCaregiver3", "")%></textarea>
+                            <td><textarea name="respCaregiver3"><%=Encode.forHtml(props.getProperty("respCaregiver3", ""))%></textarea>
                             </td>
-                            <td><textarea name="respCaregiver4"><%=props.getProperty("respCaregiver4", "")%></textarea>
+                            <td><textarea name="respCaregiver4"><%=Encode.forHtml(props.getProperty("respCaregiver4", ""))%></textarea>
                             </td>
                         </tr>
                         <tr class="other">
                             <td><b><a
-                                    href="javascript: popupPage('<%=resource%>other');">Other
+                                    href="javascript: popupPage('<%=Encode.forJavaScriptAttribute(StringUtils.noNull(resource))%>other');">Other
                                 Issues / FU Plan</a></b></td>
-                            <td><textarea name="other1"><%=props.getProperty("other1", "")%></textarea></td>
-                            <td><textarea name="other2"><%=props.getProperty("other2", "")%></textarea></td>
-                            <td><textarea name="other3"><%=props.getProperty("other3", "")%></textarea></td>
-                            <td><textarea name="other4"><%=props.getProperty("other4", "")%></textarea></td>
+                            <td><textarea name="other1"><%=Encode.forHtml(props.getProperty("other1", ""))%></textarea></td>
+                            <td><textarea name="other2"><%=Encode.forHtml(props.getProperty("other2", ""))%></textarea></td>
+                            <td><textarea name="other3"><%=Encode.forHtml(props.getProperty("other3", ""))%></textarea></td>
+                            <td><textarea name="other4"><%=Encode.forHtml(props.getProperty("other4", ""))%></textarea></td>
                         </tr>
                         <tr class="signature">
                             <td>Signature</td>
                             <td><input type="text" name="signature1"
-                                       value="<%=props.getProperty("signature1", "")%>"/></td>
+                                       value="<%=Encode.forHtmlAttribute(props.getProperty("signature1", ""))%>"/></td>
                             <td><input type="text" name="signature2"
-                                       value="<%=props.getProperty("signature2", "")%>"/></td>
+                                       value="<%=Encode.forHtmlAttribute(props.getProperty("signature2", ""))%>"/></td>
                             <td><input type="text" name="signature3"
-                                       value="<%=props.getProperty("signature3", "")%>"/></td>
+                                       value="<%=Encode.forHtmlAttribute(props.getProperty("signature3", ""))%>"/></td>
                             <td><input type="text" name="signature4"
-                                       value="<%=props.getProperty("signature4", "")%>"/></td>
+                                       value="<%=Encode.forHtmlAttribute(props.getProperty("signature4", ""))%>"/></td>
                         </tr>
                     </table>
                 </td>

@@ -28,6 +28,16 @@
 <struts>
     <package name="clinical" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/securityError.jsp</result>
+            <result name="error">/errorpage.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+            <exception-mapping exception="java.lang.Exception" result="error"/>
+        </global-exception-mappings>
+
         <action name="encounter/decisionSupport/guidelineAction" class="io.github.carlos_emr.carlos.decisionSupport.web.DSGuideline2Action" method="execute">
             <result name="guidelineList">/encounter/decisionSupport/guidelineList.jsp</result>
             <result name="guidelineDetail">/encounter/decisionSupport/guidelineDetail.jsp</result>
@@ -45,7 +55,7 @@
             <result name="codeList">/oscarResearch/oscarDxResearch/quickCodeList.jsp</result>
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearchCodeSearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchCodeSearch2Action">
-            <result name="success">/oscarResearch/oscarDxResearch/dxResearchCodeSearch.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchCodeSearch.jsp</result>
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearchUpdate" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchUpdate2Action">
             <result name="success">/oscarResearch/oscarDxResearch/setupDxResearch.do</result>
@@ -54,13 +64,14 @@
             <result name="success">/oscarResearch/oscarDxResearch/setupDxResearch.do</result>
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearchLoadQuickList" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchLoadQuickList2Action">
-            <result name="success">/oscarResearch/oscarDxResearch/dxResearchSelectQuickList.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchSelectQuickList.jsp</result>
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchLoadQuickListItems2Action">
-            <result name="success">/oscarResearch/oscarDxResearch/dxResearchEditQuickList.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchEditQuickList.jsp</result>
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearchUpdateQuickList" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchUpdateQuickList2Action">
             <result name="success">/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems.do</result>
+            <result name="failure">/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearchEditQuickList.jsp</result>
         </action>
         <action name="dxCodeSearchJSON" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxCodeSearchJSON2Action"/>
         <action name="oscarResearch/oscarDxResearch/dxResearchLoadAssociations" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchLoadAssociations2Action">
@@ -73,7 +84,7 @@
             <result name="form">/oscarPrevention/AddPreventionData.jsp</result>
         </action>
         <action name="oscarPrevention/PreventionReport" class="io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReport2Action">
-            <result name="success">/oscarPrevention/PreventionReporting.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarPrevention/PreventionReporting.jsp</result>
         </action>
         <action name="oscarPrevention/printPrevention" class="io.github.carlos_emr.carlos.prevention.pageUtil.PreventionPrint2Action">
             <result name="error">/oscarPrevention/index.jsp</result>
