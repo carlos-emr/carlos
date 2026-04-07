@@ -94,7 +94,7 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
 
             Date date = null;
 
-            String url = "popupPage(700, 960,'" + winName + "','" + preventionPath + "');return false;; return false;";
+            String url = "popupPage(700, 960,'" + winName + "','" + preventionPath + "');return false;";
             ArrayList<NavBarDisplayDAO.Item> warnings = new ArrayList<NavBarDisplayDAO.Item>();
             ArrayList<NavBarDisplayDAO.Item> items = new ArrayList<NavBarDisplayDAO.Item>();
             String result;
