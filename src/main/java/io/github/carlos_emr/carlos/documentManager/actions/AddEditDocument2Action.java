@@ -167,21 +167,39 @@ public class AddEditDocument2Action extends ActionSupport {
         LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
         String providerId = request.getParameter("providers");
 
+        Integer docNoInt;
+        try {
+            docNoInt = Integer.parseInt(doc_no.trim());
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().error("Non-numeric document ID returned from addDocumentSQL");
+            response.sendError(500, "Invalid document ID");
+            return null;
+        }
+
         if (providerId != null) { // TODO: THIS NEEDS TO RUN THRU THE lab forwarding rules!
             WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
             ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean(ProviderInboxRoutingDao.class);
-            providerInboxRoutingDao.addToProviderInbox(providerId, Integer.parseInt(doc_no), "DOC");
+            providerInboxRoutingDao.addToProviderInbox(providerId, docNoInt, "DOC");
         }
         // add to queuelinkdocument
         String queueId = request.getParameter("queue");
 
         if (queueId != null && !queueId.equals("-1")) {
-            WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-            QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
-            Integer qid = Integer.parseInt(queueId.trim());
-            Integer did = Integer.parseInt(doc_no.trim());
-            queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-            request.getSession().setAttribute("preferredQueue", queueId);
+            Integer qid;
+            try {
+                qid = Integer.parseInt(queueId.trim());
+            } catch (NumberFormatException e) {
+                MiscUtils.getLogger().warn("Non-numeric queue ID rejected");
+                qid = null;
+            }
+            if (qid != null) {
+                WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
+                queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, docNoInt);
+                request.getSession().setAttribute("preferredQueue", String.valueOf(qid));
+            }
+        } else {
+            request.getSession().removeAttribute("preferredQueue");
         }
 
         return null;
