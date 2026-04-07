@@ -456,7 +456,7 @@
             <%= Encode.forHtml(billingmasterNo != null ? billingmasterNo : "") %>
         </td>
         <td align="left" class="bCellData">
-            <font color="#000000">Last update: <%=Encode.forHtml(UpdateDate)%>
+            <font color="#000000">Last update: <%=Encode.forHtml(MyDateFormat.getMyStandardDate(bill.getUpdateDate()))%>
             </font>
         </td>
         <td align="right" class="bCellData">
