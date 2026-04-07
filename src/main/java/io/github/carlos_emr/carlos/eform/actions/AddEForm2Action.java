@@ -310,6 +310,10 @@ public class AddEForm2Action extends ActionSupport {
                 path = path.substring(0, path.indexOf(uri));
                 path += request.getContextPath();
 
+                String rawFileName = curForm.getFormFileName();
+                if (rawFileName != null && !rawFileName.isEmpty()) {
+                    curForm.setFormFileName(MiscUtils.sanitizeFileName(rawFileName));
+                }
                 EFormUtil.writeEformTemplate(LoggedInInfo.getLoggedInInfoFromSession(request), paramNames, paramValues, curForm, fdid, program_no, path);
             }
 
