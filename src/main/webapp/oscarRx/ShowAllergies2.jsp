@@ -534,8 +534,6 @@
 							<td><b>Start Date</b></td>
 							<td><b>Life Stage</b></td>
 							<td><b>Age Of Onset</b></td>
-              <td><b><img src="<%= request.getContextPath() %>/images/notes.gif" border="0" width="10" height="12"
-                          alt="Annotation"></b></td>
 							<td><b>Action</b></td>
 						</tr>
                                             <%

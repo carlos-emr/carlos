@@ -306,15 +306,11 @@
 							}
 						%>
                         </td>
+                        <%if (securityManager.hasWriteAccess("_rx", roleName2$, true)) {%>
                         <td>
                             <%
                                 if (drug.isLocal) {
                             %>
-                                <%--  <form action="">
-      <input type="hidden" name="drugList" value="<%=drug.localDrugId.toString()%>" />
-      <input type="hidden" name="method" value="represcribe">
-                                                  <input type="submit" name="submit" style="width:100px" class="ControlPushButton"  onclick="javascript:reRxDrugSearch3('<%=drug.localDrugId%>');" value="Re-prescribe" />
-  </form> --%>
                             <input type="button" align="top" value="Represcribe" style="width: 100px"
                                    class="ControlPushButton"
                                    onclick="javascript:reRxDrugSearch3('<%=Encode.forJavaScriptAttribute(String.valueOf(drug.localDrugId))%>');"/>
@@ -341,6 +337,7 @@
                                 }
                             %>
                         </td>
+                        <% } %>
                     </tr>
                     <%
                         }

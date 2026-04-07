@@ -1461,7 +1461,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         note = caseManagementMgr.saveCaseManagementNote(
                 loggedInInfo, note, issuelist, cpp, ongoing, verify, request.getLocale(), now,
-                null /* annotationNote removed with annotation feature */,
                 userName, (String) session.getAttribute("user"), request.getRemoteAddr(), lastSavedNoteString);
         caseManagementMgr.getEditors(note);
         this.setCaseNote(note);
