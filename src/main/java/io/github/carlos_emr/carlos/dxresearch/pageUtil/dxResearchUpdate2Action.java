@@ -70,6 +70,13 @@ public class dxResearchUpdate2Action extends ActionSupport {
         String providerNo = request.getParameter("providerNo");
         String startDate = request.getParameter("startdate");
 
+        if (demographicNo == null || !demographicNo.matches("\\d+")) {
+            throw new RuntimeException("invalid demographicNo parameter");
+        }
+        if (providerNo == null || !providerNo.matches("\\d+")) {
+            throw new RuntimeException("invalid providerNo parameter");
+        }
+
 
         partialDateDao.setPartialDate(startDate, PartialDate.DXRESEARCH, Integer.valueOf(did), PartialDate.DXRESEARCH_STARTDATE);
         startDate = partialDateDao.getFullDate(startDate);
