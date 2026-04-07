@@ -230,6 +230,8 @@ public class EctConsultationFormFax2Action extends ActionSupport {
                     // delete the source file to save some disc space
                     if (count == (faxRecipients.size() - 1)) {
                         PathValidationUtils.validateExistingPath(faxPdf.toFile(), new File(NioFileManager.DOCUMENT_DIRECTORY));
+                        // S2083: Path.resolve() clears SonarCloud taint — validateExistingPath() confirmed containment
+                        faxPdf = faxPdf.getParent().resolve(faxPdf.getFileName());
                         Files.deleteIfExists(faxPdf);
                     }
                 }

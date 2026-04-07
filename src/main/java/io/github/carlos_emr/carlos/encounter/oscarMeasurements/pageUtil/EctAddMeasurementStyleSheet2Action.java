@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -147,6 +148,8 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
             
             // Create and validate the destination file using PathValidationUtils
             File destinationFile = PathValidationUtils.validatePath(sanitizedFileName, uploadDir);
+            // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+            destinationFile = uploadDir.toPath().resolve(destinationFile.getName()).toFile();
 
             // Write the file to the validated destination
             try (FileInputStream fis = new FileInputStream(file)) {

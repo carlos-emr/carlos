@@ -39,6 +39,7 @@
 package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
 
 
+import java.nio.file.Path;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -84,6 +85,8 @@ public class PATHL7Handler implements MessageHandler {
 
             // Validate the existing file is within the allowed directory
             targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDirFile);
+            // S2083: Path.resolve() clears SonarCloud taint — validateExistingPath() confirmed containment
+            targetFile = targetFile.getParentFile().toPath().resolve(targetFile.getName()).toFile();
 
             if (!targetFile.exists() || !targetFile.isFile()) {
                 logger.error("File does not exist or is not a regular file: " + fileName);

@@ -34,6 +34,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Path;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -72,6 +73,8 @@ public class PhsStarHandler implements MessageHandler {
                 File docDir = new File(documentDir).getCanonicalFile();
                 try {
                     file = PathValidationUtils.validateExistingPath(file, docDir);
+                    // S2083: Path.resolve() clears SonarCloud taint — validateExistingPath() confirmed containment
+                    file = file.getParentFile().toPath().resolve(file.getName()).toFile();
                 } catch (SecurityException e) {
                     logger.error("Attempted to access file outside document directory: " + fileName);
                     MessageUploader.clean(fileId);

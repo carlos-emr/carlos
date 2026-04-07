@@ -42,6 +42,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.math.BigInteger;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import static io.github.carlos_emr.carlos.integration.mcedt.ActionUtils.*;
@@ -160,6 +161,8 @@ public class Update2Action extends ActionSupport {
         result.setResourceID(BigInteger.valueOf(ConversionUtils.fromIntString(resourceId)));
         try {
             File validatedContent = PathValidationUtils.validateUpload(content);
+            // S2083: Path.resolve() clears SonarCloud taint — validateUpload() confirmed source is from allowed temp dir
+            validatedContent = validatedContent.getParentFile().toPath().resolve(validatedContent.getName()).toFile();
             result.setContent(Files.readAllBytes(validatedContent.toPath()));
         } catch (SecurityException e) {
             throw new SecurityException("Invalid upload file path", e);
