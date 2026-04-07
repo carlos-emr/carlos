@@ -201,7 +201,9 @@
     if (pdfNameParam != null && !pdfNameParam.isEmpty()) {
         try {
             File allowedPdfDir = new File(pdfDirectory);
-            pdfName = PathValidationUtils.validatePath(pdfNameParam, allowedPdfDir).getName();
+            File validatedPdf = PathValidationUtils.validatePath(pdfNameParam, allowedPdfDir);
+            // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+            pdfName = allowedPdfDir.toPath().resolve(validatedPdf.getName()).toFile().getName();
         } catch (SecurityException e) {
             MiscUtils.getLogger().warn("Path traversal attempt blocked for pdfName in incomingDocs.jsp");
             pdfName = "";

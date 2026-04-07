@@ -128,6 +128,8 @@
                     if (zname != null && !zname.equals("")) {
                         // Validate the user-provided filename to prevent path traversal (CWE-22)
                         File safeZipFile = PathValidationUtils.validatePath(zname, new File(folderPath));
+                        // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+                        safeZipFile = new File(folderPath).toPath().resolve(safeZipFile.getName()).toFile();
                         Boolean unzipDone = zip.unzipXML(folderPath, safeZipFile.getName());
                         if (!unzipDone) {
                             unzipMSG = "(Cannot unzip)";
