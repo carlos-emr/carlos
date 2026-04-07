@@ -133,7 +133,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                         request.getSession().setAttribute("preferredQueue", String.valueOf(Integer.parseInt(queueId.trim())));
                     } catch (NumberFormatException e) {
                         // Do not store an invalid (non-integer) queue ID in the session (trust boundary protection)
-                        logger.warn("Rejected non-integer queue ID from request — possible malicious input");
+                        logger.warn("Invalid queue ID format — skipping session attribute update");
                     }
                 }
                 if (docFile != null) {
@@ -189,12 +189,17 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
             String queueId = request.getParameter("queue");
             if (queueId != null && !queueId.equals("-1")) {
-                WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
-                Integer qid = Integer.parseInt(queueId.trim());
-                Integer did = Integer.parseInt(doc_no.trim());
-                queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-                request.getSession().setAttribute("preferredQueue", String.valueOf(qid));
+                if (!queueId.trim().matches("\\d+")) {
+                    logger.warn("Invalid queue ID format — skipping queue link");
+                    request.getSession().removeAttribute("preferredQueue");
+                } else {
+                    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                    QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
+                    Integer qid = Integer.parseInt(queueId.trim());
+                    Integer did = Integer.parseInt(doc_no.trim());
+                    queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
+                    request.getSession().setAttribute("preferredQueue", String.valueOf(qid));
+                }
             }
 
             map.put("name", docFile.getName());

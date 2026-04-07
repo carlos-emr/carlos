@@ -311,11 +311,11 @@
     <input type="hidden" name="functionId"
            value="<%=Encode.forHtmlAttribute(formdata.getFunctionId())%>" size="20"/>
     <input type="hidden" name="functionid" value="<%=Encode.forHtmlAttribute(moduleid)%>" size="20"/>
-    <input type="hidden" name="mode" value="<%=mode%>"/>
+    <input type="hidden" name="mode" value="<%=Encode.forHtmlAttribute(mode)%>"/>
     <input type="hidden" name="docCreator"
-           value="<%=formdata.getDocCreator()%>"/>
-    <input type="hidden" name="reviewerId" value="<%=formdata.getReviewerId()%>"/>
-    <input type="hidden" name="reviewDateTime" value="<%=formdata.getReviewDateTime()%>"/>
+           value="<%=Encode.forHtmlAttribute(formdata.getDocCreator())%>"/>
+    <input type="hidden" name="reviewerId" value="<%=Encode.forHtmlAttribute(formdata.getReviewerId())%>"/>
+    <input type="hidden" name="reviewDateTime" value="<%=Encode.forHtmlAttribute(formdata.getReviewDateTime())%>"/>
     <input type="hidden" name="reviewDoc" value="false"/>
 
     <table width="100%" height="100%" class="layouttable">

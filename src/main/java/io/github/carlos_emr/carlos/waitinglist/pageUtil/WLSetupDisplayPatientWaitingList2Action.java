@@ -77,6 +77,13 @@ public final class WLSetupDisplayPatientWaitingList2Action extends ActionSupport
             return ERROR;
         }
 
+        if (demographicNoInt <= 0) {
+            MiscUtils.getLogger().warn("WLSetupDisplayPatientWaitingList2Action: non-positive demographic_no={}",
+                    demographicNoInt);
+            addActionError("Invalid demographic_no: must be a positive integer");
+            return ERROR;
+        }
+
         // Use the validated integer string for all subsequent operations
         String demographicNo = String.valueOf(demographicNoInt);
 

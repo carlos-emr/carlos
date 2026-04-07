@@ -38,9 +38,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties,io.github.carlos_emr.carlos.log.*" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,
-                io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink,
-                io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo,io.github.carlos_emr.carlos.commn.dao.DrugReasonDao,io.github.carlos_emr.carlos.commn.model.DrugReason" %>
 <%@page import="io.github.carlos_emr.carlos.util.*,java.util.*,io.github.carlos_emr.carlos.commn.model.Drug,io.github.carlos_emr.carlos.commn.dao.*" %>
@@ -185,7 +183,6 @@
 
     CodingSystemManager codingSystemManager = SpringUtils.getBean(CodingSystemManager.class);
 
-    String annotation_display = CaseManagementNoteLink.DISP_PRESCRIP;
     String heading = request.getParameter("heading");
 
     if (heading != null) {
@@ -239,23 +236,7 @@
             long month = 1000L * 60L * 60L * 24L * 30L;
             for (int x = 0; x < prescriptDrugs.size(); x++) {
                 Drug prescriptDrug = prescriptDrugs.get(x);
-                boolean isPrevAnnotation = false;
                 String styleColor = "";
-                //test for previous note
-                HttpSession se = request.getSession();
-                Integer tableName = caseManagementManager.getTableNameByDisplay(annotation_display);
-
-                CaseManagementNoteLink cml = null;
-                CaseManagementNote p_cmn = null;
-
-                cml = caseManagementManager.getLatestLinkByTableId(tableName, Long.parseLong(prescriptDrug.getId().toString()));
-
-                if (cml != null) {
-                    p_cmn = caseManagementManager.getNote(cml.getNoteId().toString());
-                }
-                if (p_cmn != null) {
-                    isPrevAnnotation = true;
-                }
 
                 if (request.getParameter("status") != null) { //TODO: Redo this in a better way
                     String stat = request.getParameter("status");

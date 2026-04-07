@@ -73,7 +73,13 @@ public class DxresearchReport2Action extends ActionSupport {
     private MyGroupDao mygroupdao = SpringUtils.getBean(MyGroupDao.class);
     private static final String REPORTS_PATH = "org/oscarehr/common/web/DxResearchReport.jrxml";
 
-    /** Allowlist of valid values for the {@code radiovaluestatus} session attribute. */
+    /**
+     * Allowlist of valid values for the {@code radiovaluestatus} session attribute.
+     * Note: "patientRegistedDistincted" is an intentional legacy identifier used consistently
+     * across this Action class and the companion JSP (oscarReportDxReg.jsp). Changing it
+     * would require a coordinated rename of both server-side method names and JSP references,
+     * and is therefore preserved as-is to avoid breakage.
+     */
     private static final Set<String> VALID_STATUS_VALUES = Set.of(
             "patientRegistedAll",
             "patientRegistedDistincted",

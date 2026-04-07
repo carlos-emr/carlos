@@ -49,7 +49,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao" %>
 <%@page errorPage="/errorpage.jsp" %>
 <%@ page
-        import="java.util.*, io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.on.CML.*,io.github.carlos_emr.carlos.lab.LabRequestReportLink,io.github.carlos_emr.carlos.db.*,java.sql.*,io.github.carlos_emr.carlos.log.*,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,io.github.carlos_emr.carlos.casemgmt.model.*" %>
+        import="java.util.*, io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.on.CML.*,io.github.carlos_emr.carlos.lab.LabRequestReportLink,io.github.carlos_emr.carlos.db.*,java.sql.*,io.github.carlos_emr.carlos.log.*,io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%
@@ -64,9 +64,6 @@
     String reqID = reqIDL == null ? "" : reqIDL.toString();
     reqIDL = LabRequestReportLink.getRequestTableIdByReport("labPatientPhysicianInfo", Long.valueOf(segmentID));
     String reqTableID = reqIDL == null ? "" : reqIDL.toString();
-
-    String annotation_display = CaseManagementNoteLink.DISP_LABTEST2;
-    CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
 
 %>
 <%
@@ -105,8 +102,6 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CML.CMLLabTest" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.MDSSegmentData" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -541,23 +536,12 @@
                         <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
                         <td width="5%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestLocation"/></td>
                         <td width="5%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
-                        <td width="5%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAnnotate"/></td>
                     </tr>
 
                     <%
                         //int linenum = 1;
                         ArrayList labs = gResults.getLabResults();
                         for (int l = 0; l < labs.size(); l++) {
-
-                            boolean isPrevAnnotation = false;
-                            CaseManagementNoteLink cml = caseManagementManager.getLatestLinkByTableId(CaseManagementNoteLink.LABTEST2, Long.valueOf(segmentID), i + "-" + l);
-                            CaseManagementNote p_cmn = null;
-                            if (cml != null) {
-                                p_cmn = caseManagementManager.getNote(cml.getNoteId().toString());
-                            }
-                            if (p_cmn != null) {
-                                isPrevAnnotation = true;
-                            }
 
                             CMLLabTest.LabResult thisResult = (CMLLabTest.LabResult) labs.get(l);
                             String lineClass = "NormalRes";

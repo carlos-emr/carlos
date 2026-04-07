@@ -95,9 +95,6 @@
 <%@ page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao" %>
@@ -359,9 +356,6 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
 <%
     }
 
-
-    String annotation_display = CaseManagementNoteLink.DISP_LABTEST;
-    CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
 
 %>
 <!DOCTYPE HTML>
@@ -1752,7 +1746,6 @@ input[id^='acklabel_']{
                                 <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
                                 <% } %>
                                 <td style="width:6%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
-                                <td style="width:6%;  vertical-align:bottom" class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formAnnotate"/></td>
                                 <% if ("ExcellerisON".equals(handler.getMsgType())) { %>
                                 <td style="width:6%;  vertical-align:bottom" class="Cell">License #</td>
                             </tr>
@@ -1846,16 +1839,6 @@ input[id^='acklabel_']{
                     lineClass = "HiLoRes";
                 } else if (abnormal != null && (abnormal.equals("A") || abnormal.startsWith("H") || handler.isOBXAbnormal(j, k))) {
                     lineClass = "AbnormalRes";
-                }
-
-                boolean isPrevAnnotation = false;
-                CaseManagementNoteLink cml = caseManagementManager.getLatestLinkByTableId(CaseManagementNoteLink.LABTEST, Long.valueOf(segmentID), j + "-" + k);
-                CaseManagementNote p_cmn = null;
-                if (cml != null) {
-                    p_cmn = caseManagementManager.getNote(cml.getNoteId().toString());
-                }
-                if (p_cmn != null) {
-                    isPrevAnnotation = true;
                 }
 
                 String loincCode = null;
@@ -2424,6 +2407,8 @@ input[id^='acklabel_']{
 </div>
 <%} %>
 
+<script type="text/javascript"
+        src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 

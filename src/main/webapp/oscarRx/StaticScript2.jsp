@@ -49,8 +49,6 @@
 <%@page import="java.util.ArrayList" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -129,7 +127,6 @@
             ArrayList<StaticScriptBean.DrugDisplayData> drugs = StaticScriptBean.getDrugList(loggedInInfo, currentDemographicNo, regionalIdentifier, cn, bn, atc);
 
             RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, currentDemographicNo);
-            String annotation_display = CaseManagementNoteLink.DISP_PRESCRIP;
         %>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
@@ -234,26 +231,26 @@
                                     </td>
                                     <td><%
                                         if (!drug.startDate.equals("0001/01/01")) {
-                                            out.print(partialDateDao.getDatePartial(drug.startDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_STARTDATE));
+                                            out.print(Encode.forHtml(partialDateDao.getDatePartial(drug.startDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_STARTDATE)));
 							/*
 							String startDate = drug.startDate;
 		            		PartialDate pd = partialDateDao.getPartialDate(PartialDate.DRUGS , drug.localDrugId, PartialDate.DRUGS_STARTDATE);
 		            		if(pd != null) {
 		            			startDate = startDate.substring(0,pd.getFormat().length());
 		            		}
-		            		
+
 							out.print(startDate);
 							*/
                                         }
                                     %></td>
                                     <td><%
                                         if (!drug.startDate.equals("0001/01/01")) {
-                                            out.print(drug.endDate);
+                                            out.print(Encode.forHtml(drug.endDate));
                                         }
                                     %></td>
                                     <td><%
                                         if (!drug.writtenDate.equals("0001/01/01")) {
-                                            out.print(partialDateDao.getDatePartial(drug.writtenDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_WRITTENDATE));
+                                            out.print(Encode.forHtml(partialDateDao.getDatePartial(drug.writtenDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_WRITTENDATE)));
                                         }
                                     %></td>
                                     <td>

@@ -1677,7 +1677,7 @@ public class CaseManagementView2Action extends ActionSupport {
      * @return a validated tab name; never null
      */
     private String getValidatedTab(String tabParam) {
-        return VALID_TABS.contains(tabParam) ? tabParam : CaseManagementViewFormBean.tabs[0];
+        return tabParam != null && VALID_TABS.contains(tabParam) ? tabParam : CaseManagementViewFormBean.tabs[0];
     }
 
     // Gets the parameters or attributes that are connected to the inputted name

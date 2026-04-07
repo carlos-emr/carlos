@@ -526,8 +526,6 @@
                     <% if (module.equalsIgnoreCase("demographic")) {%>
                     <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgAddTickler"/>"
                            onclick="AddTickler();"> <%}%>
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgAnnotate"/>"
-                           onclick="DocAnnotation()">
                     <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgEdit"/>"
                            onclick="DocEdit();">
                     <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.noteBrowser.msgDelete"/>"
@@ -597,14 +595,14 @@
                                 NoteDisplay curNote = notesToDisplay.get(idx);
                                 if (!(curNote.isDocument()) && !(curNote.isEformData()) && !(curNote.isRxAnnotation()) && !(curNote.isCpp())) {
                         %>
-                        <option value="<%=curNote.getNoteId()%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=Encode.forHtml(curNote.getProviderName())%>
+                        <option value="<%=Encode.forHtmlAttribute(String.valueOf(curNote.getNoteId()))%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=Encode.forHtml(curNote.getProviderName())%>
                         </option>
                         <%
                             }
 
                             if (curNote.isExternalNote()) {
                         %>
-                        <option value="<%=curNote.getNoteId()%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=Encode.forHtml(curNote.getProviderName())%>
+                        <option value="<%=Encode.forHtmlAttribute(String.valueOf(curNote.getNoteId()))%>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <%=Encode.forHtml(curNote.getProviderName())%>
                         </option>
                         <%
                                 }

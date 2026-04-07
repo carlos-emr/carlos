@@ -379,7 +379,7 @@ public final class Login2Action extends ActionSupport {
             // Validate nextPage retrieved from session to prevent open redirect (CWE-601 defense in depth)
             if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
                 if (nextPage != null) {
-                    logger.warn("Rejected invalid nextPage from session: " + Encode.forJava(nextPage));
+                    logger.warn("Rejected invalid nextPage from session: {}", Encode.forJava(nextPage));
                 }
                 nextPage = null;
             }
@@ -436,10 +436,10 @@ public final class Login2Action extends ActionSupport {
             }
             nextPage = request.getParameter("nextPage");
 
-            logger.debug("nextPage: " + Encode.forJava(nextPage));
+            logger.debug("nextPage: {}", Encode.forJava(nextPage));
             if (nextPage != null) {
                 if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
-                    logger.warn("Rejected redirect URL: " + Encode.forJava(nextPage));
+                    logger.warn("Rejected redirect URL: {}", Encode.forJava(nextPage));
                     response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
                     return NONE;
                 } else {
@@ -456,8 +456,7 @@ public final class Login2Action extends ActionSupport {
                     // Authorization check: verify the authenticated provider is permitted to access this facility (CWE-501)
                     List<Integer> allowedFacilityIds = providerDao.getFacilityIds(username);
                     if (!allowedFacilityIds.contains(facilityId)) {
-                        logger.warn("Provider " + Encode.forJava(String.valueOf(username))
-                                + " attempted unauthorized facility selection: " + facilityId);
+                        logger.warn("Provider {} attempted unauthorized facility selection: {}", Encode.forJava(username), facilityId);
                         response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
                         return NONE;
                     }
@@ -921,7 +920,7 @@ public final class Login2Action extends ActionSupport {
         // Validate nextPage before session storage to prevent open redirect via session (CWE-601 defense in depth)
         if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
             if (nextPage != null) {
-                logger.warn("Rejected invalid nextPage before session storage: " + Encode.forJava(nextPage));
+                logger.warn("Rejected invalid nextPage before session storage: {}", Encode.forJava(nextPage));
             }
             nextPage = null;
         }
