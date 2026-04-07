@@ -99,8 +99,6 @@
             boolean isCustom = true;
             String atcCode = null;
             String regionalIdentifier = "";
-            Long now = new Date().getTime();
-
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         %>
         <fmt:message key="WriteScript.msgQtyMitte" var="msgQtyMitte"/>
