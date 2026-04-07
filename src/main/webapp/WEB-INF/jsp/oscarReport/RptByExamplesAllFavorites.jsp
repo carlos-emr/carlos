@@ -76,8 +76,12 @@
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
+<%
+    Locale requestLocale = request.getLocale();
+    pageContext.setAttribute("requestLanguageTag", requestLocale != null ? requestLocale.toLanguageTag() : "");
+%>
 <!DOCTYPE html>
-<html lang="${pageContext.request.locale.language}">
+<html lang="${requestLanguageTag}">
 <head>
     <title>
         <fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> -
@@ -87,11 +91,10 @@
     <%@ include file="/includes/global-head.jspf" %>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.request.contextPath}/share/css/extractedFromPages.css">
-
+    <fmt:message key="oscarReport.RptByExample.MsgConfirmDelete" var="msgConfirmDelete"/>
     <script type="text/javascript">
         // Localized confirm-delete message rendered server-side for i18n support
-        var msgConfirmDelete = '<fmt:message key="oscarReport.RptByExample.MsgConfirmDelete"/>';
-
+        var msgConfirmDelete = '${e:forJavaScript(msgConfirmDelete)}';
         /**
          * Populates the hidden newQuery and newName fields with the selected
          * favourite's data and submits the edit form.
@@ -184,7 +187,7 @@
                             <input type="button"
                                    class="btn btn-outline-secondary btn-sm"
                                    value="<fmt:message key='oscarReport.RptByExample.MsgEdit'/>"
-                                   onclick="set('${e:forJavaScriptAttribute(favorite.query)}', '${e:forJavaScriptAttribute(favorite.queryName)}'); document.getElementById('favoritesForm').submit(); return false;"/>
+                                   onclick="set('${e:forJavaScript(favorite.query)}', '${e:forJavaScript(favorite.queryName)}'); document.getElementById('favoritesForm').submit(); return false;"/>
                             <input type="button"
                                    class="btn btn-danger btn-sm"
                                    value="<fmt:message key='oscarReport.RptByExample.MsgDelete'/>"
