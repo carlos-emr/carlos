@@ -64,14 +64,13 @@ public class EctDisplayEpisode2Action extends EctDisplayAction {
                 pathedit = request.getContextPath() + "/Episode.do?method=edit&demographicNo=" + bean.demographicNo;
 
 
-                String url = "popupPage(500,900,'" + winName + "','" + pathview + "')";
+                String url;
                 Dao.setLeftHeading(getText("global.episode"));
-                Dao.setLeftURL(url);
+                Dao.setLeftPopup(500, 900, winName, pathview);
 
                 //set right hand heading link
                 winName = "AddEpisode" + bean.demographicNo;
-                url = "popupPage(500,600,'" + winName + "','" + pathedit + "'); return false;";
-                Dao.setRightURL(url);
+                Dao.setRightPopup(500, 600, winName, pathedit);
                 Dao.setRightHeadingID(cmd);
 
 

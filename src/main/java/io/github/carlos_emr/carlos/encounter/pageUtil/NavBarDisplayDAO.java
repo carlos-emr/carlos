@@ -50,6 +50,28 @@ public class NavBarDisplayDAO {
     public final static int DATESORT = 1;
     public final static int DATESORT_ASC = 2;
 
+    /**
+     * Structured popup window configuration separating data from executable JS.
+     * The JSP renders these parameters with context-appropriate OWASP encoding,
+     * preventing XSS if any value ever contains user-controlled data.
+     *
+     * @param width      popup window width in pixels
+     * @param height     popup window height in pixels
+     * @param windowName name/identifier for the popup window
+     * @param url        target URL to load in the popup
+     */
+    public record PopupConfig(int width, int height, String windowName, String url) {}
+
+    /**
+     * Auto-complete item for the encounter left navbar search/filter.
+     * The JSP renders these with {@code Encode.forJavaScript()} encoding.
+     *
+     * @param key          display key for auto-complete list
+     * @param jsExpression full JavaScript expression to execute (e.g. popupPage call)
+     * @param bgColour     background colour for the item
+     */
+    public record AutoCompleteItem(String key, String jsExpression, String bgColour) {}
+
     private String LeftHeading;
     private String RightHeading;
     private String LeftURL;
@@ -62,6 +84,11 @@ public class NavBarDisplayDAO {
     private String headingColour = null;
     private String reloadUrl = null;
     private String divId = null;
+
+    private PopupConfig leftPopup;
+    private PopupConfig rightPopup;
+    private final ArrayList<PopupConfig> popUpMenuConfigs = new ArrayList<>();
+    private final ArrayList<AutoCompleteItem> autoCompleteItems = new ArrayList<>();
 
     /**
      * Creates a new instance of NavBarDisplayDAO
@@ -205,6 +232,103 @@ public class NavBarDisplayDAO {
 
     public int numPopUpMenuItems() {
         return PopUpMenuURLS.size();
+    }
+
+    // --- Structured popup configuration methods (defense-in-depth, issue #1386) ---
+
+    /**
+     * Sets structured popup configuration for the left heading link.
+     * The JSP renders the popupPage() call with OWASP encoding on each parameter.
+     *
+     * @param width      popup window width in pixels
+     * @param height     popup window height in pixels
+     * @param windowName name/identifier for the popup window
+     * @param url        target URL to load in the popup
+     */
+    public void setLeftPopup(int width, int height, String windowName, String url) {
+        this.leftPopup = new PopupConfig(width, height, windowName, url);
+    }
+
+    /**
+     * Gets the structured popup configuration for the left heading link, or null if
+     * the legacy {@link #setLeftURL(String)} was used instead.
+     *
+     * @return PopupConfig for the left heading, or null
+     */
+    public PopupConfig getLeftPopup() {
+        return leftPopup;
+    }
+
+    /**
+     * Sets structured popup configuration for the right heading link.
+     * The JSP renders the popupPage() call with OWASP encoding on each parameter.
+     *
+     * @param width      popup window width in pixels
+     * @param height     popup window height in pixels
+     * @param windowName name/identifier for the popup window
+     * @param url        target URL to load in the popup
+     */
+    public void setRightPopup(int width, int height, String windowName, String url) {
+        this.rightPopup = new PopupConfig(width, height, windowName, url);
+    }
+
+    /**
+     * Gets the structured popup configuration for the right heading link, or null if
+     * the legacy {@link #setRightURL(String)} was used instead.
+     *
+     * @return PopupConfig for the right heading, or null
+     */
+    public PopupConfig getRightPopup() {
+        return rightPopup;
+    }
+
+    /**
+     * Adds a structured popup menu item. The JSP renders the popupPage() call
+     * with OWASP encoding on each parameter.
+     *
+     * @param width      popup window width in pixels
+     * @param height     popup window height in pixels
+     * @param windowName name/identifier for the popup window
+     * @param url        target URL to load in the popup
+     */
+    public void addPopUpMenu(int width, int height, String windowName, String url) {
+        popUpMenuConfigs.add(new PopupConfig(width, height, windowName, url));
+    }
+
+    /**
+     * Gets the structured popup configuration for a menu item at the given index,
+     * or null if only the legacy {@link #addPopUpUrl(String)} was used.
+     *
+     * @param i index of the popup menu item
+     * @return PopupConfig for the menu item, or null if index is out of range
+     */
+    public PopupConfig getPopUpConfig(int i) {
+        if (i >= 0 && i < popUpMenuConfigs.size()) {
+            return popUpMenuConfigs.get(i);
+        }
+        return null;
+    }
+
+    /**
+     * Adds an auto-complete item with data that will be rendered with OWASP encoding
+     * in the JSP, replacing the legacy pattern of building {@code <script>} blocks
+     * server-side.
+     *
+     * @param key          display key for auto-complete list (unescaped)
+     * @param jsExpression full JavaScript expression (e.g. popupPage call)
+     * @param bgColour     background colour for the item
+     */
+    public void addAutoCompleteItem(String key, String jsExpression, String bgColour) {
+        autoCompleteItems.add(new AutoCompleteItem(key, jsExpression, bgColour));
+    }
+
+    /**
+     * Returns the list of auto-complete items for rendering in the JSP.
+     *
+     * @return List of AutoCompleteItem records
+     */
+    public List<AutoCompleteItem> getAutoCompleteItems() {
+        return autoCompleteItems;
     }
 
     public void addItem(Item i) {

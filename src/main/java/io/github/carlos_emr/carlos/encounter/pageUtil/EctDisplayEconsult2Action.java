@@ -75,19 +75,18 @@ public class EctDisplayEconsult2Action extends EctDisplayAction {
             eConsultDisplayUrl.append(String.format("&%1$s=%2$s", "method", "frontend"));
             StringBuilder createNewEconsultUrl = new StringBuilder(eConsultDisplayUrl.toString());
             eConsultDisplayUrl.append(String.format("&%1$s=%2$s", "task", "patientSummary"));
-            String url = String.format("popupPage(700,960,'%1$s','%2$s');return false;", cmd, eConsultDisplayUrl);
-            Dao.setLeftURL(url);
+            Dao.setLeftPopup(700, 960, cmd, eConsultDisplayUrl.toString());
 
             //set the right hand heading link
             createNewEconsultUrl.append(String.format("&%1$s=%2$s", "task", "draft"));
-            url = String.format("popupPage(700,960,'%1$s','%2$s');return false;", "new " + cmd + demographicNo, createNewEconsultUrl);
-            Dao.setRightURL(url);
+            Dao.setRightPopup(700, 960, "new " + cmd + demographicNo, createNewEconsultUrl.toString());
             Dao.setRightHeadingID(cmd);
 
             // build a list of completed eConsult PDF's to be displayed under the heading.
             List<Document> econsults = consultationManager.getEconsultDocuments(loggedInInfo, Integer.parseInt(demographicNo));
             String documentDateString = "";
             String title = "";
+            String url;
             int hash = 0;
             StringBuilder eConsultDocumentUrl = null;
             int documentId = 0;

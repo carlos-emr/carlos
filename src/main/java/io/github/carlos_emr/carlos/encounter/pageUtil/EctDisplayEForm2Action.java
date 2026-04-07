@@ -30,7 +30,6 @@
 
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
-import org.apache.commons.text.StringEscapeUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -64,22 +63,19 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
 
                 //set lefthand module heading and link
                 String winName = "eForm" + bean.demographicNo;
-                String url = "popupPage(500, 950,'" + winName + "', '" + request.getContextPath() + "/eform/efmpatientformlist.jsp?demographic_no=" + bean.demographicNo + "&apptProvider=" + bean.getCurProviderNo() + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd + "')";
                 Dao.setLeftHeading(getText("global.eForms"));
-                Dao.setLeftURL(url);
+                Dao.setLeftPopup(500, 950, winName, request.getContextPath() + "/eform/efmpatientformlist.jsp?demographic_no=" + bean.demographicNo + "&apptProvider=" + bean.getCurProviderNo() + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd);
 
                 //set the right hand heading link
                 winName = "AddeForm" + bean.demographicNo;
-                url = "popupPage(500, 950,'" + winName + "','" + request.getContextPath() + "/eform/efmformslistadd.jsp?demographic_no=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd + "'); return false;";
-                Dao.setRightURL(url);
+                Dao.setRightPopup(500, 950, winName, request.getContextPath() + "/eform/efmformslistadd.jsp?demographic_no=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd);
                 Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action
 
-                StringBuilder javascript = new StringBuilder("<script type=\"text/javascript\">");
-                String js = "";
-                ArrayList<HashMap<String, ? extends Object>> eForms = EFormUtil.listEForms(EFormUtil.DATE, EFormUtil.CURRENT, roleName); //EFormUtil.listEForms(EFormUtil.DATE, EFormUtil.NAME, EFormUtil.CURRENT, roleName);
+                String url;
                 String key;
                 int hash;
                 String BGCOLOUR = request.getParameter("hC");
+                ArrayList<HashMap<String, ? extends Object>> eForms = EFormUtil.listEForms(EFormUtil.DATE, EFormUtil.CURRENT, roleName); //EFormUtil.listEForms(EFormUtil.DATE, EFormUtil.NAME, EFormUtil.CURRENT, roleName);
                 for (int i = 0; i < eForms.size(); ++i) {
                     HashMap<String, ? extends Object> curform = eForms.get(i);
                     winName = (String) curform.get("formName") + bean.demographicNo;
@@ -87,9 +83,7 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
                     url = "popupPage(700, 800,'" + hash + "','" + request.getContextPath() + "/eform/efmformadd_data.jsp?fid=" + curform.get("fid") + "&demographic_no=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd + "','" + curform.get("fid") + "_" + bean.demographicNo + "');";
                     logger.debug("SETTING EFORM URL " + url);
                     key = StringUtils.maxLenString((String) curform.get("formName"), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + " (new)";
-                    key = StringEscapeUtils.escapeEcmaScript(key);
-                    js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompleted['" + key + "'] = \"" + url + "\"; autoCompList.push('" + key + "');";
-                    javascript.append(js);
+                    Dao.addAutoCompleteItem(key, url, BGCOLOUR);
                 }
 
                 eForms.clear();
@@ -123,9 +117,7 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
                     String formattedDate = DateUtils.formatDate(eFormData.getFormDate(), request.getLocale());
                     key = StringUtils.maxLenString(eFormData.getFormName(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + "(" + formattedDate + ")";
                     item.setLinkTitle(eFormData.getSubject());
-                    key = StringEscapeUtils.escapeEcmaScript(key);
-                    js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompleted['" + key + "'] = \"" + url + "\"; autoCompList.push('" + key + "');";
-                    javascript.append(js);
+                    Dao.addAutoCompleteItem(key, url, BGCOLOUR);
                     url += "return false;";
                     item.setURL(url);
                     String strTitle = StringUtils.maxLenString(eFormData.getFormName() + ": " + eFormData.getSubject(), MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
@@ -134,9 +126,6 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
                     item.setDate(eFormData.getFormDate());
                     Dao.addItem(item);
                 }
-
-                javascript.append("</script>");
-                Dao.setJavaScript(javascript.toString());
 
                 return true;
             }

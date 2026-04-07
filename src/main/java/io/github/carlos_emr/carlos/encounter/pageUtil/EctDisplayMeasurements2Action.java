@@ -75,8 +75,9 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
             //set link for lefthand module title
             String winName = "measurements" + bean.demographicNo;
-            String url = "popupPage(600,1000,'" + winName + "','" + request.getContextPath() + "/encounter/oscarMeasurements/SetupHistoryIndex.do')";
-            Dao.setLeftURL(url.toString());
+            Dao.setLeftPopup(600, 1000, winName, request.getContextPath() + "/encounter/oscarMeasurements/SetupHistoryIndex.do");
+
+            String url;
 
             //we're going to display a pop up menu of measurement groups
             Dao.setRightHeadingID(menuId);
@@ -209,14 +210,13 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
                 MeasurementGroupStyle group = groups.get(j);
                 winName = group.getGroupName() + bean.demographicNo;
                 hash = Math.abs(winName.hashCode());
-                url = "popupPage(500,1000,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/SetupMeasurements.do?demographicNo=" + bean.demographicNo + "&groupName=" + group.getGroupName() + "');measurementLoaded('" + hash + "')";
-                Dao.addPopUpUrl(url);
+                Dao.addPopUpMenu(500, 1000, String.valueOf(hash), request.getContextPath() + "/encounter/oscarMeasurements/SetupMeasurements.do?demographicNo=" + bean.demographicNo + "&groupName=" + group.getGroupName());
                 Dao.addPopUpText(group.getGroupName());
             }
 
             //if there are none, we tell user
             if (bean.measurementGroupNames.size() == 0) {
-                Dao.addPopUpUrl("");
+                Dao.addPopUpMenu(0, 0, "", "");
                 Dao.addPopUpText("None");
             }
 

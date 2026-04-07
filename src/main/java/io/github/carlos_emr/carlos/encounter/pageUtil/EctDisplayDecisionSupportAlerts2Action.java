@@ -41,7 +41,6 @@ import java.util.Vector;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import org.apache.commons.text.StringEscapeUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSGuideline;
@@ -77,18 +76,17 @@ public class EctDisplayDecisionSupportAlerts2Action extends EctDisplayAction {
 
             //set lefthand module heading and link
             String winName = "dsalert" + bean.demographicNo;
-            String url = "popupPage(500,950,'" + winName + "','" + request.getContextPath() + "/encounter/decisionSupport/guidelineAction.do?method=list&provider_no=" + bean.providerNo + "&demographic_no=" + bean.demographicNo + "&parentAjaxId=" + cmd + "'); return false;";
+            String dsPath = request.getContextPath() + "/encounter/decisionSupport/guidelineAction.do?method=list&provider_no=" + bean.providerNo + "&demographic_no=" + bean.demographicNo + "&parentAjaxId=" + cmd;
             Dao.setLeftHeading(getText("global.decisionSupportAlerts"));
-            Dao.setLeftURL(url);
+            Dao.setLeftPopup(500, 950, winName, dsPath);
 
             //set the right hand heading link
+            Dao.setRightPopup(500, 950, winName, dsPath);
             winName = "AddeForm" + bean.demographicNo;
 
-            Dao.setRightURL(url);
             Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action
 
-            StringBuilder javascript = new StringBuilder("<script type=\"text/javascript\">");
-            String js = "";
+            String url;
 
             WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(ServletActionContext.getServletContext());
             DSService dsService = (DSService) ctx.getBean(DSService.class);
@@ -119,9 +117,7 @@ public class EctDisplayDecisionSupportAlerts2Action extends EctDisplayAction {
                         //String formattedDate = DateUtils.getDate(date,dateFormat,request.getLocale());
                         key = StringUtils.maxLenString(dsConsequence.getText(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES);
                         item.setLinkTitle(dsGuideline.getTitle());
-                        key = StringEscapeUtils.escapeEcmaScript(key);
-                        js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompleted['" + key + "'] = \"" + url + "\"; autoCompList.push('" + key + "');";
-                        javascript.append(js);
+                        Dao.addAutoCompleteItem(key, url, BGCOLOUR);
                         url += "return false;";
                         item.setURL(url);
                         String strTitle = StringUtils.maxLenString(dsGuideline.getTitle(), MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
@@ -137,8 +133,6 @@ public class EctDisplayDecisionSupportAlerts2Action extends EctDisplayAction {
                 }
             }
 
-            javascript.append("</script>");
-            Dao.setJavaScript(javascript.toString());
             return true;
         }
     }

@@ -72,27 +72,28 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
             boolean inboxflag = IsPropertiesOn.propertiesOn("inboxmnger");
             // set lefthand module heading and link
             String winName = "docs" + bean.demographicNo;
-            String url = "popupPage(500,1115,'" + winName + "', '" + request.getContextPath() + "/documentManager/documentReport.jsp?" + "function=demographic&doctype=lab&functionid=" + bean.demographicNo + "&curUser=" + bean.providerNo + "')";
+            String leftPath;
 
             Dao.setLeftHeading(getText("encounter.Index.msgDocuments"));
             if (inboxflag) {
-                url = "popupPage(600,1024,'" + winName + "', '" + request.getContextPath() + "/mod/docmgmtComp/DocList.do?method=list&&demographic_no=" + bean.demographicNo + "');";
+                leftPath = request.getContextPath() + "/mod/docmgmtComp/DocList.do?method=list&&demographic_no=" + bean.demographicNo;
+                Dao.setLeftPopup(600, 1024, winName, leftPath);
                 Dao.setLeftHeading(getText("encounter.Index.inboxManager"));
+            } else {
+                leftPath = request.getContextPath() + "/documentManager/documentReport.jsp?" + "function=demographic&doctype=lab&functionid=" + bean.demographicNo + "&curUser=" + bean.providerNo;
+                Dao.setLeftPopup(500, 1115, winName, leftPath);
             }
-            Dao.setLeftURL(url);
 
             // set the right hand heading link to call addDocument in index jsp
             winName = "addDoc" + bean.demographicNo;
-            url = "popupPage(500,1115,'" + winName + "','" + request.getContextPath() + "/documentManager/documentReport.jsp?" + "function=demographic&doctype=lab&functionid=" + bean.demographicNo + "&curUser=" + bean.providerNo + "&mode=add" + "&parentAjaxId=" + cmd + "');return false;";
 
             if (inboxflag) {
-                url = "popupPage(300,600,'" + winName + "','" + request.getContextPath() + "/mod/docmgmtComp/FileUpload.do?method=newupload&demographic_no=" + bean.demographicNo + "');return false;";
+                Dao.setRightPopup(300, 600, winName, request.getContextPath() + "/mod/docmgmtComp/FileUpload.do?method=newupload&demographic_no=" + bean.demographicNo);
+            } else {
+                Dao.setRightPopup(500, 1115, winName, request.getContextPath() + "/documentManager/documentReport.jsp?" + "function=demographic&doctype=lab&functionid=" + bean.demographicNo + "&curUser=" + bean.providerNo + "&mode=add" + "&parentAjaxId=" + cmd);
             }
-            Dao.setRightURL(url);
             Dao.setRightHeadingID(cmd); // no menu so set div id to unique id for this action
 
-            StringBuilder javascript = new StringBuilder("<script type=\"text/javascript\">");
-            String js = "";
             ArrayList<EDoc> docList = EDocUtil.listDocs(loggedInInfo, "demographic", bean.demographicNo, null, EDocUtil.PRIVATE, EDocSort.OBSERVATIONDATE, "active");
             String dbFormat = "yyyy-MM-dd";
             String serviceDateStr = "";
@@ -100,6 +101,7 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
             String title;
             int hash;
             String BGCOLOUR = request.getParameter("hC");
+            String url;
             Date date;
 
             // sort complete list by date descending
@@ -161,12 +163,10 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
                 item.setLinkTitle(title + serviceDateStr);
                 item.setTitle(title);
                 key = StringUtils.maxLenString(curDoc.getDescription(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + "(" + serviceDateStr + ")";
-                key = Encode.forJavaScript(key);
                 if (inboxflag) {
                     if (!EDocUtil.getDocReviewFlag(dispDocNo)) item.setColour("FF0000");
                 }
-                js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompleted['" + key + "'] = \"" + url + "\"; autoCompList.push('" + key + "');";
-                javascript.append(js);
+                Dao.addAutoCompleteItem(key, url, BGCOLOUR);
                 item.setURL(url);
                 item.setURLJavaScript(true);
 
@@ -177,9 +177,6 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
                 Dao.addItem(item);
 
             }
-            javascript.append("</script>");
-
-            Dao.setJavaScript(javascript.toString());
             return true;
         }
     }

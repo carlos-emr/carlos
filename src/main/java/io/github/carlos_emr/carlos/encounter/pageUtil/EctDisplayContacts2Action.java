@@ -81,7 +81,8 @@ public class EctDisplayContacts2Action extends EctDisplayAction {
                 height = 900;
             }
 
-            String url = "popupPage(" + height + "," + width + ",'" + winName + "','" + pathview + "')";
+            String url;
+            Dao.setLeftPopup(height, width, winName, pathview);
 
             if ("true".equalsIgnoreCase(healthCareTeamEnabled)) {
                 Dao.setLeftHeading("Health Care Team");
@@ -93,12 +94,9 @@ public class EctDisplayContacts2Action extends EctDisplayAction {
                 height = 1000;
             }
 
-            Dao.setLeftURL(url);
-
             //set right hand heading link
             winName = "AddContact" + bean.demographicNo;
-            url = "popupPage(" + height + "," + width + ",'" + winName + "','" + pathedit + "'); return false;";
-            Dao.setRightURL(url);
+            Dao.setRightPopup(height, width, winName, pathedit);
             Dao.setRightHeadingID(cmd);
 
             List<DemographicContact> contacts = demographicContactDao.findActiveByDemographicNo(Integer.parseInt(bean.demographicNo));

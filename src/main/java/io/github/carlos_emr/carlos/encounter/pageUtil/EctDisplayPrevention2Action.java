@@ -69,13 +69,12 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
             //set lefthand module heading and link
             String winName = "prevention" + bean.demographicNo;
             int demographicNumber = Integer.valueOf(bean.demographicNo);
-            String url = "popupPage(700, 960,'" + winName + "', '" + request.getContextPath() + "/oscarPrevention/index.jsp?demographic_no=" + bean.demographicNo + "')";
+            String preventionPath = request.getContextPath() + "/oscarPrevention/index.jsp?demographic_no=" + bean.demographicNo;
             Dao.setLeftHeading(getText("encounter.LeftNavBar.Prevent"));
-            Dao.setLeftURL(url);
+            Dao.setLeftPopup(700, 960, winName, preventionPath);
 
             //set righthand link to same as left so we have visual consistency with other modules
-            url += ";return false;";
-            Dao.setRightURL(url);
+            Dao.setRightPopup(700, 960, winName, preventionPath);
             Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action
 
             //list warnings first as module items
@@ -95,7 +94,7 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
 
             Date date = null;
 
-            url += "; return false;";
+            String url = "popupPage(700, 960,'" + winName + "','" + preventionPath + "');return false;; return false;";
             ArrayList<NavBarDisplayDAO.Item> warnings = new ArrayList<NavBarDisplayDAO.Item>();
             ArrayList<NavBarDisplayDAO.Item> items = new ArrayList<NavBarDisplayDAO.Item>();
             String result;
