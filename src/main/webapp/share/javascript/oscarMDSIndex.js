@@ -172,13 +172,14 @@ function appendHtmlWithScripts(container, html) {
     var scripts = doc.querySelectorAll('script[src]');
 
     // Sanitize and insert the non-script HTML content
+    // DOMPurify config: only allow safe form elements/attrs. NEVER add href, src, style, or event handlers.
     var safeHtml = DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'selected', 'checked', 'target']});
     container.insertAdjacentHTML('beforeend', safeHtml);
 
     // Re-execute only external scripts with same-origin src
     scripts.forEach(function(script) {
         var src = script.getAttribute('src');
-        if (src && (src.startsWith('/') || src.startsWith(location.origin + '/'))) {
+        if (src && ((src.startsWith('/') && !src.startsWith('//')) || src.startsWith(location.origin + '/'))) {
             var newScript = document.createElement('script');
             newScript.src = src;
             document.head.appendChild(newScript).parentNode.removeChild(newScript);
@@ -1379,6 +1380,7 @@ function ForwardSelectedRows(files, searchProviderNo, status) {
             dialogContainer.html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');
             return;
         }
+        // DOMPurify config: only allow safe form elements/attrs. NEVER add href, src, style, or event handlers.
         dialogContainer.html(DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'selected', 'checked', 'multiple', 'id', 'name', 'type', 'class']})).dialog({
             modal: true,
             width: 685,
@@ -1674,7 +1676,10 @@ function updatePatientDocLabNav(num, patientId) {
 function createPatientDocLabEle(patientId, doclabid) {
     const url = ctx + "/documentManager/ManageDocument.do";
     var safeId = parseInt(patientId, 10);
-    if (isNaN(safeId)) return;
+    if (isNaN(safeId)) {
+        console.error('Invalid patientId passed to createPatientDocLabEle:', patientId);
+        return;
+    }
     const data = 'method=getDemoNameAjax&demo_no=' + safeId;
 
     postForm(url, data)
@@ -1715,7 +1720,10 @@ function createPatientDocLabEle(patientId, doclabid) {
 
 function createNewDocEle(patientId) {
     var safeId = parseInt(patientId, 10);
-    if (isNaN(safeId)) return '';
+    if (isNaN(safeId)) {
+        console.error('Invalid patientId passed to createNewDocEle:', patientId);
+        return '';
+    }
     const newEle = '<dt><a id="patient' + safeId + 'docs" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + safeId + '\',\'DOC\');un_bold(this);" title="Documents">Documents(<span id="pDocNum_' + safeId + '">1</span>)</a></dt>';
     //oscarLog('newEle='+newEle);
     return newEle;
@@ -1723,7 +1731,10 @@ function createNewDocEle(patientId) {
 
 function createNewHL7Ele(patientId) {
     var safeId = parseInt(patientId, 10);
-    if (isNaN(safeId)) return '';
+    if (isNaN(safeId)) {
+        console.error('Invalid patientId passed to createNewHL7Ele:', patientId);
+        return '';
+    }
     const newEle = '<dt><a id="patient' + safeId + 'hl7s" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + safeId + '\',\'HL7\');un_bold(this);" title="HL7s">HL7s(<span id="pLabNum_' + safeId + '">1</span>)</a></dt>';
     //oscarLog('newEle='+newEle);
     return newEle;

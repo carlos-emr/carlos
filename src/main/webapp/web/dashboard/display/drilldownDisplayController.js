@@ -61,11 +61,20 @@ function sendData(path, param, target) {
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).toggle();
                 } else if (target == "modal") {
                     if (typeof DOMPurify !== 'undefined') {
+                        // DOMPurify config: only allow safe form elements/attrs. NEVER add href, src, style, or event handlers.
                         $('#assignTickler').find('.modal-body').html(DOMPurify.sanitize(data, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'selected']}));
                     } else {
                         console.error('DOMPurify is required but not loaded. Modal content blocked to prevent XSS.');
                         $('#assignTickler').find('.modal-body').html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');
                     }
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).show();
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error('Drilldown request failed:', status, error);
+                if (target == "modal") {
+                    $('#assignTickler').find('.modal-body').html(
+                        '<p style="color:red">Request failed. Please reload the page.</p>');
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).show();
                 }
             }

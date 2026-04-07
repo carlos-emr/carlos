@@ -363,6 +363,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
+            response.setContentType("application/json;charset=UTF-8");
             response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);
@@ -832,6 +833,7 @@ public class ManageDocument2Action extends ActionSupport {
             HashMap hm = new HashMap();
             hm.put("numOfPage", numOfPage);
             ObjectNode jsonObject = objectMapper.valueToTree(hm);
+            response.setContentType("application/json;charset=UTF-8");
             response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);

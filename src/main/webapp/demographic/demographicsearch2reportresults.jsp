@@ -53,8 +53,18 @@
     if (request.getParameter("limit1") != null) strOffset = request.getParameter("limit1");
     if (request.getParameter("limit2") != null) strLimit = request.getParameter("limit2");
 
-    int limit = Integer.parseInt(strLimit);
-    int offset = Integer.parseInt(strOffset);
+    int limit;
+    try {
+        limit = Integer.parseInt(strLimit);
+    } catch (NumberFormatException e) {
+        limit = 10;
+    }
+    int offset;
+    try {
+        offset = Integer.parseInt(strOffset);
+    } catch (NumberFormatException e) {
+        offset = 0;
+    }
     // Sanitize: replace raw request strings with parsed integer values to prevent XSS
     strLimit = String.valueOf(limit);
     strOffset = String.valueOf(offset);

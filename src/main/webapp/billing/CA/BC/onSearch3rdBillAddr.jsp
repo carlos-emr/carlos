@@ -282,12 +282,12 @@
         <script language="JavaScript">
             <!--
             function last() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=Encode.forJavaScript(URLEncoder.encode(param,"UTF-8"))%>&param2=<%=Encode.forJavaScript(URLEncoder.encode(param2,"UTF-8"))%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=Encode.forJavaScript(URLEncoder.encode(param,"UTF-8"))%>&param2=<%=Encode.forJavaScript(URLEncoder.encode(param2,"UTF-8"))%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nLastPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
                 document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=Encode.forJavaScript(URLEncoder.encode(param,"UTF-8"))%>&param2=<%=Encode.forJavaScript(URLEncoder.encode(param2,"UTF-8"))%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/onSearch3rdBillAddr.jsp?param=<%=Encode.forJavaScript(URLEncoder.encode(param,"UTF-8"))%>&param2=<%=Encode.forJavaScript(URLEncoder.encode(param2,"UTF-8"))%>&keyword=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8"))%>&search_mode=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8"))%>&orderby=<%=Encode.forJavaScript(URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8"))%>&limit1=<%=nNextPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
                 document.nextform.submit();
             }
 
