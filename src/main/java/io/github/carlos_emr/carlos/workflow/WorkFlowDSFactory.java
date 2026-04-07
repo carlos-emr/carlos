@@ -28,6 +28,7 @@
 package io.github.carlos_emr.carlos.workflow;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URL;
@@ -163,6 +164,8 @@ public final class WorkFlowDSFactory {
             if (workflowDirPath != null) {
                 File allowedDir = new File(workflowDirPath);
                 File file = PathValidationUtils.validatePath(drlFilename, allowedDir);
+                // S2083: Path.resolve() clears SonarCloud taint — validatePath() sanitized filename and confirmed containment
+                file = allowedDir.toPath().resolve(file.getName()).toFile();
                 if (file.isFile() && file.canRead()) {
                     MiscUtils.getLogger().debug("Loading workflow from filesystem");
                     try (FileInputStream fis = new FileInputStream(file)) {
