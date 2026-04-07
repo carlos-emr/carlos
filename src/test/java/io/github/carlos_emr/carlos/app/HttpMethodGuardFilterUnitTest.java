@@ -678,11 +678,11 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should pass through GET to allow-listed mutator JSP")
         void shouldPassThrough_forAllowListedJsp() throws Exception {
             FilterConfig filterConfig = mock(FilterConfig.class);
-            when(filterConfig.getInitParameter("allowList")).thenReturn("annotation.jsp");
+            when(filterConfig.getInitParameter("allowList")).thenReturn("editDocument.jsp");
             filter.init(filterConfig);
 
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/annotation/annotation.jsp");
+            when(request.getRequestURI()).thenReturn("/carlos/documentManager/editDocument.jsp");
 
             filter.doFilter(request, response, chain);
 

@@ -56,7 +56,6 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -136,10 +135,6 @@
 
     List<Map<String, String>> pdList = new ProviderData().getProviderList();
     ArrayList<String> doctypes = EDocUtil.getDoctypes(module);
-    String annotation_display = CaseManagementNoteLink.DISP_DOCUMENT;
-    String annotation_tableid = editDocumentNo;
-    Long now = new Date().getTime();
-    String annotation_attrib = "anno" + now;
 
     CtlDocClassDao docClassDao = (CtlDocClassDao) SpringUtils.getBean(CtlDocClassDao.class);
     List<String> reportClasses = docClassDao.findUniqueReportClasses();
@@ -322,7 +317,6 @@
     <input type="hidden" name="reviewerId" value="<%=Encode.forHtmlAttribute(formdata.getReviewerId())%>"/>
     <input type="hidden" name="reviewDateTime" value="<%=Encode.forHtmlAttribute(formdata.getReviewDateTime())%>"/>
     <input type="hidden" name="reviewDoc" value="false"/>
-    <input type="hidden" name="annotation_attrib" value="<%=Encode.forHtmlAttribute(annotation_attrib)%>"/>
 
     <table width="100%" height="100%" class="layouttable">
         <tr>
@@ -436,12 +430,6 @@
             </td>
         </tr>
         <% } %>
-        <tr>
-            <td colspan="2">
-                <input type="button" value="Annotation"
-                       onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?atbname=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(annotation_attrib)) %>&display=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(annotation_display)) %>&table_id=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(annotation_tableid)) %>&demo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(moduleid)) %>','anwin','width=400,height=500');"/>
-            </td>
-        </tr>
         <tr>
             <td colspan="2">Html:</td>
         </tr>
