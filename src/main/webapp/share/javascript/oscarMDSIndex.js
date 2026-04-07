@@ -45,6 +45,17 @@ function hideElement(el) {
 }
 
 /**
+ * Helper function to escape HTML special characters for safe interpolation
+ * into HTML strings. Prevents XSS when building HTML via string concatenation.
+ * @param {string} str - The string to escape
+ * @returns {string} The escaped string safe for HTML body and attribute contexts
+ */
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/**
  * Helper function to serialize form data to URL-encoded string
  * @param {HTMLFormElement|string} form - Form element or form ID
  * @returns {string}
@@ -132,11 +143,11 @@ function fetchGet(url) {
 }
 
 /**
- * Helper function to append HTML content to a container and execute any scripts.
+ * Helper function to append HTML content to a container and execute external scripts.
  * Browsers don't execute scripts inserted via innerHTML/insertAdjacentHTML.
  * This function sanitizes the HTML with DOMPurify (which strips script tags),
- * inserts the safe HTML, then re-executes scripts extracted from the original
- * trusted server response.
+ * inserts the safe HTML, then re-executes only same-origin external scripts.
+ * Inline scripts are intentionally blocked to prevent stored XSS bypass.
  * @param {HTMLElement} container - The container element to append HTML to
  * @param {string} html - HTML string that may contain script tags
  */
@@ -153,25 +164,25 @@ function appendHtmlWithScripts(container, html) {
         return;
     }
 
-    // Extract scripts from the raw (trusted server) HTML before sanitization,
-    // because DOMPurify strips <script> tags by default.
+    // Extract only external scripts (with src) before sanitization.
+    // Inline scripts are blocked to prevent stored XSS payloads from
+    // bypassing DOMPurify — only same-origin src scripts are re-executed.
     var parser = new DOMParser();
     var doc = parser.parseFromString(html, 'text/html');
-    var scripts = doc.querySelectorAll('script');
+    var scripts = doc.querySelectorAll('script[src]');
 
     // Sanitize and insert the non-script HTML content
-    var safeHtml = DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'select', 'option', 'textarea', 'iframe'], ADD_ATTR: ['value', 'selected', 'checked', 'target']});
+    var safeHtml = DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'select', 'option', 'textarea'], ADD_ATTR: ['value', 'selected', 'checked', 'target']});
     container.insertAdjacentHTML('beforeend', safeHtml);
 
-    // Re-execute scripts from the original trusted server response
+    // Re-execute only external scripts with same-origin src
     scripts.forEach(function(script) {
-        var newScript = document.createElement('script');
-        if (script.src) {
-            newScript.src = script.src;
-        } else {
-            newScript.textContent = script.textContent;
+        var src = script.getAttribute('src');
+        if (src && (src.startsWith('/') || src.startsWith(location.origin + '/'))) {
+            var newScript = document.createElement('script');
+            newScript.src = src;
+            document.head.appendChild(newScript).parentNode.removeChild(newScript);
         }
-        document.head.appendChild(newScript).parentNode.removeChild(newScript);
     });
 }
 
@@ -1662,7 +1673,9 @@ function updatePatientDocLabNav(num, patientId) {
 
 function createPatientDocLabEle(patientId, doclabid) {
     const url = ctx + "/documentManager/ManageDocument.do";
-    const data = 'method=getDemoNameAjax&demo_no=' + patientId;
+    var safeId = parseInt(patientId, 10);
+    if (isNaN(safeId)) return;
+    const data = 'method=getDemoNameAjax&demo_no=' + safeId;
 
     postForm(url, data)
         .then(response => response.json())
@@ -1670,19 +1683,20 @@ function createPatientDocLabEle(patientId, doclabid) {
         //oscarLog(json);
         if (json != null) {
             const patientName = json.demoName;//get name from id
-            addPatientId(patientId);
-            addPatientIdName(patientId, patientName);
-            let e = '<dt><img id="plus' + patientId + '" alt="plus" src="' + ctx + '/images/plus.png" onclick="showhideSubCat(\'plus\',\'' + patientId + '\');"/><img id="minus' + patientId + '" alt="minus" style="display:none;" src="' + ctx + '/images/minus.png" onclick="showhideSubCat(\'minus\',\'' + patientId + '\');"/>' +
-            '<a id="patient' + patientId + 'all" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showThisPatientDocs(\'' + patientId + '\');un_bold(this);" title="' + patientName + '">' + patientName + ' (<span id="patientNumDocs' + patientId + '">1</span>)</a>' +
-            '<dl id="labdoc' + patientId + 'showSublist" style="display:none">';
+            const safeName = escapeHtml(patientName);
+            addPatientId(safeId);
+            addPatientIdName(safeId, patientName);
+            let e = '<dt><img id="plus' + safeId + '" alt="plus" src="' + ctx + '/images/plus.png" onclick="showhideSubCat(\'plus\',\'' + safeId + '\');"/><img id="minus' + safeId + '" alt="minus" style="display:none;" src="' + ctx + '/images/minus.png" onclick="showhideSubCat(\'minus\',\'' + safeId + '\');"/>' +
+            '<a id="patient' + safeId + 'all" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showThisPatientDocs(\'' + safeId + '\');un_bold(this);" title="' + safeName + '">' + safeName + ' (<span id="patientNumDocs' + safeId + '">1</span>)</a>' +
+            '<dl id="labdoc' + safeId + 'showSublist" style="display:none">';
             const type = checkType(doclabid);
             let s;
             //oscarLog('type='+type);
             //oscarLog('eee='+e);
             if (type == 'DOC') {
-                s = createNewDocEle(patientId);
+                s = createNewDocEle(safeId);
             } else if (type == 'HL7') {
-                s = createNewHL7Ele(patientId);
+                s = createNewHL7Ele(safeId);
             } else {
                 return '';
             }
@@ -1700,13 +1714,17 @@ function createPatientDocLabEle(patientId, doclabid) {
 }
 
 function createNewDocEle(patientId) {
-    const newEle = '<dt><a id="patient' + patientId + 'docs" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + patientId + '\',\'DOC\');un_bold(this);" title="Documents">Documents(<span id="pDocNum_' + patientId + '">1</span>)</a></dt>';
+    var safeId = parseInt(patientId, 10);
+    if (isNaN(safeId)) return '';
+    const newEle = '<dt><a id="patient' + safeId + 'docs" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + safeId + '\',\'DOC\');un_bold(this);" title="Documents">Documents(<span id="pDocNum_' + safeId + '">1</span>)</a></dt>';
     //oscarLog('newEle='+newEle);
     return newEle;
 }
 
 function createNewHL7Ele(patientId) {
-    const newEle = '<dt><a id="patient' + patientId + 'hl7s" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + patientId + '\',\'HL7\');un_bold(this);" title="HL7s">HL7s(<span id="pLabNum_' + patientId + '">1</span>)</a></dt>';
+    var safeId = parseInt(patientId, 10);
+    if (isNaN(safeId)) return '';
+    const newEle = '<dt><a id="patient' + safeId + 'hl7s" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + safeId + '\',\'HL7\');un_bold(this);" title="HL7s">HL7s(<span id="pLabNum_' + safeId + '">1</span>)</a></dt>';
     //oscarLog('newEle='+newEle);
     return newEle;
 }
