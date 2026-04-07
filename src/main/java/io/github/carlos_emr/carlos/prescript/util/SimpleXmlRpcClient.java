@@ -204,7 +204,6 @@ public class SimpleXmlRpcClient {
 
     /**
      * Parses the XML-RPC response, extracting the return value or throwing on fault.
-     * XXE protection features are enabled on every parse.
      *
      * @param responseXml String the raw XML body of the HTTP response from the XML-RPC server
      * @return Object the deserialized response value, or null if the response contains no params

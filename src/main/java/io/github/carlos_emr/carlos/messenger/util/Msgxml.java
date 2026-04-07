@@ -64,6 +64,7 @@ public class Msgxml {
         try {
             return XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().newDocument();
         } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to create new XML document", e);
             return null;
         }
     }
@@ -154,6 +155,7 @@ public class Msgxml {
 
             return doc;
         } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to parse XML input", e);
             return null;
         }
     }

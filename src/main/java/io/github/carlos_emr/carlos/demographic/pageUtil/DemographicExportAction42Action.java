@@ -3646,7 +3646,7 @@ public class DemographicExportAction42Action extends ActionSupport {
             factory = XmlUtils.createSecureDocumentBuilderFactory();
             factory.setNamespaceAware(true);
         } catch (ParserConfigurationException e) {
-            logger.error("Failed to configure XML parser security features", e);
+            logger.error("Failed to create secure XML parser factory", e);
             return false;
         }
         

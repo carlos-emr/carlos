@@ -51,8 +51,8 @@ public class xml {
             Document document = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().newDocument();
             return document;
         } catch (Exception e) {
-            Document document1 = null;
-            return document1;
+            MiscUtils.getLogger().error("Failed to create new XML document", e);
+            return null;
         }
     }
 
@@ -85,16 +85,13 @@ public class xml {
     }
 
     public static Document parseXML(String xmlInput) {
-        Document document;
         try {
             InputSource is = new InputSource(new StringReader(xmlInput));
-            Document doc = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(is);
-            Document document1 = doc;
-            return document1;
+            return XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(is);
         } catch (Exception e) {
-            document = null;
+            MiscUtils.getLogger().error("Failed to parse XML input", e);
+            return null;
         }
-        return document;
     }
 
     public static String getText(Node node) {
