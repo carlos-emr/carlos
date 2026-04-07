@@ -83,9 +83,8 @@ public final class dxResearchCodeSearch2Action extends ActionSupport {
         String codeType = request.getParameter("codeType");
         if (codeType == null || !ALLOWED_CODE_TYPES.contains(codeType)) {
             MiscUtils.getLogger().warn("dxResearchCodeSearch: rejected invalid codeType from request");
-            addActionError("Invalid codeType parameter");
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return ERROR;
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid codeType parameter");
+            return NONE;
         }
 
         // --- Trust boundary: sanitize xml_research keywords before use ---
