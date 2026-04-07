@@ -1,7 +1,7 @@
 ---
 name: "CARLOS Frontend"
 description: "Frontend development expert for CARLOS EMR. Handles JSP views with OWASP Encoder EL functions, Bootstrap 5.3, jQuery-to-vanilla-JS migration, Struts result mappings, medical form templates (Rourke, BCAR), e-forms, document processing, encounter window architecture, and CSRF token auto-injection."
-model: "claude-opus-4-6"
+model: "Claude Opus 4.6"
 tools: ["*"]
 ---
 

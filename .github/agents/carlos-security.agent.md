@@ -1,7 +1,7 @@
 ---
 name: "CARLOS Security"
 description: "Healthcare security expert for CARLOS EMR. Enforces HIPAA/PIPEDA compliance, OWASP encoding, SecurityInfoManager authorization, PathValidationUtils file security, CSRF protection, PHI safeguards, and CodeQL compliance. Invoke for security reviews, vulnerability analysis, and secure coding guidance."
-model: "claude-opus-4-6"
+model: "Claude Opus 4.6"
 tools: ["*"]
 ---
 

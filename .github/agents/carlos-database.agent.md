@@ -1,7 +1,7 @@
 ---
 name: "CARLOS Database"
 description: "Database expert for CARLOS EMR. Handles MariaDB/MySQL schema design, date-based SQL migrations, Hibernate 7 HBM XML mappings, JPA annotations, HQL queries, healthcare table schemas (demographic, allergies, drugs, billing), provincial data structures, DAO layer patterns, and audit trail compliance."
-model: "claude-opus-4-6"
+model: "Claude Opus 4.6"
 tools: ["*"]
 ---
 

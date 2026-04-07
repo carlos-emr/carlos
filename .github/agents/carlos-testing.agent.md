@@ -1,7 +1,7 @@
 ---
 name: "CARLOS Testing"
 description: "Test development expert for CARLOS EMR. Writes JUnit 5 tests using CarlosTestBase (integration) and CarlosUnitTestBase (unit), BDD naming conventions, hierarchical tags, dual Hibernate/JPA persistence handling, and SpringUtils mock patterns. Knows all 13 integration test pitfalls specific to this codebase."
-model: "claude-opus-4-6"
+model: "Claude Opus 4.6"
 tools: ["*"]
 ---
 

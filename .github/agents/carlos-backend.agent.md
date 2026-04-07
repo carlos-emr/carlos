@@ -1,7 +1,7 @@
 ---
 name: "CARLOS Backend"
 description: "Java backend development expert for CARLOS EMR. Handles Spring 7/Struts 7.1.1/Hibernate 7 development, 2Action migration patterns, SpringUtils.getBean() integration, DAO/Manager/Action layered architecture, Drools decision support, REST/SOAP web services, fax provider transport, and healthcare module development."
-model: "claude-opus-4-6"
+model: "Claude Opus 4.6"
 tools: ["*"]
 ---
 
