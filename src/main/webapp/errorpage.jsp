@@ -178,6 +178,7 @@
                     </div>
                 </c:if>
                 <div id="support_text">
+                    <%-- Intentionally unescaped: supportText contains trusted HTML from admin configuration --%>
                     <c:out value="${ LoginResourceBean.supportText }" escapeXml="false"/>
                 </div>
             </div>
