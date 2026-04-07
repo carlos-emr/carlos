@@ -150,7 +150,7 @@
     <td align="left">
         <select id="fNationCom" name="fNationCom">
             <c:forEach items="${firstNationCommunities.items}" var="firstNationCommunity">
-                <option value="${firstNationCommunity.value}" ${firstNationCommunity.value eq demoExt["fNationCom"] ? 'selected' : '' }>
+                <option value="${e:forHtmlAttribute(firstNationCommunity.value)}" ${firstNationCommunity.value eq demoExt["fNationCom"] ? 'selected' : '' }>
                     ${e:forHtml(firstNationCommunity.label)}
                 </option>
             </c:forEach>
