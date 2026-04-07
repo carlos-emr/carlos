@@ -281,7 +281,7 @@
             } else {
                 out.println("<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href=\"" + url + "\" title='" + Encode.forHtmlAttribute(item.getLinkTitle()) + "' target=\"_blank\">");
             }
-            out.println(Encode.forHtml(item.getTitle()));
+            out.println(item.getTitle());
             out.println("</a>");
             out.println("</span>");
 
@@ -296,7 +296,7 @@
                 }
 
                 if (item.getValue() != null && !item.getValue().trim().equals("")) {
-                    out.println(Encode.forHtml(item.getValue()));
+                    out.println(item.getValue());
                 }
                 out.println(DateUtils.getDate(item.getDate(), dateFormat, request.getLocale()));
                 out.println("</a>");
