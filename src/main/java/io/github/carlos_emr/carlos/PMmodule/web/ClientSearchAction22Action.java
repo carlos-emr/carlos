@@ -32,11 +32,15 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.apache.logging.log4j.Logger;
+
 import io.github.carlos_emr.carlos.PMmodule.service.ClientManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.web.formbean.ClientSearchFormBean;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -48,6 +52,8 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class ClientSearchAction22Action extends ActionSupport {
+    private static final Logger logger = MiscUtils.getLogger();
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -103,8 +109,24 @@ public class ClientSearchAction22Action extends ActionSupport {
         if (noteId == null || noteId.trim().length() == 0) {
             //don't do anything?
         } else {
-            request.getSession().setAttribute("noteId", noteId);
-            request.setAttribute("noteId", noteId);
+            // Parse and validate noteId before storing in session (CWE-501: Trust Boundary Violation).
+            // Reject non-numeric values and confirm the note record exists in the database.
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            String providerNo = (loggedInInfo != null) ? loggedInInfo.getLoggedInProviderNo() : "unknown";
+            try {
+                long parsedNoteId = Long.parseLong(noteId.trim());
+                CaseManagementNote note = caseManagementNoteDao.getNote(parsedNoteId);
+                if (note != null) {
+                    String validatedNoteId = String.valueOf(parsedNoteId);
+                    request.getSession().setAttribute("noteId", validatedNoteId);
+                    request.setAttribute("noteId", validatedNoteId);
+                } else {
+                    logger.warn("Rejected noteId that does not exist in database (trust boundary enforcement) - provider: {}", providerNo);
+                }
+            } catch (NumberFormatException e) {
+                // noteId is not a valid Long — do not store in session
+                logger.warn("Rejected non-numeric noteId parameter from session storage (trust boundary enforcement) - provider: {}", providerNo);
+            }
         }
 
 

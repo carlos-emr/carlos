@@ -128,7 +128,14 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     }
                 }
 
-                request.getSession().setAttribute("preferredQueue", queueId);
+                if (queueId != null) {
+                    try {
+                        request.getSession().setAttribute("preferredQueue", String.valueOf(Integer.parseInt(queueId.trim())));
+                    } catch (NumberFormatException e) {
+                        // Do not store an invalid (non-integer) queue ID in the session (trust boundary protection)
+                        logger.warn("Rejected non-integer queue ID from request — possible malicious input");
+                    }
+                }
                 if (docFile != null) {
                     docFile.delete();
                     docFile = null;
@@ -187,7 +194,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 Integer qid = Integer.parseInt(queueId.trim());
                 Integer did = Integer.parseInt(doc_no.trim());
                 queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-                request.getSession().setAttribute("preferredQueue", queueId);
+                request.getSession().setAttribute("preferredQueue", String.valueOf(qid));
             }
 
             map.put("name", docFile.getName());

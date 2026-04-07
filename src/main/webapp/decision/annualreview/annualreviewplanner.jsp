@@ -69,6 +69,14 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.XmlUtils" %>
+<%@ page import="java.io.StringReader" %>
+<%@ page import="org.xml.sax.InputSource" %>
+<%@ page import="javax.xml.parsers.DocumentBuilder" %>
+<%@ page import="javax.xml.parsers.DocumentBuilderFactory" %>
+<%@ page import="org.w3c.dom.Document" %>
+<%@ page import="org.w3c.dom.Node" %>
+<%@ page import="org.w3c.dom.NodeList" %>
 <%
     DesAnnualReviewPlanDao desAnnualReviewPlanDao = SpringUtils.getBean(DesAnnualReviewPlanDao.class);
 %>
@@ -192,9 +200,37 @@
             }
         }
     %>
-    <script type="text/xml" id="xml_list">
-        <planner><%= risk_content %> <%= checklist_content %></planner>
-    </script>
+    <%
+        // Generate a JSON array of checked field names server-side to avoid DOM-based XSS
+        // (js/xss-through-dom: prevents DOM text from being re-parsed as HTML/XML in JS)
+        List<String> checkedFieldNames = new ArrayList<>();
+        try {
+            String combinedXml = "<planner>"
+                    + (risk_content != null ? risk_content : "")
+                    + (checklist_content != null ? checklist_content : "")
+                    + "</planner>";
+            DocumentBuilderFactory dbFactory = XmlUtils.createSecureDocumentBuilderFactory();
+            DocumentBuilder db = dbFactory.newDocumentBuilder();
+            Document xmlDoc = db.parse(new InputSource(new StringReader(combinedXml)));
+            NodeList children = xmlDoc.getDocumentElement().getChildNodes();
+            for (int ci = 0; ci < children.getLength(); ci++) {
+                Node child = children.item(ci);
+                if (child.getNodeType() == Node.ELEMENT_NODE
+                        && "checked".equals(child.getTextContent())) {
+                    checkedFieldNames.add(child.getNodeName().toLowerCase());
+                }
+            }
+        } catch (Exception xmlEx) {
+            // XML parse failure: checkedFieldNames stays empty, checkboxes won't be pre-checked
+        }
+        StringBuilder checkedJson = new StringBuilder("[");
+        for (int ci = 0; ci < checkedFieldNames.size(); ci++) {
+            if (ci > 0) checkedJson.append(",");
+            checkedJson.append("\"").append(Encode.forJavaScript(checkedFieldNames.get(ci))).append("\"");
+        }
+        checkedJson.append("]");
+    %>
+    <script type="application/json" id="checked_fields"><%= checkedJson.toString() %></script>
     <table bgcolor='silver' width='100%'>
         <tr>
             <td align="left"><input type="submit" name="submit"
