@@ -60,8 +60,29 @@ public record EmailAttachmentSettings(
     String encryptedMessageEmail,
     String emailPatientChartOption
 ) {
+
+    /** Maximum length for email password fields. */
+    private static final int MAX_PASSWORD_LENGTH = 128;
+
+    /** Maximum length for email subject field. */
+    private static final int MAX_SUBJECT_LENGTH = 998;
+
+    /** Maximum length for email body field. */
+    private static final int MAX_BODY_LENGTH = 100_000;
+
+    /** Maximum length for sender email address. */
+    private static final int MAX_EMAIL_LENGTH = 254;
+
+    /** Maximum length for encrypted message field. */
+    private static final int MAX_ENCRYPTED_MSG_LENGTH = 100_000;
+
     /**
      * Creates an EmailAttachmentSettings instance from an HTTP request.
+     *
+     * <p>Boolean parameters are validated via {@code "true".equals()} / {@code !"false".equals()}
+     * patterns (safe against arbitrary input). String parameters are sanitized: control characters
+     * are stripped from password/subject fields, email addresses are format-validated, and all
+     * string fields are length-limited to prevent unbounded session storage.</p>
      *
      * @param req The HTTP request containing the parameters.
      * @param fdid The eForm data ID.
@@ -97,13 +118,72 @@ public record EmailAttachmentSettings(
             !"false".equals(req.getParameter("encryptEmailAttachments")),
             "true".equals(req.getParameter("autoSendEmail")),
             "true".equals(req.getParameter("deleteEFormAfterSendingEmail")),
-            req.getParameter("passwordEmail"),
-            req.getParameter("passwordClueEmail"),
-            req.getParameter("senderEmail"),
-            req.getParameter("subjectEmail"),
-            req.getParameter("bodyEmail"),
-            req.getParameter("encryptedMessageEmail"),
+            stripControlChars(req.getParameter("passwordEmail"), MAX_PASSWORD_LENGTH),
+            stripControlChars(req.getParameter("passwordClueEmail"), MAX_PASSWORD_LENGTH),
+            sanitizeEmail(req.getParameter("senderEmail")),
+            stripControlChars(req.getParameter("subjectEmail"), MAX_SUBJECT_LENGTH),
+            limitLength(req.getParameter("bodyEmail"), MAX_BODY_LENGTH),
+            limitLength(req.getParameter("encryptedMessageEmail"), MAX_ENCRYPTED_MSG_LENGTH),
             req.getParameter("emailPatientChartOption")
         );
+    }
+
+    /**
+     * Strips ASCII control characters (below 0x20, except space) and limits length.
+     * Used for fields where control characters have no legitimate purpose.
+     *
+     * @param value the raw input, may be null
+     * @param maxLength maximum allowed length
+     * @return sanitized string, or null if input was null
+     */
+    private static String stripControlChars(String value, int maxLength) {
+        if (value == null) {
+            return null;
+        }
+        // Remove ASCII control characters (0x00-0x1F) except for space (0x20)
+        String cleaned = value.replaceAll("[\\x00-\\x1f]", "");
+        if (cleaned.length() > maxLength) {
+            cleaned = cleaned.substring(0, maxLength);
+        }
+        return cleaned;
+    }
+
+    /**
+     * Validates an email address has a basic valid structure and limits length.
+     * Returns null for clearly invalid values.
+     *
+     * @param value the raw email input, may be null
+     * @return the email if structurally valid, or null
+     */
+    private static String sanitizeEmail(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        if (value.length() > MAX_EMAIL_LENGTH) {
+            return null;
+        }
+        // Basic structural check: must contain @ with text before and after
+        if (!value.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            return null;
+        }
+        return value;
+    }
+
+    /**
+     * Limits string length without other transformations.
+     * Used for fields that may contain legitimate HTML or complex content.
+     *
+     * @param value the raw input, may be null
+     * @param maxLength maximum allowed length
+     * @return length-limited string, or null if input was null
+     */
+    private static String limitLength(String value, int maxLength) {
+        if (value == null) {
+            return null;
+        }
+        if (value.length() > maxLength) {
+            return value.substring(0, maxLength);
+        }
+        return value;
     }
 }

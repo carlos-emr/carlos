@@ -88,6 +88,18 @@ public class DxresearchReport2Action extends ActionSupport {
             "patientRegistedResolve"
     );
 
+    /**
+     * Validates that a provider_no parameter matches the expected format.
+     * Provider numbers are alphanumeric strings (max 6 chars) optionally prefixed
+     * with {@code _grp_} for group lookups.
+     *
+     * @param providerNo the provider number to validate
+     * @return true if the value is non-null and matches the expected format
+     */
+    private static boolean isValidProviderNo(String providerNo) {
+        return providerNo != null && providerNo.matches("^(_grp_)?[a-zA-Z0-9]{1,6}$");
+    }
+
     @Override
     public String execute() throws Exception {
         String method = request.getParameter("method");
@@ -134,6 +146,9 @@ public class DxresearchReport2Action extends ActionSupport {
 
         List<String> providerNoList = new ArrayList<String>();
         String providerNo = request.getParameter("provider_no");
+        if (!isValidProviderNo(providerNo)) {
+            return ERROR;
+        }
         if (providerNo.startsWith("_grp_")) {
             providerNo = providerNo.replaceFirst("_grp_", "");
             providerNoList = mygroupdao.getGroupDoctors(providerNo);
@@ -166,6 +181,9 @@ public class DxresearchReport2Action extends ActionSupport {
         }
 
         String providerNo = request.getParameter("provider_no");
+        if (!isValidProviderNo(providerNo)) {
+            return ERROR;
+        }
 
         if (providerNo.startsWith("_grp_")) {
             providerNo = providerNo.replaceFirst("_grp_", "");
@@ -192,6 +210,9 @@ public class DxresearchReport2Action extends ActionSupport {
 
         List<String> providerNoList = new ArrayList<String>();
         String providerNo = request.getParameter("provider_no");
+        if (!isValidProviderNo(providerNo)) {
+            return ERROR;
+        }
         if (providerNo.startsWith("_grp_")) {
             providerNo = providerNo.replaceFirst("_grp_", "");
             providerNoList = mygroupdao.getGroupDoctors(providerNo);
@@ -223,6 +244,9 @@ public class DxresearchReport2Action extends ActionSupport {
 
         List<String> providerNoList = new ArrayList<String>();
         String providerNo = request.getParameter("provider_no");
+        if (!isValidProviderNo(providerNo)) {
+            return ERROR;
+        }
         if (providerNo.startsWith("_grp_")) {
             providerNo = providerNo.replaceFirst("_grp_", "");
             providerNoList = mygroupdao.getGroupDoctors(providerNo);
@@ -244,6 +268,9 @@ public class DxresearchReport2Action extends ActionSupport {
 
         List<String> providerNoList = new ArrayList<String>();
         String providerNo = request.getParameter("provider_no");
+        if (!isValidProviderNo(providerNo)) {
+            return ERROR;
+        }
         if (providerNo.startsWith("_grp_")) {
             providerNo = providerNo.replaceFirst("_grp_", "");
             providerNoList = mygroupdao.getGroupDoctors(providerNo);
@@ -265,6 +292,9 @@ public class DxresearchReport2Action extends ActionSupport {
 
         List<String> providerNoList = new ArrayList<String>();
         String providerNo = request.getParameter("provider_no");
+        if (!isValidProviderNo(providerNo)) {
+            return ERROR;
+        }
         if (providerNo.startsWith("_grp_")) {
             providerNo = providerNo.replaceFirst("_grp_", "");
             providerNoList = mygroupdao.getGroupDoctors(providerNo);
@@ -290,8 +320,8 @@ public class DxresearchReport2Action extends ActionSupport {
         dxQuickListItemsHandler.updatePatientCodeDesc(editingCodeType, editingCodeCode, editingCodeDesc);
 
         // Encode before storing in session to prevent XSS via unsanitized session data (CWE-501)
-        editingCodeDesc = String.format("\"%s\"", Encode.forHtml(editingCodeDesc));
-        request.getSession().setAttribute("editingCodeDesc", editingCodeDesc);
+        editingCodeDesc = Encode.forHtml(editingCodeDesc);
+        request.getSession().setAttribute("editingCodeDesc", editingCodeDesc); // nosemgrep: tainted-session-from-http-request -- HTML-encoded before storage
 
         return SUCCESS;
     }

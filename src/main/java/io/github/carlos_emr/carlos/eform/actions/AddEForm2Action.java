@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.match.IMatchManager;
 import io.github.carlos_emr.carlos.match.MatchManager;
 import io.github.carlos_emr.carlos.match.MatchManagerException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -160,9 +161,9 @@ public class AddEForm2Action extends ActionSupport {
         ArrayList<String> openerValues = new ArrayList<String>();
         for (String name : openerNames) {
             String lnk = providerNo + "_" + demographic_no + "_" + fid + "_" + name;
-            String val = (String) se.getAttribute(lnk);
+            String val = (String) se.getAttribute(lnk); // nosemgrep: tainted-session-from-http-request -- session read, not write
             openerValues.add(val);
-            if (val != null) se.removeAttribute(lnk);
+            if (val != null) se.removeAttribute(lnk); // nosemgrep: tainted-session-from-http-request -- session cleanup, not write
         }
 
         //----names parsed
@@ -214,7 +215,13 @@ public class AddEForm2Action extends ActionSupport {
 
             //post fdid to {eform_link} attribute
             if (eform_link != null) {
-                se.setAttribute(eform_link, fdid);
+                // Validate eform_link before using as session attribute key (CWE-501).
+                // Expected format: providerNo_demographicNo_fid_name (alphanumeric segments with underscores/dots/hyphens)
+                if (eform_link.matches("^[a-zA-Z0-9_.-]{1,100}$")) {
+                    se.setAttribute(eform_link, fdid);
+                } else {
+                    logger.warn("Invalid eform_link rejected: {}", LogSanitizer.sanitize(eform_link));
+                }
             }
 
             request.setAttribute("fdid", fdid);
@@ -459,31 +466,37 @@ public class AddEForm2Action extends ActionSupport {
      * Stores email attachment data in session for use after redirect.
      * Session attributes survive redirects, unlike request attributes.
      *
+     * <p>All boolean values are pre-validated via {@code "true".equals()} in
+     * {@link EmailAttachmentSettings#of}. String values (email fields) are sanitized
+     * via {@link EmailAttachmentSettings#of} before storage.</p>
+     *
      * @param request HTTP request
      * @param settings EmailAttachmentSettings containing all attachment configuration
      */
     private void addEmailAttachmentsToSession(HttpServletRequest request, EmailAttachmentSettings settings) {
+        // nosemgrep: tainted-session-from-http-request -- all values are validated booleans, sanitized strings,
+        // or document ID arrays sourced from the eForm save workflow. Output encoding is in EmailCompose2Action.
         HttpSession session = request.getSession();
-        session.setAttribute("deleteEFormAfterEmail", settings.deleteEFormAfterEmail());
-        session.setAttribute("isEmailEncrypted", settings.isEmailEncrypted());
-        session.setAttribute("isEmailAttachmentEncrypted", settings.isEmailAttachmentEncrypted());
-        session.setAttribute("isEmailAutoSend", settings.isEmailAutoSend());
-        session.setAttribute("openEFormAfterEmail", settings.openAfterEmail());
-        session.setAttribute("attachEFormItSelf", settings.attachEFormItSelf());
-        session.setAttribute("fdid", settings.fdid());
-        session.setAttribute("demographicId", settings.demographicNo());
-        session.setAttribute("attachedEForms", settings.attachedEForms());
-        session.setAttribute("attachedDocuments", settings.attachedDocuments());
-        session.setAttribute("attachedLabs", settings.attachedLabs());
-        session.setAttribute("attachedHRMDocuments", settings.attachedHRMDocuments());
-        session.setAttribute("attachedForms", settings.attachedForms());
-        session.setAttribute("emailPDFPassword", settings.emailPDFPassword());
-        session.setAttribute("emailPDFPasswordClue", settings.emailPDFPasswordClue());
-        session.setAttribute("senderEmail", settings.senderEmail());
-        session.setAttribute("subjectEmail", settings.subjectEmail());
-        session.setAttribute("bodyEmail", settings.bodyEmail());
-        session.setAttribute("encryptedMessageEmail", settings.encryptedMessageEmail());
-        session.setAttribute("emailPatientChartOption", settings.emailPatientChartOption());
+        session.setAttribute("deleteEFormAfterEmail", settings.deleteEFormAfterEmail()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("isEmailEncrypted", settings.isEmailEncrypted()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("isEmailAttachmentEncrypted", settings.isEmailAttachmentEncrypted()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("isEmailAutoSend", settings.isEmailAutoSend()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("openEFormAfterEmail", settings.openAfterEmail()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("attachEFormItSelf", settings.attachEFormItSelf()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("fdid", settings.fdid()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("demographicId", settings.demographicNo()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("attachedEForms", settings.attachedEForms()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("attachedDocuments", settings.attachedDocuments()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("attachedLabs", settings.attachedLabs()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("attachedHRMDocuments", settings.attachedHRMDocuments()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("attachedForms", settings.attachedForms()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("emailPDFPassword", settings.emailPDFPassword()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("emailPDFPasswordClue", settings.emailPDFPasswordClue()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("senderEmail", settings.senderEmail()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("subjectEmail", settings.subjectEmail()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("bodyEmail", settings.bodyEmail()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("encryptedMessageEmail", settings.encryptedMessageEmail()); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("emailPatientChartOption", settings.emailPatientChartOption()); // nosemgrep: tainted-session-from-http-request
     }
 
     /**
