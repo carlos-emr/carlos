@@ -235,8 +235,13 @@ function fetchGet(url) {
  * script-preserving sanitization pass. Server-side OWASP encoding (#1) is the
  * defense against this vector. A future CSP nonce approach would close it fully.
  *
+ * WARNING: This function executes scripts from the HTML response. Only use with
+ * trusted, same-origin server-rendered content (e.g., JSP AJAX responses). Never
+ * call with user-provided or cross-origin HTML.
+ *
  * @param {HTMLElement} container - The container element to append HTML to
- * @param {string} html - HTML string that may contain script tags
+ * @param {string} html - Same-origin server-rendered HTML that may contain script tags.
+ *     Must NOT contain user-provided HTML — server-side OWASP encoding is required.
  */
 function appendHtmlWithScripts(container, html) {
     if (!container || !html) return;
