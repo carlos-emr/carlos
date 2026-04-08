@@ -328,13 +328,5 @@ input {
     color: #337ab7 !important;
 }
 
-/* Macros dropdown — hover to open, highlight on focus */
-.macro-dropdown:hover > .dropdown-menu {
-    display: block;
-}
-.macro-dropdown .dropdown-item:hover,
-.macro-dropdown .dropdown-item:focus {
-    background-color: var(--carlos-primary, #337ab7) !important;
-    color: #fff !important;
-}
+/* Macros dropdown styles are in global.css (loaded via global-head.jspf) */
 

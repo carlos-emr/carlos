@@ -259,6 +259,19 @@ body {
     padding-left: 20px;
 }
 
+/* Macros dropdown — hover to open (desktop progressive enhancement).
+   Touch devices rely on Bootstrap's click-based data-bs-toggle="dropdown". */
+@media (hover: hover) {
+    .macro-dropdown:hover > .dropdown-menu {
+        display: block;
+    }
+}
+.macro-dropdown .dropdown-item:hover,
+.macro-dropdown .dropdown-item:focus {
+    background-color: var(--carlos-primary, #337ab7) !important;
+    color: #fff !important;
+}
+
 /* Print utilities */
 @media print {
     .searchBox,

@@ -555,13 +555,6 @@ input[id^='acklabel_']{
 #labVersionInfoModal .status {
     font-weight: bold;
 }
-
-/* Macros dropdown — hover to open */
-.macro-dropdown:hover > .dropdown-menu { display: block; }
-.macro-dropdown .dropdown-item:hover, .macro-dropdown .dropdown-item:focus {
-    background-color: var(--carlos-primary, #337ab7) !important;
-    color: #fff !important;
-}
     </style>
 
     <script type="text/javascript" src="<%=Encode.forHtmlAttribute(request.getContextPath())%>/share/javascript/csrfTokenFetch.js"></script>
