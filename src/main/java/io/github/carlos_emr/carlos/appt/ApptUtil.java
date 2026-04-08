@@ -32,6 +32,9 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.model.Site;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class contains Appointment related presentation layer helper methods.
@@ -40,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.Site;
  */
 public class ApptUtil {
 
+    private static final Logger logger = LoggerFactory.getLogger(ApptUtil.class);
     private static final String SESSION_APPT_BEAN = "apptBean";
     private static final int MAX_FIELD_LEN = 255;
     private static final int MAX_NOTES_LEN = 2000;
@@ -55,10 +59,12 @@ public class ApptUtil {
         // Validate numeric ID fields at trust boundary (CWE-501)
         String demoNoParam = request.getParameter("demographic_no");
         if (demoNoParam != null && !demoNoParam.isEmpty() && !demoNoParam.matches("\\d+")) {
+            logger.warn("Invalid non-numeric demographic_no: {}", LogSanitizer.sanitize(demoNoParam));
             return;
         }
         String chartNo = request.getParameter("chart_no");
         if (chartNo != null && !chartNo.isEmpty() && !chartNo.matches("\\d+")) {
+            logger.warn("Invalid non-numeric chart_no: {}", LogSanitizer.sanitize(chartNo));
             return;
         }
 
