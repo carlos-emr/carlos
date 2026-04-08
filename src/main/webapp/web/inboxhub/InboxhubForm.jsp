@@ -403,7 +403,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     var currentFetchRequest = null;
     var inboxSearchFormData = "";
     var filter = "";
-    var contextPath = "<e:forJavaScript value='${pageContext.request.contextPath}' />";
     var searchProviderNo = "<e:forJavaScript value='${sessionScope.user}' />";
 
     jQuery(document).ready( function() {
