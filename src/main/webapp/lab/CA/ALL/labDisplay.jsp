@@ -948,7 +948,17 @@ input[id^='acklabel_']{
         <input type="hidden" name="selectedProviders" value="">
         <input type="hidden" name="favorites" value="">
         <input type="hidden" name="labType" value="HL7">
-        <input type="hidden" name="labType<%=segmentID%>HL7" value="imNotNull"> <%-- segmentID is a numeric DB key; encoding would break server-side getParameter lookup --%>
+        <%
+            String safeSegmentIdHL7 = null;
+            try {
+                safeSegmentIdHL7 = Integer.toString(Integer.parseInt(StringUtils.noNull(segmentID)));
+            } catch (NumberFormatException e) {
+                safeSegmentIdHL7 = null;
+            }
+        %>
+        <% if (safeSegmentIdHL7 != null) { %>
+        <input type="hidden" name="labType<%= safeSegmentIdHL7 %>HL7" value="imNotNull"> <%-- segmentID is a numeric DB key; encoding would break server-side getParameter lookup --%>
+        <% } %>
         <input type="hidden" id="providerNo_<%= Encode.forHtmlAttribute(segmentID) %>" name="providerNo"
                value="<%= Encode.forHtmlAttribute(providerNo) %>">
     </form>

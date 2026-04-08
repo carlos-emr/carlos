@@ -103,8 +103,18 @@
         type="hidden" name="selectedProviders" value=""/>
     <input type="hidden" name="favorites" value=""/>
     <input type="hidden" name="labType" value="BCP"/>
-    <input type="hidden" name="labType<%=StringUtils.noNull(request.getParameter("segmentID"))%>BCP"
+    <%
+        String safeSegmentIdBCP = null;
+        try {
+            safeSegmentIdBCP = Integer.toString(Integer.parseInt(StringUtils.noNull(request.getParameter("segmentID"))));
+        } catch (NumberFormatException e) {
+            safeSegmentIdBCP = null;
+        }
+    %>
+    <% if (safeSegmentIdBCP != null) { %>
+    <input type="hidden" name="labType<%=safeSegmentIdBCP%>BCP"
            value="imNotNull"/> <%-- segmentID is a numeric DB key; encoding would break server-side getParameter lookup --%>
+    <% } %>
     <input type="hidden" name="providerNo"
            value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>"/>
 </form>
