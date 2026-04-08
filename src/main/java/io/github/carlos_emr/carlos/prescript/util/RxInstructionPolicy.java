@@ -71,13 +71,13 @@ public class RxInstructionPolicy {
     /** U (units) — misread as '0', causing 10× overdose. */
     private static final Pattern[] PATTERNS_U = compile(
             "(?:^|\\s)(?i)U\\b",
-            "\\d(?i)U\\b"
+            "\\b\\d+(?i)U\\b"
     );
 
     /** I.U. (international units) — misread as 'IV', causing route error. */
     private static final Pattern[] PATTERNS_IU = compile(
             "(?:^|\\s)(?i)I\\.U\\.(?=\\s|$)",
-            "\\d(?i)I\\.U\\.(?=\\s|$)"
+            "\\b\\d+(?i)I\\.U\\.(?=\\s|$)"
     );
 
     /** S.C. (subcutaneous, with dots) — confused with SL (sublingual). */
@@ -93,13 +93,13 @@ public class RxInstructionPolicy {
     /** CC (cubic centimeters) — should use ml/mL. */
     private static final Pattern[] PATTERNS_CC = compile(
             "(?:^|\\s)(?i)CC\\b",
-            "\\d(?i)CC\\b"
+            "\\b\\d+(?i)CC\\b"
     );
 
     /** C.C. (cubic centimeters, with dots) — should use ml/mL. */
     private static final Pattern[] PATTERNS_CC_DOT = compile(
             "(?:^|\\s)(?i)C\\.C\\.(?=\\s|$)",
-            "\\d(?i)C\\.C\\.(?=\\s|$)"
+            "\\b\\d+(?i)C\\.C\\.(?=\\s|$)"
     );
 
     /** µg (microgram symbol) — misread as mg, causing 1000× overdose. */
