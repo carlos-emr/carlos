@@ -55,7 +55,12 @@ public class ExcludeDemographicHandler {
     private static Logger logger = MiscUtils.getLogger();
     private ObjectMapper objectMapper = new ObjectMapper();
 
-    /** Allowlist: one or more integers separated by commas, with optional surrounding brackets and whitespace. */
+    /**
+     * Allowlist pattern for input validation preventing JSON injection attacks.
+     * Accepts only digit sequences separated by commas with optional surrounding
+     * brackets and whitespace. Rejects JSON objects, nested arrays, string values,
+     * and script injection payloads.
+     */
     private static final Pattern VALID_INT_ARRAY_PATTERN = Pattern.compile("^\\[?\\s*\\d+(\\s*,\\s*\\d+)*\\s*]?$");
 
     private static DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
@@ -157,7 +162,7 @@ public class ExcludeDemographicHandler {
         List<DemographicExt> allProviderDemoExts = demographicExtDao.getDemographicExtByKeyAndValue(excludeIndicator, indicatorName);
         logger.debug("unExcludeDemoIds (json): {} matching extensions for template {}", allProviderDemoExts, indicatorName);
         for (DemographicExt e : allProviderDemoExts) {
-            // remove exclusion if provider_no matches or is null and the demongraphic_no matches
+            // remove exclusion if provider_no matches or is null and the demographic_no matches
             if (e.getProviderNo().equals(providerNo) && demoIds.contains(e.getDemographicNo())) {
                 demographicExtDao.removeDemographicExt(e.getId());
                 logger.info("demo: {} unexcluded from indicatorTemplate {}", e.getDemographicNo(), indicatorName);

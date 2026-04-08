@@ -186,4 +186,49 @@ class ExcludeDemographicHandlerUnitTest {
             verify(mockDao, times(3)).addKey(anyString(), anyInt(), anyString(), anyString());
         }
     }
+
+    @Nested
+    @DisplayName("unExcludeDemoIds(String, String) input validation")
+    class UnExcludeDemoIdsJsonValidation {
+
+        @Test
+        @DisplayName("should accept valid comma-separated integers")
+        void shouldAcceptValidInput() {
+            Mockito.clearInvocations(mockDao);
+            handler.unExcludeDemoIds("1,2,3", "testIndicator");
+            verify(mockDao).getDemographicExtByKeyAndValue(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("should reject JSON object injection payload")
+        void shouldRejectJsonObjectInjection() {
+            Mockito.clearInvocations(mockDao);
+            handler.unExcludeDemoIds("{\"key\":\"value\"}", "testIndicator");
+            verify(mockDao, never()).getDemographicExtByKeyAndValue(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("should reject script injection payload")
+        void shouldRejectScriptInjection() {
+            Mockito.clearInvocations(mockDao);
+            handler.unExcludeDemoIds("<script>alert(1)</script>", "testIndicator");
+            verify(mockDao, never()).getDemographicExtByKeyAndValue(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("should handle null jsonString gracefully")
+        void shouldHandleNullInput() {
+            Mockito.clearInvocations(mockDao);
+            handler.unExcludeDemoIds((String) null, "testIndicator");
+            verify(mockDao, never()).getDemographicExtByKeyAndValue(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("should handle empty jsonString gracefully")
+        void shouldHandleEmptyInput() {
+            Mockito.clearInvocations(mockDao);
+            handler.unExcludeDemoIds("", "testIndicator");
+            verify(mockDao, never()).getDemographicExtByKeyAndValue(anyString(), anyString());
+        }
+    }
 }
