@@ -217,6 +217,10 @@ public class ManageDocument2Action extends ActionSupport {
         String docType = request.getParameter("docType"); // :consult<
         String demog = request.getParameter("demog");
 
+        if (demog != null && !demog.matches("^\\d+$")) {
+            throw new SecurityException("Invalid demographic number");
+        }
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
@@ -329,6 +333,10 @@ public class ManageDocument2Action extends ActionSupport {
      */
     public void getDemoNameAjax() {
         String dn = request.getParameter("demo_no");
+
+        if (dn != null && !dn.matches("^\\d+$")) {
+            throw new SecurityException("Invalid demographic number");
+        }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", dn)) {
             throw new SecurityException("missing required sec object (_demographic)");
