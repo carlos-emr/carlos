@@ -323,15 +323,6 @@
 
         <script type="text/javascript">
 
-            function getCsrfToken() {
-                var el = document.querySelector('input[name="CSRF-TOKEN"]');
-                if (!el) {
-                    console.warn('CSRF-TOKEN hidden input not found. POST requests will be rejected.');
-                    return '';
-                }
-                return el.value;
-            }
-
             function renderCalendar(id, inputFieldId) {
                 Calendar.setup({inputField: inputFieldId, ifFormat: "%Y-%m-%d", showsTime: false, button: id});
 
@@ -1126,7 +1117,7 @@
 
     // Macro support: check if document is linked to patient, then apply macro
     function runDocMacro(name, formid, closeOnSuccess) {
-        var url = '<%=request.getContextPath()%>/documentManager/inboxManage.do';
+        var url = '<%=Encode.forJavaScript(request.getContextPath())%>/documentManager/inboxManage.do';
         var data = 'method=isDocumentLinkedToDemographic&docId=<%= Encode.forJavaScript(docId) %>&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
         fetch(url, {
             method: 'POST',
@@ -1147,7 +1138,7 @@
     }
 
     function runDocMacroInternal(name, formid, closeOnSuccess, demographicNo) {
-        var url = '<%=request.getContextPath()%>' + '/oscarMDS/RunMacro.do?name=' + encodeURIComponent(name) + (demographicNo.length > 0 ? '&demographicNo=' + encodeURIComponent(demographicNo) : '');
+        var url = '<%=Encode.forJavaScript(request.getContextPath())%>' + '/oscarMDS/RunMacro.do?name=' + encodeURIComponent(name) + (demographicNo.length > 0 ? '&demographicNo=' + encodeURIComponent(demographicNo) : '');
         var formEl = document.getElementById(formid);
         var params = new URLSearchParams(new FormData(formEl));
         if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }

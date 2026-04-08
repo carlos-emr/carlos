@@ -32,7 +32,7 @@
  *        setupDocDescriptionTypeahead(null);
  *
  * The autocomplete fetches from:
- *   /ManageDocument.do?method=searchDocumentDescriptions&term=<keyword>
+ *   /documentManager/ManageDocument.do?method=searchDocumentDescriptions&term=<keyword>
  * and expects: [{"label":"Blood Work Results"}, ...]
  *
  * Styles are provided by css/autocomplete.css (.autocomplete, .ac-item).
