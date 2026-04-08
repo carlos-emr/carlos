@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.documentManager.EDoc;
@@ -61,6 +62,8 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.eform.APExecute;
 import io.github.carlos_emr.carlos.prevention.reports.FollowupManagement;
 import io.github.carlos_emr.carlos.report.data.ManageLetters;
+
+import java.io.File;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -165,7 +168,9 @@ public class GeneratePatientLetters2Action extends ActionSupport {
                 }
 
                 fileName = newDoc.getFileName();
-                String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "/" + fileName;
+                File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+                File validatedFile = PathValidationUtils.validatePath(fileName, documentDir);
+                String savePath = validatedFile.getPath();
                 if (log.isTraceEnabled()) {
                     log.trace("writing report to disk location " + savePath);
                 }

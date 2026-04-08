@@ -1207,8 +1207,8 @@ public final class EDocUtil {
      */
     public static void writeDocContent(String fileName, byte[] content) throws IOException {
         String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        File file = new File(docDir, fileName);
-        writeContent(file.getAbsolutePath(), content);
+        File validatedFile = PathValidationUtils.validatePath(fileName, new File(docDir));
+        writeContent(validatedFile.getAbsolutePath(), content);
     }
 
     /**
