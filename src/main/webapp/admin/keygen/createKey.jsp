@@ -60,6 +60,12 @@
 
     String error = "false";
 
+    if (name != null && !name.matches("^[a-zA-Z0-9._-]+$")) {
+        error = "true";
+        message = "Failed: Service name contains invalid characters. Only letters, numbers, periods, hyphens and underscores are allowed.";
+        name = null;
+    }
+
     if (name != null) {
         if (name.equals("oscar")) {
             if (KeyPairGen.checkName(name)) {

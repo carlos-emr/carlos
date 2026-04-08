@@ -311,8 +311,6 @@ request.setAttribute("missingTests", missingTests);
 
 /********************** Converted to this sport *****************************/
 
-String tickler_no="";
-String tickler_note="";
 Integer demoI = 0;
 Integer numTickler = 0;
 
@@ -333,18 +331,15 @@ SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManage
 TicklerManager ticklerManager= SpringUtils.getBean(TicklerManager.class);
 
 if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && isLinkedToDemographic ) {
-    // Note: tickler_note is intentionally raw HTML. All dynamic values MUST remain encoded using OWASP Encoder methods.
-    String tlinkf="\n <a class=\"alert-link\" href='"+request.getContextPath()+"/tickler/ticklerEdit.jsp?tickler_no=";
-    List<String> notes = new java.util.ArrayList<>();
     List<Tickler> ticklers = ticklerManager.search_tickler(loggedInInfo, demoI, MyDateFormat.getSysDate(strDate));
-
-    for (Tickler t: ticklers) {
+    List<Tickler> pendingTicklers = new java.util.ArrayList<>();
+    for (Tickler t : ticklers) {
         if (t.getMessage() != null && !t.getMessage().trim().isEmpty()) {
-            notes.add(tlinkf + Encode.forUriComponent(String.valueOf(t.getId())) + "' target='_blank'>" + Encode.forHtml(t.getMessage()) + "</a>");
+            pendingTicklers.add(t);
         }
     }
-    numTickler = notes.size();
-    tickler_note = String.join(", ", notes);
+    numTickler = pendingTicklers.size();
+    request.setAttribute("pendingTicklers", pendingTicklers);
 }
 
 // check for errors printing
@@ -555,8 +550,16 @@ input[id^='acklabel_']{
 #labVersionInfoModal .status {
     font-weight: bold;
 }
+
+/* Macros dropdown — hover to open */
+.macro-dropdown:hover > .dropdown-menu { display: block; }
+.macro-dropdown .dropdown-item:hover, .macro-dropdown .dropdown-item:focus {
+    background-color: var(--carlos-primary, #337ab7) !important;
+    color: #fff !important;
+}
     </style>
 
+    <script type="text/javascript" src="<%=Encode.forHtmlAttribute(request.getContextPath())%>/share/javascript/csrfTokenFetch.js"></script>
     <script>
         var labNo = '<%=Encode.forJavaScript(segmentID)%>';
         var providerNo = '<%=Encode.forJavaScript(providerNo)%>';
@@ -659,19 +662,19 @@ input[id^='acklabel_']{
                             console.log("Sending message about lab. Demoid: " + demoid);
                             demoid = json.demoId;
                             if (demoid != null && demoid.length > 0) {
-                                window.popup(700, 960, '${pageContext.request.contextPath}/messenger/SendDemoMessage.do?demographic_no=' + demoid, 'msg');
+                                window.popup(700, 960, '${pageContext.request.contextPath}/messenger/SendDemoMessage.do?demographic_no=' + encodeURIComponent(demoid), 'msg');
                             }
                         } else if (action === 'msgLabRecall') {
                             demoid = json.demoId;
                             if (demoid != null && demoid.length > 0) {
-                                window.popup(700, 980, '${pageContext.request.contextPath}/messenger/SendDemoMessage.do?demographic_no=' + demoid + "&recall", 'msgRecall');
-                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler.do?docType=HL7&docId=' + labid + '&demographic_no=' + demoid + '<%=Encode.forJavaScript(ticklerAssignee)%>&priority=<%=Encode.forJavaScript(recallTicklerPriority)%>&recall', 'ticklerRecall');
+                                window.popup(700, 980, '${pageContext.request.contextPath}/messenger/SendDemoMessage.do?demographic_no=' + encodeURIComponent(demoid) + "&recall", 'msgRecall');
+                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler.do?docType=HL7&docId=' + encodeURIComponent(labid) + '&demographic_no=' + encodeURIComponent(demoid) + '<%=Encode.forJavaScript(ticklerAssignee)%>&priority=<%=Encode.forJavaScript(recallTicklerPriority)%>&recall', 'ticklerRecall');
                             }
                         } else if (action === 'ticklerLab') {
                             console.log("Setting lab Tickler. Labid: " + labid + " Demoid: " + demoid);
                             demoid = json.demoId;
                             if (demoid != null && demoid.length > 0) {
-                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler.do?docType=HL7&docId=' + labid + '&demographic_no=' + demoid, 'tickler')
+                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler.do?docType=HL7&docId=' + encodeURIComponent(labid) + '&demographic_no=' + encodeURIComponent(demoid), 'tickler')
                             }
                         } else if (action === 'addComment') {
                             console.log("Adding comment. Formid: " + formid + " labid: " + labid);
@@ -887,7 +890,8 @@ input[id^='acklabel_']{
         fetch(url, {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: data
+            body: data,
+            credentials: 'same-origin'
         })
         .then(function(response) { return response.json(); })
         .then(function(json) {
@@ -907,7 +911,7 @@ input[id^='acklabel_']{
     }
 
     function runMacroInternal(name, formid, closeOnSuccess, demographicNo) {
-        var url = '<%=request.getContextPath()%>' + "/oscarMDS/RunMacro.do?name=" + name + (demographicNo.length > 0 ? "&demographicNo=" + demographicNo : "");
+        var url = '<%=request.getContextPath()%>' + "/oscarMDS/RunMacro.do?name=" + encodeURIComponent(name) + (demographicNo.length > 0 ? "&demographicNo=" + encodeURIComponent(demographicNo) : "");
         var formEl = document.getElementById(formid);
         var params = new URLSearchParams(new FormData(formEl));
         if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }
@@ -915,7 +919,8 @@ input[id^='acklabel_']{
         fetch(url, {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: params.toString()
+            body: params.toString(),
+            credentials: 'same-origin'
         })
         .then(function() {
             if (closeOnSuccess) {
@@ -927,6 +932,9 @@ input[id^='acklabel_']{
             alert('An error occurred while running the macro. Please refresh and try again.');
         });
     }
+
+    // Fetch CSRF token from CSRFGuard servlet and populate hidden inputs
+    fetchCsrfToken('<%=Encode.forJavaScript(request.getContextPath())%>');
 </script>
 
 <div id="lab_<%= Encode.forHtmlAttribute(segmentID) %>">
@@ -956,6 +964,7 @@ input[id^='acklabel_']{
     <form name="acknowledgeForm_<%= Encode.forHtmlAttribute(segmentID) %>"
           id="acknowledgeForm_<%= Encode.forHtmlAttribute(segmentID) %>" method="post" onsubmit="javascript:void(0);"
           action="javascript:void(0);">
+        <input type="hidden" name="CSRF-TOKEN" value="">
 
         <table style="width:100%;">
             <tr>
@@ -986,7 +995,7 @@ input[id^='acklabel_']{
                                     if (up != null && !StringUtils.isEmpty(up.getValue())) {
 
                                 %>
-                                <div class="dropdown">
+                                <div class="dropdown macro-dropdown" style="display:inline-block;position:relative;">
                                     <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false">Macros</button>
                                     <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
                                         <%
@@ -1545,7 +1554,14 @@ input[id^='acklabel_']{
         <table style="width:100%;">
             <tr>
                 <td class="alert alert-info alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    <strong>INFO</strong> The following <%=numTickler%> <a class="alert-link" onclick="popup(450, 1200, '<%=request.getContextPath()%>/tickler/ticklerDemoMain.jsp?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')">ticklers</a> are marked pending:<%=tickler_note%>
+                    <strong>INFO</strong> The following <%=numTickler%> <a class="alert-link" onclick="popup(450, 1200, '<%=request.getContextPath()%>/tickler/ticklerDemoMain.jsp?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')">ticklers</a>
+                    are marked pending:
+                    <c:forEach items="${pendingTicklers}" var="tickler" varStatus="loop">
+                    <c:if test="${not loop.first}">, </c:if>
+                    <a class="alert-link"
+                       href="${pageContext.request.contextPath}/tickler/ticklerEdit.jsp?tickler_no=${e:forUriComponent(tickler.id)}"
+                       target="_blank" rel="noopener noreferrer">${e:forHtml(tickler.message)}</a>
+                    </c:forEach>
                 </td>
             </tr>
          </table>

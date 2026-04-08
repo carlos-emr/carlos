@@ -29,10 +29,39 @@
 
 --%>
 
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%--
+    RptByExample.jsp
+    ================
+    Purpose: Query-by-example report entry page. Allows authorized providers
+             to enter or select a saved SQL query and execute it against the
+             database, viewing results inline.
 
+    Features:
+    - Bootstrap 5 / HTML5 compliant layout
+    - OWASP encoding for all user-supplied values
+    - i18n via oscarResources bundle
+    - Links to query history (RptViewAllQueryByExamples.do) and favorites editor
+      (RptByExamplesAllFavorites.do)
+    - Favourite queries loaded from the request scope via ${favorites} attribute
+
+    Parameters (set by backing Action):
+    - favorites   — Collection of favourite query objects (query property)
+    - results     — HTML string of query results (rendered unescaped; backend-generated)
+
+    Security:
+    - Requires _report or _admin.reporting read privilege
+    - CSRF token auto-injected by CsrfGuardScriptInjectionFilter
+
+    @since 2001-2002
+--%>
+
+<%@ page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.*" %>
+
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
@@ -47,199 +76,143 @@
     }
 %>
 
-<link rel="stylesheet" type="text/css"
-      href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
-<html>
-    <script language="JavaScript" type="text/JavaScript">
-        <!--
-        function reloadPage(init) {  //reloads the window if Nav4 resized
-            if (init == true) with (navigator) {
-                if ((appName == "Netscape") && (parseInt(appVersion) == 4)) {
-                    document.pgW = innerWidth;
-                    document.pgH = innerHeight;
-                    onresize = reloadPage;
-                }
-            }
-            else if (innerWidth != document.pgW || innerHeight != document.pgH) location.reload();
+<fmt:setBundle basename="oscarResources"/>
+
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
+<head>
+    <meta charset="UTF-8">
+    <title><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/></title>
+
+    <%@ include file="/includes/global-head.jspf" %>
+    <link rel="stylesheet" type="text/css" media="all"
+          href="${pageContext.request.contextPath}/share/css/extractedFromPages.css">
+
+    <style type="text/css" media="print">
+        .page-header-bar { display: none; }
+    </style>
+
+    <script type="text/javascript">
+        // Copies the selected favourite query into the SQL textarea.
+        function write2TextArea() {
+            const form = document.getElementById('queryForm');
+            const select = form.selectedRecentSearch;
+            const selectedValue = select.options[select.selectedIndex].value;
+            form.sql.value = selectedValue;
         }
-
-        reloadPage(true);
-
-        function findObj(n, d) { //v4.01
-            var p, i, x;
-            if (!d) d = document;
-            if ((p = n.indexOf("?")) > 0 && parent.frames.length) {
-                d = parent.frames[n.substring(p + 1)].document;
-                n = n.substring(0, p);
-            }
-            if (!(x = d[n]) && d.all) x = d.all[n];
-            for (i = 0; !x && i < d.forms.length; i++) x = d.forms[i][n];
-            for (i = 0; !x && d.layers && i < d.layers.length; i++) x = findObj(n, d.layers[i].document);
-            if (!x && d.getElementById) x = d.getElementById(n);
-            return x;
-        }
-
-        function showHideLayers() { //v6.0
-            var i, p, v, obj, args = showHideLayers.arguments;
-            for (i = 0; i < (args.length - 2); i += 3) if ((obj = findObj(args[i])) != null) {
-                v = args[i + 2];
-                if (obj.style) {
-                    obj = obj.style;
-                    v = (v == 'show') ? 'visible' : (v == 'hide') ? 'hidden' : v;
-                }
-                obj.visibility = v;
-            }
-        }
-
-        //-->
     </script>
-    <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/></title>
+</head>
+<body>
 
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
-        <style type="text/css" media="print">
-            .header {
-                display: none;
-            }
+<div class="container">
 
-            .header INPUT {
-                display: none;
-            }
-
-            .header A {
-                display: none;
-            }
-        </style>
-        <script type="text/javascript">
-            var remote = null;
-
-            function rs(n, u, w, h, x) {
-                args = "width=" + w + ",height=" + h + ",resizable=yes,scrollbars=yes,status=0,top=60,left=30";
-                remote = window.open(u, n, args);
-                // if (remote != null) {
-                //    if (remote.opener == null)
-                //        remote.opener = self;
-                // }
-                // if (x == 1) { return remote; }
-            }
-
-            function popupOscarFluConfig(vheight, vwidth, varpage) { //open a new popup window
-                var page = varpage;
-                windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-                var popup = window.open(varpage, "OscarFluConfig", windowprops);
-                if (popup != null) {
-                    if (popup.opener == null) {
-                        popup.opener = self;
-                    }
-                }
-            }
-
-
-            // Sets the text area to the currently select favourite query, or to an empty string
-            function write2TextArea() {
-                const form = document.forms[0];
-                const select = form.selectedRecentSearch;
-                const selectedValue = select.options[select.selectedIndex].value;
-                if (selectedValue === 'Recent Search') {
-                    form.sql.value = '';
-                } else {
-                    form.sql.value = selectedValue;
-                }
-            }
-        </script>
-
-    </head>
-
-    <body vlink="#0000FF" class="BodyStyle">
-    <div id="Layer1"
-         style="position: absolute; left: 5px; top: 200px; width: 800px; height: 600px; z-index: 1; visibility: hidden;">
-        <table width="100%" border="1" cellpadding="0" cellspacing="0"
-               bgcolor="#D6D5C5">
-            <tr>
-                <td><font size="2" face="Tahoma">
-                    <c:if test="${not empty resultText}">
-                        <pre><c:out value="${resultText}" escapeXml="false"/></pre>
-                    </c:if>
-                </font></td>
-            </tr>
-        </table>
+    <!-- Alert banner — hidden by default; surfaced via JS on error -->
+    <div id="jsAlertBanner"
+         class="alert alert-danger alert-dismissible"
+         style="display:none"
+         role="alert">
+        <span id="jsAlertText"></span>
+        <button type="button"
+                class="btn-close"
+                onclick="this.closest('.alert').style.display='none'"
+                aria-label="<fmt:message key='button.close'/>"></button>
     </div>
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <form action="${pageContext.request.contextPath}/oscarReport/RptByExample.do" method="post">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgReport"/></td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn" valign="top">
-                <table>
-                    <tr>
-                        <td nowrap><a href="#"
-                                      onClick="popupPage(600, 1000, 'RptViewAllQueryByExamples.do')">View
-                            Query History</a></td>
-                    </tr>
-                    <tr>
-                        <td><a href="#"
-                               onClick="popupPage(600, 1000, 'RptByExamplesAllFavorites.do')">Edit
-                            My Favorite</a></td>
-                    </tr>
-                </table>
-            </td>
-            <td class="MainTableRightColumn">
-                <table>
-                    <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgEnterAQuery"/></td>
-                    </tr>
-                    <tr>
-                        <td><textarea name="sql" cols="80" rows="4"></textarea></td>
-                    </tr>
-                    <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgOr"/></td>
-                    </tr>
-                    <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgSelectFromMyFavorites"/></td>
-                    </tr>
-                    <tr>
-                        <td><select name="selectedRecentSearch"
-                                         style="width:660">
-                            <option value="My favorites" disabled="true"/>
-                            <c:forEach var="favorite" items="${favorites}">
-                                <option value="${favorite.query}">
-                                        ${favorite.query}
+
+    <!-- Page header bar -->
+    <div class="page-header-bar d-flex align-items-center justify-content-between py-2 mb-3 border-bottom"
+         id="header">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fas fa-search text-secondary" aria-hidden="true"></i>
+            <span class="fw-semibold"><fmt:message key="oscarReport.CDMReport.msgReport"/></span>
+        </div>
+        <span><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/></span>
+    </div>
+
+    <!-- Main content area -->
+    <div class="bg-light border rounded p-2">
+        <div class="row g-2">
+
+            <!-- Left sidebar: navigation links -->
+            <div class="col-12 col-md-2">
+                <nav class="d-flex flex-column gap-2 pt-1">
+                    <a href="#"
+                       onclick="window.open('RptViewAllQueryByExamples.do'); return false;">
+                        <fmt:message key="oscarReport.RptByExample.MsgViewQueryHistory"/>
+                    </a>
+                    <a href="#"
+                       onclick="window.open('RptByExamplesAllFavorites.do'); return false;">
+                        <fmt:message key="oscarReport.RptByExample.MsgEditMyFavorite"/>
+                    </a>
+                </nav>
+            </div>
+
+            <!-- Right content column: query form and results -->
+            <div class="col-12 col-md-10">
+
+                <form id="queryForm"
+                      action="${pageContext.request.contextPath}/oscarReport/RptByExample.do"
+                      method="post">
+
+                    <!-- SQL textarea -->
+                    <div class="mb-3">
+                        <label for="sql" class="form-label form-label-sm">
+                            <fmt:message key="oscarReport.RptByExample.MsgEnterAQuery"/>
+                        </label>
+                        <textarea id="sql" name="sql" rows="4"
+                                  class="form-control form-control-sm"></textarea>
+                    </div>
+
+                    <!-- OR divider -->
+                    <div class="mb-2">
+                        <span class="form-label form-label-sm text-muted">
+                            <fmt:message key="oscarReport.RptByExample.MsgOr"/>
+                        </span>
+                    </div>
+
+                    <!-- Favourites selector -->
+                    <div class="mb-3">
+                        <label for="selectedRecentSearch" class="form-label form-label-sm">
+                            <fmt:message key="oscarReport.RptByExample.MsgSelectFromMyFavorites"/>
+                        </label>
+                        <div class="d-flex gap-2 align-items-center">
+                            <select id="selectedRecentSearch"
+                                    name="selectedRecentSearch"
+                                    class="form-select form-select-sm">
+                                <option value="" disabled="disabled" selected="selected">
+                                    <fmt:message key="oscarReport.RptByExample.MsgMyFavorites"/>
                                 </option>
-                            </c:forEach>
-                        </select> <input type="button" value="Load Query"
-                                              onClick="write2TextArea(); return false;"></td>
-                    </tr>
-                    <tr>
-                        <td><input type="button" value="Query" onclick="submit();"/>
-                        </td>
-                    </tr>
-                    <tr></tr>
-                    <tr>
-                        <td>
-                            <c:if test="${not empty results}">
-                                <c:out value="${results}" escapeXml="false"/>
-                            </c:if>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn">&nbsp;</td>
+                                <c:forEach var="favorite" items="${favorites}">
+                                    <option value="${e:forHtmlAttribute(favorite.query)}">
+                                        ${e:forHtml(favorite.query)}
+                                    </option>
+                                </c:forEach>
+                            </select>
+                            <input type="button"
+                                   class="btn btn-outline-secondary btn-sm text-nowrap"
+                                   value="<fmt:message key="oscarReport.RptByExample.MsgLoadQuery"/>"
+                                   onclick="write2TextArea(); return false;"/>
+                        </div>
+                    </div>
 
-            <td class="MainTableBottomRowRightColumn">&nbsp;</td>
-        </tr>
-    </table>
+                    <!-- Submit -->
+                    <div class="mb-3">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <fmt:message key="oscarReport.RptByExample.MsgRunQuery"/>
+                        </button>
+                    </div>
 
-    </form>
-    </body>
+                </form>
+            </div><!-- end right column -->
+
+        </div><!-- end .row -->
+    </div><!-- end .bg-light -->
+                    <!-- Query results — rendered as backend-generated HTML -->
+                    <c:if test="${not empty results}">
+                        <div class="mt-3">
+                            ${results}
+                        </div>
+                    </c:if>
+</div><!-- end .container -->
+
+</body>
 </html>

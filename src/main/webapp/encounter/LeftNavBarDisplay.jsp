@@ -211,7 +211,7 @@
         }
     %>
 </ul>
-<input type="hidden" id="<%=request.getAttribute("navbarName")%>num"
+<input type="hidden" id="<%=Encode.forHtmlAttribute((String)request.getAttribute("navbarName"))%>num"
        value="<%=numDisplayed%>"/>
 <%
     out.println("<script type=\"text/javascript\">" + jscode.toString() + "</script>");

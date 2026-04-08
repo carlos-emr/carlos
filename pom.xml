@@ -1710,5 +1710,27 @@
             </build>
         </profile>
 
+        <!-- Skip dependency lock check in CI workflows (e.g. SonarCloud)
+             where JitPack-served artifacts produce different SHA512 hashes
+             than locally-cached ones, causing false failures.
+             Activate with: mvn ... -Pskip-dependency-lock -->
+        <profile>
+            <id>skip-dependency-lock</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>se.vandmo</groupId>
+                        <artifactId>dependency-lock-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>check</id>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
     </profiles>
 </project>
