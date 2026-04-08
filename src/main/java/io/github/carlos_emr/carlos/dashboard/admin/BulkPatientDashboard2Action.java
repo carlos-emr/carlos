@@ -41,7 +41,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -113,7 +112,8 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         String indicatorName = excludeDemographicHandler.getDrilldownIdentifier(
                 indicatorId);
 
-        excludeDemographicHandler.excludeDemoIds(patientIdsJson, indicatorName);
+        List<Integer> patientIdList = parsePatientIds(patientIdsJson);
+        excludeDemographicHandler.excludeDemoIds(patientIdList, indicatorName);
 
         String subject = "Patient exclusion report.";
         String message = "Excluded patient demographic_no {" + patientIdsJson +
@@ -155,13 +155,10 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         String icd9code = getICD9Code(request);
 
         String patientIdsJson = request.getParameter("patientIds");
-        ArrayNode patientIds = asJsonArray(patientIdsJson);
-        List<Integer> patientIdList = new ArrayList<Integer>();
+        List<Integer> patientIdList = parsePatientIds(patientIdsJson);
 
         String ip = request.getRemoteAddr();
-        for (int i = 0; i < patientIds.size(); ++i) {
-            int patientId = patientIds.get(i).asInt();
-            patientIdList.add(patientId);
+        for (int patientId : patientIdList) {
 
             Integer drId = diseaseRegistryHandler.addToDiseaseRegistry(
                     patientId,
@@ -221,13 +218,10 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         demographicPatientStatusRosterStatusHandler.setLoggedinInfo(loggedInInfo);
 
         String patientIdsJson = request.getParameter("patientIds");
-        ArrayNode patientIds = asJsonArray(patientIdsJson);
-        List<Integer> patientIdList = new ArrayList<Integer>();
+        List<Integer> patientIdList = parsePatientIds(patientIdsJson);
 
         String ip = request.getRemoteAddr();
-        for (int i = 0; i < patientIds.size(); ++i) {
-            int patientId = patientIds.get(i).asInt();
-            patientIdList.add(patientId);
+        for (int patientId : patientIdList) {
             demographicPatientStatusRosterStatusHandler.setPatientStatusInactive("" + patientId);
             LogAction.addLog(providerNo, LogConst.UPDATE, LogConst.CON_DEMOGRAPHIC, "" + patientId, ip, "" + patientId, "patient_status: IN");
         }
@@ -247,37 +241,41 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         return null;
     }
 
-    private static ArrayNode asJsonArray(String jsonString) {
-        if (jsonString == null || jsonString.isEmpty()) {
-            return objectMapper.createArrayNode();
+    /**
+     * Parses a comma-separated string of patient IDs into a list of integers.
+     * Accepts both bare comma-separated values (e.g. "1,2,3") and bracket-wrapped
+     * JSON-style arrays (e.g. "[1,2,3]"). Invalid (non-integer) entries are skipped.
+     *
+     * @param input the raw patient IDs string from the request parameter
+     * @return List of parsed patient IDs; empty list if input is null, empty, or unparseable
+     */
+    static List<Integer> parsePatientIds(String input) {
+        if (input == null || input.isEmpty()) {
+            return List.of();
         }
 
-        if (!jsonString.startsWith("[")) {
-            jsonString = "[" + jsonString;
+        String stripped = input.strip();
+        if (stripped.startsWith("[")) {
+            stripped = stripped.substring(1);
         }
-        if (!jsonString.endsWith("]")) {
-            jsonString = jsonString + "]";
+        if (stripped.endsWith("]")) {
+            stripped = stripped.substring(0, stripped.length() - 1);
         }
 
-        try {
-            ArrayNode jsonArray = (ArrayNode) objectMapper.readTree(jsonString);
-            return jsonArray;
-        } catch (Exception e) {
-            logger.error("Error parsing JSON array: {}", LogSanitizer.sanitize(jsonString), e);
-            return objectMapper.createArrayNode();
+        List<Integer> ids = new ArrayList<>();
+        for (String token : stripped.split(",")) {
+            String trimmed = token.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            try {
+                ids.add(Integer.parseInt(trimmed));
+            } catch (NumberFormatException e) {
+                logger.warn("Skipping non-integer patient ID: {}", LogSanitizer.sanitize(trimmed));
+            }
         }
+        return ids;
     }
-
-/*	private List<Integer> parseIntegers(String jsonString) {
-		List<Integer> ints = new ArrayList<Integer>();
-
-		ArrayNode jsonArray = asJsonArray(jsonString);
-		for (int i = 0; i < jsonArray.size(); i++) {
-			ints.add(jsonArray.get(i).asInt());
-		}
-
-		return ints;
-	}*/
 
     private String getProviderNo(LoggedInInfo loggedInInfo) {
         String providerNo = null;
