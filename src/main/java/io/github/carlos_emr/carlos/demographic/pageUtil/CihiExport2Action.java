@@ -194,7 +194,6 @@ public class CihiExport2Action extends ActionSupport {
         CarlosProperties properties = CarlosProperties.getInstance();
         Clinic clinic = clinicDAO.getClinic();
         List<DataExport> dataExportList = dataExportDAO.findAllByType(DataExportDao.CIHI_OMD4);
-        dataExportList.addAll(dataExportDAO.findAllByType(DataExportDao.CIHI_PHC_VRS));
         Collections.sort(dataExportList);
 
 

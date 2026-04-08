@@ -60,19 +60,7 @@
 <head>
     <title>CIHI Export</title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-    <script type="text/javascript">
-        function setReportType(select) {
 
-            if (select.options[select.selectedIndex].value == "<%=DataExportDao.CIHI_OMD4%>") {
-                document.forms[0].action = "<c:out value="${ctx}"/>/demographic/cihiExportOMD4.do";
-
-            } else if (select.options[select.selectedIndex].value == "<%=DataExportDao.CIHI_PHC_VRS%>") {
-                document.forms[0].action = "<c:out value="${ctx}"/>/demographic/cihiExportPHC_VRS.do";
-            }
-
-        }
-
-    </script>
 </head>
 <body>
 <div class="container-fluid card card-body bg-body-tertiary">
@@ -135,12 +123,7 @@
             <tr>
                 <td>Extract Type</td>
                 <td>
-                    <select name="extractType" onchange="setReportType(this);">
-                        <option value="<%=DataExportDao.CIHI_OMD4%>"><%=DataExportDao.CIHI_OMD4%>
-                        </option>
-                        <option value="<%=DataExportDao.CIHI_PHC_VRS%>"><%=DataExportDao.CIHI_PHC_VRS%>
-                        </option>
-                    </select>
+                    <input type="text" name="extractType" value="<%=DataExportDao.CIHI_OMD4%>" class="right" readonly="true" />
                 </td>
             </tr>
 
