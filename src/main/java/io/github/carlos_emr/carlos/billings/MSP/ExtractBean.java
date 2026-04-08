@@ -254,7 +254,8 @@ public class ExtractBean extends Object implements Serializable {
 
 
                     invCount = 0;
-                    query2 = "select * from billingmaster where billing_no='" + invNo + "' and billingstatus='O'";
+                    int invNoInt = Integer.parseInt(invNo); // validate numeric to prevent SQL injection
+                    query2 = "select * from billingmaster where billing_no='" + invNoInt + "' and billingstatus='O'";
 
                     ResultSet rs2 = dbExt.executeQuery2(query2);
                     while (rs2.next()) {

@@ -35,6 +35,7 @@ package io.github.carlos_emr.carlos.report.pageUtil;
 
 import java.util.Enumeration;
 import java.util.Vector;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -50,6 +51,25 @@ public class RptFormQuery {
     static String DATE_FORMAT = "dateFormat_";
     static String VARNAME_FORMAT = "startDate\\d|endDate\\d";
 
+    /**
+     * Pattern for valid SQL table identifiers. Allows comma-separated table names
+     * (e.g. "formBCAR,formBCNewBorn") where each name is a standard SQL identifier.
+     */
+    private static final Pattern VALID_TABLE_NAME_PATTERN = Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*(,[a-zA-Z_][a-zA-Z0-9_]*)*$");
+
+    /**
+     * Validates that a table name (or comma-separated list of table names) contains
+     * only safe SQL identifier characters. Prevents SQL injection via table name manipulation.
+     *
+     * @param tableName the table name string to validate
+     * @throws SecurityException if the table name contains invalid characters
+     */
+    private static void validateTableName(String tableName) {
+        if (tableName == null || !VALID_TABLE_NAME_PATTERN.matcher(tableName.trim()).matches()) {
+            throw new SecurityException("Invalid table name in report configuration: " + tableName);
+        }
+    }
+
     public String getQueryStr(String reportId, HttpServletRequest request) throws Exception {
         String ret = "";
         RptReportCreator reportCreator = new RptReportCreator();
@@ -60,6 +80,7 @@ public class RptFormQuery {
         // sql:from
         reportSql += " from ";
         String tableName = reportCreator.getFromTableFirst(reportId);
+        validateTableName(tableName);
         boolean bDemo = tableName.indexOf("demographic") >= 0 ? true : false;
         reportSql += tableName;
 
