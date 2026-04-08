@@ -751,7 +751,7 @@
 </div>
 
 
-<form method="post" name="titlesearch" action="billingShortcutPg2.jsp"
+<form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/ON/BillingShortcutPg2Save.do"
       onsubmit="return onNext();">
     <table border="0" cellpadding="0" cellspacing="2" width="100%"
            bgcolor="#CCCCFF">

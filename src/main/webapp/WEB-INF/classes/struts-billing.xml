@@ -187,5 +187,67 @@
         </action>
         <action name="billing/ca/on/DisplayInvoiceLogo" class="io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action"/>
 
+        <!-- ===== Billing Delete — Ontario (migrated from JSP controllers) ===== -->
+        <action name="billing/CA/ON/BillingDeleteWithoutNo"
+                class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingDeleteWithoutNo2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingDeleteWithoutNo.jsp</result>
+            <result name="cannotDelete">/WEB-INF/jsp/billing/CA/ON/billingCannotDelete.jsp</result>
+            <result name="error">/WEB-INF/jsp/billing/CA/ON/billingCannotDelete.jsp</result>
+        </action>
+        <action name="billing/CA/ON/BillingDeleteNoAppt"
+                class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingDeleteNoAppt2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingDeleteNoAppt.jsp</result>
+            <result name="cannotDelete">/WEB-INF/jsp/billing/CA/ON/billingCannotDelete.jsp</result>
+            <result name="error">/WEB-INF/jsp/billing/CA/ON/billingCannotDelete.jsp</result>
+        </action>
+        <action name="billing/CA/ON/BillingDeleteWithBillNo"
+                class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingDeleteWithBillNo2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingDeleteWithBillNo.jsp</result>
+            <result name="cannotDelete">/WEB-INF/jsp/billing/CA/ON/billingCannotDelete.jsp</result>
+            <result name="error">/WEB-INF/jsp/billing/CA/ON/billingCannotDelete.jsp</result>
+        </action>
+
+        <!-- ===== Billing Delete — British Columbia (migrated from JSP controllers) ===== -->
+        <action name="billing/CA/BC/BillingDeleteWithoutNo"
+                class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingDeleteWithoutNo2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingDeleteWithoutNo.jsp</result>
+            <result name="cannotDelete">/WEB-INF/jsp/billing/CA/BC/billingCannotDelete.jsp</result>
+            <result name="error">/WEB-INF/jsp/billing/CA/BC/billingCannotDelete.jsp</result>
+        </action>
+        <action name="billing/CA/BC/BillingDeleteNoAppt"
+                class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingDeleteNoAppt2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingDeleteNoAppt.jsp</result>
+            <result name="cannotDelete">/WEB-INF/jsp/billing/CA/BC/billingCannotDelete.jsp</result>
+            <result name="error">/WEB-INF/jsp/billing/CA/BC/billingCannotDelete.jsp</result>
+        </action>
+
+        <!-- ===== Billing Correction Submit (migrated from JSP controllers) ===== -->
+        <action name="billing/CA/ON/BillingCorrectionSubmit"
+                class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrectionSubmit2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingCorrectionSubmit.jsp</result>
+            <result name="error">/WEB-INF/jsp/billing/CA/ON/billingCorrectionSubmit.jsp</result>
+        </action>
+        <action name="billing/CA/BC/BillingCorrectionSubmit"
+                class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingCorrectionSubmit2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingCorrectionSubmit.jsp</result>
+            <result name="error">/WEB-INF/jsp/billing/CA/BC/billingCorrectionSubmit.jsp</result>
+        </action>
+
+        <!-- ===== Billing Save — Ontario (migrated from JSP controllers) ===== -->
+        <action name="billing/CA/ON/BillingONSave"
+                class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONSave2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONSave.jsp</result>
+            <result name="printInvoice">/WEB-INF/jsp/billing/CA/ON/billingONSavePrintInvoice.jsp</result>
+            <result name="workloadRedirect">/WEB-INF/jsp/billing/CA/ON/billingONSaveWorkloadRedirect.jsp</result>
+            <result name="addAnother">/WEB-INF/jsp/billing/CA/ON/billingONSave.jsp</result>
+            <result name="backToEdit">/billing/CA/ON/billingON.jsp</result>
+            <result name="failure">/WEB-INF/jsp/billing/CA/ON/billingONSave.jsp</result>
+        </action>
+        <action name="billing/CA/ON/BillingShortcutPg2Save"
+                class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingShortcutPg2Save2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingShortcutPg2.jsp</result>
+            <result name="backToEdit">/billing/CA/ON/billingShortcutPg1.jsp</result>
+        </action>
+
     </package>
 </struts>

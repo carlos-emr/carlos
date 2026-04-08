@@ -102,10 +102,8 @@ FOR STAND ALONE USE
     <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet" type="text/css">
     <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css" rel="stylesheet" type="text/css">
 
-    <!-- signature_pad.min.js (Szymon Nowak) was removed from the project.
-         Without it, wet-signature canvas widgets are unavailable in the editor
-         but existing eforms remain functional. Restore the file to re-enable. -->
-    <%-- <script src="<%= request.getContextPath() %>/share/javascript/signature_pad.min.js"></script> --%>
+    <!-- signature_pad.min.js (Szymon Nowak) for wet-signature canvas widgets. -->
+    <script src="<%= request.getContextPath() %>/share/javascript/signature_pad.min.js"></script>
 
     <!-- main calendar program -->
     <script src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
