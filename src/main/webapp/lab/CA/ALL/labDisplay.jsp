@@ -311,8 +311,6 @@ request.setAttribute("missingTests", missingTests);
 
 /********************** Converted to this sport *****************************/
 
-String tickler_no="";
-String tickler_note="";
 Integer demoI = 0;
 Integer numTickler = 0;
 
@@ -333,18 +331,15 @@ SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManage
 TicklerManager ticklerManager= SpringUtils.getBean(TicklerManager.class);
 
 if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && isLinkedToDemographic ) {
-    // Note: tickler_note is intentionally raw HTML. All dynamic values MUST remain encoded using OWASP Encoder methods.
-    String tlinkf="\n <a class=\"alert-link\" href='"+request.getContextPath()+"/tickler/ticklerEdit.jsp?tickler_no=";
-    List<String> notes = new java.util.ArrayList<>();
     List<Tickler> ticklers = ticklerManager.search_tickler(loggedInInfo, demoI, MyDateFormat.getSysDate(strDate));
-
-    for (Tickler t: ticklers) {
+    List<Tickler> pendingTicklers = new java.util.ArrayList<>();
+    for (Tickler t : ticklers) {
         if (t.getMessage() != null && !t.getMessage().trim().isEmpty()) {
-            notes.add(tlinkf + Encode.forUriComponent(String.valueOf(t.getId())) + "' target='_blank'>" + Encode.forHtml(t.getMessage()) + "</a>");
+            pendingTicklers.add(t);
         }
     }
-    numTickler = notes.size();
-    tickler_note = String.join(", ", notes);
+    numTickler = pendingTicklers.size();
+    request.setAttribute("pendingTicklers", pendingTicklers);
 }
 
 // check for errors printing
@@ -1559,7 +1554,8 @@ input[id^='acklabel_']{
         <table style="width:100%;">
             <tr>
                 <td class="alert alert-info alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    <strong>INFO</strong> The following <%=numTickler%> <a class="alert-link" onclick="popup(450, 1200, '<%=request.getContextPath()%>/tickler/ticklerDemoMain.jsp?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')">ticklers</a> are marked pending:<%=tickler_note%>
+                    <strong>INFO</strong> The following <%=numTickler%> <a class="alert-link" onclick="popup(450, 1200, '<%=request.getContextPath()%>/tickler/ticklerDemoMain.jsp?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')">ticklers</a> are marked pending:<c:forEach items="${pendingTicklers}" var="tickler" varStatus="loop"><c:if test="${not loop.first}">, </c:if>
+                        <a class="alert-link" href="${pageContext.request.contextPath}/tickler/ticklerEdit.jsp?tickler_no=${e:forUriComponent(tickler.id)}" target="_blank">${e:forHtml(tickler.message)}</a></c:forEach>
                 </td>
             </tr>
          </table>
