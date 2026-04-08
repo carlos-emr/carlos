@@ -65,10 +65,41 @@ public class Billing3rdPartyAddressDaoImpl extends AbstractDaoImpl<Billing3rdPar
         return results;
     }
 
+    /**
+     * Allowed values for the {@code search_mode} request parameter.
+     * The special value {@code "search_name"} uses a compound name-based filter;
+     * other values map directly to a column name in the native query.
+     */
+    private static final java.util.Set<String> ALLOWED_SEARCH_MODES = java.util.Set.of(
+            "search_name", "postcode", "telephone");
+
+    /** Allowed column names for the ORDER BY clause. */
+    private static final java.util.Set<String> ALLOWED_ORDER_BY = java.util.Set.of(
+            "company_name", "postcode", "telephone", "address", "city", "province");
+
     @NativeSql("billing_on_3rdPartyAddress")
     public List<Billing3rdPartyAddress> findAddresses(String searchModeParam, String orderByParam, String keyword, String limit1, String limit2) {
         String search_mode = searchModeParam == null ? "search_name" : searchModeParam;
         String orderBy = orderByParam == null ? "company_name" : orderByParam;
+
+        if (!ALLOWED_SEARCH_MODES.contains(search_mode)) {
+            throw new IllegalArgumentException("Invalid search mode");
+        }
+        if (!ALLOWED_ORDER_BY.contains(orderBy)) {
+            throw new IllegalArgumentException("Invalid order-by column");
+        }
+
+        int intLimit1;
+        int intLimit2;
+        try {
+            intLimit1 = limit1 != null ? Integer.parseInt(limit1) : 0;
+            intLimit2 = limit2 != null ? Integer.parseInt(limit2) : 20;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid limit parameter");
+        }
+        if (intLimit1 < 0) intLimit1 = 0;
+        if (intLimit2 < 1 || intLimit2 > 200) intLimit2 = 20;
+
         String where = "";
         Map<String, Object> params = new HashMap<String, Object>();
         if ("search_name".equals(search_mode)) {
@@ -90,14 +121,8 @@ public class Billing3rdPartyAddressDaoImpl extends AbstractDaoImpl<Billing3rdPar
             params.put("searchMode", keyword + "%");
         }
 
-        String strLimit1 = "0";
-        String strLimit2 = "20";
-        if (limit1 != null)
-            strLimit1 = limit1;
-        if (limit2 != null)
-            strLimit2 = limit2;
-        String sql = "select * from billing_on_3rdPartyAddress where " + where + " order by " + orderBy + " limit "
-                + strLimit1 + "," + strLimit2;
+        String sql = "select * from billing_on_3rdPartyAddress where " + where + " order by " + orderBy
+                + " limit " + intLimit1 + "," + intLimit2;
 
         try {
             Query q = entityManager.createNativeQuery(sql, modelClass);

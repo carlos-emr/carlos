@@ -73,6 +73,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * This class is a utility class to create and drop the database schema and all it's bits.
  * This class is highly database specific and alternate versions of this class will have to be
  * written for other databases.
+ *
+ * <p><strong>Security note:</strong> This class builds DDL statements by concatenating values from
+ * test configuration properties and JDBC metadata (schema names, table names, constraint names).
+ * None of these values originate from external/untrusted input — they are controlled entirely by
+ * the test harness configuration.  CodeQL alerts java/sql-injection (#1325–#1333) on these
+ * concatenations are false positives and are suppressed.</p>
  */
 public class SchemaUtils {
     private static Logger logger = MiscUtils.getLogger();

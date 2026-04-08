@@ -2417,9 +2417,21 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             return q.list();
     }
 
+    /** Allowed HQL property names for {@link #findByField} field and order-by parameters. */
+    private static final Set<String> ALLOWED_FIND_BY_FIELDS = Set.of(
+            "DemographicNo", "LastName", "FirstName", "ChartNo",
+            "Sex", "YearOfBirth", "PatientStatus", "Hin", "Phone");
+
     @SuppressWarnings("unchecked")
     @Override
     public List<Demographic> findByField(String fieldName, Object fieldValue, String orderBy, int offset) {
+        if (fieldName != null && !ALLOWED_FIND_BY_FIELDS.contains(fieldName)) {
+            throw new IllegalArgumentException("Invalid field name: " + fieldName);
+        }
+        if (orderBy != null && !orderBy.isEmpty() && !ALLOWED_FIND_BY_FIELDS.contains(orderBy)) {
+            throw new IllegalArgumentException("Invalid order-by field: " + orderBy);
+        }
+
         boolean isFieldValueEmpty = fieldValue == null || fieldValue.equals("");
 
         String sql = "FROM Demographic d WHERE d." + fieldName + " LIKE :fieldValue";
@@ -2473,12 +2485,15 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             + "and (patient_status = 'AC' or patient_status = 'UHIP') "
             + "and (roster_status='RO' or roster_status='NR' or roster_status='FS' or roster_status='RF' or roster_status='PL')";
         if (providerNo != null && !providerNo.equals("-1")) {
-            sql = sql + " and provider_no = '" + providerNo + "' ";
+            sql = sql + " and provider_no = :providerNo ";
         }
         sql = sql + " order by last_name ";
 
         Session session = currentSession();
             NativeQuery sqlQuery = session.createNativeQuery(sql);
+            if (providerNo != null && !providerNo.equals("-1")) {
+                sqlQuery.setParameter("providerNo", providerNo);
+            }
             return sqlQuery.list();
     }
 
