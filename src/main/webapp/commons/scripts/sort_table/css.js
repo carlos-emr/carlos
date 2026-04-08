@@ -22,7 +22,7 @@ var css = {
         var classElements = new Array();
         var els = node.getElementsByTagName(tag);
         var elsLen = els.length;
-        var pattern = new RegExp("(^|\\s)" + searchClass + "(\\s|$)"); // nosemgrep: detect-non-literal-regexp — searchClass is a CSS class name from developer code, not user input
+        var pattern = new RegExp("(^|\\s)" + searchClass + "(\\s|$)"); // nosemgrep: detect-non-literal-regexp -- searchClass is a CSS class name from developer code, not user input
 
 
         for (var i = 0, j = 0; i < elsLen; i++) {
@@ -64,7 +64,7 @@ var css = {
             return false;
         }
 
-        var regex = new RegExp('\\b' + classString + '\\b'); // nosemgrep: detect-non-literal-regexp — classString is a CSS class name from developer code, not user input
+        var regex = new RegExp('\\b' + classString + '\\b'); // nosemgrep: detect-non-literal-regexp -- classString is a CSS class name from developer code, not user input
         if (el.className.match(regex)) {
             return true;
         }
