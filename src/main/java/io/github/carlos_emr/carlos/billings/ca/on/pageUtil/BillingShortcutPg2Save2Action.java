@@ -56,7 +56,7 @@ public final class BillingShortcutPg2Save2Action extends ActionSupport {
         String submit = request.getParameter("submit");
         String button = request.getParameter("button");
 
-        if (submit != null && "Back to Edit".equals(button)) {
+        if ("Back to Edit".equals(button)) {
             return "backToEdit";
         }
 

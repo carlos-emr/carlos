@@ -26,7 +26,9 @@
         </tr>
     </table>
     <p>
-    <h1>Sorry, cannot delete billed items.</h1>
+    <h1><%= request.getAttribute("cannotDelete") != null
+            ? "Sorry, cannot delete billed items."
+            : "Unable to delete billing record." %></h1>
 
     <form><input type="button" value="Back to previous page" onClick="window.close()"></form>
 </center>

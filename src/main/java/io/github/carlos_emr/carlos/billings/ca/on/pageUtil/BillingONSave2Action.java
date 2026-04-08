@@ -91,7 +91,7 @@ public final class BillingONSave2Action extends ActionSupport {
         String submit = request.getParameter("submit");
         String button = request.getParameter("button");
 
-        if (submit != null && "Back to Edit".equals(button)) {
+        if ("Back to Edit".equals(button)) {
             return "backToEdit";
         }
 
@@ -107,8 +107,10 @@ public final class BillingONSave2Action extends ActionSupport {
         Vector vecObj = bObj.getBillingClaimObj(request);
         boolean ret = bObj.addABillingRecord(vecObj);
 
-        if (request.getParameter("xml_billtype") != null
-                && request.getParameter("xml_billtype").substring(0, 3).matches(BillingDataHlp.BILLINGMATCHSTRING_3RDPARTY)) {
+        String xmlBillType = request.getParameter("xml_billtype");
+        if (xmlBillType != null
+                && xmlBillType.length() >= 3
+                && xmlBillType.substring(0, 3).matches(BillingDataHlp.BILLINGMATCHSTRING_3RDPARTY)) {
             bObj.addPrivateBillExtRecord(request, vecObj);
         } else {
             bObj.addOhipInvoiceTrans(vecObj);

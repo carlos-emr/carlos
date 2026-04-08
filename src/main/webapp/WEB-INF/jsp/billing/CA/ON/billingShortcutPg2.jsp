@@ -198,8 +198,8 @@
         String billingDate = request.getParameter("billDate");
         String[] tempDate = billingDate.split("\\s");
 
-        for (int idx = 0; idx < tempDate.length; ++idx) {
-        }
+
+
         for (int i = 0; i < recordCount; i++) {
             BillingServiceDao bsDao = SpringUtils.getBean(BillingServiceDao.class);
 
@@ -274,14 +274,14 @@
         }
 
         // calculate total
-        BigDecimal bdTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-        BigDecimal bdPercBase = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-        BigDecimal bdPerc = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
+        BigDecimal bdTotal = new BigDecimal(0).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal bdPercBase = new BigDecimal(0).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal bdPerc = new BigDecimal(0).setScale(2, RoundingMode.HALF_UP);
         // calculate base
         for (int i = 0; i < vecServiceCodePrice.size(); i++) {
-            BigDecimal price = new BigDecimal(Double.parseDouble((String) vecServiceCodePrice.get(i))).setScale(2, BigDecimal.ROUND_HALF_UP);
-            BigDecimal unit = new BigDecimal(Double.parseDouble((String) vecServiceCodeUnit.get(i))).setScale(2, BigDecimal.ROUND_HALF_UP);
-            bdTotal = bdTotal.add(price.multiply(unit).setScale(2, BigDecimal.ROUND_HALF_UP));
+            BigDecimal price = new BigDecimal(Double.parseDouble((String) vecServiceCodePrice.get(i))).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal unit = new BigDecimal(Double.parseDouble((String) vecServiceCodeUnit.get(i))).setScale(2, RoundingMode.HALF_UP);
+            bdTotal = bdTotal.add(price.multiply(unit).setScale(2, RoundingMode.HALF_UP));
             if (i == rulePercLabelNum) {
                 bdPercBase = bdTotal;
             }
@@ -296,13 +296,13 @@
         BigDecimal[] bdPercs = new BigDecimal[size];
         for (int idx3 = 0; idx3 < size; ++idx3) {
             // calculate perc
-            BigDecimal perc = new BigDecimal(Double.parseDouble((String) vecServiceCodePerc.get(codeIdx))).setScale(2, BigDecimal.ROUND_HALF_UP);
-            bdPerc = bdPercBase.multiply(perc).setScale(2, BigDecimal.ROUND_HALF_UP);
+            BigDecimal perc = new BigDecimal(Double.parseDouble((String) vecServiceCodePerc.get(codeIdx))).setScale(2, RoundingMode.HALF_UP);
+            bdPerc = bdPercBase.multiply(perc).setScale(2, RoundingMode.HALF_UP);
             msg += "<tr bgcolor='#EEEEFF'><td align='right'>" + vecServiceCodePerc.get(codeIdx - 1) + " (1)</td><td align='right'>Percentage : " + bdPercBase + " x " + perc + " = " + bdPerc + "</td></tr>";
             // adjust perc by min/max
             if (aLimits[idx3]) {
-                bdPerc = bdPerc.min(new BigDecimal(Double.parseDouble(aMaxFee[idx3])).setScale(2, BigDecimal.ROUND_HALF_UP));
-                bdPerc = bdPerc.max(new BigDecimal(Double.parseDouble(aMinFee[idx3])).setScale(2, BigDecimal.ROUND_HALF_UP));
+                bdPerc = bdPerc.min(new BigDecimal(Double.parseDouble(aMaxFee[idx3])).setScale(2, RoundingMode.HALF_UP));
+                bdPerc = bdPerc.max(new BigDecimal(Double.parseDouble(aMinFee[idx3])).setScale(2, RoundingMode.HALF_UP));
                 msg += "<tr bgcolor='ivory'><td align='right' colspan='2'>Adjust to (" + aMinFee[idx3] + ", " + aMaxFee[idx3] + "): </td><td align='right'>" + bdPerc + "</td></tr>";
             }
             bdTotal = bdTotal.add(bdPerc);
@@ -314,10 +314,10 @@
         msg += "<tr><td align='right' colspan='2'>Total: " + bdTotal + "</td></tr>";
         // referral
         content = "";
-        String referalCode = (request.getParameter("referralCode") != null && request.getParameter("referralCode").length() == 6) ? request.getParameter("referralCode") : null;
-        if (referalCode != null) {
+        String referralCode = (request.getParameter("referralCode") != null && request.getParameter("referralCode").length() == 6) ? request.getParameter("referralCode") : null;
+        if (referralCode != null) {
             content += "<xml_referral>checked</xml_referral>";
-            content += "<rdohip>" + referalCode + "</rdohip>";
+            content += "<rdohip>" + referralCode + "</rdohip>";
         }
         content += "<hctype>" + demoHCTYPE + "</hctype>";
         content += "<demosex>" + demoSex + "</demosex>";
@@ -414,9 +414,9 @@
                     }
 
                     for (int i = 0; i < vecServiceCode.size(); i++) { //recordCount
-                        BigDecimal bdEachPrice = new BigDecimal(Double.parseDouble((String) vecServiceCodePrice.get(i))).setScale(2, BigDecimal.ROUND_HALF_UP);
-                        BigDecimal bdEachUnit = new BigDecimal(Double.parseDouble((String) vecServiceCodeUnit.get(i))).setScale(2, BigDecimal.ROUND_HALF_UP);
-                        BigDecimal bdEachTotal = bdEachPrice.multiply(bdEachUnit).setScale(2, BigDecimal.ROUND_HALF_UP);
+                        BigDecimal bdEachPrice = new BigDecimal(Double.parseDouble((String) vecServiceCodePrice.get(i))).setScale(2, RoundingMode.HALF_UP);
+                        BigDecimal bdEachUnit = new BigDecimal(Double.parseDouble((String) vecServiceCodeUnit.get(i))).setScale(2, RoundingMode.HALF_UP);
+                        BigDecimal bdEachTotal = bdEachPrice.multiply(bdEachUnit).setScale(2, RoundingMode.HALF_UP);
 
                         BillingDetail bd = new BillingDetail();
                         bd.setBillingNo(nBillNo);
@@ -549,10 +549,10 @@
                                    bgcolor="#EEEEFF">
                                 <tr>
                                     <td nowrap width="30%"><b>Billing Physician</b></td>
-                                    <td width="20%"><%=providerBean.getProperty(request.getParameter("xml_provider"), "")%>
+                                    <td width="20%"><%= Encode.forHtml(providerBean.getProperty(request.getParameter("xml_provider"), "")) %>
                                     </td>
                                     <td nowrap width="30%"><b>Assig. Physician</b></td>
-                                    <td width="20%"><%=providerBean.getProperty(assgProvider_no, "")%>
+                                    <td width="20%"><%= Encode.forHtml(providerBean.getProperty(assgProvider_no, "")) %>
                                     </td>
                                 </tr>
                                 <tr>
@@ -627,7 +627,7 @@
             for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                 String temp = e.nextElement().toString();
         %>
-        <input type="hidden" name="<%= temp %>"
+        <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
                value="<%=StringEscapeUtils.escapeHtml4(request.getParameter(temp))%>">
         <%
             }

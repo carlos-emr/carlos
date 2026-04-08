@@ -86,7 +86,7 @@ public final class BillingDeleteWithoutNo2Action extends ActionSupport {
         boolean cannotDelete = false;
 
         for (Billing b : billings) {
-            if (b.getStatus().substring(0, 1).equals("B")) {
+            if (b.getStatus() != null && b.getStatus().startsWith("B")) {
                 cannotDelete = true;
             }
             billCodeList.add(b.getId().toString());
@@ -120,8 +120,8 @@ public final class BillingDeleteWithoutNo2Action extends ActionSupport {
             ApptStatusData as = new ApptStatusData();
             String unbillStatus = as.unbillStatus(request.getParameter("status"));
             Appointment appt = appointmentDao.find(apptNo);
-            appointmentArchiveDao.archiveAppointment(appt);
             if (appt != null) {
+                appointmentArchiveDao.archiveAppointment(appt);
                 appt.setStatus(unbillStatus);
                 appt.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
                 appointmentDao.merge(appt);

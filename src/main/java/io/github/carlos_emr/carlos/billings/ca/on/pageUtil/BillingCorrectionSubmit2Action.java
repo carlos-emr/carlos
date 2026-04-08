@@ -78,6 +78,7 @@ public final class BillingCorrectionSubmit2Action extends ActionSupport {
 
         if (billingDataBean == null || billingBean == null) {
             MiscUtils.getLogger().error("billingDataBean or billingBean not found in session");
+            request.setAttribute("correctionError", Boolean.TRUE);
             return ERROR;
         }
 
@@ -88,6 +89,7 @@ public final class BillingCorrectionSubmit2Action extends ActionSupport {
                 billingNo = Integer.parseInt(billingNoStr);
             } catch (NumberFormatException e) {
                 MiscUtils.getLogger().warn("Invalid billing number during billing correction submit: " + billingNoStr, e);
+                request.setAttribute("correctionError", Boolean.TRUE);
                 return ERROR;
             }
             String content = billingDataBean.getContent();
@@ -146,10 +148,12 @@ public final class BillingCorrectionSubmit2Action extends ActionSupport {
             return SUCCESS;
         } catch (ArrayIndexOutOfBoundsException e) {
             MiscUtils.getLogger().warn("ArrayIndexOutOfBoundsException during billing correction submit", e);
+            request.setAttribute("correctionError", Boolean.TRUE);
             return ERROR;
         } catch (NumberFormatException e) {
             MiscUtils.getLogger().warn("NumberFormatException during billing correction submit for billing number: "
                     + billingDataBean.getBilling_no(), e);
+            request.setAttribute("correctionError", Boolean.TRUE);
             return ERROR;
         }
     }

@@ -95,7 +95,7 @@ public final class BillingDeleteWithBillNo2Action extends ActionSupport {
             }
         }
 
-        if (billCode.isEmpty() || billCode.substring(0, 1).compareTo("B") == 0) {
+        if (billCode == null || billCode.isEmpty() || billCode.startsWith("B")) {
             return "cannotDelete";
         }
 

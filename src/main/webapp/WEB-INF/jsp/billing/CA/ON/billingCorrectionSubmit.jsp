@@ -20,16 +20,22 @@
 </head>
 <body>
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
-    <tr bgcolor="#486ebd">
+    <tr bgcolor="<%= request.getAttribute("correctionError") != null ? "#bd4848" : "#486ebd" %>">
         <th align="CENTER" nowrap><font face="Helvetica" color="#FFFFFF">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrectionSubmit.msgSuccessfull"/>
+            <% if (request.getAttribute("correctionError") != null) { %>
+                Billing Correction Failed
+            <% } else { %>
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrectionSubmit.msgSuccessfull"/>
+            <% } %>
         </font></th>
     </tr>
 </table>
 
 <form action="${pageContext.request.contextPath}/billing/CA/ON/billingCorrection.jsp">
     <input type="hidden" name="billing_no" value="">
+    <% if (request.getAttribute("correctionError") == null) { %>
     <input type="submit" value="<fmt:setBundle basename='oscarResources'/><fmt:message key='billing.billingCorrectionSubmit.btnCorrectAnother'/>" name="submit">
+    <% } %>
     <input type="button" value="<fmt:setBundle basename='oscarResources'/><fmt:message key='billing.billingCorrectionSubmit.btnClose'/>" onClick="window.close()">
 </form>
 </body>
