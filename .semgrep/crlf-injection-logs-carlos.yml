@@ -49,7 +49,9 @@ rules:
                   regex: (getParameter|getQueryString|getHeader|getRequestURI|getPathInfo|getCookies|getRemoteAddr)
 
     pattern-sanitizers:
-      # LogSanitizer methods (short name — covers static imports and same-package usage)
+      # Unqualified method call (covers static imports)
+      - pattern: sanitize(...)
+      # Class-qualified short name (covers direct LogSanitizer usage)
       - pattern: LogSanitizer.sanitize(...)
       # Fully-qualified name (covers cross-package usage)
       - pattern: io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(...)
