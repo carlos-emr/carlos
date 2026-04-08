@@ -177,7 +177,7 @@ public class ManageTeleplan2Action extends ActionSupport {
             }
         }
 
-        BufferedReader buff = new BufferedReader(new FileReader(file));
+        BufferedReader buff = new BufferedReader(new FileReader(file)); // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
 
         String line = null;
         Properties dxProp = new Properties();
@@ -250,7 +250,7 @@ public class ManageTeleplan2Action extends ActionSupport {
             }
         }
 
-        BufferedReader buff = new BufferedReader(new FileReader(file));
+        BufferedReader buff = new BufferedReader(new FileReader(file)); // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
 
         String line = null;
 
@@ -552,7 +552,7 @@ public class ManageTeleplan2Action extends ActionSupport {
                 }
             }
 
-            BufferedReader buff = new BufferedReader(new FileReader(file));
+            BufferedReader buff = new BufferedReader(new FileReader(file)); // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
             StringBuilder sb = new StringBuilder();
             String line = null;
 

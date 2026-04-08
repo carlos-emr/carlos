@@ -325,7 +325,7 @@ public class DocumentPreview2Action extends ActionSupport {
             
             // Serve the validated PDF file
             response.setContentType("application/pdf");
-            try (InputStream inputStream = Files.newInputStream(canonicalPdfPath);
+            try (InputStream inputStream = Files.newInputStream(canonicalPdfPath); // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath in boolean-flag loop above
                  BufferedInputStream bfis = new BufferedInputStream(inputStream);
                  ServletOutputStream outs = response.getOutputStream()) {
 

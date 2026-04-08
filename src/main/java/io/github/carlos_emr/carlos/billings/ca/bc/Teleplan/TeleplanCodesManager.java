@@ -79,7 +79,7 @@ REM076 **                                                             **
             }
         }
 
-        BufferedReader buff = new BufferedReader(new FileReader(f));
+        BufferedReader buff = new BufferedReader(new FileReader(f)); // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
 
         String line = null;
         MiscUtils.getLogger().debug("start while");
