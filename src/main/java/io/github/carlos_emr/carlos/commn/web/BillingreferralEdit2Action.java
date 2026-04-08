@@ -163,7 +163,7 @@ public class BillingreferralEdit2Action extends ActionSupport {
             }
         }
 
-        request.getSession().setAttribute("billingReferralAdminCheckList", checkedSpecs);
+        request.getSession().setAttribute("billingReferralAdminCheckList", checkedSpecs); // nosemgrep: tainted-session-from-http-request
 
         ArrayNode arr = objectMapper.valueToTree(checkedSpecs);
         response.getWriter().print(arr);

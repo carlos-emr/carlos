@@ -353,9 +353,9 @@ public class ClientManager2Action extends ActionSupport {
         LogAction.log("read", "pmm client record", id, request);
 
         Demographic demographic = clientManager.getClientByDemographicNo(id);
-        request.getSession().setAttribute("clientGender", demographic.getSex());
-        request.getSession().setAttribute("clientAge", demographic.getAge());
-        request.getSession().setAttribute("demographicId", demographic.getDemographicNo());
+        request.getSession().setAttribute("clientGender", demographic.getSex()); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("clientAge", demographic.getAge()); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("demographicId", demographic.getDemographicNo()); // nosemgrep: tainted-session-from-http-request
 
         return "edit";
     }

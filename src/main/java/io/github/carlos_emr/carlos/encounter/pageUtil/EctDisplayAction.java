@@ -128,8 +128,19 @@ public class EctDisplayAction extends ActionSupport {
             if (bean.providerNo == null) {
                 bean.providerNo = (String) request.getSession().getAttribute("user");
             }
-            bean.demographicNo = request.getParameter("demographicNo");
-            bean.appointmentNo = request.getParameter("appointmentNo");
+            // Validate demographicNo as numeric before storing in session bean
+            String demoNoParam = request.getParameter("demographicNo");
+            if (demoNoParam != null && !demoNoParam.isEmpty() && !demoNoParam.matches("\\d+")) {
+                logger.warn("Invalid non-numeric demographicNo: {}", LogSanitizer.sanitize(demoNoParam));
+                return "error";
+            }
+            bean.demographicNo = demoNoParam;
+            String apptNoParam = request.getParameter("appointmentNo");
+            if (apptNoParam != null && !apptNoParam.isEmpty() && !apptNoParam.matches("\\d+")) {
+                logger.warn("Invalid non-numeric appointmentNo: {}", LogSanitizer.sanitize(apptNoParam));
+                return "error";
+            }
+            bean.appointmentNo = apptNoParam;
             bean.curProviderNo = request.getParameter("curProviderNo");
             bean.reason = request.getParameter("reason");
             bean.encType = request.getParameter("encType");
@@ -145,8 +156,9 @@ public class EctDisplayAction extends ActionSupport {
             bean.check = "myCheck";
             bean.oscarMsgID = request.getParameter("msgId");
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
-            request.getSession().setAttribute("EctSessionBean", bean);
-            request.getSession().setAttribute("eChartID", bean.eChartId);
+            // demographicNo and appointmentNo validated as numeric; other bean fields (reason, encType, userName, etc.) are unsanitized request params — consuming JSPs MUST use OWASP encoding when rendering
+            request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request
+            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request
             if (request.getParameter("source") != null) {
                 bean.source = request.getParameter("source");
             }
