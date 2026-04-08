@@ -645,7 +645,7 @@ else
     # java 11 will show: 11.0.11
 #JVER="10.0.4"
     JVER=$(echo $JVER | sed -e 's/^1\.\([0-9]*\)\(.*\)/\1/; 1q' | sed -e 's/\([0-9]*\)\(.*\)/\1/; 1q' )
-    if [ ${JVER} -eq 21 ] || [ ${JVER} -eq 25 ]  ; then
+    if [ "${JVER}" -eq 21 ] || [ "${JVER}" -eq 25 ]  ; then
             JAVA_HOME=${ALT_J%/*/*}
             echo JAVA HOME set to current java $JVER JDK of $JAVA_HOME >>$LOG_FILE
     else
@@ -657,7 +657,7 @@ else
             if [ -r "$jdir/bin/java" ] ; then
                     JVER=$($jdir/bin/java -version 2>&1 | awk -F '"' '/version/ {print $2}')
                     JVER=$(echo $JVER | sed -e 's/^1\.\([0-9]*\)\(.*\)/\1/; 1q' | sed -e 's/\([0-9]*\)\(.*\)/\1/; 1q' )
-                    if [ ${JVER} -eq 21 ] || [ ${JVER} -eq 25 ] ; then 
+                    if [ "${JVER}" -eq 21 ] || [ "${JVER}" -eq 25 ] ; then 
                             JAVA_HOME="$jdir"
                     fi
             fi
