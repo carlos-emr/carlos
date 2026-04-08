@@ -50,7 +50,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -453,8 +453,8 @@
                         + URLEncoder.encode(oscarVariables.getProperty("hospital_view", oscarVariables.getProperty("default_view"))) + "&hotclick=&appointment_no=0&demographic_name="
                         + URLEncoder.encode(demoLast, StandardCharsets.UTF_8) + "%2C"
                         + URLEncoder.encode(demoFirst, StandardCharsets.UTF_8) + "&demographic_no="
-                        + demo_no + "&providerview=1&user_no="
-                        + user_no + "&apptProvider_no=none&appointment_date="
+                        + Encode.forJavaScript(demo_no) + "&providerview=1&user_no="
+                        + Encode.forJavaScript(user_no) + "&apptProvider_no=none&appointment_date="
                         + curYear + "-" + curMonth + "-" + curDay + "&start_time=0:00:00&bNewForm=1&status=t'</script>";
             }
         }
@@ -507,7 +507,7 @@
                 <table border="0" cellspacing="0" cellpadding="0" width="100%">
                     <tr bgcolor="#33CCCC">
                         <td nowrap bgcolor="#FFCC99" width="10%" align="center"><%= Encode.forHtml(demoname) %>
-                            <%= demoSex.equals("1") ? "Male" : "Female" %> <%= " DOB: " + demoDOBYY + "/" + demoDOBMM + "/" + demoDOBDD + " HIN: " + demoHIN %>
+                            <%= "1".equals(demoSex) ? "Male" : "Female" %> <%= " DOB: " + Encode.forHtml(demoDOBYY) + "/" + Encode.forHtml(demoDOBMM) + "/" + Encode.forHtml(demoDOBDD) + " HIN: " + Encode.forHtml(demoHIN) %>
                         </td>
                         <td bgcolor="#99CCCC" align="center"><%= wrongMsg %>
                         </td>
@@ -628,7 +628,7 @@
                 String temp = e.nextElement().toString();
         %>
         <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
-               value="<%=StringEscapeUtils.escapeHtml4(request.getParameter(temp))%>">
+               value="<%=Encode.forHtmlAttribute(request.getParameter(temp))%>">
         <%
             }
         %>
