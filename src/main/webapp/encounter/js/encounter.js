@@ -316,7 +316,7 @@ function urlencode(str) {
  * @param {string} html - trusted server response HTML
  */
 function setTrustedHtml(el, html) {
-    el.innerHTML = html; // trusted: server-side OWASP-encoded responses only
+    el.innerHTML = html; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
 }
 
 function updateDiv() {

@@ -865,7 +865,19 @@ function loadProblems(field_name, value) {
     value.map(p => {
         const listItem = document.createElement('li')
         listItem.classList.add('info-listitem');
-        listItem.innerHTML = '<span class="pd-none">Code: </span><strong>' + p.code + '</strong> <span class="pd-none">Description: </span><strong>' + (p.description || 'N/A') + '</strong> Date: ' + p.startdate
+
+        // Build DOM elements instead of innerHTML to prevent XSS from data values
+        const codeLabel = document.createElement('span');
+        codeLabel.className = 'pd-none';
+        codeLabel.textContent = 'Code: ';
+        const codeValue = document.createElement('strong');
+        codeValue.textContent = p.code;
+        const descLabel = document.createElement('span');
+        descLabel.className = 'pd-none';
+        descLabel.textContent = ' Description: ';
+        const descValue = document.createElement('strong');
+        descValue.textContent = p.description || 'N/A';
+        listItem.append(codeLabel, codeValue, descLabel, descValue, ' Date: ' + p.startdate);
         list.appendChild(listItem)
         if (p.active === false) {
             listItem.classList.add('info-listitem-disabled')
@@ -879,8 +891,8 @@ function loadProblems(field_name, value) {
         disable.classList.add("btn", "btn-danger")
         enable.classList.add("btn", "btn-success")
 
-        disable.innerHTML = 'Disable'
-        enable.innerHTML = 'Enable'
+        disable.textContent = 'Disable'
+        enable.textContent = 'Enable'
 
         disable.addEventListener('click', (e) => {
             e.preventDefault();
@@ -918,7 +930,13 @@ function loadMedications(field_name, value) {
         if (m.active === false) {
             listItem.classList.add('info-listitem-disabled')
         }
-        listItem.innerHTML = '<span class="pd-none">Prescription: </span><strong>' + m.prescription + '</strong> Date: ' + m.rxDate
+        // Build DOM elements instead of innerHTML to prevent XSS from data values
+        const rxLabel = document.createElement('span');
+        rxLabel.className = 'pd-none';
+        rxLabel.textContent = 'Prescription: ';
+        const rxValue = document.createElement('strong');
+        rxValue.textContent = m.prescription;
+        listItem.append(rxLabel, rxValue, ' Date: ' + m.rxDate);
 
         const buttonContainer = document.createElement('div')
         const disable = document.createElement('button')
@@ -938,8 +956,8 @@ function loadMedications(field_name, value) {
         disable.classList.add("btn", "btn-danger")
         enable.classList.add("btn", "btn-success")
 
-        disable.innerHTML = 'Disable'
-        enable.innerHTML = 'Enable'
+        disable.textContent = 'Disable'
+        enable.textContent = 'Enable'
 
         if (m.active === true) {
             buttonContainer.appendChild(disable)

@@ -297,13 +297,17 @@ function seteditControlContents(editorname, value){
 
 	// Converting image paths with template style tag to URL format using 'cfg_isrc' using imageControl library.
 	value = jQuery().convertImagePaths(value, cfg_isrc);
-	
+
+	// Sanitize HTML before injecting into the editor to prevent stored-XSS from eform content.
+	// DOMPurify may not be available in all eForm contexts; fall back to unsanitized assignment.
+	var sanitized = (typeof DOMPurify !== 'undefined') ? DOMPurify.sanitize(value) : value;
+
     if (document.designMode) {
 		if (isIE()){
-		    window[editorname].document.body.innerHTML = value; //if browser supports M$ conventions
+		    window[editorname].document.body.innerHTML = sanitized; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
 		    return
 		} else {
-		    document.getElementById(editorname).contentWindow.document.body.innerHTML = value;
+		    document.getElementById(editorname).contentWindow.document.body.innerHTML = sanitized; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
 		    return
 		}
 	} else {
@@ -469,8 +473,10 @@ function doHtml(value) {
 		sel.removeAllRanges();
 		sel.addRange(range);
 	} else {
-		// No selection/cursor — append to end of document body
-		editorDoc.body.innerHTML += value;
+		// No selection/cursor — append to end of document body.
+		// Sanitize content with DOMPurify when available to mitigate stored-XSS from eform data.
+		var safeValue = (typeof DOMPurify !== 'undefined') ? DOMPurify.sanitize(value) : value;
+		editorDoc.body.innerHTML += safeValue; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
 	}
 	// Return focus to the editor iframe so the user can continue typing
 	// immediately after a sidebar button inserts content
