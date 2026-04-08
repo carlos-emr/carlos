@@ -161,5 +161,5 @@
     // while allowing external scripts from the same origin that eforms depend on.
     response.setHeader("Content-Security-Policy", "script-src 'self'; object-src 'none'");
     response.setHeader("X-Content-Type-Options", "nosniff");
-    out.print(thisEForm.getFormHtml()); // lgtm[java/xss] eform HTML is intentionally unencoded
+    out.print(thisEForm.getFormHtml()); // CodeQL[java/xss] eform HTML is intentionally unencoded
 %>

@@ -234,6 +234,7 @@
         // navbarName is a server-set attribute (e.g. "measurements", "allergies") — not user input.
         // Encode for defense-in-depth when used in JS string literals and HTML attributes.
         String navbarName = (String) request.getAttribute("navbarName");
+        if (navbarName == null) navbarName = "";
         String jsNavbarName = Encode.forJavaScript(navbarName);
         String htmlNavbarName = Encode.forHtmlAttribute(navbarName);
         String jsReloadUrl = Encode.forJavaScript(reloadUrl);
