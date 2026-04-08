@@ -3,7 +3,7 @@
 # a script file for CARLOS EMR that installs and tweaks the necessary files
 #====================================================================
 # Copyright Peter Hutten-Czapski 2012-2026 released under the GPL v2+
-# v 0.1
+# v 0.2
 #====================================================================
 
 #set -e
@@ -22,23 +22,13 @@ db_name=oscar_15
 buildDateTime="March 14, 2026"
 
 
-if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
-        TOMCAT=tomcat10
+if [ -f /usr/share/tomcat11/bin/version.sh ] ; then
+        TOMCAT=tomcat11
         TOMCAT_USER=tomcat
     else
-    if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
-            TOMCAT=tomcat9
+    if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
+            TOMCAT=tomcat10
             TOMCAT_USER=tomcat
-        else
-        if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
-                TOMCAT=tomcat8
-                TOMCAT_USER=tomcat8
-             else
-             if [ -f /usr/share/tomcat7/bin/version.sh ] ; then
-                    TOMCAT=tomcat7
-                    TOMCAT_USER=tomcat7
-             fi
-         fi
      fi
  fi
 C_HOME=/usr/share/${TOMCAT}/
@@ -264,11 +254,7 @@ if [ "$lastbuild" != "${VERSION}.${REVISION}" ] ; then
             done
         ) &
         pid=$!;progress $pid
-    else
-        # OSCAR 19 migration context (carlos.properties absent): apply the CARLOS migration patch.
-        ncecho " [x] Patching database to latest schema "
-        $MYSQL ${db_name} < ${SRC}patch.sql >>$LOG_FILE 2>>$LOG_FILE &
-        pid=$!;progress $pid
+
     fi
 	# lets first update the server.xml if necessary
 	if [ -f "${C_BASE}conf/server.xml" ]; then
@@ -280,27 +266,6 @@ if [ "$lastbuild" != "${VERSION}.${REVISION}" ] ; then
                 fi
 	fi
 
-
-	## echo "Simple revision upgrade detected so upgrading build tags" >> $LOG_FILE
-	## echo buildDateTime=$buildDateTime>> ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE
-	## echo buildtag="${VERSION}.${REVISION}">> ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE
-
-
-        # oscar.properties file updated so safe to restart
-	## ncecho " [x] Restarting Tomcat "
-	## service $TOMCAT restart >> "$LOG_FILE" 2>&1 &
-	## pid=$!;progress $pid	
-
-
-
-    ## ncecho " [x] Installing Canadian Vaccine Catalog " 
-    ## echo  adding Canadian Vaccine Data to OSCAR >>$LOG_FILE
-    ## $MYSQL ${db_name} <  ${SRC}CVC.sql 2>>$LOG_FILE &
-    ## pid=$!;progress $pid
-    ## echo  CVC updated >>$LOG_FILE
-
-    # drugref database is managed by the drugref WAR (deployed as /drugref) and updates
-    # itself on startup.  No drugref.sql is bundled with this package; no action needed here.
 
 
     GEOIP2=$(curl --silent -f --connect-timeout 5 --max-time 10 http://ip-api.com/csv/ | tr -d '"') || true
@@ -439,7 +404,7 @@ echo Upgrade=${UPGRADE}>>$LOG_FILE
 ### DATABASE EXISTENCE CHECK
 ### Determines which install path to take:
 ###   - DB already exists  → WAR-upgrade-only path (restart Tomcat and exit)
-###   - DB does not exist  → Proceed with full install or OSCAR 19 migration
+###   - DB does not exist  → Proceed with full install
 ### ============================================================
 echo  "see if the database exists before proceeding!!"  >>$LOG_FILE
 result=$($MYSQL -e "SHOW DATABASES LIKE '${db_name}';")
@@ -511,16 +476,6 @@ if [ "${UPGRADE}" = "true" ] ; then
 	ncecho " [x] Have new tables in ${db_name} default to utf8 "
 	$MYSQL -e "ALTER DATABASE \`$db_name\` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci"  2>>$LOG_FILE &
 	pid=$!;progress $pid
-
-	if [ -z "${lastbuild}" ] ; then
-		# Fresh OSCAR 19 to CARLOS migration (no prior CARLOS build tag): apply the migration patch.
-		ncecho " [x] Patching database to latest schema "
-		$MYSQL ${db_name} < ${SRC}patch.sql >>${LOG_FILE} 2>&1 &
-		pid=$!;progress $pid
-		echo Patched ${db_name}>>$LOG_FILE
-	else
-		echo "carlos.properties found alongside oscar.properties: skipping patch.sql, running incremental updates only" >> $LOG_FILE
-	fi
 
 	# Run incremental update scripts bundled with this package
 	for _sql in $(ls -1 "${SRC}"update-2026-*.sql 2>/dev/null | sort); do
@@ -669,10 +624,12 @@ else
     # Tomcat 8.5 requires Java 7 or newer
     # Tomcat 9 requires Java 8 or newer 
     # Tomcat 10 requires Java 8 or newer (unchanged)
+    # Tomcat 11 requires Java 17 or newer 
     # OSCAR_14 suggests Java 7
     # OSCAR_15 suggests Java 8 
     # OSCAR_19 suggests Java 8 and works with Java 11 oscar_emr19-45~1364.deb and newer
-
+    # CARLOS requires Java 21 or newer
+    
 #ln -s /var/lib/tomcat8/common /usr/share/tomcat8/common && \
 #    ln -s /var/lib/tomcat8/server /usr/share/tomcat8/server && \
 #    ln -s /var/lib/tomcat8/shared /usr/share/tomcat8/shared && \
@@ -688,8 +645,7 @@ else
     # java 11 will show: 11.0.11
 #JVER="10.0.4"
     JVER=$(echo $JVER | sed -e 's/^1\.\([0-9]*\)\(.*\)/\1/; 1q' | sed -e 's/\([0-9]*\)\(.*\)/\1/; 1q' )
-    if [ ${JVER} -eq 8 ] || [ ${JVER} -eq 11 ] || [ ${JVER} -eq 17 ]  ; then
-    # deprecated build 46 if [ ${JVER} -eq 8 ]  ; then
+    if [ ${JVER} -eq 21 ] || [ ${JVER} -eq 25 ]  ; then
             JAVA_HOME=${ALT_J%/*/*}
             echo JAVA HOME set to current java $JVER JDK of $JAVA_HOME >>$LOG_FILE
     else
@@ -701,10 +657,7 @@ else
             if [ -r "$jdir/bin/java" ] ; then
                     JVER=$($jdir/bin/java -version 2>&1 | awk -F '"' '/version/ {print $2}')
                     JVER=$(echo $JVER | sed -e 's/^1\.\([0-9]*\)\(.*\)/\1/; 1q' | sed -e 's/\([0-9]*\)\(.*\)/\1/; 1q' )
-                    if [ ${JVER} -eq 8 ] || [ ${JVER} -eq 11 ] ; then 
-                    # deprecated build 46 if [ ${JVER} -eq 8 ] ; then  
-                            # 
-                            #echo ${jdir} - ${JVER}
+                    if [ ${JVER} -eq 21 ] || [ ${JVER} -eq 25 ] ; then 
                             JAVA_HOME="$jdir"
                     fi
             fi
@@ -1045,4 +998,3 @@ echo "#########" `date` "#########"  >>$LOG_FILE
 		exit 1
 	;;
 esac
-
