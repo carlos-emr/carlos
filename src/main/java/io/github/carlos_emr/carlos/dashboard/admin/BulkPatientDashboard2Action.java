@@ -249,7 +249,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
      * @param input the raw patient IDs string from the request parameter
      * @return List of parsed patient IDs; empty list if input is null, empty, or unparseable
      */
-    static List<Integer> parsePatientIds(String input) {
+    private static List<Integer> parsePatientIds(String input) {
         if (input == null || input.isEmpty()) {
             return List.of();
         }
