@@ -251,6 +251,9 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             File baseDir = new File(documentDir);
             File destinationFile = PathValidationUtils.validatePath(fileName, baseDir);
 
+            // Create parent directories if they don't exist
+            Files.createDirectories(destinationFile.getParentFile().toPath());
+
             fos = new FileOutputStream(destinationFile);
             byte[] buf = new byte[128 * 1024];
             int i = 0;
@@ -280,7 +283,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             return false;
         }
 
-        String parentPath = IncomingDocUtil.getIncomingDocumentFilePath(queueId, PdfDir);
+        String parentPath = IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, PdfDir);
         if (!new File(parentPath).exists()) {
             return false;
         }
