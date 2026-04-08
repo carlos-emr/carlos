@@ -89,13 +89,13 @@ public class DxresearchReport2Action extends ActionSupport {
             "patientRegistedResolve"
     );
 
-    /** Provider number: alphanumeric, 1-6 characters. */
+    /** Provider number: alphanumeric, 1-6 characters (matches {@code provider} table VARCHAR(6)). */
     private static final Pattern PROVIDER_NO_PATTERN = Pattern.compile("^[a-zA-Z0-9]{1,6}$");
 
-    /** Group name after {@code _grp_} prefix: alphanumeric/underscore, 1-20 characters. */
+    /** Group name after {@code _grp_} prefix: alphanumeric/underscore, 1-20 characters (generous upper bound). */
     private static final Pattern GROUP_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]{1,20}$");
 
-    /** Diagnostic code: alphanumeric with dots, 1-10 characters (e.g. ICD-9 "250.0"). */
+    /** Diagnostic code: alphanumeric with dots, 1-10 characters (e.g. ICD-9 "250.0"). Intentionally permissive — DAO lookup rejects unknown codes. */
     private static final Pattern CODE_PATTERN = Pattern.compile("^[a-zA-Z0-9.]{1,10}$");
 
     /**
@@ -205,7 +205,7 @@ public class DxresearchReport2Action extends ActionSupport {
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedAll(codeSearch, providerNoList);
-        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request -- provider_no validated by getValidatedProviderNoList(); values are DAO results
+        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request -- provider_no validated by getValidatedProviderNoList(); patientInfo is DAO query result
         if (patientInfo == null || patientInfo.size() == 0) {
             request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request -- hardcoded integer
         } else
