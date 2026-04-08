@@ -423,7 +423,7 @@ public class DocumentPreview2Action extends ActionSupport {
         ObjectNode json = objectMapper.createObjectNode();
         String base64Data = documentAttachmentManager.convertPDFToBase64(pdfPath);
         json.put("base64Data", base64Data);
-        response.setContentType("text/javascript");
+        response.setContentType("application/json");
         try {
             response.getWriter().write(json.toString());
         } catch (IOException e) {
@@ -444,7 +444,7 @@ public class DocumentPreview2Action extends ActionSupport {
     private void generateResponse(HttpServletResponse response, String errorMessage) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("errorMessage", errorMessage);
-        response.setContentType("text/javascript");
+        response.setContentType("application/json");
         try {
             response.getWriter().write(json.toString());
         } catch (IOException e) {
