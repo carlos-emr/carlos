@@ -21,16 +21,20 @@ REVISION=1~1
 db_name=oscar_15
 buildDateTime="March 14, 2026"
 
+ if [ -f /usr/share/tomcat11/bin/version.sh ] ; then
+         TOMCAT=tomcat11
+         TOMCAT_USER=tomcat
+     else
+     if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
+             TOMCAT=tomcat10
+             TOMCAT_USER=tomcat
+      fi
+  fi
+if [ -z "${TOMCAT}" ]; then
+    echo "ERROR: Neither tomcat10 nor tomcat11 found. Installation cannot proceed." >&2
+    exit 1
+fi
 
-if [ -f /usr/share/tomcat11/bin/version.sh ] ; then
-        TOMCAT=tomcat11
-        TOMCAT_USER=tomcat
-    else
-    if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
-            TOMCAT=tomcat10
-            TOMCAT_USER=tomcat
-     fi
- fi
 C_HOME=/usr/share/${TOMCAT}/
 C_BASE=/var/lib/${TOMCAT}/
 SRC=/var/lib/${PACKAGE}/
@@ -645,7 +649,7 @@ else
     # java 11 will show: 11.0.11
 #JVER="10.0.4"
     JVER=$(echo $JVER | sed -e 's/^1\.\([0-9]*\)\(.*\)/\1/; 1q' | sed -e 's/\([0-9]*\)\(.*\)/\1/; 1q' )
-    if [ "${JVER}" -eq 21 ] || [ "${JVER}" -eq 25 ]  ; then
+    if [ "${JVER}" -ge 21 ]  ; then
             JAVA_HOME=${ALT_J%/*/*}
             echo JAVA HOME set to current java $JVER JDK of $JAVA_HOME >>$LOG_FILE
     else
