@@ -79,7 +79,7 @@
 <br>
 <xml id="xml_list">
     <encounter>
-        <%=Encode.forHtml(content)%>
+        <%=Encode.forXml(content)%>
     </encounter>
 </xml>
 <%
