@@ -379,7 +379,7 @@ public final class Login2Action extends ActionSupport {
             // Validate nextPage retrieved from session to prevent open redirect (CWE-601 defense in depth)
             if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
                 if (nextPage != null) {
-                    logger.warn("Rejected invalid nextPage from session: {}", Encode.forJava(nextPage));
+                    logger.warn("Rejected invalid nextPage from session: {}", LogSanitizer.sanitize(nextPage));
                 }
                 nextPage = null;
             }
@@ -436,10 +436,10 @@ public final class Login2Action extends ActionSupport {
             }
             nextPage = request.getParameter("nextPage");
 
-            logger.debug("nextPage: {}", Encode.forJava(nextPage));
+            logger.debug("nextPage: {}", LogSanitizer.sanitize(nextPage));
             if (nextPage != null) {
                 if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
-                    logger.warn("Rejected redirect URL: {}", Encode.forJava(nextPage));
+                    logger.warn("Rejected redirect URL: {}", LogSanitizer.sanitize(nextPage));
                     response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
                     return NONE;
                 } else {
@@ -456,13 +456,13 @@ public final class Login2Action extends ActionSupport {
                     // Authorization check: verify the authenticated provider is permitted to access this facility (CWE-501)
                     List<Integer> allowedFacilityIds = providerDao.getFacilityIds(username);
                     if (!allowedFacilityIds.contains(facilityId)) {
-                        logger.warn("Provider {} attempted unauthorized facility selection: {}", Encode.forJava(username), facilityId);
+                        logger.warn("Provider {} attempted unauthorized facility selection: {}", LogSanitizer.sanitize(username), facilityId);
                         response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
                         return NONE;
                     }
                     Facility facility = facilityDao.find(facilityId);
                     if (facility == null) {
-                        logger.warn("Selected facility not found: " + facilityId);
+                        logger.warn("Selected facility not found: {}", facilityId);
                         response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
                         return NONE;
                     }
@@ -474,7 +474,7 @@ public final class Login2Action extends ActionSupport {
             }
 
             if (cl.isBlock(ip, userName)) {
-                logger.info(LOG_PRE + " Blocked: " + userName);
+                logger.info("{} Blocked: {}", LOG_PRE, LogSanitizer.sanitize(userName));
                 // return mapping.findForward(where); //go to block page
                 // change to block page
                 String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Oops! Your account is now locked due to incorrect password attempts!";
@@ -492,7 +492,7 @@ public final class Login2Action extends ActionSupport {
                 return NONE;
             }
 
-            logger.debug("ip was not blocked: " + ip);
+            logger.debug("ip was not blocked: {}", LogSanitizer.sanitize(ip));
         }
 
         // >> 4. Authentication
@@ -521,7 +521,7 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
         
-        logger.debug("strAuth : " + Arrays.toString(strAuth));
+        logger.debug("strAuth : {}", LogSanitizer.sanitize(Arrays.toString(strAuth)));
         
         // >> 5. Successful Login Handling
         if (strAuth != null && strAuth.length != 1) { // login successfully
@@ -529,7 +529,7 @@ public final class Login2Action extends ActionSupport {
             // is the providers record inactive?
             Provider p = providerDao.getProvider(strAuth[0]);
             if (p == null || (p.getStatus() != null && p.getStatus().equals("0"))) {
-                logger.info(LOG_PRE + " Inactive: " + userName);
+                logger.info("{} Inactive: {}", LOG_PRE, LogSanitizer.sanitize(userName));
                 LogAction.addLog(strAuth[0], "login", "failed", "inactive");
 
                 String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Your account is inactive. Please contact your administrator to activate.";
@@ -576,7 +576,7 @@ public final class Login2Action extends ActionSupport {
                 this.userSessionManager.registerUserSession(cl.getSecurity().getSecurityNo(), session);
             }
 
-            logger.debug("Assigned new session for: " + strAuth[0] + " : " + strAuth[3] + " : " + strAuth[4]);
+            logger.debug("Assigned new session for: {} : {} : {}", LogSanitizer.sanitize(strAuth[0]), LogSanitizer.sanitize(strAuth[3]), LogSanitizer.sanitize(strAuth[4]));
             LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "", ip);
 
             // initial db setting
@@ -920,7 +920,7 @@ public final class Login2Action extends ActionSupport {
         // Validate nextPage before session storage to prevent open redirect via session (CWE-601 defense in depth)
         if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
             if (nextPage != null) {
-                logger.warn("Rejected invalid nextPage before session storage: {}", Encode.forJava(nextPage));
+                logger.warn("Rejected invalid nextPage before session storage: {}", LogSanitizer.sanitize(nextPage));
             }
             nextPage = null;
         }
