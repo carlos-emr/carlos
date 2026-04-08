@@ -23,44 +23,7 @@
 	<rtexprvalue>true</rtexprvalue>
     </attribute>
 </tag>
-<tag>
-    <name>OscarTag</name>
-    <tagclass>io.github.carlos_emr.carlos.PMmodule.common.OscarTag</tagclass>
-    <bodycontent>empty</bodycontent>
-    <info>Oscar Tag</info>
-</tag>
-<tag>
-    <name>OscarDemographicLink</name>
-    <tagclass>io.github.carlos_emr.carlos.PMmodule.common.OscarDemographicLinkTag</tagclass>
-    <bodycontent>empty</bodycontent>
-    <info>Oscar Demographic link Tag</info>
-    <attribute>
-	<name>demographicNo</name>
-	<required>yes</required>
-	<rtexprvalue>yes</rtexprvalue>
-    </attribute>
-</tag>
-<tag>
-    <name>CaseManagementLink</name>
-    <tagclass>io.github.carlos_emr.carlos.PMmodule.common.CaseManagementLinkTag</tagclass>
-    <bodycontent>empty</bodycontent>
-    <info>CAISI Case Management link Tag</info>
-    <attribute>
-	<name>demographicNo</name>
-	<required>yes</required>
-	<rtexprvalue>yes</rtexprvalue>
-    </attribute>
-    <attribute>
-	<name>providerNo</name>
-	<required>yes</required>
-	<rtexprvalue>yes</rtexprvalue>
-    </attribute>
-    <attribute>
-	<name>providerName</name>
-	<required>no</required>
-	<rtexprvalue>yes</rtexprvalue>
-    </attribute>
-</tag>
+
 <tag>
   <name>ProgramExclusiveView</name>
   <tagclass>io.github.carlos_emr.carlos.www.tld.programExclusiveViewTag</tagclass>
