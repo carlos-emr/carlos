@@ -75,6 +75,7 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsClientFormDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -198,7 +199,7 @@ public class ClientManager2Action extends ActionSupport {
             addActionMessage(getText("admit.service_restricted", new String[]{e.getRestriction().getComments(), e.getRestriction().getProvider().getFormattedName()}));
         }
 
-        LogAction.log("write", "admit", demographicNo, request);
+        LogAction.log("write", "admit", LogSanitizer.sanitize(demographicNo), request);
 
         setEditAttributes(request, demographicNo);
         return "edit";
@@ -245,7 +246,7 @@ public class ClientManager2Action extends ActionSupport {
 
         if (success) {
             addActionMessage(getText("discharge.success"));
-            LogAction.log("write", "discharge", id, request);
+            LogAction.log("write", "discharge", LogSanitizer.sanitize(id), request);
         }
 
         setEditAttributes(request, id);
@@ -264,7 +265,7 @@ public class ClientManager2Action extends ActionSupport {
 
         try {
             admissionManager.processDischargeToCommunity(program.getId(), Integer.valueOf(clientId), loggedInInfo.getLoggedInProviderNo(), admission.getDischargeNotes(), admission.getRadioDischargeReason(), dependents, null);
-            LogAction.log("write", "discharge", clientId, request);
+            LogAction.log("write", "discharge", LogSanitizer.sanitize(clientId), request);
             addActionMessage(getText("discharge.success"));
         } catch (AdmissionException e) {
             addActionMessage(getText("discharge.failure", e.getMessage()));
@@ -349,7 +350,7 @@ public class ClientManager2Action extends ActionSupport {
 
         setEditAttributes(request, id);
 
-        LogAction.log("read", "pmm client record", id, request);
+        LogAction.log("read", "pmm client record", LogSanitizer.sanitize(id), request);
 
         Demographic demographic = clientManager.getClientByDemographicNo(id);
         request.getSession().setAttribute("clientGender", demographic.getSex());
@@ -456,7 +457,7 @@ public class ClientManager2Action extends ActionSupport {
             addActionMessage(getText("refer.success"));
         }
 
-        LogAction.log("write", "referral", String.valueOf(referral.getClientId()), request);
+        LogAction.log("write", "referral", LogSanitizer.sanitize(String.valueOf(referral.getClientId())), request);
     }
 
     public String refer_select_program() {
@@ -499,7 +500,7 @@ public class ClientManager2Action extends ActionSupport {
                 try {
                     p.setVacancyId(Integer.valueOf(vacancyIdParam.trim()));
                 } catch (NumberFormatException e) {
-                    logger.error("Invalid vacancyId parameter: {}", vacancyIdParam, e);
+                    logger.error("Invalid vacancyId parameter: {}", LogSanitizer.sanitize(vacancyIdParam), e);
                 }
             }
             request.setAttribute("program", program);
@@ -558,7 +559,7 @@ public class ClientManager2Action extends ActionSupport {
         }
 
         setEditAttributes(request, id);
-        LogAction.log("write", "service_restriction", id, request);
+        LogAction.log("write", "service_restriction", LogSanitizer.sanitize(id), request);
 
         return "edit";
     }
@@ -621,7 +622,7 @@ public class ClientManager2Action extends ActionSupport {
         this.setProgram(new Program());
         this.setReferral(new ClientReferral());
         setEditAttributes(request, "" + referral.getClientId());
-        LogAction.log("write", "referral", "" + referral.getClientId(), request);
+        LogAction.log("write", "referral", LogSanitizer.sanitize(String.valueOf(referral.getClientId())), request);
 
         return "edit";
     }
