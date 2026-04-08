@@ -217,6 +217,7 @@ fi
 if [ "${TOMCAT}" = "tomcat10" ] ; then
 	# TODO
 	# may need to relocate wars from default directories
+	:
 fi
 
 # add carlos directory structure to the paths that tomcat9 can read and write to
