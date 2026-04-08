@@ -146,7 +146,7 @@
         </a></h3>
     </div>
 </div>
-<ul id="<%=request.getAttribute("navbarName")%>list">
+<ul id="<%=Encode.forHtmlAttribute((String)request.getAttribute("navbarName"))%>list">
     <%
         //now we display the actual items of the module
         String manageItems = "";
@@ -231,6 +231,12 @@
         String dateFormat = "dd-MMM-yyyy";
         Pattern pattern = Pattern.compile("'([^']*)'");
 
+        // navbarName is a server-set attribute (e.g. "measurements", "allergies") — not user input.
+        // Encode for defense-in-depth when used in JS string literals and HTML attributes.
+        String navbarName = (String) request.getAttribute("navbarName");
+        String jsNavbarName = Encode.forJavaScript(navbarName);
+        String htmlNavbarName = Encode.forHtmlAttribute(navbarName);
+        String jsReloadUrl = Encode.forJavaScript(reloadUrl);
 
         String divReloadInfo;
         numToDisplay -= numDisplayed;
@@ -252,22 +258,22 @@
             out.println("<li " + stripe + ">");
 
             if (curNum == 0 && xpanded) {
-                imgName = "img" + request.getAttribute("navbarName") + curNum;
+                imgName = "img" + htmlNavbarName + curNum;
                 out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + imgName + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
-                js.append("imgfunc['" + imgName + "'] = clickListDisplay.bindAsEventListener(obj,'" + request.getAttribute("navbarName") + "', '" + displayThreshold + "');");
-                js.append("Element.observe($('" + imgName + "'), 'click', imgfunc['" + imgName + "']);");
+                js.append("imgfunc['" + Encode.forJavaScript(imgName) + "'] = clickListDisplay.bindAsEventListener(obj,'" + jsNavbarName + "', '" + displayThreshold + "');");
+                js.append("Element.observe($('" + Encode.forJavaScript(imgName) + "'), 'click', imgfunc['" + Encode.forJavaScript(imgName) + "']);");
             } else if (j == (numToDisplay - 1) && xpanded) {
-                imgName = "img" + request.getAttribute("navbarName") + curNum;
+                imgName = "img" + htmlNavbarName + curNum;
                 out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + imgName + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
-                js.append("imgfunc['" + imgName + "'] = clickListDisplay.bindAsEventListener(obj,'" + request.getAttribute("navbarName") + "', '" + displayThreshold + "');");
-                js.append("Element.observe($('" + imgName + "'), 'click', imgfunc['" + imgName + "']);");
+                js.append("imgfunc['" + Encode.forJavaScript(imgName) + "'] = clickListDisplay.bindAsEventListener(obj,'" + jsNavbarName + "', '" + displayThreshold + "');");
+                js.append("Element.observe($('" + Encode.forJavaScript(imgName) + "'), 'click', imgfunc['" + Encode.forJavaScript(imgName) + "']);");
             } else if (j == (numToDisplay - 1) && numItems > (curNum + 1)) {
-                imgName = "img" + request.getAttribute("navbarName") + curNum;
+                imgName = "img" + htmlNavbarName + curNum;
                 out.println("<a href='#' onclick=\"return false;\" title='" + String.valueOf(numItems - j - 1) + " more items' style=' text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + imgName + "' src='" + request.getContextPath() + "/encounter/graphics/expand.gif'/>&nbsp;&nbsp;</a>");
-                js.append("imgfunc['" + imgName + "'] = clickLoadDiv.bindAsEventListener(obj,'" + request.getAttribute("navbarName") + "','" + reloadUrl + "');");
-                js.append("Element.observe($('" + imgName + "'), 'click', imgfunc['" + imgName + "']);");
+                js.append("imgfunc['" + Encode.forJavaScript(imgName) + "'] = clickLoadDiv.bindAsEventListener(obj,'" + jsNavbarName + "','" + jsReloadUrl + "');");
+                js.append("Element.observe($('" + Encode.forJavaScript(imgName) + "'), 'click', imgfunc['" + Encode.forJavaScript(imgName) + "']);");
             } else {
-                out.println("<a border=0 style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img  id='img" + request.getAttribute("navbarName") + curNum + "' src='" + request.getContextPath() + "/images/clear.gif'/>&nbsp;&nbsp;</a>");
+                out.println("<a border=0 style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img  id='img" + htmlNavbarName + curNum + "' src='" + request.getContextPath() + "/images/clear.gif'/>&nbsp;&nbsp;</a>");
             }
             ++curNum;
 

@@ -81,16 +81,17 @@ public class CaseManagementLinkTag extends TagSupport {
             builder.append("encounter/IncomingEncounter.do").append("?");
             builder.append("providerNo=").append(Encode.forUriComponent(providerNo != null ? providerNo : "")).append("&");
             builder.append("appointmentNo=").append(0).append("&");
-            builder.append("demographicNo=").append(demographicNo).append("&");
+            builder.append("demographicNo=").append(Encode.forUriComponent(String.valueOf(demographicNo))).append("&");
             builder.append("curProviderNo=").append(Encode.forUriComponent(providerNo != null ? providerNo : "")).append("&");
             builder.append("reason=").append("&");
             builder.append("userName=").append(Encode.forUriComponent(providerName != null ? providerName : "")).append("&");
-            builder.append("curDate=").append(placeDate).append("&");
-            builder.append("appointmentDate=").append(placeDate).append("&");
-            builder.append("startTime=").append(placeTime).append("&");
+            builder.append("curDate=").append(Encode.forUriComponent(placeDate)).append("&");
+            builder.append("appointmentDate=").append(Encode.forUriComponent(placeDate)).append("&");
+            builder.append("startTime=").append(Encode.forUriComponent(placeTime)).append("&");
             builder.append("status=").append("T");
 
-            pageContext.getOut().write(builder.toString());
+            // HTML-encode the URL output since the tag renders in HTML context
+            pageContext.getOut().write(Encode.forHtmlAttribute(builder.toString()));
         } catch (IOException e) {
             throw new JspTagException("An IOException occurred.");
         }
