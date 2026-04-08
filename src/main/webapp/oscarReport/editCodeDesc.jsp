@@ -69,8 +69,8 @@
     <form action="<%= request.getContextPath() %>/report/DxresearchReport.do" method="post">
         <input type="hidden" name="method" value="editDesc"/>
 
-        <input type="hidden" name="editingCodeType" value=<%=editingCodeType%>/>
-        <input type="hidden" name="editingCodeCode" value=<%=editingCodeCode%>/>
+        <input type="hidden" name="editingCodeType" value="<%=editingCodeType%>"/>
+        <input type="hidden" name="editingCodeCode" value="<%=editingCodeCode%>"/>
 
         <table class="table">
             <tr>
@@ -84,7 +84,7 @@
                 </td>
                 <td><%=editingCodeCode%>
                 </td>
-                <td><input name="editingCodeDesc" value=<%=editingCodeDesc%> class="col-md-4"></td>
+                <td><input name="editingCodeDesc" value="<%=editingCodeDesc%>" class="col-md-4"></td>
                 <td><input type="submit" name="submit" class="btn btn-primary" value="Modify"></td>
             </tr>
         </table>
