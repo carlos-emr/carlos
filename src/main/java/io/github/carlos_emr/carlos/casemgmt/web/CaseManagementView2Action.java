@@ -1111,7 +1111,7 @@ public class CaseManagementView2Action extends ActionSupport {
         notes = manageLockedNotes(notes, true, this.getUnlockedNotesMap(request));
 
         logger.debug("FETCHED {} NOTES filtered by {}", notes.size(), LogSanitizer.sanitize(StringUtils.join(issueIds, ",")));
-        logger.debug("REFERER {}?{}", LogSanitizer.sanitize(request.getRequestURL().toString()), LogSanitizer.sanitize(request.getQueryString()));
+        logger.debug("REFERER {}", LogSanitizer.sanitize(request.getRequestURL().toString()));
 
         String programId = (String) request.getSession().getAttribute("case_program_id");
 

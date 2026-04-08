@@ -344,8 +344,8 @@ public class ManageTeleplan2Action extends ActionSupport {
         try {
             tAPI = tService.getTeleplanAPI(userpass[0], userpass[1]);
         } catch (Exception e) {
-            log.debug(e.getMessage(), e);
-            request.setAttribute("error", e.getMessage());
+            log.debug("Failed to connect to Teleplan API in getSequenceNumber", e);
+            request.setAttribute("error", "Failed to connect to Teleplan. Please try again or contact support.");
             return SUCCESS;
         }
 
@@ -390,8 +390,8 @@ public class ManageTeleplan2Action extends ActionSupport {
         try {
             tAPI = tService.getTeleplanAPI(userpass[0], userpass[1]);
         } catch (Exception e) {
-            log.debug(e.getMessage(), e);
-            request.setAttribute("error", e.getMessage());
+            log.debug("Failed to connect to Teleplan API in sendFile", e);
+            request.setAttribute("error", "Failed to connect to Teleplan. Please try again or contact support.");
             return "submission";
         }
 
@@ -438,8 +438,8 @@ public class ManageTeleplan2Action extends ActionSupport {
         try {
             tAPI = tService.getTeleplanAPI(userpass[0], userpass[1]);
         } catch (Exception e) {
-            log.debug(e.getMessage(), e);
-            request.setAttribute("error", e.getMessage());
+            log.debug("Failed to connect to Teleplan API in remit", e);
+            request.setAttribute("error", "Failed to connect to Teleplan. Please try again or contact support.");
             return SUCCESS;
         }
 
@@ -481,8 +481,8 @@ public class ManageTeleplan2Action extends ActionSupport {
 
 
         } catch (Exception e) {
-            log.debug(e.getMessage(), e);
-            request.setAttribute("error", e.getMessage());
+            log.debug("Failed to connect to Teleplan API in changePass", e);
+            request.setAttribute("error", "Failed to connect to Teleplan. Please try again or contact support.");
             return SUCCESS;
         }
 
@@ -514,8 +514,8 @@ public class ManageTeleplan2Action extends ActionSupport {
         try {
             tAPI = tService.getTeleplanAPI(userpass[0], userpass[1]);
         } catch (Exception e) {
-            log.debug(e.getMessage(), e);
-            request.setAttribute("error", e.getMessage());
+            log.debug("Failed to connect to Teleplan API in checkElig", e);
+            request.setAttribute("error", "Failed to connect to Teleplan. Please try again or contact support.");
             return "checkElig";
         }
 
