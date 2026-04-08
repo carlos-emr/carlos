@@ -261,7 +261,11 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String createGBSLabReq() throws SQLException {
-        Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
+        String demoNoParam = request.getParameter("demographicNo");
+        if (demoNoParam == null || !demoNoParam.matches("\\d{1,10}")) {
+            return null;
+        }
+        Integer demographicNo = Integer.parseInt(demoNoParam);
         String penicillin = request.getParameter("penicillin");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -295,7 +299,11 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String createMCVLabReq() throws SQLException {
-        Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
+        String demoNoParam = request.getParameter("demographicNo");
+        if (demoNoParam == null || !demoNoParam.matches("\\d{1,10}")) {
+            return null;
+        }
+        Integer demographicNo = Integer.parseInt(demoNoParam);
         String ferritin = request.getParameter("ferritin");
         String hbElectrophoresis = request.getParameter("hb_electrophoresis");
 
@@ -567,7 +575,11 @@ Repeat antibody screen
 1 hour 50 gm glucose screen
      */
     public String createGCTLabReq() throws SQLException {
-        Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
+        String demoNoParam = request.getParameter("demographicNo");
+        if (demoNoParam == null || !demoNoParam.matches("\\d{1,10}")) {
+            return null;
+        }
+        Integer demographicNo = Integer.parseInt(demoNoParam);
         String hb = request.getParameter("hb");
         String urine = request.getParameter("urine");
         String antibody = request.getParameter("antibody");
@@ -620,7 +632,11 @@ Repeat antibody screen
     }
 
     public String createGTTLabReq() throws SQLException {
-        Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
+        String demoNoParam = request.getParameter("demographicNo");
+        if (demoNoParam == null || !demoNoParam.matches("\\d{1,10}")) {
+            return null;
+        }
+        Integer demographicNo = Integer.parseInt(demoNoParam);
         String glucose = request.getParameter("glucose");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

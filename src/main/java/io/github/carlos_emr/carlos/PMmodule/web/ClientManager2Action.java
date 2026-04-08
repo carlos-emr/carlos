@@ -348,6 +348,10 @@ public class ClientManager2Action extends ActionSupport {
             }
         }
 
+        if (id == null || !id.matches("\\d{1,10}")) {
+            return ERROR;
+        }
+
         setEditAttributes(request, id);
 
         LogAction.log("read", "pmm client record", id, request);
@@ -657,6 +661,7 @@ public class ClientManager2Action extends ActionSupport {
 
     public String remove_joint_admission() {
         String clientId = request.getParameter("dependentClientId");
+        // nosemgrep: tainted-session-from-http-request -- session read (getAttribute), not a write
         clientManager.removeJointAdmission(Integer.valueOf(clientId), (String) request.getSession().getAttribute("user"));
         setEditAttributes(request, request.getParameter("clientId"));
         return "edit";

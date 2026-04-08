@@ -466,6 +466,7 @@ public final class Login2Action extends ActionSupport {
                         response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
                         return NONE;
                     }
+                    // nosemgrep: tainted-session-from-http-request -- facility validated via facilityDao.find() and authorization check above
                     request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility);
                     LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityId, ip);
                     response.sendRedirect(nextPage);
@@ -924,6 +925,7 @@ public final class Login2Action extends ActionSupport {
             }
             nextPage = null;
         }
+        // nosemgrep: tainted-session-from-http-request -- nextPage validated by RedirectValidationUtils above
         request.getSession().setAttribute("nextPage", nextPage);
 
     }

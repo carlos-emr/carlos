@@ -120,6 +120,9 @@ public class ProgramManagerView2Action extends ActionSupport {
 
                 // find the program id
         String programId = request.getParameter("id");
+        if (programId == null || !programId.matches("\\d{1,10}")) {
+            return ERROR;
+        }
 
         request.getSession().setAttribute("case_program_id", programId);
 
@@ -281,10 +284,20 @@ public class ProgramManagerView2Action extends ActionSupport {
         String clientId = request.getParameter("clientId");
         String queueId = request.getParameter("queueId");
 
+        if (programId == null || !programId.matches("\\d{1,10}")) {
+            return ERROR;
+        }
+
         ProgramQueue queue = programQueueManager.getProgramQueue(queueId);
         Program fullProgram = programManager.getProgram(String.valueOf(programId));
         String dischargeNotes = request.getParameter("admission.dischargeNotes");
         String admissionNotes = request.getParameter("admission.admissionNotes");
+        if (dischargeNotes != null && dischargeNotes.length() > 2000) {
+            dischargeNotes = dischargeNotes.substring(0, 2000);
+        }
+        if (admissionNotes != null && admissionNotes.length() > 2000) {
+            admissionNotes = admissionNotes.substring(0, 2000);
+        }
         String formattedAdmissionDate = request.getParameter("admissionDate");
         Date admissionDate = DateUtils.toDate(formattedAdmissionDate);
         List<Integer> dependents = clientManager.getDependentsList(Integer.valueOf(clientId));
