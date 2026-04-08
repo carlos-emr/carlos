@@ -78,7 +78,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * test configuration properties and JDBC metadata (schema names, table names, constraint names).
  * None of these values originate from external/untrusted input — they are controlled entirely by
  * the test harness configuration.  CodeQL alerts java/sql-injection (#1325–#1333) on these
- * concatenations are false positives and are suppressed.</p>
+ * concatenations are accepted false positives (test-only, no external attack surface).</p>
  */
 public class SchemaUtils {
     private static Logger logger = MiscUtils.getLogger();

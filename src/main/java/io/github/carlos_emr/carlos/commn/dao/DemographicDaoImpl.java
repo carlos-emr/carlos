@@ -2435,9 +2435,12 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
 
         boolean isFieldValueEmpty = fieldValue == null || fieldValue.equals("");
+        boolean hasWhereClause = !isFieldValueEmpty && fieldName != null && !fieldName.isEmpty();
 
-        String sql = "FROM Demographic d WHERE d." + fieldName + " LIKE :fieldValue";
-        if (isFieldValueEmpty) {
+        String sql;
+        if (hasWhereClause) {
+            sql = "FROM Demographic d WHERE d." + fieldName + " LIKE :fieldValue";
+        } else {
             sql = "FROM Demographic d";
         }
 
@@ -2447,7 +2450,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
         Session s = currentSession();
             Query q = s.createQuery(sql);
-            if (!isFieldValueEmpty) {
+            if (hasWhereClause) {
                 q.setParameter("fieldValue", fieldValue);
             }
 

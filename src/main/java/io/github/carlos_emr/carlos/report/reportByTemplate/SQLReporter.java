@@ -30,8 +30,10 @@ package io.github.carlos_emr.carlos.report.reportByTemplate;
 
 import java.io.IOException;
 import java.io.StringWriter;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,10 +42,10 @@ import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.report.data.RptResultStruct;
 import io.github.carlos_emr.carlos.util.UtilMisc;
 
@@ -203,20 +205,30 @@ public class SQLReporter implements Reporter {
         String rsHtml = "An SQL query error has occured ";
         String csv = "";
         try (StringWriter swr = new StringWriter();
-             ResultSet rs = DBHandler.GetPreSQL(sql, sqlParams)) {
-            if (!rs.isBeforeFirst()) {
-                rsHtml = showSqlOnEmpty
-                        ? (Encode.forHtml(sql) + "<br/>The query returned no results.")
-                        : "The query returned no results.";
-            } else {
-                rsHtml = RptResultStruct.getStructure2(rs);
-                CSVPrinter csvp = new CSVPrinter(swr, CSVFormat.DEFAULT);
-                String[][] data = UtilMisc.getArrayFromResultSet(rs);
-                for (String[] row : data) {
-                    csvp.printRecord((Object[]) row);
+             PreparedStatement ps = DbConnectionFilter.getThreadLocalDbConnection()
+                     .prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY)) {
+            for (int i = 0; i < sqlParams.length; i++) {
+                if (sqlParams[i] == null) {
+                    ps.setNull(i + 1, Types.NULL);
+                } else {
+                    ps.setObject(i + 1, sqlParams[i]);
                 }
-                csvp.flush();
-                csv = swr.toString();
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.isBeforeFirst()) {
+                    rsHtml = showSqlOnEmpty
+                            ? (Encode.forHtml(sql) + "<br/>The query returned no results.")
+                            : "The query returned no results.";
+                } else {
+                    rsHtml = RptResultStruct.getStructure2(rs);
+                    CSVPrinter csvp = new CSVPrinter(swr, CSVFormat.DEFAULT);
+                    String[][] data = UtilMisc.getArrayFromResultSet(rs);
+                    for (String[] row : data) {
+                        csvp.printRecord((Object[]) row);
+                    }
+                    csvp.flush();
+                    csv = swr.toString();
+                }
             }
         } catch (SQLException sqe) {
             String detail = sqe.getCause() != null ? sqe.getCause().toString() : sqe.getMessage();

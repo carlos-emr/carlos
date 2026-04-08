@@ -121,6 +121,9 @@ public class Billing3rdPartyAddressDaoImpl extends AbstractDaoImpl<Billing3rdPar
                 params.put("compName0", temp[0] + "%");
             }
         } else {
+            if (keyword == null) {
+                keyword = "";
+            }
             where = search_mode + " like :searchMode";
             params.put("searchMode", keyword + "%");
         }
