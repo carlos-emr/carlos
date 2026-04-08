@@ -70,7 +70,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
@@ -968,18 +967,18 @@
                                 %>
 
                                 <div class="preventionProcedure" onclick="<%=onClickCode%>"
-                                     title="fade=[on] header=[<%=StringEscapeUtils.escapeHtml4((String)hdata.get("age"))%> -- Date:<%=StringEscapeUtils.escapeHtml4((String)hdata.get("prevention_date_no_time"))%>] body=[<%=StringEscapeUtils.escapeHtml4((String)hExt.get("comments"))%>&lt;br/&gt;Administered By: <%=StringEscapeUtils.escapeHtml4((String)hdata.get("provider_name"))%>]">
+                                     title="fade=[on] header=[<%=Encode.forHtml((String)hdata.get("age"))%> -- Date:<%=Encode.forHtml((String)hdata.get("prevention_date_no_time"))%>] body=[<%=Encode.forHtml((String)hExt.get("comments"))%>&lt;br/&gt;Administered By: <%=Encode.forHtml((String)hdata.get("provider_name"))%>]">
 
 
                                     <p <%=r(hdata.get("refused"),result)%> >
-                                        Age: <%=StringEscapeUtils.escapeHtml4((String)hdata.get("age"))%> <%if(result!=null && result.equals("abnormal")){out.print("result:"+StringEscapeUtils.escapeHtml4(result));}%>
+                                        Age: <%=Encode.forHtml((String)hdata.get("age"))%> <%if(result!=null && result.equals("abnormal")){out.print("result:"+Encode.forHtml(result));}%>
                                         <br/>
                                         <!--<%=refused(hdata.get("refused"))%>-->
-                                        Date: <%=StringEscapeUtils.escapeHtml4((String)hdata.get("prevention_date_no_time"))%>
+                                        Date: <%=Encode.forHtml((String)hdata.get("prevention_date_no_time"))%>
                                                 <%if (hExt.get("comments") != null && (hExt.get("comments")).length()>0) {
                     if (io.github.carlos_emr.CarlosProperties.getInstance().getBooleanProperty("prevention_show_comments","yes")){%>
                                     <div class="comments">
-                                        <span><%=StringEscapeUtils.escapeHtml4((String) hExt.get("comments"))%></span>
+                                        <span><%=Encode.forHtml((String) hExt.get("comments"))%></span>
                                     </div>
                                     <% } else { %>
                                     <span class="footnote">1</span>
@@ -1059,14 +1058,14 @@
                                         %>
                                         <div class="preventionProcedure"
                                              onclick="javascript:popup(600,900,'AddPreventionData.jsp?id=<%=Encode.forJavaScriptAttribute(hdata.get("id"))%>&amp;demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>','addPreventionData')"
-                                             title="fade=[on] header=[<%=StringEscapeUtils.escapeHtml4((String)hdata.get("age"))%> -- Date:<%=StringEscapeUtils.escapeHtml4((String)hdata.get("prevention_date_no_time"))%>] body=[<%=StringEscapeUtils.escapeHtml4((String)hExt.get("comments"))%>&lt;br/&gt;Administered By: <%=StringEscapeUtils.escapeHtml4((String)hdata.get("provider_name"))%>]">
+                                             title="fade=[on] header=[<%=Encode.forHtml((String)hdata.get("age"))%> -- Date:<%=Encode.forHtml((String)hdata.get("prevention_date_no_time"))%>] body=[<%=Encode.forHtml((String)hExt.get("comments"))%>&lt;br/&gt;Administered By: <%=Encode.forHtml((String)hdata.get("provider_name"))%>]">
                                             <p <%=r(hdata.get("refused"), result)%>>Age: <%=Encode.forHtml(hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "")%> <br/>
                                                 <!--<%=refused(hdata.get("refused"))%>-->
-                                                Date: <%=StringEscapeUtils.escapeHtml4((String)hdata.get("prevention_date_no_time"))%>
+                                                Date: <%=Encode.forHtml((String)hdata.get("prevention_date_no_time"))%>
                                                         <%if (hExt.get("comments") != null && (hExt.get("comments")).length()>0) {
                      if (io.github.carlos_emr.CarlosProperties.getInstance().getBooleanProperty("prevention_show_comments","yes")){ %>
                                             <div class="comments">
-                                                <span><%=StringEscapeUtils.escapeHtml4((String) hExt.get("comments"))%></span>
+                                                <span><%=Encode.forHtml((String) hExt.get("comments"))%></span>
                                             </div>
                                             <% } else { %>
                                             <span class="footnote">1</span>
@@ -1148,7 +1147,7 @@
                                         <div class="preventionProcedure" onclick="<%=onClickCode%>">
                                             <p <%=r(hdata.get("refused"), result)%>>Age: <%=Encode.forHtml(hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "")%> <br/>
                                                 <!--<%=refused(hdata.get("refused"))%>-->
-                                                Date: <%=StringEscapeUtils.escapeHtml4((String) hdata.get("prevention_date_no_time"))%>
+                                                Date: <%=Encode.forHtml((String) hdata.get("prevention_date_no_time"))%>
                                                                                             </p>
                                         </div>
                                         <%}%>
@@ -1201,61 +1200,61 @@
                    value="<%=Encode.forHtmlAttribute(hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "")%>">
             <input type="hidden" id="preventProcedureDate<%=i%>-<%=k%>"
                    name="preventProcedureDate<%=i%>-<%=k%>"
-                   value="<%=StringEscapeUtils.escapeHtml4((String)hdata.get("prevention_date_no_time"))%>">
+                   value="<%=Encode.forHtml((String)hdata.get("prevention_date_no_time"))%>">
             <% String comments = hExt.get("comments");
                 if (comments != null && !comments.isEmpty()) {%>
             <input type="hidden" id="preventProcedureComments<%=i%>-<%=k%>"
                    name="preventProcedureComments<%=i%>-<%=k%>"
-                   value="<%=StringEscapeUtils.escapeHtml4(comments)%>">
+                   value="<%=Encode.forHtml(comments)%>">
             <% } %>
 
             <% String result = hExt.get("result");
                 if (result != null && !result.isEmpty()) {%>
             <input type="hidden" id="preventProcedureResult<%=i%>-<%=k%>"
                    name="preventProcedureResult<%=i%>-<%=k%>"
-                   value="<%=StringEscapeUtils.escapeHtml4(result)%>">
+                   value="<%=Encode.forHtml(result)%>">
             <% } %>
 
             <% String reason = hExt.get("reason");
                 if (reason != null && !reason.isEmpty()) {%>
             <input type="hidden" id="preventProcedureReason<%=i%>-<%=k%>"
                    name="preventProcedureReason<%=i%>-<%=k%>"
-                   value="<%=StringEscapeUtils.escapeHtml4(reason)%>">
+                   value="<%=Encode.forHtml(reason)%>">
             <% } %>
 
             <% String nameOfVaccine = hExt.get("name");
                 if (nameOfVaccine != null && !nameOfVaccine.isEmpty()) {%>
             <input type="hidden" id="preventProcedureNameOfVaccine<%=i%>-<%=k%>"
                    name="preventProcedureNameOfVaccine<%=i%>-<%=k%>"
-                   value="<%=StringEscapeUtils.escapeHtml4(nameOfVaccine)%>">
+                   value="<%=Encode.forHtml(nameOfVaccine)%>">
             <% } %>
 
             <% String manufacture = hExt.get("manufacture");
                 if (manufacture != null && !manufacture.isEmpty()) {%>
             <input type="hidden" id="preventProcedureManufacture<%=i%>-<%=k%>"
                    name="preventProcedureManufacture<%=i%>-<%=k%>"
-                   value="<%=StringEscapeUtils.escapeHtml4(manufacture)%>">
+                   value="<%=Encode.forHtml(manufacture)%>">
             <% } %>
 
             <% String lotID = hExt.get("lot");
                 if (lotID != null && !lotID.isEmpty()) {%>
             <input type="hidden" id="preventProcedureLotID<%=i%>-<%=k%>"
                    name="preventProcedureLotID<%=i%>-<%=k%>"
-                   value="<%=StringEscapeUtils.escapeHtml4(lotID)%>">
+                   value="<%=Encode.forHtml(lotID)%>">
             <% } %>
 
             <% String doseAdministered = hExt.get("dose");
                 if (doseAdministered != null && !doseAdministered.isEmpty()) {%>
             <input type="hidden" id="preventProcedureDoseAdministered<%=i%>-<%=k%>"
                    name="preventProcedureDoseAdministered<%=i%>-<%=k%>"
-                   value="<%=StringEscapeUtils.escapeHtml4(doseAdministered)%>">
+                   value="<%=Encode.forHtml(doseAdministered)%>">
             <% } %>
 
             <% String locationOfShot = hExt.get("location");
                 if (locationOfShot != null && !locationOfShot.isEmpty()) {%>
             <input type="hidden" id="preventProcedureLocationOfShot<%=i%>-<%=k%>"
                    name="preventProcedureLocationOfShot<%=i%>-<%=k%>"
-                   value="<%=StringEscapeUtils.escapeHtml4(locationOfShot)%>">
+                   value="<%=Encode.forHtml(locationOfShot)%>">
             <% }
             }
             }
