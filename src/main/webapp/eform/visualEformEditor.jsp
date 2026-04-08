@@ -102,8 +102,7 @@ FOR STAND ALONE USE
     <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet" type="text/css">
     <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css" rel="stylesheet" type="text/css">
 
-    <!-- signature_pad.min.js (Szymon Nowak) v 5.1.1
-         Required v2.3.2 or newer for wet-signature canvas widgets. -->
+    <!-- signature_pad.min.js (Szymon Nowak) for wet-signature canvas widgets. -->
     <script src="<%= request.getContextPath() %>/share/javascript/signature_pad.min.js"></script>
 
     <!-- main calendar program -->
