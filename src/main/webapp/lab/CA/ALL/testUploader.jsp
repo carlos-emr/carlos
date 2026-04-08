@@ -1,4 +1,5 @@
-<%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.LabType" %><%--
+<%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.LabType" %>
+<%@ page import="org.owasp.encoder.Encode" %><%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -47,6 +48,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
 <%
@@ -288,7 +290,7 @@
         </div>
         <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
               style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
-                alt="alert" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/></span>
+                alt="alert" src="<%= Encode.forHtmlAttribute(request.getContextPath()) %>/images/icon_alertsml.gif"/></span>
 
         <br><br>
         <label for="type"><fmt:setBundle basename="oscarResources"/><fmt:message key="lab.ca.all.testUploader.labType"/></label><br>
@@ -315,7 +317,7 @@
 
         <c:forEach var="file" items="${filesStatusMap}">
             <script>
-                addFileNameWithStatus("<c:out value="${file.key}" />", "<c:out value="${file.value}" />");
+                addFileNameWithStatus("${e:forJavaScript(file.key)}", "${e:forJavaScript(file.value)}");
             </script>
         </c:forEach>
     </form>

@@ -72,7 +72,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                             <label class="fw-bold text-uppercase">
                                 <fmt:message key="inbox.inboxmanager.msgProviders"/>
                             </label>
-                            <input type="hidden" name="query.searchAll" id="searchProviderAll" value="${query.searchAll}"/>
+                            <input type="hidden" name="query.searchAll" id="searchProviderAll" value="${e:forHtmlAttribute(query.searchAll)}"/>
                             <!-- Any Provider -->
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="providerRadios" value="option1" id="anyProvider" ${query.searchAll eq 'true' ? 'checked' : ''} onClick="changeValueElementByName('query.searchAll', 'true');toggleInputVisibility('specificProvider', 'specificProviderId', 200);"/>
@@ -88,7 +88,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                 <input class="form-check-input" type="radio" name="providerRadios" value="option3" id="specificProvider" ${query.searchAll eq '' ? 'checked' : ''} onclick="changeValueElementByName('query.searchAll', ''); changeValueElementByName('query.searchProviderNo', document.getElementsByName('query.searchProviderNo')[0].value);toggleInputVisibility('specificProvider', 'specificProviderId', 200);" />
                                 <label class="form-check-label" for="specificProvider"><fmt:message key="oscarMDS.search.formSpecificProvider"/></label>
                                 <div id="specificProviderId" class="ms-3">
-                                    <input type="hidden" name="query.searchProviderNo" id="findProvider" value="${query.searchProviderNo}"/>
+                                    <input type="hidden" name="query.searchProviderNo" id="findProvider" value="${e:forHtmlAttribute(query.searchProviderNo)}"/>
                                     <div class="input-group input-group-sm">
                                         <input class="form-control pe-0 m-1" type="text" id="autocompleteProvider" name="query.searchProviderName" value="<e:forHtmlAttribute value='${query.searchProviderName}' />" placeholder="Provider"/>
                                     </div>
@@ -102,7 +102,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                 <fmt:message key="inbox.inboxmanager.msgPatinets"/>
                             </label>
                             <!-- All Patients (including unmatched) -->
-                            <input type="hidden" name="query.unmatched" id="unmatchedId" value="${query.unmatched}"/>
+                            <input type="hidden" name="query.unmatched" id="unmatchedId" value="${e:forHtmlAttribute(query.unmatched)}"/>
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="patientsRadios" value="patientsOption1" id="allPatients" ${query.unmatched eq 'false' and query.patientFirstName eq '' and query.patientLastName eq '' and query.patientHealthNumber eq '' ? 'checked' : ''} onClick="changeValueElementByName('query.unmatched', 'false');toggleInputVisibility('specificPatients', 'specificPatientsId', 200);"/>
                                 <label class="form-check-label" for="allPatients"><fmt:message key="oscarMDS.search.formAllPatients"/></label>
@@ -140,7 +140,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                 <div class="inbox-form-datepicker-wrapper mb-1 d-flex">
                                     <label class="my-auto pe" for="startDate"><fmt:message key="inboxhub.form.startDate"/></label>
                                     <div class="input-group input-group-sm d-inline-flex">
-                                        <input class="form-control pe-0 inbox-form-datepicker-input" type="text" placeholder="yyyy-mm-dd" id="startDate" name="query.startDate" value="${query.startDate}"/>
+                                        <input class="form-control pe-0 inbox-form-datepicker-input" type="text" placeholder="yyyy-mm-dd" id="startDate" name="query.startDate" value="${e:forHtmlAttribute(query.startDate)}"/>
                                         <span class="input-group-text" for="startDate" id="startDateIcon"><i class="fa-solid fa-calendar"></i></span>
                                     </div>
                                     <i class="fa-solid fa-circle-xmark clear-btn" aria-hidden="true" id="clearStartDate"></i>
@@ -148,7 +148,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                 <div class="inbox-form-datepicker-wrapper d-flex">
                                     <label class="my-auto" for="endDate"><fmt:message key="inboxhub.form.endDate"/></label>
                                     <div class="input-group input-group-sm d-inline-flex">
-                                        <input class="form-control pe-0 inbox-form-datepicker-input" type="text" placeholder="yyyy-mm-dd" id="endDate" name="query.endDate" value="${query.endDate}"/>
+                                        <input class="form-control pe-0 inbox-form-datepicker-input" type="text" placeholder="yyyy-mm-dd" id="endDate" name="query.endDate" value="${e:forHtmlAttribute(query.endDate)}"/>
                                         <span class="input-group-text" for="endDate" id="endDateIcon"><i class="fa-solid fa-calendar"></i></span>
                                     </div>
                                     <i class="fa-solid fa-circle-xmark clear-btn" aria-hidden="true" id="clearEndDate"></i>
@@ -183,9 +183,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                             <label class="fw-bold text-uppercase">
                                 <fmt:message key="inbox.inboxmanager.msgReviewStatus"/>
                             </label>
-                            <input type="hidden" name="query.status" id="statusId" value="${query.status}"/>
+                            <input type="hidden" name="query.status" id="statusId" value="${e:forHtmlAttribute(query.status)}"/>
                             <div class="form-check">
-                                <input type="radio" class="form-check-input" name="statusReview" id="statusAll" id="All" value="All"
+                                <input type="radio" class="form-check-input" name="statusReview" id="statusAll" value="All"
                                     ${empty query.status ? 'checked' : ''} onclick="changeValueElementByName('query.status', '')">
                                 <label class="form-check-label" for="statusAll"><fmt:message key="inbox.inboxmanager.msgAll"/>
                             </div>
@@ -211,11 +211,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                             <label class="fw-bold text-uppercase">
                                 <fmt:message key="inbox.inboxmanager.msgResultStatus"/>
                             </label>
-                            <input type="hidden" name="query.abnormal" id="abnormalId" value="${query.abnormal}"/>
+                            <input type="hidden" name="query.abnormal" id="abnormalId" value="${e:forHtmlAttribute(query.abnormal)}"/>
                             <div class="form-check">
-                                <input type="radio" class="form-check-input" name="abnormalResult" id="All" value="All"
+                                <input type="radio" class="form-check-input" name="abnormalResult" id="abnormalAll" value="All"
                                     ${query.abnormal eq 'all' ? 'checked' : ''} onclick="changeValueElementByName('query.abnormal', 'all')">
-                                <label class="form-check-label" for="All"><fmt:message key="inbox.inboxmanager.msgAll"/></label>
+                                <label class="form-check-label" for="abnormalAll"><fmt:message key="inbox.inboxmanager.msgAll"/></label>
                             </div>
                             <div class="form-check">
                                 <input type="radio" class="form-check-input" name="abnormalResult" id="Abnormal" value="Abnormal"
@@ -223,9 +223,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                 <label class="form-check-label" for="Abnormal"><fmt:message key="global.abnormal"/></label>
                             </div>
                             <div class="form-check">
-                                <input type="radio" class="form-check-input" name="abnormalResult" id="Normal" value="Normal"
+                                <input type="radio" class="form-check-input" name="abnormalResult" id="abnormalNormal" value="Normal"
                                     ${query.abnormal eq 'normalOnly' ? 'checked' : ''} onclick="changeValueElementByName('query.abnormal', 'normalOnly')">
-                                <label class="form-check-label" for="Normal"><fmt:message key="inbox.inboxmanager.msgNormal"/></label>
+                                <label class="form-check-label" for="abnormalNormal"><fmt:message key="inbox.inboxmanager.msgNormal"/></label>
                             </div>
                         </div>
 
@@ -403,6 +403,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     var currentFetchRequest = null;
     var inboxSearchFormData = "";
     var filter = "";
+    var contextPath = "<e:forJavaScript value='${pageContext.request.contextPath}' />";
     var searchProviderNo = "<e:forJavaScript value='${sessionScope.user}' />";
 
     jQuery(document).ready( function() {

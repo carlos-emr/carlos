@@ -325,7 +325,7 @@
         }
 
         function split(id, demoName) {
-            var loc = "<%= request.getContextPath()%>/oscarMDS/Split.jsp?document=" + id + "&queueID=" + queueID + "&demoName=" + demoName;
+            var loc = "<%= request.getContextPath()%>/oscarMDS/Split.jsp?document=" + encodeURIComponent(id) + "&queueID=" + encodeURIComponent(queueID) + "&demoName=" + encodeURIComponent(demoName);
             popupStart(1400, 1400, loc, "Splitter");
         }
 
@@ -717,7 +717,7 @@
                 b = true;
             }
             if (b) {
-                var url = '<%=request.getContextPath()%>/messenger/SendDemoMessage.do?' + 'demographic_no=' + dn;
+                var url = '<%=request.getContextPath()%>/messenger/SendDemoMessage.do?' + 'demographic_no=' + encodeURIComponent(dn);
                 popup(width, height, url, 'msg');
             }
         }
@@ -728,7 +728,7 @@
             if (dn == -1 || saved == 'false') {
                 alert('Please link document with a patient');
             } else {
-                var url = "<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&demographic_no=" + dn + "&docId=" + docid;
+                var url = "<%=request.getContextPath()%>/tickler/ForwardDemographicTickler.do?docType=DOC&demographic_no=" + encodeURIComponent(dn) + "&docId=" + encodeURIComponent(docid);
                 popup(width, height, url, 'Tickler');
             }
         }
@@ -2428,8 +2428,8 @@
                     List dos = (List) queueDocNos.get(qId);
                     Integer numberOfDocs = dos.size();
             %>
-            <a href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showDocInQueue('<%=qId%>')"><%=Encode.forHtml(name)%>&nbsp;(<span
-                    id="docNo_<%=qId%>"><%=numberOfDocs%></span>)</a><br/>
+            <a href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showDocInQueue('<%=Encode.forJavaScript(String.valueOf(qId))%>')"><%=Encode.forHtml(name)%>&nbsp;(<span
+                    id="docNo_<%=Encode.forHtmlAttribute(String.valueOf(qId))%>"><%=numberOfDocs%></span>)</a><br/>
             <%}%>
 
         </td>
@@ -2439,15 +2439,15 @@
 </table>
 <script type="text/javascript">
     var current_first_doclab = 0;
-    var typeDocLab = initTypeDocLab('<%=typeDocLab%>');   //{DOC=[357, 317, 316], HL7=[38, 33, 30, 28]}
-    var docType = initDocType('<%=docType%>');   //{357=DOC, 38=HL7, 317=DOC, 316=DOC, 33=HL7, 30=HL7, 28=HL7}
-    var patientDocs = initPatientDocs('<%=patientDocs%>');//{2=[316, 30, 28], 1=[33], -1=[357, 317, 38]}
-    var patientIdNames = initPatientIdNames('<%=StringEscapeUtils.escapeEcmaScript(patientIdNamesStr)%>');//;2=TEST2, PATIENT2;1=Zrrr, Srrr;-1=Not, Assigned
-    var docStatus = initDocStatus('<%=docStatus%>');//{357=A, 38=N, 317=A, 316=A, 33=N, 30=N, 28=N}
-    var normals = initNormals('<%=normals%>');//[357, 317, 316, 38, 33, 30, 28]
-    var abnormals = initAbnormals('<%=abnormals%>');//[123,567]
-    var patientIds = initPatientIds('<%=patientIdStr%>');
-    var queueDocNos = initHashtblWithList('<%=queueDocNos%>');
+    var typeDocLab = initTypeDocLab('<%=Encode.forJavaScript(typeDocLab.toString())%>');   //{DOC=[357, 317, 316], HL7=[38, 33, 30, 28]}
+    var docType = initDocType('<%=Encode.forJavaScript(docType.toString())%>');   //{357=DOC, 38=HL7, 317=DOC, 316=DOC, 33=HL7, 30=HL7, 28=HL7}
+    var patientDocs = initPatientDocs('<%=Encode.forJavaScript(patientDocs.toString())%>');//{2=[316, 30, 28], 1=[33], -1=[357, 317, 38]}
+    var patientIdNames = initPatientIdNames('<%=Encode.forJavaScript(patientIdNamesStr)%>');//;2=TEST2, PATIENT2;1=Zrrr, Srrr;-1=Not, Assigned
+    var docStatus = initDocStatus('<%=Encode.forJavaScript(docStatus.toString())%>');//{357=A, 38=N, 317=A, 316=A, 33=N, 30=N, 28=N}
+    var normals = initNormals('<%=Encode.forJavaScript(normals.toString())%>');//[357, 317, 316, 38, 33, 30, 28]
+    var abnormals = initAbnormals('<%=Encode.forJavaScript(abnormals.toString())%>');//[123,567]
+    var patientIds = initPatientIds('<%=Encode.forJavaScript(patientIdStr)%>');
+    var queueDocNos = initHashtblWithList('<%=Encode.forJavaScript(queueDocNos.toString())%>');
     var providerNo = '<%=Encode.forJavaScript(providerNo)%>';
 
     var searchProviderNo = '<%=Encode.forJavaScript(searchProviderNo)%>';

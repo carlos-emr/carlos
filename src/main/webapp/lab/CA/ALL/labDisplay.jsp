@@ -564,7 +564,7 @@ input[id^='acklabel_']{
 }
     </style>
 
-    <script type="text/javascript" src="<%=request.getContextPath()%>/share/javascript/csrfTokenFetch.js"></script>
+    <script type="text/javascript" src="<%=Encode.forHtmlAttribute(request.getContextPath())%>/share/javascript/csrfTokenFetch.js"></script>
     <script>
         var labNo = '<%=Encode.forJavaScript(segmentID)%>';
         var providerNo = '<%=Encode.forJavaScript(providerNo)%>';
@@ -916,7 +916,7 @@ input[id^='acklabel_']{
     }
 
     function runMacroInternal(name, formid, closeOnSuccess, demographicNo) {
-        var url = '<%=request.getContextPath()%>' + "/oscarMDS/RunMacro.do?name=" + name + (demographicNo.length > 0 ? "&demographicNo=" + demographicNo : "");
+        var url = '<%=request.getContextPath()%>' + "/oscarMDS/RunMacro.do?name=" + encodeURIComponent(name) + (demographicNo.length > 0 ? "&demographicNo=" + encodeURIComponent(demographicNo) : "");
         var formEl = document.getElementById(formid);
         var params = new URLSearchParams(new FormData(formEl));
         if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }

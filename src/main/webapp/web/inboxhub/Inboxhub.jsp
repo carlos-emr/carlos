@@ -79,7 +79,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     <div class="row">
         <nav class="inbox-topbar">
             <jsp:include page="InboxhubTopbar.jsp"/>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="window.close();" style="margin-left:auto;">Close</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="if (window.opener) { window.close(); } else { window.history.back(); }" style="margin-left:auto;">Close</button>
         </nav>
     </div>
     <div class="row flex-nowrap">

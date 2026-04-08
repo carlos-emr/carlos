@@ -414,7 +414,7 @@
 </c:if>
 <script type="text/javascript">
     var _in_window = <%=( "true".equals(request.getParameter("inWindow")) ? "true" : "false" )%>;
-    var contextpath = "<%=request.getContextPath()%>";
+    var contextpath = "<%=Encode.forJavaScript(request.getContextPath())%>";
 </script>
 <div id="labdoc_<%=docId%>" class="content">
     <%
@@ -536,7 +536,7 @@
                value="<fmt:message key="encounter.noteBrowser.msgRefile"/>" onclick="refileDoc('<%=Encode.forJavaScriptAttribute(docId)%>');" <%=refileBtnVisibility%> >
 
         <select id="queueList_<%=docId%>" class="btn btn-outline-secondary btn-sm" name="queueList"
-                onchange="handleQueueListChange(this, document.getElementById('refileDoc_<%=Encode.forJavaScriptAttribute(docId)%>'), '<%=Encode.forJavaScriptAttribute(docCurrentFiledQueue)%>')">
+                onchange="handleQueueListChange(this, document.getElementById('refileDoc_<%=Encode.forJavaScriptAttribute(docId)%>'), '<%=Encode.forJavaScriptAttribute(String.valueOf(docCurrentFiledQueue))%>')">
             <%
                 for (Hashtable ht : queues) {
                     int id = (Integer) ht.get("id");
@@ -579,7 +579,7 @@
                 </div>
                 <% if (displayDocumentAs.equals(UserProperty.IMAGE)) { %>
                 <a href="<%=url2%>" target="_blank"><img alt="document" id="docImg_<%=docId%>" src="<%=url%>"
-                                                         onerror="this.src='<%=request.getContextPath()%>/images/icon_alert.gif'"/></a>
+                                                         onerror="this.src='<%=Encode.forJavaScriptAttribute(request.getContextPath())%>/images/icon_alert.gif'"/></a>
                 <%} else {%>
                 <div id="docDispPDF_<%=docId%>"></div>
                 <%}%>

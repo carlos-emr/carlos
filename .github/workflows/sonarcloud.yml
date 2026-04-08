@@ -165,7 +165,7 @@ jobs:
               echo 'Running SonarCloud Analysis (Branch)'
               echo '========================================='
               mvn -B verify sonar:sonar \
-                -Ddependency-lock.skip=true \
+                -Pskip-dependency-lock \
                 -Dsonar.host.url=https://sonarcloud.io \
                 -Dsonar.projectKey=carlos-emr_carlos \
                             "
@@ -194,7 +194,7 @@ jobs:
               echo \"PR Base: \$PR_BASE\"
               echo '========================================='
               mvn -B verify sonar:sonar \
-                -Ddependency-lock.skip=true \
+                -Pskip-dependency-lock \
                 -Dsonar.host.url=https://sonarcloud.io \
                 -Dsonar.projectKey=carlos-emr_carlos \
                 \"-Dsonar.pullrequest.key=\$PR_NUMBER\" \

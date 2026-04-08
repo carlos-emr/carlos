@@ -29,6 +29,7 @@
 
 --%>
 
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/struts-tags" prefix="s" %>
 <%
@@ -144,9 +145,13 @@
                 }
             })
                     .autocomplete( "instance" )._renderItem = function( ul, item ) {
-                return $( "<li>" )
-                        .append( "<div><b>" + item.label + "</b>" + "<br>" + item.provider + "</div>" )
-                        .appendTo( ul );
+                var li = $( "<li>" );
+                var div = $( "<div>" );
+                $( "<b>" ).text( item.label ).appendTo( div );
+                div.append( "<br>" );
+                $( "<span>" ).text( item.provider ).appendTo( div );
+                div.appendTo( li );
+                return li.appendTo( ul );
             };
 
             var url2 = "<%= request.getContextPath() %>/provider/SearchProvider.do?method=labSearch";
@@ -251,7 +256,7 @@
                             <label class="form-label" for="lab_req_date">Lab Req Date/Time</label>
                             <div class="input-group">
                                 <input type="text" class="form-control" name="lab_req_date" id="lab_req_date" required>
-                                <img src="<%=request.getContextPath()%>/images/cal.gif" id="lab_req_date_cal" class="input-group-text" style="cursor:pointer;">
+                                <img src="<%=Encode.forHtmlAttribute(request.getContextPath())%>/images/cal.gif" id="lab_req_date_cal" class="input-group-text" style="cursor:pointer;">
                             </div>
                         </div>
                     </div>
@@ -310,7 +315,7 @@
                         <label class="form-label" for="dob">Date of Birth</label>
                         <div class="input-group">
                             <input type="text" class="form-control" required name="dob" id="dob"/>
-                            <img src="<%=request.getContextPath()%>/images/cal.gif" id="dob_cal" class="input-group-text" style="cursor:pointer;">
+                            <img src="<%=Encode.forHtmlAttribute(request.getContextPath())%>/images/cal.gif" id="dob_cal" class="input-group-text" style="cursor:pointer;">
                         </div>
                     </div>
                     <div class="col-md-4">
