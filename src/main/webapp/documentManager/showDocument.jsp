@@ -454,11 +454,7 @@
         <%
             if (labMacroProp != null && !StringUtils.isEmpty(labMacroProp.getValue())) {
         %>
-        <div class="dropdown d-inline-block" style="position:relative;">
-            <style>
-                .dropdown:hover > .dropdown-menu { display:block; }
-                .dropdown-item:hover, .dropdown-item:focus { background-color:#337ab7 !important; color:#fff !important; }
-            </style>
+        <div class="dropdown macro-dropdown d-inline-block" style="position:relative;">
             <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button"
                     data-bs-toggle="dropdown" aria-expanded="false"><fmt:message key="showDocument.btnMacros"/></button>
             <ul class="dropdown-menu">
@@ -927,6 +923,7 @@
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 <script type="text/javascript" src="showDocument.js"></script>
+<script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/csrfTokenFetch.js"></script>
 <script type="text/javascript">
     /**
      * Override removeLink for the single-document popup view.
@@ -1176,22 +1173,7 @@
     }
 
     // Fetch CSRF token from CSRFGuard servlet and populate hidden inputs
-    (function() {
-        var ctx = '<%=request.getContextPath()%>';
-        fetch(ctx + '/csrfguard', { credentials: 'same-origin' })
-            .then(function(r) { return r.text(); })
-            .then(function(js) {
-                // CSRFGuard servlet returns JS that sets the master token
-                var match = js.match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
-                if (match) {
-                    var inputs = document.querySelectorAll('input[name="CSRF-TOKEN"]');
-                    for (var i = 0; i < inputs.length; i++) {
-                        inputs[i].value = match[1];
-                    }
-                }
-            })
-            .catch(function() {});
-    })();
+    fetchCsrfToken('<%=Encode.forJavaScript(request.getContextPath())%>');
 
 </script>
 <jsp:include page="/images/spinner.jsp"/>

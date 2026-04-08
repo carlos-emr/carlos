@@ -146,6 +146,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    font-size: 14px !important;
 }
 
 .page-header-bar--flex {
@@ -169,9 +170,6 @@ body {
 .page-header-bar,
 .page-header-bar * {
     font-size: inherit;
-}
-.page-header-bar {
-    font-size: 14px !important;
 }
 .page-header-bar .btn {
     font-size: 14px !important;

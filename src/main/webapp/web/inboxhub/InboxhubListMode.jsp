@@ -35,14 +35,14 @@
             All
         </span>
         <span class="inbox-toolbar-link inbox-type-filter" id="filterDOC" onclick="filterByType('DOC')" title="Show only Documents">
-            <fmt:message key="inboxhub.list.documents"/> <span id="totalDocsCountStat" class="badge" style="background-color: #337ab7; color: white;">0</span>
+            <fmt:message key="inboxhub.list.documents"/> <span id="totalDocsCountStat" class="badge" style="background-color: var(--carlos-primary, #337ab7); color: white;">0</span>
         </span>
         <span class="inbox-toolbar-link inbox-type-filter" id="filterHL7" onclick="filterByType('HL7')" title="Show only Labs">
-            <fmt:message key="inboxhub.list.labs"/> <span id="totalLabssCountStat" class="badge" style="background-color: #337ab7; color: white;">0</span>
+            <fmt:message key="inboxhub.list.labs"/> <span id="totalLabsCountStat" class="badge" style="background-color: var(--carlos-primary, #337ab7); color: white;">0</span>
         </span>
         <c:if test="${!CarlosProperties.getInstance().isBritishColumbiaBillingRegion()}">
             <span class="inbox-toolbar-link inbox-type-filter" id="filterHRM" onclick="filterByType('HRM')" title="Show only HRMs">
-                <fmt:message key="inboxhub.list.hrms"/> <span id="totalHRMsCountStat" class="badge" style="background-color: #337ab7; color: white;">0</span>
+                <fmt:message key="inboxhub.list.hrms"/> <span id="totalHRMsCountStat" class="badge" style="background-color: var(--carlos-primary, #337ab7); color: white;">0</span>
             </span>
         </c:if>
         <div id="loadingLabel" class="loading-label ms-2 me-2 text-dark" style="display:none;"><fmt:message key="inboxhub.list.loadingSearchResults"/></div>
@@ -241,7 +241,7 @@
             const labType = rowEl.data('labType');
             jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);
             const countStatId = labType === 'DOC' ? 'totalDocsCountStat' :
-                                labType === 'HRM' ? 'totalHRMsCountStat' : 'totalLabssCountStat';
+                                labType === 'HRM' ? 'totalHRMsCountStat' : 'totalLabsCountStat';
             const current = parseInt(jQuery('#' + countStatId).text()) || 0;
             if (current > 0) {
                 jQuery('#' + countStatId).text(current - 1);

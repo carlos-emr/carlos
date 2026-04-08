@@ -556,16 +556,15 @@ input[id^='acklabel_']{
     font-weight: bold;
 }
 
-/* Macros dropdown — hover to open, Bootstrap handles the click interactions */
-.dropdown:hover > .dropdown-menu {
-    display: block;
-}
-.dropdown-item:hover, .dropdown-item:focus {
-    background-color: #337ab7 !important;
+/* Macros dropdown — hover to open */
+.macro-dropdown:hover > .dropdown-menu { display: block; }
+.macro-dropdown .dropdown-item:hover, .macro-dropdown .dropdown-item:focus {
+    background-color: var(--carlos-primary, #337ab7) !important;
     color: #fff !important;
 }
     </style>
 
+    <script type="text/javascript" src="<%=request.getContextPath()%>/share/javascript/csrfTokenFetch.js"></script>
     <script>
         var labNo = '<%=Encode.forJavaScript(segmentID)%>';
         var providerNo = '<%=Encode.forJavaScript(providerNo)%>';
@@ -940,21 +939,7 @@ input[id^='acklabel_']{
     }
 
     // Fetch CSRF token from CSRFGuard servlet and populate hidden inputs
-    (function() {
-        var ctx = '<%=request.getContextPath()%>';
-        fetch(ctx + '/csrfguard', { credentials: 'same-origin' })
-            .then(function(r) { return r.text(); })
-            .then(function(js) {
-                var match = js.match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
-                if (match) {
-                    var inputs = document.querySelectorAll('input[name="CSRF-TOKEN"]');
-                    for (var i = 0; i < inputs.length; i++) {
-                        inputs[i].value = match[1];
-                    }
-                }
-            })
-            .catch(function() {});
-    })();
+    fetchCsrfToken('<%=Encode.forJavaScript(request.getContextPath())%>');
 </script>
 
 <div id="lab_<%= Encode.forHtmlAttribute(segmentID) %>">
@@ -1015,7 +1000,7 @@ input[id^='acklabel_']{
                                     if (up != null && !StringUtils.isEmpty(up.getValue())) {
 
                                 %>
-                                <div class="dropdown" style="display:inline-block;position:relative;">
+                                <div class="dropdown macro-dropdown" style="display:inline-block;position:relative;">
                                     <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false">Macros</button>
                                     <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
                                         <%

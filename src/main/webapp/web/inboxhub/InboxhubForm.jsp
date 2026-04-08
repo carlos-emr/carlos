@@ -600,7 +600,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      * showing New items for the current provider.
      */
     function resetInboxFilters() {
-        window.location.href = ctx + '/web/inboxhub/Inboxhub.do?method=displayInboxForm';
+        var ctxPath = "<e:forJavaScript value='${pageContext.request.contextPath}' />";
+        window.location.href = ctxPath + '/web/inboxhub/Inboxhub.do?method=displayInboxForm';
     }
 
     // Flag set by BroadcastChannel listener to open the next item after data loads
@@ -688,15 +689,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         // When showing acknowledged items, scope to today only so the list
         // isn't overwhelmed with historical data. Clear the date when toggling back.
         var startDateEl = document.getElementById('startDate');
+        var fp = startDateEl._flatpickr;
         if (checked) {
-            var today = new Date();
-            var yyyy = today.getFullYear();
-            var mm = String(today.getMonth() + 1).padStart(2, '0');
-            var dd = String(today.getDate()).padStart(2, '0');
             savedStartDate = startDateEl.value;
-            startDateEl.value = yyyy + '-' + mm + '-' + dd;
+            if (fp) { fp.setDate(new Date(), true); } else { startDateEl.value = new Date().toISOString().slice(0, 10); }
         } else {
-            startDateEl.value = savedStartDate || '';
+            if (fp) { fp.setDate(savedStartDate || '', true); } else { startDateEl.value = savedStartDate || ''; }
         }
 
         fetchInboxhubData();
@@ -880,7 +878,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
     function showInboxhubStats() {
         jQuery('#totalDocsCountStat').text(jQuery('#totalDocsCount').val());
-        jQuery('#totalLabssCountStat').text(jQuery('#totalLabsCount').val());
+        jQuery('#totalLabsCountStat').text(jQuery('#totalLabsCount').val());
         jQuery('#totalHRMsCountStat').text(jQuery('#totalHRMCount').val());
     }
 

@@ -39,7 +39,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/jquery/jquery-ui.structure-1.14.2.min.css" />
     <link href="${pageContext.request.contextPath}/css/fontawesome-all.min.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/global.css"/>
-    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/web/css/Inboxhub.css?v=<%= System.currentTimeMillis() %>"/>
+    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/web/css/Inboxhub.css?v=1.0"/>
 
     <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
     <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
@@ -79,7 +79,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     <div class="row">
         <nav class="inbox-topbar">
             <jsp:include page="InboxhubTopbar.jsp"/>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="window.close();" style="margin-left:auto;">Back</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="window.close();" style="margin-left:auto;">Close</button>
         </nav>
     </div>
     <div class="row flex-nowrap">
