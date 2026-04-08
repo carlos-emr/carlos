@@ -68,17 +68,17 @@
         // expected path prefixes so that even a compromised DB entry cannot reach
         // protected directories like /WEB-INF/ or /META-INF/.
         //
-        // Allowed prefixes after normalization:
-        //   /form/    — form JSPs and .do files under the /form/ directory
-        //   /billing/ — BC billing form (viewformwcb.do)
-        //   /form     — root-level form .do actions (formBPMH.do, formeCARES.do)
-        //               This is a superset of /form/, kept explicit for clarity.
+        // Allowed path patterns after normalization:
+        //   /form/...    — form JSPs and .do files under the /form/ directory
+        //   /billing/... — BC billing form (viewformwcb.do)
+        //   /form*.do    — root-level form .do actions (formBPMH.do, formeCARES.do)
+        //                  matched via /form[a-z0-9]+\.do to avoid over-permitting
         int queryIndex = formPath[0].indexOf('?');
         String pathPortion = queryIndex != -1 ? formPath[0].substring(0, queryIndex) : formPath[0];
         String normalizedPathPortion = pathPortion.toLowerCase(java.util.Locale.ROOT);
         boolean isAllowedFormPath = normalizedPathPortion.startsWith("/form/")
                 || normalizedPathPortion.startsWith("/billing/")
-                || normalizedPathPortion.startsWith("/form");
+                || normalizedPathPortion.matches("/form[a-z0-9]+\\.do");
         if (!pathPortion.startsWith("/")
                 || pathPortion.contains("..")
                 || normalizedPathPortion.contains("%2e")
