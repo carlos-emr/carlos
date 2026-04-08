@@ -104,6 +104,10 @@ public class TeleplanAPI {
         BasicClientCookie cookie = new BasicClientCookie("mycookie", "stuff");
         cookie.setDomain("moh.hnet.bc.ca");
         cookie.setPath("/");
+        cookie.setSecure(true);
+        cookie.setHttpOnly(true);
+        // SameSite=None required for cross-origin requests to Teleplan (with Secure=true)
+        cookie.setAttribute("SameSite", "None");
         cookieStore.addCookie(cookie);
 
         httpContext = HttpClientContext.create();
