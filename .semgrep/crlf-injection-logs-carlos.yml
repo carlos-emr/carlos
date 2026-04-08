@@ -43,9 +43,24 @@ rules:
       - pattern: io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(...)
 
     pattern-sinks:
-      - pattern: $LOG.info(...)
-      - pattern: $LOG.debug(...)
-      - pattern: $LOG.warn(...)
-      - pattern: $LOG.error(...)
-      - pattern: $LOG.trace(...)
-      - pattern: $LOG.fatal(...)
+      # SLF4J
+      - pattern: (org.slf4j.Logger $LOG).info(...)
+      - pattern: (org.slf4j.Logger $LOG).debug(...)
+      - pattern: (org.slf4j.Logger $LOG).warn(...)
+      - pattern: (org.slf4j.Logger $LOG).error(...)
+      - pattern: (org.slf4j.Logger $LOG).trace(...)
+      # Log4j 2
+      - pattern: (org.apache.logging.log4j.Logger $LOG).info(...)
+      - pattern: (org.apache.logging.log4j.Logger $LOG).debug(...)
+      - pattern: (org.apache.logging.log4j.Logger $LOG).warn(...)
+      - pattern: (org.apache.logging.log4j.Logger $LOG).error(...)
+      - pattern: (org.apache.logging.log4j.Logger $LOG).trace(...)
+      - pattern: (org.apache.logging.log4j.Logger $LOG).fatal(...)
+      # java.util.logging
+      - pattern: (java.util.logging.Logger $LOG).info(...)
+      - pattern: (java.util.logging.Logger $LOG).warning(...)
+      - pattern: (java.util.logging.Logger $LOG).severe(...)
+      - pattern: (java.util.logging.Logger $LOG).fine(...)
+      - pattern: (java.util.logging.Logger $LOG).finer(...)
+      - pattern: (java.util.logging.Logger $LOG).finest(...)
+      - pattern: (java.util.logging.Logger $LOG).config(...)
