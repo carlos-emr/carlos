@@ -79,7 +79,13 @@ public final class DBHandler {
 			stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
 		}
 
-		ResultSet rs = stmt.executeQuery(SQLStatement);
+		ResultSet rs;
+		try {
+			rs = stmt.executeQuery(SQLStatement);
+		} catch (SQLException e) {
+			stmt.close();
+			throw e;
+		}
 		return StatementClosingResultSet.wrap(rs, stmt);
 	}
 
@@ -98,8 +104,14 @@ public final class DBHandler {
 		PreparedStatement ps = DbConnectionFilter
 			.getThreadLocalDbConnection()
 			.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
-		bindParams(ps, params);
-		ResultSet rs = ps.executeQuery();
+		ResultSet rs;
+		try {
+			bindParams(ps, params);
+			rs = ps.executeQuery();
+		} catch (SQLException e) {
+			ps.close();
+			throw e;
+		}
 		return StatementClosingResultSet.wrap(rs, ps);
 	}
 
