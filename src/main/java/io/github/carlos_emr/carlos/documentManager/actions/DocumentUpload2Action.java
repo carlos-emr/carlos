@@ -287,8 +287,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             return false;
         }
 
-        // Use PathValidationUtils to construct and validate the destination file path.
-        // This makes the sanitization visible to static analysis tools (resolves S6549).
+        // Use PathValidationUtils to construct and validate the destination file path
+        // (sanitizes fileName, rejects traversal, ensures result is within parentDir).
         File destinationFile;
         try {
             destinationFile = PathValidationUtils.validatePath(fileName, parentDir);
