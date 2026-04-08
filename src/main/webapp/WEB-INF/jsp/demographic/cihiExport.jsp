@@ -123,7 +123,7 @@
             <tr>
                 <td>Extract Type</td>
                 <td>
-                    <input type="text" name="extractType" value="<%=DataExportDao.CIHI_OMD4%>" class="right" readonly="true" />
+                    <span class="right"><%=DataExportDao.CIHI_OMD4%></span>
                 </td>
             </tr>
 

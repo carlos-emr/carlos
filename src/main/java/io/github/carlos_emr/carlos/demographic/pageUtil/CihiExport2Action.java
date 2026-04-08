@@ -245,7 +245,7 @@ public class CihiExport2Action extends ActionSupport {
         dataExport.setContactPhone(this.getContactPhone());
         dataExport.setContactEmail(this.getContactEmail());
         dataExport.setUser(this.getContactUserName());
-        dataExport.setType(this.getExtractType());
+        dataExport.setType(DataExportDao.CIHI_OMD4);
         Timestamp runDate = new Timestamp(Calendar.getInstance().getTimeInMillis());
         dataExport.setDaterun(runDate);
         dataExport.setFile(filename);
@@ -314,7 +314,7 @@ public class CihiExport2Action extends ActionSupport {
 
     private void buildExtractInformation(ExtractInformation info, Calendar now) {
         info.setRunDate(now);
-        info.setExtractType(this.getExtractType());
+        info.setExtractType(DataExportDao.CIHI_OMD4);
         info.setOrganizationName(this.getOrgName());
         info.setContactLastName(this.getContactLName());
         info.setContactFirstName(this.getContactFName());
@@ -1187,7 +1187,6 @@ public class CihiExport2Action extends ActionSupport {
         return extractType;
     }
 
-    @StrutsParameter
     public void setExtractType(String extractType) {
         this.extractType = extractType;
     }
