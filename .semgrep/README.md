@@ -17,7 +17,7 @@ recognizing that the data has been sanitized by project utilities like
 
 | File | Replaces | Sanitizer Recognized | False Positives Resolved |
 |------|----------|---------------------|------------------------:|
-| `crlf-injection-logs-carlos.yml` | 3 built-in CRLF log injection rules | `LogSanitizer.sanitize()` | ~128 |
+| `crlf-injection-logs-carlos.yml` | 3 built-in CRLF log injection rules | `LogSanitizer.sanitize()`, `Encode.forJava(...)` | ~128 |
 
 ## Built-in Rules to Disable in Semgrep Cloud
 
