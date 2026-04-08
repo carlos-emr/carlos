@@ -214,7 +214,7 @@ if [ -f "${C_BASE}${PACKAGE}/WEB-INF/classes/clientKeystore.properties" ] ; then
 fi
 
 
-if [ ${TOMCAT} == "tomcat10" ] ; then
+if [ "${TOMCAT}" = "tomcat10" ] ; then
 	# TODO
 	# may need to relocate wars from default directories
 fi
@@ -244,7 +244,7 @@ else
                 echo "ReadWritePaths=${BASE_DOCUMENT_DIR}/" >> /etc/systemd/system/${TOMCAT}.service.d/override.conf
                 grep -qF "ReadWritePaths=/tmp/" /etc/systemd/system/${TOMCAT}.service.d/override.conf || echo "ReadWritePaths=/tmp/" >> /etc/systemd/system/${TOMCAT}.service.d/override.conf
                 echo "Edited override to allow Tomcat read write on ${BASE_DOCUMENT_DIR} and /tmp"
-                echo "Added Tomcat read and write on ${BASE_DOCUMENT_DIR}/ and /tmp/ to existing override /etc/systemd/system/tomcat9.service.d/override.conf"  >>$LOG_FILE
+                echo "Added Tomcat read and write on ${BASE_DOCUMENT_DIR}/ and /tmp/ to existing override /etc/systemd/system/${TOMCAT}.service.d/override.conf"  >>$LOG_FILE
                 systemctl daemon-reload
          fi
 fi
@@ -257,9 +257,9 @@ if [ ! -d "/etc/systemd/system/${TOMCAT}.service.d" ] ; then
                 else
                 	# Remove stale legacy path if present
                         sed -i '/ReadWritePaths=\/var\/lib\/OscarDocument\//d' /lib/systemd/system/${TOMCAT}.service 2>>$LOG_FILE || true
-                        sed -i "/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=${BASE_DOCUMENT_DIR}/" /lib/systemd/system/${TOMCAT}.service
-                        grep -qF "ReadWritePaths=/tmp/" /lib/systemd/system/${TOMCAT}.service || sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=\/tmp\//' /lib/systemd/system/${TOMCAT}.service
-                        echo "Edited tomcat9.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp/"
+                        sed -i "/ReadWritePaths=\/var\/log\/${TOMCAT}\//a ReadWritePaths=${BASE_DOCUMENT_DIR}/" /lib/systemd/system/${TOMCAT}.service
+                        grep -qF "ReadWritePaths=/tmp/" /lib/systemd/system/${TOMCAT}.service || sed -i '/ReadWritePaths=\/var\/log\/${TOMCAT}\//a ReadWritePaths=\/tmp\//' /lib/systemd/system/${TOMCAT}.service
+                        echo "Edited ${TOMCAT}.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp/"
                         echo "Edited /lib/systemd/system/${TOMCAT}.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp/" >>$LOG_FILE
                         systemctl daemon-reload
                  fi
@@ -276,7 +276,7 @@ if [ -f /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service ] ; then
                 sed -i "/ReadWritePaths=\/var\/log\/${TOMCAT}\//a ReadWritePaths=${BASE_DOCUMENT_DIR}/" /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service
                 grep -qF "ReadWritePaths=/tmp/" /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service || sed -i '/ReadWritePaths=\/var\/log\/${TOMCAT}\//a ReadWritePaths=\/tmp\//' /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service
                 echo "Edited tomcatX.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp"
-                echo "Edited /etc/systemd/system/multi-user.target.wants/tomcatX.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp" >>$LOG_FILE
+                echo "Edited /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp" >>$LOG_FILE
                 systemctl daemon-reload
 	fi
 fi
@@ -631,13 +631,7 @@ chmod 640 ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE
 
 
 
-    if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
-        # some look for /var/lib/tomcat8/carlos.properties but we are using /usr/share/tomcat8
-        # so create a symlink for that in C_BASE, overwrite if necessary
-        ln -sf ${C_HOME}${PROGRAM}.properties ${C_BASE}${PROGRAM}.properties
-        chown -R ${TOMCAT_USER}:${TOMCAT_USER} ${C_BASE}${PROGRAM}.properties 2>>$LOG_FILE
-    fi
-    if [ -f /usr/share/tomcat9/bin/version.sh ] || [ -f /usr/share/tomcat10/bin/version.sh ] ; then
+    if [ -f /usr/share/tomcat10/bin/version.sh ] || [ -f /usr/share/tomcat11/bin/version.sh ] ; then
         # -e tests for existance of the file or linked file, -L tests for existance of the Link broken or not
         if [ ! -e /var/lib/tomcat ] ; then
             ln -s /var/lib/${TOMCAT} /var/lib/tomcat 2>>$LOG_FILE
