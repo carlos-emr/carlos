@@ -26,6 +26,7 @@
 
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -69,8 +70,8 @@
     <form action="<%= request.getContextPath() %>/report/DxresearchReport.do" method="post">
         <input type="hidden" name="method" value="editDesc"/>
 
-        <input type="hidden" name="editingCodeType" value="<%=editingCodeType%>"/>
-        <input type="hidden" name="editingCodeCode" value="<%=editingCodeCode%>"/>
+        <input type="hidden" name="editingCodeType" value="<%= Encode.forHtmlAttribute(editingCodeType != null ? editingCodeType : "") %>"/>
+        <input type="hidden" name="editingCodeCode" value="<%= Encode.forHtmlAttribute(editingCodeCode != null ? editingCodeCode : "") %>"/>
 
         <table class="table">
             <tr>
@@ -80,11 +81,11 @@
                 <th>Action</th>
             </tr>
             <tr>
-                <td><%=editingCodeType%>
+                <td><%= Encode.forHtml(editingCodeType != null ? editingCodeType : "") %>
                 </td>
-                <td><%=editingCodeCode%>
+                <td><%= Encode.forHtml(editingCodeCode != null ? editingCodeCode : "") %>
                 </td>
-                <td><input name="editingCodeDesc" value="<%=editingCodeDesc%>" class="col-md-4"></td>
+                <td><input name="editingCodeDesc" value="<%= Encode.forHtmlAttribute(editingCodeDesc != null ? editingCodeDesc : "") %>" class="col-md-4"></td>
                 <td><input type="submit" name="submit" class="btn btn-primary" value="Modify"></td>
             </tr>
         </table>

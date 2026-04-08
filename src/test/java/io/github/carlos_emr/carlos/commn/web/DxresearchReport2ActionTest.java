@@ -64,7 +64,7 @@ class DxresearchReport2ActionTest extends CarlosWebTestBase {
 
     @BeforeEach
     void setUp() throws Exception {
-        MockitoAnnotations.openMocks(this);
+        // Note: MockitoAnnotations.openMocks() is called by CarlosTestBase.setUpBase()
 
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any()))
                 .thenReturn(true);
@@ -175,6 +175,18 @@ class DxresearchReport2ActionTest extends CarlosWebTestBase {
 
             assertThat(result).isEqualTo("success");
         }
+
+        @Test
+        @DisplayName("should accept * (All Providers) sentinel value")
+        void shouldAccept_whenProviderNoIsAllProvidersSentinel() throws Exception {
+            addRequestParameter("method", "patientRegistedAll");
+            addRequestParameter("provider_no", "*");
+            when(mockDxresearchDAO.patientRegistedAll(any(), any())).thenReturn(new ArrayList<>());
+
+            String result = executeAction(action);
+
+            assertThat(result).isEqualTo("success");
+        }
     }
 
     // ── patientExcelReport ──────────────────────────────────────────────
@@ -202,6 +214,20 @@ class DxresearchReport2ActionTest extends CarlosWebTestBase {
             String result = executeAction(action);
 
             assertThat(result).isEqualTo(ActionSupport.ERROR);
+        }
+
+        @Test
+        @DisplayName("should accept valid provider_no")
+        void shouldAccept_whenProviderNoIsValid() throws Exception {
+            addRequestParameter("method", "patientExcelReport");
+            addRequestParameter("provider_no", "doc1");
+            setSessionAttribute("listview", new ArrayList<>());
+            setSessionAttribute("radiovaluestatus", "patientRegistedAll");
+
+            // patientExcelReport returns null (writes directly to output stream)
+            String result = executeAction(action);
+
+            assertThat(result).isNull();
         }
     }
 
@@ -251,6 +277,18 @@ class DxresearchReport2ActionTest extends CarlosWebTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.ERROR);
         }
+
+        @Test
+        @DisplayName("should accept valid provider_no")
+        void shouldAccept_whenProviderNoIsValid() throws Exception {
+            addRequestParameter("method", "patientRegistedDeleted");
+            addRequestParameter("provider_no", "999998");
+            when(mockDxresearchDAO.patientRegistedDeleted(any(), any())).thenReturn(new ArrayList<>());
+
+            String result = executeAction(action);
+
+            assertThat(result).isEqualTo("success");
+        }
     }
 
     // ── patientRegistedResolve ──────────────────────────────────────────
@@ -269,6 +307,18 @@ class DxresearchReport2ActionTest extends CarlosWebTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.ERROR);
         }
+
+        @Test
+        @DisplayName("should accept valid provider_no")
+        void shouldAccept_whenProviderNoIsValid() throws Exception {
+            addRequestParameter("method", "patientRegistedResolve");
+            addRequestParameter("provider_no", "999998");
+            when(mockDxresearchDAO.patientRegistedResolve(any(), any())).thenReturn(new ArrayList<>());
+
+            String result = executeAction(action);
+
+            assertThat(result).isEqualTo("success");
+        }
     }
 
     // ── patientRegistedDistincted ───────────────────────────────────────
@@ -286,6 +336,18 @@ class DxresearchReport2ActionTest extends CarlosWebTestBase {
             String result = executeAction(action);
 
             assertThat(result).isEqualTo(ActionSupport.ERROR);
+        }
+
+        @Test
+        @DisplayName("should accept valid provider_no")
+        void shouldAccept_whenProviderNoIsValid() throws Exception {
+            addRequestParameter("method", "patientRegistedDistincted");
+            addRequestParameter("provider_no", "999998");
+            when(mockDxresearchDAO.patientRegistedDistincted(any(), any())).thenReturn(new ArrayList<>());
+
+            String result = executeAction(action);
+
+            assertThat(result).isEqualTo("success");
         }
     }
 

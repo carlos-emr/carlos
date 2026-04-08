@@ -89,10 +89,13 @@ public class DxresearchReport2Action extends ActionSupport {
             "patientRegistedResolve"
     );
 
-    /** Provider number: alphanumeric, 1-6 characters (matches {@code provider} table VARCHAR(6)). */
-    private static final Pattern PROVIDER_NO_PATTERN = Pattern.compile("^[a-zA-Z0-9]{1,6}$");
+    /** Provider number: alphanumeric 1-6 characters (matches {@code provider} table VARCHAR(6)), or {@code *} for "All Providers". */
+    private static final Pattern PROVIDER_NO_PATTERN = Pattern.compile("^([a-zA-Z0-9]{1,6}|\\*)$");
 
-    /** Group name after {@code _grp_} prefix: alphanumeric/underscore, 1-20 characters (generous upper bound). */
+    /** Prefix used by the JSP provider selector for provider group expansion. */
+    private static final String GROUP_PREFIX = "_grp_";
+
+    /** Group name after {@link #GROUP_PREFIX}: alphanumeric/underscore, 1-20 characters (generous upper bound). */
     private static final Pattern GROUP_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]{1,20}$");
 
     /** Diagnostic code: alphanumeric with dots, 1-10 characters (e.g. ICD-9 "250.0"). Intentionally permissive — DAO lookup rejects unknown codes. */
@@ -100,8 +103,9 @@ public class DxresearchReport2Action extends ActionSupport {
 
     /**
      * Validates the {@code provider_no} request parameter and returns the resolved
-     * list of provider numbers. Provider numbers are alphanumeric (1-6 chars),
-     * optionally prefixed with {@code _grp_} for group expansion.
+     * list of provider numbers. Provider numbers are alphanumeric (1-6 chars) or
+     * {@code *} (all providers), optionally prefixed with {@link #GROUP_PREFIX}
+     * for group expansion.
      *
      * @return list of provider numbers, or {@code null} if the parameter is missing or invalid
      */
@@ -112,8 +116,8 @@ public class DxresearchReport2Action extends ActionSupport {
         }
 
         List<String> providerNoList = new ArrayList<>();
-        if (providerNo.startsWith("_grp_")) {
-            String groupName = providerNo.substring(5);
+        if (providerNo.startsWith(GROUP_PREFIX)) {
+            String groupName = providerNo.substring(GROUP_PREFIX.length());
             if (!GROUP_NAME_PATTERN.matcher(groupName).matches()) {
                 return null;
             }
@@ -129,7 +133,7 @@ public class DxresearchReport2Action extends ActionSupport {
 
     /**
      * Validates the {@code provider_no} request parameter and returns the bare
-     * provider number (with {@code _grp_} prefix stripped if present).
+     * provider number (with {@link #GROUP_PREFIX} stripped if present).
      * Used by {@link #patientExcelReport()} which needs the single value, not a list.
      *
      * @return validated provider number string, or {@code null} if invalid
@@ -140,8 +144,8 @@ public class DxresearchReport2Action extends ActionSupport {
             return null;
         }
 
-        if (providerNo.startsWith("_grp_")) {
-            String groupName = providerNo.substring(5);
+        if (providerNo.startsWith(GROUP_PREFIX)) {
+            String groupName = providerNo.substring(GROUP_PREFIX.length());
             if (!GROUP_NAME_PATTERN.matcher(groupName).matches()) {
                 return null;
             }
@@ -338,9 +342,9 @@ public class DxresearchReport2Action extends ActionSupport {
 
         dxQuickListItemsHandler.updatePatientCodeDesc(editingCodeType, editingCodeCode, editingCodeDesc);
 
-        // Encode before storing in session to prevent XSS via unsanitized session data (CWE-501)
-        editingCodeDesc = String.format("\"%s\"", Encode.forHtml(editingCodeDesc));
-        request.getSession().setAttribute("editingCodeDesc", editingCodeDesc); // nosemgrep: tainted-session-from-http-request -- value already encoded with Encode.forHtml()
+        // Store raw value — output encoding is applied at render time in editCodeDesc.jsp
+        // using Encode.forHtmlAttribute() for attribute context (CWE-501)
+        request.getSession().setAttribute("editingCodeDesc", editingCodeDesc); // nosemgrep: tainted-session-from-http-request -- value encoded with Encode.forHtmlAttribute() at render time in editCodeDesc.jsp
 
         return SUCCESS;
     }
