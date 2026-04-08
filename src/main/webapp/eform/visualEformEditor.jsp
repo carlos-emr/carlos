@@ -1894,8 +1894,7 @@ var EFORM_I18N = {
 
             // ------- the eforms generated are currently dependent on jQuery ------
             source += "\<script src='../library/jquery/jquery-3.7.1.min.js'\>\<\/script\>"; // present in CARLOS
-            source += "\<script src='../library/jquery/jquery-3.6.4.min.js'\>\<\/script\>"; // present in OSCAR 19 and OPEN OSP
-            source += "\<script src='$\{oscar_javascript_path\}jquery/jquery-2.2.4.min.js'\>\<\/script\>"; // only present in JUNO
+            source += "\<script\>window.jQuery || document.write(\"\\x3cscript src='../library/jquery/jquery-3.6.4.min.js'\\x3e\\x3c\\/script\\x3e\");\<\/script\>";  // present in OSCAR 19 and OPEN OSP
             source += "\<script\>window.jQuery || document.write(\"\\x3cscript src='../js/jquery-1.12.3.js'\\x3e\\x3c\\/script\\x3e\");\<\/script\>"; // present in WELL and others as
             source += "\<script\>window.jQuery || document.write(\"\\x3cscript src='https://code.jquery.com/jquery-3.6.4.min.js' integrity='sha256-oP6HI9z1XaZNBrJURtCoUT5SUnxFr8s3BzRl+cbzUq8=' crossorigin='anonymous'\\x3e\\x3c\\/script\\x3e\");\<\/script\>"; // if all else fails refer to a CND
 
@@ -2147,6 +2146,15 @@ var EFORM_I18N = {
                 }
             });
             $element.addClass("gen-droppable");
+        }
+
+        function isValidImageSrc(src) {
+          return new Promise((resolve) => {
+            const img = new Image();        
+            img.onload = () => resolve(true);
+            img.onerror = () => resolve(false);
+            img.src = src;
+          });
         }
 
         function makeSignatureCanvas($element) {
@@ -2401,7 +2409,7 @@ var EFORM_I18N = {
                         name: id
                     });
                 });
-                makeSignatureCanvas($newDraggable);
+                ($newDraggable);
             }
             setNoborderStyle($newDraggable.find(XBOX_INPUT_SELECTOR), xboxBordersVisibleState);
             setNoborderStyle($newDraggable.find(TEXT_INPUT_SELECTOR), textBordersVisibleState);
@@ -2838,7 +2846,7 @@ var EFORM_I18N = {
             $pages.find(TEXT_INPUT_SELECTOR).parent().append(createInputOverrideDiv());
             $pages.find(".signature_data").parent().append(createInputOverrideDiv());
             $pages.find(".signaturePad").each(function() {
-                makeSignatureCanvas($(this));
+                ($(this));
             });
 
             setNoborderStyle($pages.find(XBOX_INPUT_SELECTOR), xboxBordersVisibleState);
@@ -4674,6 +4682,18 @@ var EFORM_I18N = {
     </script>
 
     <script id="signature_script" class="toSource">
+
+        function isValidImageSrc(src) {
+          return new Promise((resolve) => {
+            const img = new Image();
+        
+            img.onload = () => resolve(true);
+            img.onerror = () => resolve(false);
+        
+            img.src = src;
+          });
+        }
+
         /** this function is run on page load to make signature pads work. */
         $(function() {
             $(".signaturePad").each(function() {
