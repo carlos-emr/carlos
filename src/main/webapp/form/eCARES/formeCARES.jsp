@@ -314,7 +314,7 @@
             </div>
             <div class="modal-body">
                 <div id="chart" style="width:90%;margin:auto">
-                    <canvas id="chartCanvas"></canvas>
+                    <canvas id="chartCanvas" role="img" aria-label="Frailty Index trend chart"></canvas>
                 </div>
             </div>
             <div class="modal-footer">

@@ -46,7 +46,7 @@
             <input type="hidden" id="graphLabels_${ indicatorPanel.id }"
                    value="${ indicatorPanel.stringArrayTooltips }"/>
             <div class="indicatorGraph" id="graphContainer_${ indicatorPanel.id }">
-                <canvas id="graphCanvas_${ indicatorPanel.id }"></canvas>
+                <canvas id="graphCanvas_${ indicatorPanel.id }" role="img" aria-label="Indicator chart"></canvas>
             </div>
         </div>
     </div>

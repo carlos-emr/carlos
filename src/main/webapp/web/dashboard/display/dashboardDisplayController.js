@@ -85,10 +85,6 @@ function buildIndicatorPanel(html, target, id) {
 
     let data;
 
-    if (chartInstances[id]) {
-        chartInstances[id].destroy();
-    }
-
     if (typeof DOMPurify === 'undefined') {
         console.error('DOMPurify is required but not loaded. Indicator panel blocked to prevent XSS.');
         $("#" + target + "_" + id).html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');
@@ -97,6 +93,10 @@ function buildIndicatorPanel(html, target, id) {
     // DOMPurify sanitization with defaults plus <input>, <canvas> and value attr. Event handlers are stripped by DOMPurify defaults.
     let panel;
     try {
+        if (chartInstances[id]) {
+            chartInstances[id].destroy();
+            delete chartInstances[id];
+        }
         panel = $("#" + target + "_" + id).html(DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'canvas'], ADD_ATTR: ['value']}));
         let plotVal = panel.find("#graphPlots_" + id).val();
         if (!plotVal) {
@@ -111,7 +111,11 @@ function buildIndicatorPanel(html, target, id) {
     }
 
     // data is [[['label1', val1], ['label2', val2]], ...] — use first series
-    var seriesData = data[0] || [];
+    var seriesData = (Array.isArray(data) && Array.isArray(data[0])) ? data[0] : [];
+    if (seriesData.length === 0) {
+        console.error('No chart data available for indicator ' + id);
+        return;
+    }
     var labels = seriesData.map(function (item) { return item[0]; });
     var values = seriesData.map(function (item) { return item[1]; });
 
