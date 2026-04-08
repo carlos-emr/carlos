@@ -170,14 +170,24 @@ case "$1" in
     fi
     # Remove ReadWritePaths entries added by the config script to fallback service files
     # (only applies when /etc/systemd/system/tomcat9.service.d/ did not exist at install time)
-    if [ -f /lib/systemd/system/tomcat9.service ] ; then
-        sed -i '/ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//d' /lib/systemd/system/tomcat9.service 2>>$LOG_FILE || true
-        sed -i '/ReadWritePaths=\/tmp\//d' /lib/systemd/system/tomcat9.service 2>>$LOG_FILE || true
+    if [ -f /lib/systemd/system/tomcat10.service ] ; then
+        sed -i '/ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//d' /lib/systemd/system/tomcat10.service 2>>$LOG_FILE || true
+        sed -i '/ReadWritePaths=\/tmp\//d' /lib/systemd/system/tomcat10.service 2>>$LOG_FILE || true
     fi
-    if [ -f /etc/systemd/system/multi-user.target.wants/tomcat9.service ] ; then
-        sed -i '/ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//d' /etc/systemd/system/multi-user.target.wants/tomcat9.service 2>>$LOG_FILE || true
-        sed -i '/ReadWritePaths=\/tmp\//d' /etc/systemd/system/multi-user.target.wants/tomcat9.service 2>>$LOG_FILE || true
+    if [ -f /etc/systemd/system/multi-user.target.wants/tomcat10.service ] ; then
+        sed -i '/ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//d' /etc/systemd/system/multi-user.target.wants/tomcat10.service 2>>$LOG_FILE || true
+        sed -i '/ReadWritePaths=\/tmp\//d' /etc/systemd/system/multi-user.target.wants/tomcat10.service 2>>$LOG_FILE || true
     fi
+
+    if [ -f /lib/systemd/system/tomcat11.service ] ; then
+        sed -i '/ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//d' /lib/systemd/system/tomcat11.service 2>>$LOG_FILE || true
+        sed -i '/ReadWritePaths=\/tmp\//d' /lib/systemd/system/tomcat11.service 2>>$LOG_FILE || true
+    fi
+    if [ -f /etc/systemd/system/multi-user.target.wants/tomcat11.service ] ; then
+        sed -i '/ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//d' /etc/systemd/system/multi-user.target.wants/tomcat11.service 2>>$LOG_FILE || true
+        sed -i '/ReadWritePaths=\/tmp\//d' /etc/systemd/system/multi-user.target.wants/tomcat11.service 2>>$LOG_FILE || true
+    fi
+
     systemctl daemon-reload 2>>$LOG_FILE || true
 
     # remove property files and the oscar schema
