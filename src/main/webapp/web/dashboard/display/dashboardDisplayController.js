@@ -22,41 +22,11 @@
     Ontario, Canada
 */
 
-var jqplotOptions;
+var chartInstances = {};
 var placeHolderCount = 0;
 var indicatorPanels = [];
 
 $(document).ready(function () {
-
-    jqplotOptions = {
-        title: ' ',
-        seriesDefaults: {
-            shadow: false,
-            renderer: $.jqplot.PieRenderer,
-            rendererOptions: {
-                startAngle: 180,
-                sliceMargin: 4,
-                showDataLabels: true,
-                dataLabels: 'value',
-                dataLabelThreshold: 0
-            }
-        },
-        grid: {
-            drawGridLines: false,        	// wether to draw lines across the grid or not.
-            gridLineColor: '#cccccc',   // CSS color spec of the grid lines.
-            background: 'white',      	// CSS color spec for background color of grid.
-            borderColor: 'white',     	// CSS color spec for border around grid.
-            borderWidth: 0,           	// pixel width of border around grid.
-            shadow: false,              // draw a shadow for grid.
-            shadowAngle: 0,            	// angle of the shadow.  Clockwise from x axis.
-            shadowOffset: 0,          	// offset from the line of the shadow.
-            shadowWidth: 0,             // width of the stroke for the shadow.
-            shadowDepth: 0
-        },
-        legend: {show: true, location: 's'}
-
-    };
-
 
     // get the drill down page
     $(".indicatorWrapper").on('click', ".indicatorDrilldownBtn", function (event) {
@@ -113,10 +83,10 @@ $(document).ready(function () {
 // build Indicator panel with Pie chart.
 function buildIndicatorPanel(html, target, id) {
 
-    let indicatorGraph, data;
+    let data;
 
-    if (indicatorGraph) {
-        indicatorGraph.destroy();
+    if (chartInstances[id]) {
+        chartInstances[id].destroy();
     }
 
     if (typeof DOMPurify === 'undefined') {
@@ -124,10 +94,10 @@ function buildIndicatorPanel(html, target, id) {
         $("#" + target + "_" + id).html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');
         return;
     }
-    // DOMPurify sanitization with defaults plus <input> and value attr. Event handlers are stripped by DOMPurify defaults.
+    // DOMPurify sanitization with defaults plus <input>, <canvas> and value attr. Event handlers are stripped by DOMPurify defaults.
     let panel;
     try {
-        panel = $("#" + target + "_" + id).html(DOMPurify.sanitize(html, {ADD_TAGS: ['input'], ADD_ATTR: ['value']}));
+        panel = $("#" + target + "_" + id).html(DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'canvas'], ADD_ATTR: ['value']}));
         let plotVal = panel.find("#graphPlots_" + id).val();
         if (!plotVal) {
             console.error('Graph plot data not found for indicator ' + id);
@@ -139,11 +109,40 @@ function buildIndicatorPanel(html, target, id) {
         $("#" + target + "_" + id).html('<p style="color:red">Unable to render indicator panel.</p>');
         return;
     }
-    indicatorGraph = $.jqplot('graphContainer_' + id, data, jqplotOptions).replot();
 
-    window.onresize = function (event) {
-        indicatorGraph.replot();
+    // data is [[['label1', val1], ['label2', val2]], ...] — use first series
+    var seriesData = data[0] || [];
+    var labels = seriesData.map(function (item) { return item[0]; });
+    var values = seriesData.map(function (item) { return item[1]; });
+
+    var canvas = document.getElementById('graphCanvas_' + id);
+    if (!canvas) {
+        console.error('Canvas element not found for indicator ' + id);
+        return;
     }
+
+    chartInstances[id] = new Chart(canvas, {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: values,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                },
+                title: {
+                    display: false
+                }
+            }
+        }
+    });
 
     let name = panel.find(".indicatorHeading div").text();
 

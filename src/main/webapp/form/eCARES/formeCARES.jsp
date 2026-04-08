@@ -54,7 +54,6 @@
     <meta name="viewport" content="width=device-width, user-scalable=false;">
     <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css">
     <link rel="stylesheet" href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css">
-    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/js/jqplot/jquery.jqplot.min.css">
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/eCARES/eCARES_v1.css">
 </head>
 
@@ -314,7 +313,9 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div id="chart" style="width:90%;margin:auto"></div>
+                <div id="chart" style="width:90%;margin:auto">
+                    <canvas id="chartCanvas"></canvas>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -350,13 +351,9 @@
 <script type="text/javascript"
         src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
 
-<!--jqplot js includes-->
-<script class="include" type="text/javascript"
-        src="${pageContext.request.contextPath}/js/jqplot/jquery.jqplot.min.js"></script>
-<script class="include" type="text/javascript"
-        src="${pageContext.request.contextPath}/js/jqplot/plugins/jqplot.highlighter.min.js"></script>
-<script class="include" type="text/javascript"
-        src="${pageContext.request.contextPath}/js/jqplot/jqplot.dateAxisRenderer.min.js"></script>
+<!--Chart.js-->
+<script type="text/javascript"
+        src="${pageContext.request.contextPath}/library/chartjs/chart.umd.min.js"></script>
 <script type="text/javascript" src="${pageContext.request.contextPath}/form/eCARES/dictionary.js"></script>
 <script type="text/javascript" src="${pageContext.request.contextPath}/form/eCARES/eCARES_v1.js"></script>
 

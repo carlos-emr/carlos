@@ -332,6 +332,8 @@ function confirmExit() {
     return "All information entered on the eCGA has been saved. The eCGA is not complete, are you sure you want to close?";
 }
 
+var efiChartInstance = null;
+
 document.getElementById('chartModal').addEventListener('shown.bs.modal', function () {
     renderGraph();
 });
@@ -351,20 +353,58 @@ function renderGraph() {
         return
     }
 
-    $.jqplot('chart', [line], {
-        animate: true,
-        title: 'Trending Measure',
-        axes: {
-            xaxis: {
-                renderer: $.jqplot.DateAxisRenderer
-            }
+    var labels = line.map(function (point) {
+        var d = new Date(point[0]);
+        return d.toLocaleDateString();
+    });
+    var values = line.map(function (point) { return point[1]; });
+
+    if (efiChartInstance) {
+        efiChartInstance.destroy();
+    }
+
+    var canvas = document.getElementById('chartCanvas');
+    efiChartInstance = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Frailty Index',
+                data: values,
+                borderWidth: 4,
+                pointStyle: 'circle',
+                pointRadius: 5,
+                pointBackgroundColor: '#36A2EB',
+                fill: false,
+                tension: 0
+            }]
         },
-        series: [{
-            lineWidth: 4,
-            markerOptions: {
-                style: 'filledCircle'
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Trending Measure'
+                },
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Score'
+                    }
+                }
             }
-        }]
+        }
     });
 }
 

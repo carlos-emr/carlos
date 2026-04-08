@@ -45,7 +45,9 @@
             <input type="hidden" id="graphPlots_${ indicatorPanel.id }" value="${ indicatorPanel.stringArrayPlots }"/>
             <input type="hidden" id="graphLabels_${ indicatorPanel.id }"
                    value="${ indicatorPanel.stringArrayTooltips }"/>
-            <div class="indicatorGraph" id="graphContainer_${ indicatorPanel.id }"></div>
+            <div class="indicatorGraph" id="graphContainer_${ indicatorPanel.id }">
+                <canvas id="graphCanvas_${ indicatorPanel.id }"></canvas>
+            </div>
         </div>
     </div>
 
