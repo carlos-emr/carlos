@@ -1557,10 +1557,10 @@ input[id^='acklabel_']{
                     <strong>INFO</strong> The following <%=numTickler%> <a class="alert-link" onclick="popup(450, 1200, '<%=request.getContextPath()%>/tickler/ticklerDemoMain.jsp?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')">ticklers</a>
                     are marked pending:
                     <c:forEach items="${pendingTicklers}" var="tickler" varStatus="loop">
-                        <c:if test="${not loop.first}">, </c:if>
-                        <a class="alert-link"
-                           href="${pageContext.request.contextPath}/tickler/ticklerEdit.jsp?tickler_no=${e:forUriComponent(tickler.id)}"
-                           target="_blank">${e:forHtml(tickler.message)}</a>
+                    <c:if test="${not loop.first}">, </c:if>
+                    <a class="alert-link"
+                       href="${pageContext.request.contextPath}/tickler/ticklerEdit.jsp?tickler_no=${e:forUriComponent(tickler.id)}"
+                       target="_blank" rel="noopener noreferrer">${e:forHtml(tickler.message)}</a>
                     </c:forEach>
                 </td>
             </tr>
