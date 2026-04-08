@@ -73,9 +73,6 @@ public class CaseManagementLinkTag extends TagSupport {
         try {
             StringBuilder builder = new StringBuilder();
 
-            builder.append(req.getScheme()).append("://");
-            builder.append(req.getServerName()).append(":");
-            builder.append(req.getServerPort());
             builder.append(req.getContextPath()).append("/");
 
             builder.append("encounter/IncomingEncounter.do").append("?");
@@ -90,7 +87,7 @@ public class CaseManagementLinkTag extends TagSupport {
             builder.append("startTime=").append(placeTime).append("&");
             builder.append("status=").append("T");
 
-            pageContext.getOut().write(builder.toString()); // NOSONAR javasecurity:S5131 — all values from tag attribute setters (not user input), OWASP-encoded with Encode.forUriComponent()
+            pageContext.getOut().write(builder.toString());
         } catch (IOException e) {
             throw new JspTagException("An IOException occurred.");
         }
