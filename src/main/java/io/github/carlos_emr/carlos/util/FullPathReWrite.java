@@ -37,7 +37,7 @@ import jakarta.servlet.jsp.JspException;
 import jakarta.servlet.jsp.JspWriter;
 import jakarta.servlet.jsp.tagext.TagSupport;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 
 
 public class FullPathReWrite extends TagSupport {
@@ -78,7 +78,7 @@ public class FullPathReWrite extends TagSupport {
 
         JspWriter out = pageContext.getOut();
         try {
-            out.write(StringEscapeUtils.escapeHtml4(returnTag));
+            out.write(Encode.forHtml(returnTag));
             out.flush();
         } catch (IOException e) {
             throw new JspException(e.toString());

@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -87,7 +87,7 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
                     url = "popupPage(700, 800,'" + hash + "','" + request.getContextPath() + "/eform/efmformadd_data.jsp?fid=" + curform.get("fid") + "&demographic_no=" + bean.demographicNo + "&appointment=" + bean.appointmentNo + "&parentAjaxId=" + cmd + "','" + curform.get("fid") + "_" + bean.demographicNo + "');";
                     logger.debug("SETTING EFORM URL " + url);
                     key = StringUtils.maxLenString((String) curform.get("formName"), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + " (new)";
-                    key = StringEscapeUtils.escapeEcmaScript(key);
+                    key = Encode.forJavaScript(key);
                     js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompleted['" + key + "'] = \"" + url + "\"; autoCompList.push('" + key + "');";
                     javascript.append(js);
                 }
@@ -123,7 +123,7 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
                     String formattedDate = DateUtils.formatDate(eFormData.getFormDate(), request.getLocale());
                     key = StringUtils.maxLenString(eFormData.getFormName(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + "(" + formattedDate + ")";
                     item.setLinkTitle(eFormData.getSubject());
-                    key = StringEscapeUtils.escapeEcmaScript(key);
+                    key = Encode.forJavaScript(key);
                     js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompleted['" + key + "'] = \"" + url + "\"; autoCompList.push('" + key + "');";
                     javascript.append(js);
                     url += "return false;";

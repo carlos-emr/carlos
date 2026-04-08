@@ -42,7 +42,7 @@ import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.util.DateUtils;
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
@@ -1005,19 +1005,19 @@ public class ClientManager2Action extends ActionSupport {
             else sb.append(DateFormatUtils.ISO_DATE_FORMAT.format(admission.getDischargeDate()));
             sb.append(" )");
         }
-        return (StringEscapeUtils.escapeHtml4(sb.toString()));
+        return (Encode.forHtml(sb.toString()));
     }
 
     public static String getEscapedProviderDisplay(String providerNo) {
         Provider provider = providerDao.getProvider(providerNo);
 
-        return (StringEscapeUtils.escapeHtml4(provider.getFormattedName()));
+        return (Encode.forHtml(provider.getFormattedName()));
     }
 
     public static String getEscapedDateDisplay(Date d) {
         String display = DateFormatUtils.ISO_DATE_FORMAT.format(d);
 
-        return (StringEscapeUtils.escapeHtml4(display));
+        return (Encode.forHtml(display));
     }
 
     @Autowired
@@ -1099,7 +1099,7 @@ public class ClientManager2Action extends ActionSupport {
         Program program = programDao.getProgram(admission.getProgramId());
 
         String displayString = program.getName() + " : " + DateFormatUtils.ISO_DATE_FORMAT.format(admission.getAdmissionDate());
-        return (StringEscapeUtils.escapeHtml4(displayString));
+        return (Encode.forHtml(displayString));
     }
 
     private ClientManagerFormBean view;
