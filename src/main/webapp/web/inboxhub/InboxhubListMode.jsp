@@ -54,7 +54,7 @@
         <button id="stopLoadingInboxList" onclick="stopInboxhubListProgress(0)" class="btn btn-sm btn-danger" style="display: none;"><fmt:message key="inboxhub.list.stop"/></button>
 </div>
         <div class="inbox-table-responsive">
-        <table table id="inbox_table" class="table table-striped inbox-table">
+        <table id="inbox_table" class="table table-striped inbox-table">
             <thead class="inbox-table-sticky-header">
             <tr>
                 <th>
@@ -109,8 +109,7 @@
             </tbody>
         </table>
         </div>
-    </row>
-</div>
+
 <script>
     ctx = "<e:forJavaScript value='${pageContext.request.contextPath}' />";
 
@@ -200,7 +199,6 @@
             // Normalize names: trim spaces, remove special characters, convert to lowercase
             let nameA = normalizeString(str1);
             let nameB = normalizeString(str2);
-            console.log(str1)
 
             // Compare normalized values
             if (nameA < nameB) return 1;

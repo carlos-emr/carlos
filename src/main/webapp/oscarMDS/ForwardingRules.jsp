@@ -44,7 +44,7 @@
 
 <html>
 <head>
-    <link href="<%= request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/global.css"/>
     <link rel="stylesheet" type="text/css" href="encounterStyles.css">
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -135,10 +135,10 @@
                     <ul class="list-unstyled ms-3 mt-1 mb-0">
                         <%for (int i = 0; i < frwdProviders.size(); i++) {%>
                         <li>
-                            <%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>
-                            <%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>
+                            <%= Encode.forHtml((String) ((ArrayList) frwdProviders.get(i)).get(1)) %>
+                            <%= Encode.forHtml((String) ((ArrayList) frwdProviders.get(i)).get(2)) %>
                             <a href="#" class="text-danger ms-2" style="font-size:12px;"
-                               onclick="return removeProvider('<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>', '<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %> <%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>')">Remove</a>
+                               onclick="return removeProvider('<%= Encode.forJavaScript((String) ((ArrayList) frwdProviders.get(i)).get(0)) %>', '<%= Encode.forJavaScript((String) ((ArrayList) frwdProviders.get(i)).get(1)) %> <%= Encode.forJavaScript((String) ((ArrayList) frwdProviders.get(i)).get(2)) %>')">Remove</a>
                         </li>
                         <%}%>
                     </ul>
@@ -175,7 +175,7 @@
                                 for (int i = 0; i < providers.size(); i++) {
                                     String prov_no = (String) ((ArrayList) providers.get(i)).get(0);
                                     if (!providerNo.equals(prov_no) && !frwdProviders.contains(providers.get(i))) {%>
-                            <option value="<%= prov_no %>"><%= (String) ((ArrayList) providers.get(i)).get(1) %> <%= (String) ((ArrayList) providers.get(i)).get(2) %></option>
+                            <option value="<%= Encode.forHtmlAttribute(prov_no) %>"><%= Encode.forHtml((String) ((ArrayList) providers.get(i)).get(1)) %> <%= Encode.forHtml((String) ((ArrayList) providers.get(i)).get(2)) %></option>
                             <% }
                             } %>
                         </optgroup>

@@ -350,6 +350,5 @@
     Calendar.setup({inputField: "dob", ifFormat: "%Y-%m-%d", showsTime: true, button: "dob_cal"});
 
 </script>
-</div><%-- close container --%>
 </body>
 </html>

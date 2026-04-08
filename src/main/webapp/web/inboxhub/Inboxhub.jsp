@@ -74,7 +74,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         }
     }
 </script>
-<input type="hidden" id="ctx" value="<e:forHtmlAttribute value='${pageContext.request.contextPath}' />";/>
+<input type="hidden" id="ctx" value="<e:forHtmlAttribute value='${pageContext.request.contextPath}' />"/>
 <div class="container-fluid overflow-hidden">
     <div class="row">
         <nav class="inbox-topbar">
