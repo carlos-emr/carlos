@@ -268,7 +268,7 @@ public class ProgramManagerView2Action extends ActionSupport {
             request.setAttribute("client_statuses", programManager.getProgramClientStatuses(Integer.valueOf(programId)));
         }
 
-        LogAction.log("view", "program", LogSanitizer.sanitize(programId), request);
+        LogAction.log("view", "program", programId, request);
 
         request.setAttribute("id", programId);
 
@@ -321,7 +321,7 @@ public class ProgramManagerView2Action extends ActionSupport {
             return "service_restriction_error";
         }
 
-        LogAction.log("view", "admit to program", LogSanitizer.sanitize(clientId), request);
+        LogAction.log("view", "admit to program", clientId, request);
 
         return view();
     }
@@ -358,9 +358,9 @@ public class ProgramManagerView2Action extends ActionSupport {
             throw new RuntimeException(e);
         }
 
-        LogAction.log("view", "override service restriction", LogSanitizer.sanitize(clientId), request);
+        LogAction.log("view", "override service restriction", clientId, request);
 
-        LogAction.log("view", "admit to program", LogSanitizer.sanitize(clientId), request);
+        LogAction.log("view", "admit to program", clientId, request);
 
         return view();
     }

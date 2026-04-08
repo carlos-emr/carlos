@@ -276,7 +276,7 @@ public class EFormPDFServlet extends HttpServlet {
                 log.debug("Found template at {}", LogSanitizer.sanitize(propFilename));
             } catch (Exception dex) {
                 log.warn("Cannot find template at: {}", LogSanitizer.sanitize(propFilename));
-                throw new IOException("Cannot load PDF template: " + propFilename, dex);
+                throw new IOException("Cannot load PDF template.", dex);
             }
 
             // retrieve the total number of pages

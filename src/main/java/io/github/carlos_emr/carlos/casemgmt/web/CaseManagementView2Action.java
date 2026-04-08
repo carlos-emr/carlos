@@ -345,7 +345,7 @@ public class CaseManagementView2Action extends ActionSupport {
             try {
                 admission = admissionMgr.getCurrentAdmission(programId, Integer.valueOf(demoNo));
             } catch (Exception e) {
-                logger.debug("No admission found for programId: {} and demoNo: {} - {}", LogSanitizer.sanitize(programId), LogSanitizer.sanitize(demoNo), e.getMessage());
+                logger.debug("No admission found for programId: {} and demoNo: {}", LogSanitizer.sanitize(programId), LogSanitizer.sanitize(demoNo), e);
             }
         } else {
             logger.debug("No valid programId available - skipping admission lookup");
@@ -383,7 +383,7 @@ public class CaseManagementView2Action extends ActionSupport {
                 try {
                     ps = programMgr.getProgramProviders(programId);
                 } catch (Exception e) {
-                    logger.debug("Unable to get program providers for programId: {} - {}", LogSanitizer.sanitize(programId), e.getMessage());
+                    logger.debug("Unable to get program providers for programId: {}", LogSanitizer.sanitize(programId), e);
                 }
             }
             current = System.currentTimeMillis();

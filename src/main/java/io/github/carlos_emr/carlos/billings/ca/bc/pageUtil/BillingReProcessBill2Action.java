@@ -366,7 +366,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
             billingmasterDAO.update(billingmaster);
             billingmasterDAO.update(bill);
 
-            logger.debug("type 2{}", LogSanitizer.sanitize(bill.getBillingtype()));
+            logger.debug("type 2 {}", LogSanitizer.sanitize(bill.getBillingtype()));
             logger.debug("WHAT IS BILL <ASTER2 {}", LogSanitizer.sanitize(billingmaster.getBillingmasterNo()));
 
 

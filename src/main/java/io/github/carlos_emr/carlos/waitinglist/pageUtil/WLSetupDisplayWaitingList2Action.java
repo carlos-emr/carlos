@@ -134,7 +134,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                     }
 
                 } catch (Exception ex) {
-                    log.error("WLUpdateDisplayWaitingListAction/execute(): Exception: ", ex);
+                    log.error("WLSetupDisplayWaitingList2Action/execute(): Exception: ", ex);
                     return "failure";
                 }
             }
