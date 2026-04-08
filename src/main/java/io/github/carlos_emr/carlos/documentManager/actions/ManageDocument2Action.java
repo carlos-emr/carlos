@@ -221,6 +221,10 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        if (demog != null && !demog.matches("^\\d+$")) {
+            throw new SecurityException("Invalid demographic number");
+        }
+
         LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr(), demog);
 
         String[] flagproviders = request.getParameterValues("flagproviders");
@@ -332,6 +336,10 @@ public class ManageDocument2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", dn)) {
             throw new SecurityException("missing required sec object (_demographic)");
+        }
+
+        if (dn != null && !dn.matches("^\\d+$")) {
+            throw new SecurityException("Invalid demographic number");
         }
 
         HashMap hm = new HashMap();
