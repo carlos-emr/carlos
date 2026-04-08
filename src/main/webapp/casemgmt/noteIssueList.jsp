@@ -36,6 +36,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -357,7 +358,7 @@
         <c:set var="winame" value="${fn:replace(winame, '/', '_')}" />
         <c:set var="winame" value="${fn:replace(winame, '*', '_')}" />
         <c:set var="winame" value="${fn:replace(winame, \"'\", '')}" />
-        <c:set var="winame" value="${fn:escapeXml(winame)}" />
+        <c:set var="winame" value="${e:forHtml(winame)}" />
         <c:set var="countUnresolvedIssue" value="${status.index + 1}" />
 
         <c:if test="${countUnresolvedIssue % 2 == 0}">
@@ -452,7 +453,7 @@
         updatedNoteId = newId;
 
         // Assuming noteTxt comes from request attribute or is passed in a similar way
-        var noteTxt = "${fn:escapeXml(noteTxt)}"; // Escape any special characters in noteTxt
+        var noteTxt = "${e:forJavaScript(noteTxt)}"; // Escape any special characters in noteTxt
         completeChangeToView(noteTxt, newId);
 
         if (origId.substr(0, 1) == "0") {

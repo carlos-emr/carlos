@@ -80,7 +80,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -506,7 +506,7 @@ function fmtOscarMsg() {
 
 											<c:if test="${ demoattached.key eq demographic_no }">
 												<input
-													onclick="javascript:popup('${ fn:escapeXml(demographic_no) }', '${ fn:escapeXml(messageID) }', '${ fn:escapeXml(providerNo) }');"
+													onclick="javascript:popup('${ e:forJavaScriptAttribute(demographic_no) }', '${ e:forJavaScriptAttribute(messageID) }', '${ e:forJavaScriptAttribute(providerNo) }');"
 													class="btn DoNotPrint" type="button"  name="writeToEncounter"
 													value="<fmt:message key="messenger.ViewMessage.writeToE" />">
 											 </c:if>
@@ -540,7 +540,7 @@ function fmtOscarMsg() {
                                     title="<fmt:message key="messenger.ViewMessage.btnForward"/>"><i class="fa-solid fa-share"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnForward"/></button>
                                 <button type="submit" class="btn btn-danger" name="delete"
                                     title="<fmt:message key="messenger.ViewMessage.btnDelete"/>"><i class="fa-solid fa-trash"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnDelete"/></button>
-                                <input type="hidden" name="messageNo" id="messageNo" value="${ fn:escapeXml(viewMessageNo) }"/>
+                                <input type="hidden" name="messageNo" id="messageNo" value="${ e:forHtmlAttribute(viewMessageNo) }"/>
 							</td>
 						</tr>
 						<tr class="subheader DoNotPrint">
@@ -629,8 +629,8 @@ function fmtOscarMsg() {
 								<td>
 								<input type="text" readonly
 									style="border: none"
-									value="${ fn:escapeXml(demographic.value) }"
-									title="${ fn:escapeXml(demographic.key) }">
+									value="${ e:forHtmlAttribute(demographic.value) }"
+									title="${ e:forHtmlAttribute(demographic.key) }">
                                 <span class="DoNotPrint">
 								<%
                                     String demoKeyJs = Encode.forJavaScript((String) (pageContext.getAttribute("demographicNumber")+""));

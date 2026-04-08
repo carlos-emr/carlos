@@ -31,6 +31,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <security:oscarSec roleName='${ sessionScope[userrole] }, ${ sessionScope[user] }' rights="w"
                    objectName="_dashboardDrilldown">
@@ -414,7 +415,7 @@
                 <div class="modal-footer">
                     <form method="post" action="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction.do" style="display:inline">
                         <input type="hidden" name="method" value="addToDiseaseRegistry"/>
-                        <input type="hidden" name="dxUpdateICD9Code" value="${ fn:escapeXml(drilldown.dxUpdateICD9Code) }"/>
+                        <input type="hidden" name="dxUpdateICD9Code" value="${ e:forHtmlAttribute(drilldown.dxUpdateICD9Code) }"/>
                         <button type="submit" id="confirmAddToDiseaseRegistry" class="btn btn-primary">Confirm</button>
                     </form>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -445,7 +446,7 @@
                 <div class="modal-footer">
                     <form method="post" action="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction.do" style="display:inline">
                         <input type="hidden" name="method" value="excludePatients"/>
-                        <input type="hidden" name="indicatorId" value="${ fn:escapeXml(drilldown.id) }"/>
+                        <input type="hidden" name="indicatorId" value="${ e:forHtmlAttribute(drilldown.id) }"/>
                         <button type="submit" id="confirmPatientExclusion" class="btn btn-primary">Confirm</button>
                     </form>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>

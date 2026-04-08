@@ -153,7 +153,6 @@
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     ProviderInboxRoutingDao providerInboxRoutingDao = SpringUtils.getBean(ProviderInboxRoutingDao.class);
@@ -716,7 +715,7 @@
                                     <fmt:message key="showDocument.placeholderSearchDemographic" var="placeholderSearchDemographic"/>
                                     <input type="text" id="autocompletedemo<%=docId%>"
                                            onchange="checkSave('<%=Encode.forJavaScript(docId)%>');" name="demographicKeyword"
-                                           placeholder="${fn:escapeXml(placeholderSearchDemographic)}">
+                                           placeholder="${e:forHtmlAttribute(placeholderSearchDemographic)}">
                                     <div id="autocomplete_choices<%=docId%>" class="autocomplete"></div>
 
                                     <%}%>
@@ -737,7 +736,7 @@
                                     <input type="hidden" name="provi" id="provfind<%=docId%>">
                                     <fmt:message key="showDocument.placeholderSearchProvider" var="placeholderSearchProvider"/>
                                     <input type="text" id="autocompleteprov<%=docId%>" name="demographicKeyword"
-                                           placeholder="${fn:escapeXml(placeholderSearchProvider)}">
+                                           placeholder="${e:forHtmlAttribute(placeholderSearchProvider)}">
                                     <div id="autocomplete_choicesprov<%=docId%>" class="autocomplete"></div>
 
 
