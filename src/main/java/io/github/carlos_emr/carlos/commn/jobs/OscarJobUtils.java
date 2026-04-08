@@ -52,7 +52,7 @@ public class OscarJobUtils {
      * Job class names are stored in the database and this prevents a compromised row
      * from loading arbitrary JVM classes (CWE-470).</p>
      */
-    static final String ALLOWED_JOB_PACKAGE_PREFIX = "io.github.carlos_emr.carlos.";
+    private static final String ALLOWED_JOB_PACKAGE_PREFIX = "io.github.carlos_emr.carlos.";
 
     public static boolean isJobTypeCurrentlyValid(OscarJobType oscarJobType) {
 

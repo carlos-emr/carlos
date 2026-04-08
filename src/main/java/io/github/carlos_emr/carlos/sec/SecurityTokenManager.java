@@ -37,6 +37,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -62,7 +63,8 @@ public abstract class SecurityTokenManager {
         String managerName = CarlosProperties.getInstance().getProperty("sec.token.manager");
         if (managerName != null) {
             if (!managerName.startsWith(ALLOWED_PACKAGE_PREFIX)) {
-                MiscUtils.getLogger().error("Rejected token manager class outside allowed package");
+                MiscUtils.getLogger().error("Rejected token manager class outside allowed package: {}",
+                        LogSanitizer.sanitize(managerName));
                 return null;
             }
             try {

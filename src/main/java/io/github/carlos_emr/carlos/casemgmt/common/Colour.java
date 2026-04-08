@@ -34,6 +34,7 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.common;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -58,7 +59,8 @@ public class Colour {
             String colourClass = CarlosProperties.getInstance().getProperty("ColourClass", "io.github.carlos_emr.carlos.casemgmt.common.Colour");
             if (colourClass.length() > 0) {
                 if (!colourClass.startsWith(ALLOWED_PACKAGE_PREFIX)) {
-                    MiscUtils.getLogger().error("Rejected Colour class outside allowed package");
+                    MiscUtils.getLogger().error("Rejected Colour class outside allowed package: {}",
+                            LogSanitizer.sanitize(colourClass));
                     return new Colour();
                 }
                 c = (Colour) Class.forName(colourClass).newInstance();
