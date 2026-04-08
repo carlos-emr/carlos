@@ -111,7 +111,7 @@ class DxDaoAllowlistUnitTest {
 
         @Test
         @DisplayName("should return empty list for null coding system in findCodingSystemDescription(code)")
-        void shouldReturnEmptyList_whenNullCodingSystem() {
+        void shouldReturnEmptyList_whenNullCodingSystemForCode() {
             List<Object[]> result = dao.findCodingSystemDescription(null, "001");
 
             assertThat(result).isEmpty();
@@ -120,7 +120,7 @@ class DxDaoAllowlistUnitTest {
 
         @Test
         @DisplayName("should return empty string for null coding system in getCodeDescription")
-        void shouldReturnEmptyString_whenNullCodingSystem() {
+        void shouldReturnEmptyString_whenNullCodingSystemForDescription() {
             String result = dao.getCodeDescription(null, "001");
 
             assertThat(result).isEmpty();
