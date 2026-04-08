@@ -1181,13 +1181,4 @@ public class CihiExport2Action extends ActionSupport {
     private String contactPhone;
     private String contactEmail;
     private String contactUserName;
-    private String extractType;
-
-    public String getExtractType() {
-        return extractType;
-    }
-
-    public void setExtractType(String extractType) {
-        this.extractType = extractType;
-    }
 }
