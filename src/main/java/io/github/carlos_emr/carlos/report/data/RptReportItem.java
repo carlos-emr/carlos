@@ -83,8 +83,8 @@ public class RptReportItem {
     // id
     public String getReportName(String recordId) throws SQLException {
         String ret = null;
-        String sql = "select report_name from reportItem where id = " + recordId;
-        ResultSet rs = DBHelp.searchDBRecord(sql);
+        String sql = "select report_name from reportItem where id = ?";
+        ResultSet rs = DBHelp.searchDBRecord(sql, Integer.parseInt(recordId));
         while (rs.next()) {
             ret = DBHelp.getString(rs, "report_name");
         }
@@ -96,8 +96,8 @@ public class RptReportItem {
     public Vector getNameList(int n) throws SQLException {
         Vector ret = new Vector();
         Properties prop = null;
-        String sql = "select * from reportItem where status = " + n + " order by id";
-        ResultSet rs = DBHelp.searchDBRecord(sql);
+        String sql = "select * from reportItem where status = ? order by id";
+        ResultSet rs = DBHelp.searchDBRecord(sql, n);
         while (rs.next()) {
             prop = new Properties();
             prop.setProperty("id", "" + rs.getInt("id"));

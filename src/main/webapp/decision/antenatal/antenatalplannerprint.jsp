@@ -73,7 +73,7 @@
 
     ResultSet rsdemo = null;
     if (!form_no.equals("0")) {
-        rsdemo = DBHandler.GetSQL("select * from formAR where ID = " + form_no);
+        rsdemo = DBHandler.GetPreSQL("select * from formAR where ID = ?", Integer.parseInt(form_no));
 
         ResultSetMetaData resultsetmetadata = rsdemo.getMetaData();
         while (rsdemo.next()) {
