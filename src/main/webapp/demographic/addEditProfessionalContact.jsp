@@ -31,6 +31,7 @@
 
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="java.util.Properties" %>
 <%@ page import="java.util.List, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
@@ -193,7 +194,7 @@
     <table BORDER="1" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#CCFFFF">
             <th style="text-align:center;">
-                <c:out value="${ pcontact.id gt 0 ? 'Edit' : 'Add' }"/>
+                ${e:forHtml(pcontact.id gt 0 ? 'Edit' : 'Add')}
                 Professional Contact
             </th>
         </tr>
@@ -226,27 +227,27 @@
                 <td align="right"><b>First Name</b></td>
                 <td>
                     <input type="text" name="pcontact.firstName" id="pcontact.firstName"
-                           value="<c:out value="${pcontact.firstName}"/>" size="30">
+                           value="${e:forHtmlAttribute(pcontact.firstName)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>Address</b></td>
                 <td>
                     <input type="text" name="pcontact.address" id="pcontact.address"
-                           value="<c:out value="${pcontact.address}"/>" size="50">
+                           value="${e:forHtmlAttribute(pcontact.address)}" size="50">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>Address2</b></td>
                 <td>
                     <input type="text" name="pcontact.address2" id="pcontact.address2"
-                           value="<c:out value="${pcontact.address2}"/>" size="50">
+                           value="${e:forHtmlAttribute(pcontact.address2)}" size="50">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>City</b></td>
                 <td>
-                    <input type="text" name="pcontact.city" id="pcontact.city" value="<c:out value="${pcontact.city}"/>"
+                    <input type="text" name="pcontact.city" id="pcontact.city" value="${e:forHtmlAttribute(pcontact.city)}"
                            size="30">
                 </td>
             </tr>
@@ -281,43 +282,43 @@
 
                     <label for="pcontact.country">Country </label>
                     <input type="text" name="pcontact.country" id="pcontact.country"
-                           value="<c:out value="${pcontact.country}"/>" size="2" maxlength="2">
+                           value="${e:forHtmlAttribute(pcontact.country)}" size="2" maxlength="2">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>Postal</b></td>
                 <td>
                     <input type="text" name="pcontact.postal" id="pcontact.postal"
-                           value="<c:out value="${pcontact.postal}"/>" size="30">
+                           value="${e:forHtmlAttribute(pcontact.postal)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>Res. Phone</b></td>
                 <td>
                     <input type="text" name="pcontact.residencePhone" id="pcontact.residencePhone"
-                           value="<c:out value="${pcontact.residencePhone}"/>" size="30">
+                           value="${e:forHtmlAttribute(pcontact.residencePhone)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>Cell Phone</b></td>
                 <td>
                     <input type="text" name="pcontact.cellPhone" id="pcontact.cellPhone"
-                           value="<c:out value="${pcontact.cellPhone}"/>" size="30">
+                           value="${e:forHtmlAttribute(pcontact.cellPhone)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>Work Phone</b></td>
                 <td>
                     <input type="text" name="pcontact.workPhone" id="pcontact.workPhone"
-                           value="<c:out value="${pcontact.workPhone}"/>" size="15"/>
+                           value="${e:forHtmlAttribute(pcontact.workPhone)}" size="15"/>
                     Ext: <input type="text" name="pcontact.workPhoneExtension"
-                                value="<c:out value="${pcontact.workPhoneExtension}"/>" size="10"/>
+                                value="${e:forHtmlAttribute(pcontact.workPhoneExtension)}" size="10"/>
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>Fax</b></td>
                 <td>
-                    <input type="text" name="pcontact.fax" id="pcontact.fax" value="<c:out value="${pcontact.fax}"/>"
+                    <input type="text" name="pcontact.fax" id="pcontact.fax" value="${e:forHtmlAttribute(pcontact.fax)}"
                            size="30">
                 </td>
             </tr>
@@ -325,7 +326,7 @@
                 <td align="right"><b>Email</b></td>
                 <td>
                     <input type="text" name="pcontact.email" id="pcontact.email"
-                           value="<c:out value="${pcontact.email}"/>" size="30">
+                           value="${e:forHtmlAttribute(pcontact.email)}" size="30">
                 </td>
             </tr>
             <tr>
@@ -337,13 +338,13 @@
                         <select id="pcontact.specialty" name="pcontact.specialty">
                             <c:forEach items="${ specialties }" var="specialtyType">
                                 <option value="${ specialtyType.id }" ${ specialtyType.id == selectedSpecialty ? 'selected' : '' } >
-                                    <c:out value="${ specialtyType.specialty }"/>
+                                    ${e:forHtml(specialtyType.specialty)}
                                 </option>
                             </c:forEach>
                         </select>
                     </oscar:oscarPropertiesCheck>
                     <oscar:oscarPropertiesCheck property="DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM" value="false">
-                        <input type="text" name="pcontact.specialty" value="<c:out value="${ pcontact.specialty }"/>"
+                        <input type="text" name="pcontact.specialty" value="${e:forHtmlAttribute(pcontact.specialty)}"
                                size="30">
                     </oscar:oscarPropertiesCheck>
                 </td>
@@ -351,20 +352,20 @@
             <tr>
                 <td align="right"><b>CPSO#</b></td>
                 <td>
-                    <input type="text" name="pcontact.cpso" value="<c:out value="${pcontact.cpso}"/>" size="30">
+                    <input type="text" name="pcontact.cpso" value="${e:forHtmlAttribute(pcontact.cpso)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>System Id</b></td>
                 <td>
                     <input type="text" readonly="readonly"
-                           name="pcontact.systemId" value="<c:out value="${pcontact.systemId}"/>" size="30">
+                           name="pcontact.systemId" value="${e:forHtmlAttribute(pcontact.systemId)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>Note</b></td>
                 <td>
-                    <input type="text" name="pcontact.note" value="<c:out value="${pcontact.note}"/>" size="30">
+                    <input type="text" name="pcontact.note" value="${e:forHtmlAttribute(pcontact.note)}" size="30">
                 </td>
             </tr>
             <tr>

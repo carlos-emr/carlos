@@ -50,6 +50,7 @@
 -->
 
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="java.util.Properties" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%
@@ -136,7 +137,7 @@
         </table>
     </center>
     <form action="${pageContext.request.contextPath}/demographic/Contact.do" method="post">
-        <input type="hidden" name="contact.id" value="<c:out value="${contact.id}"/>"/>
+        <input type="hidden" name="contact.id" value="${e:forHtmlAttribute(contact.id)}"/>
         <input type="hidden" name="method" value="saveContact"/>
         <table width="100%" border="0" cellspacing="2" cellpadding="2">
             <tr>
@@ -145,31 +146,31 @@
             <tr>
                 <td align="right"><b>Last Name</b></td>
                 <td>
-                    <input type="text" name="contact.lastName" value="<c:out value="${contact.lastName}"/>" size="30">
+                    <input type="text" name="contact.lastName" value="${e:forHtmlAttribute(contact.lastName)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>First Name</b></td>
                 <td>
-                    <input type="text" name="contact.firstName" value="<c:out value="${contact.firstName}"/>" size="30">
+                    <input type="text" name="contact.firstName" value="${e:forHtmlAttribute(contact.firstName)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>Address</b></td>
                 <td>
-                    <input type="text" name="contact.address" value="<c:out value="${contact.address}"/>" size="50">
+                    <input type="text" name="contact.address" value="${e:forHtmlAttribute(contact.address)}" size="50">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>Address2</b></td>
                 <td>
-                    <input type="text" name="contact.address2" value="<c:out value="${contact.address2}"/>" size="50">
+                    <input type="text" name="contact.address2" value="${e:forHtmlAttribute(contact.address2)}" size="50">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>City</b></td>
                 <td>
-                    <input type="text" name="contact.city" value="<c:out value="${contact.city}"/>" size="30">
+                    <input type="text" name="contact.city" value="${e:forHtmlAttribute(contact.city)}" size="30">
                 </td>
             </tr>
             <tr bgcolor="#EEEEFF">
@@ -207,54 +208,54 @@
                         resident
                     </option>
                 </select> Country
-                    <input type="text" name="contact.country" value="<c:out value="${contact.country}"/>" size="2"
+                    <input type="text" name="contact.country" value="${e:forHtmlAttribute(contact.country)}" size="2"
                            maxlength="2">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>Postal</b></td>
                 <td>
-                    <input type="text" name="contact.postal" value="<c:out value="${contact.postal}"/>" size="30">
+                    <input type="text" name="contact.postal" value="${e:forHtmlAttribute(contact.postal)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>Res. Phone</b></td>
                 <td>
-                    <input type="text" name="contact.residencePhone" value="<c:out value="${contact.residencePhone}"/>"
+                    <input type="text" name="contact.residencePhone" value="${e:forHtmlAttribute(contact.residencePhone)}"
                            size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>Cell Phone</b></td>
                 <td>
-                    <input type="text" name="contact.cellPhone" value="<c:out value="${contact.cellPhone}"/>" size="30">
+                    <input type="text" name="contact.cellPhone" value="${e:forHtmlAttribute(contact.cellPhone)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>Work Phone</b></td>
                 <td>
-                    <input type="text" name="contact.workPhone" value="<c:out value="${contact.workPhone}"/>"
+                    <input type="text" name="contact.workPhone" value="${e:forHtmlAttribute(contact.workPhone)}"
                            size="15"/>
                     Ext: <input type="text" name="contact.workPhoneExtension"
-                                value="<c:out value="${contact.workPhoneExtension}"/>" size="10"/>
+                                value="${e:forHtmlAttribute(contact.workPhoneExtension)}" size="10"/>
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>Fax</b></td>
                 <td>
-                    <input type="text" name="contact.fax" value="<c:out value="${contact.fax}"/>" size="30">
+                    <input type="text" name="contact.fax" value="${e:forHtmlAttribute(contact.fax)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>Email</b></td>
                 <td>
-                    <input type="text" name="contact.email" value="<c:out value="${contact.email}"/>" size="30">
+                    <input type="text" name="contact.email" value="${e:forHtmlAttribute(contact.email)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b>Note</b></td>
                 <td>
-                    <input type="text" name="contact.note" value="<c:out value="${contact.note}"/>" size="30">
+                    <input type="text" name="contact.note" value="${e:forHtmlAttribute(contact.note)}" size="30">
                 </td>
             </tr>
             <tr>

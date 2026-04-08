@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="java.util.List, org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -103,7 +104,7 @@
             if (data != null) {
 
                 jQuery('#searchHealthCareTeamInput').attr('value', null);
-                var path = "<c:out value="${ oscar_context_path }" />/demographic/Contact.do";
+                var path = "${e:forJavaScript(oscar_context_path)}/demographic/Contact.do";
                 var target = '#listHealthCareTeam';
                 var json = JSON.parse(data);
 
@@ -360,9 +361,9 @@
                     <tr>
                         <td>&nbsp;</td>
                         <td>
-                            <c:out value="${ demographic.lastName }"/>,&nbsp;
-                            <c:out value="${ demographic.firstName }"/>&nbsp;
-                            <c:out value="${ demographic.age }"/>&nbsp;years
+                            ${e:forHtml(demographic.lastName)},&nbsp;
+                            ${e:forHtml(demographic.firstName)}&nbsp;
+                            ${e:forHtml(demographic.age)}&nbsp;years
                         </td>
                         <td style="text-align: right">
 
@@ -407,31 +408,31 @@
 
                         <tr>
                             <td class="alignRight">
-                                <c:out value="${ demographicContact.role }"/>
+                                ${e:forHtml(demographicContact.role)}
                             </td>
                             <td class="alignLeft">
-                                <c:out value="${ demographicContact.contactName }"/>
+                                ${e:forHtml(demographicContact.contactName)}
                             </td>
 
                             <c:if test="${ workPhone eq internal }">
-                                <td>&#40;<c:out value="${ internal }"/>&#41;</td>
+                                <td>&#40;${e:forHtml(internal)}&#41;</td>
                                 <td>&nbsp;</td>
                             </c:if>
 
                             <c:if test="${ workPhone ne internal }">
-                                <td><c:out value="${ workPhone }"/></td>
-                                <td><c:out value="${ demographicContact.details.fax }"/></td>
+                                <td>${e:forHtml(workPhone)}</td>
+                                <td>${e:forHtml(demographicContact.details.fax)}</td>
                             </c:if>
 
                             <td class="alignRight">
                                 <input type="button"
-                                       id="remove<c:out value="${ demographicContact.type }" />_<c:out value="${ demographicContact.id }" />"
+                                       id="remove${e:forHtmlAttribute(demographicContact.type)}_${e:forHtmlAttribute(demographicContact.id)}"
                                        class="actionlink" value="remove"/>
                             </td>
                             <td class="alignLeft">
                                 <c:if test="${ demographicContact.type gt 0 }">
                                     <input type="button"
-                                           id="edit<c:out value="${ demographicContact.type }" />_<c:out value="${ demographicContact.id }" />"
+                                           id="edit${e:forHtmlAttribute(demographicContact.type)}_${e:forHtmlAttribute(demographicContact.id)}"
                                            class="actionlink" value="edit"/>
                                 </c:if>
                             </td>
@@ -461,8 +462,8 @@
                             <select name="internalProviderList" id="internalProviderList">
                                 <c:forEach items="${ providerList }" var="providerDetail">
                                     <option value="${ providerDetail.providerNo }">
-                                        <c:out value="${ providerDetail.formattedName }"/>
-                                        &#40;<c:out value="${ providerDetail.specialty }"/>&#41;
+                                        ${e:forHtml(providerDetail.formattedName)}
+                                        &#40;${e:forHtml(providerDetail.specialty)}&#41;
                                     </option>
                                 </c:forEach>
                             </select>
@@ -477,7 +478,7 @@
                             <select id="selectHealthCareTeamRoleType" name="selectHealthCareTeamRoleType">
                                 <c:forEach items="${ specialty }" var="specialtyType">
                                     <option value="${ specialtyType.id }" ${ specialtyType.specialty eq 'UNKNOWN' ? 'selected' : '' } >
-                                        <c:out value="${ specialtyType.specialty }"/>
+                                        ${e:forHtml(specialtyType.specialty)}
                                     </option>
                                 </c:forEach>
                             </select>
