@@ -288,7 +288,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
                 cust.setDemographicNo(demographicNo);
                 cust.setCreateDate(new Date());
 
-                logger.debug("SAVE {}", LogSanitizer.sanitize(cust));
+                logger.debug("SAVE {}", LogSanitizer.sanitize(String.valueOf(cust)));
 
                 flowSheetCustomizationDao.persist(cust);
 
