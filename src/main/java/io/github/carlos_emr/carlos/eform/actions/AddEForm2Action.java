@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.match.IMatchManager;
 import io.github.carlos_emr.carlos.match.MatchManager;
 import io.github.carlos_emr.carlos.match.MatchManagerException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -74,6 +75,14 @@ public class AddEForm2Action extends ActionSupport {
 
 
     private static final Logger logger = MiscUtils.getLogger();
+
+    /**
+     * Validates the eform_link parameter format to prevent session attribute injection (CWE-501).
+     * Expected format: {providerNo}_{demographicNo}_{fid}_{fieldName}
+     * Example: "999998_12345_67_referralForm"
+     */
+    static final String EFORM_LINK_PATTERN = "^[a-zA-Z0-9]{1,6}_\\d{1,10}_\\d{1,10}_[a-zA-Z0-9_.-]{1,50}$";
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
     private DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
@@ -111,6 +120,15 @@ public class AddEForm2Action extends ActionSupport {
         String fid = request.getParameter("efmfid");
         String demographic_no = request.getParameter("efmdemographic_no");
         String eform_link = request.getParameter("eform_link");
+
+        // Validate eform_link: must match the expected linking pattern
+        // Format: {providerNo}_{demographicNo}_{fid}_{fieldName}
+        // Prevents session attribute injection (CWE-501)
+        if (eform_link != null && !eform_link.matches(EFORM_LINK_PATTERN)) {
+            logger.warn("Invalid eform_link parameter rejected: {}", LogSanitizer.sanitize(eform_link));
+            eform_link = null;
+        }
+
         String subject = request.getParameter("subject");
 
         /*
