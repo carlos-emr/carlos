@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import java.util.Enumeration;
@@ -78,17 +79,23 @@ public class DbManageBillingformPremiumDelete2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
-        // Iterate all parameters; process only those whose name contains "service"
-        Enumeration<String> paramNames = request.getParameterNames();
-        while (paramNames.hasMoreElements()) {
-            String paramName = paramNames.nextElement();
-            if (!paramName.contains("service")) {
-                continue;
+        try {
+            // Iterate all parameters; process only those whose name contains "service"
+            Enumeration<String> paramNames = request.getParameterNames();
+            while (paramNames.hasMoreElements()) {
+                String paramName = paramNames.nextElement();
+                if (!paramName.contains("service")) {
+                    continue;
+                }
+                String serviceCode = request.getParameter(paramName);
+                for (CtlBillingServicePremium b : dao.findByServiceCode(serviceCode)) {
+                    dao.remove(b.getId());
+                }
             }
-            String serviceCode = request.getParameter(paramName);
-            for (CtlBillingServicePremium b : dao.findByServiceCode(serviceCode)) {
-                dao.remove(b.getId());
-            }
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to delete premium service codes", e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to delete premium service codes");
+            return NONE;
         }
 
         response.sendRedirect(request.getContextPath() + "/billing/manageBillingform.jsp");

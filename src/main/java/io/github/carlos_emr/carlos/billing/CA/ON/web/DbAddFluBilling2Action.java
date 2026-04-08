@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -82,7 +83,7 @@ public class DbAddFluBilling2Action extends ActionSupport {
      * returned. Otherwise {@code billSaved} is set as a request attribute and
      * {@link #SUCCESS} is returned.
      *
-     * @return {@link #SUCCESS}, or {@link #NONE} for a redirect or invalid method
+     * @return {@link #SUCCESS}, {@link #ERROR} for validation failures, or {@link #NONE} for a redirect or invalid method
      * @throws Exception if an unexpected error occurs during persistence
      */
     @Override
@@ -124,7 +125,7 @@ public class DbAddFluBilling2Action extends ActionSupport {
         }
 
         if (svcPrice == null || !svcPrice.contains(".")) {
-            MiscUtils.getLogger().error("DbAddFluBilling2Action: svcPrice is null or has no decimal for svcCode={}", request.getParameter("svcCode"));
+            MiscUtils.getLogger().error("DbAddFluBilling2Action: svcPrice is null or has no decimal for svcCode={}", LogSanitizer.sanitize(request.getParameter("svcCode")));
             addActionError("Service code price could not be resolved.");
             return ERROR;
         }
@@ -137,15 +138,13 @@ public class DbAddFluBilling2Action extends ActionSupport {
         String providers = request.getParameter("providers");
         String providerOhipNo = "";
         String providerNo = "";
-        if (providers == null || !providers.contains("#")) {
-            MiscUtils.getLogger().error("DbAddFluBilling2Action: invalid providers format: {}", providers);
+        if (providers == null || !providers.contains("##") || providers.length() < 8) {
+            MiscUtils.getLogger().error("DbAddFluBilling2Action: invalid providers format: {}", LogSanitizer.sanitize(providers));
             addActionError("Invalid provider selection. Expected format: OHIP##providerNo.");
             return ERROR;
         }
-        if (providers.length() >= 7) {
-            providerOhipNo = providers.substring(0, 6);
-            providerNo = providers.substring(7);
-        }
+        providerOhipNo = providers.substring(0, 6);
+        providerNo = providers.substring(7);
 
         if (demoNo == null || demoNo.trim().isEmpty()) {
             addActionError("Missing demographic number (functionid).");

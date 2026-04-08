@@ -102,6 +102,12 @@
                 }
             }
 
+            function postToPopup(formId, vheight, vwidth) {
+                var windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
+                window.open("", "groupno", windowprops);
+                document.getElementById(formId).submit();
+            }
+
             function popupPage(vheight, vwidth, varpage) { //open a new popup window
                 var page = "" + varpage;
                 windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";//360,680
@@ -457,7 +463,9 @@
                         </a>
                     </li>
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/DbReportAgeSex.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAgeSexReport"/></a></li>
+                           onclick='postToPopup("ageSexForm",600,900);return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAgeSexReport"/></a>
+                        <form id="ageSexForm" method="post" action="${pageContext.request.contextPath}/oscarReport/DbReportAgeSex.do" target="groupno" style="display:none"></form>
+                    </li>
                     <li><a href="#"
                            onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/oscarReportVisitControl.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnVisitReport"/></a></li>
                         <%-- This links doesnt make sense on Brazil. Hide then --%>

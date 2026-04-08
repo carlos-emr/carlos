@@ -56,7 +56,7 @@
     - updateParent:         Whether to update the parent encounter window (true/false)
     - recall:               If present, intended to mark this as a recall tickler.
                             NOTE: This parameter is currently read but not yet
-                            propagated to the tickler model. See dbTicklerAdd.jsp.
+                            propagated to the tickler model. See DbTicklerAdd2Action.
     - docType:              Optional document type for linking
     - docId:                Optional document ID for linking
 

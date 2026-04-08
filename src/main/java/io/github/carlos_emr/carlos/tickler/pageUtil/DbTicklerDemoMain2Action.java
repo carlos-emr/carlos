@@ -38,6 +38,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -72,7 +73,7 @@ public final class DbTicklerDemoMain2Action extends ActionSupport {
 
     /**
      * Updates tickler statuses from the submitted checkboxes and redirects to the
-     * demographic-specific tickler listing.
+     * main tickler listing ({@code ticklerMain.jsp}) with view parameters preserved.
      *
      * @return {@link #NONE} after redirecting
      * @throws SecurityException if the user lacks {@code _tickler} update privilege
@@ -121,6 +122,7 @@ public final class DbTicklerDemoMain2Action extends ActionSupport {
             }
         }
 
+        int failCount = 0;
         for (String ticklerIdStr : checkboxes) {
             try {
                 Tickler t = ticklerManager.getTickler(loggedInInfo, Integer.parseInt(ticklerIdStr));
@@ -129,12 +131,17 @@ public final class DbTicklerDemoMain2Action extends ActionSupport {
                             loggedInInfo.getLoggedInProviderNo(), status);
                 }
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().error("Invalid tickler checkbox value: {}", ticklerIdStr, e);
+                MiscUtils.getLogger().error("Invalid tickler checkbox value: {}", LogSanitizer.sanitize(ticklerIdStr), e);
+                failCount++;
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Failed to update tickler status for ID: {}", ticklerIdStr, e);
+                MiscUtils.getLogger().error("Failed to update tickler status for ID: {}", LogSanitizer.sanitize(ticklerIdStr), e);
+                failCount++;
             }
         }
 
+        if (failCount > 0) {
+            redirectUrl += "&failCount=" + failCount;
+        }
         response.sendRedirect(redirectUrl);
         return NONE;
     }

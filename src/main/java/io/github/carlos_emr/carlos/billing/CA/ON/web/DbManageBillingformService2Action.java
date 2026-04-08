@@ -35,6 +35,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -108,7 +109,7 @@ public class DbManageBillingformService2Action extends ActionSupport {
                         try {
                             serviceOrder = Integer.parseInt(orderStr);
                         } catch (NumberFormatException e) {
-                            MiscUtils.getLogger().warn("Invalid serviceOrder value '{}' for group{}_service{} — defaulting to 0", orderStr, j, i);
+                            MiscUtils.getLogger().warn("Invalid serviceOrder value '{}' for group{}_service{} — defaulting to 0", LogSanitizer.sanitize(orderStr), j, i);
                             serviceOrder = 0;
                         }
                     }

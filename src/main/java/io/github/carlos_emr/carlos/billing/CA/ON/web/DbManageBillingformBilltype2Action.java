@@ -87,6 +87,11 @@ public class DbManageBillingformBilltype2Action extends ActionSupport {
         String billtype = Objects.toString(request.getParameter("billtype"), "");
         String billtypeOld = Objects.toString(request.getParameter("billtype_old"), "");
 
+        if (servicetype.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing servicetype parameter");
+            return NONE;
+        }
+
         try {
             if (billtype.equals("no")) {
                 // Remove the existing billing type entry by its String ID
@@ -106,9 +111,12 @@ public class DbManageBillingformBilltype2Action extends ActionSupport {
                     cbt.setBillType(billtype);
                     ctlBillingTypeDao.merge(cbt);
                 } else {
-                    MiscUtils.getLogger().warn(
-                            "DbManageBillingformBilltype2Action: no CtlBillingType found for servicetype={} — update skipped",
+                    MiscUtils.getLogger().error(
+                            "DbManageBillingformBilltype2Action: no CtlBillingType found for servicetype={} — update failed",
                             servicetype);
+                    response.sendError(HttpServletResponse.SC_NOT_FOUND,
+                            "Billing type entry not found for the specified service type");
+                    return NONE;
                 }
             }
         } catch (Exception e) {

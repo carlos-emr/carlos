@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.commn.model.CtlDiagCode;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.util.Objects;
 
@@ -92,18 +92,24 @@ public class DbManageBillingformDelete2Action extends ActionSupport {
             return NONE;
         }
 
-        // Remove all billing service entries for this service type
-        for (CtlBillingService b : billingServiceDao.findByServiceType(typeid)) {
-            billingServiceDao.remove(b.getId());
-        }
+        try {
+            // Remove all billing service entries for this service type
+            for (CtlBillingService b : billingServiceDao.findByServiceType(typeid)) {
+                billingServiceDao.remove(b.getId());
+            }
 
-        // Remove all diagnostic code entries for this service type
-        for (CtlDiagCode d : diagCodeDao.findByServiceType(typeid)) {
-            diagCodeDao.remove(d.getId());
-        }
+            // Remove all diagnostic code entries for this service type
+            for (CtlDiagCode d : diagCodeDao.findByServiceType(typeid)) {
+                diagCodeDao.remove(d.getId());
+            }
 
-        // Remove the billing type entry by its String ID
-        billingTypeDao.remove(typeid);
+            // Remove the billing type entry by its String ID
+            billingTypeDao.remove(typeid);
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to delete billing form for servicetype={} — data may be inconsistent", typeid, e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to delete billing form");
+            return NONE;
+        }
 
         return SUCCESS;
     }

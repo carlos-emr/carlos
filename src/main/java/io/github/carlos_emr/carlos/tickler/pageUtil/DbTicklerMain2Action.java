@@ -38,6 +38,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -124,6 +125,7 @@ public final class DbTicklerMain2Action extends ActionSupport {
             }
         }
 
+        int failCount = 0;
         for (String ticklerIdStr : checkboxes) {
             try {
                 Tickler t = ticklerManager.getTickler(loggedInInfo, Integer.parseInt(ticklerIdStr));
@@ -132,13 +134,19 @@ public final class DbTicklerMain2Action extends ActionSupport {
                             loggedInInfo.getLoggedInProviderNo(), status);
                 }
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().error("Invalid tickler checkbox value: {}", ticklerIdStr, e);
+                MiscUtils.getLogger().error("Invalid tickler checkbox value: {}", LogSanitizer.sanitize(ticklerIdStr), e);
+                failCount++;
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Failed to update tickler status for ID: {}", ticklerIdStr, e);
+                MiscUtils.getLogger().error("Failed to update tickler status for ID: {}", LogSanitizer.sanitize(ticklerIdStr), e);
+                failCount++;
             }
         }
 
-        response.sendRedirect(request.getContextPath() + "/tickler/ticklerMain.jsp");
+        String redirect = request.getContextPath() + "/tickler/ticklerMain.jsp";
+        if (failCount > 0) {
+            redirect += "?failCount=" + failCount;
+        }
+        response.sendRedirect(redirect);
         return NONE;
     }
 }

@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import java.util.Date;
@@ -78,19 +78,25 @@ public class DbManageBillingformPremium2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
-        // Persist each non-empty service parameter (indices 1–10)
-        for (int i = 1; i < 11; i++) {
-            String serviceCode = request.getParameter("service" + i);
-            if (serviceCode == null || serviceCode.isEmpty()) {
-                continue;
-            }
+        try {
+            // Persist each non-empty service parameter (indices 1–10)
+            for (int i = 1; i < 11; i++) {
+                String serviceCode = request.getParameter("service" + i);
+                if (serviceCode == null || serviceCode.isEmpty()) {
+                    continue;
+                }
 
-            CtlBillingServicePremium cbsp = new CtlBillingServicePremium();
-            cbsp.setServiceTypeName("Office");
-            cbsp.setServiceCode(serviceCode);
-            cbsp.setStatus("A");
-            cbsp.setUpdateDate(new Date());
-            ctlBillingServicePremiumDao.persist(cbsp);
+                CtlBillingServicePremium cbsp = new CtlBillingServicePremium();
+                cbsp.setServiceTypeName("Office");
+                cbsp.setServiceCode(serviceCode);
+                cbsp.setStatus("A");
+                cbsp.setUpdateDate(new Date());
+                ctlBillingServicePremiumDao.persist(cbsp);
+            }
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to add premium service codes", e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to add premium service codes");
+            return NONE;
         }
 
         response.sendRedirect(request.getContextPath() + "/billing/CA/ON/manageBillingform.jsp");

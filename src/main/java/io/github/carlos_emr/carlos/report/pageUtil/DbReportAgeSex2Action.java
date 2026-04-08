@@ -32,18 +32,20 @@ package io.github.carlos_emr.carlos.report.pageUtil;
 import java.util.Date;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.commn.dao.ReportAgeSexDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Struts2 action for regenerating the age/sex report data.
  *
- * <p>Migrated from {@code oscarReport/dbReportAgeSex.jsp}. Accepts GET or POST and
+ * <p>Migrated from {@code oscarReport/dbReportAgeSex.jsp}. Accepts POST only and
  * enforces {@code _report} or {@code _admin.reporting} read privilege (matching the
  * original JSP security check). Deletes stale age/sex records, repopulates them using
  * a hardcoded year-of-birth floor of 1800, then forwards to the report view.
@@ -55,6 +57,7 @@ public class DbReportAgeSex2Action extends ActionSupport {
     private static final long serialVersionUID = 1L;
 
     private final HttpServletRequest request = ServletActionContext.getRequest();
+    private final HttpServletResponse response = ServletActionContext.getResponse();
 
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final ReportAgeSexDao reportAgeSexDao = SpringUtils.getBean(ReportAgeSexDao.class);
@@ -67,14 +70,25 @@ public class DbReportAgeSex2Action extends ActionSupport {
      */
     @Override
     public String execute() throws Exception {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.reporting", "r", null)) {
             throw new SecurityException("missing required security object (_report or _admin.reporting)");
         }
 
-        reportAgeSexDao.deleteAllByDate(new Date());
-        reportAgeSexDao.populateAll("1800");
+        try {
+            reportAgeSexDao.deleteAllByDate(new Date());
+            reportAgeSexDao.populateAll("1800");
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to regenerate age/sex report data — data may be inconsistent", e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to regenerate report data");
+            return NONE;
+        }
 
         return SUCCESS;
     }

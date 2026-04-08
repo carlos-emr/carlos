@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -182,12 +183,13 @@ public final class DbTicklerAdd2Action extends ActionSupport {
                     ticklerLinkDao.save(tLink);
                 } catch (NumberFormatException e) {
                     MiscUtils.getLogger().error(
-                            "Invalid docId format for TicklerLink: ticklerNo=" + ticklerNo + ", docId=" + docId, e);
+                            "Invalid docId format for TicklerLink: ticklerNo={}, docId={}",
+                            ticklerNo, LogSanitizer.sanitize(docId), e);
                     ticklerLinkFailed = true;
                 } catch (Exception e) {
                     MiscUtils.getLogger().error(
-                            "Failed to save TicklerLink for ticklerNo=" + ticklerNo
-                            + ", docType=" + docType + ", docId=" + docId, e);
+                            "Failed to save TicklerLink for ticklerNo={}, docType={}, docId={}",
+                            ticklerNo, LogSanitizer.sanitize(docType), LogSanitizer.sanitize(docId), e);
                     ticklerLinkFailed = true;
                 }
             }

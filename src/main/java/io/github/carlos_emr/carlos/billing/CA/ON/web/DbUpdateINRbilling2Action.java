@@ -72,8 +72,8 @@ public class DbUpdateINRbilling2Action extends ActionSupport {
     /**
      * Validates input codes, then updates or deletes the specified INR billing record.
      *
-     * @return {@link #SUCCESS} to forward to the view JSP, or {@link #NONE} if the method
-     *         is not POST
+     * @return {@link #SUCCESS} to forward to the view JSP, {@link #ERROR} for validation failures,
+     *         or {@link #NONE} if the method is not POST
      * @throws Exception if an unexpected error occurs during persistence
      */
     @Override
@@ -123,6 +123,9 @@ public class DbUpdateINRbilling2Action extends ActionSupport {
                 serviceDesc = bs.getDescription();
                 serviceCode = bs.getServiceCode();
                 serviceAmount = bs.getValue();
+            }
+            if (serviceAmount.isEmpty()) {
+                errorCode += "Service code not found in current fee schedule.\n";
             }
         }
 

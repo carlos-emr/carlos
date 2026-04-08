@@ -65,7 +65,7 @@ public class DbINRbilling2Action extends ActionSupport {
     /**
      * Validates the request, builds and persists a new {@link BillingInr} record.
      *
-     * @return {@link #SUCCESS} on success, or {@link #NONE} if the method is not POST
+     * @return {@link #SUCCESS} on success, {@link #ERROR} for validation failures, or {@link #NONE} if the method is not POST
      * @throws Exception if an unexpected error occurs during persistence
      */
     @Override
