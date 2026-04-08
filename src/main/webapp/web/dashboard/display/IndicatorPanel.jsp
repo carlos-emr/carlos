@@ -42,11 +42,11 @@
     <div class="row indicatorData">
         <div class="col-md-12">
 
-            <input type="hidden" id="graphPlots_${ indicatorPanel.id }" value="${ indicatorPanel.stringArrayPlots }"/>
-            <input type="hidden" id="graphLabels_${ indicatorPanel.id }"
+            <input type="hidden" id="graphPlots_${indicatorPanel.id}" value="${ indicatorPanel.stringArrayPlots }"/>
+            <input type="hidden" id="graphLabels_${indicatorPanel.id}"
                    value="${ indicatorPanel.stringArrayTooltips }"/>
-            <div class="indicatorGraph" id="graphContainer_${ indicatorPanel.id }">
-                <canvas id="graphCanvas_${ indicatorPanel.id }" role="img" aria-label="Indicator chart"></canvas>
+            <div class="indicatorGraph" id="graphContainer_${indicatorPanel.id}">
+                <canvas id="graphCanvas_${indicatorPanel.id}" role="img" aria-label="Indicator chart"></canvas>
             </div>
         </div>
     </div>
@@ -62,12 +62,12 @@
             <ul class="dropdown-menu float-end text-start">
                 <li>
                     <a class="dropdown-item" href="javascript:void(0)" data-bs-toggle="modal"
-                       data-bs-target="#indicatorInfo_${ indicatorPanel.id }">
+                       data-bs-target="#indicatorInfo_${indicatorPanel.id}">
                         Indicator Info
                     </a>
                 </li>
                 <li>
-                    <a class="dropdown-item indicatorDrilldownBtn" href="javascript:void(0)" id="getDrilldown_${ indicatorPanel.id }">
+                    <a class="dropdown-item indicatorDrilldownBtn" href="javascript:void(0)" id="getDrilldown_${indicatorPanel.id}">
                         Drill Down
                     </a>
                 </li>
