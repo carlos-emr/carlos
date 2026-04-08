@@ -22,7 +22,8 @@ recognizing that the data has been sanitized by project utilities like
 ## Built-in Rules to Disable in Semgrep Cloud
 
 When a custom rule replaces built-in rules, the built-in rules **must** be
-disabled in the [Semgrep Cloud policy dashboard](https://semgrep.dev/orgs/-/policies)
+disabled in the Semgrep Cloud policy dashboard for your organization
+(`https://semgrep.dev/orgs/<org>/policies`)
 to avoid duplicate alerts:
 
 ### CRLF Injection in Logs (`crlf-injection-logs-carlos.yml`)
