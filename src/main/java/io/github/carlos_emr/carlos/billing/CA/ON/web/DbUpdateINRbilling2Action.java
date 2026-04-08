@@ -109,7 +109,7 @@ public class DbUpdateINRbilling2Action extends ActionSupport {
 
         // Validate and resolve service code
         if (serviceCode.isEmpty()) {
-            errorCode += "Please input a service code.<br>";
+            errorCode += "Please input a service code.\n";
         } else {
             serviceCode = serviceCode.substring(0, Math.min(5, serviceCode.length()));
             Calendar cal = GregorianCalendar.getInstance();
@@ -128,7 +128,7 @@ public class DbUpdateINRbilling2Action extends ActionSupport {
 
         // Validate diagnostic code — must be exactly 3 numeric digits
         if (diagCode.isEmpty()) {
-            errorCode += "Please input a diagnostic code.<br>";
+            errorCode += "Please input a diagnostic code.\n";
         } else {
             diagCode = diagCode.substring(0, Math.min(3, diagCode.length()));
             StringBuilder numCode = new StringBuilder();
@@ -140,7 +140,7 @@ public class DbUpdateINRbilling2Action extends ActionSupport {
             }
             if (numCode.length() < 3) {
                 diagCode = "000";
-                errorCode += "Please input a diagnostic code.<br>";
+                errorCode += "Please input a diagnostic code.\n";
             }
         }
 
@@ -153,9 +153,9 @@ public class DbUpdateINRbilling2Action extends ActionSupport {
 
                 BillingInr b = billingInrDao.find(Integer.parseInt(billinginrNo));
                 if (b == null) {
-                    errorCode += "Billing INR record was not found.<br>";
+                    errorCode += "Billing INR record was not found.\n";
                 } else if ("D".equals(b.getStatus())) {
-                    errorCode += "Billing INR record has already been deleted.<br>";
+                    errorCode += "Billing INR record has already been deleted.\n";
                 } else {
                     b.setHin(demoHin);
                     b.setDob(demoDob);
@@ -169,9 +169,9 @@ public class DbUpdateINRbilling2Action extends ActionSupport {
             } else if ("delete".equals(inraction)) {
                 BillingInr bi = billingInrDao.find(Integer.parseInt(billinginrNo));
                 if (bi == null) {
-                    errorCode += "Billing INR record was not found.<br>";
+                    errorCode += "Billing INR record was not found.\n";
                 } else if ("D".equals(bi.getStatus())) {
-                    errorCode += "Billing INR record has already been deleted.<br>";
+                    errorCode += "Billing INR record has already been deleted.\n";
                 } else {
                     bi.setStatus("D");
                     bi.setCreateDateTime(new Date());
@@ -179,7 +179,7 @@ public class DbUpdateINRbilling2Action extends ActionSupport {
                 }
 
             } else {
-                errorCode += "Unknown action: expected 'update' or 'delete'.<br>";
+                errorCode += "Unknown action: expected 'update' or 'delete'.\n";
             }
         }
 

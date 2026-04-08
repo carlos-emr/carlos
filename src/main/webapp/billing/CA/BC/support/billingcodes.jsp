@@ -27,6 +27,8 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -49,9 +51,14 @@
     %>
     <script language="JavaScript">
     function posttoText(index){
+    <%if (form == null || form.isEmpty() || field == null || field.isEmpty()) {%>
+    alert("Error: Missing form configuration. Cannot transfer the selected code.");
+    return;
+    <%} else {%>
     self.close();
-    opener.document.<%=form%>.<%=field%>.value = index;
+    opener.document["<%= Encode.forJavaScript(form) %>"]["<%= Encode.forJavaScript(field) %>"].value = index;
     opener.focus();
+    <%}%>
     }
     </script>
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0">
@@ -79,9 +86,9 @@
     <tr <%=((color) ? "bgcolor=\"#F6F6F6\"" : "")%> align="left"
     valign="top">
     <td class="SmallerText"><a href=#
-    onClick="posttoText('<%=bs.getServiceCode()%>');"><%=bs.getServiceCode()%></a>
+    onClick="posttoText('<%= Encode.forJavaScriptAttribute(StringUtils.noNull(bs.getServiceCode())) %>');"><%= Encode.forHtml(StringUtils.noNull(bs.getServiceCode())) %></a>
     </td>
-    <td class="SmallerText"><%=bs.getDescription()%></td>
+    <td class="SmallerText"><%= Encode.forHtml(StringUtils.noNull(bs.getDescription())) %></td>
     </tr>
     <%
             color = !(color);

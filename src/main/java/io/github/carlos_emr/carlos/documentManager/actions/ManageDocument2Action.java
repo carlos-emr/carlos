@@ -74,6 +74,7 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -220,6 +221,10 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        if (demog != null && !demog.matches("^\\d+$")) {
+            throw new SecurityException("Invalid demographic number");
+        }
+
         LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr(), demog);
 
         String[] flagproviders = request.getParameterValues("flagproviders");
@@ -309,9 +314,13 @@ public class ManageDocument2Action extends ActionSupport {
         hm.put("patientId", demog);
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.setContentType("application/json;charset=UTF-8");
+            response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("IOException writing JSON response in documentUpdateAjax", e);
+            if (!response.isCommitted()) {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
         }
 
     }
@@ -329,13 +338,21 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
+        if (dn != null && !dn.matches("^\\d+$")) {
+            throw new SecurityException("Invalid demographic number");
+        }
+
         HashMap hm = new HashMap();
         hm.put("demoName", getDemoName(LoggedInInfo.getLoggedInInfoFromSession(request), dn));
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.setContentType("application/json;charset=UTF-8");
+            response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("IOException writing JSON response in getDemoNameAjax", e);
+            if (!response.isCommitted()) {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
         }
     }
 
@@ -360,9 +377,13 @@ public class ManageDocument2Action extends ActionSupport {
 
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.setContentType("application/json;charset=UTF-8");
+            response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("IOException writing JSON response in removeLinkFromDocument", e);
+            if (!response.isCommitted()) {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
         }
     }
 
@@ -829,9 +850,13 @@ public class ManageDocument2Action extends ActionSupport {
             HashMap hm = new HashMap();
             hm.put("numOfPage", numOfPage);
             ObjectNode jsonObject = objectMapper.valueToTree(hm);
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.setContentType("application/json;charset=UTF-8");
+            response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("IOException reading PDF page count for doc_no: " + LogSanitizer.sanitize(doc_no), e);
+            if (!response.isCommitted()) {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
         }
     }
 
@@ -990,17 +1015,17 @@ public class ManageDocument2Action extends ActionSupport {
         if (viewDocumentDescriptionFlag) {
             EDoc curDoc = EDocUtil.getDoc(doc_no);
             ResourceBundle props = ResourceBundle.getBundle("oscarResources", locale);
-            out.println("<br>" + props.getString("dms.documentBrowser.DocumentUpdated") + ": " + curDoc.getDateTimeStamp());
-            out.println("<br>" + props.getString("dms.documentBrowser.ContentUpdated") + ": " + curDoc.getContentDateTime());
-            out.println("<br>" + props.getString("dms.documentBrowser.ObservationDate") + ": " + curDoc.getObservationDate());
-            out.println("<br>" + props.getString("dms.documentBrowser.Type") + ": " + curDoc.getType());
-            out.println("<br>" + props.getString("dms.documentBrowser.Class") + ": " + curDoc.getDocClass());
-            out.println("<br>" + props.getString("dms.documentBrowser.Subclass") + ": " + curDoc.getDocSubClass());
-            out.println("<br>" + props.getString("dms.documentBrowser.Description") + ": " + curDoc.getDescription());
-            out.println("<br>" + props.getString("dms.documentBrowser.Creator") + ": " + curDoc.getCreatorName());
-            out.println("<br>" + props.getString("dms.documentBrowser.Responsible") + ": " + curDoc.getResponsibleName());
-            out.println("<br>" + props.getString("dms.documentBrowser.Reviewer") + ": " + curDoc.getReviewerName());
-            out.println("<br>" + props.getString("dms.documentBrowser.Source") + ": " + curDoc.getSource());
+            out.println("<br>" + props.getString("dms.documentBrowser.DocumentUpdated") + ": " + Encode.forHtml(Objects.toString(curDoc.getDateTimeStamp(), "")));
+            out.println("<br>" + props.getString("dms.documentBrowser.ContentUpdated") + ": " + Encode.forHtml(Objects.toString(curDoc.getContentDateTime(), "")));
+            out.println("<br>" + props.getString("dms.documentBrowser.ObservationDate") + ": " + Encode.forHtml(Objects.toString(curDoc.getObservationDate(), "")));
+            out.println("<br>" + props.getString("dms.documentBrowser.Type") + ": " + Encode.forHtml(Objects.toString(curDoc.getType(), "")));
+            out.println("<br>" + props.getString("dms.documentBrowser.Class") + ": " + Encode.forHtml(Objects.toString(curDoc.getDocClass(), "")));
+            out.println("<br>" + props.getString("dms.documentBrowser.Subclass") + ": " + Encode.forHtml(Objects.toString(curDoc.getDocSubClass(), "")));
+            out.println("<br>" + props.getString("dms.documentBrowser.Description") + ": " + Encode.forHtml(Objects.toString(curDoc.getDescription(), "")));
+            out.println("<br>" + props.getString("dms.documentBrowser.Creator") + ": " + Encode.forHtml(Objects.toString(curDoc.getCreatorName(), "")));
+            out.println("<br>" + props.getString("dms.documentBrowser.Responsible") + ": " + Encode.forHtml(Objects.toString(curDoc.getResponsibleName(), "")));
+            out.println("<br>" + props.getString("dms.documentBrowser.Reviewer") + ": " + Encode.forHtml(Objects.toString(curDoc.getReviewerName(), "")));
+            out.println("<br>" + props.getString("dms.documentBrowser.Source") + ": " + Encode.forHtml(Objects.toString(curDoc.getSource(), "")));
         }
 
         out.println("</body></html>");

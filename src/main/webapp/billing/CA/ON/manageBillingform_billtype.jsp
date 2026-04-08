@@ -56,9 +56,9 @@
 
 <table width=95%>
     <tr>
-        <td class="black" width="15%"><%= Encode.forHtml(type_id) %>
+        <td class="black" width="15%"><%=Encode.forHtml(type_id)%>
         </td>
-        <td class="black" height="30"><%= Encode.forHtml(type_name) %>
+        <td class="black" height="30"><%=Encode.forHtml(type_name)%>
         </td>
     </tr>
     <tr>
@@ -67,8 +67,8 @@
             <p>&nbsp;<br>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform_add.formDefaultBillType"/>
                 :<br>
-                <input type="hidden" name="bill_servicetype" value="<%= Encode.forHtmlAttribute(type_id) %>">
-                <input type="hidden" name="billtype_old" value="<%= Encode.forHtmlAttribute(billtype) %>">
+                <input type="hidden" name="bill_servicetype" value="<%=Encode.forHtmlAttribute(type_id)%>">
+                <input type="hidden" name="billtype_old" value="<%=Encode.forHtmlAttribute(billtype)%>">
                 <select name="billtype_new">
                     <option value="no" <%=billtype.equals("no") ? "selected" : ""%>>--
                         no --
@@ -92,7 +92,7 @@
                                  onclick="manageBillType(bill_servicetype.value, billtype_old.value, billtype_new.value);"><br>
             </p>
             <p><input type="button" value="Delete Billing Form"
-                      onclick="onUnbilled('<%= Encode.forJavaScript(type_id) %>');"></p>
+                      onclick="onUnbilled('<%=Encode.forJavaScript(type_id)%>');">
             <p><input type="button" value="Cancel"
                       onclick="showManageType(false);"></p>
         </td>

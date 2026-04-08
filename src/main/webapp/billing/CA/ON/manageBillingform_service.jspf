@@ -28,6 +28,8 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <form method="post" name="form1"
 	action="DbManageBillingformService.do">
@@ -98,8 +100,8 @@ int rCount = 0;
 		<td colspan="3"><input type="submit" name="submit"
 			value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform_service.btnUpdate"/>"><input
 			type="hidden" name="typeid"
-			value="<%=request.getParameter("billingform")%>"><input
-			type="hidden" name="type" value="<%=service_name%>"></td>
+			value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billingform"))) %>"><input
+			type="hidden" name="type" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(service_name)) %>"></td>
 	</tr>
 </table>
 </form>

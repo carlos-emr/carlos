@@ -30,9 +30,6 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
-import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
-import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
-import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.DrugReasonDao;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
@@ -68,7 +65,6 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -211,12 +207,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 logger.warn("Drug.special appears to be empty : " + rx.getSpecial() + " : " + this.getSpecial());
             }
 
-            String annotation_attrib = request.getParameter("annotation_attrib");
-            if (annotation_attrib == null) {
-                annotation_attrib = "";
-            }
-
-            bean.addAttributeName(annotation_attrib, bean.getStashIndex());
             bean.setStashItem(bean.getStashIndex(), rx);
             rx = null;
 
@@ -230,9 +220,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 // SAVE THE DRUG
                 int i;
                 String scriptId = prescription.saveScript(loggedInInfo, bean);
-                @SuppressWarnings("unchecked")
-                ArrayList<String> attrib_names = bean.getAttributeNames();
-                // p("attrib_names", attrib_names.toString());
                 StringBuilder auditStr = new StringBuilder();
                 for (i = 0; i < bean.getStashSize(); i++) {
                     rx = bean.getStashItem(i);
@@ -241,24 +228,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                     auditStr.append(rx.getAuditString());
                     auditStr.append("\n");
 
-                    /* Save annotation */
-                    HttpSession se = request.getSession();
-                    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(se.getServletContext());
-                    CaseManagementManager cmm = (CaseManagementManager) ctx.getBean(CaseManagementManager.class);
-                    String attrib_name = attrib_names.get(i);
-                    if (attrib_name != null) {
-                        CaseManagementNote cmn = (CaseManagementNote) se.getAttribute(attrib_name);
-                        if (cmn != null) {
-                            cmm.saveNoteSimple(cmn);
-                            CaseManagementNoteLink cml = new CaseManagementNoteLink();
-                            cml.setTableName(CaseManagementNoteLink.DRUGS);
-                            cml.setTableId((long) rx.getDrugId());
-                            cml.setNoteId(cmn.getId());
-                            cmm.saveNoteLink(cml);
-                            se.removeAttribute(attrib_name);
-                            LogAction.addLog(cmn.getProviderNo(), LogConst.ANNOTATE, CaseManagementNoteLink.DISP_PRESCRIP, scriptId, request.getRemoteAddr(), cmn.getDemographic_no(), cmn.getNote());
-                        }
-                    }
                     rx = null;
                 }
                 fwd = "viewScript";
@@ -395,7 +364,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             rx.setAtcCode("");
             RxUtil.setDefaultSpecialQuantityRepeat(rx);
             rx = setCustomRxDurationQuantity(rx);
-            bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
+
             List<RxPrescriptionData.Prescription> listRxDrugs = new ArrayList();
 
             if (RxUtil.isRxUniqueInStash(bean, rx)) {
@@ -488,7 +457,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             rx.setAtcCode("");
             RxUtil.setDefaultSpecialQuantityRepeat(rx); // 1 OD, 20, 0;
             rx = setCustomRxDurationQuantity(rx);
-            bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
+
             List<RxPrescriptionData.Prescription> listRxDrugs = new ArrayList();
 
             if (RxUtil.isRxUniqueInStash(bean, rx)) {
@@ -733,7 +702,6 @@ public final class RxWriteScript2Action extends ActionSupport {
             if (RxUtil.isRxUniqueInStash(bean, rx)) {
                 listRxDrugs.add(rx);
             }
-			bean.addAttributeName(rx.getAtcCode() + "-" + bean.getStashIndex());
             int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
             bean.setStashIndex(rxStashIndex);
             String today = null;
@@ -783,7 +751,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 logger.debug("instruction:" + instructions);
                 rx.setSpecial(instructions);
                 RxUtil.instrucParser(rx);
-                bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getIndexFromRx(Integer.parseInt(randomId))));
                 bean.setStashItem(bean.getIndexFromRx(Integer.parseInt(randomId)), rx);
 
                 HashMap<String, Object> hm = new HashMap<String, Object>();
@@ -870,7 +837,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                     // if not, recalculate duration based on frequency if frequency is not empty
                     // if there is already a duration uni present, use that duration unit. if not, set duration unit to days, and output duration in days
                 }
-                bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getIndexFromRx(Integer.parseInt(randomId))));
                 bean.setStashItem(bean.getIndexFromRx(Integer.parseInt(randomId)), rx);
 
                 if (rx.getRoute() == null) {
@@ -1239,7 +1205,6 @@ public final class RxWriteScript2Action extends ActionSupport {
 
                     rx.setSpecial(special.trim());
 
-                    bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(stashIndex));
                     bean.setStashItem(stashIndex, rx);
                 }
             } catch (Exception e) {
@@ -1312,8 +1277,6 @@ public final class RxWriteScript2Action extends ActionSupport {
         RxPrescriptionData prescription = new RxPrescriptionData();
         String scriptId = prescription.saveScript(loggedInInfo, bean);
         StringBuilder auditStr = new StringBuilder();
-        ArrayList<String> attrib_names = bean.getAttributeNames();
-
         for (int i = 0; i < bean.getStashSize(); i++) {
             try {
                 rx = bean.getStashItem(i);
@@ -1342,24 +1305,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 logger.error("Error", e);
             }
 
-            // Save annotation
-            HttpSession se = request.getSession();
-            WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(se.getServletContext());
-            CaseManagementManager cmm = (CaseManagementManager) ctx.getBean(CaseManagementManager.class);
-            String attrib_name = attrib_names.get(i);
-            if (attrib_name != null) {
-                CaseManagementNote cmn = (CaseManagementNote) se.getAttribute(attrib_name);
-                if (cmn != null) {
-                    cmm.saveNoteSimple(cmn);
-                    CaseManagementNoteLink cml = new CaseManagementNoteLink();
-                    cml.setTableName(CaseManagementNoteLink.DRUGS);
-                    cml.setTableId((long) rx.getDrugId());
-                    cml.setNoteId(cmn.getId());
-                    cmm.saveNoteLink(cml);
-                    se.removeAttribute(attrib_name);
-                    LogAction.addLog(cmn.getProviderNo(), LogConst.ANNOTATE, CaseManagementNoteLink.DISP_PRESCRIP, scriptId, request.getRemoteAddr(), cmn.getDemographic_no(), cmn.getNote());
-                }
-            }
             rx = null;
         }
 

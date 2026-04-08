@@ -106,11 +106,11 @@
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
-        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
         <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
 
@@ -162,7 +162,7 @@
                             String prov = ((Properties) vecProvider.get(i)).getProperty("providerNo", "");
                             String selected = request.getParameter("providerNo");
                     %>
-                    <option value="<%=prov %>"
+                    <option value="<%=Encode.forHtmlAttribute(prov) %>"
                             <% if ((selected != null) && (selected.equals(prov))) { %> selected
                             <% } %>><%= Encode.forHtmlContent(((Properties) vecProvider.get(i)).getProperty("name", "")) %>
                     </option>
@@ -183,7 +183,7 @@
             <div class="col-md-4">
                 <label>Start Date: </label>
                 <div class="input-group">
-                    <input type="text" name="startDate" id="startDate1" value="<%=startDate!=null?startDate:""%>"
+                    <input type="text" name="startDate" id="startDate1" value="<%=Encode.forHtmlAttribute(startDate!=null?startDate:"")%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -192,7 +192,7 @@
             <div class="col-md-4">
                 <label>End Date: </label>
                 <div class="input-group">
-                    <input type="text" name="endDate" id="endDate1" value="<%=endDate!=null?endDate:""%>"
+                    <input type="text" name="endDate" id="endDate1" value="<%=Encode.forHtmlAttribute(endDate!=null?endDate:"")%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -267,7 +267,7 @@
         if (propName.getProperty(providerNo, "").equals("")) {
             out.print("All");
         } else {
-            out.print(propName.getProperty(providerNo, ""));
+            out.print(Encode.forHtml(propName.getProperty(providerNo, "")));
         }
     %> - Log Report</h4>
 
@@ -276,7 +276,7 @@
     </button>
 
 
-    <p>Period: ( <%= startDate == null ? "" : startDate %> ~ <%= endDate == null ? "" : endDate %>)</p>
+    <p>Period: ( <%= Encode.forHtml(startDate == null ? "" : startDate) %> ~ <%= Encode.forHtml(endDate == null ? "" : endDate) %>)</p>
     <table class="table table-bordered table-striped table-hover table-sm">
         <tr bgcolor="<%=tdTitleColor%>">
             <TH>Time</TH>

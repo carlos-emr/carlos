@@ -34,7 +34,7 @@
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
-<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.*, org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.*, org.apache.commons.text.StringEscapeUtils, org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -53,11 +53,11 @@
 
 <html>
     <head>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
-        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
     </head>
     <%
@@ -92,7 +92,7 @@
         <input type="button" class="btn btn-secondary" value="Back" onclick="javascript: window.history.back();return false;"/>
         <input type="button" class="btn btn-secondary" value="Print" onclick="javascript: window.print();"/>
         <input type="button" class="btn btn-primary" value="Edit"
-               onclick="document.location='addEditTemplate.jsp?templateid=<%=templateid%>&opentext=1'"/>
+               onclick="document.location='addEditTemplate.jsp?templateid=<%=Encode.forJavaScriptAttribute(templateid)%>&opentext=1'"/>
     </div>
 
 </html>

@@ -677,24 +677,6 @@ public class Util {
         }
     }
 
-    static public void putPartialDate(cdsDtCihi.DateFullOrPartial dfp, CaseManagementNoteExt cme) {
-        if (cme != null) putPartialDate(dfp, cme.getDateValue(), cme.getValue());
-    }
-
-    static public void putPartialDate(cdsDtCihi.DateFullOrPartial dfp, Date dateValue, Integer tableName, Integer tableId, Integer fieldName) {
-        String format = null;
-        PartialDate pd = partialDateDao.getPartialDate(tableName, tableId, fieldName);
-        if (pd != null) format = pd.getFormat();
-        putPartialDate(dfp, dateValue, format);
-    }
-
-    static public void putPartialDate(cdsDtCihi.DateFullOrPartial dfp, Date dateValue, String format) {
-        if (dateValue != null) {
-            if (PartialDate.YEARONLY.equals(format)) dfp.setYearOnly(calDate(dateValue));
-            else if (PartialDate.YEARMONTH.equals(format)) dfp.setYearMonth(calDate(dateValue));
-            else dfp.setFullDate(calDate(dateValue));
-        }
-    }
 
     static public String readPartialDate(CaseManagementNoteExt cme) {
         String type = cme.getValue();

@@ -64,7 +64,7 @@
     <%
         } else {
     %>
-    <%=Encode.forHtml(errorCode)%>
+    <div style="white-space: pre-line"><%=Encode.forHtml(errorCode)%></div>
     <input type="button" value="Change" onClick="history.go(-1);return false;">
     <%
         }

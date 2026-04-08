@@ -79,6 +79,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class CaseManagementView2Action extends ActionSupport {
@@ -88,6 +89,13 @@ public class CaseManagementView2Action extends ActionSupport {
 
     private static final Integer MAX_INVOICES = 20;
     private static Logger logger = MiscUtils.getLogger();
+
+    /** Valid tab names for whitelist validation (CWE-501). */
+    private static final Set<String> VALID_TABS = Set.of(CaseManagementViewFormBean.tabs);
+
+    /** Expected format for check_issue parameters: two numeric parts separated by a dot, each up to 10 digits. */
+    private static final Pattern CHECK_ISSUE_PATTERN = Pattern.compile("\\d{1,10}\\.\\d{1,10}");
+
     private CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
     private IssueDAO issueDao = (IssueDAO) SpringUtils.getBean(IssueDAO.class);
     private CaseManagementNoteDAO caseManagementNoteDao = (CaseManagementNoteDAO) SpringUtils.getBean(CaseManagementNoteDAO.class);
@@ -231,10 +239,8 @@ public class CaseManagementView2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         logger.debug("Starting VIEW");
-        String tab = request.getParameter("tab");
-        if (tab == null) {
-            tab = CaseManagementViewFormBean.tabs[0];
-        }
+        // Whitelist tab against known tab identifiers to prevent trust boundary violation (CWE-501)
+        String tab = getValidatedTab(request.getParameter("tab"));
         HttpSession se = request.getSession();
         if (se.getAttribute("userrole") == null) return "expired";
 
@@ -264,18 +270,19 @@ public class CaseManagementView2Action extends ActionSupport {
         long beginning = start;
         long current = 0;
         boolean useNewCaseMgmt = false;
-        // First, try to get the newCaseManagement boolean from the session
+        // Read newCaseManagement from session (trusted) first; fall back to request parameter.
+        // Keep the two sources separate to avoid trust boundary contamination (CWE-501).
+        // Boolean.parseBoolean() is inherently safe: returns false for any non-"true" value.
         String useNewCaseMgmtString = (String) request.getSession().getAttribute("newCaseManagement");
-        // If null, try to get the newCaseManagement boolean from the parameters
-        if (useNewCaseMgmtString == null) useNewCaseMgmtString = (String) request.getParameter("newCaseManagement");
-        // Set the correct boolean if default or fallback value is present
-        if (useNewCaseMgmtString != null) useNewCaseMgmt = Boolean.parseBoolean(useNewCaseMgmtString);
+        if (useNewCaseMgmtString != null) {
+            useNewCaseMgmt = Boolean.parseBoolean(useNewCaseMgmtString);
+        } else {
+            useNewCaseMgmt = "true".equalsIgnoreCase(request.getParameter("newCaseManagement"));
+        }
 
         logger.debug("Starting VIEW");
-        String tab = request.getParameter("tab");
-        if (tab == null) {
-            tab = CaseManagementViewFormBean.tabs[0];
-        }
+        // Whitelist tab against known tab identifiers to prevent trust boundary violation (CWE-501)
+        String tab = getValidatedTab(request.getParameter("tab"));
         HttpSession se = request.getSession();
         if (se.getAttribute("userrole") == null) return "expired";
 
@@ -289,7 +296,7 @@ public class CaseManagementView2Action extends ActionSupport {
         }
 
         current = System.currentTimeMillis();
-        logger.debug("client in program " + String.valueOf(current - start));
+        logger.debug("client in program {}", current - start);
         start = current;
 
         request.setAttribute("casemgmt_demoName", getDemoName(demoNo));
@@ -305,7 +312,7 @@ public class CaseManagementView2Action extends ActionSupport {
         }
 
         current = System.currentTimeMillis();
-        logger.debug("client image " + String.valueOf(current - start));
+        logger.debug("client image {}", current - start);
         start = current;
 
         String programId = (String) request.getSession().getAttribute("case_program_id");
@@ -326,7 +333,7 @@ public class CaseManagementView2Action extends ActionSupport {
         }
 
         current = System.currentTimeMillis();
-        logger.debug("tmp note " + String.valueOf(current - start));
+        logger.debug("tmp note {}", current - start);
         start = current;
 
         logger.debug("Get admission");
@@ -338,21 +345,21 @@ public class CaseManagementView2Action extends ActionSupport {
             try {
                 admission = admissionMgr.getCurrentAdmission(programId, Integer.valueOf(demoNo));
             } catch (Exception e) {
-                logger.debug("No admission found for programId: " + programId + " and demoNo: " + demoNo + " - " + e.getMessage());
+                logger.debug("No admission found for programId: {} and demoNo: {}", LogSanitizer.sanitize(programId), LogSanitizer.sanitize(demoNo), e);
             }
         } else {
             logger.debug("No valid programId available - skipping admission lookup");
         }
         
         current = System.currentTimeMillis();
-        logger.debug("Get admission " + String.valueOf(current - start));
+        logger.debug("Get admission {}", current - start);
         start = current;
 
         if (admission != null && admission.getTeamId() != null) {
             logger.debug("Get teams");
             List<ProgramTeam> teams = programMgr.getProgramTeams(programId);
             current = System.currentTimeMillis();
-            logger.debug("Get teams " + String.valueOf(current - start));
+            logger.debug("Get teams {}", current - start);
             start = current;
 
             for (Iterator<ProgramTeam> i = teams.iterator(); i.hasNext(); ) {
@@ -376,11 +383,11 @@ public class CaseManagementView2Action extends ActionSupport {
                 try {
                     ps = programMgr.getProgramProviders(programId);
                 } catch (Exception e) {
-                    logger.debug("Unable to get program providers for programId: " + programId + " - " + e.getMessage());
+                    logger.debug("Unable to get program providers for programId: {}", LogSanitizer.sanitize(programId), e);
                 }
             }
             current = System.currentTimeMillis();
-            logger.debug("Get program providers " + String.valueOf(current - start));
+            logger.debug("Get program providers {}", current - start);
             start = current;
 
             for (Iterator<ProgramProvider> j = ps.iterator(); j.hasNext(); ) {
@@ -393,7 +400,7 @@ public class CaseManagementView2Action extends ActionSupport {
                     }
                 }
                 current = System.currentTimeMillis();
-                logger.debug("Get program providers teams " + String.valueOf(current - start));
+                logger.debug("Get program providers teams {}", current - start);
                 start = current;
 
             }
@@ -435,7 +442,7 @@ public class CaseManagementView2Action extends ActionSupport {
         request.setAttribute("cpp", cpp);
         this.setCpp(cpp);
         current = System.currentTimeMillis();
-        logger.debug("Get CPP " + String.valueOf(current - start));
+        logger.debug("Get CPP {}", current - start);
         start = current;
 
         /* get allergies */
@@ -443,7 +450,7 @@ public class CaseManagementView2Action extends ActionSupport {
         List<Allergy> allergies = this.caseManagementMgr.getAllergies(this.getDemographicNo(request));
         request.setAttribute("Allergies", allergies);
         current = System.currentTimeMillis();
-        logger.debug("Get Allergies " + String.valueOf(current - start));
+        logger.debug("Get Allergies {}", current - start);
         start = current;
 
         /* get prescriptions */
@@ -507,7 +514,7 @@ public class CaseManagementView2Action extends ActionSupport {
         //2. Override from provider preferences?
 
         //3. Override based on appointment type?
-        logger.debug("VIEW Exiting " + String.valueOf(current - beginning));
+        logger.debug("VIEW Exiting {}", current - beginning);
 
         String printPreview = (String) request.getAttribute("patientCppPrintPreview");
         if ("true".equals(printPreview)) {
@@ -540,7 +547,7 @@ public class CaseManagementView2Action extends ActionSupport {
 
         sortIssues(checkBoxBeanList);
         request.setAttribute("Issues", checkBoxBeanList);
-        logger.debug("Get issues time : " + (System.currentTimeMillis() - startTime));
+        logger.debug("Get issues time : {}", System.currentTimeMillis() - startTime);
 
         logger.debug("Get stale note date");
         startTime = System.currentTimeMillis();
@@ -549,11 +556,21 @@ public class CaseManagementView2Action extends ActionSupport {
         request.setAttribute(UserProperty.STALE_NOTEDATE, userProp);
         UserProperty userProp2 = caseManagementMgr.getUserProperty(providerNo, UserProperty.STALE_FORMAT);
         request.setAttribute(UserProperty.STALE_FORMAT, userProp2);
-        logger.debug("Get stale note date " + (System.currentTimeMillis() - startTime));
+        logger.debug("Get stale note date {}", System.currentTimeMillis() - startTime);
 
         /* PROGRESS NOTES */
         startTime = System.currentTimeMillis();
-        String[] checkedIssues = request.getParameterValues("check_issue");
+        // Validate check_issue values: only accept the expected "numericId.numericCode" format
+        // to prevent trust boundary violation (CWE-501). Values not matching this format are discarded.
+        String[] rawCheckedIssues = request.getParameterValues("check_issue");
+        String[] checkedIssues = null;
+        if (rawCheckedIssues != null) {
+            checkedIssues = Arrays.stream(rawCheckedIssues)
+                    .filter(s -> CHECK_ISSUE_PATTERN.matcher(s).matches())
+                    .toArray(String[]::new);
+            // Normalize empty result to null so existing downstream null-checks remain correct
+            if (checkedIssues.length == 0) checkedIssues = null;
+        }
 
         // extract just the codes for local usage
         ArrayList<String> checkedCodeList = new ArrayList<String>();
@@ -582,16 +599,16 @@ public class CaseManagementView2Action extends ActionSupport {
 
         for (CaseManagementNote noteTemp : localNotes)
             notesToDisplay.add(new NoteDisplayLocal(loggedInInfo, noteTemp));
-        logger.debug("FETCHED " + localNotes.size() + " NOTES in time : " + (System.currentTimeMillis() - startTime));
+        logger.debug("FETCHED {} NOTES in time : {}", localNotes.size(), System.currentTimeMillis() - startTime);
 
         // deal with group notes
         startTime = System.currentTimeMillis();
         addGroupNotes(loggedInInfo, notesToDisplay, Integer.parseInt(demoNo), null);
-        logger.debug("Get group notes. time=" + (System.currentTimeMillis() - startTime));
+        logger.debug("Get group notes. time={}", System.currentTimeMillis() - startTime);
 
         // not sure what everything else is after this
         String resetFilter = request.getParameter("resetFilter");
-        logger.debug("RESET FILTER " + resetFilter);
+        logger.debug("RESET FILTER {}", LogSanitizer.sanitize(resetFilter));
         if (resetFilter != null && resetFilter.equals("true")) {
             logger.debug("CASEMGMTVIEW RESET FILTER");
             this.setFilter_providers(null);
@@ -606,7 +623,7 @@ public class CaseManagementView2Action extends ActionSupport {
         request.setAttribute("roles", roles);
         String[] roleId = this.getFilter_roles();
         notesToDisplay = applyRoleFilter(notesToDisplay, roleId);
-        logger.debug("Filter on Role " + (System.currentTimeMillis() - startTime));
+        logger.debug("Filter on Role {}", System.currentTimeMillis() - startTime);
 
         // filter providers
         notesToDisplay = applyProviderFilter(notesToDisplay, this.getFilter_providers());
@@ -636,7 +653,7 @@ public class CaseManagementView2Action extends ActionSupport {
         }
 
         request.setAttribute("Notes", notesToDisplay);
-        logger.debug("Apply sorting to notes " + (System.currentTimeMillis() - startTime));
+        logger.debug("Apply sorting to notes {}", System.currentTimeMillis() - startTime);
     }
 
     private void sortIssues(ArrayList<CheckBoxBean> checkBoxBeanList) {
@@ -687,11 +704,11 @@ public class CaseManagementView2Action extends ActionSupport {
             notes = caseManagementMgr.getNotes(demoNo);
         }
 
-        logger.debug("FETCHED " + notes.size() + " NOTES");
+        logger.debug("FETCHED {} NOTES", notes.size());
 
         startTime = System.currentTimeMillis();
         String resetFilter = request.getParameter("resetFilter");
-        logger.debug("RESET FILTER " + resetFilter);
+        logger.debug("RESET FILTER {}", LogSanitizer.sanitize(resetFilter));
         if (resetFilter != null && resetFilter.equals("true")) {
             logger.debug("CASEMGMTVIEW RESET FILTER");
             this.setFilter_providers(null);
@@ -707,33 +724,33 @@ public class CaseManagementView2Action extends ActionSupport {
         if (programId != null && !programId.equals("0") && !programId.isEmpty()) {
             notes = caseManagementMgr.filterNotes(loggedInInfo, loggedInInfo.getLoggedInProviderNo(), notes, programId);
         }
-        logger.debug("FILTER NOTES " + (System.currentTimeMillis() - startTime));
+        logger.debug("FILTER NOTES {}", System.currentTimeMillis() - startTime);
 
         // apply providers filter
         logger.debug("Filter Notes Provider");
         startTime = System.currentTimeMillis();
         notes = applyProviderFilters(notes, this.getFilter_providers());
-        logger.debug("FILTER NOTES PROVIDER " + (System.currentTimeMillis() - startTime));
+        logger.debug("FILTER NOTES PROVIDER {}", System.currentTimeMillis() - startTime);
 
         // apply if we are filtering on role
         logger.debug("Filter on Role");
         startTime = System.currentTimeMillis();
         String[] roleId = this.getFilter_roles();
         if (roleId != null && roleId.length > 0) notes = applyRoleFilter(notes, roleId);
-        logger.debug("Filter on Role " + (System.currentTimeMillis() - startTime));
+        logger.debug("Filter on Role {}", System.currentTimeMillis() - startTime);
 
         // apply if we are filtering on issues
         logger.debug("Filter on issues");
         startTime = System.currentTimeMillis();
 
         if (checkedIssues != null && checkedIssues.length > 0) notes = applyIssueFilter(notes, checkedIssues);
-        logger.debug("Filter on issue " + (System.currentTimeMillis() - startTime));
+        logger.debug("Filter on issue {}", System.currentTimeMillis() - startTime);
 
         // apply issue filter
         logger.debug("Pop notes with editors");
         startTime = System.currentTimeMillis();
         this.caseManagementMgr.getEditors(notes);
-        logger.debug("Pop notes with editors " + (System.currentTimeMillis() - startTime));
+        logger.debug("Pop notes with editors {}", System.currentTimeMillis() - startTime);
 
         ArrayList<NoteDisplay> notesToDisplay = new ArrayList<NoteDisplay>();
         for (CaseManagementNote noteTemp : notes) {
@@ -790,7 +807,7 @@ public class CaseManagementView2Action extends ActionSupport {
         request.setAttribute(UserProperty.STALE_NOTEDATE, userProp);
         UserProperty userProp2 = caseManagementMgr.getUserProperty(providerNo, UserProperty.STALE_FORMAT);
         request.setAttribute(UserProperty.STALE_FORMAT, userProp2);
-        logger.debug("Get stale note date " + (System.currentTimeMillis() - startTime));
+        logger.debug("Get stale note date {}", System.currentTimeMillis() - startTime);
 
         ArrayList<CheckBoxBean> checkBoxBeanList = new ArrayList<CheckBoxBean>();
         addLocalIssues(providerNo, checkBoxBeanList, demographicId, false, Integer.valueOf(programId));
@@ -901,10 +918,10 @@ public class CaseManagementView2Action extends ActionSupport {
     private static boolean hasRole(List<SecUserRole> roles, String role) {
         if (roles == null) return (false);
 
-        logger.debug("Note Role : " + role);
+        logger.debug("Note Role : {}", LogSanitizer.sanitize(role));
 
         for (SecUserRole roleTmp : roles) {
-            logger.debug("Provider Roles : " + roleTmp.getRoleName());
+            logger.debug("Provider Roles : {}", LogSanitizer.sanitize(roleTmp.getRoleName()));
             if (roleTmp.getRoleName().equals(role)) return (true);
         }
 
@@ -959,7 +976,7 @@ public class CaseManagementView2Action extends ActionSupport {
             for (GroupNoteLink link : links) {
                 int noteId = link.getNoteId();
                 List<CaseManagementIssue> issues = this.caseManagementMgr.getIssuesByNote(noteId);
-                logger.warn("we are doing nothing with this: " + issues);
+                logger.warn("we are doing nothing with this: {}", LogSanitizer.sanitize(String.valueOf(issues)));
             }
         } catch (Exception e) {
             logger.error("Unexpected error.", e);
@@ -1093,8 +1110,8 @@ public class CaseManagementView2Action extends ActionSupport {
         notes = caseManagementMgr.getActiveNotes(demoNo, issueIds);
         notes = manageLockedNotes(notes, true, this.getUnlockedNotesMap(request));
 
-        logger.debug("FETCHED " + notes.size() + " NOTES filtered by " + StringUtils.join(issueIds, ","));
-        logger.debug("REFERER " + request.getRequestURL().toString() + "?" + request.getQueryString());
+        logger.debug("FETCHED {} NOTES filtered by {}", notes.size(), LogSanitizer.sanitize(StringUtils.join(issueIds, ",")));
+        logger.debug("REFERER {}", LogSanitizer.sanitize(request.getRequestURL().toString()));
 
         String programId = (String) request.getSession().getAttribute("case_program_id");
 
@@ -1130,6 +1147,8 @@ public class CaseManagementView2Action extends ActionSupport {
             hashMap.put("Issues", issues);
 
             ObjectNode json = objectMapper.valueToTree(hashMap);
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
             response.getOutputStream().write(json.toString().getBytes());
             return null;
         }
@@ -1175,7 +1194,7 @@ public class CaseManagementView2Action extends ActionSupport {
     }
 
     private List<CaseManagementNote> sortNotes_old(Collection<CaseManagementNote> notes, String field) {
-        logger.debug("Sorting notes by field: " + field);
+        logger.debug("Sorting notes by field: {}", LogSanitizer.sanitize(field));
 
         ArrayList<CaseManagementNote> resultsSorted = new ArrayList<CaseManagementNote>(notes);
 
@@ -1204,7 +1223,7 @@ public class CaseManagementView2Action extends ActionSupport {
     }
 
     private ArrayList<NoteDisplay> sortNotes(ArrayList<NoteDisplay> notes, String field) {
-        logger.debug("Sorting notes by field: " + field);
+        logger.debug("Sorting notes by field: {}", LogSanitizer.sanitize(field));
 
         if (field == null || field.equals("") || field.equals("update_date")) {
             return notes;
@@ -1630,15 +1649,15 @@ public class CaseManagementView2Action extends ActionSupport {
         }
 
         if (logger.isDebugEnabled()) {
-            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: " + criteria);
+            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: {}", LogSanitizer.sanitize(String.valueOf(criteria)));
         }
 
         NoteSelectionResult result = noteService.findNotes(loggedInInfo, criteria);
 
         if (logger.isDebugEnabled()) {
-            logger.debug("FOUND: " + result);
+            logger.debug("FOUND: {}", LogSanitizer.sanitize(String.valueOf(result)));
             for (NoteDisplay nd : result.getNotes()) {
-                logger.debug("   " + nd.getClass().getSimpleName() + " " + nd.getNoteId() + " " + nd.getNote());
+                logger.debug("   {} noteId={}", nd.getClass().getSimpleName(), LogSanitizer.sanitize(String.valueOf(nd.getNoteId())));
             }
         }
 
@@ -1647,6 +1666,18 @@ public class CaseManagementView2Action extends ActionSupport {
         }
         request.setAttribute("notesToDisplay", result.getNotes());
         return "ajaxDisplayNotes";
+    }
+
+    /**
+     * Returns the requested tab if it is a known tab identifier, or the default tab otherwise.
+     * This whitelist check prevents trust boundary violations (CWE-501) by ensuring that only
+     * server-defined tab names are accepted from untrusted HTTP request parameters.
+     *
+     * @param tabParam the raw tab parameter value from the HTTP request (may be null)
+     * @return a validated tab name; never null
+     */
+    private String getValidatedTab(String tabParam) {
+        return tabParam != null && VALID_TABS.contains(tabParam) ? tabParam : CaseManagementViewFormBean.tabs[0];
     }
 
     // Gets the parameters or attributes that are connected to the inputted name

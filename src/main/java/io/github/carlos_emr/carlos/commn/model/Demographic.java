@@ -44,6 +44,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.springframework.context.i18n.LocaleContextHolder;
 
 /**
  * This is the object class that relates to the demographic table. Any customizations belong here.
@@ -1521,9 +1522,34 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     };
 
 
+    /**
+     * Loads the oscarResources bundle for the given locale, falling back to English if the locale
+     * has no matching bundle.
+     */
+    private static ResourceBundle getResourceBundle(Locale locale) {
+        try {
+            return ResourceBundle.getBundle("oscarResources", locale);
+        } catch (MissingResourceException e) {
+            return ResourceBundle.getBundle("oscarResources", Locale.ENGLISH);
+        }
+    }
+
+    /**
+     * Returns the localized string for {@code key} from {@code bundle}, or {@code fallback} when
+     * the key is absent (guards against incomplete translations).
+     */
+    private static String getRes(ResourceBundle bundle, String key, String fallback) {
+        try {
+            return bundle.getString(key);
+        } catch (MissingResourceException e) {
+            return fallback;
+        }
+    }
+
     public String getStandardIdentificationHTML(String contextPath) {
         //TODO move this into the DemographicManager as a property modifier and wrap each item with setting preferences
         StringBuilder sb = new StringBuilder();
+        ResourceBundle carlosRes = getResourceBundle(LocaleContextHolder.getLocale());
 
         sb.append("<div id='patient-label'>");
         sb.append("<div id='patient-full-name'>");
@@ -1544,7 +1570,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         if (getPronoun() != null && !getPronoun().isEmpty()) {
             sb.append("<div id='patient-pronouns'>");
             sb.append("<div class='label'>");
-            sb.append("pronouns");
+            String pronouns = getRes(carlosRes, "demographic.demographicaddrecordhtm.formPronouns", "Pronouns");
+            sb.append(pronouns);
             sb.append("</div>");
             sb.append(Encode.forHtml(getPronoun()));
             sb.append("</div>");
@@ -1553,7 +1580,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         //--> sex
         sb.append("<div id='patient-sex'>");
         sb.append("<div class='label'>");
-        sb.append("sex");
+        String sexLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formSex", "Sex");
+        sb.append(sexLabel);
         sb.append("</div>");
         sb.append(getSex());
         sb.append("</div>");
@@ -1562,7 +1590,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         if (getGender() != null && !getGender().isEmpty()) {
             sb.append("<div id='patient-gender'>");
             sb.append("<div class='label'>");
-            sb.append("gender");
+            String genderLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formGender", "Gender");
+            sb.append(genderLabel);
             sb.append("</div>");
             sb.append(getGender());
             sb.append("</div>");
@@ -1571,7 +1600,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         //--> Birthdate
         sb.append("<div id='patient-dob'>");
         sb.append("<div class='label'>");
-        sb.append("dob");
+        String dob = getRes(carlosRes, "demographic.demographicaddrecordhtm.formDOB", "DOB");
+        sb.append(dob);
         sb.append("</div>");
         sb.append(getBirthDayAsString());
         sb.append("</div>");
@@ -1579,7 +1609,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         //--> age
         sb.append("<div id='patient-age'>");
         sb.append("<div class='label'>");
-        sb.append("age");
+        String age = getRes(carlosRes, "global.age", "Age");
+        sb.append(age);
         sb.append("</div>");
         sb.append(getAgeAsOf(new Date()));
         sb.append("</div>");
@@ -1590,7 +1621,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
                     .append(Encode.forJavaScript(getHin()))
                     .append("',this)\">");
             sb.append("<div class='label'>");
-			sb.append("HIN (");
+            String hinLabel = getRes(carlosRes, "demographic.patient.context.hin", "HIN");
+            sb.append(hinLabel);
+			sb.append(" (");
             sb.append(Encode.forHtml(getHcType()));
 			sb.append(")</div>");
 			sb.append(Encode.forHtml(getHin()));
@@ -1607,7 +1640,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
                     .append(Encode.forJavaScript(getPhone()))
                     .append("',this)\">");
             sb.append("<div class='label'>");
-            sb.append("phone");
+            String phoneLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formPhone", "Phone");
+            sb.append(phoneLabel);
             sb.append("</div>");
             sb.append(Encode.forHtmlContent(getPhone()));
             sb.append("</div>");
@@ -1621,7 +1655,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
                     .append(Encode.forJavaScript(getCellPhone()))
                     .append("',this)\">");
             sb.append("<div class='label'>");
-            sb.append("cell");
+            String cell = getRes(carlosRes, "demographic.demographicaddrecordhtm.formPhoneCell", "Cell Phone");
+            sb.append(cell);
             sb.append("</div>");
             sb.append(Encode.forHtmlContent(getCellPhone()));
             sb.append("</div>");
@@ -1633,7 +1668,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
                     .append(Encode.forJavaScript(getEmail()))
                     .append("',this)\">");
             sb.append("<div class='label'>");
-            sb.append("email");
+            String emailLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formEMail", "Email");
+            sb.append(emailLabel);
             sb.append("</div>");
             sb.append(Encode.forHtmlContent(getEmail()));
             sb.append("</div>");
@@ -1647,26 +1683,29 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
                 + "&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25";
         sb.append("<a href=\"").append(Encode.forHtmlAttribute(apptHref))
                 .append("\" title='View Appointment History' target='_blank'>");
-        sb.append("Next Appt.");
+        String nAppt = getRes(carlosRes, "global.nextAppointment", "Next Appt.");
+        sb.append(nAppt);
         sb.append("</a>");
         sb.append("</div>");
+        String unknown = getRes(carlosRes, "demographic.demographicaddrecordhtm.formNewsLetter.optUnknown", "Unknown");
         if (getNextAppointment() != null && !getNextAppointment().isEmpty()) {
             sb.append(getNextAppointment());
         } else {
-            sb.append("Unknown");
+            sb.append(unknown);
         }
         sb.append("</div>");
 
         //--> most responsible practitioner (last item, pushed to right via CSS)
         sb.append("<div id='patient-mrp'>");
         sb.append("<div class='label'>");
-        sb.append("MRP");
+        String mrpLabel = getRes(carlosRes, "demographic.demographiceditdemographic.formMRP", "MRP");
+        sb.append(mrpLabel);
         sb.append("</div>");
         Provider mrp = getMrp();
         if (mrp != null) {
             sb.append(Encode.forHtmlContent(mrp.getFormattedName()));
         } else {
-            sb.append("Unknown");
+            sb.append(unknown);
         }
         sb.append("</div>");
 
@@ -1682,15 +1721,16 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
     public String getRosterStatusDisplay() {
         String rs = StringUtils.trimToNull(this.getRosterStatus());
+        ResourceBundle carlosRes = getResourceBundle(LocaleContextHolder.getLocale());
         if (rs != null) {
             if ("RO".equals(rs)) {
-                return "ROSTERED";
+                return getRes(carlosRes, "demographic.enrollementhistory.Rostered", "ROSTERED");
             }
             if ("TE".equals(rs)) {
-                return "TERMINATED";
+                return getRes(carlosRes, "demographic.enrollementhistory.terminated", "TERMINATED");
             }
             if ("FS".equals(rs)) {
-                return "FEE FOR SERVICE";
+                return getRes(carlosRes, "demographic.enrollementhistory.feeforservice", "FEE FOR SERVICE");
             }
             return rs;
         } else {

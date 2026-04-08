@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.billing.CA.ON.web;
 
 import java.util.Date;
+import java.util.Objects;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -95,18 +96,18 @@ public class DbINRbilling2Action extends ActionSupport {
 
         BillingInr bi = new BillingInr();
         bi.setDemographicNo(demoIdInt);
-        bi.setDemographicName(request.getParameter("demo_name"));
-        bi.setHin(request.getParameter("demo_hin"));
-        bi.setDob(request.getParameter("demo_dob"));
-        bi.setProviderNo(request.getParameter("provider_no"));
-        bi.setProviderOhipNo(request.getParameter("provider_ohip_no"));
-        bi.setProviderRmaNo(request.getParameter("provider_rma_no"));
-        bi.setCreator(request.getParameter("doccreator"));
-        bi.setDiagnosticCode(request.getParameter("diag_code"));
-        bi.setServiceCode(request.getParameter("service_code"));
-        bi.setServiceDesc(request.getParameter("service_desc"));
-        bi.setBillingAmount(request.getParameter("service_amount"));
-        bi.setBillingUnit(request.getParameter("service_unit"));
+        bi.setDemographicName(Objects.toString(request.getParameter("demo_name"), ""));
+        bi.setHin(Objects.toString(request.getParameter("demo_hin"), ""));
+        bi.setDob(Objects.toString(request.getParameter("demo_dob"), ""));
+        bi.setProviderNo(Objects.toString(request.getParameter("provider_no"), ""));
+        bi.setProviderOhipNo(Objects.toString(request.getParameter("provider_ohip_no"), ""));
+        bi.setProviderRmaNo(Objects.toString(request.getParameter("provider_rma_no"), ""));
+        bi.setCreator(Objects.toString(request.getParameter("doccreator"), ""));
+        bi.setDiagnosticCode(Objects.toString(request.getParameter("diag_code"), ""));
+        bi.setServiceCode(Objects.toString(request.getParameter("service_code"), ""));
+        bi.setServiceDesc(Objects.toString(request.getParameter("service_desc"), ""));
+        bi.setBillingAmount(Objects.toString(request.getParameter("service_amount"), ""));
+        bi.setBillingUnit(Objects.toString(request.getParameter("service_unit"), ""));
         bi.setCreateDateTime(new Date());
         bi.setStatus("N");
 

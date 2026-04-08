@@ -221,8 +221,6 @@
 
     List<CaseManagementNoteLink> cml = cmm.getLinkByTableId(CaseManagementNoteLink.DEMOGRAPHIC, Long.valueOf(demographic_no));
     boolean hasImportExtra = (cml.size() > 0);
-    String annotation_display = CaseManagementNoteLink.DISP_DEMO;
-
     LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_DEMOGRAPHIC, demographic_no, request.getRemoteAddr(), demographic_no);
 
     Boolean isMobileOptimized = session.getAttribute("mobileOptimized") != null;
@@ -722,7 +720,7 @@
 
             <security:oscarSec roleName="<%= roleName$ %>" objectName="_eChart" rights="r" reverse="<%= false %>" >
             var numMenus = 1;
-            var encURL = "<c:out value="${ctx}"/>/encounter/IncomingEncounter.do?providerNo=<%= Encode.forJavaScript(curProvider_no) %>&appointmentNo=&demographicNo=<%=demographic_no%>&curProviderNo=&reason=<%=URLEncoder.encode(noteReason, StandardCharsets.UTF_8)%>&encType=<%=URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8)%>&userName=<%=URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8) %>&curDate=<%=dateString%>&appointmentDate=&startTime=&status=";
+            var encURL = "<c:out value="${ctx}"/>/encounter/IncomingEncounter.do?providerNo=<%= Encode.forJavaScript(curProvider_no) %>&appointmentNo=&demographicNo=<%= Encode.forJavaScript(demographic_no) %>&curProviderNo=&reason=<%=Encode.forJavaScript(URLEncoder.encode(noteReason, StandardCharsets.UTF_8))%>&encType=<%=Encode.forJavaScript(URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8))%>&userName=<%=Encode.forJavaScript(URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8)) %>&curDate=<%= Encode.forJavaScript(dateString) %>&appointmentDate=&startTime=&status=";
 
             function showMenu(menuNumber, eventObj) {
                 var menuId = 'menu' + menuNumber;
@@ -2566,16 +2564,6 @@
                                                                 <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formNotes"/></h3>
 
                                                                 <%=StringEscapeUtils.escapeHtml4(notes)%>&nbsp;
-                                                                <%if (hasImportExtra) { %>
-                                                                <a href="javascript:void(0);"
-                                                                   title="Extra data from Import"
-                                                                   onclick="window.open('<%= request.getContextPath() %>/annotation/importExtra.jsp?display=<%=Encode.forJavaScriptAttribute(annotation_display)%>&amp;table_id=<%=Encode.forJavaScriptAttribute(demographic_no)%>&amp;demo=<%=Encode.forJavaScriptAttribute(demographic_no)%>','anwin','width=400,height=250');">
-                                                                    <img src="<%= request.getContextPath() %>/images/notes.gif" align="right"
-                                                                         alt="Extra data from Import" height="16"
-                                                                         width="13" border="0"> </a>
-                                                                <%} %>
-
-
                                                             </div>
 
                                                                 <%-- TOGGLED OFF PROGRAM ADMISSIONS --%>

@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.EFormValue" %>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -113,8 +114,8 @@
     <table width="100%">
         <tr>
             <td>
-                Resident : <%= residentName %><br/>
-                Report dates : <%= dateStart %> ~ <%= dateEnd %><br/>
+                Resident : <%= Encode.forHtml(residentName) %><br/>
+                Report dates : <%= Encode.forHtml(dateStart) %> ~ <%= Encode.forHtml(dateEnd) %><br/>
                 Total field notes : <%= FieldNoteManager.getTotalNumberOfFieldNotes(residentId) %><br/>
                 <br/>
                 <% for (String purpose : purposes.keySet()) {
@@ -171,40 +172,40 @@
     <table width="100%" style="background-color: #F2F2F2;">
         <tr>
             <td width="15%">Topic(s):</td>
-            <td><%= topic %>
+            <td><%= Encode.forHtml(topic) %>
         </tr>
         <% if (StringUtils.filled(residentRoleSkill)) {
         %>
         <tr>
             <td>Role/Skill(s):</td>
-            <td><%= residentRoleSkill %>
+            <td><%= Encode.forHtml(residentRoleSkill) %>
         </tr>
         <% }
             if (StringUtils.filled(doneWell)) {
         %>
         <tr>
             <td>Done well:</td>
-            <td><%= doneWell %>
+            <td><%= Encode.forHtml(doneWell) %>
         </tr>
         <% }
             if (StringUtils.filled(workOn)) {
         %>
         <tr>
             <td>Work on:</td>
-            <td><%= workOn %>
+            <td><%= Encode.forHtml(workOn) %>
         </tr>
         <% }
             if (StringUtils.filled(followUp)) {
         %>
         <tr>
             <td>Follow-up:</td>
-            <td><%= followUp %>
+            <td><%= Encode.forHtml(followUp) %>
         </tr>
         <% }
         %>
         <tr>
             <td>Date:</td>
-            <td><%= apptDate %>
+            <td><%= Encode.forHtml(apptDate) %>
         </tr>
     </table>
     <br/>
@@ -225,13 +226,13 @@
                     <tr>
                         <td>Resident</td>
                         <td>:</td>
-                        <td><%= residentName %>
+                        <td><%= Encode.forHtml(residentName) %>
                         </td>
                     </tr>
                     <tr>
                         <td>Report dates</td>
                         <td>:</td>
-                        <td><%= dateStart %> ~ <%= dateEnd %>
+                        <td><%= Encode.forHtml(dateStart) %> ~ <%= Encode.forHtml(dateEnd) %>
                     </tr>
                     <tr>
                         <td>Total field notes</td>
@@ -336,40 +337,40 @@
         %>
         <tr style="background-color: #F2F2F2;">
             <td>Topic(s):</td>
-            <td><%= topic %>
+            <td><%= Encode.forHtml(topic) %>
         </tr>
         <% if (StringUtils.filled(residentRoleSkill)) {
         %>
         <tr style="background-color: #F2F2F2;">
             <td>Role/Skill(s):</td>
-            <td><%= residentRoleSkill %>
+            <td><%= Encode.forHtml(residentRoleSkill) %>
         </tr>
         <% }
             if (StringUtils.filled(doneWell)) {
         %>
         <tr style="background-color: #F2F2F2;">
             <td>Done well:</td>
-            <td><%= doneWell %>
+            <td><%= Encode.forHtml(doneWell) %>
         </tr>
         <% }
             if (StringUtils.filled(workOn)) {
         %>
         <tr style="background-color: #F2F2F2;">
             <td>Work on:</td>
-            <td><%= workOn %>
+            <td><%= Encode.forHtml(workOn) %>
         </tr>
         <% }
             if (StringUtils.filled(followUp)) {
         %>
         <tr style="background-color: #F2F2F2;">
             <td>Follow-up:</td>
-            <td><%= followUp %>
+            <td><%= Encode.forHtml(followUp) %>
         </tr>
         <% }
         %>
         <tr style="background-color: #F2F2F2;">
             <td>Date:</td>
-            <td><%= apptDate %>
+            <td><%= Encode.forHtml(apptDate) %>
         </tr>
         <tr>
             <td>&nbsp;</td>

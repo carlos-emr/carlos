@@ -33,20 +33,22 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css" /> 
-    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" media="screen">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" media="screen">
     <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css" />
     <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.css" />
     <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/jquery/jquery-ui.structure-1.14.2.min.css" />
     <link href="${pageContext.request.contextPath}/css/fontawesome-all.min.css" rel="stylesheet">
-    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/web/css/Inboxhub.css"/>
+    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/global.css"/>
+    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/web/css/Inboxhub.css?v=1.0"/>
 
     <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
-    <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript" charset="utf8" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
     <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/dompurify/purify.min.js"></script>
     <script src="${pageContext.request.contextPath}/share/javascript/oscarMDSIndex.js"></script>
     <title>Inboxhub</title>
 </head>
@@ -54,16 +56,40 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <jsp:include page="/images/spinner.jsp" flush="true"/>
 <script>
     const contextPath = "<e:forJavaScript value='${pageContext.request.contextPath}' />";
+
+    /**
+     * Toggles the inbox search sidebar between collapsed (hidden) and expanded.
+     * The narrow toggle strip remains visible and shows an arrow indicator.
+     * Collapsed by default to maximize the results table area.
+     */
+    function toggleInboxSidebar() {
+        var sidebar = document.getElementById('inbox-sidebar');
+        var toggle = document.getElementById('inbox-sidebar-toggle');
+        if (sidebar.style.display === 'none') {
+            sidebar.style.display = '';
+            toggle.textContent = '\u25C0 Search';
+        } else {
+            sidebar.style.display = 'none';
+            toggle.textContent = '\u25B6 Search';
+        }
+    }
 </script>
-<input type="hidden" id="ctx" value="<e:forHtmlAttribute value='${pageContext.request.contextPath}' />";/>
+<input type="hidden" id="ctx" value="<e:forHtmlAttribute value='${pageContext.request.contextPath}' />"/>
 <div class="container-fluid overflow-hidden">
     <div class="row">
-        <nav class="navbar d-flex justify-content-center" data-bs-theme="light" style="background-color: #e3f2fd;">
+        <nav class="inbox-topbar">
             <jsp:include page="InboxhubTopbar.jsp"/>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="if (window.opener) { window.close(); } else { window.history.back(); }" style="margin-left:auto;">Close</button>
         </nav>
     </div>
     <div class="row flex-nowrap">
-        <div class="col-auto px-0 m-1">
+        <%-- Collapsible search sidebar: collapsed by default, toggles via the narrow strip --%>
+        <div id="inbox-sidebar-toggle" class="px-0" onclick="toggleInboxSidebar()"
+             title="Toggle search panel"
+             style="width:20px;cursor:pointer;background:#e9ecef;display:flex;align-items:center;justify-content:center;border-right:1px solid #ccc;flex-shrink:0;writing-mode:vertical-rl;font-size:11px;color:#666;user-select:none;">
+            &#9654; Search
+        </div>
+        <div id="inbox-sidebar" class="col-auto px-0 m-1" style="display:none;">
             <div class="bg-light text-dark inbox-form" style="display: inline-block;">
                 <jsp:include page="InboxhubForm.jsp"/>
             </div>

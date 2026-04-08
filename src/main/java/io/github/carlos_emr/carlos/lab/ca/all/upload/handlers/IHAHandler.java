@@ -36,10 +36,10 @@ import java.io.File;
 import java.util.ArrayList;
 
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import ca.uhn.hl7v2.model.Message;
 import ca.uhn.hl7v2.util.Terser;
 
@@ -205,26 +205,15 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
                 file = PathValidationUtils.validateExistingPath(file, docDir);
             }
 
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setValidating(false);
-
-            try {
-                // Disable external entities to prevent XXE attacks
-                factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-                factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-                factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-                factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            
-            } catch (ParserConfigurationException e) {
-                MiscUtils.getLogger().error("Failed to set XML parser features to prevent XXE attacks", e);
-                throw new RuntimeException(e);
-            }
+            DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
             
             // Use the validated file object instead of creating a new FileInputStream with the raw path
             Document doc = factory.newDocumentBuilder().parse(file);
             return (doc);
 
-            // Ignore exceptions and return false
+            // Re-throw security exceptions from path validation
+        } catch (SecurityException e) {
+            throw e;
         } catch (Exception e) {
             logger.error("Error parsing XML file: " + fileName, e);
             return (null);

@@ -117,7 +117,7 @@
     <center></center>
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#CCCCFF">
-            <td><%=reportName%> Configuration</td>
+            <td><%=Encode.forHtml(reportName)%> Configuration</td>
             <td width="10%" align="right" nowrap><a
                     href="reportFilter.jsp?id=<%= Encode.forUriComponent(reportId) %>">Back to the Report</a></td>
         </tr>

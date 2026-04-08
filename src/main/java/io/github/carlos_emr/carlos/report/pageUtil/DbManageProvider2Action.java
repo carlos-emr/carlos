@@ -48,7 +48,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * Struts2 action for managing report provider lists.
  *
  * <p>Migrated from {@code oscarReport/dbManageProvider.jsp}. Accepts POST only and
- * enforces {@code _admin} write privilege. Deletes all {@link ReportProvider} entries
+ * enforces {@code _admin.reporting} write privilege. Deletes all {@link ReportProvider} entries
  * for the given {@code action}, then recreates them from the submitted provider
  * parameters (format {@code providerNo|group}).
  *
@@ -83,8 +83,8 @@ public class DbManageProvider2Action extends ActionSupport {
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
-            throw new SecurityException("missing required security object: _admin");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.reporting", "w", null)) {
+            throw new SecurityException("missing required security object: _admin.reporting");
         }
 
         String action = request.getParameter("action");

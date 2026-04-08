@@ -102,10 +102,8 @@ FOR STAND ALONE USE
     <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet" type="text/css">
     <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css" rel="stylesheet" type="text/css">
 
-    <!-- signature_pad.min.js (Szymon Nowak) was removed from the project.
-         Without it, wet-signature canvas widgets are unavailable in the editor
-         but existing eforms remain functional. Restore the file to re-enable. -->
-    <%-- <script src="<%= request.getContextPath() %>/share/javascript/signature_pad.min.js"></script> --%>
+    <!-- signature_pad.min.js (Szymon Nowak) for wet-signature canvas widgets. -->
+    <script src="<%= request.getContextPath() %>/share/javascript/signature_pad.min.js"></script>
 
     <!-- main calendar program -->
     <script src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
@@ -383,7 +381,7 @@ var EFORM_I18N = {
                 var myDbWindow = window.open('Eform_dbtags.html', 'mywindow', 'width=800, height=800,  top=0, left=0')
                 myDbWindow.moveTo(0, 0);
             } else {
-                var myDbWindow = window.open('${oscar_image_path}Eform_dbtags.html', 'mywindow', 'width=800, height=800,  top=0, left=0')
+                var myDbWindow = window.open('${e:forJavaScript(oscar_image_path)}Eform_dbtags.html', 'mywindow', 'width=800, height=800,  top=0, left=0')
                 myDbWindow.moveTo(0, 0);
             }
             // Get the modal
@@ -1683,7 +1681,7 @@ var EFORM_I18N = {
                 string = string.replace(new RegExp(regexFixed, "g"), "$" + "{oscar_image_path}");
             } else {
                 //alert("stand alone")
-                string = string.replace(/(img.*?)src\s*=\s*(\"|\')(?!data:image\/png;base64,)/gi, "$1src=$2${oscar_image_path}");
+                string = string.replace(/(img.*?)src\s*=\s*(\"|\')(?!data:image\/png;base64,)/gi, "$1src=$2${"$"}{oscar_image_path}"); // ${"$"}{oscar_image_path} is a template marker replaced at runtime
             }
             return string;
         }
@@ -2008,7 +2006,7 @@ var EFORM_I18N = {
             }
             source += findSelectedFunctions(htmlElements.innerHTML) + "\<\/script></"+"head><body onload='focusAll();" + loadFunctions + "'>";
             if (setSideBar == "on") {
-                source += "<iframe src='${oscar_image_path}SideBarTemplate.html' id='mySidenavGen2' class='sidenav DoNotPrint' style='margin-top:-60px;margin-left:-100px;height:600px'></iframe>";
+                source += "<iframe src='${"$"}{oscar_image_path}SideBarTemplate.html' id='mySidenavGen2' class='sidenav DoNotPrint' style='margin-top:-60px;margin-left:-100px;height:600px'></iframe>"; // ${"$"}{oscar_image_path} is a template marker replaced at runtime
             }
 
             source += "<div id='eform_container' " + "style='max-width: " + eFormPageWidth + "px'>";

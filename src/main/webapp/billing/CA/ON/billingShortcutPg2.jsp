@@ -534,7 +534,15 @@
                                 <tr>
                                     <td nowrap width="30%" align="center" valign="top"><b>Service
                                         Date</b><br>
-                                        <%= request.getParameter("billDate") != null ? String.join("<br>", java.util.Arrays.stream(request.getParameter("billDate").split("\\n")).map(Encode::forHtml).toArray(String[]::new)) : "" %>
+                                        <%
+                                        if (request.getParameter("billDate") != null) {
+                                            String[] billDateLines = request.getParameter("billDate").split("\\n");
+                                            for (int bdi = 0; bdi < billDateLines.length; bdi++) {
+                                                if (bdi > 0) out.print("<br>");
+                                                out.print(Encode.forHtml(billDateLines[bdi]));
+                                            }
+                                        }
+                                        %>
                                     </td>
                                     <td align="center" width="33%"><b>Diagnostic Code</b><br>
                                         <%= Encode.forHtml(StringUtils.noNull(request.getParameter("dxCode"))) %>
@@ -557,10 +565,10 @@
                                    bgcolor="#EEEEFF">
                                 <tr>
                                     <td nowrap width="30%"><b>Billing Physician</b></td>
-                                    <td width="20%"><%=providerBean.getProperty(request.getParameter("xml_provider"), "")%>
+                                    <td width="20%"><%= Encode.forHtml(providerBean.getProperty(StringUtils.noNull(request.getParameter("xml_provider")), "")) %>
                                     </td>
                                     <td nowrap width="30%"><b>Assig. Physician</b></td>
-                                    <td width="20%"><%=providerBean.getProperty(assgProvider_no, "")%>
+                                    <td width="20%"><%= Encode.forHtml(providerBean.getProperty(assgProvider_no, "")) %>
                                     </td>
                                 </tr>
                                 <tr>
@@ -635,8 +643,8 @@
             for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                 String temp = e.nextElement().toString();
         %>
-        <input type="hidden" name="<%= temp %>"
-               value="<%=StringEscapeUtils.escapeHtml4(request.getParameter(temp))%>">
+        <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
+               value="<%=Encode.forHtmlAttribute(request.getParameter(temp))%>">
         <%
             }
         %>

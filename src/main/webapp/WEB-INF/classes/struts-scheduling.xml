@@ -31,6 +31,7 @@
         <action name="notification/create" class="io.github.carlos_emr.carlos.commn.web.ProviderNotification2Action"/>
         <action name="waitinglist/SetupDisplayPatientWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action">
             <result name="continue">/waitinglist/DisplayPatientWaitingList.jsp</result>
+            <result name="error">/errorpage.jsp</result>
         </action>
         <action name="waitinglist/SetupDisplayWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action">
             <result name="continue">/waitinglist/DisplayWaitingList.jsp</result>

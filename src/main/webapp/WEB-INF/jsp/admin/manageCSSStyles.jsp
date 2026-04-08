@@ -52,7 +52,7 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageCodeStyles"/></title>
     <meta charset="UTF-8">
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/picker.js"></script>
     <script type="text/javascript">
 
@@ -240,7 +240,7 @@
         }
 
     </script>
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
 </head>
 <body>

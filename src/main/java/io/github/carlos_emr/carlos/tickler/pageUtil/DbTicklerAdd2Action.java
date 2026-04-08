@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import java.util.Date;
+import java.util.Objects;
 import java.util.ResourceBundle;
 
 /**
@@ -115,11 +116,11 @@ public final class DbTicklerAdd2Action extends ActionSupport {
         }
 
         String moduleId = request.getParameter("demographic_no");
-        String docCreator = request.getParameter("user_no");
+        String docCreator = Objects.toString(request.getParameter("user_no"), "");
         String docDate = request.getParameter("xml_appointment_date");
-        String ticklerMessage = request.getParameter("ticklerMessage");
+        String ticklerMessage = Objects.toString(request.getParameter("ticklerMessage"), "");
         String priority = request.getParameter("priority");
-        String taskAssignedTo = request.getParameter("task_assigned_to");
+        String taskAssignedTo = Objects.toString(request.getParameter("task_assigned_to"), "");
         String docType = request.getParameter("docType");
         String docId = request.getParameter("docId");
         String parentAjaxId = request.getParameter("parentAjaxId");

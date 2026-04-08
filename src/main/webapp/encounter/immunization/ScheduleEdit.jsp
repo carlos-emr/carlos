@@ -73,7 +73,7 @@
                     chgRefused(false);
                     setCurrent(frm.givenYear, frm.givenMonth, frm.givenDay);
                     if (frm.provider.value < 1) {
-                        frm.provider.value = <%= bean.providerNo %>;
+                        frm.provider.value = "<%=Encode.forJavaScript(bean.providerNo)%>";
                     }
 
                     frm.lot.focus();
@@ -181,31 +181,11 @@
 
         function loadPage() {
             var frm = window.opener.document.forms[0];
-            var vGivenDate = (frm
-        .<%=node + "_givenDate"%>.
-            value
-        )
-            ;
-            var vLot = (frm
-        .<%=node + "_lot"%>.
-            value
-        )
-            ;
-            var vProvider = (frm
-        .<%=node + "_provider"%>.
-            value
-        )
-            ;
-            var vRefusedDate = (frm
-        .<%=node + "_refusedDate"%>.
-            value
-        )
-            ;
-            var vComments = (frm
-        .<%=node + "_comments"%>.
-            value
-        )
-            ;
+            var vGivenDate = frm['<%=Encode.forJavaScript(node + "_givenDate")%>'].value;
+            var vLot = frm['<%=Encode.forJavaScript(node + "_lot")%>'].value;
+            var vProvider = frm['<%=Encode.forJavaScript(node + "_provider")%>'].value;
+            var vRefusedDate = frm['<%=Encode.forJavaScript(node + "_refusedDate")%>'].value;
+            var vComments = frm['<%=Encode.forJavaScript(node + "_comments")%>'].value;
             var editFrm = document.forms[0];
 
             if (vGivenDate.length > 0) {
@@ -285,8 +265,8 @@
                 <tr>
                     <td class="Header"
                         style="padding-left: 2px; padding-right: 2px; border-right: 2px solid #003399; text-align: left; font-size: 80%; font-weight: bold; width: 100%;"
-                        NOWRAP><%=bean.patientLastName %>, <%=bean.patientFirstName%>
-                        <%=bean.patientSex%> <%=bean.patientAge%>
+                        NOWRAP><%=Encode.forHtml(bean.patientLastName)%>, <%=Encode.forHtml(bean.patientFirstName)%>
+                        <%=Encode.forHtml(bean.patientSex)%> <%=Encode.forHtml(bean.patientAge)%>
                     </td>
                     <td></td>
                     <td style="text-align: right" NOWRAP> |</td>
@@ -300,7 +280,7 @@
             <form name="<%=request.getContextPath() %>/encounter/scheduleEdit.do">
                 <table>
                     <tr>
-                        <td style="font-weight: bold">&nbsp;<%=immName%>
+                        <td style="font-weight: bold">&nbsp;<%=Encode.forHtml(immName)%>
                         </td>
                     </tr>
                     <tr>
@@ -414,7 +394,7 @@
                         String sVal = prov[i].split("/")[0];
                         String sTxt = prov[i].split("/")[1];
 
-                        sb.append("<option value='" + sVal + "'>" + sTxt + "</option>");
+                        sb.append("<option value='" + Encode.forHtmlAttribute(sVal) + "'>" + Encode.forHtml(sTxt) + "</option>");
                     }
                     return new String(sb);
                 }
