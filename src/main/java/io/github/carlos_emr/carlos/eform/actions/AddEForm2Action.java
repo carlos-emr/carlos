@@ -312,7 +312,11 @@ public class AddEForm2Action extends ActionSupport {
 
                 String rawFileName = curForm.getFormFileName();
                 if (rawFileName != null && !rawFileName.isEmpty()) {
-                    curForm.setFormFileName(MiscUtils.sanitizeFileName(rawFileName));
+                    String sanitized = MiscUtils.sanitizeFileName(rawFileName);
+                    if (sanitized.isEmpty() || ".".equals(sanitized) || "..".equals(sanitized)) {
+                        throw new IllegalArgumentException("eForm filename sanitization resulted in unusable filename");
+                    }
+                    curForm.setFormFileName(sanitized);
                 }
                 EFormUtil.writeEformTemplate(LoggedInInfo.getLoggedInInfoFromSession(request), paramNames, paramValues, curForm, fdid, program_no, path);
             }
