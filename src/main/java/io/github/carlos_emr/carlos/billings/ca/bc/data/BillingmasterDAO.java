@@ -208,47 +208,56 @@ public class BillingmasterDAO {
 
     @NativeSql({"billingmaster", "billing"})
     public List<Object[]> getBillingMasterByVariousFields(String statusType, String providerNo, String startDate, String endDate) {
-        String providerQuery = "";
-        String startDateQuery = "";
-        String endDateQuery = "";
+        StringBuilder sb = new StringBuilder(" select "
+                + "b.billing_no, "
+                + "b.demographic_no, "
+                + "b.demographic_name, "
+                + "b.update_date, "
+                + "b.status, "
+                + "b.apptProvider_no, "
+                + "b.appointment_no, "
+                + "b.billing_date, "
+                + "b.billing_time, "
+                + "bm.billingstatus, "
+                + "bm.bill_amount, "
+                + "bm.billing_code, "
+                + "bm.dx_code1, "
+                + "bm.dx_code2, "
+                + "bm.dx_code3,"
+                + "b.provider_no, "
+                + "b.visitdate, "
+                + "b.visittype,"
+                + "bm.billingmaster_no "
+                + "from billing b, "
+                + " billingmaster bm where b.billing_no= bm.billing_no and bm.billingstatus = :statusType");
 
         if (providerNo != null && !providerNo.trim().equalsIgnoreCase("all")) {
-            providerQuery = " and provider_no = '" + providerNo + "'";
+            sb.append(" and provider_no = :providerNo");
         }
 
         if (startDate != null && !startDate.trim().equalsIgnoreCase("")) {
-            startDateQuery = " and ( to_days(service_date) > to_days('" + startDate + "')) ";
+            sb.append(" and ( to_days(service_date) > to_days(:startDate)) ");
         }
 
         if (endDate != null && !endDate.trim().equalsIgnoreCase("")) {
-            endDateQuery = " and ( to_days(service_date) < to_days('" + endDate + "')) ";
+            sb.append(" and ( to_days(service_date) < to_days(:endDate)) ");
         }
 
-        String p = " select " +
-                "b.billing_no, " +
-                "b.demographic_no, " +
-                "b.demographic_name, " +
-                "b.update_date, " +
-                "b.status, " +
-                "b.apptProvider_no, " +
-                "b.appointment_no, " +
-                "b.billing_date, " +
-                "b.billing_time, " +
-                "bm.billingstatus, " +
-                "bm.bill_amount, " +
-                "bm.billing_code, " +
-                "bm.dx_code1, " +
-                "bm.dx_code2, " +
-                "bm.dx_code3," +
-                "b.provider_no, " +
-                "b.visitdate, " +
-                "b.visittype," +
-                "bm.billingmaster_no " +
-                "from billing b, "
-                + " billingmaster bm where b.billing_no= bm.billing_no and bm.billingstatus = '"
-                + statusType + "' " + providerQuery + startDateQuery + endDateQuery;
+        Query query = entityManager.createNativeQuery(sb.toString());
+        query.setParameter("statusType", statusType);
 
-        Query query = entityManager.createNativeQuery(p);
+        if (providerNo != null && !providerNo.trim().equalsIgnoreCase("all")) {
+            query.setParameter("providerNo", providerNo);
+        }
+
+        if (startDate != null && !startDate.trim().equalsIgnoreCase("")) {
+            query.setParameter("startDate", startDate);
+        }
+
+        if (endDate != null && !endDate.trim().equalsIgnoreCase("")) {
+            query.setParameter("endDate", endDate);
+        }
+
         return query.getResultList();
     }
 

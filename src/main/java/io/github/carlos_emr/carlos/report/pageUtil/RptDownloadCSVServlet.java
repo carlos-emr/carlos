@@ -379,9 +379,9 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 temp = sSpecSelect.replaceAll("demographicExt.", "").split(",");
                 for (int i = 0; i < temp.length; i++) {
                     vecSpecCaption.add(propSpecSelect.getProperty(temp[i].trim()));
-                    sql = "select demographic_no,value from demographicExt where key_val='" + temp[i] + "' and demographic_no in (";
-                    sql += strDemoNo + ") order by date_time desc limit 1";
-                    ResultSet rs = DBHelp.searchDBRecord(sql);
+                    sql = "select demographic_no,value from demographicExt where key_val=? and demographic_no in (";
+                    sql += strDemoNo + ") order by date_time desc limit 1"; // nosemgrep: tainted-sql-from-http-request — strDemoNo contains only rs.getInt() values from DB
+                    ResultSet rs = DBHelp.searchDBRecord(sql, temp[i]);
                     while (rs.next()) {
                         propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
                     }
@@ -407,10 +407,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 String[] temp = sSpecSelect.replaceAll("demographicExt.", "").split(",");
                 for (int i = 0; i < temp.length; i++) {
                     vecSpecCaption.add(propSpecSelect.getProperty(temp[i].trim()));
-                    sql = "select demographic_no,value from demographicExt where key_val='" + temp[i] + "' and demographic_no in (";
-                    sql += subFormDemoNo + ") order by date_time desc limit 1";
+                    sql = "select demographic_no,value from demographicExt where key_val=? and demographic_no in (";
+                    sql += subFormDemoNo + ") order by date_time desc limit 1"; // nosemgrep: tainted-sql-from-http-request — subFormDemoNo contains only rs.getInt() values from DB
                     MiscUtils.getLogger().debug(" demographic and demographicExt: " + sql);
-                    rs = DBHelp.searchDBRecord(sql);
+                    rs = DBHelp.searchDBRecord(sql, temp[i]);
                     while (rs.next()) {
                         propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
                     }
@@ -527,9 +527,9 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 temp = sSpecSelect.replaceAll("demographicExt.", "").split(",");
                 for (int i = 0; i < temp.length; i++) {
                     vecSpecCaption.add(propSpecSelect.getProperty(temp[i].trim()));
-                    sql = "select demographic_no,value from demographicExt where key_val='" + temp[i] + "' and demographic_no in (";
-                    sql += strDemoNo + ") order by date_time ";
-                    rs = DBHelp.searchDBRecord(sql);
+                    sql = "select demographic_no,value from demographicExt where key_val=? and demographic_no in (";
+                    sql += strDemoNo + ") order by date_time "; // nosemgrep: tainted-sql-from-http-request — strDemoNo contains only property values from DB
+                    rs = DBHelp.searchDBRecord(sql, temp[i]);
                     while (rs.next()) {
                         propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
                     }
@@ -556,9 +556,9 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 String[] temp = sSpecSelect.replaceAll("demographicExt.", "").split(",");
                 for (int i = 0; i < temp.length; i++) {
                     vecSpecCaption.add(propSpecSelect.getProperty(temp[i].trim()));
-                    sql = "select demographic_no,value from demographicExt where key_val='" + temp[i] + "' and demographic_no in (";
-                    sql += subFormDemoNo + ") order by date_time desc limit 1";
-                    rs = DBHelp.searchDBRecord(sql);
+                    sql = "select demographic_no,value from demographicExt where key_val=? and demographic_no in (";
+                    sql += subFormDemoNo + ") order by date_time desc limit 1"; // nosemgrep: tainted-sql-from-http-request — subFormDemoNo contains only rs.getInt() values from DB
+                    rs = DBHelp.searchDBRecord(sql, temp[i]);
                     while (rs.next()) {
                         propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
                     }

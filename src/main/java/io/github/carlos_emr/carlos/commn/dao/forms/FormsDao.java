@@ -74,8 +74,9 @@ public class FormsDao {
         if (demographicNo == null) {
             return findIdFormCreatedAndPatientNameFromFormLabReq07();
         }
-        String sql = "SELECT ID, formCreated, patientName FROM formLabReq07 where demographic_no = " + Integer.parseInt(demographicNo);
+        String sql = "SELECT ID, formCreated, patientName FROM formLabReq07 where demographic_no = :demoNo";
         Query query = entityManager.createNativeQuery(sql);
+        query.setParameter("demoNo", Integer.parseInt(demographicNo));
         return query.getResultList();
     }
 
@@ -84,8 +85,9 @@ public class FormsDao {
         if (demographicNo == null) {
             return findIdFormCreatedAndPatientNameFromFormLabReq10();
         }
-        String sql = "SELECT ID, formCreated, patientName FROM formLabReq10 where demographic_no = " + Integer.parseInt(demographicNo);
+        String sql = "SELECT ID, formCreated, patientName FROM formLabReq10 where demographic_no = :demoNo";
         Query query = entityManager.createNativeQuery(sql);
+        query.setParameter("demoNo", Integer.parseInt(demographicNo));
         return query.getResultList();
     }
 
