@@ -35,7 +35,7 @@ rules:
         - https://cwe.mitre.org/data/definitions/117.html
     pattern-sources:
       - patterns:
-          - pattern: (HttpServletRequest $REQ).$METHOD(...)
+          - pattern: ($REQ : HttpServletRequest).$METHOD(...)
           - metavariable-regex:
               metavariable: $METHOD
               regex: ^(getParameter|getQueryString|getHeader|getRequestURI|getRequestURL|getPathInfo|getCookies|getRemoteAddr|getRemoteHost)$
