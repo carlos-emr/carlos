@@ -101,19 +101,20 @@ public class PrintHRMReport2Action extends ActionSupport {
                     demographic = demographicDao.getDemographicById(demographicNo);
                 }
 
-                String fileTempName = "";
+                String tempFileName;
                 if (demographic != null) {
-                    fileTempName = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "//" + demographic.getLastName() + "_" + demographic.getFirstName() + "_" + hrmId + "_HRMReport.pdf";
+                    tempFileName = demographic.getLastName() + "_" + demographic.getFirstName() + "_" + hrmId + "_HRMReport.pdf";
                     fileName = demographic.getLastName() + "_" + demographic.getFirstName() + "_HRMReport" + "_" + (new Date().getTime()) + ".pdf";
                 } else {
-                    fileTempName = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "//HRMReport.pdf";
+                    tempFileName = "HRMReport.pdf";
                     fileName = "_HRMReport" + "_" + (new Date().getTime()) + ".pdf";
                 }
                 response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
 
-                // Create temporary file — validate path against DOCUMENT_DIR for defense-in-depth
+                // Validate the filename component against DOCUMENT_DIR to prevent path traversal
+                // (demographic names from DB could contain path separators)
                 File docDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
-                File validatedTemp = PathValidationUtils.validatePath(new File(fileTempName).getName(), docDir);
+                File validatedTemp = PathValidationUtils.validatePath(tempFileName, docDir);
                 pdfDocs.add(validatedTemp.getPath());
                 fileTemp = validatedTemp;
                 osTemp = new FileOutputStream(fileTemp);
