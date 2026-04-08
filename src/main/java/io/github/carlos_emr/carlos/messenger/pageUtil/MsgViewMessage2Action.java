@@ -236,8 +236,9 @@ public class MsgViewMessage2Action extends ActionSupport {
         request.getSession().setAttribute("viewMessageDate", msgDisplayMessage.getThedate()); // nosemgrep: tainted-session-from-http-request
         request.getSession().setAttribute("viewMessageAttach", msgDisplayMessage.getAttach()); // nosemgrep: tainted-session-from-http-request
         request.getSession().setAttribute("viewMessagePDFAttach", msgDisplayMessage.getPdfAttach()); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("viewMessageId", messageNo); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("viewMessageNo", messageNo); // nosemgrep: tainted-session-from-http-request
+        String canonicalMessageNo = String.valueOf(parsedMessageNo);
+        request.getSession().setAttribute("viewMessageId", canonicalMessageNo); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("viewMessageNo", canonicalMessageNo); // nosemgrep: tainted-session-from-http-request
         request.getSession().setAttribute("viewMessagePosition", messagePosition); // nosemgrep: tainted-session-from-http-request
         request.getSession().setAttribute("from", from);
         request.getSession().setAttribute("providerNo", providerNo);
