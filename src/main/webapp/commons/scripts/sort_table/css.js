@@ -22,7 +22,6 @@ var css = {
         var classElements = new Array();
         var els = node.getElementsByTagName(tag);
         var elsLen = els.length;
-        var pattern = new RegExp("(^|\\s)" + searchClass + "(\\s|$)"); // nosemgrep: detect-non-literal-regexp -- searchClass is a CSS class name from developer code, not user input
 
 
         for (var i = 0, j = 0; i < elsLen; i++) {
