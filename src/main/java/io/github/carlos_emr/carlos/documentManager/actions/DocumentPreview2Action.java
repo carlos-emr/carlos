@@ -300,7 +300,7 @@ public class DocumentPreview2Action extends ActionSupport {
                     java.io.File baseDir = new java.io.File(basePath);
                     if (baseDir.exists()) {
                         try {
-                            PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir);
+                            canonicalPdfPath = PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir).toPath();
                             isValidPath = true;
                             break;
                         } catch (SecurityException e) {
@@ -325,7 +325,7 @@ public class DocumentPreview2Action extends ActionSupport {
             
             // Serve the validated PDF file
             response.setContentType("application/pdf");
-            try (InputStream inputStream = Files.newInputStream(canonicalPdfPath); // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath in boolean-flag loop above
+            try (InputStream inputStream = Files.newInputStream(canonicalPdfPath);
                  BufferedInputStream bfis = new BufferedInputStream(inputStream);
                  ServletOutputStream outs = response.getOutputStream()) {
 

@@ -83,11 +83,6 @@ extensions:
       # isInAllowedTempDirectory, and relative paths via validatePath.
       - ["io.github.carlos_emr.carlos.fax.core", "FaxSender", false, "resolveFilePath", "(java.lang.String,java.lang.String)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
 
-      # EDocUtil.resolvePath(String) -> String
-      # Resolves filename against DOCUMENT_DIR using validateExistingPath +
-      # isInAllowedTempDirectory fallback. Returns canonical path String.
-      - ["io.github.carlos_emr.carlos.documentManager", "EDocUtil", false, "resolvePath", "(java.lang.String)", "", "Argument[this]", "ReturnValue", "taint", "manual"]
-
       # NioFileManagerImpl.getOscarDocument(String) -> File
       # Resolves filename within DOCUMENT_DIR and validates via
       # PathValidationUtils.validateExistingPath. Returns validated File.
@@ -111,10 +106,16 @@ extensions:
       # Boolean guard that delegates to PathValidationUtils.validateExistingPath.
       - ["io.github.carlos_emr.carlos.demographic.pageUtil", "Util", "isPathWithinDirectory", "(java.io.File,java.lang.String)", "summary", "manual"]
 
-      # IncomingDocUtil.isPathComponentSafe(String) -> boolean
+      # IncomingDocUtil.isValidPathComponent(String) -> boolean
       # Boolean guard using PathValidationUtils.validatePath.
-      - ["io.github.carlos_emr.carlos.documentManager", "IncomingDocUtil", "isPathComponentSafe", "(java.lang.String)", "summary", "manual"]
+      - ["io.github.carlos_emr.carlos.documentManager", "IncomingDocUtil", "isValidPathComponent", "(java.lang.String)", "summary", "manual"]
 
       # IncomingDocUtil.isPathWithinBounds(String, String) -> boolean
       # Boolean guard using PathValidationUtils.validateExistingPath.
       - ["io.github.carlos_emr.carlos.documentManager", "IncomingDocUtil", "isPathWithinBounds", "(java.lang.String,java.lang.String)", "summary", "manual"]
+
+      # EDocUtil.resolvePath(String) -> String
+      # Static method that resolves a filename against DOCUMENT_DIR using
+      # PathValidationUtils.validateExistingPath + isInAllowedTempDirectory.
+      # No receiver (static), so modelled as neutral to suppress auto-generated models.
+      - ["io.github.carlos_emr.carlos.documentManager", "EDocUtil", "resolvePath", "(java.lang.String)", "summary", "manual"]

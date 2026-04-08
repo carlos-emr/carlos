@@ -251,8 +251,9 @@ example, `validatePath(String userInput, File allowedDir)` maps `Argument[1]`
 | Extensible | Description |
 |---|---|
 | `summaryModel` | PathValidationUtils methods: `validatePath`, `validateExistingPath`, `validateUpload` (2 overloads) |
-| `summaryModel` | Wrapper methods that internally call PathValidationUtils (e.g., `MEDITECHHandler.validateAndGetFile`, `FaxManagerImpl.resolveAndValidateFilePath`, `EDocUtil.resolvePath`) |
-| `neutralModel` | Boolean guard predicates: `isInAllowedTempDirectory`, `Util.isPathWithinDirectory`, `IncomingDocUtil.isPathComponentSafe`/`isPathWithinBounds` |
+| `summaryModel` | Wrapper methods that internally call PathValidationUtils (e.g., `MEDITECHHandler.validateAndGetFile`, `FaxManagerImpl.resolveAndValidateFilePath`, `NioFileManagerImpl.getOscarDocument`) |
+| `neutralModel` | Boolean guard predicates: `isInAllowedTempDirectory`, `Util.isPathWithinDirectory`, `IncomingDocUtil.isValidPathComponent`/`isPathWithinBounds` |
+| `neutralModel` | Static sanitizer wrappers with no safe argument to model: `EDocUtil.resolvePath` |
 
 ### When Adding New PathValidationUtils Methods
 

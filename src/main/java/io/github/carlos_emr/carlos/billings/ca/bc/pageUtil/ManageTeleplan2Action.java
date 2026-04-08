@@ -177,24 +177,24 @@ public class ManageTeleplan2Action extends ActionSupport {
             }
         }
 
-        BufferedReader buff = new BufferedReader(new FileReader(file)); // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
-
         String line = null;
         Properties dxProp = new Properties();
-        while ((line = buff.readLine()) != null) {
-            if (!line.startsWith("REM")) {
-                log.debug("{}={}", LogSanitizer.sanitize(line.substring(0, 5).trim()), LogSanitizer.sanitize(line.substring(4).trim()));
-                String code = line.substring(0, 5).trim();
-                String desc = line.substring(4).trim();
+        try (BufferedReader buff = new BufferedReader(new FileReader(file))) { // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
+            while ((line = buff.readLine()) != null) {
+                if (!line.startsWith("REM")) {
+                    log.debug("{}={}", LogSanitizer.sanitize(line.substring(0, 5).trim()), LogSanitizer.sanitize(line.substring(4).trim()));
+                    String code = line.substring(0, 5).trim();
+                    String desc = line.substring(4).trim();
 
-                if (dxProp.containsKey(code)) {//Some of the lines in file double up for a longer desc.
-                    String dxDesc = dxProp.getProperty(code);
-                    dxDesc += " " + desc;
-                    dxProp.setProperty(code, dxDesc);
-                } else {
-                    dxProp.put(code, desc);
+                    if (dxProp.containsKey(code)) {//Some of the lines in file double up for a longer desc.
+                        String dxDesc = dxProp.getProperty(code);
+                        dxDesc += " " + desc;
+                        dxProp.setProperty(code, dxDesc);
+                    } else {
+                        dxProp.put(code, desc);
+                    }
+
                 }
-
             }
         }
 
@@ -250,29 +250,29 @@ public class ManageTeleplan2Action extends ActionSupport {
             }
         }
 
-        BufferedReader buff = new BufferedReader(new FileReader(file)); // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
-
         String line = null;
 
         boolean start = false;
         StringBuilder sb = new StringBuilder();
         MspErrorCodes errorCodes = new MspErrorCodes();
 
-        while ((line = buff.readLine()) != null) {
-            line = line.trim();
-            if (line != null && line.startsWith("--")) {
-                start = true;
-                continue;
-            }
-            if (start) {
-                if (line.trim().equals("")) {
-                    String togo = sb.toString();
-                    sb = new StringBuilder();
-                    if (!togo.equals("")) {
-                        errorCodes.put(togo.substring(0, 2), togo.substring(4));
+        try (BufferedReader buff = new BufferedReader(new FileReader(file))) { // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
+            while ((line = buff.readLine()) != null) {
+                line = line.trim();
+                if (line != null && line.startsWith("--")) {
+                    start = true;
+                    continue;
+                }
+                if (start) {
+                    if (line.trim().equals("")) {
+                        String togo = sb.toString();
+                        sb = new StringBuilder();
+                        if (!togo.equals("")) {
+                            errorCodes.put(togo.substring(0, 2), togo.substring(4));
+                        }
+                    } else {
+                        sb.append(line);
                     }
-                } else {
-                    sb.append(line);
                 }
             }
         }
@@ -552,22 +552,23 @@ public class ManageTeleplan2Action extends ActionSupport {
                 }
             }
 
-            BufferedReader buff = new BufferedReader(new FileReader(file)); // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
             StringBuilder sb = new StringBuilder();
             String line = null;
 
-            while ((line = buff.readLine()) != null) {
+            try (BufferedReader buff = new BufferedReader(new FileReader(file))) { // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
+                while ((line = buff.readLine()) != null) {
 
-                if (line != null && line.startsWith("ELIG_ON_DOS:")) {
-                    String el = line.substring(12).trim();
-                    if (el.equalsIgnoreCase("no")) {
-                        request.setAttribute("Result", "Failure");
+                    if (line != null && line.startsWith("ELIG_ON_DOS:")) {
+                        String el = line.substring(12).trim();
+                        if (el.equalsIgnoreCase("no")) {
+                            request.setAttribute("Result", "Failure");
 
-                        line = "<span style=\"color:red; font-weight:bold;\">" + line + "</span>";
+                            line = "<span style=\"color:red; font-weight:bold;\">" + line + "</span>";
+                        }
                     }
+                    sb.append(line);
+                    sb.append("<br>");
                 }
-                sb.append(line);
-                sb.append("<br>");
             }
             request.setAttribute("Msgs", sb.toString()); //tr.getMsgs());
 

@@ -79,41 +79,40 @@ REM076 **                                                             **
             }
         }
 
-        BufferedReader buff = new BufferedReader(new FileReader(f)); // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
-
         String line = null;
         MiscUtils.getLogger().debug("start while");
 
         LinkedList list = new LinkedList();
-        while ((line = buff.readLine()) != null) {
-            //01 - 05 Fee Item Code  X(5)  Fee for Service Fee Item      **
-            //06 - 12 Fee Schedule   N(7)  Fee for Service Amount        **
-            //27 - 76 Fee Item       X(50)
+        try (BufferedReader buff = new BufferedReader(new FileReader(f))) { // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
+            while ((line = buff.readLine()) != null) {
+                //01 - 05 Fee Item Code  X(5)  Fee for Service Fee Item      **
+                //06 - 12 Fee Schedule   N(7)  Fee for Service Amount        **
+                //27 - 76 Fee Item       X(50)
 
-            boolean parse = true;
-            if (line == null) {
-                parse = false;
-            }
-            if (line.startsWith("REM")) {
-                parse = false;
-            }
-            if (line.startsWith("#")) {
-                parse = false;
-            }
+                boolean parse = true;
+                if (line == null) {
+                    parse = false;
+                }
+                if (line.startsWith("REM")) {
+                    parse = false;
+                }
+                if (line.startsWith("#")) {
+                    parse = false;
+                }
 
-            if (parse) {
-                String code = line.substring(0, 5);
-                String fee = line.substring(5, 12);
-                double newDoub = (Double.parseDouble(fee)) / 100;
-                BigDecimal newPriceDec = new BigDecimal(newDoub).setScale(2, BigDecimal.ROUND_HALF_UP);
-                String desc = line.substring(26, 76);
-                HashMap h = new HashMap();
+                if (parse) {
+                    String code = line.substring(0, 5);
+                    String fee = line.substring(5, 12);
+                    double newDoub = (Double.parseDouble(fee)) / 100;
+                    BigDecimal newPriceDec = new BigDecimal(newDoub).setScale(2, BigDecimal.ROUND_HALF_UP);
+                    String desc = line.substring(26, 76);
+                    HashMap h = new HashMap();
 
-                h.put("code", code);
-                h.put("fee", newPriceDec);
-                h.put("desc", desc);
-                list.add(h);
-
+                    h.put("code", code);
+                    h.put("fee", newPriceDec);
+                    h.put("desc", desc);
+                    list.add(h);
+                }
             }
         }
         MiscUtils.getLogger().debug("end while");
