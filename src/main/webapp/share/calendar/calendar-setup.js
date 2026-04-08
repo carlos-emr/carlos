@@ -1,209 +1,162 @@
-/*  Copyright Mihai Bazon, 2002, 2003  |  http://dynarch.com/mishoo/
- * ---------------------------------------------------------------------------
+/**
+ * jscalendar Calendar.setup() → Flatpickr compatibility shim.
  *
- * The DHTML Calendar
+ * Translates legacy Calendar.setup({ inputField, ifFormat, button, ... })
+ * calls into flatpickr() initialisations. This file is loaded AFTER
+ * calendar.js (which provides the Calendar global and auto-loads flatpickr)
+ * and the lang file (which may set Calendar._FD / Calendar._flatpickrLocale).
  *
- * Details and latest version at:
- * http://dynarch.com/mishoo/calendar.epl
+ * Supported jscalendar params → flatpickr mapping:
+ *   inputField  → target element (by ID)
+ *   ifFormat    → dateFormat (converted from strftime to flatpickr tokens)
+ *   showsTime   → enableTime + time_24hr (uses timeFormat param if present)
+ *   button      → external trigger via toggle button click handler
+ *   onUpdate    → onChange callback
+ *   onClose     → onClose callback
+ *   singleClick → (always true in flatpickr — dates are selected on click)
+ *   firstDay    → locale.firstDayOfWeek (falls back to Calendar._FD)
+ *   range       → minDate / maxDate
  *
- * This script is distributed under the GNU Lesser General Public License.
- * Read the entire license text here: http://www.gnu.org/licenses/lgpl.html
- *
- * This file defines helper functions for setting up the calendar.  They are
- * intended to help non-programmers get a working calendar on their site
- * quickly.  This script should not be seen as part of the calendar.  It just
- * shows you what one can do with the calendar, while in the same time
- * providing a quick and simple method for setting it up.  If you need
- * exhaustive customization of the calendar creation process feel free to
- * modify this code to suit your needs (this is recommended and much better
- * than modifying calendar.js itself).
+ * @see https://github.com/carlos-emr/carlos/issues/1355
+ * @since 2026-04-08
  */
 
-// $Id: calendar-setup.js,v 1.26 2006/02/11 12:32:59 mishoo Exp $
+/* ── Format conversion ──────────────────────────────────────────────────── */
 
 /**
- *  This function "patches" an input field (or other element) to use a calendar
- *  widget for date selection.
+ * Convert a jscalendar / strftime format string to Flatpickr tokens.
  *
- *  The "params" is a single object that can have the following properties:
+ * Only the tokens actually used across the 562 Calendar.setup() calls in the
+ * codebase are mapped. Unmapped tokens pass through as literal text.
  *
- *    prop. name   | description
- *  -------------------------------------------------------------------------------------------------
- *   inputField    | the ID of an input field to store the date
- *   displayArea   | the ID of a DIV or other element to show the date
- *   button        | ID of a button or other element that will trigger the calendar
- *   eventName     | event that will trigger the calendar, without the "on" prefix (default: "click")
- *   ifFormat      | date format that will be stored in the input field
- *   daFormat      | the date format that will be used to display the date in displayArea
- *   singleClick   | (true/false) wether the calendar is in single click mode or not (default: true)
- *   firstDay      | numeric: 0 to 6.  "0" means display Sunday first, "1" means display Monday first, etc.
- *   align         | alignment (default: "Br"); if you don't know what's this see the calendar documentation
- *   range         | array with 2 elements.  Default: [1900, 2999] -- the range of years available
- *   weekNumbers   | (true/false) if it's true (default) the calendar will display week numbers
- *   flat          | null or element ID; if not null the calendar will be a flat calendar having the parent with the given ID
- *   flatCallback  | function that receives a JS Date object and returns an URL to point the browser to (for flat calendar)
- *   disableFunc   | function that receives a JS Date object and should return true if that date has to be disabled in the calendar
- *   onSelect      | function that gets called when a date is selected.  You don't _have_ to supply this (the default is generally okay)
- *   onClose       | function that gets called when the calendar is closed.  [default]
- *   onUpdate      | function that gets called after the date is updated in the input field.  Receives a reference to the calendar.
- *   date          | the date that the calendar will be initially displayed to
- *   showsTime     | default: false; if true the calendar will include a time selector
- *   timeFormat    | the time format; can be "12" or "24", default is "12"
- *   electric      | if true (default) then given fields/date areas are updated for each move; otherwise they're updated only on close
- *   step          | configures the step of the years in drop-down boxes; default: 2
- *   position      | configures the calendar absolute position; default: null
- *   cache         | if "true" (but default: "false") it will reuse the same calendar object, where possible
- *   showOthers    | if "true" (but default: "false") it will show days from other months too
+ * @param {string} fmt  strftime-style format, e.g. "%Y-%m-%d" or "%d/%m/%Y"
+ * @returns {string} Flatpickr format, e.g. "Y-m-d" or "d/m/Y"
+ */
+Calendar._convertFormat = function (fmt) {
+    if (!fmt) return "Y-m-d";
+    return fmt
+        .replace(/%Y/g, "Y")     // 4-digit year
+        .replace(/%y/g, "y")     // 2-digit year
+        .replace(/%m/g, "m")     // month 01-12
+        .replace(/%d/g, "d")     // day 01-31
+        .replace(/%e/g, "j")     // day 1-31 (no leading zero)
+        .replace(/%H/g, "H")     // hour 00-23
+        .replace(/%I/g, "h")     // hour 01-12
+        .replace(/%M/g, "i")     // minute 00-59
+        .replace(/%S/g, "S")     // second 00-59
+        .replace(/%P/g, "K")     // AM/PM
+        .replace(/%p/g, "K")     // am/pm → K in flatpickr
+        .replace(/%a/g, "D")     // abbreviated weekday name
+        .replace(/%A/g, "l")     // full weekday name
+        .replace(/%b/g, "M")     // abbreviated month name
+        .replace(/%B/g, "F");    // full month name
+};
+
+/* ── Calendar.setup() — public entry point ──────────────────────────────── */
+
+/**
+ * Drop-in replacement for the jscalendar Calendar.setup() helper.
  *
- *  None of them is required, they all have default values.  However, if you
- *  pass none of "inputField", "displayArea" or "button" you'll get a warning
- *  saying "nothing to setup".
+ * If flatpickr is not yet loaded (async injection still pending), the call
+ * is queued and replayed automatically once the library is available.
+ *
+ * @param {Object} params  jscalendar-style configuration object
  */
 Calendar.setup = function (params) {
-    function param_default(pname, def) {
-        if (typeof params[pname] == "undefined") {
-            params[pname] = def;
-        }
-    };
+    if (!params) return;
 
-    param_default("inputField", null);
-    param_default("displayArea", null);
-    param_default("button", null);
-    param_default("eventName", "click");
-    param_default("ifFormat", "%Y/%m/%d");
-    param_default("daFormat", "%Y/%m/%d");
-    param_default("singleClick", true);
-    param_default("disableFunc", null);
-    param_default("dateStatusFunc", params["disableFunc"]);	// takes precedence if both are defined
-    param_default("dateTooltipFunc", null);
-    param_default("dateText", null);
-    param_default("firstDay", null);
-    param_default("align", "Br");
-    param_default("range", [1900, 2999]);
-    param_default("weekNumbers", true);
-    param_default("flat", null);
-    param_default("flatCallback", null);
-    param_default("onSelect", null);
-    param_default("onClose", null);
-    param_default("onUpdate", null);
-    param_default("date", null);
-    param_default("showsTime", false);
-    param_default("timeFormat", "24");
-    param_default("electric", true);
-    param_default("step", 2);
-    param_default("position", null);
-    param_default("cache", false);
-    param_default("showOthers", false);
-    param_default("multiple", null);
-
-    var tmp = ["inputField", "displayArea", "button"];
-    for (var i in tmp) {
-        if (typeof params[tmp[i]] == "string") {
-            params[tmp[i]] = document.getElementById(params[tmp[i]]);
-        }
+    if (Calendar._flatpickrReady) {
+        Calendar._doSetup(params);
+    } else {
+        Calendar._pendingSetups.push(params);
     }
-    if (!(params.flat || params.multiple || params.inputField || params.displayArea || params.button)) {
-        if (typeof console !== "undefined") { console.warn("Calendar.setup: Nothing to setup (no fields found)."); }
-        return false;
+};
+
+/* ── Calendar._doSetup() — internal implementation ──────────────────────── */
+
+/**
+ * Actually initialise a flatpickr instance from jscalendar-style params.
+ * Called directly when flatpickr is loaded, or deferred via the pending queue.
+ *
+ * @param {Object} params  jscalendar-style configuration object
+ * @private
+ */
+Calendar._doSetup = function (params) {
+    /* ── Resolve element IDs to DOM nodes ────────────────────────────── */
+    var inputEl = (typeof params.inputField === "string")
+        ? document.getElementById(params.inputField)
+        : params.inputField;
+
+    var buttonEl = (typeof params.button === "string")
+        ? document.getElementById(params.button)
+        : params.button;
+
+    if (!inputEl && !buttonEl) {
+        if (typeof console !== "undefined") {
+            console.warn("Calendar.setup shim: no inputField or button found – skipping.");
+        }
+        return;
     }
 
-    function onSelect(cal) {
-        var p = cal.params;
-        var update = (cal.dateClicked || p.electric);
-        if (update && p.inputField) {
-            p.inputField.value = cal.date.print(p.ifFormat);
-            if (typeof p.inputField.onchange == "function")
-                p.inputField.onchange();
-        }
-        if (update && p.displayArea)
-            p.displayArea.innerHTML = cal.date.print(p.daFormat);
-        if (update && typeof p.onUpdate == "function")
-            p.onUpdate(cal);
-        if (update && p.flat) {
-            if (typeof p.flatCallback == "function")
-                p.flatCallback(cal);
-        }
-        if (update && p.singleClick && cal.dateClicked)
-            cal.callCloseHandler();
+    /* ── Build flatpickr options ─────────────────────────────────────── */
+    var fpOpts = {
+        allowInput: true,
+        dateFormat: Calendar._convertFormat(params.ifFormat || null)
     };
 
-    if (params.flat != null) {
-        if (typeof params.flat == "string")
-            params.flat = document.getElementById(params.flat);
-        if (!params.flat) {
-            alert("Calendar.setup:\n  Flat specified but can't find parent.");
-            return false;
+    /* Time support */
+    if (params.showsTime) {
+        fpOpts.enableTime = true;
+        fpOpts.time_24hr = (params.timeFormat !== "12");
+        if (fpOpts.dateFormat.indexOf("H") === -1 &&
+            fpOpts.dateFormat.indexOf("h") === -1) {
+            fpOpts.dateFormat += " H:i";
         }
-        var cal = new Calendar(params.firstDay, params.date, params.onSelect || onSelect);
-        cal.setDateToolTipHandler(params.dateTooltipFunc);
-        cal.showsOtherMonths = params.showOthers;
-        cal.showsTime = params.showsTime;
-        cal.time24 = (params.timeFormat == "24");
-        cal.params = params;
-        cal.weekNumbers = params.weekNumbers;
-        cal.setRange(params.range[0], params.range[1]);
-        cal.setDateStatusHandler(params.dateStatusFunc);
-        cal.getDateText = params.dateText;
-        if (params.ifFormat) {
-            cal.setDateFormat(params.ifFormat);
-        }
-        if (params.inputField && typeof params.inputField.value == "string") {
-            cal.parseDate(params.inputField.value);
-        }
-        cal.create(params.flat);
-        cal.show();
-        return false;
     }
 
-    var triggerEl = params.button || params.displayArea || params.inputField;
-    triggerEl["on" + params.eventName] = function () {
-        var dateEl = params.inputField || params.displayArea;
-        var dateFmt = params.inputField ? params.ifFormat : params.daFormat;
-        var mustCreate = false;
-        var cal = window.calendar;
-        if (dateEl)
-            params.date = Date.parseDate(dateEl.value || dateEl.innerHTML, dateFmt);
-        if (!(cal && params.cache)) {
-            window.calendar = cal = new Calendar(params.firstDay,
-                params.date,
-                params.onSelect || onSelect,
-                params.onClose || function (cal) {
-                    cal.hide();
-                });
-            cal.setDateToolTipHandler(params.dateTooltipFunc);
-            cal.showsTime = params.showsTime;
-            cal.time24 = (params.timeFormat == "24");
-            cal.weekNumbers = params.weekNumbers;
-            mustCreate = true;
-        } else {
-            if (params.date)
-                cal.setDate(params.date);
-            cal.hide();
-        }
-        if (params.multiple) {
-            cal.multiple = {};
-            for (var i = params.multiple.length; --i >= 0;) {
-                var d = params.multiple[i];
-                var ds = d.print("%Y%m%d");
-                cal.multiple[ds] = d;
-            }
-        }
-        cal.showsOtherMonths = params.showOthers;
-        cal.yearStep = params.step;
-        cal.setRange(params.range[0], params.range[1]);
-        cal.params = params;
-        cal.setDateStatusHandler(params.dateStatusFunc);
-        cal.getDateText = params.dateText;
-        cal.setDateFormat(dateFmt);
-        if (mustCreate)
-            cal.create();
-        cal.refresh();
-        if (!params.position)
-            cal.showAtElement(params.button || params.displayArea || params.inputField, params.align);
-        else
-            cal.showAt(params.position[0], params.position[1]);
-        return false;
-    };
+    /* Year range */
+    if (params.range && params.range.length === 2) {
+        fpOpts.minDate = String(params.range[0]) + "-01-01";
+        fpOpts.maxDate = String(params.range[1]) + "-12-31";
+    }
 
-    return cal;
+    /* First day of week (from lang file or explicit param) */
+    var firstDay = (typeof params.firstDay === "number")
+        ? params.firstDay
+        : Calendar._FD;
+    var localeObj = {};
+    if (Calendar._flatpickrLocale && typeof flatpickr !== "undefined" &&
+        flatpickr.l10ns && flatpickr.l10ns[Calendar._flatpickrLocale]) {
+        localeObj = flatpickr.l10ns[Calendar._flatpickrLocale];
+    }
+    if (firstDay != null) {
+        fpOpts.locale = Object.assign({}, localeObj, { firstDayOfWeek: firstDay });
+    } else if (Calendar._flatpickrLocale) {
+        fpOpts.locale = Calendar._flatpickrLocale;
+    }
+
+    /* onUpdate → flatpickr onChange */
+    if (typeof params.onUpdate === "function") {
+        fpOpts.onChange = function () { params.onUpdate(); };
+    }
+
+    /* onClose → flatpickr onClose */
+    if (typeof params.onClose === "function") {
+        fpOpts.onClose = function () { params.onClose(); };
+    }
+
+    /* ── Initialise flatpickr on the input element ───────────────────── */
+    var target = inputEl || buttonEl;
+    var fp = flatpickr(target, fpOpts);
+
+    /* ── Button trigger ──────────────────────────────────────────────── */
+    if (buttonEl && buttonEl !== inputEl) {
+        buttonEl.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            fp.toggle();
+        });
+    }
+
+    return fp;
 };
