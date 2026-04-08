@@ -50,6 +50,7 @@
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@include file="/casemgmt/taglibs.jsp" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@page import="java.util.Enumeration" %>
 <%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.NavBarDisplayDAO" %>
@@ -162,19 +163,19 @@
         }
 %>
 
-<script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-3.7.1.min.js"/>"></script>
-<script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-ui-1.14.2.min.js" />"></script>
+<script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/library/jquery/jquery-3.7.1.min.js"></script>
+<script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.js"></script>
 <script type="text/javascript">jQuery.noConflict();</script>
-<link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/library/jquery/jquery-ui-1.14.2.min.css">
+<link rel="stylesheet" type="text/css" href="${e:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.css">
 <!-- Prototype.js/Scriptaculous removed — using prototype-compat.js shim + carlos-ajax.js (Phase 4d migration) -->
 <!-- jQuery.noConflict() frees $ for the Prototype shim; use jQuery() or jQuery.ajax() for jQuery calls -->
-<script src="<c:out value="${ctx}"/>/share/javascript/prototype-compat.js" type="text/javascript"></script>
-<script src="<c:out value="${ctx}"/>/share/javascript/carlos-ajax.js" type="text/javascript"></script>
+<script src="${e:forHtmlAttribute(ctx)}/share/javascript/prototype-compat.js" type="text/javascript"></script>
+<script src="${e:forHtmlAttribute(ctx)}/share/javascript/carlos-ajax.js" type="text/javascript"></script>
 <!-- vanilla JS autocomplete select box (replaces Scriptaculous Autocompleter.SelectBox) -->
-<script src="<c:out value="${ctx}"/>/share/javascript/select.js" type="text/javascript"></script>
-<script type="text/javascript" src="<c:out value="${ctx}/js/newCaseManagementView.js.jsp"/>?v=<%= System.currentTimeMillis() %>"></script>
+<script src="${e:forHtmlAttribute(ctx)}/share/javascript/select.js" type="text/javascript"></script>
+<script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/js/newCaseManagementView.js.jsp?v=<%= System.currentTimeMillis() %>"></script>
 <script type="text/javascript">
-    ctx = "<c:out value="${ctx}"/>";
+    ctx = "${e:forJavaScript(ctx)}";
     imgPrintgreen.src = ctx + "/encounter/graphics/printerGreen.png"; //preload green print image so firefox will update properly
     providerNo = "<%=provNo%>";
     demographicNo = "<%= Encode.forJavaScript(demographicNo) %>";
@@ -444,7 +445,7 @@
                 <legend>Template Search</legend>
 
                 <img alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.msgFind"/>"
-                     src="<c:out value="${ctx}/encounter/graphics/edit-find.png"/>">
+                     src="${e:forHtmlAttribute(ctx)}/encounter/graphics/edit-find.png">
                 <input id="enTemplate" placeholder="template name" tabindex="6" size="16" type="text" value=""
                        onkeypress="return grabEnterGetTemplate(event)">
 
@@ -507,8 +508,8 @@
     <input type="hidden" name="lineId" value="0">
     <input type="hidden" name="from" value="casemgmt">
     <input type="hidden" name="method" value="save">
-    <input type="hidden" name="change_diagnosis" value="<c:out value="${change_diagnosis}"/>">
-    <input type="hidden" name="change_diagnosis_id" value="<c:out value="${change_diagnosis_id}"/>">
+    <input type="hidden" name="change_diagnosis" value="${e:forHtmlAttribute(change_diagnosis)}">
+    <input type="hidden" name="change_diagnosis_id" value="${e:forHtmlAttribute(change_diagnosis_id)}">
     <input type="hidden" name="newIssueId" id="newIssueId">
     <input type="hidden" name="newIssueName" id="newIssueName">
     <input type="hidden" name="ajax" value="false">
@@ -532,7 +533,7 @@
     <input type="hidden" name="pEndDate" id="pEndDate" value="">
 
     <span id="notesLoading">
-		<img src="<c:out value="${ctx}/images/DMSLoader.gif" />">Loading Notes...
+		<img src="${e:forHtmlAttribute(ctx)}/images/DMSLoader.gif">Loading Notes...
 	</span>
 
 
@@ -573,13 +574,13 @@
                         if (facility != null && facility.isEnableGroupNotes()) {
                     %>
                     <input tabindex="16" type='image'
-                           src="<c:out value="${ctx}/encounter/graphics/group-gnote.png"/>" id="groupNoteImg"
+                           src="${e:forHtmlAttribute(ctx)}/encounter/graphics/group-gnote.png" id="groupNoteImg"
                            onclick="event.preventDefault();event.stopPropagation();return selectGroup(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnGroupNote"/>'>
                     <% }
                         if (facility != null && facility.isEnablePhoneEncounter()) {
                     %>
-                    <input tabindex="25" type='image' src="<c:out value="${ctx}/encounter/graphics/attach.png"/>"
+                    <input tabindex="25" type='image' src="${e:forHtmlAttribute(ctx)}/encounter/graphics/attach.png"
                            id="attachNoteImg"
                            onclick="event.preventDefault();event.stopPropagation();return assign(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnAttachNote"/>'>
@@ -589,26 +590,26 @@
                         }
                     %>
                     <input tabindex="17" type='image'
-                           src="<c:out value="${ctx}/encounter/graphics/media-floppy.png"/>" id="saveImg"
+                           src="${e:forHtmlAttribute(ctx)}/encounter/graphics/media-floppy.png" id="saveImg"
                            onclick="event.preventDefault();event.stopPropagation();return saveNoteAjax('save', 'list');"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnSave"/>'>
                     <input tabindex="18" type='image'
-                           src="<c:out value="${ctx}/encounter/graphics/document-new.png"/>" id="newNoteImg"
+                           src="${e:forHtmlAttribute(ctx)}/encounter/graphics/document-new.png" id="newNoteImg"
                            onclick="newNote(event); return false;"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnNew"/>'>
                     <input tabindex="19" type='image'
-                           src="<c:out value="${ctx}/encounter/graphics/note-save.png"/>" id="signSaveImg"
+                           src="${e:forHtmlAttribute(ctx)}/encounter/graphics/note-save.png" id="signSaveImg"
                            onclick="document.forms['caseManagementEntryForm'].sign.value='on';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnSignSave"/>'>
                     <input tabindex="20" type='image'
-                           src="<c:out value="${ctx}/encounter/graphics/verify-sign.png"/>" id="signVerifyImg"
+                           src="${e:forHtmlAttribute(ctx)}/encounter/graphics/verify-sign.png" id="signVerifyImg"
                            onclick="document.forms['caseManagementEntryForm'].sign.value='on';document.forms['caseManagementEntryForm'].verify.value='on';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnSign"/>'>
                     <%
                         if (bean.source == null) {
                     %>
                     <input tabindex="21" type='image'
-                           src="<c:out value="${ctx}/encounter/graphics/dollar-sign-icon.png"/>"
+                           src="${e:forHtmlAttribute(ctx)}/encounter/graphics/dollar-sign-icon.png"
                            onclick="document.forms['caseManagementEntryForm'].sign.value='on';document.forms['caseManagementEntryForm'].toBill.value='true';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnBill"/>'>
                     <%
@@ -617,10 +618,10 @@
 
 
                     <input tabindex="23" type='image'
-                           src="<c:out value="${ctx}/encounter/graphics/system-log-out.png"/>"
+                           src="${e:forHtmlAttribute(ctx)}/encounter/graphics/system-log-out.png"
                            onclick='closeEnc(event);return false;' title='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>'>
                     <input tabindex="24" type='image'
-                           src="<c:out value="${ctx}/encounter/graphics/document-print.png"/>"
+                           src="${e:forHtmlAttribute(ctx)}/encounter/graphics/document-print.png"
                            onclick="return printSetup(event);"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.btnPrint"/>' id="imgPrintEncounter">
             </div>
