@@ -137,7 +137,7 @@ public class ProfessionalContactDaoImpl extends AbstractDaoImpl<ProfessionalCont
         
         String sql = "SELECT c from ProfessionalContact c where " + where.toString() + " order by " + validatedOrderBy;
 
-        Query query = entityManager.createQuery(sql);
+        Query query = entityManager.createQuery(sql); // NOSONAR javasecurity:S3649 — searchMode and orderBy are allowlist-validated via VALID_SEARCH_MODES and VALID_ORDER_BY_COLUMNS maps
         for (int x = 0; x < paramList.size(); x++) {
             query.setParameter(x + 1, paramList.get(x));
         }
