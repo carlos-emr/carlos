@@ -1554,8 +1554,14 @@ input[id^='acklabel_']{
         <table style="width:100%;">
             <tr>
                 <td class="alert alert-info alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    <strong>INFO</strong> The following <%=numTickler%> <a class="alert-link" onclick="popup(450, 1200, '<%=request.getContextPath()%>/tickler/ticklerDemoMain.jsp?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')">ticklers</a> are marked pending:<c:forEach items="${pendingTicklers}" var="tickler" varStatus="loop"><c:if test="${not loop.first}">, </c:if>
-                        <a class="alert-link" href="${pageContext.request.contextPath}/tickler/ticklerEdit.jsp?tickler_no=${e:forUriComponent(tickler.id)}" target="_blank">${e:forHtml(tickler.message)}</a></c:forEach>
+                    <strong>INFO</strong> The following <%=numTickler%> <a class="alert-link" onclick="popup(450, 1200, '<%=request.getContextPath()%>/tickler/ticklerDemoMain.jsp?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')">ticklers</a>
+                    are marked pending:
+                    <c:forEach items="${pendingTicklers}" var="tickler" varStatus="loop">
+                        <c:if test="${not loop.first}">, </c:if>
+                        <a class="alert-link"
+                           href="${pageContext.request.contextPath}/tickler/ticklerEdit.jsp?tickler_no=${e:forUriComponent(tickler.id)}"
+                           target="_blank">${e:forHtml(tickler.message)}</a>
+                    </c:forEach>
                 </td>
             </tr>
          </table>
