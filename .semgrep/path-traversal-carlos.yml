@@ -53,12 +53,42 @@ rules:
                   regex: (getParameter|getQueryString|getPathInfo|getRequestURI|getHeader)
 
     pattern-sanitizers:
-      # PathValidationUtils methods that return validated paths/targets
-      # (short names — covers static imports and same-package usage)
+      # Qualified class references
       - pattern: PathValidationUtils.validatePath(...)
       - pattern: PathValidationUtils.validateExistingPath(...)
       - pattern: PathValidationUtils.validateUpload(...)
-      # Fully-qualified names (covers cross-package usage)
+      # Unqualified static-import usage
+      - patterns:
+          - pattern: validatePath(...)
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.*;
+              ...
+      - patterns:
+          - pattern: validatePath(...)
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath;
+              ...
+      - patterns:
+          - pattern: validateExistingPath(...)
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.*;
+              ...
+      - patterns:
+          - pattern: validateExistingPath(...)
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath;
+              ...
+      - patterns:
+          - pattern: validateUpload(...)
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.*;
+              ...
+      - patterns:
+          - pattern: validateUpload(...)
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateUpload;
+              ...
+      # Fully-qualified class references
       - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(...)
       - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(...)
       - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateUpload(...)
