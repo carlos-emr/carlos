@@ -21,16 +21,17 @@ Calendar._TT["TODAY"] = "Dziś";
 
 Calendar._flatpickrLocale = "pl";
 
-/* Load the flatpickr Polish locale file alongside this script */
+/* Defer flatpickr Polish locale loading until flatpickr is ready.
+ * Always use _pendingLocaleUrl so that _ensureFlatpickr / _flushPending
+ * load the locale before any Calendar.setup() calls execute, even when
+ * flatpickr is already cached. */
 (function () {
     var scripts = document.getElementsByTagName("script");
     for (var i = 0; i < scripts.length; i++) {
         var src = scripts[i].src || "";
         var idx = src.indexOf("share/calendar/");
         if (idx !== -1) {
-            var js = document.createElement("script");
-            js.src = src.substring(0, idx) + "library/flatpickr/l10n/pl.js";
-            document.head.appendChild(js);
+            Calendar._pendingLocaleUrl = src.substring(0, idx) + "library/flatpickr/l10n/pl.js";
             return;
         }
     }

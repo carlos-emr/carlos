@@ -52,6 +52,39 @@ Calendar._convertFormat = function (fmt) {
         .replace(/%B/g, "F");    // full month name
 };
 
+/**
+ * Format a Date object using jscalendar strftime tokens.
+ *
+ * Provides the legacy Date.print(fmt) behaviour that jscalendar patched onto
+ * Date.prototype. Used by the onClose shim to give callbacks a compatible
+ * cal.multiple[n].print() method (e.g. billingShortcutPg1.jsp).
+ *
+ * @param {Date}   date  the date to format
+ * @param {string} fmt   strftime-style format string
+ * @returns {string} formatted date string
+ * @private
+ */
+Calendar._formatDate = function (date, fmt) {
+    var y  = date.getFullYear();
+    var mo = date.getMonth() + 1;
+    var d  = date.getDate();
+    var h  = date.getHours();
+    var mi = date.getMinutes();
+    var s  = date.getSeconds();
+    return fmt
+        .replace(/%Y/g, y)
+        .replace(/%y/g, String(y).slice(-2))
+        .replace(/%m/g, ("0" + mo).slice(-2))
+        .replace(/%d/g, ("0" + d).slice(-2))
+        .replace(/%e/g, d)
+        .replace(/%H/g, ("0" + h).slice(-2))
+        .replace(/%I/g, ("0" + ((h % 12) || 12)).slice(-2))
+        .replace(/%M/g, ("0" + mi).slice(-2))
+        .replace(/%S/g, ("0" + s).slice(-2))
+        .replace(/%P/g, (h < 12 ? "AM" : "PM"))
+        .replace(/%p/g, (h < 12 ? "am" : "pm"));
+};
+
 /* ── Calendar.setup() — public entry point ──────────────────────────────── */
 
 /**
@@ -65,11 +98,32 @@ Calendar._convertFormat = function (fmt) {
 Calendar.setup = function (params) {
     if (!params) return;
 
-    if (Calendar._flatpickrReady) {
-        Calendar._doSetup(params);
-    } else {
+    if (!Calendar._flatpickrReady) {
         Calendar._pendingSetups.push(params);
+        return null;
     }
+
+    /* If a locale file is still pending (lang shim set _pendingLocaleUrl after
+     * _ensureFlatpickr already ran because flatpickr was cached), load the
+     * locale now and queue this call + any future calls until it arrives. */
+    if (Calendar._pendingLocaleUrl) {
+        Calendar._pendingSetups.push(params);
+        var url = Calendar._pendingLocaleUrl;
+        Calendar._pendingLocaleUrl = null;
+        var js = document.createElement("script");
+        js.src = url;
+        js.onload = function () { Calendar._flushPending(); };
+        js.onerror = function () {
+            if (typeof console !== "undefined") {
+                console.warn("Calendar shim: failed to load flatpickr locale");
+            }
+            Calendar._flushPending();
+        };
+        document.head.appendChild(js);
+        return null;
+    }
+
+    return Calendar._doSetup(params);
 };
 
 /* ── Calendar._doSetup() — internal implementation ──────────────────────── */
@@ -120,6 +174,20 @@ Calendar._doSetup = function (params) {
         fpOpts.maxDate = String(params.range[1]) + "-12-31";
     }
 
+    /* Multiple date selection (used by billingShortcutPg1.jsp) */
+    if (params.multiple) {
+        fpOpts.mode = "multiple";
+        var initDates = [];
+        if (Array.isArray(params.multiple)) {
+            for (var mi = 0; mi < params.multiple.length; mi++) {
+                if (params.multiple[mi]) initDates.push(params.multiple[mi]);
+            }
+        }
+        if (initDates.length) {
+            fpOpts.defaultDate = initDates;
+        }
+    }
+
     /* First day of week (from lang file or explicit param) */
     var firstDay = (typeof params.firstDay === "number")
         ? params.firstDay
@@ -140,9 +208,27 @@ Calendar._doSetup = function (params) {
         fpOpts.onChange = function () { params.onUpdate(); };
     }
 
-    /* onClose → flatpickr onClose */
+    /* onClose → flatpickr onClose with legacy cal shim.
+     * jscalendar passed the calendar instance to onClose(cal), where cal had
+     * .multiple (hash of Date objects with .print(fmt)), .hide(), .date, and
+     * .params. billingShortcutPg1.jsp relies on cal.multiple and cal.hide(). */
     if (typeof params.onClose === "function") {
-        fpOpts.onClose = function () { params.onClose(); };
+        fpOpts.onClose = function (selectedDates, dateStr, instance) {
+            var calShim = {
+                hide: function () { instance.close(); },
+                multiple: {},
+                date: selectedDates[0] || new Date(),
+                params: params
+            };
+            for (var ci = 0; ci < selectedDates.length; ci++) {
+                var wrapped = new Date(selectedDates[ci].getTime());
+                wrapped.print = function (fmt) {
+                    return Calendar._formatDate(this, fmt);
+                };
+                calShim.multiple[ci] = wrapped;
+            }
+            params.onClose(calShim);
+        };
     }
 
     /* ── Initialise flatpickr on the input element ───────────────────── */

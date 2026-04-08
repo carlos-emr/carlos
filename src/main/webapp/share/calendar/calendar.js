@@ -48,6 +48,13 @@ Calendar._pendingSetups = [];
  */
 Calendar._flatpickrReady = false;
 
+/**
+ * URL for a flatpickr locale file that should be loaded once flatpickr is ready.
+ * Set by the lang shims (calendar-fr.js, etc.) when flatpickr hasn't loaded yet.
+ * @private
+ */
+Calendar._pendingLocaleUrl = null;
+
 /* ── Auto-load flatpickr if not already present ─────────────────────────── */
 
 /**
@@ -58,18 +65,43 @@ Calendar._flatpickrReady = false;
 Calendar._ensureFlatpickr = function () {
     if (typeof flatpickr !== "undefined") {
         Calendar._flatpickrReady = true;
-        Calendar._flushPending();
+        /* If a locale URL is pending (lang shim ran before us but flatpickr was
+         * already cached), load the locale before flushing so setups get the
+         * correct l10n. */
+        if (Calendar._pendingLocaleUrl) {
+            var locJs = document.createElement("script");
+            locJs.src = Calendar._pendingLocaleUrl;
+            Calendar._pendingLocaleUrl = null;
+            locJs.onload = function () { Calendar._flushPending(); };
+            locJs.onerror = function () {
+                if (typeof console !== "undefined") {
+                    console.warn("Calendar shim: failed to load flatpickr locale");
+                }
+                Calendar._flushPending();
+            };
+            document.head.appendChild(locJs);
+        } else {
+            Calendar._flushPending();
+        }
         return;
     }
 
-    var scripts = document.getElementsByTagName("script");
+    /* Resolve the webapp base path from this script's own URL */
     var basePath = "";
-    for (var i = 0; i < scripts.length; i++) {
-        var src = scripts[i].src || "";
-        var idx = src.indexOf("share/calendar/calendar.js");
-        if (idx !== -1) {
-            basePath = src.substring(0, idx);
-            break;
+    var currentSrc = (document.currentScript && document.currentScript.src) || "";
+    var idx = currentSrc.indexOf("share/calendar/calendar.js");
+    if (idx !== -1) {
+        basePath = currentSrc.substring(0, idx);
+    } else {
+        /* Fallback: scan all script tags */
+        var scripts = document.getElementsByTagName("script");
+        for (var i = 0; i < scripts.length; i++) {
+            var src = scripts[i].src || "";
+            idx = src.indexOf("share/calendar/calendar.js");
+            if (idx !== -1) {
+                basePath = src.substring(0, idx);
+                break;
+            }
         }
     }
 
@@ -77,7 +109,37 @@ Calendar._ensureFlatpickr = function () {
     js.src = basePath + "library/flatpickr/flatpickr.min.js";
     js.onload = function () {
         Calendar._flatpickrReady = true;
-        Calendar._flushPending();
+        /* Load any pending locale before flushing Calendar.setup() calls */
+        if (Calendar._pendingLocaleUrl) {
+            var locJs = document.createElement("script");
+            locJs.src = Calendar._pendingLocaleUrl;
+            Calendar._pendingLocaleUrl = null;
+            locJs.onload = function () { Calendar._flushPending(); };
+            locJs.onerror = function () {
+                if (typeof console !== "undefined") {
+                    console.warn("Calendar shim: failed to load flatpickr locale");
+                }
+                Calendar._flushPending();
+            };
+            document.head.appendChild(locJs);
+        } else {
+            Calendar._flushPending();
+        }
+    };
+    js.onerror = function () {
+        if (typeof console !== "undefined") {
+            console.error("Calendar shim: failed to load flatpickr.min.js from " + js.src);
+        }
+        /* Fall back to native <input type="date"> so date fields remain usable */
+        Calendar._flatpickrReady = false;
+        while (Calendar._pendingSetups.length > 0) {
+            var p = Calendar._pendingSetups.shift();
+            var el = (typeof p.inputField === "string")
+                ? document.getElementById(p.inputField) : p.inputField;
+            if (el && el.type === "text") {
+                el.type = "date";
+            }
+        }
     };
     document.head.appendChild(js);
 };

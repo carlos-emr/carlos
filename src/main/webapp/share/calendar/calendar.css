@@ -11,9 +11,12 @@
 @import url("../../library/flatpickr/flatpickr.min.css");
 
 /*
- * Hide the old jscalendar trigger buttons. Most pages have small calendar
- * icon <img> elements inside an <a> whose id ends with "_cal".
- * Flatpickr opens on input click/focus, making the separate trigger buttons
- * unnecessary. If pages still need an explicit open button they can override
+ * Hide the old jscalendar trigger icons. Legacy trigger elements use IDs
+ * ending with "_cal" and may be <img>, <span>, or <button> elements.
+ * Flatpickr opens on input click/focus, making the separate trigger icons
+ * unnecessary. Pages that still need an explicit open button can override
  * this rule.
  */
+[id$="_cal"] {
+    display: none;
+}
