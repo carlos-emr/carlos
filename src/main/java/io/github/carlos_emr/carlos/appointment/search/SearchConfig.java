@@ -64,6 +64,7 @@ import org.w3c.dom.Node;
 
 public class SearchConfig {
     protected static Logger logger = MiscUtils.getLogger();
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private int daysToSearchAheadLimit = 10; //Number of days it searches before giving up. ie search for the next 60 days before giving up
     private int numberOfAppointmentOptionsToReturn = 10; //Number of appts that seems like it gives a reasonable choice.
@@ -625,7 +626,7 @@ public class SearchConfig {
         if (secretKey == null) return toEncyrpt;
 
         byte[] iv = new byte[12];
-        new SecureRandom().nextBytes(iv);
+        SECURE_RANDOM.nextBytes(iv);
 
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         GCMParameterSpec gcmSpec = new GCMParameterSpec(128, iv);
@@ -647,6 +648,10 @@ public class SearchConfig {
         if (secretKey == null) return (toDecrypt);
 
         byte[] combined = Base64.decodeBase64(toDecrypt.getBytes());
+
+        if (combined.length < 12) {
+            throw new IllegalArgumentException("Invalid encrypted data: too short to contain IV");
+        }
 
         // Extract IV (first 12 bytes) and ciphertext
         byte[] iv = new byte[12];
