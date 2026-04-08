@@ -30,7 +30,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
@@ -520,7 +520,7 @@
                 codeDescr = codingSystemManager.getCodeDescription(drugReason.getCodingSystem(), drugReason.getCode());
             }
             if (codeDescr != null) {
-                sb.append(StringEscapeUtils.escapeHtml4(codeDescr));
+                sb.append(Encode.forHtml(codeDescr));
             } else {
                 sb.append(drugReason.getCode());
             }
