@@ -119,6 +119,15 @@ public class AuthorizeResource {
 
         String cb = rt.getCallback();
         if (cb != null && !"oob".equalsIgnoreCase(cb)) {
+            // Validate callback against the client's registered callback URI to prevent open redirect
+            Client c = rt.getClient();
+            String registeredCallback = (c != null) ? c.getCallbackUri() : null;
+            if (registeredCallback == null || !cb.equals(registeredCallback)) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("invalid_redirect_uri")
+                        .type(MediaType.TEXT_PLAIN).build();
+            }
+
             String sep = cb.contains("?") ? "&" : "?";
             String loc = cb + sep + "oauth_token=" + enc(tokenId) + "&oauth_verifier=" + enc(verifier);
             return Response.seeOther(URI.create(loc)).build(); // 303 redirect

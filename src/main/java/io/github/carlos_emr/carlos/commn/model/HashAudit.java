@@ -123,8 +123,7 @@ public class HashAudit extends AbstractModel<Integer> {
             byte[] bHash = digest.digest();
             StringBuilder tmp = new StringBuilder();
             for (int i = 0; i < bHash.length; ++i) {
-                tmp.append(Integer.toHexString((bHash[i] >>> 4) & 0x0F));
-                tmp.append(Integer.toHexString(bHash[i] & 0x0F));
+                tmp.append(String.format("%02x", bHash[i] & 0xFF));
             }
             setSignature(tmp.toString());
         } catch (NoSuchAlgorithmException e) {
