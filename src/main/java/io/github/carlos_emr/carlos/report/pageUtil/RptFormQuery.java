@@ -40,6 +40,7 @@ import java.util.regex.Pattern;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.report.data.RptReportCreator;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * @author yilee18
@@ -66,7 +67,8 @@ public class RptFormQuery {
      */
     private static void validateTableName(String tableName) {
         if (tableName == null || !VALID_TABLE_NAME_PATTERN.matcher(tableName.trim()).matches()) {
-            throw new SecurityException("Invalid table name in report configuration: " + tableName);
+            MiscUtils.getLogger().error("Invalid table name detected in report configuration");
+            throw new SecurityException("Invalid table name in report configuration");
         }
     }
 

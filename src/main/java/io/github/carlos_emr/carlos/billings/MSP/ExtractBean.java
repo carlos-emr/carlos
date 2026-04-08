@@ -254,7 +254,11 @@ public class ExtractBean extends Object implements Serializable {
 
 
                     invCount = 0;
-                    int invNoInt = Integer.parseInt(invNo); // validate numeric to prevent SQL injection
+                    // Validate numeric: dbExtract only supports Statement (not PreparedStatement),
+                    // so parameterized queries are not possible. parseInt ensures only a safe
+                    // integer value is concatenated, preventing SQL injection.
+                    // TODO: Refactor dbExtract to support PreparedStatement for full parameterization.
+                    int invNoInt = Integer.parseInt(invNo);
                     query2 = "select * from billingmaster where billing_no='" + invNoInt + "' and billingstatus='O'";
 
                     ResultSet rs2 = dbExt.executeQuery2(query2);
