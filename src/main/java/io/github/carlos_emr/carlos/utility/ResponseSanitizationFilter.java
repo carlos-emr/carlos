@@ -251,8 +251,16 @@ public class ResponseSanitizationFilter implements Filter {
     }
 
     /**
-     * Resets the real response and writes a generic HTML error page containing only the
+     * Clears the response body buffer and writes a generic HTML error page containing only the
      * HTTP status code and the correlation ID.
+     *
+     * <p>Uses {@link HttpServletResponse#resetBuffer()} rather than
+     * {@link HttpServletResponse#reset()} deliberately: {@code resetBuffer()} clears only
+     * the body buffer, leaving previously-set response headers intact. This preserves security
+     * headers ({@code X-Frame-Options}, {@code X-Content-Type-Options}, etc.) set by
+     * downstream filters such as {@code ResponseDefaultsFilter}, as well as session cookies.
+     * Calling {@code reset()} would wipe all headers, undermining the security posture of the
+     * rest of the filter chain.</p>
      *
      * @param response      HttpServletResponse the real (unwrapped) response
      * @param status        int the HTTP error status code (4xx or 5xx)
@@ -267,9 +275,9 @@ public class ResponseSanitizationFilter implements Filter {
             return;
         }
         try {
-            response.reset();
+            response.resetBuffer();
         } catch (IllegalStateException e) {
-            LOGGER.debug("Cannot reset response for sanitized error [correlationId={}]: {}",
+            LOGGER.debug("Cannot reset buffer for sanitized error [correlationId={}]: {}",
                     correlationId, e.getMessage());
             return;
         }
