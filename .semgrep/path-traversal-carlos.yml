@@ -57,10 +57,18 @@ rules:
       - pattern: new FileInputStream(...)
       - pattern: new FileOutputStream(...)
       - pattern: Paths.get(...)
-      - pattern: Files.$METHOD(...)
+      - patterns:
+          - pattern: Files.$METHOD(...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: (newInputStream|newOutputStream|newBufferedReader|newBufferedWriter|newByteChannel|readAllBytes|readAllLines|readString|write|writeString|copy|move|delete|deleteIfExists|createFile|createDirectory|createDirectories|createTempFile|createTempDirectory)
       # Fully-qualified names (explicit package references)
       - pattern: new java.io.File(...)
       - pattern: new java.io.FileInputStream(...)
       - pattern: new java.io.FileOutputStream(...)
       - pattern: java.nio.file.Paths.get(...)
-      - pattern: java.nio.file.Files.$METHOD(...)
+      - patterns:
+          - pattern: java.nio.file.Files.$METHOD(...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: (newInputStream|newOutputStream|newBufferedReader|newBufferedWriter|newByteChannel|readAllBytes|readAllLines|readString|write|writeString|copy|move|delete|deleteIfExists|createFile|createDirectory|createDirectories|createTempFile|createTempDirectory)
