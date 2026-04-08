@@ -221,11 +221,25 @@
                 }
 
                 String orderby = "", limit = "", limit1 = "", limit2 = "";
-                if (request.getParameter("orderby") != null) orderby = "order by " + request.getParameter("orderby");
-                if (request.getParameter("limit1") != null) limit1 = request.getParameter("limit1");
+                // Validate orderby against allowed demographic columns to prevent SQL injection
+                String orderbyParam = request.getParameter("orderby");
+                if (orderbyParam != null) {
+                    Set<String> validColumns = Set.of("last_name", "first_name", "demographic_no",
+                        "chart_no", "hin", "phone", "sex", "year_of_birth", "month_of_birth",
+                        "date_of_birth", "roster_status", "patient_status", "provider_no");
+                    if (validColumns.contains(orderbyParam)) {
+                        orderby = "order by " + orderbyParam;
+                    }
+                }
+                // Validate limit values as integers to prevent SQL injection
+                if (request.getParameter("limit1") != null) {
+                    try { limit1 = String.valueOf(Integer.parseInt(request.getParameter("limit1"))); } catch (NumberFormatException e) { limit1 = "0"; }
+                }
                 if (request.getParameter("limit2") != null) {
-                    limit2 = request.getParameter("limit2");
-                    limit = "limit " + limit2 + " offset " + limit1;
+                    try { limit2 = String.valueOf(Integer.parseInt(request.getParameter("limit2"))); } catch (NumberFormatException e) { limit2 = ""; }
+                    if (!limit2.isEmpty()) {
+                        limit = "limit " + limit2 + " offset " + (limit1.isEmpty() ? "0" : limit1);
+                    }
                 }
 
                 String fieldname = "", regularexp = "like"; // exactly search is not required by users, e.g. regularexp="=";
