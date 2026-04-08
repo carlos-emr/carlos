@@ -24,6 +24,11 @@ if [ -f /usr/share/tomcat11/bin/version.sh ] ; then
             TOMCAT_USER=tomcat
      fi
 fi
+if [ -z "${TOMCAT}" ]; then
+    echo "ERROR: Neither tomcat10 nor tomcat11 found. Please install one of them." >&2
+    exit 1
+fi
+
 tomcat_path=/usr/share/${TOMCAT}/
 C_HOME=/usr/share/${TOMCAT}/
 C_BASE=/var/lib/${TOMCAT}/
