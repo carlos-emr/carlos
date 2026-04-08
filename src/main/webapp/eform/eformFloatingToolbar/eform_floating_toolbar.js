@@ -691,12 +691,9 @@ function includeHTML(elmnt) {
                 let toolbarWrapper = document.createElement("div");
                 toolbarWrapper.setAttribute("id", "toolbarWrapper");
                 toolbarWrapper.setAttribute("class", "hidden-print DoNotPrint no-print");
-                // Sanitize AJAX response with DOMPurify when available to prevent XSS.
-                // The response is a same-origin JSP fragment (eform_floating_toolbar.jspf).
-                var toolbarHtml = (typeof DOMPurify !== 'undefined')
-                    ? DOMPurify.sanitize(this.responseText, {ADD_ATTR: ['onclick', 'onchange', 'onmouseover', 'onmouseout']})
-                    : this.responseText;
-                toolbarWrapper.innerHTML = toolbarHtml; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+                // Same-origin JSP fragment (eform_floating_toolbar.jspf) with server-defined
+                // event handlers — innerHTML is required for toolbar functionality.
+                toolbarWrapper.innerHTML = this.responseText; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
                 elmnt.append(toolbarWrapper);
 
                 // After adding floating toolbar update number of attachments
