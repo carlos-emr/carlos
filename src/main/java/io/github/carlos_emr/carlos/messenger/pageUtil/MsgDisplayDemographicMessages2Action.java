@@ -158,7 +158,9 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
 
             // Validate demographicNo is numeric before storing in session bean
             if (!demographicNo.matches("\\d+")) {
-                MiscUtils.getLogger().warn("Invalid non-numeric demographic_no: {}", LogSanitizer.sanitize(demographicNo));
+                MiscUtils.getLogger().error("Invalid non-numeric demographic_no: {}", LogSanitizer.sanitize(demographicNo));
+                // Clear any stale session bean to prevent PHI leakage from a previous request
+                request.getSession().removeAttribute("msgSessionBean");
                 return "error";
             }
             
@@ -167,7 +169,7 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
             bean.setUserName(userName);
             bean.setDemographic_no(demographicNo);
 
-            // demographicNo validated as numeric; userName displayed with OWASP encoding in JSP
+            // demographicNo validated as numeric; userName is unsanitized — JSPs must use OWASP encoding
             request.getSession().setAttribute("msgSessionBean", bean); // nosemgrep: tainted-session-from-http-request
             MiscUtils.getLogger().debug("Created new MsgSessionBean for providers: " + providerNo);
         }

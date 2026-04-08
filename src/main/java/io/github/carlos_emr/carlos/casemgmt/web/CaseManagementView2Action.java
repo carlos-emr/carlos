@@ -1987,13 +1987,15 @@ public class CaseManagementView2Action extends ActionSupport {
     }
     public String getDemographicNo(HttpServletRequest request) {
         String demono = request.getParameter("demographicNo");
-        if (demono == null || "".equals(demono))
+        if (demono == null || "".equals(demono)) {
             demono = (String) request.getSession().getAttribute("casemgmt_DemoNo");
-        else {
-            if (!demono.matches("\\d+")) {
-                logger.warn("Invalid non-numeric demographicNo: {}", LogSanitizer.sanitize(demono));
-                return "";
-            }
+        } else if (!demono.matches("\\d+")) {
+            // Reject tainted value (don't store in session) but fall back to session value
+            // to avoid crashing 36+ callers that pass the return value to Integer.parseInt()
+            logger.error("Invalid non-numeric demographicNo rejected, falling back to session: {}", LogSanitizer.sanitize(demono));
+            demono = (String) request.getSession().getAttribute("casemgmt_DemoNo");
+        } else {
+            // demographicNo validated as numeric
             request.getSession().setAttribute("casemgmt_DemoNo", demono); // nosemgrep: tainted-session-from-http-request
         }
         return demono;

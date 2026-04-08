@@ -43,12 +43,18 @@ public class ApptUtil {
     private static final String SESSION_APPT_BEAN = "apptBean";
 
     public static void copyAppointmentIntoSession(HttpServletRequest request) {
+        // Validate numeric ID fields at trust boundary (CWE-501)
+        String demoNoParam = request.getParameter("demographic_no");
+        if (demoNoParam != null && !demoNoParam.isEmpty() && !demoNoParam.matches("\\d+")) {
+            return;
+        }
+
         ApptData obj = new ApptData();
         obj.setAppointment_date(request.getParameter("appointment_date"));
         obj.setStart_time(request.getParameter("start_time"));
         obj.setEnd_time(request.getParameter("end_time"));
         obj.setName(request.getParameter("keyword"));
-        obj.setDemographic_no(request.getParameter("demographic_no"));
+        obj.setDemographic_no(demoNoParam);
         obj.setNotes(request.getParameter("notes"));
         obj.setReason(request.getParameter("reason"));
         obj.setLocation(request.getParameter("location"));
@@ -62,7 +68,7 @@ public class ApptUtil {
         obj.setChart_no(request.getParameter("chart_no"));
         obj.setUrgency(request.getParameter("urgency"));
         obj.setReasonCode(request.getParameter("reasonCode"));
-        // set up session bean
+        // numeric ID fields validated above; remaining fields are display strings
         request.getSession().setAttribute(SESSION_APPT_BEAN, obj); // nosemgrep: tainted-session-from-http-request
     }
 

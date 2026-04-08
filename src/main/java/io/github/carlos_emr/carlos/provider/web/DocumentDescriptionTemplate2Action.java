@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -119,7 +120,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         documentDescriptionTemplate.setDocType(docType);
         documentDescriptionTemplate.setProviderNo(providerNo);
         this.documentDescriptionTemplateDao.persist(documentDescriptionTemplate);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, providerNo, request.getRemoteAddr(), null, "[" + docType + "] " + descriptionShortcut + " | " + description); // nosemgrep: tainted-session-from-http-request
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(providerNo), request.getRemoteAddr(), null, "[" + LogSanitizer.sanitize(docType) + "] " + LogSanitizer.sanitize(descriptionShortcut) + " | " + LogSanitizer.sanitize(description)); // nosemgrep: tainted-session-from-http-request
         return null;
     }
 
@@ -138,7 +139,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         documentDescriptionTemplate.setId(id);
         documentDescriptionTemplate.setProviderNo(providerNo);
         this.documentDescriptionTemplateDao.merge(documentDescriptionTemplate);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, providerNo, request.getRemoteAddr(), null, ids + " [" + docType + "] " + descriptionShortcut + " | " + description); // nosemgrep: tainted-session-from-http-request
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(providerNo), request.getRemoteAddr(), null, LogSanitizer.sanitize(ids) + " [" + LogSanitizer.sanitize(docType) + "] " + LogSanitizer.sanitize(descriptionShortcut) + " | " + LogSanitizer.sanitize(description)); // nosemgrep: tainted-session-from-http-request
         return null;
     }
 

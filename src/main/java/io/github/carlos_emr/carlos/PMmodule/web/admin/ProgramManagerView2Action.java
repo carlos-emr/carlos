@@ -120,22 +120,20 @@ public class ProgramManagerView2Action extends ActionSupport {
 
                 // find the program id
         String programId = request.getParameter("id");
-        // Validate programId is numeric before storing in session
-        if (programId != null && !programId.matches("\\d+")) {
-            logger.warn("Invalid non-numeric programId: {}", LogSanitizer.sanitize(programId));
+        // Validate programId is present and numeric before storing in session
+        if (programId == null || programId.isBlank() || !programId.matches("\\d+")) {
+            logger.error("Invalid or missing programId: {}", LogSanitizer.sanitize(String.valueOf(programId)));
+            addActionError(getText("error.invalid.parameter"));
             return ERROR;
         }
 
+        // programId validated as numeric above
         request.getSession().setAttribute("case_program_id", programId); // nosemgrep: tainted-session-from-http-request
 
         if (request.getParameter("newVacancy") != null && "true".equals(request.getParameter("newVacancy")))
             request.setAttribute("vacancyOrTemplateId", "");
         else
             request.setAttribute("vacancyOrTemplateId", this.getVacancyOrTemplateId());
-
-        if (programId == null) {
-            programId = (String) request.getAttribute("id");
-        }
 
         String demographicNo = request.getParameter("clientId");
 
@@ -286,13 +284,20 @@ public class ProgramManagerView2Action extends ActionSupport {
         String clientId = request.getParameter("clientId");
         String queueId = request.getParameter("queueId");
 
-        // Validate numeric IDs before processing
-        if (programId != null && !programId.matches("\\d+")) {
-            logger.warn("Invalid non-numeric programId in admit: {}", LogSanitizer.sanitize(programId));
+        // Validate all required numeric IDs before processing
+        if (programId == null || programId.isBlank() || !programId.matches("\\d+")) {
+            logger.error("Invalid or missing programId in admit: {}", LogSanitizer.sanitize(String.valueOf(programId)));
+            addActionError(getText("error.invalid.parameter"));
             return ERROR;
         }
-        if (clientId != null && !clientId.matches("\\d+")) {
-            logger.warn("Invalid non-numeric clientId in admit: {}", LogSanitizer.sanitize(clientId));
+        if (clientId == null || clientId.isBlank() || !clientId.matches("\\d+")) {
+            logger.error("Invalid or missing clientId in admit: {}", LogSanitizer.sanitize(String.valueOf(clientId)));
+            addActionError(getText("error.invalid.parameter"));
+            return ERROR;
+        }
+        if (queueId == null || queueId.isBlank() || !queueId.matches("\\d+")) {
+            logger.error("Invalid or missing queueId in admit: {}", LogSanitizer.sanitize(String.valueOf(queueId)));
+            addActionError(getText("error.invalid.parameter"));
             return ERROR;
         }
 
@@ -325,7 +330,8 @@ public class ProgramManagerView2Action extends ActionSupport {
             // store this for display
             this.setServiceRestriction(e.getRestriction());
 
-            // programId validated as numeric above; notes stored for re-display on error
+            // programId validated as numeric above; notes are unsanitized request input
+            // stored for re-display on error — JSPs must use OWASP encoding when rendering
             request.getSession().setAttribute("programId", programId); // nosemgrep: tainted-session-from-http-request
             request.getSession().setAttribute("admission.dischargeNotes", dischargeNotes); // nosemgrep: tainted-session-from-http-request
             request.getSession().setAttribute("admission.admissionNotes", admissionNotes); // nosemgrep: tainted-session-from-http-request

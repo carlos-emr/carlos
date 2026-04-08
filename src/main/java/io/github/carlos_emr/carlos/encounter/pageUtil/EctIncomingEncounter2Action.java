@@ -98,6 +98,11 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
         String demoNo = request.getParameter("demographicNo");
 
         // Check if demographicNo is null or invalid
@@ -110,11 +115,6 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         if (!demoNo.matches("\\d+")) {
             log.error("EctIncomingEncounter2Action called with non-numeric demographicNo: {}", LogSanitizer.sanitize(demoNo));
             throw new IllegalArgumentException("demographicNo must be numeric");
-        }
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r",
-                null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         if (!"true".equals(CarlosProperties.getInstance().getProperty("program_domain.show_echart", "false"))) {

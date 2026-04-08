@@ -82,7 +82,6 @@ public final class EctSetupMeasurements2Action extends ActionSupport {
 
         String demo = null;
         if (bean != null) {
-            request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request
             demo = bean.getDemographicNo();
         } else {
             demo = String.valueOf(ConversionUtils.fromIntString(request.getParameter("demographicNo")));

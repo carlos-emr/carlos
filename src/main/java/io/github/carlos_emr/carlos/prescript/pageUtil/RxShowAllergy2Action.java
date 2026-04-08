@@ -95,11 +95,15 @@ public final class RxShowAllergy2Action extends ActionSupport {
         reorder(request);
         try {
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-            RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, request.getParameter("demographicNo"));
+            String demographicNo = request.getParameter("demographicNo");
+            // Validate demographicNo is numeric (consistent with execute() which uses parseInt)
+            Integer.parseInt(demographicNo);
+            RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, demographicNo);
             if (patient != null) {
+                // demographicNo validated via Integer.parseInt() above
                 request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request
             }
-            response.sendRedirect(request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + request.getParameter("demographicNo"));
+            response.sendRedirect(request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + demographicNo);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
