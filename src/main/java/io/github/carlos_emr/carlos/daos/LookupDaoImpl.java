@@ -92,6 +92,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
     }
 
     @Override
+    // nosemgrep: formatted-sql-string — table/column names from internal LookupTableDef config, values bound via DBPreparedHandler
     public List LoadCodeList(String tableId, boolean activeOnly, String parentCode, String code, String codeDesc) {
         String pCd = parentCode;
         if ("USR".equals(tableId))
