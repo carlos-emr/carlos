@@ -280,26 +280,20 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             return false;
         }
 
-        String parentPath = IncomingDocUtil.getIncomingDocumentFilePath(queueId, PdfDir);
-        if (!new File(parentPath).exists()) {
+        // Create directory structure and get validated parent path
+        String parentPath = IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, PdfDir);
+        File parentDir = new File(parentPath);
+        if (!parentDir.exists()) {
             return false;
         }
 
-        String savePath = IncomingDocUtil.getAndCreateIncomingDocumentFilePathName(queueId, PdfDir, fileName);
-
-        // Validate the destination path using PathValidationUtils
-        String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
-        if (incomingDocDir == null || incomingDocDir.isEmpty()) {
-            logger.error("INCOMINGDOCUMENT_DIR not configured");
-            return false;
-        }
-
-        File baseDir = new File(incomingDocDir);
-        File destinationFile = new File(savePath);
+        // Use PathValidationUtils to construct and validate the destination file path.
+        // This makes the sanitization visible to static analysis tools (resolves S6549).
+        File destinationFile;
         try {
-            PathValidationUtils.validateExistingPath(destinationFile.getParentFile(), baseDir);
+            destinationFile = PathValidationUtils.validatePath(fileName, parentDir);
         } catch (SecurityException e) {
-            logger.error("Destination file is outside allowed directory: {}", LogSanitizer.sanitize(savePath));
+            logger.error("Destination file is outside allowed directory: {}", LogSanitizer.sanitize(fileName));
             return false;
         }
 
