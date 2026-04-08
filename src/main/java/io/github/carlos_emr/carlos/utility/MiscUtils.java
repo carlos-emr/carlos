@@ -29,6 +29,7 @@ package io.github.carlos_emr.carlos.utility;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputFilter;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
@@ -85,6 +86,27 @@ public final class MiscUtils {
     public static final String DEFAULT_UTF8_ENCODING = "UTF-8";
     private static boolean shutdownSignaled = false;
     private static Thread shutdownHookThread = null;
+
+    /**
+     * Restricts ObjectInputStream deserialization to safe classes only.
+     * Allows standard Java types and CARLOS domain objects; rejects everything else
+     * to prevent remote code execution via untrusted deserialized data.
+     */
+    private static final ObjectInputFilter DESERIALIZATION_FILTER = filterInfo -> {
+        if (filterInfo.serialClass() != null) {
+            String name = filterInfo.serialClass().getName();
+            if (name.startsWith("java.lang.") ||
+                name.startsWith("java.util.") ||
+                name.startsWith("java.io.") ||
+                name.startsWith("java.math.") ||
+                name.startsWith("[L") ||
+                name.startsWith("io.github.carlos_emr.carlos.")) {
+                return ObjectInputFilter.Status.ALLOWED;
+            }
+            return ObjectInputFilter.Status.REJECTED;
+        }
+        return ObjectInputFilter.Status.UNDECIDED;
+    };
 
     public MiscUtils() {
     }
@@ -158,7 +180,9 @@ public final class MiscUtils {
     }
 
     public static Serializable deserialize(byte[] b) throws IOException, ClassNotFoundException {
-        return (Serializable) (new ObjectInputStream(new ByteArrayInputStream(b))).readObject();
+        ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(b));
+        ois.setObjectInputFilter(DESERIALIZATION_FILTER);
+        return (Serializable) ois.readObject();
     }
 
     public static void serializeToFile(Serializable s, String filename) throws IOException {
@@ -178,7 +202,9 @@ public final class MiscUtils {
 
         Serializable var2;
         try {
-            var2 = (Serializable) (new ObjectInputStream((InputStream) is)).readObject();
+            ObjectInputStream ois = new ObjectInputStream((InputStream) is);
+            ois.setObjectInputFilter(DESERIALIZATION_FILTER);
+            var2 = (Serializable) ois.readObject();
         } finally {
             ((InputStream) is).close();
         }

@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.admin.traceability;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.ObjectInputFilter;
 import java.io.ObjectInputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -60,6 +61,24 @@ public class TraceabilityReportProcessor implements Callable<String> {
 
     private String newLine = System.getProperty("line.separator");
 
+    /**
+     * Restricts deserialization to HashMap and String only, which are the
+     * types written by {@link TraceDataProcessor} for traceability data.
+     */
+    private static final ObjectInputFilter TRACE_DESERIALIZATION_FILTER = filterInfo -> {
+        if (filterInfo.serialClass() != null) {
+            String name = filterInfo.serialClass().getName();
+            if (name.equals("java.util.HashMap") ||
+                name.equals("java.lang.String") ||
+                name.equals("java.lang.Number") ||
+                name.equals("java.lang.Integer")) {
+                return ObjectInputFilter.Status.ALLOWED;
+            }
+            return ObjectInputFilter.Status.REJECTED;
+        }
+        return ObjectInputFilter.Status.UNDECIDED;
+    };
+
     public TraceabilityReportProcessor(OutputStream outputStream, File uploadedFile, HttpServletRequest request) {
         this.request = request;
         this.uploadedFile = uploadedFile;
@@ -77,6 +96,8 @@ public class TraceabilityReportProcessor implements Callable<String> {
         try (GZIPInputStream gzip = new GZIPInputStream(new FileInputStream(uploadedFile));
          ObjectInputStream ios = new ObjectInputStream(gzip);
          PrintWriter pw = new PrintWriter(outputStream)) {
+
+            ios.setObjectInputFilter(TRACE_DESERIALIZATION_FILTER);
 
             @SuppressWarnings("unchecked")
             Map<String, String> sourceMap = (Map<String, String>) ios.readObject();
