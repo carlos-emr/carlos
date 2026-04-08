@@ -117,9 +117,12 @@ public class EctDisplayAction extends ActionSupport {
         boolean isJsonRequest = request.getParameter("json") != null && request.getParameter("json").equalsIgnoreCase("true");
         request.setAttribute("isJsonRequest", isJsonRequest);
 
-        if (bean == null || request.getParameter("demographicNo") != null) {
-            // Validate request parameters before crossing the trust boundary into session storage
-            String demographicNoParam = request.getParameter("demographicNo");
+        boolean rebuildBean = bean == null || request.getParameter("demographicNo") != null;
+
+        // Extract and validate demographicNo early so the privilege check can run before any session mutation
+        String demographicNoParam;
+        if (rebuildBean) {
+            demographicNoParam = request.getParameter("demographicNo");
             if (demographicNoParam != null && !demographicNoParam.matches("\\d{1,9}")) {
                 throw new IllegalArgumentException("Invalid demographicNo");
             }
@@ -127,6 +130,17 @@ public class EctDisplayAction extends ActionSupport {
             if (bean == null && demographicNoParam == null) {
                 throw new IllegalArgumentException("Missing required demographicNo for new encounter session");
             }
+        } else {
+            demographicNoParam = bean.demographicNo;
+        }
+
+        // Privilege check BEFORE any session.setAttribute to prevent unauthorized session mutation (CWE-501)
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demographicNoParam)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
+        if (rebuildBean) {
+            // Validate remaining request parameters before crossing the trust boundary into session storage
             String providerNoParam = request.getParameter("providerNo");
             if (providerNoParam != null && !providerNoParam.matches("[a-zA-Z0-9]{1,6}")) {
                 throw new IllegalArgumentException("Invalid providerNo");
@@ -135,7 +149,6 @@ public class EctDisplayAction extends ActionSupport {
             if (appointmentNoParam != null && !appointmentNoParam.matches("\\d{1,9}")) {
                 throw new IllegalArgumentException("Invalid appointmentNo");
             }
-
             bean = new EctSessionBean();
             bean.currentDate = UtilDateUtilities.StringToDate(request.getParameter("curDate"));
 
@@ -189,10 +202,6 @@ public class EctDisplayAction extends ActionSupport {
             }
 
             request.setAttribute("EctSessionBean", bean);
-        }
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", bean.demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         //Can we handle request?
