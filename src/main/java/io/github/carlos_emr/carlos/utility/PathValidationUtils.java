@@ -233,7 +233,7 @@ public final class PathValidationUtils {
             return canonicalFile;
         }
 
-        logger.error("Invalid upload source path: {}", LogSanitizer.sanitize(canonicalFile.getPath()));
+        logger.error("Invalid upload source path: {}", LogSanitizer.sanitize(canonicalFile.getPath(), 1024));
         throw new SecurityException("Invalid upload source");
     }
 
