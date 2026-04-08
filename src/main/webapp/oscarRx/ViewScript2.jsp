@@ -143,7 +143,7 @@
             if (bMultisites) {
                 String appt_no = (String) session.getAttribute("cur_appointment_no");
                 String location = null;
-                if (appt_no != null) {
+                if (appt_no != null && !appt_no.isEmpty()) {
                     Appointment result = appointmentDao.find(Integer.parseInt(appt_no));
                     if (result != null) location = result.getLocation();
                 }
