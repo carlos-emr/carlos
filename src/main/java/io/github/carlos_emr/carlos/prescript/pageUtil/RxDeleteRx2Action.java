@@ -272,7 +272,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
             MiscUtils.getLogger().debug("jsonObject=" + jsonObject.toString());
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.getWriter().write(jsonObject.toString());
         }
         MiscUtils.getLogger().debug("===========================END DeleteRxOnCloseRxBox RxDeleteRx2Action========================");
         return null;
