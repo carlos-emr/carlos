@@ -34,6 +34,7 @@ import java.util.ArrayDeque;
 import java.util.Date;
 import java.util.Deque;
 import java.util.Iterator;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -119,6 +120,12 @@ public class LoginFilter implements Filter {
 
     /** Logger instance for filter events and debugging */
     private static final Logger logger = MiscUtils.getLogger();
+
+    /** Pre-compiled pattern for stripping path parameters (;key=value) from URI segments. */
+    private static final Pattern PATH_PARAM_PATTERN = Pattern.compile(";[^/]*");
+
+    /** Pre-compiled pattern for collapsing consecutive slashes. */
+    private static final Pattern REPEATED_SLASH_PATTERN = Pattern.compile("/+");
 
     /**
      * URLs exempt from authentication requirement.
@@ -435,13 +442,13 @@ public class LoginFilter implements Filter {
 
         // Strip path parameters from each segment (;jsessionid=..., ;v=1.0, etc.)
         // Uses per-segment stripping so /ws;p=1/service;p=2 → /ws/service
-        uri = uri.replaceAll(";[^/]*", "");
+        uri = PATH_PARAM_PATTERN.matcher(uri).replaceAll("");
 
         // Remember if URI had a trailing slash (important for directory matching)
         boolean hadTrailingSlash = uri.endsWith("/") && uri.length() > 1;
 
         // Collapse consecutive slashes (e.g., //admin///page.jsp → /admin/page.jsp)
-        uri = uri.replaceAll("/+", "/");
+        uri = REPEATED_SLASH_PATTERN.matcher(uri).replaceAll("/");
 
         // Resolve . and .. segments
         String[] segments = uri.split("/");
