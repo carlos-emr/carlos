@@ -53,6 +53,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.xml.DOMConfigurator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.CxfClientUtils.TrustAllManager;
 
 /**
@@ -236,7 +237,30 @@ public final class MiscUtils {
         }
     }
 
+    /**
+     * Sets JVM-wide default SSL socket factory and hostname verifier that accept all certificates.
+     *
+     * <p><strong>SECURITY WARNING:</strong> This method disables SSL certificate validation for
+     * ALL HTTPS connections in the entire JVM. It is gated behind the
+     * {@code allow_all_ssl_certificates} configuration property and will throw a
+     * {@link SecurityException} if that property is not explicitly set to {@code "true"}.</p>
+     *
+     * <p>This should only be used in development or test environments where self-signed
+     * certificates are in use. Production deployments should use properly signed certificates
+     * and per-connection SSL configuration instead of global defaults.</p>
+     *
+     * @throws NoSuchAlgorithmException if the TLS algorithm is not available
+     * @throws KeyManagementException if the SSL context cannot be initialized
+     * @throws SecurityException if the {@code allow_all_ssl_certificates} property is not enabled
+     */
     public static void setJvmDefaultSSLSocketFactoryAllowAllCertificates() throws NoSuchAlgorithmException, KeyManagementException {
+        if (!"true".equals(CarlosProperties.getInstance().getProperty("allow_all_ssl_certificates"))) {
+            throw new SecurityException("Global SSL bypass not enabled. Set allow_all_ssl_certificates=true to allow.");
+        }
+        getLogger().warn("SECURITY WARNING: Accepting all SSL certificates globally. "
+                + "This disables certificate validation for ALL HTTPS connections in this JVM. "
+                + "Do not use in production.");
+
         TrustAllManager[] tam = new TrustAllManager[]{new TrustAllManager()};
         SSLContext ctx = SSLContext.getInstance("TLS");
         ctx.init((KeyManager[]) null, tam, new SecureRandom());
