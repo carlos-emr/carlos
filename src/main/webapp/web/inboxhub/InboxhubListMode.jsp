@@ -24,31 +24,31 @@
         <input id="topFileBtn" type="button" class="btn btn-primary btn-sm" value="<fmt:message key='oscarMDS.index.btnFile'/>" onclick="submitFile('${e:forJavaScript(currentUser)}')"/>
         <%-- Acknowledged toggle: switches between showing New vs Acknowledged items --%>
         <label class="inbox-toolbar-link" for="ackToggle">
-            <input type="checkbox" id="ackToggle" onchange="toggleAcknowledged(this.checked)">Acknowledged
+            <input type="checkbox" id="ackToggle" onchange="toggleAcknowledged(this.checked)"><fmt:message key="inboxhub.toolbar.acknowledged"/>
         </label>
         <%-- Rapid Review toggle: after acknowledging a lab in the popup, auto-opens the next item --%>
         <label class="inbox-toolbar-link" for="rapidReviewToggle">
-            <input type="checkbox" id="rapidReviewToggle" onchange="toggleRapidReview(this.checked)">Rapid Review
+            <input type="checkbox" id="rapidReviewToggle" onchange="toggleRapidReview(this.checked)"><fmt:message key="inboxhub.toolbar.rapidReview"/>
         </label>
         <%-- Type filter badges: click to filter inbox to only that type. "All" resets. Active filter is highlighted. --%>
-        <span class="inbox-toolbar-link inbox-type-filter active-type-filter" id="filterAll" onclick="filterByType('ALL')" title="Show all types" style="margin-left:auto;">
-            All
+        <span class="inbox-toolbar-link inbox-type-filter active-type-filter" id="filterAll" onclick="filterByType('ALL')" title="<fmt:message key="inboxhub.toolbar.showAllTypes"/>" style="margin-left:auto;">
+            <fmt:message key="inboxhub.toolbar.all"/>
         </span>
-        <span class="inbox-toolbar-link inbox-type-filter" id="filterDOC" onclick="filterByType('DOC')" title="Show only Documents">
+        <span class="inbox-toolbar-link inbox-type-filter" id="filterDOC" onclick="filterByType('DOC')" title="<fmt:message key="inboxhub.toolbar.showOnlyDocuments"/>">
             <fmt:message key="inboxhub.list.documents"/> <span id="totalDocsCountStat" class="badge" style="background-color: var(--carlos-primary, #337ab7); color: white;">0</span>
         </span>
-        <span class="inbox-toolbar-link inbox-type-filter" id="filterHL7" onclick="filterByType('HL7')" title="Show only Labs">
+        <span class="inbox-toolbar-link inbox-type-filter" id="filterHL7" onclick="filterByType('HL7')" title="<fmt:message key="inboxhub.toolbar.showOnlyLabs"/>">
             <fmt:message key="inboxhub.list.labs"/> <span id="totalLabsCountStat" class="badge" style="background-color: var(--carlos-primary, #337ab7); color: white;">0</span>
         </span>
         <c:if test="${!CarlosProperties.getInstance().isBritishColumbiaBillingRegion()}">
-            <span class="inbox-toolbar-link inbox-type-filter" id="filterHRM" onclick="filterByType('HRM')" title="Show only HRMs">
+            <span class="inbox-toolbar-link inbox-type-filter" id="filterHRM" onclick="filterByType('HRM')" title="<fmt:message key="inboxhub.toolbar.showOnlyHrms"/>">
                 <fmt:message key="inboxhub.list.hrms"/> <span id="totalHRMsCountStat" class="badge" style="background-color: var(--carlos-primary, #337ab7); color: white;">0</span>
             </span>
         </c:if>
         <div id="loadingLabel" class="loading-label ms-2 me-2 text-dark" style="display:none;"><fmt:message key="inboxhub.list.loadingSearchResults"/></div>
         <div class="progress me-2 position-relative" id="loadInboxListProgress" style="width: 15vw; height: 25px; display: none; flex-grow: 1; background-color: #c7c7c7;">
             <div id="loadInboxListProgressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
-                <span id="inboxListProgressCount" class="count text-white" style="position: absolute; width: 100%; text-align: center; font-weight: 600;">0% Complete</span>
+                <span id="inboxListProgressCount" class="count text-white" style="position: absolute; width: 100%; text-align: center; font-weight: 600;">0<fmt:message key="inboxhub.form.percentComplete"/></span>
             </div>
         </div>
         <button id="stopLoadingInboxList" onclick="stopInboxhubListProgress(0)" class="btn btn-sm btn-danger" style="display: none;"><fmt:message key="inboxhub.list.stop"/></button>
