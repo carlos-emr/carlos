@@ -65,7 +65,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
             throws Exception {
 
 
-        log.debug("\n\nWLSetupDisplayWaitingList2Action/execute(): just entering.");
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): just entering.");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 

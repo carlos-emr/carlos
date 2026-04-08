@@ -798,7 +798,7 @@ public final class Login2Action extends ActionSupport {
             return null;
         }
 
-        logger.debug("rendering standard response : " + where);
+        logger.debug("rendering standard response : {}", where);
         return where;
     }
 
