@@ -1657,7 +1657,7 @@ public class CaseManagementView2Action extends ActionSupport {
         if (logger.isDebugEnabled()) {
             logger.debug("FOUND: {}", LogSanitizer.sanitize(String.valueOf(result)));
             for (NoteDisplay nd : result.getNotes()) {
-                logger.debug("   {} noteId={}", nd.getClass().getSimpleName(), nd.getNoteId());
+                logger.debug("   {} noteId={}", nd.getClass().getSimpleName(), LogSanitizer.sanitize(String.valueOf(nd.getNoteId())));
             }
         }
 
