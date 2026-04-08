@@ -324,9 +324,9 @@ public class DxresearchReport2Action extends ActionSupport {
 
         dxQuickListItemsHandler.updatePatientCodeDesc(editingCodeType, editingCodeCode, editingCodeDesc);
 
-        // Encode and length-limit before storing in session to prevent XSS and unbounded session storage (CWE-501)
-        editingCodeDesc = Encode.forHtml(editingCodeDesc != null && editingCodeDesc.length() > 1000 ? editingCodeDesc.substring(0, 1000) : editingCodeDesc);
-        request.getSession().setAttribute("editingCodeDesc", editingCodeDesc); // nosemgrep: tainted-session-from-http-request -- HTML-encoded before storage
+        // Length-limit before storing in session to avoid unbounded session storage; output encoding is applied at render time in the JSP.
+        editingCodeDesc = editingCodeDesc != null && editingCodeDesc.length() > 1000 ? editingCodeDesc.substring(0, 1000) : editingCodeDesc;
+        request.getSession().setAttribute("editingCodeDesc", editingCodeDesc); // nosemgrep: tainted-session-from-http-request -- raw value is stored intentionally and output encoding is applied at render time
 
         return SUCCESS;
     }
