@@ -166,8 +166,7 @@ body {
     white-space: nowrap;
 }
 
-/* Ensure header bar elements aren't overridden by legacy * { font-size: small !important } */
-.page-header-bar,
+/* Ensure header bar child elements aren't overridden by legacy * { font-size: small !important } */
 .page-header-bar * {
     font-size: inherit;
 }
