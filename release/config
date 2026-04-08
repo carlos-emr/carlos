@@ -220,6 +220,8 @@ if [ "${TOMCAT}" = "tomcat10" ] ; then
 	:
 fi
 
+fi
+
 # add carlos directory structure to the paths that tomcat9 can read and write to
 # DO NOT ADD read write to non existing paths or Tomcat will fail to start.
 # BASE_DOCUMENT_DIR is /var/lib/carlos-emr/OscarDocument — ensure it exists
