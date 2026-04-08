@@ -103,6 +103,17 @@
     // Local jQuery reference for ajax calls in this modal
     let local_jQuery = jQuery;
 
+    /**
+     * Escapes HTML special characters for defense-in-depth XSS prevention.
+     * The modal already uses safe DOM APIs (textContent, value) for rendering,
+     * but this provides an additional layer of protection against stored XSS
+     * in server-sourced measurement data (dataField, measuringInstruction).
+     */
+    function escapeHtml(str) {
+        if (str == null) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
     // Map of measurementTypes to corresponding name and default instructions
     let measurementTypeMap = {
         'WT': {'name': 'Weight', 'instructions': 'in kg'},
@@ -209,9 +220,9 @@
 
                         let obsDate = new Date(this.dateObserved.time).toISOString().slice(0, 10);
 
-                        // Capture values for the event-listener closure
-                        let dataField = this.dataField;
-                        let measuringInstruction = this.measuringInstruction;
+                        // Capture and escape server-sourced values for defense-in-depth XSS prevention
+                        let dataField = escapeHtml(this.dataField);
+                        let measuringInstruction = escapeHtml(this.measuringInstruction);
 
                         let anchor = document.createElement('a');
                         anchor.href = '#';
