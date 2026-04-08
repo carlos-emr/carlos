@@ -157,7 +157,11 @@ public final class FrmSetupForm2Action extends ActionSupport {
         try {
             MiscUtils.getLogger().debug("formId=" + formId + "opening " + formName + ".xml");
             // Validate the form XML file path to prevent path traversal
-            File formDir = new File(request.getSession().getServletContext().getRealPath("/form/"));
+            String formDirPath = request.getSession().getServletContext().getRealPath("/form/");
+            if (formDirPath == null) {
+                throw new IOException("Cannot resolve form directory path — exploded WAR deployment required");
+            }
+            File formDir = new File(formDirPath);
             File validatedForm = PathValidationUtils.validatePath(formName + ".xml", formDir);
             InputStream is = new FileInputStream(validatedForm);
             Vector measurementTypes = EctFindMeasurementTypeUtil.checkMeasurmentTypes(is, formName);
