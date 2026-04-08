@@ -53,6 +53,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.xml.DOMConfigurator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.CxfClientUtils.TrustAllManager;
 
@@ -255,7 +256,8 @@ public final class MiscUtils {
      */
     public static void setJvmDefaultSSLSocketFactoryAllowAllCertificates() throws NoSuchAlgorithmException, KeyManagementException {
         if (!"true".equals(CarlosProperties.getInstance().getProperty("allow_all_ssl_certificates"))) {
-            throw new SecurityException("Global SSL bypass not enabled. Set allow_all_ssl_certificates=true to allow.");
+            throw new SecurityException("Global SSL bypass not enabled. "
+                    + "Set allow_all_ssl_certificates=true in your properties configuration to allow.");
         }
         getLogger().warn("SECURITY WARNING: Accepting all SSL certificates globally. "
                 + "This disables certificate validation for ALL HTTPS connections in this JVM. "
