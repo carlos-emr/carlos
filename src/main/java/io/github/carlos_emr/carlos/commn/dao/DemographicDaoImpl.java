@@ -2426,10 +2426,12 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     @Override
     public List<Demographic> findByField(String fieldName, Object fieldValue, String orderBy, int offset) {
         if (fieldName != null && !ALLOWED_FIND_BY_FIELDS.contains(fieldName)) {
-            throw new IllegalArgumentException("Invalid field name: " + fieldName);
+            throw new IllegalArgumentException("Invalid field name: " + fieldName
+                    + ". Allowed: " + ALLOWED_FIND_BY_FIELDS);
         }
         if (orderBy != null && !orderBy.isEmpty() && !ALLOWED_FIND_BY_FIELDS.contains(orderBy)) {
-            throw new IllegalArgumentException("Invalid order-by field: " + orderBy);
+            throw new IllegalArgumentException("Invalid order-by field: " + orderBy
+                    + ". Allowed: " + ALLOWED_FIND_BY_FIELDS);
         }
 
         boolean isFieldValueEmpty = fieldValue == null || fieldValue.equals("");

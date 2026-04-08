@@ -83,10 +83,12 @@ public class Billing3rdPartyAddressDaoImpl extends AbstractDaoImpl<Billing3rdPar
         String orderBy = orderByParam == null ? "company_name" : orderByParam;
 
         if (!ALLOWED_SEARCH_MODES.contains(search_mode)) {
-            throw new IllegalArgumentException("Invalid search mode");
+            throw new IllegalArgumentException("Invalid search mode: " + search_mode
+                    + ". Allowed: " + ALLOWED_SEARCH_MODES);
         }
         if (!ALLOWED_ORDER_BY.contains(orderBy)) {
-            throw new IllegalArgumentException("Invalid order-by column");
+            throw new IllegalArgumentException("Invalid order-by column: " + orderBy
+                    + ". Allowed: " + ALLOWED_ORDER_BY);
         }
 
         int intLimit1;
@@ -95,8 +97,10 @@ public class Billing3rdPartyAddressDaoImpl extends AbstractDaoImpl<Billing3rdPar
             intLimit1 = limit1 != null ? Integer.parseInt(limit1) : 0;
             intLimit2 = limit2 != null ? Integer.parseInt(limit2) : 20;
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid limit parameter");
+            throw new IllegalArgumentException("Invalid limit parameter: limit1=" + limit1
+                    + ", limit2=" + limit2, e);
         }
+        // Clamp to safe bounds: offset must be non-negative, page size must be 1–200
         if (intLimit1 < 0) intLimit1 = 0;
         if (intLimit2 < 1 || intLimit2 > 200) intLimit2 = 20;
 
