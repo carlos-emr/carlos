@@ -303,8 +303,9 @@ public class ProgramManagerView2Action extends ActionSupport {
 
         ProgramQueue queue = programQueueManager.getProgramQueue(queueId);
         Program fullProgram = programManager.getProgram(String.valueOf(programId));
-        String dischargeNotes = request.getParameter("admission.dischargeNotes");
-        String admissionNotes = request.getParameter("admission.admissionNotes");
+        // Truncate free-text notes to prevent oversized session storage (CWE-501 defense-in-depth)
+        String dischargeNotes = truncateNotes(request.getParameter("admission.dischargeNotes"));
+        String admissionNotes = truncateNotes(request.getParameter("admission.admissionNotes"));
         String formattedAdmissionDate = request.getParameter("admissionDate");
         Date admissionDate = DateUtils.toDate(formattedAdmissionDate);
         List<Integer> dependents = clientManager.getDependentsList(Integer.valueOf(clientId));
@@ -330,11 +331,11 @@ public class ProgramManagerView2Action extends ActionSupport {
             // store this for display
             this.setServiceRestriction(e.getRestriction());
 
-            // programId validated as numeric above; notes are unsanitized request input
-            // stored for re-display on error — JSPs must use OWASP encoding when rendering
-            request.getSession().setAttribute("programId", programId); // nosemgrep: tainted-session-from-http-request
-            request.getSession().setAttribute("admission.dischargeNotes", dischargeNotes); // nosemgrep: tainted-session-from-http-request
-            request.getSession().setAttribute("admission.admissionNotes", admissionNotes); // nosemgrep: tainted-session-from-http-request
+            // programId validated as numeric above; notes length-capped via truncateNotes()
+            // and stored for re-display on error — JSPs must use OWASP encoding when rendering
+            request.getSession().setAttribute("programId", programId); // nosemgrep: tainted-session-from-http-request - validated numeric
+            request.getSession().setAttribute("admission.dischargeNotes", dischargeNotes); // nosemgrep: tainted-session-from-http-request - length-capped free-text for re-display
+            request.getSession().setAttribute("admission.admissionNotes", admissionNotes); // nosemgrep: tainted-session-from-http-request - length-capped free-text for re-display
 
             request.setAttribute("id", programId);
 
@@ -697,6 +698,15 @@ public class ProgramManagerView2Action extends ActionSupport {
     @StrutsParameter
     public void setVacancyOrTemplateId(String vacancyOrTemplateId) {
         this.vacancyOrTemplateId = vacancyOrTemplateId;
+    }
+
+    private static final int MAX_NOTES_LENGTH = 2000;
+
+    private static String truncateNotes(String notes) {
+        if (notes == null) {
+            return null;
+        }
+        return notes.length() > MAX_NOTES_LENGTH ? notes.substring(0, MAX_NOTES_LENGTH) : notes;
     }
 
 }
