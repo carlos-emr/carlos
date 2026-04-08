@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="java.util.List, org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -127,9 +128,9 @@
                     <tr>
                         <td>&nbsp;</td>
                         <td>
-                            <c:out value="${ demographic.lastName }"/>,&nbsp;
-                            <c:out value="${ demographic.firstName }"/>&nbsp;
-                            <c:out value="${ demographic.age }"/>&nbsp;years
+                            ${e:forHtml(demographic.lastName)},&nbsp;
+                            ${e:forHtml(demographic.firstName)}&nbsp;
+                            ${e:forHtml(demographic.age)}&nbsp;years
                         </td>
                         <td style="text-align: right">
 
@@ -169,50 +170,48 @@
                 <li id="${ dContact.id }" class="hovereffect ${ rowclass }">
 			
 				<span class="label"> 
-					<c:out value="${ dContact.role }"/>
+					${e:forHtml(dContact.role)}
 				</span>
 
                     <c:if test="${ workPhone eq internal }">
 					<span class="label">
-						&#40;<c:out value="${ internal }"/>&#41;
+						&#40;${e:forHtml(internal)}&#41;
 					</span>
                     </c:if>
 
                     <span class="info">
-					:&nbsp;<c:out value="${ dContact.contactName }"/>
+					:&nbsp;${e:forHtml(dContact.contactName)}
 				</span>
                 </li>
 
                 <table class="healthCareTeamMemberDetailTable" id="healthCareTeamMemberDetail_${ dContact.id }"
                        style="display:none;">
                     <tr>
-                        <th class="alignLeft contactName" colspan="2"><c:out value="${ dContact.contactName }"/></th>
+                        <th class="alignLeft contactName" colspan="2">${e:forHtml(dContact.contactName)}</th>
                     </tr>
                     <tr>
                         <td class="alignRight alignTop smallText role">Role:</td>
-                        <td class="alignLeft alignTop smallText role"><c:out value="${ dContact.role }"/></td>
+                        <td class="alignLeft alignTop smallText role">${e:forHtml(dContact.role)}</td>
                     </tr>
                     <tr>
                         <td class="alignRight alignTop smallText">Address:</td>
-                        <td class="alignLeft alignTop smallText"><c:out value="${ dContact.details.address }"/></td>
+                        <td class="alignLeft alignTop smallText">${e:forHtml(dContact.details.address)}</td>
                     </tr>
                     <tr>
                         <td class="alignRight alignTop smallText">City:</td>
-                        <td class="alignLeft alignTop smallText"><c:out value="${ dContact.details.city }"/></td>
+                        <td class="alignLeft alignTop smallText">${e:forHtml(dContact.details.city)}</td>
                     </tr>
                     <tr>
                         <td class="alignRight alignTop smallText">Province:</td>
-                        <td class="alignLeft alignTop smallText"><c:out value="${ dContact.details.province }"/></td>
+                        <td class="alignLeft alignTop smallText">${e:forHtml(dContact.details.province)}</td>
                     </tr>
                     <tr>
                         <td class="alignRight alignTop smallText">Phone:</td>
-                        <td class="alignLeft alignTop smallText"><c:out
-                                value="${ not empty workPhone ? workPhone : unknown }"/></td>
+                        <td class="alignLeft alignTop smallText">${e:forHtml(not empty workPhone ? workPhone : unknown)}</td>
                     </tr>
                     <tr>
                         <td class="alignRight alignTop smallText">Fax:</td>
-                        <td class="alignLeft alignTop smallText"><c:out
-                                value="${ not empty dContact.details.fax ? dContact.details.fax : unknown }"/></td>
+                        <td class="alignLeft alignTop smallText">${e:forHtml(not empty dContact.details.fax ? dContact.details.fax : unknown)}</td>
                     </tr>
                     <tr>
                         <td class="alignRight alignTop smallText">CPSO:</td>

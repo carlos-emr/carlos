@@ -138,6 +138,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 
@@ -334,9 +335,9 @@
         <% } %>
 
         <!--popup menu for encounter type -->
-        <script src="<c:out value="${ctx}"/>/share/javascript/popupmenu.js"
+        <script src="${e:forHtmlAttribute(ctx)}/share/javascript/popupmenu.js"
                 type="text/javascript"></script>
-        <script src="<c:out value="${ctx}"/>/share/javascript/menutility.js"
+        <script src="${e:forHtmlAttribute(ctx)}/share/javascript/menutility.js"
                 type="text/javascript"></script>
 
         <script type="text/javascript"
@@ -720,7 +721,7 @@
 
             <security:oscarSec roleName="<%= roleName$ %>" objectName="_eChart" rights="r" reverse="<%= false %>" >
             var numMenus = 1;
-            var encURL = "<c:out value="${ctx}"/>/encounter/IncomingEncounter.do?providerNo=<%= Encode.forJavaScript(curProvider_no) %>&appointmentNo=&demographicNo=<%= Encode.forJavaScript(demographic_no) %>&curProviderNo=&reason=<%=Encode.forJavaScript(URLEncoder.encode(noteReason, StandardCharsets.UTF_8))%>&encType=<%=Encode.forJavaScript(URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8))%>&userName=<%=Encode.forJavaScript(URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8)) %>&curDate=<%= Encode.forJavaScript(dateString) %>&appointmentDate=&startTime=&status=";
+            var encURL = "${e:forJavaScript(ctx)}/encounter/IncomingEncounter.do?providerNo=<%= Encode.forJavaScript(curProvider_no) %>&appointmentNo=&demographicNo=<%= Encode.forJavaScript(demographic_no) %>&curProviderNo=&reason=<%=Encode.forJavaScript(URLEncoder.encode(noteReason, StandardCharsets.UTF_8))%>&encType=<%=Encode.forJavaScript(URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8))%>&userName=<%=Encode.forJavaScript(URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8)) %>&curDate=<%= Encode.forJavaScript(dateString) %>&appointmentDate=&startTime=&status=";
 
             function showMenu(menuNumber, eventObj) {
                 var menuId = 'menu' + menuNumber;
@@ -1221,8 +1222,7 @@
                             <tr>
                                 <td><a
                                         href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700,960,'<c:out
-                                                value="${ctx}"/>/oscarPrevention/index.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>');return false;">
+                                        onClick="popupPage(700,960,'${e:forJavaScript(ctx)}/oscarPrevention/index.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>');return false;">
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.LeftNavBar.Prevent"/></a></td>
                             </tr>
                         </security:oscarSec>
@@ -1604,18 +1604,16 @@
                                                                         <li><span class="label">
 	                           	First Nation:</span>
                                                                             <span class="info">
-	                            	<c:out value='${ pageScope.demoExtended["aboriginal"] }'/>
+	                            	${e:forHtml(pageScope.demoExtended["aboriginal"])}
 	                            </span>
                                                                         </li>
                                                                         <li>
                                                                             <span class="label">Status Number:</span>
-                                                                            <span class="info"><c:out
-                                                                                    value='${ pageScope.demoExtended["statusNum"] }'/></span>
+                                                                            <span class="info">${e:forHtml(pageScope.demoExtended["statusNum"])}</span>
                                                                         </li>
                                                                         <li>
                                                                             <span class="label">First Nation Community:</span>
-                                                                            <span class="info"><c:out
-                                                                                    value='${ fncommunity }'/></span>
+                                                                            <span class="info">${e:forHtml(fncommunity)}</span>
                                                                         </li>
                                                                     </oscar:oscarPropertiesCheck>
 
@@ -1798,8 +1796,7 @@
                                                                     <%if (!"true".equals(CarlosProperties.getInstance().getProperty("phu.hide", "false"))) { %>
                                                                     <li><span class="label">
 								<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPHU"/>:</span>
-                                                                        <span class="info"><c:out
-                                                                                value="${phuName}"/></span>
+                                                                        <span class="info">${e:forHtml(phuName)}</span>
                                                                     </li>
                                                                     <%} %>
 
@@ -1918,20 +1915,18 @@
                                                                                         <c:if test="${ patientConsent.consentType.active }">
                           			<span class="popup label"
                                           onmouseover="nhpup.popup(${ patientConsent.consentType.description },{'width':350} );">
-										<c:out value="${ patientConsent.consentType.name }"/>
+										${e:forHtml(patientConsent.consentType.name)}
 									</span>
 
                                                                                             <c:choose>
                                                                                                 <c:when test="${ patientConsent.optout }">
                                                                                                     <span class="info"
-                                                                                                          style="color:red;"> Opted Out:<c:out
-                                                                                                            value="${ patientConsent.optoutDate }"/></span>
+                                                                                                          style="color:red;"> Opted Out:${e:forHtml(patientConsent.optoutDate)}</span>
                                                                                                 </c:when>
 
                                                                                                 <c:otherwise>
                                                                                                     <span class="info"
-                                                                                                          style="color:green;">Consented:<c:out
-                                                                                                            value="${ patientConsent.consentDate }"/></span>
+                                                                                                          style="color:green;">Consented:${e:forHtml(patientConsent.consentDate)}</span>
                                                                                                 </c:otherwise>
                                                                                             </c:choose>
 
@@ -4565,7 +4560,7 @@
                                                                                 <td class="alignRight"
                                                                                     style="width:16%;vertical-align:top;">
                                                                                     <div style="font-weight:bold;white-space:nowrap;">
-                                                                                        <c:out value="${ consentType.name }"/>
+                                                                                        ${e:forHtml(consentType.name)}
                                                                                     </div>
 
                                                                                     <c:if test="${ not empty patientConsent and not empty patientConsent.optout }">
@@ -4573,15 +4568,13 @@
                                                                                             <c:when test="${ patientConsent.optout }">
                                                                                                 <div id="consentDate_${consentType.type}"
                                                                                                      style="color:red;white-space:nowrap;">
-                                                                                                    Opted Out:<c:out
-                                                                                                        value="${ patientConsent.optoutDate }"/>
+                                                                                                    Opted Out:${e:forHtml(patientConsent.optoutDate)}
                                                                                                 </div>
                                                                                             </c:when>
                                                                                             <c:otherwise>
                                                                                                 <div id="consentDate_${consentType.type}"
                                                                                                      style="color:green;white-space:nowrap;">
-                                                                                                    Consented:<c:out
-                                                                                                        value="${ patientConsent.consentDate }"/>
+                                                                                                    Consented:${e:forHtml(patientConsent.consentDate)}
                                                                                                 </div>
                                                                                             </c:otherwise>
                                                                                         </c:choose>
@@ -4590,7 +4583,7 @@
 
                                                                                 <td colspan="2"
                                                                                     style="padding-left:10px;vertical-align:top;">
-                                                                                    <c:out value="${ consentType.description }"/>
+                                                                                    ${e:forHtml(consentType.description)}
                                                                                 </td>
 
                                                                                 <td id="consentStatusDate"
@@ -4600,7 +4593,7 @@
                                                                                            id="optin_${ consentType.type }"
                                                                                            value="0"
                                                                                             <c:if test="${ not empty patientConsent and not empty patientConsent.optout and not patientConsent.optout }">
-                                                                                                <c:out value="checked"/>
+                                                                                                checked
                                                                                             </c:if>
                                                                                     />
                                                                                     <label for="optin_${ consentType.type }">Opt-In</label>
@@ -4609,7 +4602,7 @@
                                                                                            id="optout_${ consentType.type }"
                                                                                            value="1"
                                                                                             <c:if test="${ not empty patientConsent and not empty patientConsent.optout and patientConsent.optout }">
-                                                                                                <c:out value="checked"/>
+                                                                                                checked
                                                                                             </c:if>
                                                                                     />
                                                                                     <label for="optout_${ consentType.type }">Opt-Out</label>

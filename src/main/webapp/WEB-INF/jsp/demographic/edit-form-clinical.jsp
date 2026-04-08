@@ -74,6 +74,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve all variables from request attributes (set by DemographicEdit2Action) --%>
 <%
@@ -957,7 +958,7 @@
                                                                                 <td class="alignRight"
                                                                                     style="width:16%;vertical-align:top;">
                                                                                     <div style="font-weight:bold;white-space:nowrap;">
-                                                                                        <c:out value="${ consentType.name }"/>
+                                                                                        ${e:forHtml(consentType.name)}
                                                                                     </div>
 
                                                                                     <c:if test="${ not empty patientConsent and not empty patientConsent.optout }">
@@ -965,15 +966,13 @@
                                                                                             <c:when test="${ patientConsent.optout }">
                                                                                                 <div id="consentDate_${consentType.type}"
                                                                                                      style="color:red;white-space:nowrap;">
-                                                                                                    Opted Out:<c:out
-                                                                                                        value="${ patientConsent.optoutDate }"/>
+                                                                                                    Opted Out:${e:forHtml(patientConsent.optoutDate)}
                                                                                                 </div>
                                                                                             </c:when>
                                                                                             <c:otherwise>
                                                                                                 <div id="consentDate_${consentType.type}"
                                                                                                      style="color:green;white-space:nowrap;">
-                                                                                                    Consented:<c:out
-                                                                                                        value="${ patientConsent.consentDate }"/>
+                                                                                                    Consented:${e:forHtml(patientConsent.consentDate)}
                                                                                                 </div>
                                                                                             </c:otherwise>
                                                                                         </c:choose>
@@ -982,7 +981,7 @@
 
                                                                                 <td colspan="2"
                                                                                     style="padding-left:10px;vertical-align:top;">
-                                                                                    <c:out value="${ consentType.description }"/>
+                                                                                    ${e:forHtml(consentType.description)}
                                                                                 </td>
 
                                                                                 <td id="consentStatusDate"
@@ -992,7 +991,7 @@
                                                                                            id="optin_${ consentType.type }"
                                                                                            value="0"
                                                                                             <c:if test="${ not empty patientConsent and not empty patientConsent.optout and not patientConsent.optout }">
-                                                                                                <c:out value="checked"/>
+                                                                                                checked
                                                                                             </c:if>
                                                                                     />
                                                                                     <label for="optin_${ consentType.type }">Opt-In</label>
@@ -1001,7 +1000,7 @@
                                                                                            id="optout_${ consentType.type }"
                                                                                            value="1"
                                                                                             <c:if test="${ not empty patientConsent and not empty patientConsent.optout and patientConsent.optout }">
-                                                                                                <c:out value="checked"/>
+                                                                                                checked
                                                                                             </c:if>
                                                                                     />
                                                                                     <label for="optout_${ consentType.type }">Opt-Out</label>
