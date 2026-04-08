@@ -26,6 +26,7 @@
 <%@ page language="java" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="java.util.List" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
@@ -186,23 +187,23 @@
                 <td width="50px">&nbsp;</td>
                 <td width="100px">Patient:</td>
                 <td>
-                    <c:out value="${summary.patientNo}"/>&nbsp;&nbsp;
-                    <c:out value="${summary.patientName}"/>&nbsp;&nbsp;
-                    <c:out value="${summary.hin}"/>&nbsp;&nbsp;
+                    ${e:forHtml(summary.patientNo)}&nbsp;&nbsp;
+                    ${e:forHtml(summary.patientName)}&nbsp;&nbsp;
+                    ${e:forHtml(summary.hin)}&nbsp;&nbsp;
                 </td>
             </tr>
             <tr>
                 <td width="50px">&nbsp;</td>
                 <td width="100px">Address :</td>
                 <td>
-                    <c:out value="${summary.address}"/>
+                    ${e:forHtml(summary.address)}
                 </td>
             </tr>
             <tr>
                 <td width="50px">&nbsp;</td>
                 <td width="100px">Phone :</td>
                 <td>
-                    <c:out value="${summary.phone}"/>
+                    ${e:forHtml(summary.phone)}
                 </td>
             </tr>
         </table>
@@ -221,18 +222,18 @@
             </tr>
             <c:forEach var="row" items="${result}" varStatus="counter">
                 <tr bgcolor="#CEF6CE">
-                    <td><c:out value="${row.invoiceNo}"/></td>
-                    <td><c:out value="${row.invoiceDate}"/></td>
+                    <td>${e:forHtml(row.invoiceNo)}</td>
+                    <td>${e:forHtml(row.invoiceDate)}</td>
                     <td>&nbsp;</td>
-                    <td><c:out value="${row.invoiced}"/></td>
-                    <td><c:out value="${row.paid}"/></td>
+                    <td>${e:forHtml(row.invoiced)}</td>
+                    <td>${e:forHtml(row.paid)}</td>
                 </tr>
                 <c:forEach var="service" items="${row.services}" varStatus="counterService">
                     <tr bgcolor="${counterService.index % 2 == 0 ? 'ivory' : '#EEEEFF'}">
                         <td>&nbsp;</td>
                         <td>&nbsp;</td>
-                        <td><c:out value="${service.code}"/></td>
-                        <td><c:out value="${service.fee}"/></td>
+                        <td>${e:forHtml(service.code)}</td>
+                        <td>${e:forHtml(service.fee)}</td>
                         <td>&nbsp;</td>
                     </tr>
                 </c:forEach>
@@ -242,12 +243,12 @@
             </tr>
             <tr bgcolor="#99FF66">
                 <td>Count: &nbsp;&nbsp;&nbsp;
-                    <c:if test="${not empty summary}"><c:out value="${summary.count}"/></c:if>
+                    <c:if test="${not empty summary}">${e:forHtml(summary.count)}</c:if>
                 </td>
                 <td>&nbsp;</td>
                 <td align="center">Total:</td>
-                <td><c:if test="${not empty summary}"><c:out value="${summary.invoiced}"/></c:if></td>
-                <td><c:if test="${not empty summary}"><c:out value="${summary.paid}"/></c:if></td>
+                <td><c:if test="${not empty summary}">${e:forHtml(summary.invoiced)}</c:if></td>
+                <td><c:if test="${not empty summary}">${e:forHtml(summary.paid)}</c:if></td>
             </tr>
         </table>
     </c:if>

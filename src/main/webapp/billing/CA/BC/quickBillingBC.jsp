@@ -58,33 +58,34 @@
                 org.springframework.web.context.WebApplicationContext" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 <html>
 <head>
     <title>CARLOS Quick Billing</title>
 
 
-    <link rel="stylesheet" href="<c:out value="${ oscar_context_path }/css/bcbilling.css" />" type="text/css"
+    <link rel="stylesheet" href="${e:forHtmlAttribute(oscar_context_path)}/css/bcbilling.css" type="text/css"
           media="screen"/>
-    <link rel="stylesheet" href="<c:out value="${ oscar_context_path }/css/quickBillingBC.css" />" type="text/css"
+    <link rel="stylesheet" href="${e:forHtmlAttribute(oscar_context_path)}/css/quickBillingBC.css" type="text/css"
           media="screen"/>
-    <link rel="stylesheet" href="<c:out value="${ oscar_context_path }/library/jquery/jquery-ui-1.14.2.min.css" />"
+    <link rel="stylesheet" href="${e:forHtmlAttribute(oscar_context_path)}/library/jquery/jquery-ui-1.14.2.min.css"
           type="text/css"/>
-    <link rel="stylesheet" href="<c:out value="${ oscar_context_path }/library/flatpickr/flatpickr.min.css" />"
+    <link rel="stylesheet" href="${e:forHtmlAttribute(oscar_context_path)}/library/flatpickr/flatpickr.min.css"
           type="text/css"/>
 
-    <link rel="stylesheet" href="<c:out value="${ oscar_context_path }/css/jquery.ui.autocomplete.css" />"
+    <link rel="stylesheet" href="${e:forHtmlAttribute(oscar_context_path)}/css/jquery.ui.autocomplete.css"
           type="text/css"/>
     <style type="text/css">.ui-autocomplete-loading {
         background: white url('images/ui-anim_basic_16x16.gif') right center no-repeat;
     }
     </style>
-    <script type="text/javascript" src="<c:out value="${ oscar_context_path }/library/jquery/jquery-3.7.1.min.js" />"></script>
-    <script src="<c:out value="${ oscar_context_path }/library/jquery/jquery-compat.js"/>"></script>
+    <script type="text/javascript" src="${e:forHtmlAttribute(oscar_context_path)}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${e:forHtmlAttribute(oscar_context_path)}/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript"
-            src="<c:out value="${ oscar_context_path }/library/jquery/jquery-ui-1.14.2.min.js" />"></script>
+            src="${e:forHtmlAttribute(oscar_context_path)}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript"
-            src="<c:out value="${ oscar_context_path }/library/flatpickr/flatpickr.min.js" />"></script>
+            src="${e:forHtmlAttribute(oscar_context_path)}/library/flatpickr/flatpickr.min.js"></script>
 
     <script type="text/javascript">
 
@@ -92,13 +93,13 @@
 
             // prepare the document elements when the DOM is ready.
             // cool moving stuff...
-            if (!<c:out value="${quickBillingBC.isHeaderSet}" />) {
+            if (!${e:forJavaScript(quickBillingBC.isHeaderSet)}) {
                 $("#apeture").hide();
                 $("#toolBar").hide();
                 $("#inputList").hide();
             }
 
-            if (<c:out value="${quickBillingBC.isHeaderSet}" />) {
+            if (${e:forJavaScript(quickBillingBC.isHeaderSet)}) {
                 // lock out the header.
                 $("#providers").attr("disabled", "disabled");
                 $("#visitLocation").attr("disabled", "disabled");
@@ -108,7 +109,7 @@
                 $("#ptName").focus();
             }
 
-            if (<c:out value="${not empty requestScope.saved}" />) {
+            if (${e:forJavaScript(not empty requestScope.saved)}) {
                 $("#saved").slideDown("fast");
             }
 
@@ -192,7 +193,7 @@
 
                     } else {
 
-                        var path = "<c:out value="${ oscar_context_path }" />/quickBillingBC.do";
+                        var path = "${e:forJavaScript(oscar_context_path)}/quickBillingBC.do";
                         var data = JSON.stringify($(document.quickBillingForm).serializeObject());
 
                         $("#quickBillingForm").attr("action", path + "?data=" + encodeURIComponent(data));
@@ -206,7 +207,7 @@
             $("#ptName").autocomplete({
                 source: function (request, response) {
                     $.ajax({
-                        url: "<c:out value="${ oscar_context_path }" />/demographic/SearchDemographic.do",
+                        url: "${e:forJavaScript(oscar_context_path)}/demographic/SearchDemographic.do",
                         method: "POST",
                         data: { query: request.term },
                         dataType: "json",
@@ -250,7 +251,7 @@
         // removes an entry from the add invoice list.
         function removeBill(bill) {
 
-            var path = "<c:out value="${ oscar_context_path }" />/quickBillingBC.do";
+            var path = "${e:forJavaScript(oscar_context_path)}/quickBillingBC.do";
             var data = "?remove=" + bill;
 
             $("#quickBillingForm").attr("action", path + data);
@@ -267,14 +268,14 @@
     <h1>BC MSP Quick Billing</h1>
 </div>
 
-<form action="<c:out value="${oscar_context_path}" />/saveQuickBillingBC.do"
+<form action="${e:forHtmlAttribute(oscar_context_path)}/saveQuickBillingBC.do"
       id="quickBillingForm"
       name="quickBillingForm"
       method="POST"
       class="bgLightLilac">
 
     <div id="saved" style="display:none;">
-        <c:out value="${requestScope.saved}"/> Invoice(s) Saved
+        ${e:forHtml(requestScope.saved)} Invoice(s) Saved
     </div>
 
     <div id="header" class="bgLilac">
@@ -288,14 +289,14 @@
 
                         <c:if test="${not empty provider.ohipNo}">
 
-                            <option value="<c:out value="${ provider.id}" />"
-                                    id="<c:out value="${ provider.id }" />"
+                            <option value="${e:forHtmlAttribute(provider.id)}"
+                                    id="${e:forHtmlAttribute(provider.id)}"
                                     <c:if test="${provider.id eq quickBillingBC.billingProviderNo}">
                                         selected="selected"
                                     </c:if> >
 
-                                <c:out value="${ provider.firstName }"/>
-                                <c:out value="${ provider.lastName }"/>
+                                ${e:forHtml(provider.firstName)}
+                                ${e:forHtml(provider.lastName)}
                             </option>
 
                         </c:if>
@@ -309,13 +310,13 @@
 
                     <c:forEach var="visitType" items="${ quickBillingBC.billingVisitTypes }" varStatus="loop">
 
-                        <option value="<c:out value="${ visitType.visitType }" />"
-                                id="<c:out value="${ visitType.visitType }" />"
+                        <option value="${e:forHtmlAttribute(visitType.visitType)}"
+                                id="${e:forHtmlAttribute(visitType.visitType)}"
                                 <c:if test="${quickBillingBC.visitLocation eq visitType.visitType}">
                                     selected="selected"
                                 </c:if> >
 
-                            <c:out value="${ visitType.displayName }"/>
+                            ${e:forHtml(visitType.displayName)}
 
                         </option>
 
@@ -331,7 +332,7 @@
                        name="visitDate"
                        size="10"
                        maxlength="10"
-                       value="<c:out value="${quickBillingBC.serviceDate}" />"/>
+                       value="${e:forHtmlAttribute(quickBillingBC.serviceDate)}"/>
             </li>
         </ul>
     </div>
@@ -366,8 +367,8 @@
                 <tr>
                     <th colspan="5">
 
-                        <span id="tableDate"><c:out value="${quickBillingBC.serviceDate}"/></span>
-                        <span id="tableName"><c:out value="${quickBillingBC.billingProvider}"/></span>
+                        <span id="tableDate">${e:forHtml(quickBillingBC.serviceDate)}</span>
+                        <span id="tableName">${e:forHtml(quickBillingBC.billingProvider)}</span>
 
                     </th>
                 </tr>
@@ -402,12 +403,12 @@
                     </c:choose>
 
                     <tr>
-                        <td class="<c:out value="${classStyle}" />">
-                            <c:out value="${pageScope.hin}"/>
+                        <td class="${e:forHtmlAttribute(classStyle)}">
+                            ${e:forHtml(pageScope.hin)}
                         </td>
                         <td>
-                            <c:out value="${billData.patientLastName}"/>,
-                            <c:out value="${billData.patientFirstName}"/>
+                            ${e:forHtml(billData.patientLastName)},
+                            ${e:forHtml(billData.patientFirstName)}
                         </td>
 
                         <c:forEach var="billItem" items="${billData.billItem}">
@@ -423,10 +424,10 @@
                                 </c:otherwise>
                             </c:choose>
 
-                            <td class="<c:out value="${classStyle}" />">
+                            <td class="${e:forHtmlAttribute(classStyle)}">
 
-                                <c:out value="${billItem.serviceCode}"/>:
-                                <c:out value="${pageScope.servicecode}"/>
+                                ${e:forHtml(billItem.serviceCode)}:
+                                ${e:forHtml(pageScope.servicecode)}
 
                             </td>
 
@@ -441,7 +442,7 @@
                             </c:otherwise>
                         </c:choose>
 
-                        <td class="<c:out value="${classStyle}" />">
+                        <td class="${e:forHtmlAttribute(classStyle)}">
 
                             <fmt:formatNumber type="currency"
                                               groupingUsed="true"
@@ -454,13 +455,13 @@
                         <td>
 
                             <a id="removeBill"
-                               onclick="javascript:removeBill('<c:out value="${loop.index}"/>')">
+                               onclick="javascript:removeBill('${e:forJavaScript(loop.index)}')">
                                 remove
                             </a>
 
                         </td>
                         <td>
-                            <c:out value="${ billItem.status }"/>
+                            ${e:forHtml(billItem.status)}
                         </td>
                     </tr>
 
