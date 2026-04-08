@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.dao.MyGroupDao;
 import io.github.carlos_emr.carlos.commn.model.DxRegistedPTInfo;
 import io.github.carlos_emr.carlos.managers.CodingSystemManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -91,13 +92,17 @@ public class DxresearchReport2Action extends ActionSupport {
     /**
      * Validates that a provider_no parameter matches the expected format.
      * Provider numbers are alphanumeric strings (max 6 chars) optionally prefixed
-     * with {@code _grp_} for group lookups.
+     * with {@code _grp_} for group lookups. Logs a warning when validation fails.
      *
      * @param providerNo the provider number to validate
      * @return true if the value is non-null and matches the expected format
      */
     private static boolean isValidProviderNo(String providerNo) {
-        return providerNo != null && providerNo.matches("^(_grp_)?[a-zA-Z0-9]{1,6}$");
+        if (providerNo != null && providerNo.matches("^(_grp_)?[a-zA-Z0-9]{1,6}$")) {
+            return true;
+        }
+        MiscUtils.getLogger().warn("Invalid provider_no rejected: {}", LogSanitizer.sanitize(providerNo));
+        return false;
     }
 
     @Override

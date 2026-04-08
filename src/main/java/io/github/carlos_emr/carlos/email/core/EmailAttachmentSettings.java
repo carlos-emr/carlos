@@ -140,8 +140,8 @@ public record EmailAttachmentSettings(
         if (value == null) {
             return null;
         }
-        // Remove ASCII control characters (0x00-0x1F) except for space (0x20)
-        String cleaned = value.replaceAll("[\\x00-\\x1f]", "");
+        // Remove ASCII control characters (0x00-0x1F and DEL 0x7F)
+        String cleaned = value.replaceAll("[\\x00-\\x1f\\x7f]", "");
         if (cleaned.length() > maxLength) {
             cleaned = cleaned.substring(0, maxLength);
         }
