@@ -168,7 +168,7 @@ public class GeneratePatientLetters2Action extends ActionSupport {
                 fileName = newDoc.getFileName();
                 String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "/" + fileName;
                 if (log.isTraceEnabled()) {
-                    log.trace("writing report to disk location {}", LogSanitizer.sanitize(savePath));
+                    log.trace("writing report to disk for file {}", LogSanitizer.sanitize(fileName));
                 }
                 JasperExportManager.exportReportToPdfFile(print, savePath);
                 if (log.isTraceEnabled()) {
