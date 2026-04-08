@@ -65,6 +65,18 @@
     String startLimit = Misc.check(request.getParameter("startLimit"), "0");
     String orderby = Misc.check(request.getParameter("orderby"), "LastName");
     String column = Misc.check(request.getParameter("column"), null, orderby);
+
+    // Allowlist valid column names to prevent HQL injection in DemographicDao.findByField()
+    List<String> validColumns = List.of(
+        "DemographicNo", "LastName", "FirstName", "ChartNo", "Sex", "YearOfBirth", "PatientStatus"
+    );
+    if (!validColumns.contains(orderby)) {
+        orderby = "LastName";
+    }
+    if (column != null && !column.isEmpty() && !validColumns.contains(column)) {
+        column = orderby;
+    }
+
     Object keyword = Misc.check(request.getParameter("keyword"), "");
     if (column != null && column.equals("DemographicNo")) {
         keyword = ConversionUtils.fromIntString(keyword);
