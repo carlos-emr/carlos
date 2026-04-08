@@ -94,6 +94,8 @@ public class EFormUtil {
     public static final String CURRENT = "current";
     public static final String ALL = "all";
 
+    private static final Set<String> ALLOWED_SORT_COLUMNS = Set.of(NAME, SUBJECT, DATE, FILE_NAME, PROVIDER);
+
     private static final CaseManagementManager cmm = SpringUtils.getBean(CaseManagementManager.class);
     private static final CaseManagementNoteLinkDAO cmDao = SpringUtils.getBean(CaseManagementNoteLinkDAO.class);
     private static final EFormDataDao eFormDataDao = SpringUtils.getBean(EFormDataDao.class);
@@ -108,6 +110,17 @@ public class EFormUtil {
     private static final EFormDao eformDao = SpringUtils.getBean(EFormDao.class);
 
     private EFormUtil() {
+    }
+
+    /**
+     * Validates sortBy against the allowed sort column constants to prevent SQL injection.
+     * @throws IllegalArgumentException if sortBy is not an allowed value
+     */
+    private static String validateSortBy(String sortBy) {
+        if (sortBy == null || !ALLOWED_SORT_COLUMNS.contains(sortBy)) {
+            throw new IllegalArgumentException("Invalid sort column: " + LogSanitizer.sanitize(sortBy, 100));
+        }
+        return sortBy;
     }
 
     public static String saveEForm(EForm eForm) {
@@ -650,11 +663,11 @@ public class EFormUtil {
         String sql;
         sql = "SELECT eform_groups.group_name, count(*)-1 AS 'count' FROM eform_groups "
                 + "LEFT JOIN eform_data ON eform_data.fid=eform_groups.fid "
-                + "WHERE (eform_data.status=1 AND eform_data.demographic_no=" + demographic_no
+                + "WHERE (eform_data.status=1 AND eform_data.demographic_no=?"
                 + ") OR eform_groups.fid=0 " + "GROUP BY eform_groups.group_name";
         ArrayList<HashMap<String, String>> al = new ArrayList<HashMap<String, String>>();
         try {
-            ResultSet rs = getSQL(sql);
+            ResultSet rs = DBHandler.GetPreSQL(sql, Integer.parseInt(demographic_no));
             while (rs.next()) {
                 HashMap<String, String> curhash = new HashMap<String, String>();
                 curhash.put("groupName", Misc.getString(rs, "group_name"));
@@ -699,17 +712,18 @@ public class EFormUtil {
 
     public static ArrayList<HashMap<String, ? extends Object>> listEForms(String sortBy, String deleted, String group, String userRoles) {
         // sends back a list of forms that were uploaded (those that can be added to the patient)
+        String validatedSort = validateSortBy(sortBy);
         String sql = "";
         if (deleted.equals("deleted")) {
-            sql = "SELECT * FROM eform, eform_groups where eform.status=0 AND eform.fid=eform_groups.fid AND eform_groups.group_name='" + group + "' ORDER BY " + sortBy;
+            sql = "SELECT * FROM eform, eform_groups where eform.status=0 AND eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
         } else if (deleted.equals("current")) {
-            sql = "SELECT * FROM eform, eform_groups where eform.status=1 AND eform.fid=eform_groups.fid AND eform_groups.group_name='" + group + "' ORDER BY " + sortBy;
+            sql = "SELECT * FROM eform, eform_groups where eform.status=1 AND eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
         } else if (deleted.equals("all")) {
-            sql = "SELECT * FROM eform AND eform.fid=eform_groups.fid AND eform_groups.group_name='" + group + "' ORDER BY " + sortBy;
+            sql = "SELECT * FROM eform AND eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
         }
-        ResultSet rs = getSQL(sql);
         ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
         try {
+            ResultSet rs = DBHandler.GetPreSQL(sql, group);
             while (rs.next()) {
                 HashMap<String, String> curht = new HashMap<String, String>();
                 curht.put("fid", rsGetString(rs, "fid"));
@@ -777,17 +791,18 @@ public class EFormUtil {
     @Deprecated
     public static ArrayList<HashMap<String, ? extends Object>> listPatientEForms(String sortBy, String deleted, String demographic_no, String groupName, String userRoles) {
         // sends back a list of forms added to the patient
+        String validatedSort = validateSortBy(sortBy);
         String sql = "";
         if (deleted.equals("deleted")) {
-            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.status=0 AND eform_data.patient_independent=0 AND eform_data.demographic_no=" + demographic_no + " AND eform_data.fid=eform_groups.fid AND eform_groups.group_name='" + groupName + "' ORDER BY " + sortBy;
+            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.status=0 AND eform_data.patient_independent=0 AND eform_data.demographic_no=? AND eform_data.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
         } else if (deleted.equals("current")) {
-            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.status=1 AND eform_data.patient_independent=0 AND eform_data.demographic_no=" + demographic_no + " AND eform_data.fid=eform_groups.fid AND eform_groups.group_name='" + groupName + "' ORDER BY " + sortBy;
+            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.status=1 AND eform_data.patient_independent=0 AND eform_data.demographic_no=? AND eform_data.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
         } else if (deleted.equals("all")) {
-            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.patient_independent=0 AND eform_data.demographic_no=" + demographic_no + " AND eform_data.fid=eform_groups.fid AND eform_groups.group_name='" + groupName + "' ORDER BY " + sortBy;
+            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.patient_independent=0 AND eform_data.demographic_no=? AND eform_data.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
         }
-        ResultSet rs = getSQL(sql);
         ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
         try {
+            ResultSet rs = DBHandler.GetPreSQL(sql, Integer.parseInt(demographic_no), groupName);
             while (rs.next()) {
                 // filter eform by role type
                 if (rsGetString(rs, "roleType") != null && !rsGetString(rs, "roleType").equals("") && !rsGetString(rs, "roleType").equals("null")) {
