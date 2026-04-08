@@ -64,7 +64,8 @@ class DxresearchReport2ActionTest extends CarlosWebTestBase {
 
     @BeforeEach
     void setUp() throws Exception {
-        // Note: MockitoAnnotations.openMocks() is called by CarlosTestBase.setUpBase()
+        // Note: MockitoAnnotations.openMocks() is already called by CarlosTestBase.setUpBase();
+        // calling it again here would cause redundant mock initialization.
 
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any()))
                 .thenReturn(true);

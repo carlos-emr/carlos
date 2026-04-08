@@ -89,7 +89,7 @@ public class DxresearchReport2Action extends ActionSupport {
             "patientRegistedResolve"
     );
 
-    /** Provider number: alphanumeric 1-6 characters (matches {@code provider} table VARCHAR(6)), or {@code *} for "All Providers". */
+    /** Provider number: alphanumeric 1-6 characters (matches {@code provider} table VARCHAR(6)), or {@code *} for "All Providers" (DAO treats {@code *} as wildcard to include every provider's patients). */
     private static final Pattern PROVIDER_NO_PATTERN = Pattern.compile("^([a-zA-Z0-9]{1,6}|\\*)$");
 
     /** Prefix used by the JSP provider selector for provider group expansion. */
@@ -344,7 +344,7 @@ public class DxresearchReport2Action extends ActionSupport {
 
         // Store raw value — output encoding is applied at render time in editCodeDesc.jsp
         // using Encode.forHtmlAttribute() for attribute context (CWE-501)
-        request.getSession().setAttribute("editingCodeDesc", editingCodeDesc); // nosemgrep: tainted-session-from-http-request -- value encoded with Encode.forHtmlAttribute() at render time in editCodeDesc.jsp
+        request.getSession().setAttribute("editingCodeDesc", editingCodeDesc); // nosemgrep: tainted-session-from-http-request -- raw value; encoded with Encode.forHtmlAttribute() at render time in editCodeDesc.jsp
 
         return SUCCESS;
     }
