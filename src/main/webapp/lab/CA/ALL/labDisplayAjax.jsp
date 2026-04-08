@@ -87,6 +87,11 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     CarlosProperties props = CarlosProperties.getInstance();
     String segmentID = request.getParameter("segmentID");
+    if (segmentID == null || segmentID.trim().isEmpty() || !segmentID.trim().matches("\\d+")) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid segmentID");
+        return;
+    }
+    segmentID = segmentID.trim();
     String providerNo = request.getParameter("providerNo");
     String searchProviderNo = request.getParameter("searchProviderNo");
     String patientMatched = request.getParameter("patientMatched");
