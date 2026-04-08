@@ -1991,9 +1991,9 @@ public class CaseManagementView2Action extends ActionSupport {
             demono = (String) request.getSession().getAttribute("casemgmt_DemoNo");
         else {
             if (!demono.matches("\\d+")) {
+                logger.warn("Invalid non-numeric demographicNo: {}", LogSanitizer.sanitize(demono));
                 return "";
             }
-            demono = String.valueOf(Integer.parseInt(demono));
             request.getSession().setAttribute("casemgmt_DemoNo", demono); // nosemgrep: tainted-session-from-http-request
         }
         return demono;

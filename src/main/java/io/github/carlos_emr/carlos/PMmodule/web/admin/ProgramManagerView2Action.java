@@ -122,6 +122,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         String programId = request.getParameter("id");
         // Validate programId is numeric before storing in session
         if (programId != null && !programId.matches("\\d+")) {
+            logger.warn("Invalid non-numeric programId: {}", LogSanitizer.sanitize(programId));
             return ERROR;
         }
 
@@ -287,9 +288,11 @@ public class ProgramManagerView2Action extends ActionSupport {
 
         // Validate numeric IDs before processing
         if (programId != null && !programId.matches("\\d+")) {
+            logger.warn("Invalid non-numeric programId in admit: {}", LogSanitizer.sanitize(programId));
             return ERROR;
         }
         if (clientId != null && !clientId.matches("\\d+")) {
+            logger.warn("Invalid non-numeric clientId in admit: {}", LogSanitizer.sanitize(clientId));
             return ERROR;
         }
 

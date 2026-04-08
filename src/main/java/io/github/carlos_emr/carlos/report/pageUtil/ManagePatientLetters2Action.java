@@ -78,9 +78,9 @@ public class ManagePatientLetters2Action extends ActionSupport {
 
         String classpath = (String) request.getSession().getServletContext().getAttribute("org.apache.catalina.jsp_classpath");
         System.setProperty("jasper.reports.compile.class.path", classpath);
- // nosemgrep: tainted-session-from-http-request
+
         if (log.isTraceEnabled()) {
-        } // nosemgrep: tainted-session-from-http-request
+        }
 
         byte[] fileData = null;
 
@@ -91,9 +91,9 @@ public class ManagePatientLetters2Action extends ActionSupport {
                 return SUCCESS;
             }
 
-            // Use PathValidationUtils to validate the uploaded file is in temp directory // nosemgrep: tainted-session-from-http-request
+            // Use PathValidationUtils to validate the uploaded file is in temp directory
             if (!PathValidationUtils.isInAllowedTempDirectory(reportFile)) {
-                log.error("Attempted path traversal attack detected for file: " + reportFile.getPath()); // nosemgrep: tainted-session-from-http-request
+                log.error("Attempted path traversal attack detected for file: " + reportFile.getPath());
                 throw new SecurityException("Invalid file upload - path traversal detected");
             }
 
@@ -118,7 +118,7 @@ public class ManagePatientLetters2Action extends ActionSupport {
             manageLetters.saveReport((String) request.getSession().getAttribute("user"), reportName, reportFile.getName(), fileData);
         } catch (FileNotFoundException ex) {
             MiscUtils.getLogger().error("Error", ex);
-        } catch (IOException ex) { // nosemgrep: tainted-session-from-http-request
+        } catch (IOException ex) {
             MiscUtils.getLogger().error("Error", ex);
         } catch (JRException ex) {
             MiscUtils.getLogger().error("Error", ex);

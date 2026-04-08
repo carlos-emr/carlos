@@ -131,11 +131,13 @@ public class EctDisplayAction extends ActionSupport {
             // Validate demographicNo as numeric before storing in session bean
             String demoNoParam = request.getParameter("demographicNo");
             if (demoNoParam != null && !demoNoParam.matches("\\d+")) {
+                logger.warn("Invalid non-numeric demographicNo: {}", LogSanitizer.sanitize(demoNoParam));
                 return "error";
             }
             bean.demographicNo = demoNoParam;
             String apptNoParam = request.getParameter("appointmentNo");
             if (apptNoParam != null && !apptNoParam.isEmpty() && !apptNoParam.matches("\\d+")) {
+                logger.warn("Invalid non-numeric appointmentNo: {}", LogSanitizer.sanitize(apptNoParam));
                 return "error";
             }
             bean.appointmentNo = apptNoParam;

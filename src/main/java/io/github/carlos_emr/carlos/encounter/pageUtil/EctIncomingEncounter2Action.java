@@ -45,6 +45,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.daos.DefaultIssueDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
@@ -107,7 +108,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
         // Validate demographicNo is numeric before crossing the trust boundary
         if (!demoNo.matches("\\d+")) {
-            log.error("EctIncomingEncounter2Action called with non-numeric demographicNo");
+            log.error("EctIncomingEncounter2Action called with non-numeric demographicNo: {}", LogSanitizer.sanitize(demoNo));
             throw new IllegalArgumentException("demographicNo must be numeric");
         }
 
