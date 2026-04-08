@@ -202,6 +202,10 @@ public class FrmData {
             table = encounterForm.getFormTable();
         }
 
+        // Defense-in-depth: validate table name from DB (consistent with getPatientForms / getCurrentPatientForm)
+        if (table != null && !table.isEmpty() && !table.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
+            throw new IllegalArgumentException("Invalid form table name returned from database");
+        }
 
         String sql;
         ResultSet rs;
