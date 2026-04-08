@@ -118,8 +118,12 @@ public class ProgramManagerView2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-                // find the program id
+                // find the program id — check parameter first, then request attribute
+        // (override_restriction() and other internal forwards set id as a request attribute)
         String programId = request.getParameter("id");
+        if (programId == null) {
+            programId = (String) request.getAttribute("id");
+        }
         // Validate programId is present and numeric before storing in session
         if (programId == null || programId.isBlank() || !programId.matches("\\d+")) {
             logger.error("Invalid or missing programId: {}", LogSanitizer.sanitize(String.valueOf(programId)));

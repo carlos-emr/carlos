@@ -108,13 +108,13 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         // Check if demographicNo is null or invalid
         if (demoNo == null || demoNo.trim().isEmpty() || "null".equals(demoNo)) {
             log.error("EctIncomingEncounter2Action called with null or invalid demographicNo");
-            throw new IllegalArgumentException("Invalid or missing demographicNo parameter");
+            return "failure";
         }
 
         // Validate demographicNo is numeric before crossing the trust boundary
         if (!demoNo.matches("\\d+")) {
             log.error("EctIncomingEncounter2Action called with non-numeric demographicNo: {}", LogSanitizer.sanitize(demoNo));
-            throw new IllegalArgumentException("demographicNo must be numeric");
+            return "failure";
         }
 
         if (!"true".equals(CarlosProperties.getInstance().getProperty("program_domain.show_echart", "false"))) {
