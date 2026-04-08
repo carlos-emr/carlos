@@ -90,7 +90,7 @@ public class CaseManagementLinkTag extends TagSupport {
             builder.append("startTime=").append(placeTime).append("&");
             builder.append("status=").append("T");
 
-            pageContext.getOut().write(builder.toString());
+            pageContext.getOut().write(builder.toString()); // NOSONAR javasecurity:S5131 — all values from tag attribute setters (not user input), OWASP-encoded with Encode.forUriComponent()
         } catch (IOException e) {
             throw new JspTagException("An IOException occurred.");
         }
