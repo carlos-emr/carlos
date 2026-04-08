@@ -731,7 +731,7 @@ else
 				elif [ -e "/etc/${TOMCAT}/.keystore" ]; then
  	 				echo "Skipping SSH setup as existing keystore found"  >> $LOG_FILE
 					SSL_INSTALLED=true
-				elif [[ -e /etc/letsencrypt/live  && ( "${TOMCAT}" = "tomcat8"  || "${TOMCAT}" = "tomcat9" ) ]] ; then
+				elif [[ -e /etc/letsencrypt/live  && ( "${TOMCAT}" = "tomcat10"  || "${TOMCAT}" = "tomcat11" ) ]] ; then
  	 				echo "SSH setup using lets encrypt certificate from certbot"  >> $LOG_FILE
                                         FQDN=$(ls /etc/letsencrypt/live/)
                                         echo "Copying lets enrypt pems for ${FQDN} to tomcat" >> $LOG_FILE 
@@ -797,7 +797,7 @@ else
 					chown ${TOMCAT_USER}:${TOMCAT_USER} ${C_BASE}conf/server.xml 2>>$LOG_FILE
 					SSL_INSTALLED=true
 					##
-                	if [ "${TOMCAT}" = "tomcat8" ]  || [ "${TOMCAT}" = "tomcat9" ]; then
+                	if [ "${TOMCAT}" = "tomcat10" ]  || [ "${TOMCAT}" = "tomcat11" ]; then
                         cp ${C_BASE}conf/context.xml ${C_BASE}conf/context.old 2>>$LOG_FILE
                         ## Cache max in kilobytes. The default value is 10240 (10 megabytes) OSCAR is 369 MB with 217 in work
                         sed -i 's:^<Context>:<Context> <Resources cachingAllowed="true" cacheMaxSize="255800" />:' ${C_BASE}conf/context.xml  2>>$LOG_FILE
@@ -948,7 +948,7 @@ fi
 # Critical long-running operations use progress() which calls fail() on non-zero exit.
 # File operations are guarded by existence checks; the keystore mv uses explicit || fail.
 # set -e is intentionally disabled to allow conditional logic; critical failures do abort.
-if [ -f /usr/share/tomcat9/bin/version.sh ] || [ -f /usr/share/tomcat10/bin/version.sh ] ; then
+if [ -f /usr/share/tomcat10/bin/version.sh ] || [ -f /usr/share/tomcat11/bin/version.sh ] ; then
         # Tomcat 9 will look for the property files in some other locations
         # lets provide symbolic links to where we put them for lesser Tomcats       
         if [ ! -e /drugref2.properties ] ; then
