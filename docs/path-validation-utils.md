@@ -231,7 +231,58 @@ Run tests with:
 mvn test -Dtest=PathValidationUtilsTest
 ```
 
+## CodeQL Model Pack (Static Analysis Integration)
+
+`PathValidationUtils` methods are registered as CodeQL sanitizers via a custom model
+pack at `.github/codeql/extensions/carlos-java-models/`. This teaches CodeQL that
+taint from user-controlled arguments does **not** propagate through these methods to
+their return values, preventing false-positive `java/path-injection` alerts.
+
+### How It Works
+
+The model pack uses the CodeQL **summaryModel** extensible to declare that the return
+value of each `PathValidationUtils` method carries taint **only** from the safe
+application-controlled directory argument (not from the user-provided filename). For
+example, `validatePath(String userInput, File allowedDir)` maps `Argument[1]`
+(allowedDir) → `ReturnValue`, deliberately omitting `Argument[0]` (userInput).
+
+### What the Pack Contains
+
+| Extensible | Description |
+|---|---|
+| `summaryModel` | PathValidationUtils methods: `validatePath`, `validateExistingPath`, `validateUpload` (2 overloads) |
+| `summaryModel` | Wrapper methods that internally call PathValidationUtils (e.g., `MEDITECHHandler.validateAndGetFile`, `FaxManagerImpl.resolveAndValidateFilePath`, `EDocUtil.resolvePath`) |
+| `neutralModel` | Boolean guard predicates: `isInAllowedTempDirectory`, `Util.isPathWithinDirectory`, `IncomingDocUtil.isPathComponentSafe`/`isPathWithinBounds` |
+
+### When Adding New PathValidationUtils Methods
+
+If you add a new method to `PathValidationUtils`:
+
+1. **Add a `summaryModel` entry** in `path-validation-sanitizers.yml` following the existing pattern
+2. **Specify only the safe argument** as the taint source for `ReturnValue`
+3. **Omit user-controlled arguments** from the flow specification
+
+### When Adding New Wrapper Methods
+
+If you create a new method that internally calls `PathValidationUtils` to validate paths:
+
+1. **Prefer using the return value** of `validateExistingPath`/`validatePath` — assign it back to the variable. This allows the existing model to cut taint without needing a new model entry.
+2. **If using a try-catch + `isInAllowedTempDirectory` fallback pattern**, CodeQL cannot trace through the boolean guard. Either:
+   - Add a `summaryModel` entry for the wrapper method in the model pack, OR
+   - Add `// codeql[java/path-injection]` inline suppression at the file operation sink line
+
+### Inline Suppression Pattern
+
+For file operation sinks after boolean-guard validation patterns where the model can't
+reach:
+
+```java
+// After validating with PathValidationUtils in a boolean-flag pattern:
+BufferedReader br = new BufferedReader(new FileReader(file)); // codeql[java/path-injection] — validated by PathValidationUtils guard
+```
+
 ## Related Documentation
 
 - [OWASP Path Traversal](https://owasp.org/www-community/attacks/Path_Traversal)
 - [CWE-22: Improper Limitation of a Pathname](https://cwe.mitre.org/data/definitions/22.html)
+- [CodeQL Model Packs](https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/customizing-your-advanced-setup-for-code-scanning)
