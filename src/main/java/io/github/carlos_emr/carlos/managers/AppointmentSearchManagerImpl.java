@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
@@ -64,6 +65,21 @@ import org.w3c.dom.Document;
 public class AppointmentSearchManagerImpl implements AppointmentSearchManager {
 
     private static Logger logger = MiscUtils.getLogger();
+
+    /**
+     * Whitelist of allowed {@link AvailableTimeSlotFilter} implementation class names.
+     *
+     * <p>Filter class names are stored in XML configuration in the database. Only classes
+     * in this set may be instantiated via reflection to prevent arbitrary class loading
+     * (CWE-470).</p>
+     */
+    private static final Set<String> ALLOWED_FILTER_CLASSES = Set.of(
+            "io.github.carlos_emr.carlos.appointment.search.filters.ExistingAppointmentFilter",
+            "io.github.carlos_emr.carlos.appointment.search.filters.FutureApptFilter",
+            "io.github.carlos_emr.carlos.appointment.search.filters.MultiUnitFilter",
+            "io.github.carlos_emr.carlos.appointment.search.filters.OpenAccessFilter",
+            "io.github.carlos_emr.carlos.appointment.search.filters.SufficientContiguousTimeFilter"
+    );
 
     @Autowired
     private OscarAppointmentDao appointmentDao;
@@ -152,8 +168,12 @@ public class AppointmentSearchManagerImpl implements AppointmentSearchManager {
                 }
                 if (filterClassNames != null) {
                     for (FilterDefinition className : filterClassNames) {
+                        String filterClassName = className.getFilterClassName();
+                        if (!ALLOWED_FILTER_CLASSES.contains(filterClassName)) {
+                            throw new SecurityException("Unauthorized appointment filter class: " + filterClassName);
+                        }
                         @SuppressWarnings("unchecked")
-                        Class<AvailableTimeSlotFilter> filterClass = (Class<AvailableTimeSlotFilter>) Class.forName(className.getFilterClassName());
+                        Class<AvailableTimeSlotFilter> filterClass = (Class<AvailableTimeSlotFilter>) Class.forName(filterClassName);
                         logger.debug("filter class null? " + filterClass.getName());
                         AvailableTimeSlotFilter filterClassInstance = filterClass.newInstance();
                         providerAppointments = filterClassInstance.filterAvailableTimeSlots(config, mrp, provider.getProviderNo(), appointmentTypeId, dayWorkSchedule, providerAppointments, calDayToSearch, className.getParams());

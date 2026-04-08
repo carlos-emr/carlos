@@ -45,6 +45,15 @@ public abstract class SecurityTokenManager {
 
     static SecurityTokenManager instance = null;
 
+    /**
+     * Allowed package prefix for SecurityTokenManager implementation class loading.
+     *
+     * <p>The implementation class name is read from {@code sec.token.manager} in the
+     * server-side properties file. This prefix check is a defence-in-depth measure
+     * to prevent arbitrary class instantiation if the properties file is tampered with.</p>
+     */
+    private static final String ALLOWED_PACKAGE_PREFIX = "io.github.carlos_emr.carlos.";
+
     public static SecurityTokenManager getInstance() {
         if (instance != null) {
             return instance;
@@ -52,6 +61,10 @@ public abstract class SecurityTokenManager {
 
         String managerName = CarlosProperties.getInstance().getProperty("sec.token.manager");
         if (managerName != null) {
+            if (!managerName.startsWith(ALLOWED_PACKAGE_PREFIX)) {
+                MiscUtils.getLogger().error("Rejected token manager class outside allowed package");
+                return null;
+            }
             try {
                 instance = (SecurityTokenManager) Class.forName(managerName).newInstance();
             } catch (Exception e) {

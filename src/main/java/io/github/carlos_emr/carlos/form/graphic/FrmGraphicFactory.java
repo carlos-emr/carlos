@@ -30,7 +30,10 @@
 
 package io.github.carlos_emr.carlos.form.graphic;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+
+import java.util.Set;
 
 
 /**
@@ -38,7 +41,25 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  */
 public class FrmGraphicFactory {
 
+    /**
+     * Whitelist of allowed {@link FrmPdfGraphic} implementation class names.
+     *
+     * <p>The class name originates from {@code __className} entries in form configuration
+     * files. Only classes in this set may be instantiated via reflection to prevent
+     * arbitrary class loading (CWE-470).</p>
+     */
+    private static final Set<String> ALLOWED_GRAPHIC_CLASSES = Set.of(
+            "io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphicAR",
+            "io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphicGrowthChart",
+            "io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphicRourke"
+    );
+
     public static FrmPdfGraphic create(String name) {
+        if (name == null || !ALLOWED_GRAPHIC_CLASSES.contains(name)) {
+            MiscUtils.getLogger().warn("Rejected disallowed graphic class name: {}",
+                    LogSanitizer.sanitize(name));
+            return null;
+        }
         FrmPdfGraphic pdfGraph = null;
         try {
             Class classDefinition = Class.forName(name);

@@ -57,6 +57,9 @@ public final class OscarSpringContextLoader extends ContextLoaderListener {
         Class<?> contextClass;
         if (contextClassName != null) {
             try {
+                // nosemgrep: unsafe-reflection — contextClassName is read from the
+                // server-side web.xml <context-param> CONTEXT_CLASS_PARAM, not from
+                // user input. It is controlled by the deployment descriptor.
                 contextClass = Class.forName(contextClassName, true, Thread.currentThread().getContextClassLoader());
             } catch (ClassNotFoundException ex) {
                 throw new ApplicationContextException("Failed to load context class [" + contextClassName + "]", ex);
