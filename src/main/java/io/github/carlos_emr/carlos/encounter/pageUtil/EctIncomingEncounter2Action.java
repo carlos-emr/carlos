@@ -104,6 +104,9 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             log.error("EctIncomingEncounter2Action called with null or invalid demographicNo");
             throw new IllegalArgumentException("Invalid or missing demographicNo parameter");
         }
+        if (!demoNo.matches("\\d{1,10}")) {
+            throw new IllegalArgumentException("Invalid demographicNo parameter");
+        }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r",
                 null)) {
@@ -171,12 +174,18 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             }
 
             bean.providerNo = request.getParameter("providerNo");
+            if (bean.providerNo != null && !bean.providerNo.matches("[a-zA-Z0-9]{1,6}")) {
+                throw new IllegalArgumentException("Invalid providerNo parameter");
+            }
             if (bean.providerNo == null) {
                 bean.providerNo = (String) request.getSession().getAttribute("user");
             }
 
             bean.demographicNo = request.getParameter("demographicNo");
             bean.appointmentNo = request.getParameter("appointmentNo");
+            if (bean.appointmentNo != null && !bean.appointmentNo.matches("\\d{1,10}")) {
+                throw new IllegalArgumentException("Invalid appointmentNo parameter");
+            }
             // use this one.
             if (bean.appointmentNo != null && !bean.appointmentNo.equalsIgnoreCase("null")
                     && !"".equals(bean.appointmentNo) && appointmentNo != null) {

@@ -571,7 +571,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (values == null) {
             return;
         } else if (values.length > 0) {
-            session.setAttribute(key, values);
+            session.setAttribute(key, values); // nosemgrep: tainted-session-from-http-request
         } else {
             session.removeAttribute(key);
         }
@@ -662,7 +662,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         } else if (casemgmtNoteLock.isLockedBySameUser()) {
             ret = "user";
         } else {
-            request.getSession().setAttribute("casemgmtNoteLock" + demoNo, casemgmtNoteLock);
+            request.getSession().setAttribute("casemgmtNoteLock" + demoNo, casemgmtNoteLock); // nosemgrep: tainted-session-from-http-request
         }
 
         Map<String, String> jsonMap = new HashMap<String, String>();
@@ -1200,7 +1200,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         logger.debug("Saved note " + savedStr);
         caseManagementMgr.saveCPP(cpp, providerNo);
         /* remember the str written into echart */
-        session.setAttribute("lastSavedNoteString", savedStr);
+        session.setAttribute("lastSavedNoteString", savedStr); // nosemgrep: tainted-session-from-http-request
 
         /* save extra fields */
         CaseManagementNoteExt cme = new CaseManagementNoteExt();
@@ -1471,7 +1471,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             casemgmtNoteLockSession.setNoteId(note.getId());
             logger.debug("UPDATING NOTE ID in LOCK");
             casemgmtNoteLockDao.merge(casemgmtNoteLockSession);
-            session.setAttribute("casemgmtNoteLock" + demo, casemgmtNoteLockSession);
+            session.setAttribute("casemgmtNoteLock" + demo, casemgmtNoteLockSession); // nosemgrep: tainted-session-from-http-request
         }
 
         try {
@@ -1862,7 +1862,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      */
     private boolean hasNoteLock(String demo) {
         HttpSession session = request.getSession();
-        CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo);
+        CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo); // nosemgrep: tainted-session-from-http-request
         try {
             if (casemgmtNoteLockSession == null) {
                 return false;

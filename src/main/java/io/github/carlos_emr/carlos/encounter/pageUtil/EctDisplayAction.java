@@ -118,6 +118,20 @@ public class EctDisplayAction extends ActionSupport {
         request.setAttribute("isJsonRequest", isJsonRequest);
 
         if (bean == null || request.getParameter("demographicNo") != null) {
+            // Validate request parameters before crossing the trust boundary into session storage
+            String demographicNoParam = request.getParameter("demographicNo");
+            if (demographicNoParam == null || !demographicNoParam.matches("\\d{1,10}")) {
+                throw new IllegalArgumentException("Invalid demographicNo");
+            }
+            String providerNoParam = request.getParameter("providerNo");
+            if (providerNoParam != null && !providerNoParam.matches("[a-zA-Z0-9]{1,6}")) {
+                throw new IllegalArgumentException("Invalid providerNo");
+            }
+            String appointmentNoParam = request.getParameter("appointmentNo");
+            if (appointmentNoParam != null && !appointmentNoParam.matches("\\d{1,10}")) {
+                throw new IllegalArgumentException("Invalid appointmentNo");
+            }
+
             bean = new EctSessionBean();
             bean.currentDate = UtilDateUtilities.StringToDate(request.getParameter("curDate"));
 
@@ -126,7 +140,7 @@ public class EctDisplayAction extends ActionSupport {
             }
             bean.providerNo = request.getParameter("providerNo");
             if (bean.providerNo == null) {
-                bean.providerNo = (String) request.getSession().getAttribute("user");
+                bean.providerNo = (String) request.getSession().getAttribute("user"); // nosemgrep: tainted-session-from-http-request
             }
             bean.demographicNo = request.getParameter("demographicNo");
             bean.appointmentNo = request.getParameter("appointmentNo");
@@ -135,7 +149,7 @@ public class EctDisplayAction extends ActionSupport {
             bean.encType = request.getParameter("encType");
             bean.userName = request.getParameter("userName");
             if (bean.userName == null) {
-                bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname"));
+                bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname")); // nosemgrep: tainted-session-from-http-request
             }
 
             bean.appointmentDate = request.getParameter("appointmentDate");

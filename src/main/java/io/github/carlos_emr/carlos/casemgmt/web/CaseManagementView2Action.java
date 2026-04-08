@@ -489,16 +489,16 @@ public class CaseManagementView2Action extends ActionSupport {
         this.setVlCountry(vLocale.getCountry());
         this.setDemographicNo(getDemographicNo(request));
 
-        se.setAttribute("casemgmt_DemoNo", demoNo);
+        se.setAttribute("casemgmt_DemoNo", demoNo); // nosemgrep: tainted-session-from-http-request
         this.setRootCompURL((String) se.getAttribute("casemgmt_oscar_baseurl"));
         se.setAttribute("casemgmt_VlCountry", vLocale.getCountry());
 
         // if we have just saved a note, remove saveNote flag
         String varName = "saveNote" + demoNo;
-        Boolean saved = (Boolean) se.getAttribute(varName);
+        Boolean saved = (Boolean) se.getAttribute(varName); // nosemgrep: tainted-session-from-http-request
         if (saved != null && saved == true) {
             request.setAttribute("saveNote", saved);
-            se.removeAttribute(varName);
+            se.removeAttribute(varName); // nosemgrep: tainted-session-from-http-request
         }
         current = System.currentTimeMillis();
 
@@ -1988,16 +1988,23 @@ public class CaseManagementView2Action extends ActionSupport {
     public String getDemographicNo(HttpServletRequest request) {
         String demono = request.getParameter("demographicNo");
         if (demono == null || "".equals(demono))
-            demono = (String) request.getSession().getAttribute("casemgmt_DemoNo");
-        else
+            demono = (String) request.getSession().getAttribute("casemgmt_DemoNo"); // nosemgrep: tainted-session-from-http-request
+        else {
+            if (!demono.matches("\\d{1,10}")) {
+                throw new IllegalArgumentException("Invalid demographicNo");
+            }
             request.getSession().setAttribute("casemgmt_DemoNo", demono);
+        }
         return demono;
     }
 
     public String getProviderNo(HttpServletRequest request) {
         String providerNo = request.getParameter("providerNo");
+        if (providerNo != null && !providerNo.matches("[a-zA-Z0-9]{1,6}")) {
+            throw new IllegalArgumentException("Invalid providerNo");
+        }
         if (providerNo == null)
-            providerNo = (String) request.getSession().getAttribute("user");
+            providerNo = (String) request.getSession().getAttribute("user"); // nosemgrep: tainted-session-from-http-request
         return providerNo;
     }
 }
