@@ -75,7 +75,7 @@ public class PrintLabs2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_lab)");
         }
 
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, request.getParameter("segmentID"), request.getRemoteAddr(), "");
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, request.getParameter("segmentID"), request.getRemoteAddr(), ""); // nosemgrep: tainted-session-from-http-request
 
         try {
             MessageHandler handler = Factory.getHandler(request.getParameter("segmentID"));

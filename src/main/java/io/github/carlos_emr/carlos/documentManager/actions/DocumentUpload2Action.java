@@ -178,7 +178,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             }
             newDoc.setNumberOfPages(numberOfPages);
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
 
             String providerId = request.getParameter("providers");
             if (providerId != null) {

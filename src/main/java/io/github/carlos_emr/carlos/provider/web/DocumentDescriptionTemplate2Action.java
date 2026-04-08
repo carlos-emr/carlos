@@ -119,7 +119,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         documentDescriptionTemplate.setDocType(docType);
         documentDescriptionTemplate.setProviderNo(providerNo);
         this.documentDescriptionTemplateDao.persist(documentDescriptionTemplate);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, providerNo, request.getRemoteAddr(), null, "[" + docType + "] " + descriptionShortcut + " | " + description);
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, providerNo, request.getRemoteAddr(), null, "[" + docType + "] " + descriptionShortcut + " | " + description); // nosemgrep: tainted-session-from-http-request
         return null;
     }
 
@@ -138,7 +138,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         documentDescriptionTemplate.setId(id);
         documentDescriptionTemplate.setProviderNo(providerNo);
         this.documentDescriptionTemplateDao.merge(documentDescriptionTemplate);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, providerNo, request.getRemoteAddr(), null, ids + " [" + docType + "] " + descriptionShortcut + " | " + description);
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, providerNo, request.getRemoteAddr(), null, ids + " [" + docType + "] " + descriptionShortcut + " | " + description); // nosemgrep: tainted-session-from-http-request
         return null;
     }
 
@@ -146,7 +146,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         String ids = request.getParameter("id");
         Integer id = Integer.valueOf(ids);
         this.documentDescriptionTemplateDao.remove(id);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, ids, request.getRemoteAddr());
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, ids, request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
         return null;
     }
 

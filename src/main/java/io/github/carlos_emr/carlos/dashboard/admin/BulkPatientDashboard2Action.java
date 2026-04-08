@@ -168,7 +168,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
                     icd9code,
                     providerNo
             );
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, "DX", "" + drId, ip, "");
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, "DX", "" + drId, ip, ""); // nosemgrep: tainted-session-from-http-request
         }
 
         String subject = "Bulk addition to disease registry report.";

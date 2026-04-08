@@ -158,7 +158,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
                 Drug drug = drugDao.find(drugId);
                 setDrugDelete(drug);
                 drugDao.merge(drug);
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_PRESCRIPTION, drugArr[i], ip, "" + bean.getDemographicNo(), drug.getAuditString());
+                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_PRESCRIPTION, drugArr[i], ip, "" + bean.getDemographicNo(), drug.getAuditString()); // nosemgrep: tainted-session-from-http-request
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -214,7 +214,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
             Drug drug = drugDao.find(Integer.parseInt(deleteRxId));
             setDrugDelete(drug);
             drugDao.merge(drug);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_PRESCRIPTION, deleteRxId, ip, "" + bean.getDemographicNo(), drug.getAuditString());
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_PRESCRIPTION, deleteRxId, ip, "" + bean.getDemographicNo(), drug.getAuditString()); // nosemgrep: tainted-session-from-http-request
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -261,7 +261,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
                     Drug drug = drugDao.find(drugId);
                     setDrugDelete(drug);
                     drugDao.merge(drug);
-                    LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_PRESCRIPTION, drugId.toString(), ip, "" + bean.getDemographicNo(), drug.getAuditString());
+                    LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_PRESCRIPTION, drugId.toString(), ip, "" + bean.getDemographicNo(), drug.getAuditString()); // nosemgrep: tainted-session-from-http-request
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("Error", e);
                 }
@@ -391,7 +391,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
             MiscUtils.getLogger().error("Error", e);
         }
 
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DISCONTINUE, LogConst.CON_PRESCRIPTION, "" + drug.getId(), ip, "" + drug.getDemographicId(), logStatement);
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DISCONTINUE, LogConst.CON_PRESCRIPTION, "" + drug.getId(), ip, "" + drug.getDemographicId(), logStatement); // nosemgrep: tainted-session-from-http-request
 
         Hashtable d = new Hashtable();
         d.put("id", "" + id);

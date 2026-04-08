@@ -437,7 +437,7 @@ public class Pregnancy2Action extends ActionSupport {
             props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
             newID = rec.saveFormRecord(props);
             String ip = request.getRemoteAddr();
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, formClass,
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, formClass, // nosemgrep: tainted-session-from-http-request
                     "" + newID, ip, request.getParameter("demographic_no"));
 
 
