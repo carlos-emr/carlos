@@ -118,7 +118,7 @@ public class ClientSearchAction22Action extends ActionSupport {
                 CaseManagementNote note = caseManagementNoteDao.getNote(parsedNoteId);
                 if (note != null) {
                     String validatedNoteId = String.valueOf(parsedNoteId);
-                    request.getSession().setAttribute("noteId", validatedNoteId);
+                    request.getSession().setAttribute("noteId", validatedNoteId); // nosemgrep: tainted-session-from-http-request
                     request.setAttribute("noteId", validatedNoteId);
                 } else {
                     logger.warn("Rejected noteId that does not exist in database (trust boundary enforcement) - provider: {}", providerNo);

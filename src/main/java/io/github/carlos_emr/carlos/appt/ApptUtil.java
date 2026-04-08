@@ -48,7 +48,11 @@ public class ApptUtil {
         obj.setStart_time(request.getParameter("start_time"));
         obj.setEnd_time(request.getParameter("end_time"));
         obj.setName(request.getParameter("keyword"));
-        obj.setDemographic_no(request.getParameter("demographic_no"));
+        String demoNo = request.getParameter("demographic_no");
+        if (demoNo != null && !demoNo.matches("\\d{1,10}")) {
+            throw new IllegalArgumentException("Invalid demographic_no");
+        }
+        obj.setDemographic_no(demoNo);
         obj.setNotes(request.getParameter("notes"));
         obj.setReason(request.getParameter("reason"));
         obj.setLocation(request.getParameter("location"));

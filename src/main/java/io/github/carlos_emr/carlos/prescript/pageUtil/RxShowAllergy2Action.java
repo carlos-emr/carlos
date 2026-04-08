@@ -95,11 +95,15 @@ public final class RxShowAllergy2Action extends ActionSupport {
         reorder(request);
         try {
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-            RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, request.getParameter("demographicNo"));
+            String demoNoParam = request.getParameter("demographicNo");
+            if (demoNoParam == null || !demoNoParam.matches("\\d{1,10}")) {
+                throw new IllegalArgumentException("Invalid demographicNo");
+            }
+            RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, demoNoParam);
             if (patient != null) {
                 request.getSession().setAttribute("Patient", patient);
             }
-            response.sendRedirect(request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + request.getParameter("demographicNo"));
+            response.sendRedirect(request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + demoNoParam);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -158,6 +162,9 @@ public final class RxShowAllergy2Action extends ActionSupport {
         String view = request.getParameter("view");
 
         if (demo_no == null) {
+            return "failure";
+        }
+        if (!demo_no.matches("\\d{1,10}")) {
             return "failure";
         }
         // Setup bean

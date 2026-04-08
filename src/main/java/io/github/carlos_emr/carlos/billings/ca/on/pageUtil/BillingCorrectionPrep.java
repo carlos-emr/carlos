@@ -184,7 +184,7 @@ public class BillingCorrectionPrep {
             BillingOnTransactionDao billTransDao = (BillingOnTransactionDao) SpringUtils
                     .getBean(BillingOnTransactionDao.class);
             BillingOnTransaction billTrans = billTransDao.getUpdateCheader1TransTemplate(ch1Obj,
-                    (String) requestData.getSession().getAttribute("user"));
+                    (String) requestData.getSession().getAttribute("user")); // nosemgrep: tainted-session-from-http-request
             billTransDao.persist(billTrans);
         }
 

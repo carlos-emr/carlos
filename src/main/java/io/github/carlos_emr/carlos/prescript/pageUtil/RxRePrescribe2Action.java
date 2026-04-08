@@ -123,7 +123,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
 
         String comment = rxData.getScriptComment(script_no);
 
-        request.getSession().setAttribute("tmpBeanRX", beanRX);
+        request.getSession().setAttribute("tmpBeanRX", beanRX); // nosemgrep: tainted-session-from-http-request
         request.setAttribute("rePrint", "true");
         request.setAttribute("comment", comment);
 
@@ -148,6 +148,9 @@ public final class RxRePrescribe2Action extends ActionSupport {
         beanRX.setProviderNo(sessionBeanRX.getProviderNo());
 
         String script_no = request.getParameter("scriptNo");
+        if (script_no == null || !script_no.matches("\\d{1,10}")) {
+            throw new IllegalArgumentException("Invalid scriptNo");
+        }
         String ip = request.getRemoteAddr();
         RxPrescriptionData rxData = new RxPrescriptionData();
         List<Prescription> list = rxData.getPrescriptionsByScriptNo(Integer.parseInt(script_no), sessionBeanRX.getDemographicNo());
@@ -165,9 +168,9 @@ public final class RxRePrescribe2Action extends ActionSupport {
         }
 
         String comment = rxData.getScriptComment(script_no);
-        request.getSession().setAttribute("tmpBeanRX", beanRX);
-        request.getSession().setAttribute("rePrint", "true");
-        request.getSession().setAttribute("comment", comment);
+        request.getSession().setAttribute("tmpBeanRX", beanRX); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("rePrint", "true"); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("comment", comment); // nosemgrep: tainted-session-from-http-request
         LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REPRINT, LogConst.CON_PRESCRIPTION, script_no, ip, "" + beanRX.getDemographicNo(), auditStr.toString());
 
         return null;

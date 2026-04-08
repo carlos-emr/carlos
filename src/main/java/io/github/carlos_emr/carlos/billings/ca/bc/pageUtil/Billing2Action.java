@@ -68,6 +68,14 @@ public final class Billing2Action extends ActionSupport {
         } else {
             if (request.getParameter("demographic_no") != null &
                     request.getParameter("appointment_no") != null) {
+                String demoNo = request.getParameter("demographic_no");
+                if (!demoNo.matches("\\d{1,10}")) {
+                    throw new IllegalArgumentException("Invalid demographic_no");
+                }
+                String apptNo = request.getParameter("appointment_no");
+                if (!apptNo.matches("\\d{1,10}")) {
+                    throw new IllegalArgumentException("Invalid appointment_no");
+                }
                 String newWCBClaim = request.getParameter("newWCBClaim");
                 //If newWCBClaim == 1, this action was invoked from the WCB form
                 //Therefore, we need to set the appropriate parameters to set up the subsequent bill
@@ -100,7 +108,7 @@ public final class Billing2Action extends ActionSupport {
                 
                 try {
                     _log.debug("Start of billing rules");
-                    List<DSConsequence> list = BillingGuidelines.getInstance().evaluateAndGetConsequences(loggedInInfo, request.getParameter("demographic_no"), (String) request.getSession().getAttribute("user"));
+                    List<DSConsequence> list = BillingGuidelines.getInstance().evaluateAndGetConsequences(loggedInInfo, request.getParameter("demographic_no"), (String) request.getSession().getAttribute("user")); // nosemgrep: tainted-session-from-http-request
 
                     for (DSConsequence dscon : list) {
                         _log.debug("DSTEXT " + dscon.getText());

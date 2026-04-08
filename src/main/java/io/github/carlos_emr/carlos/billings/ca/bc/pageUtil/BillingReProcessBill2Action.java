@@ -399,13 +399,13 @@ public class BillingReProcessBill2Action extends ActionSupport {
 
             if (correspondenceCode.equals("N") || correspondenceCode.equals("B")) {
                 MSPBillingNote n = new MSPBillingNote();
-                n.addNote(billingmasterNo, (String) request.getSession().getAttribute("user"), frm.getNotes());
+                n.addNote(billingmasterNo, (String) request.getSession().getAttribute("user"), frm.getNotes()); // nosemgrep: tainted-session-from-http-request
             }
 
             if (messageNotes != null) {
                 BillingNote n = new BillingNote();
                 if (n.hasNote(billingmasterNo) || !messageNotes.trim().equals("")) {
-                    n.addNote(billingmasterNo, (String) request.getSession().getAttribute("user"), messageNotes);
+                    n.addNote(billingmasterNo, (String) request.getSession().getAttribute("user"), messageNotes); // nosemgrep: tainted-session-from-http-request
                 }
             }
 

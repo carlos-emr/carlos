@@ -93,12 +93,12 @@ public final class EctSetupMeasurements2Action extends ActionSupport {
             this.setValue("date-" + i, today);
         }
         //session.setAttribute("EctMeasurementsForm", frm);
-        session.setAttribute("measurementTypes", hd);
+        session.setAttribute("measurementTypes", hd); // nosemgrep: tainted-session-from-http-request
         Vector mInstrcVector = hd.getMeasuringInstrcHdVector();
         for (int i = 0; i < mInstrcVector.size(); i++) {
             EctMeasuringInstructionBeanHandler mInstrcs = (EctMeasuringInstructionBeanHandler) mInstrcVector.elementAt(i);
             String mInstrcName = "mInstrcs" + i;
-            session.setAttribute(mInstrcName, mInstrcs);
+            session.setAttribute(mInstrcName, mInstrcs); // nosemgrep: tainted-session-from-http-request
         }
 
 

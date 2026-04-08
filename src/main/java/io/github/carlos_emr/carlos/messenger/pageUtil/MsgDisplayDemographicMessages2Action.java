@@ -155,6 +155,10 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
                 return "error"; 
             }
             
+            if (!demographicNo.matches("\\d{1,10}")) {
+                return "error";
+            }
+
             // Initialize the session bean with demographic context
             bean.setProviderNo(providerNo);
             bean.setUserName(userName);

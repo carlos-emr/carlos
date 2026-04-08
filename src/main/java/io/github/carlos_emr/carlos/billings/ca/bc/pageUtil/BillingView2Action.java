@@ -79,10 +79,19 @@ public final class BillingView2Action
             return NONE;
         } else {
             BillingViewBean bean = new BillingViewBean();
-            bean.loadBilling(request.getParameter("billing_no"));
+            String billingNoParam = request.getParameter("billing_no");
+            if (billingNoParam == null || !billingNoParam.matches("\\d{1,10}")) {
+                throw new IllegalArgumentException("Invalid billing_no");
+            }
+            bean.loadBilling(billingNoParam);
             BillingBillingManager bmanager = new BillingBillingManager();
             ArrayList<BillingItem> billItem = new ArrayList<BillingItem>();
             String[] billingN = request.getParameterValues("billing_no");
+            for (String bn : billingN) {
+                if (bn == null || !bn.matches("\\d{1,10}")) {
+                    throw new IllegalArgumentException("Invalid billing_no");
+                }
+            }
 
             for (int i = 0; i < billingN.length; i++) {
                 log.debug("billn " + i + " " + billingN[i]);

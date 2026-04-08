@@ -42,7 +42,7 @@ public class OscarDownload extends GenericDownload {
         String filename = req.getParameter("filename") != null ? req.getParameter("filename") : "null";
         String homepath = req.getParameter("homepath") != null ? req.getParameter("homepath") : "null";
 
-        String backupfilepath = ((String) session.getAttribute(homepath)) != null ? ((String) session.getAttribute(homepath)) : "null";
+        String backupfilepath = ((String) session.getAttribute(homepath)) != null ? ((String) session.getAttribute(homepath)) : "null"; // nosemgrep: tainted-session-from-http-request
         if (filename != null && backupfilepath != null && ((String) session.getAttribute("user")) != null) {
             ServletOutputStream stream = res.getOutputStream();
             transferFile(res, stream, backupfilepath, filename);

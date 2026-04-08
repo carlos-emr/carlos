@@ -70,6 +70,9 @@ public class SystemMessage2Action extends ActionSupport {
         String messageId = request.getParameter("id");
 
         if (messageId != null) {
+            if (!messageId.matches("\\d{1,10}")) {
+                throw new IllegalArgumentException("Invalid message id");
+            }
             SystemMessage msg = systemMessageDao.find(Integer.parseInt(messageId));
 
             if (msg == null) {
