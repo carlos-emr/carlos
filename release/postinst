@@ -425,7 +425,7 @@ if [ -z "$result" ]; then
 else
 	# war upgrade only
 
-	if [ -f /usr/share/tomcat9/bin/version.sh ] || [ -f /usr/share/tomcat10/bin/version.sh ] ; then        
+	if [ -f /usr/share/tomcat10/bin/version.sh ] || [ -f /usr/share/tomcat11/bin/version.sh ] ; then        
                 # some look for /var/lib/tomcatX/webapps/oscar/WEB-INF/classes/ for properties but we are using /usr/share/tomcatX
                 #mkdir -p ${C_BASE}webapps/drugref/WEB-INF/classes
                 #cp -f  /usr/share/${TOMCAT}/drugref2.properties /drugref2.properties
