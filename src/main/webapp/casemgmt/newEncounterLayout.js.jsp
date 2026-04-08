@@ -678,3 +678,234 @@
             navLayout.scrollTop += event.deltaY;
         }
     }, { passive: false, capture: true });
+
+    /**
+     * EChart Keyboard Shortcuts
+     *
+     * Alt-key shortcuts for common encounter actions. These mirror the toolbar
+     * buttons in ChartNotes.jsp and navigation links in navigation.jsp, giving
+     * providers keyboard-driven workflow without reaching for the mouse.
+     *
+     * Alt+1  Sign, Save & Bill — signs the note, flags for billing, submits and exits
+     * Alt+2  Save              — saves the current note without signing or exiting
+     * Alt+3  Sign & Save       — signs the note, submits and exits (no billing)
+     * Alt+4  Exit              — exits the encounter (prompts if unsaved changes)
+     * Alt+T  New Tickler       — opens the Add Tickler window for this patient
+     * Alt+C  New Consult       — opens a new Consultation Request form for this patient
+     * Alt+M  Medications (Rx)   — opens the Prescriptions (Rx) window for this patient
+     *
+     * Save/sign/exit shortcuts (Alt+1-4) are suppressed when focus is inside an
+     * input or select to avoid interfering with normal typing, but still work from
+     * the note textarea. Popup shortcuts (Alt+T/C/M) work from any context.
+     * The Alt modifier was chosen because Ctrl combinations conflict with browser
+     * defaults (Ctrl+S = save page, etc).
+     *
+     * @since 2026-04-04
+     */
+    document.addEventListener('keydown', function (event) {
+        // Only handle plain Alt+key — ignore Ctrl+Alt and Cmd+Alt combos (used by OS/browser)
+        if (!event.altKey || event.ctrlKey || event.metaKey) return;
+
+        // Don't intercept Alt keys when typing in form fields (except the note
+        // textarea, where providers spend most of their time and need quick access)
+        var tag = event.target.tagName;
+        var isFormField = (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT');
+
+        var frm = document.forms['caseManagementEntryForm'];
+        var handled = false;
+
+        // Chrome/Edge report uppercase letters for Alt+key; normalize to lowercase
+        var key = event.key.toLowerCase();
+
+        switch (key) {
+            case '1': // Alt+1: Sign, Save & Bill
+                if (!isFormField || tag === 'TEXTAREA') {
+                    frm.sign.value = 'on';
+                    frm.toBill.value = 'true';
+                    savePage('saveAndExit', '');
+                    handled = true;
+                }
+                break;
+
+            case '2': // Alt+2: Save
+                if (!isFormField || tag === 'TEXTAREA') {
+                    saveNoteAjax('save', 'list');
+                    handled = true;
+                }
+                break;
+
+            case '3': // Alt+3: Sign & Save
+                if (!isFormField || tag === 'TEXTAREA') {
+                    frm.sign.value = 'on';
+                    savePage('saveAndExit', '');
+                    handled = true;
+                }
+                break;
+
+            case '4': // Alt+4: Exit
+                if (!isFormField || tag === 'TEXTAREA') {
+                    closeEnc(event);
+                    handled = true;
+                }
+                break;
+
+            case 't': // Alt+T: New Tickler
+                window.open(ctx + '/tickler/ticklerAdd.jsp?demographic_no=' + demographicNo, '',
+                    'height=600,width=700,scrollbars=yes,resizable=yes');
+                handled = true;
+                break;
+
+            case 'c': // Alt+C: New Consult Request
+                window.open(ctx + '/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp?de=' + demographicNo, '',
+                    'height=700,width=960,scrollbars=yes,resizable=yes');
+                handled = true;
+                break;
+
+            case 'm': // Alt+M: Medications (Rx)
+                // String.fromCharCode(38) produces '&' at runtime — a literal '&' in this .js.jsp
+                // file may be misinterpreted by the JSP compiler as an HTML entity start.
+                window.open(ctx + '/oscarRx/choosePatient.do?providerNo=' + providerNo + String.fromCharCode(38) + 'demographicNo=' + demographicNo, '',
+                    'height=700,width=1027,scrollbars=yes,resizable=yes');
+                handled = true;
+                break;
+
+            case 's': // Alt+S: Patient Search
+                window.open(ctx + '/demographic/search.jsp', '',
+                    'height=550,width=687,scrollbars=yes,resizable=yes');
+                handled = true;
+                break;
+        }
+
+        if (handled) {
+            event.preventDefault();   // Suppress browser's default Alt+key behavior
+            event.stopPropagation();  // Prevent other keydown listeners from reacting
+        }
+    });
+
+    /* ------------------------------------------------------------------ *
+     * EChart Keyboard Shortcuts Help Modal                                *
+     * Press Alt+? to open/close. Also closes on Esc, X button, or backdrop. *
+     * @since 2026-04-05                                                   *
+     * ------------------------------------------------------------------ */
+    (function () {
+        var MODAL_ID    = 'carlosEncounterKbModal';
+        var BACKDROP_ID = 'carlosEncounterKbBackdrop';
+
+        function buildModal() {
+            if (document.getElementById(MODAL_ID)) return;
+
+            var style = document.createElement('style');
+            style.textContent =
+                '#' + BACKDROP_ID + '{' +
+                '  position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;' +
+                '  display:none;' +
+                '}' +
+                '#' + MODAL_ID + '{' +
+                '  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);' +
+                '  background:#fff;border-radius:8px;padding:24px 28px 20px;' +
+                '  z-index:9999;min-width:340px;max-width:480px;width:90%;' +
+                '  box-shadow:0 8px 32px rgba(0,0,0,.28);font-family:inherit;' +
+                '  display:none;' +
+                '}' +
+                '#' + MODAL_ID + ' h2{' +
+                '  margin:0 0 16px;font-size:1.1rem;color:#333;' +
+                '  padding-right:28px;border-bottom:1px solid #e5e7eb;padding-bottom:10px;' +
+                '}' +
+                '#' + MODAL_ID + ' table{width:100%;border-collapse:collapse;}' +
+                '#' + MODAL_ID + ' th{text-align:left;font-size:.78rem;color:#6b7280;' +
+                '  text-transform:uppercase;letter-spacing:.05em;padding-bottom:6px;}' +
+                '#' + MODAL_ID + ' td{padding:5px 0;font-size:.9rem;color:#374151;}' +
+                '#' + MODAL_ID + ' td:first-child{white-space:nowrap;padding-right:16px;}' +
+                '#' + MODAL_ID + ' kbd{' +
+                '  display:inline-block;padding:2px 6px;background:#f3f4f6;' +
+                '  border:1px solid #d1d5db;border-radius:4px;font-size:.82rem;' +
+                '  font-family:monospace;color:#111827;box-shadow:0 1px 0 #adb5bd;' +
+                '}' +
+                '#' + MODAL_ID + ' .carlos-kb-close{' +
+                '  position:absolute;top:12px;right:14px;background:none;border:none;' +
+                '  font-size:1.3rem;line-height:1;cursor:pointer;color:#6b7280;' +
+                '  padding:4px 6px;border-radius:4px;' +
+                '}' +
+                '#' + MODAL_ID + ' .carlos-kb-close:hover{background:#f3f4f6;color:#111;}' +
+                '#' + MODAL_ID + ' .carlos-kb-footer{' +
+                '  margin-top:14px;padding-top:10px;border-top:1px solid #e5e7eb;' +
+                '  font-size:.8rem;color:#9ca3af;text-align:center;' +
+                '}';
+            document.head.appendChild(style);
+
+            var backdrop = document.createElement('div');
+            backdrop.id = BACKDROP_ID;
+            backdrop.setAttribute('aria-hidden', 'true');
+            backdrop.addEventListener('click', closeModal);
+            document.body.appendChild(backdrop);
+
+            var modal = document.createElement('div');
+            modal.id = MODAL_ID;
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            modal.setAttribute('aria-label', 'Keyboard shortcuts');
+            modal.innerHTML =
+                '<button class="carlos-kb-close" aria-label="Close shortcuts" title="Close (Esc)">' +
+                '\u00d7</button>' +
+                '<h2>&#9000; EChart Keyboard Shortcuts</h2>' +
+                '<table>' +
+                '<thead><tr>' +
+                '<th>Key</th>' +
+                '<th>Action</th>' +
+                '</tr></thead>' +
+                '<tbody>' +
+                '<tr><td><kbd>Alt</kbd>+<kbd>1</kbd></td><td>Sign, Save &amp; Bill</td></tr>' +
+                '<tr><td><kbd>Alt</kbd>+<kbd>2</kbd></td><td>Save</td></tr>' +
+                '<tr><td><kbd>Alt</kbd>+<kbd>3</kbd></td><td>Sign &amp; Save</td></tr>' +
+                '<tr><td><kbd>Alt</kbd>+<kbd>4</kbd></td><td>Exit encounter</td></tr>' +
+                '<tr><td><kbd>Alt</kbd>+<kbd>T</kbd></td><td>New Tickler</td></tr>' +
+                '<tr><td><kbd>Alt</kbd>+<kbd>C</kbd></td><td>New Consult Request</td></tr>' +
+                '<tr><td><kbd>Alt</kbd>+<kbd>M</kbd></td><td>Medications (Rx)</td></tr>' +
+                '<tr><td><kbd>Alt</kbd>+<kbd>S</kbd></td><td>Patient Search</td></tr>' +
+                '</tbody>' +
+                '</table>' +
+                '<div class="carlos-kb-footer">' +
+                '<kbd>Alt</kbd>+<kbd>?</kbd> to show/hide &nbsp;&bull;&nbsp; <kbd>Esc</kbd> or click outside to close' +
+                '</div>';
+            modal.querySelector('.carlos-kb-close').addEventListener('click', closeModal);
+            document.body.appendChild(modal);
+        }
+
+        function openModal() {
+            buildModal();
+            document.getElementById(BACKDROP_ID).style.display = 'block';
+            document.getElementById(MODAL_ID).style.display    = 'block';
+            document.getElementById(MODAL_ID).querySelector('.carlos-kb-close').focus();
+        }
+
+        function closeModal() {
+            var m = document.getElementById(MODAL_ID);
+            var b = document.getElementById(BACKDROP_ID);
+            if (m) m.style.display = 'none';
+            if (b) b.style.display = 'none';
+        }
+
+        function isOpen() {
+            var m = document.getElementById(MODAL_ID);
+            return m && m.style.display !== 'none';
+        }
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeModal();
+                return;
+            }
+            // Help modal: Alt+? — ignore Ctrl+Alt and Cmd+Alt combos
+            if (e.altKey && !e.ctrlKey && !e.metaKey && e.key === '?') {
+                var tag = e.target.tagName;
+                // Don't intercept Alt+? when typing in form fields
+                if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+                if (isOpen()) {
+                    closeModal();
+                } else {
+                    openModal();
+                }
+                e.preventDefault();
+            }
+        });
+    }());
