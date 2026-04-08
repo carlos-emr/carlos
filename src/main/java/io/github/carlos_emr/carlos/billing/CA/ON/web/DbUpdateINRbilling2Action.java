@@ -88,7 +88,7 @@ public class DbUpdateINRbilling2Action extends ActionSupport {
             throw new SecurityException("missing required security object: _admin.billing");
         }
 
-        String billinginrNo = request.getParameter("billinginr_no");
+        String billinginrNo = request.getParameter("billinginr_no") != null ? request.getParameter("billinginr_no").trim() : null;
         if (billinginrNo == null || billinginrNo.trim().isEmpty()) {
             addActionError("Missing billing INR number.");
             return ERROR;
