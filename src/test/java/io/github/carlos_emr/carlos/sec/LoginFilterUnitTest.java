@@ -231,4 +231,135 @@ class LoginFilterUnitTest {
                     CONTEXT_PATH + "/provider/dashboard.do", CONTEXT_PATH, exemptUrls)).isFalse();
         }
     }
+
+    @Nested
+    @DisplayName("URI normalization — path parameters")
+    class PathParameterNormalization {
+
+        @Test
+        @DisplayName("should match exempt URL when path parameter is appended")
+        void shouldMatchExemptUrl_whenPathParameterAppended() {
+            String[] exemptUrls = {"/login.do"};
+            assertThat(filter.inListOfExemptions(
+                    CONTEXT_PATH + "/login.do;jsessionid=abc123", CONTEXT_PATH, exemptUrls)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should not match non-exempt URL when path parameter is stripped")
+        void shouldNotMatchNonExemptUrl_whenPathParameterStripped() {
+            String[] exemptUrls = {"/login.do"};
+            assertThat(filter.inListOfExemptions(
+                    CONTEXT_PATH + "/admin/settings.do;jsessionid=abc123", CONTEXT_PATH, exemptUrls)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should match directory exempt URL with path parameter")
+        void shouldMatchDirectoryExemptUrl_withPathParameter() {
+            String[] exemptUrls = {"/ws/"};
+            assertThat(filter.inListOfExemptions(
+                    CONTEXT_PATH + "/ws/service;v=1.0", CONTEXT_PATH, exemptUrls)).isTrue();
+        }
+    }
+
+    @Nested
+    @DisplayName("URI normalization — repeated slashes")
+    class RepeatedSlashNormalization {
+
+        @Test
+        @DisplayName("should match exempt URL with double slashes collapsed")
+        void shouldMatchExemptUrl_withDoubleSlashesCollapsed() {
+            String[] exemptUrls = {"/login.do"};
+            assertThat(filter.inListOfExemptions(
+                    CONTEXT_PATH + "//login.do", CONTEXT_PATH, exemptUrls)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should not match non-exempt URL after slash collapsing")
+        void shouldNotMatchNonExemptUrl_afterSlashCollapsing() {
+            String[] exemptUrls = {"/login.do"};
+            assertThat(filter.inListOfExemptions(
+                    CONTEXT_PATH + "//admin//settings.do", CONTEXT_PATH, exemptUrls)).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("URI normalization — dot segment resolution")
+    class DotSegmentNormalization {
+
+        @Test
+        @DisplayName("should not match non-exempt URL disguised with dot-dot traversal")
+        void shouldNotMatchNonExemptUrl_disguisedWithDotDotTraversal() {
+            String[] exemptUrls = {"/ws/"};
+            assertThat(filter.inListOfExemptions(
+                    CONTEXT_PATH + "/ws/../admin/settings.do", CONTEXT_PATH, exemptUrls)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should match exempt URL with redundant dot segment")
+        void shouldMatchExemptUrl_withRedundantDotSegment() {
+            String[] exemptUrls = {"/login.do"};
+            assertThat(filter.inListOfExemptions(
+                    CONTEXT_PATH + "/./login.do", CONTEXT_PATH, exemptUrls)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should not match non-exempt URL via dot-dot into exempt directory")
+        void shouldNotMatchNonExemptUrl_viaDotDotIntoExemptDirectory() {
+            String[] exemptUrls = {"/css/bootstrap"};
+            assertThat(filter.inListOfExemptions(
+                    CONTEXT_PATH + "/css/bootstrap/../../admin/secret.do", CONTEXT_PATH, exemptUrls)).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("normalizeUri static method")
+    class NormalizeUri {
+
+        @Test
+        @DisplayName("should strip path parameters")
+        void shouldStripPathParameters() {
+            assertThat(LoginFilter.normalizeUri("/carlos/login.do;jsessionid=abc"))
+                    .isEqualTo("/carlos/login.do");
+        }
+
+        @Test
+        @DisplayName("should collapse repeated slashes")
+        void shouldCollapseRepeatedSlashes() {
+            assertThat(LoginFilter.normalizeUri("//carlos///login.do"))
+                    .isEqualTo("/carlos/login.do");
+        }
+
+        @Test
+        @DisplayName("should resolve dot-dot segments")
+        void shouldResolveDotDotSegments() {
+            assertThat(LoginFilter.normalizeUri("/carlos/ws/../admin/secret.do"))
+                    .isEqualTo("/carlos/admin/secret.do");
+        }
+
+        @Test
+        @DisplayName("should resolve single dot segments")
+        void shouldResolveSingleDotSegments() {
+            assertThat(LoginFilter.normalizeUri("/carlos/./login.do"))
+                    .isEqualTo("/carlos/login.do");
+        }
+
+        @Test
+        @DisplayName("should handle null input")
+        void shouldHandleNullInput() {
+            assertThat(LoginFilter.normalizeUri(null)).isNull();
+        }
+
+        @Test
+        @DisplayName("should handle empty input")
+        void shouldHandleEmptyInput() {
+            assertThat(LoginFilter.normalizeUri("")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should handle combined normalization")
+        void shouldHandleCombinedNormalization() {
+            assertThat(LoginFilter.normalizeUri("//carlos/./ws/../admin///secret.do;jsessionid=x"))
+                    .isEqualTo("/carlos/admin/secret.do");
+        }
+    }
 }

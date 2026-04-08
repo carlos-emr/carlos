@@ -30,7 +30,10 @@
 package io.github.carlos_emr.carlos.sec;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.Date;
+import java.util.Deque;
+import java.util.Iterator;
 
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -368,6 +371,10 @@ public class LoginFilter implements Filter {
     /**
      * Checks if a request URI matches any URL in the exemption list.
      *
+     * <p>The request URI is first normalized to prevent bypass attempts using
+     * path parameters ({@code ;jsessionid=...}), repeated slashes ({@code //}),
+     * or dot segments ({@code .} / {@code ..}).
+     *
      * <p>This method enforces path-boundary matching to prevent authentication
      * bypass via crafted URLs. The matching rules are:
      * <ul>
@@ -387,6 +394,8 @@ public class LoginFilter implements Filter {
      *         path boundaries, false otherwise
      */
     boolean inListOfExemptions(String requestURI, String contextPath, String[] EXEMPT_URLS) {
+        requestURI = normalizeUri(requestURI);
+
         // Treat context root (e.g. /carlos/) as equivalent to /index.jsp (welcome file)
         if (requestURI.equals(contextPath) || requestURI.equals(contextPath + "/")) {
             requestURI = contextPath + "/index.jsp";
@@ -401,6 +410,62 @@ public class LoginFilter implements Filter {
         }
 
         return false;
+    }
+
+    /**
+     * Normalizes a URI by stripping path parameters, collapsing repeated
+     * slashes, and resolving {@code .} / {@code ..} segments.
+     *
+     * <p>This prevents bypass attempts where an attacker uses path tricks
+     * to match (or avoid matching) exempt URL patterns:
+     * <ul>
+     *   <li>{@code /login.do;jsessionid=abc} → {@code /login.do}</li>
+     *   <li>{@code //ws///service} → {@code /ws/service}</li>
+     *   <li>{@code /ws/../admin/secret.do} → {@code /admin/secret.do}</li>
+     * </ul>
+     *
+     * @param uri the raw request URI
+     * @return the normalized URI
+     * @see io.github.carlos_emr.carlos.app.HttpMethodGuardFilter#normalizePath(String)
+     */
+    static String normalizeUri(String uri) {
+        if (uri == null || uri.isEmpty()) {
+            return uri;
+        }
+
+        // Strip path parameters (;jsessionid=..., ;v=1.0, etc.)
+        int semiIdx = uri.indexOf(';');
+        if (semiIdx >= 0) {
+            uri = uri.substring(0, semiIdx);
+        }
+
+        // Collapse consecutive slashes (e.g., //admin///page.jsp → /admin/page.jsp)
+        uri = uri.replaceAll("/+", "/");
+
+        // Resolve . and .. segments
+        String[] segments = uri.split("/");
+        Deque<String> stack = new ArrayDeque<>();
+        for (String seg : segments) {
+            if (seg.isEmpty() || ".".equals(seg)) {
+                continue;
+            } else if ("..".equals(seg)) {
+                if (!stack.isEmpty()) {
+                    stack.removeLast();
+                }
+            } else {
+                stack.addLast(seg);
+            }
+        }
+
+        StringBuilder normalized = new StringBuilder("/");
+        Iterator<String> it = stack.iterator();
+        while (it.hasNext()) {
+            normalized.append(it.next());
+            if (it.hasNext()) {
+                normalized.append('/');
+            }
+        }
+        return normalized.toString();
     }
 
     /**
