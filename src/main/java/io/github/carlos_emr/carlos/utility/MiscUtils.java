@@ -180,9 +180,10 @@ public final class MiscUtils {
     }
 
     public static Serializable deserialize(byte[] b) throws IOException, ClassNotFoundException {
-        ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(b));
-        ois.setObjectInputFilter(DESERIALIZATION_FILTER);
-        return (Serializable) ois.readObject();
+        try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(b))) {
+            ois.setObjectInputFilter(DESERIALIZATION_FILTER);
+            return (Serializable) ois.readObject();
+        }
     }
 
     public static void serializeToFile(Serializable s, String filename) throws IOException {
@@ -200,16 +201,10 @@ public final class MiscUtils {
             is = new FileInputStream(filename);
         }
 
-        Serializable var2;
-        try {
-            ObjectInputStream ois = new ObjectInputStream((InputStream) is);
+        try (ObjectInputStream ois = new ObjectInputStream(is)) {
             ois.setObjectInputFilter(DESERIALIZATION_FILTER);
-            var2 = (Serializable) ois.readObject();
-        } finally {
-            ((InputStream) is).close();
+            return (Serializable) ois.readObject();
         }
-
-        return var2;
     }
 
     public static byte[] readFileAsByteArray(String url) throws IOException {
