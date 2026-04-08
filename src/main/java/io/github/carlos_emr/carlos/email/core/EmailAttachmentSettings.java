@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.email.core;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -65,8 +66,11 @@ public record EmailAttachmentSettings(
     /** Pre-compiled pattern for ASCII control characters (0x00-0x1F and DEL 0x7F). */
     private static final Pattern CONTROL_CHARS = Pattern.compile("[\\x00-\\x1f\\x7f]");
 
-    /** Pre-compiled pattern for basic email structure validation. */
-    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+    /** Pre-compiled pattern for basic email structure validation (non-backtracking). */
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)+$");
+
+    /** Allowed values for the patient chart email option. */
+    private static final Set<String> VALID_CHART_OPTIONS = Set.of("doNotAddAsNote", "addFullNote");
 
     /** Maximum length for email password fields. */
     private static final int MAX_PASSWORD_LENGTH = 128;
@@ -131,7 +135,7 @@ public record EmailAttachmentSettings(
             stripControlChars(req.getParameter("subjectEmail"), MAX_SUBJECT_LENGTH),
             limitLength(req.getParameter("bodyEmail"), MAX_BODY_LENGTH),
             limitLength(req.getParameter("encryptedMessageEmail"), MAX_ENCRYPTED_MSG_LENGTH),
-            req.getParameter("emailPatientChartOption")
+            sanitizeChartOption(req.getParameter("emailPatientChartOption"))
         );
     }
 
@@ -192,5 +196,19 @@ public record EmailAttachmentSettings(
             return value.substring(0, maxLength);
         }
         return value;
+    }
+
+    /**
+     * Validates that the chart option is one of the known allowed values.
+     * Returns null for unrecognized values to prevent unexpected behavior.
+     *
+     * @param value the raw input, may be null
+     * @return the value if it matches a known option, or null otherwise
+     */
+    private static String sanitizeChartOption(String value) {
+        if (value == null) {
+            return null;
+        }
+        return VALID_CHART_OPTIONS.contains(value) ? value : null;
     }
 }

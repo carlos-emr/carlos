@@ -92,13 +92,14 @@ public class DxresearchReport2Action extends ActionSupport {
     /**
      * Validates that a provider_no parameter matches the expected format.
      * Provider numbers are alphanumeric strings (max 6 chars) optionally prefixed
-     * with {@code _grp_} for group lookups. Logs a warning when validation fails.
+     * with {@code _grp_} for group lookups. The wildcard {@code *} is also valid
+     * (means "All Providers"). Logs a warning when validation fails.
      *
      * @param providerNo the provider number to validate
      * @return true if the value is non-null and matches the expected format
      */
     private static boolean isValidProviderNo(String providerNo) {
-        if (providerNo != null && providerNo.matches("^(_grp_)?[a-zA-Z0-9]{1,6}$")) {
+        if (providerNo != null && providerNo.matches("^(\\*|(_grp_)?[a-zA-Z0-9]{1,6})$")) {
             return true;
         }
         MiscUtils.getLogger().warn("Invalid provider_no rejected: {}", LogSanitizer.sanitize(providerNo));

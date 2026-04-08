@@ -64,7 +64,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.regex.Pattern;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -73,9 +72,6 @@ import org.owasp.encoder.Encode;
 public class AddEForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
-
-    /** Pre-compiled pattern for valid eform_link session attribute keys. */
-    private static final Pattern EFORM_LINK_PATTERN = Pattern.compile("^[a-zA-Z0-9_.-]{1,100}$");
 
     private static final Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -218,9 +214,10 @@ public class AddEForm2Action extends ActionSupport {
 
             //post fdid to {eform_link} attribute
             if (eform_link != null) {
-                // Validate eform_link before using as session attribute key (CWE-501).
-                // Expected format: providerNo_demographicNo_fid_name (alphanumeric segments with underscores/dots/hyphens)
-                if (EFORM_LINK_PATTERN.matcher(eform_link).matches()) {
+                // Validate eform_link against expected prefix to prevent session key injection (CWE-501).
+                // The expected key format is: providerNo_demographicNo_fid_openerName
+                String expectedPrefix = providerNo + "_" + demographic_no + "_" + fid + "_";
+                if (eform_link.startsWith(expectedPrefix) && eform_link.length() <= 100) {
                     se.setAttribute(eform_link, fdid);
                 } else {
                     logger.warn("Invalid eform_link rejected: {}", LogSanitizer.sanitize(eform_link));
