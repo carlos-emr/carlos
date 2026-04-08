@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.email.core;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.regex.Pattern;
 
 /**
  * Data Transfer Object to encapsulate email attachment settings and IDs.
@@ -60,6 +61,12 @@ public record EmailAttachmentSettings(
     String encryptedMessageEmail,
     String emailPatientChartOption
 ) {
+
+    /** Pre-compiled pattern for ASCII control characters (0x00-0x1F and DEL 0x7F). */
+    private static final Pattern CONTROL_CHARS = Pattern.compile("[\\x00-\\x1f\\x7f]");
+
+    /** Pre-compiled pattern for basic email structure validation. */
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     /** Maximum length for email password fields. */
     private static final int MAX_PASSWORD_LENGTH = 128;
@@ -141,7 +148,7 @@ public record EmailAttachmentSettings(
             return null;
         }
         // Remove ASCII control characters (0x00-0x1F and DEL 0x7F)
-        String cleaned = value.replaceAll("[\\x00-\\x1f\\x7f]", "");
+        String cleaned = CONTROL_CHARS.matcher(value).replaceAll("");
         if (cleaned.length() > maxLength) {
             cleaned = cleaned.substring(0, maxLength);
         }
@@ -163,7 +170,7 @@ public record EmailAttachmentSettings(
             return null;
         }
         // Basic structural check: must contain @ with text before and after
-        if (!value.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+        if (!EMAIL_PATTERN.matcher(value).matches()) {
             return null;
         }
         return value;

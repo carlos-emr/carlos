@@ -324,8 +324,8 @@ public class DxresearchReport2Action extends ActionSupport {
 
         dxQuickListItemsHandler.updatePatientCodeDesc(editingCodeType, editingCodeCode, editingCodeDesc);
 
-        // Encode before storing in session to prevent XSS via unsanitized session data (CWE-501)
-        editingCodeDesc = Encode.forHtml(editingCodeDesc);
+        // Encode and length-limit before storing in session to prevent XSS and unbounded session storage (CWE-501)
+        editingCodeDesc = Encode.forHtml(editingCodeDesc != null && editingCodeDesc.length() > 1000 ? editingCodeDesc.substring(0, 1000) : editingCodeDesc);
         request.getSession().setAttribute("editingCodeDesc", editingCodeDesc); // nosemgrep: tainted-session-from-http-request -- HTML-encoded before storage
 
         return SUCCESS;
