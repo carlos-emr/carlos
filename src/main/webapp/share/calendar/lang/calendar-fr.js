@@ -20,3 +20,18 @@ Calendar._TT["CLOSE"] = "Fermer";
 Calendar._TT["TODAY"] = "Aujourd'hui";
 
 Calendar._flatpickrLocale = "fr";
+
+/* Load the flatpickr French locale file alongside this script */
+(function () {
+    var scripts = document.getElementsByTagName("script");
+    for (var i = 0; i < scripts.length; i++) {
+        var src = scripts[i].src || "";
+        var idx = src.indexOf("share/calendar/");
+        if (idx !== -1) {
+            var js = document.createElement("script");
+            js.src = src.substring(0, idx) + "library/flatpickr/l10n/fr.js";
+            document.head.appendChild(js);
+            return;
+        }
+    }
+})();

@@ -20,3 +20,18 @@ Calendar._TT["CLOSE"] = "Cerrar";
 Calendar._TT["TODAY"] = "Hoy";
 
 Calendar._flatpickrLocale = "es";
+
+/* Load the flatpickr Spanish locale file alongside this script */
+(function () {
+    var scripts = document.getElementsByTagName("script");
+    for (var i = 0; i < scripts.length; i++) {
+        var src = scripts[i].src || "";
+        var idx = src.indexOf("share/calendar/");
+        if (idx !== -1) {
+            var js = document.createElement("script");
+            js.src = src.substring(0, idx) + "library/flatpickr/l10n/es.js";
+            document.head.appendChild(js);
+            return;
+        }
+    }
+})();
