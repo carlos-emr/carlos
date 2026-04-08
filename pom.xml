@@ -759,18 +759,6 @@
             <version>5.2.3</version>
         </dependency>
 
-        <!-- CDS CIHI PHC VRS (local_repo) -->
-        <dependency>
-            <groupId>cds</groupId>
-            <artifactId>cds_cihi_phcvrs</artifactId>
-            <version>1.0</version>
-        </dependency>
-        <!-- CDS CIHI (local_repo) -->
-        <dependency>
-            <groupId>cds</groupId>
-            <artifactId>cds_cihi</artifactId>
-            <version>1.0</version>
-        </dependency>
         <!-- CDS Rourke (local_repo) -->
         <dependency>
             <groupId>cds</groupId>
