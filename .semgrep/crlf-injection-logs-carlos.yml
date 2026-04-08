@@ -30,11 +30,23 @@ rules:
         - https://owasp.org/www-community/attacks/Log_Injection
 
     pattern-sources:
-      - patterns:
-          - pattern: (HttpServletRequest $REQ).$METHOD(...)
-          - metavariable-regex:
-              metavariable: $METHOD
-              regex: (getParameter|getQueryString|getHeader|getRequestURI|getPathInfo|getCookies|getRemoteAddr)
+      - pattern-either:
+          - patterns:
+              - pattern: $REQ.$METHOD(...)
+              - metavariable-type:
+                  metavariable: $REQ
+                  type: javax.servlet.http.HttpServletRequest
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: (getParameter|getQueryString|getHeader|getRequestURI|getPathInfo|getCookies|getRemoteAddr)
+          - patterns:
+              - pattern: $REQ.$METHOD(...)
+              - metavariable-type:
+                  metavariable: $REQ
+                  type: jakarta.servlet.http.HttpServletRequest
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: (getParameter|getQueryString|getHeader|getRequestURI|getPathInfo|getCookies|getRemoteAddr)
 
     pattern-sanitizers:
       # LogSanitizer methods (short name — covers static imports and same-package usage)
