@@ -70,13 +70,21 @@ public class dxResearchUpdate2Action extends ActionSupport {
         String providerNo = request.getParameter("providerNo");
         String startDate = request.getParameter("startdate");
 
+        if (did == null || !did.matches("\\d+")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid did parameter");
+            return NONE;
+        }
         if (demographicNo == null || !demographicNo.matches("\\d+")) {
-            throw new RuntimeException("invalid demographicNo parameter");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid demographicNo parameter");
+            return NONE;
         }
         if (providerNo == null || !providerNo.matches("\\d+")) {
-            throw new RuntimeException("invalid providerNo parameter");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid providerNo parameter");
+            return NONE;
         }
 
+        int demographicNoInt = Integer.parseInt(demographicNo);
+        int providerNoInt = Integer.parseInt(providerNo);
 
         partialDateDao.setPartialDate(startDate, PartialDate.DXRESEARCH, Integer.valueOf(did), PartialDate.DXRESEARCH_STARTDATE);
         startDate = partialDateDao.getFullDate(startDate);
@@ -104,8 +112,8 @@ public class dxResearchUpdate2Action extends ActionSupport {
         }
 
         StringBuffer forward = new StringBuffer(request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch.do");
-        forward.append("?demographicNo=").append(URLEncoder.encode(demographicNo != null ? demographicNo : "", StandardCharsets.UTF_8));
-        forward.append("&providerNo=").append(URLEncoder.encode(providerNo != null ? providerNo : "", StandardCharsets.UTF_8));
+        forward.append("?demographicNo=").append(URLEncoder.encode(Integer.toString(demographicNoInt), StandardCharsets.UTF_8));
+        forward.append("&providerNo=").append(URLEncoder.encode(Integer.toString(providerNoInt), StandardCharsets.UTF_8));
         forward.append("&quickList=");
 
         String ip = request.getRemoteAddr();
