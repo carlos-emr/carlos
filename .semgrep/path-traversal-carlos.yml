@@ -34,11 +34,23 @@ rules:
         - https://github.com/carlos-emr/carlos/blob/develop/docs/path-validation-utils.md
 
     pattern-sources:
-      - patterns:
-          - pattern: (HttpServletRequest $REQ).$METHOD(...)
-          - metavariable-regex:
-              metavariable: $METHOD
-              regex: (getParameter|getQueryString|getPathInfo|getRequestURI|getHeader)
+      - pattern-either:
+          - patterns:
+              - pattern: $REQ.$METHOD(...)
+              - metavariable-type:
+                  metavariable: $REQ
+                  type: javax.servlet.http.HttpServletRequest
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: (getParameter|getQueryString|getPathInfo|getRequestURI|getHeader)
+          - patterns:
+              - pattern: $REQ.$METHOD(...)
+              - metavariable-type:
+                  metavariable: $REQ
+                  type: jakarta.servlet.http.HttpServletRequest
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: (getParameter|getQueryString|getPathInfo|getRequestURI|getHeader)
 
     pattern-sanitizers:
       # PathValidationUtils methods that return validated paths/targets
