@@ -55,8 +55,8 @@ public class ExcludeDemographicHandler {
     private static Logger logger = MiscUtils.getLogger();
     private ObjectMapper objectMapper = new ObjectMapper();
 
-    /** Allowlist: only digits, commas, whitespace, and brackets are valid for a JSON integer array. */
-    private static final Pattern VALID_INT_ARRAY_PATTERN = Pattern.compile("^[\\d,\\s\\[\\]]+$");
+    /** Allowlist: one or more integers separated by commas, with optional surrounding brackets and whitespace. */
+    private static final Pattern VALID_INT_ARRAY_PATTERN = Pattern.compile("^\\[?\\s*\\d+(\\s*,\\s*\\d+)*\\s*]?$");
 
     private static DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
     private DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);

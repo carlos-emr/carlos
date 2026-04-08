@@ -139,10 +139,26 @@ class ExcludeDemographicHandlerUnitTest {
         }
 
         @Test
-        @DisplayName("should reject nested array injection")
-        void shouldRejectNestedArrayInjection() {
+        @DisplayName("should reject nested array payload")
+        void shouldRejectNestedArrayPayload() {
+            Mockito.clearInvocations(mockDao);
+            handler.excludeDemoIds("[[1,2],[3,4]]", "testIndicator");
+            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("should reject string injection between brackets")
+        void shouldRejectStringInjectionBetweenBrackets() {
             Mockito.clearInvocations(mockDao);
             handler.excludeDemoIds("1,2],\"injected\":[3", "testIndicator");
+            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("should reject consecutive commas")
+        void shouldRejectConsecutiveCommas() {
+            Mockito.clearInvocations(mockDao);
+            handler.excludeDemoIds("1,,3", "testIndicator");
             verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
         }
 
