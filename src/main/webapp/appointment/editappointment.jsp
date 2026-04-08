@@ -84,7 +84,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao" %>
@@ -1249,7 +1248,7 @@
                     </td>
                     <td>
                 <input type="text" readonly name="doctorNo" id="mrp" class="form-control"
-                               value="<%=StringEscapeUtils.escapeHtml4(providerBean.getProperty(doctorNo,""))%>">
+                               value="<%=Encode.forHtml(providerBean.getProperty(doctorNo,""))%>">
                     </td>
                 </tr>
                 <tr>

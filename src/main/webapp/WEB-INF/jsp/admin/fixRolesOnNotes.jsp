@@ -36,7 +36,7 @@
 <%@page import="io.github.carlos_emr.carlos.db.*" %>
 <%@page import="java.sql.*" %>
 <%@page import="java.util.*" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.utility.DbConnectionFilter" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>

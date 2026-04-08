@@ -4,7 +4,6 @@
 <%@ page import="java.text.DecimalFormat" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -243,7 +242,7 @@
                                                                         if (key.endsWith("_id")) {
                                                                 %>
                                                                 <input type="hidden" name="<%= key %>"
-                                                                       value="<%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demoExt.get(key)))%>"/>
+                                                                       value="<%=Encode.forHtml(StringUtils.trimToEmpty(demoExt.get(key)))%>"/>
                                                                 <%
                                                                         }
                                                                     }
@@ -754,16 +753,16 @@
                                                                         <span class="info"><%=StringUtils.trimToEmpty(demoExt.get("demo_cell"))%></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formPhoneComment"/>:</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%></span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formAddr"/>(<span
                                                                             class="popup"
                                                                             onmouseover="nhpup.popup(addressHistory);"
                                                                             title="Address History">History</span>):</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getAddress()))%></span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getAddress()))%></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formCity"/>:</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getCity()))%></span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getCity()))%></span>
                                                                     </li>
                                                                     <li><span class="label">
 							<% if (oscarProps.getProperty("demographicLabelProvince") == null) { %>
@@ -782,10 +781,10 @@
 
 
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialAddr"/>:</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getResidentialAddress()))%></span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getResidentialAddress()))%></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialCity"/>:</span>
-                                                                        <span class="info"><%=StringEscapeUtils.escapeHtml4(StringUtils.trimToEmpty(demographic.getResidentialCity()))%></span>
+                                                                        <span class="info"><%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getResidentialCity()))%></span>
                                                                     </li>
                                                                     <li><span class="label">
 														<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialProvince"/>:</span>
@@ -1269,7 +1268,7 @@
                                                             <div class="demographicSection" id="notes">
                                                                 <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formNotes"/></h3>
 
-                                                                <%=StringEscapeUtils.escapeHtml4(notes)%>&nbsp;
+                                                                <%=Encode.forHtml(notes)%>&nbsp;
                                                             </div>
 
                                                                 <%-- TOGGLED OFF PROGRAM ADMISSIONS --%>
