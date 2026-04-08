@@ -8,6 +8,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import org.apache.logging.log4j.Logger;
+
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+
 /**
  * Data Access Object for managing private billing records in British Columbia.
  *
@@ -31,6 +35,8 @@ import java.util.List;
  * @since 2026-01-24
  */
 public class PrivateBillingDAO {
+    private static final Logger log = MiscUtils.getLogger();
+
     private Connection connection;
     private PreparedStatement statement;
     private ResultSet rs;
@@ -89,17 +95,17 @@ public class PrivateBillingDAO {
                 recipient.put("postal", rs.getString("postal"));
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error("Failed to retrieve recipient by ID", e);
         } finally {
             try {
                 rs.close();
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("Failed to close ResultSet", e);
             }
             try {
                 statement.close();
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("Failed to close PreparedStatement", e);
             }
         }
 
@@ -214,17 +220,17 @@ public class PrivateBillingDAO {
                 bills.add(invoiceItem);
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error("Failed to list private bill items", e);
         } finally {
             try {
                 rs.close();
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("Failed to close ResultSet", e);
             }
             try {
                 statement.close();
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("Failed to close PreparedStatement", e);
             }
         }
 
@@ -315,17 +321,17 @@ public class PrivateBillingDAO {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error("Failed to list private bills for provider", e);
         } finally {
             try {
                 rs.close();
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("Failed to close ResultSet", e);
             }
             try {
                 statement.close();
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("Failed to close PreparedStatement", e);
             }
         }
         return bills;

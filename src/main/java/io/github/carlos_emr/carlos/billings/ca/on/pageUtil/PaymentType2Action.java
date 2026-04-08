@@ -81,7 +81,7 @@ public class PaymentType2Action extends ActionSupport {
             request.setAttribute("paymentTypeList", paymentTypeList);
             return SUCCESS;
         } catch (Exception e) {
-            e.printStackTrace();
+            MiscUtils.getLogger().error("Failed to list payment types", e);
             return ERROR;
         }
     }

@@ -20,8 +20,11 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
+
+import org.apache.logging.log4j.Logger;
 
 /**
  * HTTP servlet controller for managing private billing operations in British Columbia.
@@ -51,6 +54,8 @@ import io.github.carlos_emr.carlos.clinic.ClinicData;
  * @since 2026-01-23
  */
 public class PrivateBillingController extends HttpServlet {
+    private static final Logger log = MiscUtils.getLogger();
+
     private static String LIST_PRIVATE_BILLS = "billing/CA/BC/privateBilling/viewStatement.jsp";
     private static String PRINT_PREVIEW_BILLS = "billing/CA/BC/privateBilling/printPreview.jsp";
     private PrivateBillingDAO dao;
@@ -106,9 +111,9 @@ public class PrivateBillingController extends HttpServlet {
             RequestDispatcher view = request.getRequestDispatcher(forward);
             view.forward(request, response);
         } catch (ServletException e) {
-            e.printStackTrace();
+            log.error("Failed to forward to private bills list view", e);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("I/O error while listing private bills", e);
         }
     }
 
@@ -219,9 +224,9 @@ public class PrivateBillingController extends HttpServlet {
             RequestDispatcher view = request.getRequestDispatcher(forward);
             view.forward(request, response);
         } catch (ServletException e) {
-            e.printStackTrace();
+            log.error("Failed to forward to print preview view", e);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("I/O error while generating print preview", e);
         }
     }
 
@@ -261,7 +266,7 @@ public class PrivateBillingController extends HttpServlet {
             // action is not provided, by default forward to LIST_PRIVATE_BILLS
             listPrivateBills(request, response, forward);
         } catch (ServletException e) {
-            e.printStackTrace();
+            log.error("Servlet error while processing private billing request", e);
         }
     }
 
