@@ -43,31 +43,45 @@ import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * @author Jay Gallagher
  */
 public class GenericDownload extends HttpServlet {
 
+    private static final Logger log = MiscUtils.getLogger();
+
     public GenericDownload() {
     }
 
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
-        HttpSession session = req.getSession(true);
+        try {
+            HttpSession session = req.getSession(true);
 
-        CarlosProperties oscarProps = CarlosProperties.getInstance();
+            CarlosProperties oscarProps = CarlosProperties.getInstance();
 
-        String filename = req.getParameter("filename");
-        String dir_property = req.getParameter("dir_property");
-        String contentType = req.getParameter("contentType");
-        String dir = oscarProps.getProperty(dir_property);
-        String user = (String) session.getAttribute("user");
+            String filename = req.getParameter("filename");
+            String dir_property = req.getParameter("dir_property");
+            String contentType = req.getParameter("contentType");
+            String dir = oscarProps.getProperty(dir_property);
+            String user = (String) session.getAttribute("user");
 
-        boolean bDo = false;
-        if (filename != null && dir_property != null && dir != null && user != null) {
-            bDo = true;
+            boolean bDo = false;
+            if (filename != null && dir_property != null && dir != null && user != null) {
+                bDo = true;
+            }
+            download(bDo, res, dir, filename, contentType);
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error in GenericDownload", e);
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
         }
-        download(bDo, res, dir, filename, contentType);
 
     }
 

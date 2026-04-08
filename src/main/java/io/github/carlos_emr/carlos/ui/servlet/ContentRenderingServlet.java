@@ -89,7 +89,9 @@ public final class ContentRenderingServlet extends HttpServlet {
                 logger.warn("An error we can't handle that's expected infrequently. " + e.getMessage());
             } else {
                 logger.error("Unexpected error. qs=" + LogSanitizer.sanitize(request.getQueryString()), e);
-                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, Encode.forHtml(request.getRequestURI()));
+                if (!response.isCommitted()) {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, Encode.forHtml(request.getRequestURI()));
+                }
             }
         }
     }

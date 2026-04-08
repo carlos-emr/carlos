@@ -36,24 +36,39 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
-public class OscarDownload extends GenericDownload {
-    public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
-        HttpSession session = req.getSession(true);
-        String filename = req.getParameter("filename") != null ? req.getParameter("filename") : "null";
-        String homepath = req.getParameter("homepath") != null ? req.getParameter("homepath") : "null";
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-        String backupfilepath = ((String) session.getAttribute(homepath)) != null ? ((String) session.getAttribute(homepath)) : "null";
-        if (filename != null && backupfilepath != null && ((String) session.getAttribute("user")) != null) {
-            ServletOutputStream stream = res.getOutputStream();
-            transferFile(res, stream, backupfilepath, filename);
-            stream.close();
-        } else {
-            res.setContentType("text/html");
-            PrintWriter out = res.getWriter();
-            out.println("<html>");
-            out.println("<head><body>You have no right to download the file(s).");
-            out.println("</body>");
-            out.println("</html>");
+public class OscarDownload extends GenericDownload {
+    private static final Logger log = MiscUtils.getLogger();
+
+    public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
+        try {
+            HttpSession session = req.getSession(true);
+            String filename = req.getParameter("filename") != null ? req.getParameter("filename") : "null";
+            String homepath = req.getParameter("homepath") != null ? req.getParameter("homepath") : "null";
+
+            String backupfilepath = ((String) session.getAttribute(homepath)) != null ? ((String) session.getAttribute(homepath)) : "null";
+            if (filename != null && backupfilepath != null && ((String) session.getAttribute("user")) != null) {
+                ServletOutputStream stream = res.getOutputStream();
+                transferFile(res, stream, backupfilepath, filename);
+                stream.close();
+            } else {
+                res.setContentType("text/html");
+                PrintWriter out = res.getWriter();
+                out.println("<html>");
+                out.println("<head><body>You have no right to download the file(s).");
+                out.println("</body>");
+                out.println("</html>");
+            }
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error in OscarDownload", e);
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
         }
     }
 }
