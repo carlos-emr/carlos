@@ -48,3 +48,4 @@ rules:
       - pattern: $LOG.warn(...)
       - pattern: $LOG.error(...)
       - pattern: $LOG.trace(...)
+      - pattern: $LOG.fatal(...)
