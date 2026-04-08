@@ -214,12 +214,15 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // sender which encrypts with PKCS#1 v1.5. Changing the padding here would break
             // decryption of incoming lab uploads. This is decrypt-only (not encrypt), which
             // limits the attack surface. If the external protocol is ever updated, migrate to OAEP.
+            // nosemgrep: ecb-cipher — cipher mode dictated by external lab system protocol.
             Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
             cipher.init(Cipher.DECRYPT_MODE, key);
             byte[] newSecretKey = cipher.doFinal(Base64.decodeBase64(skey));
 
             // Decrypt the message using the secret key
             SecretKeySpec skeySpec = new SecretKeySpec(newSecretKey, "AES");
+            // nosemgrep: use-of-default-aes — AES mode is dictated by the external lab system
+            // sender. Changing the cipher mode would break decryption of incoming lab uploads.
             Cipher msgCipher = Cipher.getInstance("AES");
             msgCipher.init(Cipher.DECRYPT_MODE, skeySpec);
 

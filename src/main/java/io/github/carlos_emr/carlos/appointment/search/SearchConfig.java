@@ -44,6 +44,9 @@ import java.util.TimeZone;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+
+import java.security.SecureRandom;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
@@ -620,22 +623,40 @@ public class SearchConfig {
 
     public String encrypt(String toEncyrpt) throws Exception {
         if (secretKey == null) return toEncyrpt;
-        Cipher cipher = Cipher.getInstance("AES");
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+
+        byte[] iv = new byte[12];
+        new SecureRandom().nextBytes(iv);
+
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        GCMParameterSpec gcmSpec = new GCMParameterSpec(128, iv);
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmSpec);
 
         byte[] unencryptedByteArray = toEncyrpt.getBytes("UTF8");
         byte[] encryptedBytes = cipher.doFinal(unencryptedByteArray);
-        byte[] encodedBytes = Base64.encodeBase64(encryptedBytes);
 
+        // Prepend IV to ciphertext before Base64 encoding
+        byte[] combined = new byte[iv.length + encryptedBytes.length];
+        System.arraycopy(iv, 0, combined, 0, iv.length);
+        System.arraycopy(encryptedBytes, 0, combined, iv.length, encryptedBytes.length);
+
+        byte[] encodedBytes = Base64.encodeBase64(combined);
         return new String(encodedBytes);
     }
 
     public String decrypt(String toDecrypt) throws Exception {
         if (secretKey == null) return (toDecrypt);
 
-        byte[] encryptedData = Base64.decodeBase64(toDecrypt.getBytes());
-        Cipher cipher = Cipher.getInstance("AES");
-        cipher.init(Cipher.DECRYPT_MODE, secretKey);
+        byte[] combined = Base64.decodeBase64(toDecrypt.getBytes());
+
+        // Extract IV (first 12 bytes) and ciphertext
+        byte[] iv = new byte[12];
+        System.arraycopy(combined, 0, iv, 0, iv.length);
+        byte[] encryptedData = new byte[combined.length - iv.length];
+        System.arraycopy(combined, iv.length, encryptedData, 0, encryptedData.length);
+
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        GCMParameterSpec gcmSpec = new GCMParameterSpec(128, iv);
+        cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec);
         byte[] unencryptedByteArray = cipher.doFinal(encryptedData);
         return new String(unencryptedByteArray, "UTF8");
     }

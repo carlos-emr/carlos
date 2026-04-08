@@ -51,8 +51,8 @@ public class HTTPS {
     }
 
     public InputStream Get() throws IOException, UnknownHostException {
-        this.socket = new Socket(this.url, 80);
         SSLSocketFactory factory = (SSLSocketFactory) SSLSocketFactory.getDefault();
-        return factory.createSocket(socket, url, 80, true).getInputStream();
+        this.socket = factory.createSocket(this.url, 443);
+        return this.socket.getInputStream();
     }
 }

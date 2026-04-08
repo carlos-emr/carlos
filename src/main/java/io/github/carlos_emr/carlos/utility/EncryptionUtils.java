@@ -61,6 +61,10 @@ public final class EncryptionUtils {
 
     private static MessageDigest initMessageDigest() {
         try {
+            // nosemgrep: use-of-sha1 — SHA-1 is required for backward compatibility with
+            // legacy password hashes stored in the database (Security.checkPassword).
+            // Modern password hashing uses PasswordHashHelper (BCrypt). This deprecated
+            // method cannot be changed without breaking existing stored hash verification.
             return MessageDigest.getInstance("SHA-1");
         } catch (NoSuchAlgorithmException var1) {
             logger.error("Error", var1);
@@ -130,11 +134,16 @@ public final class EncryptionUtils {
      * Use only to store encrypted data.
      * Do NOT use for authentication.
      * Considered a weak encryption.
+     * @deprecated Use {@link #encrypt(byte[])} which uses AES/GCM/NoPadding instead.
      */
+    @Deprecated
     public static byte[] encrypt(SecretKey secretKey, byte[] plainData) throws IllegalBlockSizeException, BadPaddingException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException {
         if (secretKey == null) {
             return plainData;
         } else {
+            // nosemgrep: use-of-default-aes — deprecated legacy method retained for backward
+            // compatibility with data encrypted using AES/ECB. Modern code uses encrypt(byte[])
+            // with AES/GCM/NoPadding. No current callers exist; kept for potential data recovery.
             Cipher cipher = Cipher.getInstance("AES");
             cipher.init(1, secretKey);
             return cipher.doFinal(plainData);
@@ -145,11 +154,16 @@ public final class EncryptionUtils {
      * Use only to store encrypted data.
      * Do NOT use for authentication.
      * Considered a weak encryption.
+     * @deprecated Use {@link #decrypt(byte[])} which uses AES/GCM/NoPadding instead.
      */
+    @Deprecated
     public static byte[] decrypt(SecretKey secretKey, byte[] encryptedData) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
         if (secretKey == null) {
             return encryptedData;
         } else {
+            // nosemgrep: use-of-default-aes — deprecated legacy method retained for backward
+            // compatibility with data encrypted using AES/ECB. Modern code uses decrypt(byte[])
+            // with AES/GCM/NoPadding. No current callers exist; kept for potential data recovery.
             Cipher cipher = Cipher.getInstance("AES");
             cipher.init(2, secretKey);
             return cipher.doFinal(encryptedData);
