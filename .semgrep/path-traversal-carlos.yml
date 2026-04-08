@@ -18,8 +18,9 @@ rules:
       Detected a request parameter used in a file path operation without
       proper validation via PathValidationUtils. This could allow path
       traversal attacks. Use PathValidationUtils.validatePath(),
-      validateExistingPath(), or validateUpload() to sanitize file paths
-      before use. See docs/path-validation-utils.md for usage guidance.
+      validateExistingPath(), or validateUpload() to validate or
+      canonicalize file paths before use. See docs/path-validation-utils.md
+      for usage guidance.
     severity: ERROR
     languages: [java]
     mode: taint
@@ -40,18 +41,24 @@ rules:
               regex: (getParameter|getQueryString|getPathInfo|getRequestURI|getHeader)
 
     pattern-sanitizers:
-      # PathValidationUtils methods (short names — covers static imports and same-package usage)
+      # PathValidationUtils methods that return validated paths/targets
+      # (short names — covers static imports and same-package usage)
       - pattern: PathValidationUtils.validatePath(...)
       - pattern: PathValidationUtils.validateExistingPath(...)
       - pattern: PathValidationUtils.validateUpload(...)
-      - pattern: PathValidationUtils.isInAllowedTempDirectory(...)
       # Fully-qualified names (covers cross-package usage)
       - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(...)
       - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(...)
       - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateUpload(...)
-      - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.isInAllowedTempDirectory(...)
 
     pattern-sinks:
+      # Unqualified names (standard import usage)
+      - pattern: new File(...)
+      - pattern: new FileInputStream(...)
+      - pattern: new FileOutputStream(...)
+      - pattern: Paths.get(...)
+      - pattern: Files.$METHOD(...)
+      # Fully-qualified names (explicit package references)
       - pattern: new java.io.File(...)
       - pattern: new java.io.FileInputStream(...)
       - pattern: new java.io.FileOutputStream(...)
