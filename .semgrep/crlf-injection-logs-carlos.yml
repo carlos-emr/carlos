@@ -49,12 +49,21 @@ rules:
                   regex: (getParameter|getQueryString|getHeader|getRequestURI|getPathInfo|getCookies|getRemoteAddr)
 
     pattern-sanitizers:
-      # Unqualified method call (covers static imports)
-      - pattern: sanitize(...)
-      # Class-qualified short name (covers direct LogSanitizer usage)
+      # Qualified class references
       - pattern: LogSanitizer.sanitize(...)
       # Fully-qualified name (covers cross-package usage)
       - pattern: io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(...)
+      # Unqualified static-import usage
+      - patterns:
+          - pattern: sanitize(...)
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.LogSanitizer.*;
+              ...
+      - patterns:
+          - pattern: sanitize(...)
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize;
+              ...
 
     pattern-sinks:
       # SLF4J
@@ -70,6 +79,13 @@ rules:
       - pattern: (org.apache.logging.log4j.Logger $LOG).error(...)
       - pattern: (org.apache.logging.log4j.Logger $LOG).trace(...)
       - pattern: (org.apache.logging.log4j.Logger $LOG).fatal(...)
+      # Log4j 1.x (legacy — still used in some integration classes)
+      - pattern: (org.apache.log4j.Logger $LOG).info(...)
+      - pattern: (org.apache.log4j.Logger $LOG).debug(...)
+      - pattern: (org.apache.log4j.Logger $LOG).warn(...)
+      - pattern: (org.apache.log4j.Logger $LOG).error(...)
+      - pattern: (org.apache.log4j.Logger $LOG).trace(...)
+      - pattern: (org.apache.log4j.Logger $LOG).fatal(...)
       # java.util.logging
       - pattern: (java.util.logging.Logger $LOG).info(...)
       - pattern: (java.util.logging.Logger $LOG).warning(...)
