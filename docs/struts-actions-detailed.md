@@ -181,7 +181,6 @@ Patient demographic management and related functions.
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
 | demographic/AddRelation | io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action | Adds patient relationships |
-| demographic/cihiExportOMD4 | io.github.carlos_emr.carlos.demographic.pageUtil.CihiExport2Action | Exports CIHI OMD4 data |
 | demographic/Contact | io.github.carlos_emr.carlos.commn.web.Contact2Action | Manages patient contact information |
 | demographic/DeleteRelation | io.github.carlos_emr.carlos.demographic.pageUtil.DeleteDemographicRelationship2Action | Deletes patient relationships |
 | demographic/DemographicExport | io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action | Exports demographic data |
