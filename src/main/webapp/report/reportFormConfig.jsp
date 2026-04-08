@@ -162,7 +162,7 @@
                                 String color = i % 2 == 0 ? "#EEEEFF" : "";
                                 String captionName = (String) vecTableField.get(i);
                                 if (captionName.matches(strMatchConfig)) continue;
-                                captionName = StringEscapeUtils.escapeHtml4(captionName);
+                                captionName = Encode.forHtml(captionName);
                         %>
                         <option value="<%=captionName%>"><%=captionName%>
                         </option>
@@ -188,7 +188,7 @@
                                                        ondblclick="javascript:onSelField();">
                     <% for (int i = 0; i < vecConfigField.size(); i++) {
                         String captionName = (String) vecConfigField.get(i);
-                        captionName = StringEscapeUtils.escapeHtml4(captionName);
+                        captionName = Encode.forHtml(captionName);
                     %>
                     <option value="<%=captionName%>"><%=captionName%>
                     </option>

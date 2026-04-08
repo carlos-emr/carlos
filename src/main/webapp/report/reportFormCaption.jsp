@@ -121,8 +121,8 @@
                             String fieldCaption = "";
                             String action = " Add ";
                             if (strTemp.length > 1) {
-                                fieldName = StringEscapeUtils.escapeHtml4(strTemp[1]);
-                                fieldCaption = StringEscapeUtils.escapeHtml4(strTemp[0].trim());
+                                fieldName = Encode.forHtml(strTemp[1]);
+                                fieldCaption = Encode.forHtml(strTemp[0].trim());
                             }
                             if (fieldCaption.length() > 1) {
                                 color = "gold";
