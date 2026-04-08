@@ -147,7 +147,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         String ids = request.getParameter("id");
         Integer id = Integer.valueOf(ids);
         this.documentDescriptionTemplateDao.remove(id);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, ids, request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(ids), request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
         return null;
     }
 

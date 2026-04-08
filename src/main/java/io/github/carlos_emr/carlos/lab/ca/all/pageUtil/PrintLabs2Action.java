@@ -55,7 +55,6 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
-import org.owasp.encoder.Encode;
 
 /**
  * @author wrighd
@@ -91,12 +90,12 @@ public class PrintLabs2Action extends ActionSupport {
             String safeName = handler.getPatientName().replaceAll("[\\r\\n\"\\\\]", "").replaceAll("\\s", "_");
             if (handler.getHeaders().get(0).equals("CELLPATHR")) {//if it is a VIHA RTF lab
                 response.setContentType("text/rtf");  //octet-stream
-                response.setHeader("Content-Disposition", "attachment; filename=\"" + Encode.forHtmlAttribute(safeName) + "_LabReport.rtf\"");
+                response.setHeader("Content-Disposition", "attachment; filename=\"" + safeName + "_LabReport.rtf\"");
                 LabPDFCreator pdf = new LabPDFCreator(request, response.getOutputStream());
                 pdf.printRtf();
             } else {
                 response.setContentType("application/pdf");  //octet-stream
-                response.setHeader("Content-Disposition", "attachment; filename=\"" + Encode.forHtmlAttribute(safeName) + "_LabReport.pdf\"");
+                response.setHeader("Content-Disposition", "attachment; filename=\"" + safeName + "_LabReport.pdf\"");
 
                 //first write to a file
                 File f = File.createTempFile("labReport", ".pdf");

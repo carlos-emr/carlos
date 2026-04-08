@@ -123,7 +123,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         // Validate programId is present and numeric before storing in session
         if (programId == null || programId.isBlank() || !programId.matches("\\d+")) {
             logger.error("Invalid or missing programId: {}", LogSanitizer.sanitize(String.valueOf(programId)));
-            addActionError(getText("error.invalid.parameter"));
+            addActionError("Invalid or missing required parameter");
             return ERROR;
         }
 
@@ -287,17 +287,17 @@ public class ProgramManagerView2Action extends ActionSupport {
         // Validate all required numeric IDs before processing
         if (programId == null || programId.isBlank() || !programId.matches("\\d+")) {
             logger.error("Invalid or missing programId in admit: {}", LogSanitizer.sanitize(String.valueOf(programId)));
-            addActionError(getText("error.invalid.parameter"));
+            addActionError("Invalid or missing required parameter");
             return ERROR;
         }
         if (clientId == null || clientId.isBlank() || !clientId.matches("\\d+")) {
             logger.error("Invalid or missing clientId in admit: {}", LogSanitizer.sanitize(String.valueOf(clientId)));
-            addActionError(getText("error.invalid.parameter"));
+            addActionError("Invalid or missing required parameter");
             return ERROR;
         }
         if (queueId == null || queueId.isBlank() || !queueId.matches("\\d+")) {
             logger.error("Invalid or missing queueId in admit: {}", LogSanitizer.sanitize(String.valueOf(queueId)));
-            addActionError(getText("error.invalid.parameter"));
+            addActionError("Invalid or missing required parameter");
             return ERROR;
         }
 

@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
@@ -96,11 +97,13 @@ public final class RxShowAllergy2Action extends ActionSupport {
         try {
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
             String demographicNo = request.getParameter("demographicNo");
-            // Validate demographicNo is numeric (consistent with execute() which uses parseInt)
-            Integer.parseInt(demographicNo);
+            if (demographicNo == null || !demographicNo.matches("\\d+")) {
+                MiscUtils.getLogger().warn("reorder() called with invalid demographicNo: {}", LogSanitizer.sanitize(demographicNo));
+                return "failure";
+            }
             RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, demographicNo);
             if (patient != null) {
-                // demographicNo validated via Integer.parseInt() above
+                // demographicNo validated as numeric above
                 request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request
             }
             response.sendRedirect(request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + demographicNo);
