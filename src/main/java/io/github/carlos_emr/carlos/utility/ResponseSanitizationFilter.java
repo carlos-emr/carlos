@@ -210,14 +210,15 @@ public class ResponseSanitizationFilter implements Filter {
         String capturedBody = wrapper.getCapturedContent();
 
         if (status >= 400 && containsStackTrace(capturedBody)) {
-            // Stack trace detected: log the original body and send a sanitized replacement.
+            // Stack trace detected: log only a sanitized excerpt and send a sanitized replacement.
             String correlationId = generateCorrelationId();
+            String sanitizedExcerpt = LogSanitizer.sanitize(capturedBody, 1000);
             LOGGER.error("Stack trace detected in error response "
-                    + "[status={} uri={} correlationId={}] body:\n{}",
+                    + "[status={} uri={} correlationId={} excerpt={}]",
                     status,
                     ((HttpServletRequest) request).getRequestURI(),
                     correlationId,
-                    capturedBody);
+                    sanitizedExcerpt);
             sendSanitizedError(httpResponse, status, correlationId);
         } else {
             // Safe response — write captured content through to the real response.
