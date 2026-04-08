@@ -99,7 +99,7 @@ public final class MiscUtils {
                 name.startsWith("java.util.") ||
                 name.startsWith("java.io.") ||
                 name.startsWith("java.math.") ||
-                name.startsWith("[L") ||
+                name.startsWith("[") ||
                 name.startsWith("io.github.carlos_emr.carlos.")) {
                 return ObjectInputFilter.Status.ALLOWED;
             }

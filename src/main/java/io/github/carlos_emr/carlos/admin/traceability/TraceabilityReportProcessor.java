@@ -70,7 +70,6 @@ public class TraceabilityReportProcessor implements Callable<String> {
             String name = filterInfo.serialClass().getName();
             if (name.equals("java.util.HashMap") ||
                 name.equals("java.lang.String") ||
-                name.equals("java.lang.Number") ||
                 name.equals("java.lang.Integer")) {
                 return ObjectInputFilter.Status.ALLOWED;
             }
