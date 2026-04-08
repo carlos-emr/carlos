@@ -130,7 +130,7 @@ public class EctDisplayAction extends ActionSupport {
             }
             // Validate demographicNo as numeric before storing in session bean
             String demoNoParam = request.getParameter("demographicNo");
-            if (demoNoParam != null && !demoNoParam.matches("\\d+")) {
+            if (demoNoParam != null && !demoNoParam.isEmpty() && !demoNoParam.matches("\\d+")) {
                 logger.warn("Invalid non-numeric demographicNo: {}", LogSanitizer.sanitize(demoNoParam));
                 return "error";
             }
