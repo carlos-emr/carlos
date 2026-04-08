@@ -95,7 +95,7 @@ public class PrivateBillingDAO {
                 recipient.put("postal", rs.getString("postal"));
             }
         } catch (SQLException e) {
-            log.error("Failed to retrieve recipient by ID", e);
+            log.error("Failed to retrieve recipient by ID: {}", recipientId, e);
         } finally {
             try {
                 rs.close();
@@ -321,7 +321,7 @@ public class PrivateBillingDAO {
             }
 
         } catch (SQLException e) {
-            log.error("Failed to list private bills for provider", e);
+            log.error("Failed to list private bills for provider: {}", providerId, e);
         } finally {
             try {
                 rs.close();
