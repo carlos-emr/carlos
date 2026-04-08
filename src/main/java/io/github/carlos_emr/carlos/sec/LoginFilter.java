@@ -156,7 +156,7 @@ public class LoginFilter implements Filter {
             "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
             "/EFormImageViewForPdfGenerationServlet",
-            "/js/bootstap",
+            "/js/bootstrap",
             "/css/bootstrap",
             "/css/Roboto.css",
             "/loginResource",
@@ -368,14 +368,23 @@ public class LoginFilter implements Filter {
     /**
      * Checks if a request URI matches any URL in the exemption list.
      *
-     * <p>This method performs prefix matching, so "/images/Oscar.ico" in the
-     * exemption list will match "/contextPath/images/Oscar.ico" but not
-     * "/contextPath/images/Oscar.ico.bak".
+     * <p>This method enforces path-boundary matching to prevent authentication
+     * bypass via crafted URLs. The matching rules are:
+     * <ul>
+     *   <li>Exempt URLs ending with "/" are treated as directory prefixes and
+     *       match any URI that starts with the exempt path (e.g., "/ws/" matches
+     *       "/ws/anything").</li>
+     *   <li>All other exempt URLs require either an exact match or that the
+     *       next character in the URI is "/" (e.g., "/css/bootstrap" matches
+     *       "/css/bootstrap" and "/css/bootstrap/file.css" but NOT
+     *       "/css/bootstrapEvil.do").</li>
+     * </ul>
      *
      * @param requestURI String the full request URI including context path
      * @param contextPath String the servlet context path (e.g., "/carlos")
-     * @param EXEMPT_URLS String[] array of exempt URL prefixes (without context path)
-     * @return boolean true if request URI starts with any exempt URL, false otherwise
+     * @param EXEMPT_URLS String[] array of exempt URL paths (without context path)
+     * @return boolean true if request URI matches any exempt URL with proper
+     *         path boundaries, false otherwise
      */
     boolean inListOfExemptions(String requestURI, String contextPath, String[] EXEMPT_URLS) {
         // Treat context root (e.g. /carlos/) as equivalent to /index.jsp (welcome file)
@@ -383,7 +392,10 @@ public class LoginFilter implements Filter {
             requestURI = contextPath + "/index.jsp";
         }
         for (String exemptUrl : EXEMPT_URLS) {
-            if (requestURI.startsWith(contextPath + exemptUrl)) {
+            String fullExempt = contextPath + exemptUrl;
+            if (requestURI.equals(fullExempt)
+                    || requestURI.startsWith(fullExempt + "/")
+                    || (exemptUrl.endsWith("/") && requestURI.startsWith(fullExempt))) {
                 return true;
             }
         }
