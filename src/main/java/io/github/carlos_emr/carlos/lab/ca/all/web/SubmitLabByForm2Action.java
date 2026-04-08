@@ -54,9 +54,12 @@ import io.github.carlos_emr.carlos.lab.ca.all.util.GDMLLabHL7Generator;
 import io.github.carlos_emr.carlos.lab.ca.all.util.MDSLabHL7Generator;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 
+import io.github.carlos_emr.CarlosProperties;
+
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 public class SubmitLabByForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -196,9 +199,10 @@ public class SubmitLabByForm2Action extends ActionSupport {
         ByteArrayInputStream is = new ByteArrayInputStream(hl7.getBytes());
         String filePath = Utilities.saveFile(is, filename);
         is.close();
-        File file = new File(filePath);
+        File uploadDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        File file = PathValidationUtils.validateExistingPath(new File(filePath), uploadDir);
 
-        FileInputStream fis = new FileInputStream(filePath);
+        FileInputStream fis = new FileInputStream(file);
         int checkFileUploadedSuccessfully = FileUploadCheck.addFile(file.getName(), fis, providerNo);
         fis.close();
 

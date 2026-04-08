@@ -45,6 +45,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -237,7 +238,8 @@ public class Download2Action extends ActionSupport {
             //----------start to save file
             for (DownloadData d : downloadResult.getData()) {
                 String inboxFolder = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
-                File document = new File(inboxFolder + File.separator + d.getDescription());
+                File inboxDir = new File(inboxFolder);
+                File document = PathValidationUtils.validatePath(d.getDescription(), inboxDir);
                 byte[] inputBytes = d.getContent();
 
 
@@ -369,7 +371,8 @@ public class Download2Action extends ActionSupport {
             //----------start to save file
             for (DownloadData d : downloadResult.getData()) {
                 String inboxFolder = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
-                File document = new File(inboxFolder + File.separator + d.getDescription());
+                File inboxDir = new File(inboxFolder);
+                File document = PathValidationUtils.validatePath(d.getDescription(), inboxDir);
                 byte[] inputBytes = d.getContent();
 
                 FileUtils.writeByteArrayToFile(document, inputBytes);

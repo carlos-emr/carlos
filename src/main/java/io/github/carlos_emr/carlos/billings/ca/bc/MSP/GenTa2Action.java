@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -53,6 +54,7 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS22;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS23;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS25;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -96,9 +98,10 @@ public class GenTa2Action extends ActionSupport {
 
         String forwardPage = "S21";
 
-        String filepath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        File docDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        File validatedFile = PathValidationUtils.validatePath(filename, docDir);
 
-        FileInputStream file = new FileInputStream(filepath + filename);
+        FileInputStream file = new FileInputStream(validatedFile);
         BufferedReader input = new BufferedReader(new InputStreamReader(file));
         String nextline;
 

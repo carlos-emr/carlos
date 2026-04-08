@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemo
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
@@ -110,9 +111,11 @@ public class PrintHRMReport2Action extends ActionSupport {
                 }
                 response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
 
-                // Create temporary file
-                pdfDocs.add(fileTempName);
-                fileTemp = new File(fileTempName);
+                // Create temporary file — validate path against DOCUMENT_DIR for defense-in-depth
+                File docDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+                File validatedTemp = PathValidationUtils.validatePath(new File(fileTempName).getName(), docDir);
+                pdfDocs.add(validatedTemp.getPath());
+                fileTemp = validatedTemp;
                 osTemp = new FileOutputStream(fileTemp);
 
                 HRMPDFCreator hrmpdfCreator = new HRMPDFCreator(osTemp, hrmId, loggedInInfo);

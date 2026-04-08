@@ -47,6 +47,7 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 /**
  * Utilities for traceability
@@ -62,7 +63,10 @@ public class GenerateTraceabilityUtil {
         HttpSession session = request.getSession();
         ServletContext servletContext = session.getServletContext();
         String realPath = servletContext.getRealPath("/");
-        Iterator<File> iterator = FileUtils.iterateFiles(new File(realPath), null, true);
+        File webappDir = new File(realPath);
+        // Defense-in-depth: validate that getRealPath result is a real directory
+        PathValidationUtils.validateExistingPath(webappDir, webappDir);
+        Iterator<File> iterator = FileUtils.iterateFiles(webappDir, null, true);
         while (iterator.hasNext()) {
             File f_ = iterator.next();
             FileInputStream fi_ = new FileInputStream(f_);

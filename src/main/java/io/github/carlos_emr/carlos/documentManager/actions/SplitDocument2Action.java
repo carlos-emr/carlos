@@ -116,7 +116,8 @@ public class SplitDocument2Action extends ActionSupport {
         PDDocument newPdf = null;
 
         try {
-            File input = new File(docdownload + doc.getDocfilename());
+            File docDir = new File(docdownload);
+            File input = PathValidationUtils.validatePath(doc.getDocfilename(), docDir);
             pdf = Loader.loadPDF(input);
 
             newPdf = new PDDocument();
@@ -248,8 +249,8 @@ public class SplitDocument2Action extends ActionSupport {
         Document doc = documentDao.getDocument(request.getParameter("document"));
 
         String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        Path filePath = Paths.get(docdownload, doc.getDocfilename());
-        File input = filePath.toFile();
+        File docDir = new File(docdownload);
+        File input = PathValidationUtils.validatePath(doc.getDocfilename(), docDir);
         PDDocument pdf = Loader.loadPDF(input);
         setFilePermissions(input);
         int x = 1;
@@ -271,8 +272,8 @@ public class SplitDocument2Action extends ActionSupport {
         Document doc = documentDao.getDocument(request.getParameter("document"));
 
         String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        Path filePath = Paths.get(docdownload, doc.getDocfilename());
-        File file = filePath.toFile();
+        File docDir = new File(docdownload);
+        File file = PathValidationUtils.validatePath(doc.getDocfilename(), docDir);
 
         PDDocument pdf = Loader.loadPDF(file);
         int x = 1;
@@ -294,8 +295,8 @@ public class SplitDocument2Action extends ActionSupport {
         Document doc = documentDao.getDocument(request.getParameter("document"));
 
         String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        Path filePath = Paths.get(docdownload, doc.getDocfilename());
-        File file = filePath.toFile();
+        File docDir = new File(docdownload);
+        File file = PathValidationUtils.validatePath(doc.getDocfilename(), docDir);
 
         PDDocument pdf = Loader.loadPDF(file);
 

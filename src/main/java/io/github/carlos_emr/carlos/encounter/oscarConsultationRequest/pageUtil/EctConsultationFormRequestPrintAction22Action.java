@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -185,6 +186,12 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             // Iterating over requested labs.
             for (int i = 0; labs != null && i < labs.size(); i++) {
                 File tempLabPDF = File.createTempFile("lab" + labs.get(i).segmentID, "pdf");
+
+                // Defense-in-depth: verify temp file is in an allowed temp directory
+                if (!PathValidationUtils.isInAllowedTempDirectory(tempLabPDF)) {
+                    logger.error("Temp file not in allowed temp directory: {}", tempLabPDF.getAbsolutePath());
+                    throw new SecurityException("Temp file created outside allowed temp directory");
+                }
 
                 // Storing the lab in PDF format inside a byte stream.
                 try (

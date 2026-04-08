@@ -403,9 +403,8 @@ public class ManageTeleplan2Action extends ActionSupport {
         String filename = b.getOhipfilename();
 
         CarlosProperties prop = CarlosProperties.getInstance();
-        String datacenter = prop.getProperty("HOME_DIR", "");
-
-        File f = new File(datacenter, filename);
+        File homeDir = new File(prop.getProperty("HOME_DIR", ""));
+        File f = PathValidationUtils.validatePath(filename, homeDir);
 
 
         if (f != null && log.isDebugEnabled()) {

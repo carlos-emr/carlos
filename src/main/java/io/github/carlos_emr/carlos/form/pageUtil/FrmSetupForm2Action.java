@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.form.pageUtil;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
@@ -53,6 +55,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.encounter.data.EctEChartBean;
@@ -153,8 +156,10 @@ public final class FrmSetupForm2Action extends ActionSupport {
 
         try {
             MiscUtils.getLogger().debug("formId=" + formId + "opening " + formName + ".xml");
-            // formName already validated above, safe to use in resource path
-            InputStream is = getClass().getResourceAsStream("/../../form/" + formName + ".xml");
+            // Validate the form XML file path to prevent path traversal
+            File formDir = new File(request.getSession().getServletContext().getRealPath("/form/"));
+            File validatedForm = PathValidationUtils.validatePath(formName + ".xml", formDir);
+            InputStream is = new FileInputStream(validatedForm);
             Vector measurementTypes = EctFindMeasurementTypeUtil.checkMeasurmentTypes(is, formName);
             EctMeasurementTypesBean mt;
 

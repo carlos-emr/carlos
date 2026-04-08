@@ -46,6 +46,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.DocumentBean;
 
@@ -71,11 +72,12 @@ public class DocumentTeleplanReportUploadServlet extends HttpServlet {
         String userHomePath = System.getProperty("user.home", "user.dir");
         MiscUtils.getLogger().debug(userHomePath);
 
-        File pFile = new File(userHomePath, backupfilepath + ".properties");
+        File homeDir = new File(userHomePath);
+        File pFile = PathValidationUtils.validatePath(backupfilepath + ".properties", homeDir);
 
 
         //   File pFile = new File(userHomePath, "oscar_sfhc.properties");
-        FileInputStream pStream = new FileInputStream(pFile.getPath());
+        FileInputStream pStream = new FileInputStream(pFile);
 
         Properties ap = new Properties();
         ap.load(pStream);
