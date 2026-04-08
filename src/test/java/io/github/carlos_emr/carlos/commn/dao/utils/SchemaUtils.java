@@ -132,7 +132,7 @@ public class SchemaUtils {
 
         try {
             Statement s = c.createStatement();
-            s.executeUpdate("drop database if exists " + ConfigUtils.getProperty("db_schema"));
+            s.executeUpdate("drop database if exists " + ConfigUtils.getProperty("db_schema")); // codeql[java/sql-injection] — test utility only; values from config properties, no external attack surface
         } finally {
             c.close();
         }
@@ -166,9 +166,9 @@ public class SchemaUtils {
             Statement s = c.createStatement();
 
             if (!skipDbInit) {
-                s.executeUpdate("create database " + schema + " DEFAULT CHARACTER SET utf8  DEFAULT COLLATE utf8_general_ci");
+                s.executeUpdate("create database " + schema + " DEFAULT CHARACTER SET utf8  DEFAULT COLLATE utf8_general_ci"); // codeql[java/sql-injection] — test utility only; schema from config properties
             }
-            s.executeUpdate("use " + schema);
+            s.executeUpdate("use " + schema); // codeql[java/sql-injection] — test utility only; schema from config properties
 
             runCreateTablesScript(c);
         } finally {
@@ -189,10 +189,10 @@ public class SchemaUtils {
         Connection c = getConnection();
         try {
             Statement s = c.createStatement();
-            s.executeUpdate("use " + schema);
+            s.executeUpdate("use " + schema); // codeql[java/sql-injection] — test utility only; schema from config properties
             s.executeUpdate("set foreign_key_checks = 0");
             for (int i = 0; i < tableNames.length; i++) {
-                s.executeUpdate("drop table if exists " + tableNames[i]);
+                s.executeUpdate("drop table if exists " + tableNames[i]); // codeql[java/sql-injection] — test utility only; table names from internal test code
             }
             s.executeUpdate("set foreign_key_checks = 1");
             s.close();
@@ -214,7 +214,7 @@ public class SchemaUtils {
         Connection c = getConnection();
         try {
             Statement s = c.createStatement();
-            s.executeUpdate("use " + schema);
+            s.executeUpdate("use " + schema); // codeql[java/sql-injection] — test utility only; schema from config properties
             s.executeUpdate("set foreign_key_checks = 0");
             for (int i = 0; i < tableNames.length; i++) {
                 String tableName = tableNames[i];
@@ -224,27 +224,28 @@ public class SchemaUtils {
 
                 // Drop foreign key constraints associated with tableName_maventest
                 Statement s1 = c.createStatement();
+                // codeql[java/sql-injection] — test utility only; table names from internal test code, JDBC metadata
                 ResultSet newrs = s1.executeQuery("SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE " +
                         "WHERE TABLE_NAME = '" + tableName + "_maventest" + "' AND " +
                         "CONSTRAINT_NAME LIKE 'fk_%'");
                 while (newrs.next()) {
 
                     String constraintName = newrs.getString("CONSTRAINT_NAME");
-                    s.executeUpdate("ALTER TABLE " + tableName + "_maventest" + " DROP FOREIGN KEY " + constraintName);
+                    s.executeUpdate("ALTER TABLE " + tableName + "_maventest" + " DROP FOREIGN KEY " + constraintName); // codeql[java/sql-injection] — test utility only; names from JDBC metadata
                 }
                 newrs.close();
                 s1.close();
 
-                s.executeUpdate("drop table if exists " + tableName);
+                s.executeUpdate("drop table if exists " + tableName); // codeql[java/sql-injection] — test utility only; table names from internal test code
 
                 String createTableStatement = createTableStatements.get(tableName);
                 if (createTableStatement == null) {
                     throw new IllegalStateException("Unable to locate create table statement for " + tableName + ". Please make sure that the table exists in the schema.");
                 }
-                s.executeUpdate(createTableStatement.replaceAll("_maventest", ""));
+                s.executeUpdate(createTableStatement.replaceAll("_maventest", "")); // codeql[java/sql-injection] — test utility only; DDL from captured schema
 
                 if (includeInitData)
-                    s.executeUpdate("insert into " + tableName + " select * from " + tableName + "_maventest");
+                    s.executeUpdate("insert into " + tableName + " select * from " + tableName + "_maventest"); // codeql[java/sql-injection] — test utility only; table names from internal test code
             }
             s.executeUpdate("set foreign_key_checks = 1");
             s.close();
@@ -269,25 +270,26 @@ public class SchemaUtils {
         Connection c = getConnection();
         try {
             Statement s = c.createStatement();
-            s.executeUpdate("use " + schema);
+            s.executeUpdate("use " + schema); // codeql[java/sql-injection] — test utility only; schema from config properties
             s.executeUpdate("SET foreign_key_checks = 0");
 
             // Drop foreign key constraints associated with tableName_maventest
             for (String tableName : createTableStatements.keySet()) {
                 Statement s1 = c.createStatement();
+                // codeql[java/sql-injection] — test utility only; table names from internal test code, JDBC metadata
                 ResultSet newrs = s1.executeQuery("SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE " +
                         "WHERE TABLE_NAME = '" + tableName + "_maventest" + "' AND " +
                         "CONSTRAINT_NAME LIKE 'fk_%'");
                 while (newrs.next()) {
                     String constraintName = newrs.getString("CONSTRAINT_NAME");
-                    s.executeUpdate("ALTER TABLE " + tableName + "_maventest" + " DROP FOREIGN KEY " + constraintName);
+                    s.executeUpdate("ALTER TABLE " + tableName + "_maventest" + " DROP FOREIGN KEY " + constraintName); // codeql[java/sql-injection] — test utility only; names from JDBC metadata
                 }
                 newrs.close();
                 s1.close();
 
-                s.executeUpdate("drop table if exists " + tableName);
-                s.executeUpdate(createTableStatements.get(tableName));
-                s.executeUpdate("insert into " + tableName + " select * from " + tableName + "_maventest");
+                s.executeUpdate("drop table if exists " + tableName); // codeql[java/sql-injection] — test utility only; table names from internal test code
+                s.executeUpdate(createTableStatements.get(tableName)); // codeql[java/sql-injection] — test utility only; DDL from captured schema
+                s.executeUpdate("insert into " + tableName + " select * from " + tableName + "_maventest"); // codeql[java/sql-injection] — test utility only; table names from internal test code
             }
 
             s.executeUpdate("SET foreign_key_checks = 1");
