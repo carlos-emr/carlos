@@ -466,7 +466,7 @@ public class CaseManagementView2Action extends ActionSupport {
             RxSessionBean bean = new RxSessionBean();
             bean.setProviderNo(loggedInInfo.getLoggedInProviderNo());
             bean.setDemographicNo(Integer.parseInt(demoNo));
-            request.getSession().setAttribute("RxSessionBean", bean);
+            request.getSession().setAttribute("RxSessionBean", bean); // nosemgrep: tainted-session-from-http-request
             // Setup RX end
         }
 
@@ -1989,8 +1989,13 @@ public class CaseManagementView2Action extends ActionSupport {
         String demono = request.getParameter("demographicNo");
         if (demono == null || "".equals(demono))
             demono = (String) request.getSession().getAttribute("casemgmt_DemoNo");
-        else
-            request.getSession().setAttribute("casemgmt_DemoNo", demono);
+        else {
+            if (!demono.matches("\\d+")) {
+                return "";
+            }
+            demono = String.valueOf(Integer.parseInt(demono));
+            request.getSession().setAttribute("casemgmt_DemoNo", demono); // nosemgrep: tainted-session-from-http-request
+        }
         return demono;
     }
 

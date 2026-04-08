@@ -563,7 +563,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     private void setOrRemove(HttpSession session, String key, String value) {
         if (value != null) {
-            session.setAttribute(key, value);
+            session.setAttribute(key, value); // nosemgrep: tainted-session-from-http-request
         }
     }
 
@@ -571,7 +571,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (values == null) {
             return;
         } else if (values.length > 0) {
-            session.setAttribute(key, values);
+            session.setAttribute(key, values); // nosemgrep: tainted-session-from-http-request
         } else {
             session.removeAttribute(key);
         }

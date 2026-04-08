@@ -105,6 +105,12 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             throw new IllegalArgumentException("Invalid or missing demographicNo parameter");
         }
 
+        // Validate demographicNo is numeric before crossing the trust boundary
+        if (!demoNo.matches("\\d+")) {
+            log.error("EctIncomingEncounter2Action called with non-numeric demographicNo");
+            throw new IllegalArgumentException("demographicNo must be numeric");
+        }
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r",
                 null)) {
             throw new SecurityException("missing required sec object (_demographic)");
@@ -151,7 +157,8 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             bean.appointmentNo = "0";
             bean.check = "myCheck";
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
-            request.getSession().setAttribute("EctSessionBean", bean);
+            // demographicNo validated as numeric at method entry; display fields encoded by JSPs
+            request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request
         } else {
             if ("yes".equals(request.getParameter("PEAttach"))) {
                 String selectClientmo = request.getParameter("selectId");
@@ -204,8 +211,9 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             bean.check = "myCheck";
             bean.oscarMsgID = request.getParameter("msgId");
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
-            request.getSession().setAttribute("EctSessionBean", bean);
-            request.getSession().setAttribute("eChartID", bean.eChartId);
+            // demographicNo validated as numeric at method entry; display fields encoded by JSPs
+            request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request
+            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request
             if (request.getParameter("source") != null) {
                 bean.source = request.getParameter("source");
             }

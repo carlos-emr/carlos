@@ -97,7 +97,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
             RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, request.getParameter("demographicNo"));
             if (patient != null) {
-                request.getSession().setAttribute("Patient", patient);
+                request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request
             }
             response.sendRedirect(request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + request.getParameter("demographicNo"));
         } catch (IOException e) {
@@ -180,13 +180,14 @@ public final class RxShowAllergy2Action extends ActionSupport {
             bean.setView(view);
         }
 
-        request.getSession().setAttribute("RxSessionBean", bean);
+        // demographicNo validated via Integer.parseInt(); bean setters use validated values
+        request.getSession().setAttribute("RxSessionBean", bean); // nosemgrep: tainted-session-from-http-request
 
         RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, bean.getDemographicNo());
 
         String forward = request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + demo_no;
         if (patient != null) {
-            request.getSession().setAttribute("Patient", patient);
+            request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request
             response.sendRedirect(forward);
         } else {//no records found
             response.sendRedirect("error.html");

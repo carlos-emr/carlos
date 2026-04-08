@@ -123,7 +123,8 @@ public final class RxRePrescribe2Action extends ActionSupport {
 
         String comment = rxData.getScriptComment(script_no);
 
-        request.getSession().setAttribute("tmpBeanRX", beanRX);
+        // beanRX sourced from existing session RxSessionBean; not direct request input
+        request.getSession().setAttribute("tmpBeanRX", beanRX); // nosemgrep: tainted-session-from-http-request
         request.setAttribute("rePrint", "true");
         request.setAttribute("comment", comment);
 
@@ -165,9 +166,10 @@ public final class RxRePrescribe2Action extends ActionSupport {
         }
 
         String comment = rxData.getScriptComment(script_no);
-        request.getSession().setAttribute("tmpBeanRX", beanRX);
-        request.getSession().setAttribute("rePrint", "true");
-        request.getSession().setAttribute("comment", comment);
+        // beanRX sourced from existing session RxSessionBean; comment from DB lookup
+        request.getSession().setAttribute("tmpBeanRX", beanRX); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("rePrint", "true"); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("comment", comment); // nosemgrep: tainted-session-from-http-request
         LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REPRINT, LogConst.CON_PRESCRIPTION, script_no, ip, "" + beanRX.getDemographicNo(), auditStr.toString()); // nosemgrep: tainted-session-from-http-request
 
         return null;
