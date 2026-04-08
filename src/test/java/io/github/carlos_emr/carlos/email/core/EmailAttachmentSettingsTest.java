@@ -128,6 +128,24 @@ class EmailAttachmentSettingsTest {
         }
 
         @Test
+        @DisplayName("should strip Unicode NEL character")
+        void shouldStripNEL_whenPresent() {
+            assertThat(EmailAttachmentSettings.sanitizeSubject("Line1\u0085Line2")).isEqualTo("Line1Line2");
+        }
+
+        @Test
+        @DisplayName("should strip Unicode line separator")
+        void shouldStripLineSeparator_whenPresent() {
+            assertThat(EmailAttachmentSettings.sanitizeSubject("Line1\u2028Line2")).isEqualTo("Line1Line2");
+        }
+
+        @Test
+        @DisplayName("should strip Unicode paragraph separator")
+        void shouldStripParagraphSeparator_whenPresent() {
+            assertThat(EmailAttachmentSettings.sanitizeSubject("Line1\u2029Line2")).isEqualTo("Line1Line2");
+        }
+
+        @Test
         @DisplayName("should truncate when exceeding max length")
         void shouldTruncate_whenExceedingMaxLength() {
             String longSubject = "A".repeat(250);

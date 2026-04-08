@@ -138,7 +138,8 @@ public record EmailAttachmentSettings(
     }
 
     /**
-     * Sanitizes an email subject line by stripping CR/LF characters (prevents SMTP header injection)
+     * Sanitizes an email subject line by stripping all Unicode line break sequences
+     * (CR, LF, CRLF, NEL, LS, PS — via {@code \R}) to prevent SMTP header injection,
      * and truncating to maximum length.
      *
      * @param subject the raw subject from user input
@@ -148,7 +149,7 @@ public record EmailAttachmentSettings(
         if (subject == null) {
             return null;
         }
-        subject = subject.replaceAll("[\\r\\n]", "");
+        subject = subject.replaceAll("\\R", "");
         if (subject.length() > MAX_SUBJECT_LENGTH) {
             subject = subject.substring(0, MAX_SUBJECT_LENGTH);
         }
