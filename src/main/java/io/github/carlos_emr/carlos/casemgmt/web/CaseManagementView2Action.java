@@ -345,7 +345,7 @@ public class CaseManagementView2Action extends ActionSupport {
             try {
                 admission = admissionMgr.getCurrentAdmission(programId, Integer.valueOf(demoNo));
             } catch (Exception e) {
-                logger.debug("No admission found for programId: " + programId + " and demoNo: " + demoNo + " - " + e.getMessage());
+                logger.debug("No admission found for programId: {} and demoNo: {} - {}", LogSanitizer.sanitize(programId), LogSanitizer.sanitize(demoNo), e.getMessage());
             }
         } else {
             logger.debug("No valid programId available - skipping admission lookup");
@@ -383,7 +383,7 @@ public class CaseManagementView2Action extends ActionSupport {
                 try {
                     ps = programMgr.getProgramProviders(programId);
                 } catch (Exception e) {
-                    logger.debug("Unable to get program providers for programId: " + programId + " - " + e.getMessage());
+                    logger.debug("Unable to get program providers for programId: {} - {}", LogSanitizer.sanitize(programId), e.getMessage());
                 }
             }
             current = System.currentTimeMillis();
@@ -608,7 +608,7 @@ public class CaseManagementView2Action extends ActionSupport {
 
         // not sure what everything else is after this
         String resetFilter = request.getParameter("resetFilter");
-        logger.debug("RESET FILTER " + resetFilter);
+        logger.debug("RESET FILTER {}", LogSanitizer.sanitize(resetFilter));
         if (resetFilter != null && resetFilter.equals("true")) {
             logger.debug("CASEMGMTVIEW RESET FILTER");
             this.setFilter_providers(null);
@@ -708,7 +708,7 @@ public class CaseManagementView2Action extends ActionSupport {
 
         startTime = System.currentTimeMillis();
         String resetFilter = request.getParameter("resetFilter");
-        logger.debug("RESET FILTER " + resetFilter);
+        logger.debug("RESET FILTER {}", LogSanitizer.sanitize(resetFilter));
         if (resetFilter != null && resetFilter.equals("true")) {
             logger.debug("CASEMGMTVIEW RESET FILTER");
             this.setFilter_providers(null);
@@ -918,10 +918,10 @@ public class CaseManagementView2Action extends ActionSupport {
     private static boolean hasRole(List<SecUserRole> roles, String role) {
         if (roles == null) return (false);
 
-        logger.debug("Note Role : " + role);
+        logger.debug("Note Role : {}", LogSanitizer.sanitize(role));
 
         for (SecUserRole roleTmp : roles) {
-            logger.debug("Provider Roles : " + roleTmp.getRoleName());
+            logger.debug("Provider Roles : {}", LogSanitizer.sanitize(roleTmp.getRoleName()));
             if (roleTmp.getRoleName().equals(role)) return (true);
         }
 
@@ -976,7 +976,7 @@ public class CaseManagementView2Action extends ActionSupport {
             for (GroupNoteLink link : links) {
                 int noteId = link.getNoteId();
                 List<CaseManagementIssue> issues = this.caseManagementMgr.getIssuesByNote(noteId);
-                logger.warn("we are doing nothing with this: " + issues);
+                logger.warn("we are doing nothing with this: {}", LogSanitizer.sanitize(String.valueOf(issues)));
             }
         } catch (Exception e) {
             logger.error("Unexpected error.", e);
@@ -1110,8 +1110,8 @@ public class CaseManagementView2Action extends ActionSupport {
         notes = caseManagementMgr.getActiveNotes(demoNo, issueIds);
         notes = manageLockedNotes(notes, true, this.getUnlockedNotesMap(request));
 
-        logger.debug("FETCHED " + notes.size() + " NOTES filtered by " + StringUtils.join(issueIds, ","));
-        logger.debug("REFERER " + request.getRequestURL().toString() + "?" + request.getQueryString());
+        logger.debug("FETCHED {} NOTES filtered by {}", notes.size(), LogSanitizer.sanitize(StringUtils.join(issueIds, ",")));
+        logger.debug("REFERER {}?{}", LogSanitizer.sanitize(request.getRequestURL().toString()), LogSanitizer.sanitize(request.getQueryString()));
 
         String programId = (String) request.getSession().getAttribute("case_program_id");
 
@@ -1194,7 +1194,7 @@ public class CaseManagementView2Action extends ActionSupport {
     }
 
     private List<CaseManagementNote> sortNotes_old(Collection<CaseManagementNote> notes, String field) {
-        logger.debug("Sorting notes by field: " + field);
+        logger.debug("Sorting notes by field: {}", LogSanitizer.sanitize(field));
 
         ArrayList<CaseManagementNote> resultsSorted = new ArrayList<CaseManagementNote>(notes);
 
@@ -1223,7 +1223,7 @@ public class CaseManagementView2Action extends ActionSupport {
     }
 
     private ArrayList<NoteDisplay> sortNotes(ArrayList<NoteDisplay> notes, String field) {
-        logger.debug("Sorting notes by field: " + field);
+        logger.debug("Sorting notes by field: {}", LogSanitizer.sanitize(field));
 
         if (field == null || field.equals("") || field.equals("update_date")) {
             return notes;
@@ -1649,15 +1649,15 @@ public class CaseManagementView2Action extends ActionSupport {
         }
 
         if (logger.isDebugEnabled()) {
-            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: " + criteria);
+            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: {}", LogSanitizer.sanitize(String.valueOf(criteria)));
         }
 
         NoteSelectionResult result = noteService.findNotes(loggedInInfo, criteria);
 
         if (logger.isDebugEnabled()) {
-            logger.debug("FOUND: " + result);
+            logger.debug("FOUND: {}", LogSanitizer.sanitize(String.valueOf(result)));
             for (NoteDisplay nd : result.getNotes()) {
-                logger.debug("   " + nd.getClass().getSimpleName() + " " + nd.getNoteId() + " " + nd.getNote());
+                logger.debug("   {} noteId={}", nd.getClass().getSimpleName(), nd.getNoteId());
             }
         }
 
