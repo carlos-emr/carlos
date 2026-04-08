@@ -259,6 +259,14 @@ class LoginFilterUnitTest {
             assertThat(filter.inListOfExemptions(
                     CONTEXT_PATH + "/ws/service;v=1.0", CONTEXT_PATH, exemptUrls)).isTrue();
         }
+
+        @Test
+        @DisplayName("should match exempt URL with path parameters in multiple segments")
+        void shouldMatchExemptUrl_withPathParametersInMultipleSegments() {
+            String[] exemptUrls = {"/ws/"};
+            assertThat(filter.inListOfExemptions(
+                    CONTEXT_PATH + "/ws;param1=a/service;param2=b", CONTEXT_PATH, exemptUrls)).isTrue();
+        }
     }
 
     @Nested
@@ -323,6 +331,13 @@ class LoginFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should strip path parameters from multiple segments")
+        void shouldStripPathParameters_fromMultipleSegments() {
+            assertThat(LoginFilter.normalizeUri("/carlos/ws;param1=a/service;param2=b"))
+                    .isEqualTo("/carlos/ws/service");
+        }
+
+        @Test
         @DisplayName("should collapse repeated slashes")
         void shouldCollapseRepeatedSlashes() {
             assertThat(LoginFilter.normalizeUri("//carlos///login.do"))
@@ -341,6 +356,13 @@ class LoginFilterUnitTest {
         void shouldResolveSingleDotSegments() {
             assertThat(LoginFilter.normalizeUri("/carlos/./login.do"))
                     .isEqualTo("/carlos/login.do");
+        }
+
+        @Test
+        @DisplayName("should preserve trailing slash")
+        void shouldPreserveTrailingSlash() {
+            assertThat(LoginFilter.normalizeUri("/carlos/ws/"))
+                    .isEqualTo("/carlos/ws/");
         }
 
         @Test

@@ -433,11 +433,12 @@ public class LoginFilter implements Filter {
             return uri;
         }
 
-        // Strip path parameters (;jsessionid=..., ;v=1.0, etc.)
-        int semiIdx = uri.indexOf(';');
-        if (semiIdx >= 0) {
-            uri = uri.substring(0, semiIdx);
-        }
+        // Strip path parameters from each segment (;jsessionid=..., ;v=1.0, etc.)
+        // Uses per-segment stripping so /ws;p=1/service;p=2 → /ws/service
+        uri = uri.replaceAll(";[^/]*", "");
+
+        // Remember if URI had a trailing slash (important for directory matching)
+        boolean hadTrailingSlash = uri.endsWith("/") && uri.length() > 1;
 
         // Collapse consecutive slashes (e.g., //admin///page.jsp → /admin/page.jsp)
         uri = uri.replaceAll("/+", "/");
@@ -465,6 +466,12 @@ public class LoginFilter implements Filter {
                 normalized.append('/');
             }
         }
+
+        // Preserve trailing slash for directory-style URIs
+        if (hadTrailingSlash && normalized.length() > 1 && normalized.charAt(normalized.length() - 1) != '/') {
+            normalized.append('/');
+        }
+
         return normalized.toString();
     }
 
