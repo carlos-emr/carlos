@@ -56,7 +56,7 @@
     - updateParent:         Whether to update the parent encounter window (true/false)
     - recall:               If present, intended to mark this as a recall tickler.
                             NOTE: This parameter is currently read but not yet
-                            propagated to the tickler model. See dbTicklerAdd.jsp.
+                            propagated to the tickler model. See DbTicklerAdd2Action.
     - docType:              Optional document type for linking
     - docId:                Optional document ID for linking
 
@@ -538,9 +538,9 @@
 
                 // Set form action based on mode
                 if (writeToEncounter) {
-                    form.action = "<%= request.getContextPath() %>/tickler/dbTicklerAdd.jsp?writeToEncounter=true";
+                    form.action = "<%= request.getContextPath() %>/tickler/DbTicklerAdd.do?writeToEncounter=true";
                 } else {
-                    form.action = "<%= request.getContextPath() %>/tickler/dbTicklerAdd.jsp";
+                    form.action = "<%= request.getContextPath() %>/tickler/DbTicklerAdd.do";
                 }
                 form.target = 'ticklerSubmitFrame';
                 form.submit();
@@ -710,7 +710,7 @@
                 </tr>
             </table>
         </form>
-        <form name="serviceform" method="post" action="<%=request.getContextPath()%>/tickler/dbTicklerAdd.jsp">
+        <form name="serviceform" method="post" action="<%=request.getContextPath()%>/tickler/DbTicklerAdd.do">
             <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>">
             <input type="hidden" name="updateParent" value="<%=Encode.forHtmlAttribute(updateParent)%>">
             <input type="hidden" name="writeToEncounter" value="<%=Encode.forHtmlAttribute(writeToEncounter.toString())%>">
