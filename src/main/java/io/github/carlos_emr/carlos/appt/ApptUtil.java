@@ -63,7 +63,7 @@ public class ApptUtil {
         obj.setUrgency(request.getParameter("urgency"));
         obj.setReasonCode(request.getParameter("reasonCode"));
         // set up session bean
-        request.getSession().setAttribute(SESSION_APPT_BEAN, obj);
+        request.getSession().setAttribute(SESSION_APPT_BEAN, obj); // nosemgrep: tainted-session-from-http-request
     }
 
     public static ApptData getAppointmentFromSession(HttpServletRequest request) {

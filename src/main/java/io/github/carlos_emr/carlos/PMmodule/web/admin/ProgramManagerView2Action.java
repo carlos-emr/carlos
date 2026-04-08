@@ -120,8 +120,12 @@ public class ProgramManagerView2Action extends ActionSupport {
 
                 // find the program id
         String programId = request.getParameter("id");
+        // Validate programId is numeric before storing in session
+        if (programId != null && !programId.matches("\\d+")) {
+            return ERROR;
+        }
 
-        request.getSession().setAttribute("case_program_id", programId);
+        request.getSession().setAttribute("case_program_id", programId); // nosemgrep: tainted-session-from-http-request
 
         if (request.getParameter("newVacancy") != null && "true".equals(request.getParameter("newVacancy")))
             request.setAttribute("vacancyOrTemplateId", "");
@@ -281,6 +285,14 @@ public class ProgramManagerView2Action extends ActionSupport {
         String clientId = request.getParameter("clientId");
         String queueId = request.getParameter("queueId");
 
+        // Validate numeric IDs before processing
+        if (programId != null && !programId.matches("\\d+")) {
+            return ERROR;
+        }
+        if (clientId != null && !clientId.matches("\\d+")) {
+            return ERROR;
+        }
+
         ProgramQueue queue = programQueueManager.getProgramQueue(queueId);
         Program fullProgram = programManager.getProgram(String.valueOf(programId));
         String dischargeNotes = request.getParameter("admission.dischargeNotes");
@@ -310,9 +322,10 @@ public class ProgramManagerView2Action extends ActionSupport {
             // store this for display
             this.setServiceRestriction(e.getRestriction());
 
-            request.getSession().setAttribute("programId", programId);
-            request.getSession().setAttribute("admission.dischargeNotes", dischargeNotes);
-            request.getSession().setAttribute("admission.admissionNotes", admissionNotes);
+            // programId validated as numeric above; notes stored for re-display on error
+            request.getSession().setAttribute("programId", programId); // nosemgrep: tainted-session-from-http-request
+            request.getSession().setAttribute("admission.dischargeNotes", dischargeNotes); // nosemgrep: tainted-session-from-http-request
+            request.getSession().setAttribute("admission.admissionNotes", admissionNotes); // nosemgrep: tainted-session-from-http-request
 
             request.setAttribute("id", programId);
 

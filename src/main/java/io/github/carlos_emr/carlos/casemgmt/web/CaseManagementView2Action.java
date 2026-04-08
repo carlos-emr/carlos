@@ -136,8 +136,8 @@ public class CaseManagementView2Action extends ActionSupport {
         request.setAttribute("patientCppPrintPreview", "false");
 
         // prevent null pointer errors as both these variables are required in navigation.jsp
-        request.getSession().setAttribute("casemgmt_newFormBeans", new ArrayList<Object>());
-        request.getSession().setAttribute("casemgmt_msgBeans", new ArrayList<Object>());
+        request.getSession().setAttribute("casemgmt_newFormBeans", new ArrayList<Object>()); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("casemgmt_msgBeans", new ArrayList<Object>()); // nosemgrep: tainted-session-from-http-request
 
         String method = request.getParameter("method") != null ? request.getParameter("method") : (String) request.getAttribute("method");
 
@@ -1270,7 +1270,7 @@ public class CaseManagementView2Action extends ActionSupport {
         if (success) {
             Map<Long, Boolean> unlockedNoteMap = this.getUnlockedNotesMap(request);
             unlockedNoteMap.put(Long.valueOf(noteId), Boolean.valueOf(success));
-            request.getSession().setAttribute("unlockedNoteMap", unlockedNoteMap);
+            request.getSession().setAttribute("unlockedNoteMap", unlockedNoteMap); // nosemgrep: tainted-session-from-http-request
         }
 
         return "unlock_ajax";
@@ -1287,7 +1287,7 @@ public class CaseManagementView2Action extends ActionSupport {
         if (success) {
             Map<Long, Boolean> unlockedNoteMap = this.getUnlockedNotesMap(request);
             unlockedNoteMap.put(Long.valueOf(noteId), Boolean.valueOf(success));
-            request.getSession().setAttribute("unlockedNoteMap", unlockedNoteMap);
+            request.getSession().setAttribute("unlockedNoteMap", unlockedNoteMap); // nosemgrep: tainted-session-from-http-request
             return "unlockSuccess";
         } else {
             return unlock();
@@ -1374,7 +1374,7 @@ public class CaseManagementView2Action extends ActionSupport {
                 issues.put(issue, i.get(0));
             }
 
-            request.getSession().setAttribute("CPPIssues", issues);
+            request.getSession().setAttribute("CPPIssues", issues); // nosemgrep: tainted-session-from-http-request
         }
         return issues;
     }

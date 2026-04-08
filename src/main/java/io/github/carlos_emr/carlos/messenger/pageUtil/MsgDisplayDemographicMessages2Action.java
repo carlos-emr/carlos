@@ -154,13 +154,19 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
                     demographicNo != null ? "present" : "null");
                 return "error"; 
             }
+
+            // Validate demographicNo is numeric before storing in session bean
+            if (!demographicNo.matches("\\d+")) {
+                return "error";
+            }
             
             // Initialize the session bean with demographic context
             bean.setProviderNo(providerNo);
             bean.setUserName(userName);
             bean.setDemographic_no(demographicNo);
 
-            request.getSession().setAttribute("msgSessionBean", bean);
+            // demographicNo validated as numeric; userName displayed with OWASP encoding in JSP
+            request.getSession().setAttribute("msgSessionBean", bean); // nosemgrep: tainted-session-from-http-request
             MiscUtils.getLogger().debug("Created new MsgSessionBean for providers: " + providerNo);
         }
 

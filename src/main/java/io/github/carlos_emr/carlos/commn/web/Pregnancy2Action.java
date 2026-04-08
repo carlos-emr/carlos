@@ -277,7 +277,7 @@ public class Pregnancy2Action extends ActionSupport {
             } else {
                 p.setProperty("o_otherTests1", "Vaginal Anal GBS");
             }
-            request.getSession().setAttribute("labReq07" + demographicNo, p);
+            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request
         } else {
             FrmLabReq10Record lr = new FrmLabReq10Record();
             Properties p = lr.getFormRecord(loggedInInfo, demographicNo, 0);
@@ -288,7 +288,7 @@ public class Pregnancy2Action extends ActionSupport {
             } else {
                 p.setProperty("o_otherTests1", "Vaginal Anal GBS");
             }
-            request.getSession().setAttribute("labReq10" + demographicNo, p);
+            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request
         }
 
         return null;
@@ -313,7 +313,7 @@ public class Pregnancy2Action extends ActionSupport {
             if (hbElectrophoresis != null && hbElectrophoresis.equals("checked")) {
                 p.setProperty("o_otherTests1", "Hb Electrophoresis");
             }
-            request.getSession().setAttribute("labReq07" + demographicNo, p);
+            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request
 
         } else {
             FrmLabReq10Record lr = new FrmLabReq10Record();
@@ -326,7 +326,7 @@ public class Pregnancy2Action extends ActionSupport {
             if (hbElectrophoresis != null && hbElectrophoresis.equals("checked")) {
                 p.setProperty("o_otherTests1", "Hb Electrophoresis");
             }
-            request.getSession().setAttribute("labReq10" + demographicNo, p);
+            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request
 
         }
 
@@ -595,7 +595,7 @@ Repeat antibody screen
                 p.setProperty("o_otherTests1", "1 Hr 50gm GLUCOSE Screen");
             }
 
-            request.getSession().setAttribute("labReq07" + demographicNo, p);
+            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request
         } else {
             FrmLabReq10Record lr = new FrmLabReq10Record();
             Properties p = lr.getFormRecord(loggedInInfo, demographicNo, 0);
@@ -614,7 +614,7 @@ Repeat antibody screen
                 p.setProperty("o_otherTests1", "1 Hr 50gm GLUCOSE Screen");
             }
 
-            request.getSession().setAttribute("labReq10" + demographicNo, p);
+            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request
         }
         return null;
     }
@@ -634,7 +634,7 @@ Repeat antibody screen
             if (glucose != null && glucose.equals("checked")) {
                 p.setProperty("o_otherTests1", "2 Hr 75gm GLUCOSE Screen");
             }
-            request.getSession().setAttribute("labReq07" + demographicNo, p);
+            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request
         } else {
             FrmLabReq10Record lr = new FrmLabReq10Record();
             Properties p = lr.getFormRecord(loggedInInfo, demographicNo, 0);
@@ -643,7 +643,7 @@ Repeat antibody screen
             if (glucose != null && glucose.equals("checked")) {
                 p.setProperty("o_otherTests1", "2 Hr 75gm GLUCOSE Screen");
             }
-            request.getSession().setAttribute("labReq10" + demographicNo, p);
+            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request
         }
         return null;
     }

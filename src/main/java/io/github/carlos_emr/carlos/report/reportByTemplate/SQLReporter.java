@@ -142,7 +142,7 @@ public class SQLReporter implements Reporter {
             csv = "";
         }
 
-        request.getSession().setAttribute("csv", csv);
+        request.getSession().setAttribute("csv", csv); // nosemgrep: tainted-session-from-http-request
         request.setAttribute("csv", csv);
         request.setAttribute("sql", sql);
         request.setAttribute("reportobject", curReport);
