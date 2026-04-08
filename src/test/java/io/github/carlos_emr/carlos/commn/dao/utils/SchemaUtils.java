@@ -276,10 +276,9 @@ public class SchemaUtils {
             // Drop foreign key constraints associated with tableName_maventest
             for (String tableName : createTableStatements.keySet()) {
                 Statement s1 = c.createStatement();
-                // codeql[java/sql-injection] — test utility only; table names from internal test code, JDBC metadata
                 ResultSet newrs = s1.executeQuery("SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE " +
                         "WHERE TABLE_NAME = '" + tableName + "_maventest" + "' AND " +
-                        "CONSTRAINT_NAME LIKE 'fk_%'");
+                        "CONSTRAINT_NAME LIKE 'fk_%'"); // codeql[java/sql-injection] — test utility only; table names from internal test code, JDBC metadata
                 while (newrs.next()) {
                     String constraintName = newrs.getString("CONSTRAINT_NAME");
                     s.executeUpdate("ALTER TABLE " + tableName + "_maventest" + " DROP FOREIGN KEY " + constraintName); // codeql[java/sql-injection] — test utility only; names from JDBC metadata
