@@ -1,5 +1,4 @@
 <%--
-
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
@@ -16,34 +15,20 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
+<%--
+    dbManageBillingform_delete.jsp (WEB-INF view)
 
+    View fragment for DbManageBillingformDelete2Action (ON billing).
+    Submits the parent window's service form and closes the popup.
 
-<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat" %>
-
-
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao" %>
-<%
-    CtlBillingServicePremiumDao dao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
-%>
-<%
-    String temp;
-    int recordAffected = -100;
-    for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
-        temp = e.nextElement().toString();
-        if (temp.indexOf("service") == -1) continue;
-
-        for (CtlBillingServicePremium b : dao.findByServiceCode(request.getParameter(temp))) {
-            dao.remove(b.getId());
-        }
-    }
-
-    response.sendRedirect("manageBillingform.jsp");
-%>
+    @since 2026-04-05
+--%>
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<script language="JavaScript">
+    opener.document.serviceform.submit();
+    self.close();
+</script>

@@ -87,7 +87,7 @@
 
             function valid(form) {
                 if (validateServiceType(form)) {
-                    form.action = "<%= request.getContextPath() %>/billing/dbManageBillingform_add.jsp"
+                    form.action = "<%= request.getContextPath() %>/billing/DbManageBillingformAdd.do"
                     form.submit()
                 } else {
                 }
@@ -112,9 +112,28 @@
                 }
             }
 
-            function onUnbilled(url) {
+            function postToPopup(action, params, winName, w, h) {
+                var form = document.createElement('form');
+                form.method = 'POST';
+                form.action = action;
+                form.target = winName;
+                for (var key in params) {
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = params[key];
+                    form.appendChild(input);
+                }
+                window.open('', winName, 'width=' + w + ',height=' + h);
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form);
+            }
+
+            function onUnbilled(servicetype) {
                 if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform.msgDeleteBillingConfirm"/>")) {
-                    popupPage(700, 720, url);
+                    postToPopup('<%= request.getContextPath() %>/billing/DbManageBillingformDelete.do',
+                        {servicetype: servicetype}, 'deletePopup', 700, 720);
                 }
             }
 

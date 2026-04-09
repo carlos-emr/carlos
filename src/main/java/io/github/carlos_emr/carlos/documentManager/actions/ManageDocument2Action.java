@@ -225,7 +225,7 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("Invalid demographic number");
         }
 
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr(), demog);
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr(), demog); // nosemgrep: tainted-session-from-http-request
 
         String[] flagproviders = request.getParameterValues("flagproviders");
         // String demoLink=request.getParameter("demoLink");
@@ -437,7 +437,7 @@ public class ManageDocument2Action extends ActionSupport {
             return "error";
         }
 
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr());
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
 
         String demog = request.getParameter("demog");
 
@@ -746,8 +746,8 @@ public class ManageDocument2Action extends ActionSupport {
     public void getPage(int pageNum) {
 
         String doc_no = request.getParameter("doc_no");
-        log.debug("Document No :{}", LogSanitizer.sanitize(doc_no)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+        log.debug("Document No :{}", LogSanitizer.sanitize(doc_no));
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
         Document d = documentDao.getDocument(doc_no);
 
         log.debug("Document Name :{}", LogSanitizer.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
@@ -784,8 +784,8 @@ public class ManageDocument2Action extends ActionSupport {
             pageNum = "1";
         }
         Integer pn = Integer.parseInt(pageNum);
-        log.debug("Document No :{}", LogSanitizer.sanitize(doc_no)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+        log.debug("Document No :{}", LogSanitizer.sanitize(doc_no));
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
 
         Document d = documentDao.getDocument(doc_no);
         if (d == null) {
@@ -886,9 +886,9 @@ public class ManageDocument2Action extends ActionSupport {
 
         CtlDocument ctld = ctlDocumentDao.getCtrlDocument(Integer.parseInt(doc_no));
         if (ctld.isDemographicDocument()) {
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr(), "" + ctld.getId().getModuleId());
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr(), "" + ctld.getId().getModuleId()); // nosemgrep: tainted-session-from-http-request
         } else {
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
         }
 
         Document d = documentDao.getDocument(doc_no);
@@ -1175,7 +1175,7 @@ public class ManageDocument2Action extends ActionSupport {
             }
             newDoc.setNumberOfPages(numberOfPages);
             doc_no = EDocUtil.addDocumentSQL(newDoc);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
 
 
             if (flagproviders != null && flagproviders.length > 0) {
@@ -1699,7 +1699,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         List<String> descriptions = documentDao.findDocumentDescriptions(keyword);
 
-        LogAction.addLogSynchronous((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, "document_description_lookup", request.getRemoteAddr());
+        LogAction.addLogSynchronous((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, "document_description_lookup", request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
 
         com.fasterxml.jackson.databind.node.ArrayNode jsonArray = objectMapper.createArrayNode();
         for (String desc : descriptions) {

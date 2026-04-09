@@ -16,6 +16,7 @@
 <%@ page errorPage="/errorpage.jsp" import="java.util.*" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%
     int nS = 1;
     int nE = 10;
@@ -79,14 +80,14 @@
                 <% if(cfgGraphic.length>1) {%>
                 document.all.growth.action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<%=Encode.forJavaScript(Encode.forUriComponent(cfgGraphic[0]))%>&__cfgGraphicFile=<%=Encode.forJavaScript(Encode.forUriComponent(cfgGraphic[1]))%>";
                 <% }else{%>
-                document.all.growth.action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<%=Encode.forJavaScript(Encode.forUriComponent(request.getParameter("__cfgGraphicFile")))%>";
+                document.all.growth.action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.defaultString(request.getParameter("__cfgGraphicFile"))))%>";
                 <% }%>
                 document.all.growth.submit();
             } else {
                 <% if(cfgGraphic.length>1) {%>
                 document.getElementById('growth').action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<%=Encode.forJavaScript(Encode.forUriComponent(cfgGraphic[0]))%>&__cfgGraphicFile=<%=Encode.forJavaScript(Encode.forUriComponent(cfgGraphic[1]))%>";
                 <% }else{%>
-                document.getElementById('growth').action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<%=Encode.forJavaScript(Encode.forUriComponent(request.getParameter("__cfgGraphicFile")))%>";
+                document.getElementById('growth').action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.defaultString(request.getParameter("__cfgGraphicFile"))))%>";
                 <% }%>
                 document.getElementById('growth').submit();
             }
