@@ -85,13 +85,13 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
 
-        // Make SpringUtils lenient so that static field initializers in EFormUtil, EForm, etc.
-        // can call getBean() for any class without explicit registration
-        springUtilsMock.when(() -> SpringUtils.getBean(any(Class.class)))
-            .thenAnswer(invocation -> {
-                Class<?> clazz = invocation.getArgument(0);
-                return mockedBeans.computeIfAbsent(clazz, Mockito::mock);
-            });
+        // Explicitly register only the Spring beans this test expects to use.
+        // This preserves CarlosUnitTestBase's fail-fast behavior for any newly
+        // introduced dependencies in AddEForm2Action or related code paths.
+        registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        registerMock(EformDataManager.class, mockEformDataManager);
+        registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
+        registerMock(EmailManager.class, mockEmailManager);
 
         // Mock static contexts
         servletActionContextMock = mockStatic(ServletActionContext.class);
