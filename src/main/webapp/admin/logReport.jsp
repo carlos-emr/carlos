@@ -83,7 +83,7 @@
     } else {
         sql = "select * from provider p order by p.first_name, p.last_name ";
     }
-    ResultSet rs = isSiteAccessPrivacy ? dbObj.queryResults(sql, curUser_no) : dbObj.queryResults(sql);
+    ResultSet rs = isSiteAccessPrivacy ? dbObj.queryResults(sql, new String[]{curUser_no}) : dbObj.queryResults(sql);
 
     while (rs.next()) {
         propName.setProperty(Misc.getString(rs, "provider_no"), Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name"));
