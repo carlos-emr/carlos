@@ -96,7 +96,9 @@ public class ProgramManagerView2Action extends ActionSupport {
 
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_pmm_management", "r", null)) {
-            throw new SecurityException("missing required sec object (_pmm_management)");
+            logger.warn("Unauthorized access attempt to ProgramManagerView2Action");
+            addActionError("You are not authorized to perform this action.");
+            return ERROR;
         }
 
         String method = request.getParameter("method");
