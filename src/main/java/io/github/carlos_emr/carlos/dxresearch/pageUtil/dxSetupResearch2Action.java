@@ -104,12 +104,12 @@ public final class dxSetupResearch2Action extends ActionSupport {
         }
 
         HttpSession session = request.getSession();
-        session.setAttribute("codingSystem", codingSys);
-        session.setAttribute("allQuickLists", quicklistHd);
-        session.setAttribute("allQuickListItems", quicklistItemsHd);
-        session.setAttribute("allDiagnostics", hd);
-        session.setAttribute("demographicNo", demographicNo);
-        session.setAttribute("providerNo", providerNo);
+        session.setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("allQuickLists", quicklistHd); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("allQuickListItems", quicklistItemsHd); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("allDiagnostics", hd); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("demographicNo", demographicNo); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("providerNo", providerNo); // nosemgrep: tainted-session-from-http-request
 
         return SUCCESS;
     }

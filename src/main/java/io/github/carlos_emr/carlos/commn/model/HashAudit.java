@@ -30,6 +30,7 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -46,6 +47,7 @@ public class HashAudit extends AbstractModel<Integer> {
 
     public final static String NOTE = "enc";
     public final static String ALGORITHM = "MD5";
+    private static final HexFormat HEX_FORMAT = HexFormat.of();
 
 
     @Id
@@ -121,12 +123,7 @@ public class HashAudit extends AbstractModel<Integer> {
             MessageDigest digest = MessageDigest.getInstance(ALGORITHM);
             digest.update(input);
             byte[] bHash = digest.digest();
-            StringBuilder tmp = new StringBuilder();
-            for (int i = 0; i < bHash.length; ++i) {
-                tmp.append(Integer.toHexString((bHash[i] >>> 4) & 0x0F));
-                tmp.append(Integer.toHexString(bHash[i] & 0x0F));
-            }
-            setSignature(tmp.toString());
+            setSignature(HEX_FORMAT.formatHex(bHash));
         } catch (NoSuchAlgorithmException e) {
             MiscUtils.getLogger().error("Error", e);
         }

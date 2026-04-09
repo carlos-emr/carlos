@@ -37,7 +37,6 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

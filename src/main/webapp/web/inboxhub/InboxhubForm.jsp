@@ -21,7 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <%@ page import="org.apache.logging.log4j.Logger" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -403,7 +403,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     var currentFetchRequest = null;
     var inboxSearchFormData = "";
     var filter = "";
-    var contextPath = "<e:forJavaScript value='${pageContext.request.contextPath}' />";
     var searchProviderNo = "<e:forJavaScript value='${sessionScope.user}' />";
 
     jQuery(document).ready( function() {

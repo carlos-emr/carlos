@@ -94,7 +94,7 @@
             </h4>
             </div>
 
-        <form name="form1" action="dbManageProvider.jsp" method="post">
+        <form name="form1" action="DbManageProvider.do" method="post">
             <table class="table table-hover table-sm table-striped">
                 <thead>
                 <tr>
