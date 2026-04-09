@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrint;
 import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
 import io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction.IssueDisplay;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -96,6 +97,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private IssueDAO issueDao = (IssueDAO) SpringUtils.getBean(IssueDAO.class);
     private CasemgmtNoteLockDao casemgmtNoteLockDao = SpringUtils.getBean(CasemgmtNoteLockDao.class);
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -117,9 +119,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
-            String message = "Illegal operation! Empty user session. LoggedInInfo " + loggedInInfo + " request " + request.getQueryString();
-            logger.error(message);
+            logger.error("Illegal operation! Empty user session");
             return null;
+        }
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required security object (_demographic)");
         }
 
         restoreFromSession();
@@ -302,7 +307,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String forceNote = request.getParameter("forceNote");
         if (forceNote == null) forceNote = "false";
 
-        logger.debug("NoteId " + nId);
+        logger.debug("NoteId {}", LogSanitizer.sanitize(nId));
 
         String maxTmpSave = CarlosProperties.getInstance().getProperty("maxTmpSave", "off");
         logger.debug("maxTmpSave " + maxTmpSave);
@@ -384,8 +389,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         // get an existing non-temp note?
         else if (nId != null && !"null".equalsIgnoreCase(nId) && Integer.parseInt(nId) > 0) {
-            logger.debug("Using nId " + nId + " to fetch note");
-            session.setAttribute("newNote", "false"); // nosemgrep: tainted-session-from-http-request
+            logger.debug("Using nId {} to fetch note", LogSanitizer.sanitize(nId));
+            session.setAttribute("newNote", "false");
             note = caseManagementMgr.getNote(nId);
 
             if (note.getHistory() == null || note.getHistory().equals("")) {
@@ -416,8 +421,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         /*
          * do the restore if(restore != null && restore.booleanValue() == true) { String tmpsavenote = this.caseManagementMgr.restoreTmpSave(providerNo,demono,programId); if(tmpsavenote != null) { note.setNote(tmpsavenote); } }
          */
-        logger.debug("Set Encounter Type: " + note.getEncounter_type());
-        logger.debug("Fetched Note " + String.valueOf(note.getId()));
+        logger.debug("Set Encounter Type: {}", LogSanitizer.sanitize(note.getEncounter_type()));
+        logger.debug("Fetched Note {}", LogSanitizer.sanitize(note.getId()));
 
         logger.debug("Populate Note with editors");
         this.caseManagementMgr.getEditors(note);
@@ -676,6 +681,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     //Change IP Address and Session Id of note lock
     public String updateNoteLock() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            logger.error("updateNoteLock: empty user session");
+            return null;
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
+            throw new SecurityException("missing required security object (_demographic)");
+        }
+
         String demoNo = getDemographicNo(request);
         String noteId = request.getParameter("noteId");
         HttpSession session = request.getSession();
@@ -695,7 +709,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         casemgmtNoteLock.setIpAddress(request.getRemoteAddr());
         String currentSessionId = request.getSession().getId();
         casemgmtNoteLock.setSessionId(currentSessionId);
-        logger.debug("UPDATING LOCK DEMO " + demoNo + " LOCK IP " + casemgmtNoteLock.getIpAddress());
+        logger.debug("UPDATING LOCK DEMO {} LOCK IP {}", LogSanitizer.sanitize(demoNo), LogSanitizer.sanitize(casemgmtNoteLock.getIpAddress()));
         casemgmtNoteLockDao.merge(casemgmtNoteLock);
 
         session.setAttribute("casemgmtNoteLock" + demoNo, casemgmtNoteLock); // nosemgrep: tainted-session-from-http-request
@@ -733,7 +747,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String archived = request.getParameter("archived");
 
         if (!hasNoteLock(demographicNo)) {
-            logger.debug("issueNoteSaveJson rejected: no valid lock for demographic {}", demographicNo);
+            logger.debug("issueNoteSaveJson rejected: no valid lock for demographic {}", LogSanitizer.sanitize(demographicNo));
             return null;
         }
 
@@ -818,7 +832,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                         appointmentDao.merge(appointment);
                     }
                 } catch (Exception e) {
-                    logger.error("Couldn't parse appointmentNo: " + appointmentNo, e);
+                    logger.error("Couldn't parse appointmentNo: {}", LogSanitizer.sanitize(appointmentNo), e);
                 }
             }
         } else if (!note.isSigned() && (archived == null || !archived.equalsIgnoreCase("true"))) {
@@ -896,7 +910,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String[] extNames = {"startdate", "resolutiondate", "proceduredate", "ageatonset", "problemstatus", "treatment", "exposuredetail", "relationship", "lifestage", "hidecpp", "problemdescription", "procedure"};
         String[] extKeys = {CaseManagementNoteExt.STARTDATE, CaseManagementNoteExt.RESOLUTIONDATE, CaseManagementNoteExt.PROCEDUREDATE, CaseManagementNoteExt.AGEATONSET, CaseManagementNoteExt.PROBLEMSTATUS, CaseManagementNoteExt.TREATMENT, CaseManagementNoteExt.EXPOSUREDETAIL, CaseManagementNoteExt.RELATIONSHIP, CaseManagementNoteExt.LIFESTAGE, CaseManagementNoteExt.HIDECPP, CaseManagementNoteExt.PROBLEMDESC, CaseManagementNoteExt.PROCEDURE};
 
-        logger.debug("Saving: " + strNote);
+        logger.debug("Saving note");
         strNote = StringUtils.trimToNull(strNote);
         if (strNote == null || strNote.equals("")) return null;
 
@@ -910,7 +924,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         String noteId = request.getParameter("noteId");
-        logger.debug("SAVING NOTE " + noteId + " STRING: " + strNote);
+        logger.debug("SAVING NOTE {}", LogSanitizer.sanitize(noteId));
         String issueChange = request.getParameter("issueChange");
         String archived = request.getParameter("archived");
 
@@ -975,7 +989,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logAction = LogConst.ARCHIVE;
         }
 
-        logger.debug("Note archived " + note.isArchived());
+        logger.debug("Note archived {}", LogSanitizer.sanitize(note.isArchived()));
         String programId = (String) session.getAttribute("case_program_id");
         note.setProgram_no(programId);
 
@@ -1201,7 +1215,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         cpp = copyNote2cpp(cpp, note);
         String savedStr = caseManagementMgr.saveNote(cpp, note, providerNo, userName, lastSavedNoteString, roleName);
         caseManagementMgr.addNewNoteLink(note.getId());
-        logger.debug("Saved note " + savedStr);
+        logger.debug("Saved note");
         caseManagementMgr.saveCPP(cpp, providerNo);
         /* remember the str written into echart */
         session.setAttribute("lastSavedNoteString", savedStr); // nosemgrep: tainted-session-from-http-request
@@ -1673,8 +1687,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         noteTxt = StringUtils.trimToNull(noteTxt);
         if (noteTxt == null || noteTxt.equals("")) return null;
 
-        logger.debug("Saving Note" + request.getParameter("nId"));
-        logger.debug("Text -- " + noteTxt);
+        logger.debug("Saving Note {}", LogSanitizer.sanitize(request.getParameter("nId")));
+        logger.debug("Note text received");
         String demo = getDemographicNo(request);
 
         if (!hasNoteLock(demo)) {
@@ -2014,7 +2028,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (isValidInternalRedirect(chain, request)) {
                 response.sendRedirect(chain);
             } else {
-                logger.warn("Attempted redirect to invalid URL: " + chain);
+                logger.warn("Attempted redirect to invalid URL: {}", LogSanitizer.sanitize(chain));
                 // Fall through to return "windowClose" without redirect
             }
         }
@@ -2531,7 +2545,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String majorParam = request.getParameter("issueCheckList[" + ind + "].issue.major");
         String resolvedParam = request.getParameter("issueCheckList[" + ind + "].issue.resolved");
 
-        logger.debug("issueChange for index " + ind + ": resolved=" + resolvedParam);
+        logger.debug("issueChange for index {}: resolved={}", LogSanitizer.sanitize(ind), LogSanitizer.sanitize(resolvedParam));
 
         // Update the issue with the new values from the form
         if (acuteParam != null) {
@@ -3887,7 +3901,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 return false;
             }
         } catch (Exception e) {
-            logger.error("Error validating redirect URL: " + url, e);
+            logger.error("Error validating redirect URL: {}", LogSanitizer.sanitize(url), e);
             return false;
         }
 
