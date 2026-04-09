@@ -63,7 +63,13 @@ public class Colour {
                             LogSanitizer.sanitize(colourClass));
                     return new Colour();
                 }
-                c = (Colour) Class.forName(colourClass).newInstance();
+                Class<?> clazz = Class.forName(colourClass);
+                if (!Colour.class.isAssignableFrom(clazz)) {
+                    MiscUtils.getLogger().error("Rejected Colour class not assignable to Colour: {}",
+                            LogSanitizer.sanitize(colourClass));
+                    return new Colour();
+                }
+                c = (Colour) clazz.getDeclaredConstructor().newInstance();
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
