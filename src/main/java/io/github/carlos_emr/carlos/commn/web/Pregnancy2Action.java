@@ -35,10 +35,10 @@ import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.commons.text.WordUtils;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
@@ -65,6 +65,11 @@ public class Pregnancy2Action extends ActionSupport {
 
     private EpisodeDao episodeDao = SpringUtils.getBean(EpisodeDao.class);
     private ObjectMapper objectMapper = new ObjectMapper();
+
+    // Allowlist of form class names valid for pregnancy-related AJAX form saves.
+    // Prevents user-controlled input from loading arbitrary classes via FrmRecordFactory.
+    private static final Set<String> ALLOWED_PREGNANCY_FORM_CLASSES =
+            Set.of("BCAR", "BCAR2007", "BCAR2012", "BCAR2020");
 
     static String labReqVersion;
 
@@ -135,6 +140,8 @@ public class Pregnancy2Action extends ActionSupport {
             }
         }
         ObjectNode json = objectMapper.valueToTree(new LabelValueBean("formId", String.valueOf(formId)));
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().println(json);
         return null;
     }
@@ -159,7 +166,15 @@ public class Pregnancy2Action extends ActionSupport {
             return SUCCESS;
         }
 
-        AbstractCodeSystemDao dao = (AbstractCodeSystemDao) SpringUtils.getBean(WordUtils.uncapitalize(codeType) + "Dao");
+        AbstractCodeSystemDao.codingSystem cs;
+        try {
+            cs = AbstractCodeSystemDao.codingSystem.valueOf(codeType);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            MiscUtils.getLogger().warn("Invalid code type requested in pregnancy create: {}", LogSanitizer.sanitize(codeType));
+            request.setAttribute("error", "There was an internal error processing this request, please contact your system administrator");
+            return SUCCESS;
+        }
+        AbstractCodeSystemDao dao = (AbstractCodeSystemDao) SpringUtils.getBean(AbstractCodeSystemDao.getDaoName(cs));
         AbstractCodeSystemModel mod = dao.findByCode(code);
 
         if (mod == null) {
@@ -248,7 +263,12 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String createGBSLabReq() throws SQLException {
-        Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
+        String demoNoParam = request.getParameter("demographicNo");
+        if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGBSLabReq: {}", LogSanitizer.sanitize(demoNoParam));
+            return null;
+        }
+        Integer demographicNo = Integer.parseInt(demoNoParam);
         String penicillin = request.getParameter("penicillin");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -264,7 +284,7 @@ public class Pregnancy2Action extends ActionSupport {
             } else {
                 p.setProperty("o_otherTests1", "Vaginal Anal GBS");
             }
-            request.getSession().setAttribute("labReq07" + demographicNo, p);
+            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
         } else {
             FrmLabReq10Record lr = new FrmLabReq10Record();
             Properties p = lr.getFormRecord(loggedInInfo, demographicNo, 0);
@@ -275,14 +295,19 @@ public class Pregnancy2Action extends ActionSupport {
             } else {
                 p.setProperty("o_otherTests1", "Vaginal Anal GBS");
             }
-            request.getSession().setAttribute("labReq10" + demographicNo, p);
+            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
         }
 
         return null;
     }
 
     public String createMCVLabReq() throws SQLException {
-        Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
+        String demoNoParam = request.getParameter("demographicNo");
+        if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createMCVLabReq: {}", LogSanitizer.sanitize(demoNoParam));
+            return null;
+        }
+        Integer demographicNo = Integer.parseInt(demoNoParam);
         String ferritin = request.getParameter("ferritin");
         String hbElectrophoresis = request.getParameter("hb_electrophoresis");
 
@@ -300,7 +325,7 @@ public class Pregnancy2Action extends ActionSupport {
             if (hbElectrophoresis != null && hbElectrophoresis.equals("checked")) {
                 p.setProperty("o_otherTests1", "Hb Electrophoresis");
             }
-            request.getSession().setAttribute("labReq07" + demographicNo, p);
+            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
 
         } else {
             FrmLabReq10Record lr = new FrmLabReq10Record();
@@ -313,7 +338,7 @@ public class Pregnancy2Action extends ActionSupport {
             if (hbElectrophoresis != null && hbElectrophoresis.equals("checked")) {
                 p.setProperty("o_otherTests1", "Hb Electrophoresis");
             }
-            request.getSession().setAttribute("labReq10" + demographicNo, p);
+            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
 
         }
 
@@ -335,6 +360,8 @@ public class Pregnancy2Action extends ActionSupport {
         }
 
         ObjectNode json = objectMapper.valueToTree(new LabelValueBean("allergies", output.toString().trim()));
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().println(json);
         return null;
     }
@@ -364,6 +391,8 @@ public class Pregnancy2Action extends ActionSupport {
         }
 
         ObjectNode json = objectMapper.valueToTree(new LabelValueBean("meds", output.toString().trim()));
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().println(json);
         return null;
     }
@@ -373,9 +402,19 @@ public class Pregnancy2Action extends ActionSupport {
         FrmRecord rec = null;
         ObjectNode jsonObj = null;
 
+        String formClass = request.getParameter("form_class");
+        if (formClass == null || !ALLOWED_PREGNANCY_FORM_CLASSES.contains(formClass)) {
+            MiscUtils.getLogger().warn("Invalid form class requested in pregnancy saveFormAjax: {}", LogSanitizer.sanitize(formClass));
+            jsonObj = objectMapper.valueToTree(new LabelValueBean("result", "error"));
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+            response.getWriter().print(jsonObj.toString());
+            return null;
+        }
+
         try {
             FrmRecordFactory recorder = new FrmRecordFactory();
-            rec = recorder.factory(request.getParameter("form_class"));
+            rec = recorder.factory(formClass);
             Properties props = new Properties();
 
             boolean bMulPage = request.getParameter("c_lastVisited") != null ? true : false;
@@ -416,8 +455,8 @@ public class Pregnancy2Action extends ActionSupport {
             props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
             newID = rec.saveFormRecord(props);
             String ip = request.getRemoteAddr();
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, request
-                    .getParameter("form_class"), "" + newID, ip, request.getParameter("demographic_no"));
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, formClass, // nosemgrep: tainted-session-from-http-request
+                    "" + newID, ip, request.getParameter("demographic_no"));
 
 
             jsonObj = objectMapper.valueToTree(new LabelValueBean("result", String.valueOf(newID)));
@@ -429,6 +468,8 @@ public class Pregnancy2Action extends ActionSupport {
 
         }
 
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().print(jsonObj.toString());
 
         return null;
@@ -442,6 +483,8 @@ public class Pregnancy2Action extends ActionSupport {
         List<Measurement> m = md.findByType(Integer.parseInt(demographicNo), type);
 
         ArrayNode json = objectMapper.valueToTree(m);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().print(json.toString());
 
         return null;
@@ -470,6 +513,8 @@ public class Pregnancy2Action extends ActionSupport {
         md.persist(m);
 
         ObjectNode jsonObj = objectMapper.valueToTree(new LabelValueBean("result", "success"));
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().print(jsonObj);
 
         return null;
@@ -508,6 +553,8 @@ public class Pregnancy2Action extends ActionSupport {
             json.add(objectMapper.valueToTree(m.get(0)));
         }
 
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().print(json.toString());
 
         return null;
@@ -546,7 +593,12 @@ Repeat antibody screen
 1 hour 50 gm glucose screen
      */
     public String createGCTLabReq() throws SQLException {
-        Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
+        String demoNoParam = request.getParameter("demographicNo");
+        if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGCTLabReq: {}", LogSanitizer.sanitize(demoNoParam));
+            return null;
+        }
+        Integer demographicNo = Integer.parseInt(demoNoParam);
         String hb = request.getParameter("hb");
         String urine = request.getParameter("urine");
         String antibody = request.getParameter("antibody");
@@ -574,7 +626,7 @@ Repeat antibody screen
                 p.setProperty("o_otherTests1", "1 Hr 50gm GLUCOSE Screen");
             }
 
-            request.getSession().setAttribute("labReq07" + demographicNo, p);
+            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
         } else {
             FrmLabReq10Record lr = new FrmLabReq10Record();
             Properties p = lr.getFormRecord(loggedInInfo, demographicNo, 0);
@@ -593,13 +645,18 @@ Repeat antibody screen
                 p.setProperty("o_otherTests1", "1 Hr 50gm GLUCOSE Screen");
             }
 
-            request.getSession().setAttribute("labReq10" + demographicNo, p);
+            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
         }
         return null;
     }
 
     public String createGTTLabReq() throws SQLException {
-        Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
+        String demoNoParam = request.getParameter("demographicNo");
+        if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGTTLabReq: {}", LogSanitizer.sanitize(demoNoParam));
+            return null;
+        }
+        Integer demographicNo = Integer.parseInt(demoNoParam);
         String glucose = request.getParameter("glucose");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -613,7 +670,7 @@ Repeat antibody screen
             if (glucose != null && glucose.equals("checked")) {
                 p.setProperty("o_otherTests1", "2 Hr 75gm GLUCOSE Screen");
             }
-            request.getSession().setAttribute("labReq07" + demographicNo, p);
+            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
         } else {
             FrmLabReq10Record lr = new FrmLabReq10Record();
             Properties p = lr.getFormRecord(loggedInInfo, demographicNo, 0);
@@ -622,7 +679,7 @@ Repeat antibody screen
             if (glucose != null && glucose.equals("checked")) {
                 p.setProperty("o_otherTests1", "2 Hr 75gm GLUCOSE Screen");
             }
-            request.getSession().setAttribute("labReq10" + demographicNo, p);
+            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
         }
         return null;
     }
@@ -645,6 +702,8 @@ Repeat antibody screen
         }
 
         ArrayNode jsonObj = objectMapper.valueToTree(results);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().print(jsonObj);
 
         return null;
@@ -778,6 +837,8 @@ Repeat antibody screen
             l.setProviderName(providerDao.getProviderName(l.getProviderNo()));
         }
         ArrayNode json = objectMapper.valueToTree(results);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().print(json.toString());
         return null;
     }

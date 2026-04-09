@@ -117,6 +117,8 @@ public class AuthorizeResource {
         // Let the provider set & persist the verifier + providerNo
         String verifier = provider.finalizeAuthorization(rt);
 
+        // nosemgrep: open-redirect -- callback comes from the server-persisted request token
+        // (set during /initiate by OscarRequestTokenService), not from user input in this POST.
         String cb = rt.getCallback();
         if (cb != null && !"oob".equalsIgnoreCase(cb)) {
             String sep = cb.contains("?") ? "&" : "?";

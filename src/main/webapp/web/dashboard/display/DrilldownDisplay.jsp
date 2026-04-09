@@ -43,17 +43,19 @@
     <title>Dashboard Drilldown</title>
 
     <link rel="stylesheet" type="text/css"
-          href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
+          href="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
     <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/css/fontawesome-all.min.css"/>
     <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/web/css/Dashboard.css"/>
     <link rel="stylesheet" type="text/css"
           href="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"/>
     <script>var ctx = "${pageContext.request.contextPath}"</script>
     <script type="text/javascript"
+            src="${ pageContext.request.contextPath }/library/dompurify/purify.min.js"></script>
+    <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
             <script src="${ pageContext.request.contextPath }/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript"
-            src="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+            src="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
     <script type="text/javascript"

@@ -43,7 +43,7 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
     <script type="text/javascript"
             src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/javascript/jquery/jquery.form.js"></script>
+            src="<%= request.getContextPath() %>/library/jquery/jquery.form.js"></script>
 
 </head>
 <%
@@ -51,12 +51,13 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
     if (requestIdKey == null) {
         requestIdKey = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
     }
-    String imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + requestIdKey;
+    String imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + Encode.forUriComponent(requestIdKey);
     String storedImageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_stored.name() + "&digitalSignatureId=";
     boolean saveToDB = "true".equals(request.getParameter("saveToDB"));
+    boolean inWindow = "true".equals(request.getParameter("inWindow"));
 %>
 <script type="text/javascript">
-    var _in_window = <%= "true".equals(request.getParameter("inWindow"))%>;
+    var _in_window = <%= inWindow %>;
 
     var requestIdKey = "<%= Encode.forJavaScript(requestIdKey) %>";
 
@@ -64,7 +65,7 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
 
     var storedImageUrl = "<%= Encode.forJavaScript(storedImageUrl) %>";
 
-    var contextPath = "<%=request.getContextPath() %>";
+    var contextPath = "<%= Encode.forJavaScript(request.getContextPath()) %>";
 
 </script>
 

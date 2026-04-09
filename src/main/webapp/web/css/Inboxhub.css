@@ -244,3 +244,97 @@ input {
         overflow-x: auto;
     }
 }
+
+/*
+ * Inbox toolbar — styled to match the scheduler top nav bar (topnav.css).
+ * Uses a light grey background (#f5f5f5), font (Arial 12px bold), and
+ * CARLOS blue hover color as the Schedule/Search/Inbox/Tickler nav links.
+ */
+/* Top navigation bar — utility links (Forwarding Rules, Upload, etc.) */
+.inbox-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 4px 8px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #ddd;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+}
+
+.inbox-topbar .nav-link {
+    display: inline;
+    padding: 2px 6px;
+    font-weight: bold;
+    color: black;
+    text-decoration: none;
+}
+
+.inbox-topbar .nav-link:hover {
+    color: #fff;
+    background-color: var(--carlos-primary, #337ab7);
+}
+
+/* Action toolbar — Forward, File, Acknowledged, Rapid Review, counts */
+.inbox-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 4px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #ddd;
+}
+
+.inbox-toolbar-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    font-weight: bold;
+    color: black;
+    text-decoration: none;
+    cursor: pointer !important;
+    border: none;
+    background-color: transparent;
+    user-select: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.inbox-toolbar-link * {
+    cursor: pointer !important;
+}
+
+.inbox-toolbar-link:hover {
+    color: #fff;
+    background-color: var(--carlos-primary, #337ab7);
+}
+
+.inbox-toolbar-link input[type="checkbox"] {
+    margin-right: 4px;
+    cursor: pointer;
+}
+
+/* Active type filter highlight */
+.inbox-type-filter.active-type-filter {
+    background-color: var(--carlos-primary, #337ab7);
+    color: #fff;
+    border-radius: 3px;
+}
+.inbox-type-filter.active-type-filter .badge {
+    background-color: #fff !important;
+    color: #337ab7 !important;
+}
+
+/* Macros dropdown — hover to open, highlight on focus */
+.macro-dropdown:hover > .dropdown-menu {
+    display: block;
+}
+.macro-dropdown .dropdown-item:hover,
+.macro-dropdown .dropdown-item:focus {
+    background-color: var(--carlos-primary, #337ab7) !important;
+    color: #fff !important;
+}
+

@@ -117,7 +117,26 @@ public class EctDisplayAction extends ActionSupport {
         boolean isJsonRequest = request.getParameter("json") != null && request.getParameter("json").equalsIgnoreCase("true");
         request.setAttribute("isJsonRequest", isJsonRequest);
 
-        if (bean == null || request.getParameter("demographicNo") != null) {
+        boolean rebuildBean = bean == null || request.getParameter("demographicNo") != null;
+
+        // Extract and validate demographicNo early so the privilege check can run before any session mutation
+        String demoNoParam;
+        if (rebuildBean) {
+            demoNoParam = request.getParameter("demographicNo");
+            if (demoNoParam != null && !demoNoParam.isEmpty() && !demoNoParam.matches("\\d+")) {
+                logger.warn("Invalid non-numeric demographicNo: {}", LogSanitizer.sanitize(demoNoParam));
+                return "error";
+            }
+        } else {
+            demoNoParam = bean.demographicNo;
+        }
+
+        // Privilege check BEFORE any session.setAttribute to prevent unauthorized session mutation (CWE-501)
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demoNoParam)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
+        if (rebuildBean) {
             bean = new EctSessionBean();
             bean.currentDate = UtilDateUtilities.StringToDate(request.getParameter("curDate"));
 
@@ -128,8 +147,13 @@ public class EctDisplayAction extends ActionSupport {
             if (bean.providerNo == null) {
                 bean.providerNo = (String) request.getSession().getAttribute("user");
             }
-            bean.demographicNo = request.getParameter("demographicNo");
-            bean.appointmentNo = request.getParameter("appointmentNo");
+            bean.demographicNo = demoNoParam;
+            String apptNoParam = request.getParameter("appointmentNo");
+            if (apptNoParam != null && !apptNoParam.isEmpty() && !apptNoParam.matches("\\d+")) {
+                logger.warn("Invalid non-numeric appointmentNo: {}", LogSanitizer.sanitize(apptNoParam));
+                return "error";
+            }
+            bean.appointmentNo = apptNoParam;
             bean.curProviderNo = request.getParameter("curProviderNo");
             bean.reason = request.getParameter("reason");
             bean.encType = request.getParameter("encType");
@@ -145,17 +169,14 @@ public class EctDisplayAction extends ActionSupport {
             bean.check = "myCheck";
             bean.oscarMsgID = request.getParameter("msgId");
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
-            request.getSession().setAttribute("EctSessionBean", bean);
-            request.getSession().setAttribute("eChartID", bean.eChartId);
+            // demographicNo and appointmentNo validated as numeric; other bean fields (reason, encType, userName, etc.) are unsanitized request params — consuming JSPs MUST use OWASP encoding when rendering
+            request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request
+            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request
             if (request.getParameter("source") != null) {
                 bean.source = request.getParameter("source");
             }
 
             request.setAttribute("EctSessionBean", bean);
-        }
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", bean.demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         //Can we handle request?

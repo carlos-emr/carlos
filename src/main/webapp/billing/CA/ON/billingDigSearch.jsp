@@ -75,7 +75,7 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.title"/></title>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
         <script>
             function CodeAttach(File2) {
                 if (self.opener.callChangeCodeDesc) self.opener.callChangeCodeDesc();

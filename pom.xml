@@ -44,7 +44,7 @@
             has already validated the path. This does NOT suppress the rule globally — any code
             that uses raw user input in file paths without PathValidationUtils will still be caught.
         -->
-        <sonar.issue.ignore.multicriteria>pvuSelf,pvuEform,pvuDoc,pvuLab,pvuInteg,pvuForm,pvuFax,pvuEncounter,pvuDx,pvuDemog,pvuBilling</sonar.issue.ignore.multicriteria>
+        <sonar.issue.ignore.multicriteria>pvuSelf,pvuEform,pvuDoc,pvuLab,pvuInteg,pvuForm,pvuFax,pvuEncounter,pvuDx,pvuDemog,pvuBilling,pvuDocS6549</sonar.issue.ignore.multicriteria>
         <!-- PathValidationUtils itself (it IS the sanitizer) -->
         <sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>
         <sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>**/utility/PathValidationUtils.java</sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>
@@ -78,6 +78,10 @@
         <!-- Billing upload servlets -->
         <sonar.issue.ignore.multicriteria.pvuBilling.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuBilling.ruleKey>
         <sonar.issue.ignore.multicriteria.pvuBilling.resourceKey>**/billings/**/*.java</sonar.issue.ignore.multicriteria.pvuBilling.resourceKey>
+        <!-- S6549 (path construction) false positive — limit suppression to DocumentUpload2Action
+             so path-construction findings remain visible for other documentManager files. -->
+        <sonar.issue.ignore.multicriteria.pvuDocS6549.ruleKey>javasecurity:S6549</sonar.issue.ignore.multicriteria.pvuDocS6549.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>**/documentManager/**/DocumentUpload2Action.java</sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>
         <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
         <argLine></argLine>
         <!-- Log4j Version -->
@@ -759,18 +763,6 @@
             <version>5.2.3</version>
         </dependency>
 
-        <!-- CDS CIHI PHC VRS (local_repo) -->
-        <dependency>
-            <groupId>cds</groupId>
-            <artifactId>cds_cihi_phcvrs</artifactId>
-            <version>1.0</version>
-        </dependency>
-        <!-- CDS CIHI (local_repo) -->
-        <dependency>
-            <groupId>cds</groupId>
-            <artifactId>cds_cihi</artifactId>
-            <version>1.0</version>
-        </dependency>
         <!-- CDS Rourke (local_repo) -->
         <dependency>
             <groupId>cds</groupId>
@@ -1696,6 +1688,69 @@
                          Skip in jspc profile because JitPack can shadow Maven Central
                          artifacts under alternate groupIds in CI environments with cold
                          caches, causing false dependency-lock failures. -->
+                    <plugin>
+                        <groupId>se.vandmo</groupId>
+                        <artifactId>dependency-lock-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>check</id>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Skip dependency lock check in CI workflows (e.g. SonarCloud)
+             where JitPack-served artifacts produce different SHA512 hashes
+             than locally-cached ones, causing false failures.
+             Activate with: mvn ... -Pskip-dependency-lock -->
+        <profile>
+            <id>skip-dependency-lock</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>se.vandmo</groupId>
+                        <artifactId>dependency-lock-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>check</id>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- SpotBugs + Find Security Bugs analysis.
+             Activate with: mvn compile spotbugs:spotbugs -Pspotbugs -->
+        <profile>
+            <id>spotbugs</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.github.spotbugs</groupId>
+                        <artifactId>spotbugs-maven-plugin</artifactId>
+                        <version>4.9.3.0</version>
+                        <configuration>
+                            <effort>Max</effort>
+                            <threshold>Low</threshold>
+                            <xmlOutput>true</xmlOutput>
+                            <xmlOutputDirectory>${project.build.directory}</xmlOutputDirectory>
+                            <spotbugsXmlOutputFilename>spotbugs-result.xml</spotbugsXmlOutputFilename>
+                            <excludeFilterFile>${project.basedir}/.github/spotbugs/spotbugs-exclude.xml</excludeFilterFile>
+                            <plugins>
+                                <plugin>
+                                    <groupId>com.h3xstream.findsecbugs</groupId>
+                                    <artifactId>findsecbugs-plugin</artifactId>
+                                    <version>1.13.0</version>
+                                </plugin>
+                            </plugins>
+                        </configuration>
+                    </plugin>
+                    <!-- Skip dependency lock — already validated in the build job -->
                     <plugin>
                         <groupId>se.vandmo</groupId>
                         <artifactId>dependency-lock-maven-plugin</artifactId>

@@ -1,7 +1,7 @@
 #!/bin/sh
 #==================================================================
 # Copyright Peter Hutten-Czapski 2012-26 released under the GPL v2+
-# v 0.1
+# v 0.2
 #==================================================================
 
 set -e
@@ -22,23 +22,13 @@ if [ -f /usr/share/tomcat11/bin/version.sh ] ; then
     if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
             TOMCAT=tomcat10
             TOMCAT_USER=tomcat
-        else
-        if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
-                TOMCAT=tomcat9
-                TOMCAT_USER=tomcat
-            else
-            if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
-                    TOMCAT=tomcat8
-                    TOMCAT_USER=tomcat8
-                 else
-                 if [ -f /usr/share/tomcat7/bin/version.sh ] ; then
-                        TOMCAT=tomcat7
-                        TOMCAT_USER=tomcat7
-                 fi
-             fi
-         fi
      fi
 fi
+if [ -z "${TOMCAT}" ]; then
+    echo "ERROR: Neither tomcat10 nor tomcat11 found. Please install one of them." >&2
+    exit 1
+fi
+
 tomcat_path=/usr/share/${TOMCAT}/
 C_HOME=/usr/share/${TOMCAT}/
 C_BASE=/var/lib/${TOMCAT}/
@@ -229,95 +219,76 @@ if [ -f "${C_BASE}${PACKAGE}/WEB-INF/classes/clientKeystore.properties" ] ; then
 fi
 
 
-if [ -f /usr/share/tomcat7/bin/version.sh ] ; then
-        echo "WARNING Tomcat 7 is deprecated"
-        echo "WARNING attempting to install on outdated Tomcat 7 !!"  >> $LOG_FILE
-                # Determine source webapps dir (use package-bundled location if available)
-                SRC_WEBAPPS="${SRC_WEBAPPS:-/var/lib/${PACKAGE}/webapps}"
-                [ ! -d "${SRC_WEBAPPS}" ] && SRC_WEBAPPS="/var/lib/tomcat9/webapps"
-                cp "${SRC_WEBAPPS}/carlos.war" /var/lib/tomcat7/webapps/carlos.war
-                cp "${SRC_WEBAPPS}/drugref.war" /var/lib/tomcat7/webapps/drugref.war
-else
-        # if tomcat8 then need to move the wars from the DEB installed directories to the tomcat8 directory
-        if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
-        echo "WARNING Tomcat 8 is deprecated"
-        echo "WARNING attempting to install on outdated Tomcat 8 !!"  >> $LOG_FILE
-                # Determine source webapps dir (use package-bundled location if available)
-                SRC_WEBAPPS="${SRC_WEBAPPS:-/var/lib/${PACKAGE}/webapps}"
-                [ ! -d "${SRC_WEBAPPS}" ] && SRC_WEBAPPS="/var/lib/tomcat9/webapps"
-                cp "${SRC_WEBAPPS}/carlos.war" /var/lib/tomcat8/webapps/carlos.war
-                cp "${SRC_WEBAPPS}/drugref.war" /var/lib/tomcat8/webapps/drugref.war
-        else
-
-                # if tomcat 9 its a different move AND we need to add read write paths (tomcat 10 not supported)
-                if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
-                        
-                        # add carlos directory structure to the paths that tomcat9 can read and write to
-                        # DO NOT ADD read write to non existing paths or Tomcat will fail to start.
-                        # BASE_DOCUMENT_DIR is /var/lib/carlos-emr/OscarDocument — ensure it exists
-                        # before adding it to the service file or systemd will refuse to start Tomcat.
-                        mkdir -p "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE
-                        chown -R "${TOMCAT_USER}:${TOMCAT_USER}" "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE || true
-                        if [ -d "/etc/systemd/system/tomcat9.service.d" ] ; then
-                                if [ ! -f /etc/systemd/system/tomcat9.service.d/override.conf ] ; then
-                                        touch /etc/systemd/system/tomcat9.service.d/override.conf
-                                        echo "[Service]" >> /etc/systemd/system/tomcat9.service.d/override.conf
-                                        echo "ReadWritePaths=${BASE_DOCUMENT_DIR}/" >> /etc/systemd/system/tomcat9.service.d/override.conf
-                                        echo "ReadWritePaths=/tmp/" >> /etc/systemd/system/tomcat9.service.d/override.conf
-                                        echo "Created /etc/systemd/system/tomcat9.service.d/override.conf so that tomcat9 read and write on ${BASE_DOCUMENT_DIR}" >>$LOG_FILE
-                                        echo "Allowing tomcat9 read and write on ${BASE_DOCUMENT_DIR}/ and /tmp/ by override"
-                                        systemctl daemon-reload
-                                else
-                               #test to see if the ReadWritePaths entry is already present
-                                        if grep -Fq "ReadWritePaths=${BASE_DOCUMENT_DIR}/" /etc/systemd/system/tomcat9.service.d/override.conf ; then
-                                                echo "Tomcat already has an override set, not modified"
-                                        else
-                                                # Remove stale legacy path if present (old installs used /var/lib/OscarDocument/ which no longer exists)
-                                                sed -i '/ReadWritePaths=\/var\/lib\/OscarDocument\//d' /etc/systemd/system/tomcat9.service.d/override.conf 2>>$LOG_FILE || true
-                                                echo "ReadWritePaths=${BASE_DOCUMENT_DIR}/" >> /etc/systemd/system/tomcat9.service.d/override.conf
-                                                grep -qF "ReadWritePaths=/tmp/" /etc/systemd/system/tomcat9.service.d/override.conf || echo "ReadWritePaths=/tmp/" >> /etc/systemd/system/tomcat9.service.d/override.conf
-                                                echo "Edited override to allow Tomcat read write on ${BASE_DOCUMENT_DIR} and /tmp"
-                                                echo "Added Tomcat read and write on ${BASE_DOCUMENT_DIR}/ and /tmp/ to existing override /etc/systemd/system/tomcat9.service.d/override.conf"  >>$LOG_FILE
-                                                systemctl daemon-reload
-                                        fi
-                                fi
-                        fi
-                        if [ ! -d "/etc/systemd/system/tomcat9.service.d" ] ; then
-                                if [ -f /lib/systemd/system/tomcat9.service ] ; then
-                                #test to see if entry present already
-                                        if grep -Fq "${BASE_DOCUMENT_DIR}/" /lib/systemd/system/tomcat9.service ; then
-                                                echo "Tomcat already has read write on ${BASE_DOCUMENT_DIR}/"
-                                        else
-                                                # Remove stale legacy path if present
-                                                sed -i '/ReadWritePaths=\/var\/lib\/OscarDocument\//d' /lib/systemd/system/tomcat9.service 2>>$LOG_FILE || true
-                                                sed -i "/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=${BASE_DOCUMENT_DIR}/" /lib/systemd/system/tomcat9.service
-                                                grep -qF "ReadWritePaths=/tmp/" /lib/systemd/system/tomcat9.service || sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=\/tmp\//' /lib/systemd/system/tomcat9.service
-                                                echo "Edited tomcat9.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp/"
-                                                echo "Edited /lib/systemd/system/tomcat9.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp/" >>$LOG_FILE
-                                                systemctl daemon-reload
-                                        fi
-                                fi
-                        fi
-                        if [ -f /etc/systemd/system/multi-user.target.wants/tomcat9.service ] ; then
-                                #test to see if entry present already
-                                        if grep -Fq "${BASE_DOCUMENT_DIR}/" /etc/systemd/system/multi-user.target.wants/tomcat9.service ; then
-                                                # in Ubuntu this file is actually a link to tomcatX.service
-                                                echo "Tomcat already has read write on ${BASE_DOCUMENT_DIR}/ with an entry in tomcatX.service" >>$LOG_FILE
-                                        else
-                                                # Remove stale legacy path if present
-                                                sed -i '/ReadWritePaths=\/var\/lib\/OscarDocument\//d' /etc/systemd/system/multi-user.target.wants/tomcat9.service 2>>$LOG_FILE || true
-                                                sed -i "/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=${BASE_DOCUMENT_DIR}/" /etc/systemd/system/multi-user.target.wants/tomcat9.service
-                                                grep -qF "ReadWritePaths=/tmp/" /etc/systemd/system/multi-user.target.wants/tomcat9.service || sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=\/tmp\//' /etc/systemd/system/multi-user.target.wants/tomcat9.service
-                                                echo "Edited tomcatX.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp"
-                                                echo "Edited /etc/systemd/system/multi-user.target.wants/tomcatX.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp" >>$LOG_FILE
-                                                systemctl daemon-reload
-                                        fi
-                        fi
-                        
-                        
-                fi
-        fi
+if [ "${TOMCAT}" = "tomcat10" ] ; then
+	# TODO
+	# may need to relocate wars from default directories
+	:
 fi
+
+fi
+
+# add carlos directory structure to the paths that tomcat9 can read and write to
+# DO NOT ADD read write to non existing paths or Tomcat will fail to start.
+# BASE_DOCUMENT_DIR is /var/lib/carlos-emr/OscarDocument — ensure it exists
+# before adding it to the service file or systemd will refuse to start Tomcat.
+mkdir -p "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE
+chown -R "${TOMCAT_USER}:${TOMCAT_USER}" "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE || true
+if [ -d "/etc/systemd/system/${TOMCAT}.service.d" ] ; then
+	if [ ! -f /etc/systemd/system/${TOMCAT}.service.d/override.conf ] ; then
+        touch /etc/systemd/system/${TOMCAT}.service.d/override.conf
+        echo "[Service]" >> /etc/systemd/system/${TOMCAT}.service.d/override.conf
+        echo "ReadWritePaths=${BASE_DOCUMENT_DIR}/" >> /etc/systemd/system/${TOMCAT}.service.d/override.conf
+        echo "ReadWritePaths=/tmp/" >> /etc/systemd/system/${TOMCAT}.service.d/override.conf
+        echo "Created /etc/systemd/system/${TOMCAT}.service.d/override.conf so that ${TOMCAT} read and write on ${BASE_DOCUMENT_DIR}" >>$LOG_FILE
+        echo "Allowing ${TOMCAT} read and write on ${BASE_DOCUMENT_DIR}/ and /tmp/ by override"
+        	systemctl daemon-reload
+else
+	#test to see if the ReadWritePaths entry is already present
+        if grep -Fq "ReadWritePaths=${BASE_DOCUMENT_DIR}/" /etc/systemd/system/${TOMCAT}.service.d/override.conf ; then
+        	echo "Tomcat already has an override set, not modified"
+        else
+		# Remove stale legacy path if present (old installs used /var/lib/OscarDocument/ which no longer exists)
+                sed -i '/ReadWritePaths=\/var\/lib\/OscarDocument\//d' /etc/systemd/system/${TOMCAT}.service.d/override.conf 2>>$LOG_FILE || true
+                echo "ReadWritePaths=${BASE_DOCUMENT_DIR}/" >> /etc/systemd/system/${TOMCAT}.service.d/override.conf
+                grep -qF "ReadWritePaths=/tmp/" /etc/systemd/system/${TOMCAT}.service.d/override.conf || echo "ReadWritePaths=/tmp/" >> /etc/systemd/system/${TOMCAT}.service.d/override.conf
+                echo "Edited override to allow Tomcat read write on ${BASE_DOCUMENT_DIR} and /tmp"
+                echo "Added Tomcat read and write on ${BASE_DOCUMENT_DIR}/ and /tmp/ to existing override /etc/systemd/system/${TOMCAT}.service.d/override.conf"  >>$LOG_FILE
+                systemctl daemon-reload
+         fi
+fi
+
+if [ ! -d "/etc/systemd/system/${TOMCAT}.service.d" ] ; then
+	if [ -f /lib/systemd/system/${TOMCAT}.service ] ; then
+        	#test to see if entry present already
+                if grep -Fq "${BASE_DOCUMENT_DIR}/" /lib/systemd/system/${TOMCAT}.service ; then
+			echo "Tomcat already has read write on ${BASE_DOCUMENT_DIR}/"
+                else
+                	# Remove stale legacy path if present
+                        sed -i '/ReadWritePaths=\/var\/lib\/OscarDocument\//d' /lib/systemd/system/${TOMCAT}.service 2>>$LOG_FILE || true
+                        sed -i "/ReadWritePaths=\/var\/log\/${TOMCAT}\//a ReadWritePaths=${BASE_DOCUMENT_DIR}/" /lib/systemd/system/${TOMCAT}.service
+                        grep -qF "ReadWritePaths=/tmp/" /lib/systemd/system/${TOMCAT}.service || sed -i "/ReadWritePaths=\/var\/log\/${TOMCAT}\//a ReadWritePaths=\/tmp\/" /lib/systemd/system/${TOMCAT}.service
+						echo "Edited ${TOMCAT}.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp/"
+                        echo "Edited /lib/systemd/system/${TOMCAT}.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp/" >>$LOG_FILE
+                        systemctl daemon-reload
+                 fi
+	fi
+fi
+if [ -f /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service ] ; then
+	#test to see if entry present already
+	if grep -Fq "${BASE_DOCUMENT_DIR}/" /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service ; then
+        	# in Ubuntu this file is actually a link to tomcatX.service
+                echo "Tomcat already has read write on ${BASE_DOCUMENT_DIR}/ with an entry in ${TOMCAT}.service" >>$LOG_FILE
+        else
+                # Remove stale legacy path if present
+                sed -i '/ReadWritePaths=\/var\/lib\/OscarDocument\//d' /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service 2>>$LOG_FILE || true
+                sed -i "/ReadWritePaths=\/var\/log\/${TOMCAT}\//a ReadWritePaths=${BASE_DOCUMENT_DIR}/" /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service
+                grep -qF "ReadWritePaths=/tmp/" /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service || sed -i "/ReadWritePaths=\/var\/log\/${TOMCAT}\//a ReadWritePaths=\/tmp\/" /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service
+                echo "Edited tomcatX.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp"
+                echo "Edited /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp" >>$LOG_FILE
+                systemctl daemon-reload
+	fi
+fi
+                        
 
 #GEOIP=$(curl --silent -f http://freegeoip.net/csv/ |  tr -d '"')
 #echo GEOIP=$GEOIP >>$LOG_FILE
@@ -325,7 +296,6 @@ fi
 #COUNTRY=$(echo $GEOIP | awk -F "," '{print $2;}')
 #STATE=$(echo $GEOIP | awk -F "," '{print $4;}')
 #LOCALITY=$(echo $GEOIP | awk -F "," '{print $6;}')
-
 
 
 GEOIP2=$(curl --silent -f --connect-timeout 5 --max-time 10 http://ip-api.com/csv/ | tr -d '"' | tr ' ' '+') || true
@@ -358,15 +328,14 @@ echo "Chosen region =${STATE}" 1>> $LOG_FILE
 
 
 ### ============================================================
-### UPGRADE DETECTION: Check for a prior OSCAR 19 installation
-### Test: oscar.properties exists in Tomcat home directory
-### If found: UPGRADE=true, which triggers the OSCAR→CARLOS migration path
-###           in postinst (tables are copied from the old schema).
+### UPGRADE DETECTION: Check for a prior CARLOS installation
+### Test: carlos.properties exists in Tomcat home directory
+### If found: UPGRADE=true
 ### If NOT found: UPGRADE=false, new install path proceeds below.
 ### ============================================================
 echo "Checking for OSCAR to CARLOS Upgrade possibility" >>$LOG_FILE
-if [ -f "/usr/share/${TOMCAT}/oscar.properties" ] ; then
-	echo "Previous OSCAR Installation Detected" >> $LOG_FILE
+if [ -f "/usr/share/${TOMCAT}/carlos.properties" ] ; then
+	echo "Previous CARLOS Installation Detected" >> $LOG_FILE
 	UPGRADE=true
 	echo "UPGRADE=${UPGRADE}" 1>> $LOG_FILE
 fi
@@ -374,7 +343,7 @@ fi
 
 ### ============================================================
 ### SECTION: NEW INSTALL
-### Triggered when: No prior oscar.properties found (UPGRADE=false).
+### Triggered when: No prior carlos.properties found (UPGRADE=false).
 ### Prompts the installer for database password, billing region,
 ### demo data preference, and other first-time installation options.
 ### ============================================================
@@ -470,27 +439,21 @@ if [ "${triumvirate}" = "true" ] ; then
 	
 
 fi
-MIGRATE="false"
+
 ### ============================================================
-### SECTION: UPGRADE PATH (UPGRADE=true — oscar.properties was found)
-### Three possible sub-cases handled here:
+### SECTION: UPGRADE PATH (UPGRADE=true — carlos.properties was found)
+### Two possible sub-cases handled here:
 ###
 ###   (a) PRIOR CARLOS UPDATE — carlos.properties EXISTS:
 ###       Test: /usr/share/tomcatX/carlos.properties exists
 ###       Action: Read existing DB credentials, verify schema is current, exit.
 ###       The postinst will handle minor patches if the build tag has changed.
 ###
-###   (b) OSCAR 19 TO CARLOS MIGRATION — oscar.properties EXISTS, carlos.properties does NOT:
-###       Test: oscar.properties exists; carlos.properties does not
-###       Action: Set MIGRATE=true; read DB credentials from oscar.properties.
-###       The postinst will copy the OSCAR database tables into the new schema.
-###
-###   (c) ERROR STATE — Neither found:
+###   (b) ERROR STATE:
 ###       Config cannot determine the installation state; exit with error.
 ### ============================================================
 if [ "${UPGRADE}" = "true" ] ; then
 	db_set carlos-emr/upgrade true  || true
-
 	echo "check to see if minor upgrade of the CARLOS war is all that is necessary" >>$LOG_FILE
 	if [ -f "${C_HOME}${PROGRAM}.properties" ] ; then
     # (a) PRIOR CARLOS UPDATE: just updating an existing CARLOS war
@@ -500,92 +463,20 @@ if [ "${UPGRADE}" = "true" ] ; then
 		## you want oscar_15=oscar_15 but trim off the switches that we might be sending
 		existing=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_name'  | tail -n 1 | cut -d "=" -f2 | cut -d "?" -f1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
 		if [ "${db_name}" = "${existing}" ] ; then
-
             # UPDATE late breaking property key values here, we will support back to the first 15 deb
             # grep the key, tail backwards to the last entry and cut the key itself to test that it is present
 	       # echo "adding new properties file key values"  >>$LOG_FILE
-
+# TODO
 # PHC test and add newer properties here
-
 			echo "${PROGRAM}.war file updated so exiting config normally" >> $LOG_FILE
 			exit 0
 		else
-      if [ -f "${C_HOME}oscar.properties" ] ; then
-        # (b) OSCAR 19 TO CARLOS MIGRATION: carlos.properties exists but db_name differs —
-        # treat as OSCAR migration to allow postinst to rename tables.
-        MIGRATE="true"
-      else
-        # (c) ERROR STATE: neither carlos.properties nor oscar.properties found.
-        echo "The installer can neither find a deb installed OSCAR_19 nor CARLOS and cannot be deb updated so exiting config" 1>> $LOG_FILE
+			# (c) ERROR STATE: carlos.properties 
+			echo "The installer can not find a deb installed CARLOS and cannot be deb updated so exiting config" 1>> $LOG_FILE
   			exit 1
-      fi
-		fi
-	else
-    # carlos.properties is absent — check if oscar.properties exists for OSCAR 19 migration
-    if [ -f "${C_HOME}oscar.properties" ] ; then
-      # (b) OSCAR 19 TO CARLOS MIGRATION: oscar.properties exists but carlos.properties does not.
-      # Set MIGRATE=true so postinst knows to copy tables from the OSCAR database schema.
-      MIGRATE="true"
-      echo "carlos.properties not found but oscar.properties present — setting MIGRATE=true for OSCAR 19 migration" >> $LOG_FILE
-    else
-      # (c) ERROR STATE: neither carlos.properties nor oscar.properties found.
-      echo "The installer can neither find a deb installed OSCAR_19 nor CARLOS and cannot be deb updated so exiting config" 1>> $LOG_FILE
-      exit 1
-    fi
-	fi
-# PHC ensure that oscar.properties carlos.properties and carlos.tmp are aligned
-  if [ "${MIGRATE}" = "true" ] ; then
-  	# drop lines that start with a comment, then grep the property, just take the last instance of that, cut on the = delimiter, and trim whitespace
-		    db_password=$(sed '/^\#/d' ${C_HOME}oscar.properties | grep 'db_password'  | tail -n 1 | cut -d "=" -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
-		    echo "grep the previous db_name from the OSCAR properties file" >> $LOG_FILE
-        db_name=$(sed '/^\#/d' ${C_HOME}oscar.properties | grep 'db_name'  | tail -n 1 | cut -d "=" -f2 | cut -d "?" -f1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
-  	echo "grep the province from the properties file" >> $LOG_FILE
-  	billregion=$(sed '/^\#/d' ${C_HOME}oscar.properties | grep 'billregion'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
-  	echo "billregion=${billregion}" 1>> $LOG_FILE
-  	echo "grep the phone prefix from the properties file" >> $LOG_FILE
-  	phoneprefix=$(sed '/^\#/d' ${C_HOME}oscar.properties | grep 'phoneprefix'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
-  	echo "phoneprefix=${phoneprefix}" >> $LOG_FILE
-  	db_set carlos-emr/phoneprefix ${phoneprefix}
-  	echo "priorschema=${db_name}" >> $LOG_FILE
-  	db_set carlos-emr/priorschema $db_name
-  	priorschema=$db_name
-  	db_fset carlos-emr/priorschema seen true
-    # Initialize ${PROGRAM}.tmp from the bundled source carlos.properties so that the
-    # subsequent property-append block (below) has a valid base file to work from.
-    # The Tomcat path and commented-out properties are adjusted the same way as a new install.
-    echo "Initializing ${PROGRAM}.tmp from bundled source properties for OSCAR migration" >> $LOG_FILE
-    sed \
-    -e "s/\/var\/lib\/tomcat/\/var\/lib\/${TOMCAT}/" \
-    -e 's/\(^project_home\)/#\1/' \
-    -e 's/\(^tomcat_path\)/#\1/' \
-    -e 's/\(^login_local_ip\)/#\1/' \
-    -e 's/\(^buildDateTime\)/#\1/' \
-    -e 's/\(^buildtag\)/#\1/' \
-    -e 's/\(^drugref_url\)/#\1/' \
-    -e 's/\(^db_name =\)/#\1/' \
-    -e 's/\(^db_password =\)/#\1/' \
-    -e 's/\(^hibernate.dialect\)/#\1/' \
-    -e 's/\(^billregion=\)/#\1/' \
-    -e 's/\(^phoneprefix =\)/#\1/' \
-    -e 's/\(^billcenter =\)/#\1/' \
-    ${SRC}${PROGRAM}.properties > ${PROGRAM}.tmp 2>>$LOG_FILE
-  # Set CARLOS default BASE_DOCUMENT_DIR so carlos.properties uses CARLOS paths,
-  # not any OSCAR 19 path that might remain in the bundled properties.
-  echo BASE_DOCUMENT_DIR=${BASE_DOCUMENT_DIR}>> ${PROGRAM}.tmp 2>>$LOG_FILE
-  # For OSCAR 19 migration: read the OSCAR 19 BASE_DOCUMENT_DIR and create a
-  # symlink from the CARLOS default path so that OSCAR 19 files are accessible
-  # from both the existing OSCAR 19 path and the new CARLOS default path.
-  oscar_base_doc=$(sed '/^\#/d' "${C_HOME}oscar.properties" | grep '^BASE_DOCUMENT_DIR' | tail -n 1 | cut -d '=' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' 2>>$LOG_FILE)
-  echo "oscar_base_doc=${oscar_base_doc}" >> $LOG_FILE
-  if [ -n "${oscar_base_doc}" ] && [ "${oscar_base_doc}" != "${BASE_DOCUMENT_DIR}" ] && [ -d "${oscar_base_doc}" ] ; then
-    echo "Linking CARLOS document path ${BASE_DOCUMENT_DIR} -> ${oscar_base_doc} for OSCAR 19 migration" >> $LOG_FILE
-    ln -sf "${oscar_base_doc}" "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE
-  else
-    mkdir -p "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE
-    chown -R ${TOMCAT_USER}:${TOMCAT_USER} "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE
-  fi
-  fi
-else
+      		fi
+  	fi
+else     		
 	db_set carlos-emr/upgrade false
 	echo "use the supplied default properties file" >>$LOG_FILE
 	echo "adjust the paths from a dev build to a deb build" >>$LOG_FILE
@@ -748,13 +639,7 @@ chmod 640 ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE
 
 
 
-    if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
-        # some look for /var/lib/tomcat8/carlos.properties but we are using /usr/share/tomcat8
-        # so create a symlink for that in C_BASE, overwrite if necessary
-        ln -sf ${C_HOME}${PROGRAM}.properties ${C_BASE}${PROGRAM}.properties
-        chown -R ${TOMCAT_USER}:${TOMCAT_USER} ${C_BASE}${PROGRAM}.properties 2>>$LOG_FILE
-    fi
-    if [ -f /usr/share/tomcat9/bin/version.sh ] || [ -f /usr/share/tomcat10/bin/version.sh ] ; then
+    if [ -f /usr/share/tomcat10/bin/version.sh ] || [ -f /usr/share/tomcat11/bin/version.sh ] ; then
         # -e tests for existance of the file or linked file, -L tests for existance of the Link broken or not
         if [ ! -e /var/lib/tomcat ] ; then
             ln -s /var/lib/${TOMCAT} /var/lib/tomcat 2>>$LOG_FILE

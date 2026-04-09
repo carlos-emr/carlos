@@ -85,8 +85,21 @@
     if (request.getParameter("limit1") != null) strLimit1 = request.getParameter("limit1");
     if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
 
-    int offset = Integer.parseInt(strLimit1);
-    int limit = Integer.parseInt(strLimit2);
+    int offset;
+    try {
+        offset = Integer.parseInt(strLimit1);
+    } catch (NumberFormatException e) {
+        offset = 0;
+    }
+    int limit;
+    try {
+        limit = Integer.parseInt(strLimit2);
+    } catch (NumberFormatException e) {
+        limit = 10;
+    }
+    // Sanitize: replace raw request strings with parsed integer values to prevent XSS
+    strLimit1 = String.valueOf(offset);
+    strLimit2 = String.valueOf(limit);
     boolean caisi = Boolean.valueOf(request.getParameter("caisi")).booleanValue();
 
     CarlosProperties props = CarlosProperties.getInstance();
@@ -129,9 +142,9 @@
     %>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
-    <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"
+    <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"
             type="text/javascript"></script>
-    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"
           type="text/css"/>
     <%-- global.css: CARLOS color overrides for Bootstrap (this page doesn't use global-head.jspf) --%>
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/global.css"/>
@@ -478,12 +491,12 @@
                 <tr style="background-color: <%=bgColor%>"
                     onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
                     onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                    onClick="document.forms[0].demographic_no.value=<%=demo.getDemographicNo()%>;<% if(caisi) { out.print("addNameCaisi");} else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo() == null ? "" : demo.getChartNo(), StandardCharsets.UTF_8)%>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("messageId"))) %>','<%=demo.getProviderNo()%>')">
+                    onClick="document.forms[0].demographic_no.value=<%=demo.getDemographicNo()%>;<% if(caisi) { out.print("addNameCaisi");} else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getLastName())))%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getFirstName())))%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demo.getChartNo() == null ? "" : demo.getChartNo()))%>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("messageId"))) %>','<%=Encode.forJavaScriptAttribute(StringUtils.noNull(demo.getProviderNo()))%>')">
 
                     <td class="demoId">
                         <input type="submit" class="mbttn btn btn-secondary btn-sm" name="demographic_no"
                                value="<%=demo.getDemographicNo()%>"
-                               onClick="<% if(caisi) {out.print("addNameCaisi");} else {out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo() == null ? "" : demo.getChartNo(), StandardCharsets.UTF_8)%>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("messageId"))) %>','<%=demo.getProviderNo()%>')">
+                               onClick="<% if(caisi) {out.print("addNameCaisi");} else {out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getLastName())))%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getFirstName())))%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demo.getChartNo() == null ? "" : demo.getChartNo()))%>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("messageId"))) %>','<%=Encode.forJavaScriptAttribute(StringUtils.noNull(demo.getProviderNo()))%>')">
                     </td>
                     <td class="lastName"><%=Encode.forHtml(Misc.toUpperLowerCase(demo.getLastName()))%>
                     </td>

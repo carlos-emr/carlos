@@ -60,7 +60,7 @@
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
               rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <!-- Bootstrap 2.3.1 -->
 
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
@@ -115,8 +115,21 @@
 
         String searchStatus = ("All".equalsIgnoreCase(request.getParameter("search_status")) ? null : request.getParameter("search_status"));
 
-        int offset = Integer.parseInt(strOffset);
-        int limit = Integer.parseInt(strLimit);
+        int offset;
+        try {
+            offset = Integer.parseInt(strOffset);
+        } catch (NumberFormatException e) {
+            offset = 0;
+        }
+        int limit;
+        try {
+            limit = Integer.parseInt(strLimit);
+        } catch (NumberFormatException e) {
+            limit = 10;
+        }
+        // Sanitize: replace raw request strings with parsed integer values to prevent XSS
+        strOffset = String.valueOf(offset);
+        strLimit = String.valueOf(limit);
     %>
     <body onLoad="setfocus()">
 

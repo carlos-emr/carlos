@@ -80,8 +80,8 @@ echo "current date="$(date)
 
 ICD=9
 
-# For simplicity lets pick Tomcat 9
-TOMCAT=tomcat9
+# For simplicity lets pick Tomcat 11
+TOMCAT=tomcat11
 #C_HOME=/var/lib/${TOMCAT}/
 C_BASE=/var/lib/${TOMCAT}/
 #tomcat_path=${C_HOME}
@@ -525,7 +525,6 @@ echo ""
 echo "the md5sum is"
 md5sum "${RELEASE_DIR}/${DEBNAME}.deb"
 echo "#########" `date` "#########"
-
 
 
 

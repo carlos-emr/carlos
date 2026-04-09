@@ -24,7 +24,6 @@
 --%>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="org.owasp.encoder.Encode" %>
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -222,7 +221,7 @@
                                 for (ProfessionalSpecialist ps : checkedSpecs) {
                         %>
                         <tr>
-                            <td><%=StringEscapeUtils.escapeHtml4(ps.getFormattedName()) %>
+                            <td><%=Encode.forHtml(ps.getFormattedName()) %>
                             </td>
                         </tr>
                         <%
