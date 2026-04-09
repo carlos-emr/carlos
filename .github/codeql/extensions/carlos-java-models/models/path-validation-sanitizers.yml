@@ -56,8 +56,41 @@ extensions:
       # is intentionally NOT modelled as a flow source.
       - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validateUpload", "(java.io.File,java.lang.String,java.io.File)", "", "Argument[2]", "ReturnValue", "taint", "manual"]
 
-  # neutralModel entries suppress any auto-generated models for methods that return
-  # a non-reference type (boolean) where no taint flow to ReturnValue is relevant.
+      # ---------------------------------------------------------------
+      # Wrapper methods that internally call PathValidationUtils
+      # ---------------------------------------------------------------
+      # These application methods validate file paths via PathValidationUtils
+      # and throw on failure, but CodeQL cannot trace the sanitization across
+      # the try-catch / isInAllowedTempDirectory fallback pattern within their
+      # bodies. Modelling them as summaries cuts taint at the wrapper boundary.
+
+      # MEDITECHHandler.validateAndGetFile(String) -> File
+      # Validates filename is within DOCUMENT_DIR or an allowed temp directory
+      # using PathValidationUtils.validateExistingPath + isInAllowedTempDirectory.
+      - ["io.github.carlos_emr.carlos.lab.ca.all.upload.handlers", "MEDITECHHandler", false, "validateAndGetFile", "(java.lang.String)", "", "Argument[this]", "ReturnValue", "taint", "manual"]
+
+      # IHAPOIHandler.validateAndGetFile(String) -> File
+      # Same pattern as MEDITECHHandler.validateAndGetFile.
+      - ["io.github.carlos_emr.carlos.lab.ca.all.upload.handlers", "IHAPOIHandler", false, "validateAndGetFile", "(java.lang.String)", "", "Argument[this]", "ReturnValue", "taint", "manual"]
+
+      # FaxManagerImpl.resolveAndValidateFilePath(String) -> Path
+      # Calls validateFilePath() then PathValidationUtils.validateExistingPath
+      # with DOCUMENT_DIR or isInAllowedTempDirectory fallback.
+      - ["io.github.carlos_emr.carlos.managers", "FaxManagerImpl", false, "resolveAndValidateFilePath", "(java.lang.String)", "", "Argument[this]", "ReturnValue", "taint", "manual"]
+
+      # FaxSender.resolveFilePath(String, String) -> Path
+      # Validates absolute paths via PathValidationUtils.validateExistingPath +
+      # isInAllowedTempDirectory, and relative paths via validatePath.
+      - ["io.github.carlos_emr.carlos.fax.core", "FaxSender", false, "resolveFilePath", "(java.lang.String,java.lang.String)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
+
+      # NioFileManagerImpl.getOscarDocument(String) -> File
+      # Resolves filename within DOCUMENT_DIR and validates via
+      # PathValidationUtils.validateExistingPath. Returns validated File.
+      - ["io.github.carlos_emr.carlos.managers", "NioFileManagerImpl", false, "getOscarDocument", "(java.lang.String)", "", "Argument[this]", "ReturnValue", "taint", "manual"]
+
+  # neutralModel entries suppress auto-generated/heuristic taint summaries for
+  # guard methods and sanitizer wrappers where no relevant taint flow should be
+  # inferred, including boolean, void, and reference-returning methods.
   - addsTo:
       pack: codeql/java-all
       extensible: neutralModel
@@ -65,3 +98,25 @@ extensions:
       # isInAllowedTempDirectory(File file) -> boolean
       # Guard predicate only; returns boolean with no relevant taint-flow to callers.
       - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "isInAllowedTempDirectory", "(java.io.File)", "summary", "manual"]
+
+      # FaxManagerImpl.validateFilePath(String) -> void
+      # Guard method that validates and throws on failure. No taint flows through.
+      - ["io.github.carlos_emr.carlos.managers", "FaxManagerImpl", "validateFilePath", "(java.lang.String)", "summary", "manual"]
+
+      # Util.isPathWithinDirectory(File, String) -> boolean
+      # Boolean guard that delegates to PathValidationUtils.validateExistingPath.
+      - ["io.github.carlos_emr.carlos.demographic.pageUtil", "Util", "isPathWithinDirectory", "(java.io.File,java.lang.String)", "summary", "manual"]
+
+      # IncomingDocUtil.isValidPathComponent(String) -> boolean
+      # Boolean guard using PathValidationUtils.validatePath.
+      - ["io.github.carlos_emr.carlos.documentManager", "IncomingDocUtil", "isValidPathComponent", "(java.lang.String)", "summary", "manual"]
+
+      # IncomingDocUtil.isPathWithinBounds(String, String) -> boolean
+      # Boolean guard using PathValidationUtils.validateExistingPath.
+      - ["io.github.carlos_emr.carlos.documentManager", "IncomingDocUtil", "isPathWithinBounds", "(java.lang.String,java.lang.String)", "summary", "manual"]
+
+      # EDocUtil.resolvePath(String) -> String
+      # Static method that resolves a filename against DOCUMENT_DIR using
+      # PathValidationUtils.validateExistingPath + isInAllowedTempDirectory.
+      # No receiver (static), so modelled as neutral to suppress auto-generated models.
+      - ["io.github.carlos_emr.carlos.documentManager", "EDocUtil", "resolvePath", "(java.lang.String)", "summary", "manual"]

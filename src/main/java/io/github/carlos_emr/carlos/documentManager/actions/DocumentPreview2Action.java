@@ -300,7 +300,7 @@ public class DocumentPreview2Action extends ActionSupport {
                     java.io.File baseDir = new java.io.File(basePath);
                     if (baseDir.exists()) {
                         try {
-                            PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir);
+                            canonicalPdfPath = PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir).toPath();
                             isValidPath = true;
                             break;
                         } catch (SecurityException e) {
