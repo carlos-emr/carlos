@@ -28,10 +28,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Unit tests for the eform_link validation pattern in {@link AddEForm2Action}.
+ * Unit tests for eform_link validation in {@link AddEForm2Action}.
  *
- * <p>Validates that the EFORM_LINK_PATTERN regex correctly accepts valid
- * eform-to-eform linking keys and rejects session poisoning attempts (CWE-501).</p>
+ * <p>Validates that {@link AddEForm2Action#validateEformLink(String)} correctly
+ * accepts valid eform-to-eform linking keys and rejects session poisoning
+ * attempts (CWE-501).</p>
  *
  * <p>Expected format: {providerNo}_{demographicNo}_{fid}_{fieldName}</p>
  *
@@ -48,7 +49,7 @@ class AddEForm2ActionEformLinkValidationTest {
     class ValidValues {
 
         @ParameterizedTest
-        @DisplayName("should accept valid eform_link format")
+        @DisplayName("should return value when format is valid")
         @ValueSource(strings = {
             "999998_12345_67_referralForm",
             "doc1_99999_100_linkField",
@@ -58,10 +59,29 @@ class AddEForm2ActionEformLinkValidationTest {
             "abc_1_2_field_name",
             "abc_1_2_a.b-c_d"
         })
-        void shouldAcceptValidEformLink(String eformLink) {
-            assertThat(eformLink.matches(AddEForm2Action.EFORM_LINK_PATTERN))
+        void shouldReturnValue_whenFormatIsValid(String eformLink) {
+            assertThat(AddEForm2Action.validateEformLink(eformLink))
                 .as("eform_link '%s' should be accepted", eformLink)
-                .isTrue();
+                .isEqualTo(eformLink);
+        }
+
+        @ParameterizedTest
+        @DisplayName("should accept eform_link when demographic is -1 (admin view)")
+        @ValueSource(strings = {
+            "999998_-1_67_referralForm",
+            "doc1_-1_100_linkField",
+            "p1_-1_1_f"
+        })
+        void shouldAcceptEformLink_whenDemographicIsNegativeOne(String eformLink) {
+            assertThat(AddEForm2Action.validateEformLink(eformLink))
+                .as("eform_link '%s' with -1 demographic should be accepted", eformLink)
+                .isEqualTo(eformLink);
+        }
+
+        @Test
+        @DisplayName("should return null when input is null")
+        void shouldReturnNull_whenInputIsNull() {
+            assertThat(AddEForm2Action.validateEformLink(null)).isNull();
         }
     }
 
@@ -70,7 +90,7 @@ class AddEForm2ActionEformLinkValidationTest {
     class SessionPoisoningAttempts {
 
         @ParameterizedTest
-        @DisplayName("should reject dangerous session attribute names")
+        @DisplayName("should return null when value is a dangerous session key")
         @ValueSource(strings = {
             "user",
             "CURRENT_FACILITY",
@@ -78,10 +98,10 @@ class AddEForm2ActionEformLinkValidationTest {
             "RxSessionBean",
             "casemgmtNoteLock123"
         })
-        void shouldRejectDangerousSessionKeys(String eformLink) {
-            assertThat(eformLink.matches(AddEForm2Action.EFORM_LINK_PATTERN))
+        void shouldReturnNull_whenValueIsDangerousSessionKey(String eformLink) {
+            assertThat(AddEForm2Action.validateEformLink(eformLink))
                 .as("eform_link '%s' should be REJECTED (session poisoning)", eformLink)
-                .isFalse();
+                .isNull();
         }
     }
 
@@ -90,7 +110,7 @@ class AddEForm2ActionEformLinkValidationTest {
     class InvalidFormatValues {
 
         @ParameterizedTest
-        @DisplayName("should reject malformed eform_link values")
+        @DisplayName("should return null when format is malformed")
         @ValueSource(strings = {
             "",
             "singletoken",
@@ -103,39 +123,39 @@ class AddEForm2ActionEformLinkValidationTest {
             "prov_notanumber_456_field",
             "prov_123_notanumber_field"
         })
-        void shouldRejectMalformedEformLink(String eformLink) {
-            assertThat(eformLink.matches(AddEForm2Action.EFORM_LINK_PATTERN))
+        void shouldReturnNull_whenFormatIsMalformed(String eformLink) {
+            assertThat(AddEForm2Action.validateEformLink(eformLink))
                 .as("eform_link '%s' should be REJECTED (invalid format)", eformLink)
-                .isFalse();
+                .isNull();
         }
 
         @Test
-        @DisplayName("should reject provider number exceeding 6 characters")
-        void shouldRejectProviderNo_whenExceedingMaxLength() {
+        @DisplayName("should return null when provider exceeds 6 characters")
+        void shouldReturnNull_whenProviderExceedsMaxLength() {
             String eformLink = "ABCDEFG_123_456_field";
-            assertThat(eformLink.matches(AddEForm2Action.EFORM_LINK_PATTERN)).isFalse();
+            assertThat(AddEForm2Action.validateEformLink(eformLink)).isNull();
         }
 
         @Test
-        @DisplayName("should reject demographic number exceeding 10 digits")
-        void shouldRejectDemographicNo_whenExceedingMaxLength() {
+        @DisplayName("should return null when demographic exceeds 10 digits")
+        void shouldReturnNull_whenDemographicExceedsMaxLength() {
             String eformLink = "prov_12345678901_456_field";
-            assertThat(eformLink.matches(AddEForm2Action.EFORM_LINK_PATTERN)).isFalse();
+            assertThat(AddEForm2Action.validateEformLink(eformLink)).isNull();
         }
 
         @Test
-        @DisplayName("should reject fid exceeding 10 digits")
-        void shouldRejectFid_whenExceedingMaxLength() {
+        @DisplayName("should return null when fid exceeds 10 digits")
+        void shouldReturnNull_whenFidExceedsMaxLength() {
             String eformLink = "prov_123_12345678901_field";
-            assertThat(eformLink.matches(AddEForm2Action.EFORM_LINK_PATTERN)).isFalse();
+            assertThat(AddEForm2Action.validateEformLink(eformLink)).isNull();
         }
 
         @Test
-        @DisplayName("should reject field name exceeding 50 characters")
-        void shouldRejectFieldName_whenExceedingMaxLength() {
+        @DisplayName("should return null when field name exceeds 50 characters")
+        void shouldReturnNull_whenFieldNameExceedsMaxLength() {
             String longField = "a".repeat(51);
             String eformLink = "prov_123_456_" + longField;
-            assertThat(eformLink.matches(AddEForm2Action.EFORM_LINK_PATTERN)).isFalse();
+            assertThat(AddEForm2Action.validateEformLink(eformLink)).isNull();
         }
     }
 }

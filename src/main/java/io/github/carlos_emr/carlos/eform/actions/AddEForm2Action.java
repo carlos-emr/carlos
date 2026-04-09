@@ -64,6 +64,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Pattern;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -80,8 +81,29 @@ public class AddEForm2Action extends ActionSupport {
      * Validates the eform_link parameter format to prevent session attribute injection (CWE-501).
      * Expected format: {providerNo}_{demographicNo}_{fid}_{fieldName}
      * Example: "999998_12345_67_referralForm"
+     *
+     * <p>Demographic number allows {@code -1} for admin-view eform linking
+     * (see {@link io.github.carlos_emr.carlos.eform.EFormLoader#getOpenEform}).</p>
      */
-    static final String EFORM_LINK_PATTERN = "^[a-zA-Z0-9]{1,6}_\\d{1,10}_\\d{1,10}_[a-zA-Z0-9_.-]{1,50}$";
+    static final Pattern EFORM_LINK_PATTERN = Pattern.compile(
+            "^[a-zA-Z0-9]{1,6}_-?\\d{1,10}_\\d{1,10}_[a-zA-Z0-9_.-]{1,50}$");
+
+    /**
+     * Validates an eform_link value against the expected key format.
+     *
+     * <p>Returns the value unchanged if it matches the expected format, or {@code null}
+     * if the value is invalid or null. Invalid values are logged at WARN level.</p>
+     *
+     * @param eformLink the raw eform_link parameter value (may be null)
+     * @return the validated eform_link, or null if invalid
+     */
+    static String validateEformLink(String eformLink) {
+        if (eformLink != null && !EFORM_LINK_PATTERN.matcher(eformLink).matches()) {
+            logger.warn("Invalid eform_link parameter rejected: {}", LogSanitizer.sanitize(eformLink));
+            return null;
+        }
+        return eformLink;
+    }
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
@@ -119,15 +141,7 @@ public class AddEForm2Action extends ActionSupport {
         ArrayList<String> paramValues = new ArrayList<String>(); //holds "myval, ...."
         String fid = request.getParameter("efmfid");
         String demographic_no = request.getParameter("efmdemographic_no");
-        String eform_link = request.getParameter("eform_link");
-
-        // Validate eform_link: must match the expected linking pattern
-        // Format: {providerNo}_{demographicNo}_{fid}_{fieldName}
-        // Prevents session attribute injection (CWE-501)
-        if (eform_link != null && !eform_link.matches(EFORM_LINK_PATTERN)) {
-            logger.warn("Invalid eform_link parameter rejected: {}", LogSanitizer.sanitize(eform_link));
-            eform_link = null;
-        }
+        String eform_link = validateEformLink(request.getParameter("eform_link"));
 
         String subject = request.getParameter("subject");
 
@@ -178,6 +192,11 @@ public class AddEForm2Action extends ActionSupport {
         ArrayList<String> openerValues = new ArrayList<String>();
         for (String name : openerNames) {
             String lnk = providerNo + "_" + demographic_no + "_" + fid + "_" + name;
+            // Validate constructed key before session access (CWE-501 read-path)
+            if (validateEformLink(lnk) == null) {
+                openerValues.add(null);
+                continue;
+            }
             String val = (String) se.getAttribute(lnk);
             openerValues.add(val);
             if (val != null) se.removeAttribute(lnk);
