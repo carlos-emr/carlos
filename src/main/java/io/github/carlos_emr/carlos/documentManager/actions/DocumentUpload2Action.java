@@ -291,7 +291,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         // (sanitizes fileName, rejects traversal, ensures result is within parentDir).
         File destinationFile;
         try {
-            destinationFile = PathValidationUtils.validatePath(fileName, parentDir);
+            File validatedParent = PathValidationUtils.validateExistingPath(destinationFile.getParentFile(), baseDir);
+            destinationFile = new File(validatedParent, destinationFile.getName());
         } catch (SecurityException e) {
             logger.error("Destination file is outside allowed directory: {}", LogSanitizer.sanitize(fileName));
             return false;

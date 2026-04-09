@@ -2149,7 +2149,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     }
 
                                     try {
-                                        PathValidationUtils.validateExistingPath(hrmFile, documentDir);
+                                        hrmFile = PathValidationUtils.validateExistingPath(hrmFile, documentDir);
                                     } catch (SecurityException e) {
                                         exportError.add("Error! HRM report file '" + Encode.forHtml(reportFile) + "' is outside the allowed directory. HRM report not exported.");
                                         logger.error("HRM report file path traversal attempt: {}", Encode.forJava(reportFile));
