@@ -102,19 +102,26 @@ public class LoginResourceAction extends HttpServlet {
                 }
             }
 
-            // Get content type by filename.        
-            if (image != null && image.exists()) {
-                contentType = getServletContext().getMimeType(image.getName());
+            // Send 404 if no valid image path was provided or file doesn't exist
+            if (image == null || !image.exists()) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return;
             }
 
-            if (contentType != null && contentType.startsWith("image")) {
-                response.reset();
-                response.setContentType(contentType);
-                response.setHeader("Content-Length", String.valueOf(image.length()));
+            // Get content type by filename
+            contentType = getServletContext().getMimeType(image.getName());
 
-                // Write image content to response.
-                Files.copy(image.toPath(), response.getOutputStream());
+            if (contentType == null || !contentType.startsWith("image")) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return;
             }
+
+            response.reset();
+            response.setContentType(contentType);
+            response.setHeader("Content-Length", String.valueOf(image.length()));
+
+            // Write image content to response.
+            Files.copy(image.toPath(), response.getOutputStream());
         } catch (ServletException | IOException e) {
             throw e;
         } catch (Exception e) {
