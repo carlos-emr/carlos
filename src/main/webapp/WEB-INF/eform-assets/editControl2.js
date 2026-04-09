@@ -495,7 +495,9 @@ function doHtml(value) {
 			var appendFrag = appendRange.createContextualFragment(safeValue);
 			editorDoc.body.appendChild(appendFrag);
 		} else {
-			console.warn('editControl2: DOMPurify not loaded — appending content as plain text to prevent XSS.');
+			if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+				console.warn('editControl2: DOMPurify not loaded — appending content as plain text to prevent XSS.');
+			}
 			editorDoc.body.appendChild(editorDoc.createTextNode(value));
 		}
 	}
