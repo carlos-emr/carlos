@@ -1113,7 +1113,7 @@
                             <tr>
                                 <td><a
                                         href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700,960,'${e:forJavaScript(ctx)}/oscarPrevention/index.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>');return false;">
+                                        onClick="popupPage(700,960,'${e:forJavaScriptAttribute(ctx)}/oscarPrevention/index.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(demographic_no) %>');return false;">
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.LeftNavBar.Prevent"/></a></td>
                             </tr>
                         </security:oscarSec>

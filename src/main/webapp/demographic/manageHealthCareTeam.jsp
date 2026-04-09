@@ -461,7 +461,7 @@
                         <td class="internal">
                             <select name="internalProviderList" id="internalProviderList">
                                 <c:forEach items="${ providerList }" var="providerDetail">
-                                    <option value="${ providerDetail.providerNo }">
+                                    <option value="${e:forHtmlAttribute(providerDetail.providerNo)}">
                                         ${e:forHtml(providerDetail.formattedName)}
                                         &#40;${e:forHtml(providerDetail.specialty)}&#41;
                                     </option>
@@ -477,7 +477,7 @@
                         <td class="external">
                             <select id="selectHealthCareTeamRoleType" name="selectHealthCareTeamRoleType">
                                 <c:forEach items="${ specialty }" var="specialtyType">
-                                    <option value="${ specialtyType.id }" ${ specialtyType.specialty eq 'UNKNOWN' ? 'selected' : '' } >
+                                    <option value="${e:forHtmlAttribute(specialtyType.id)}" ${ specialtyType.specialty eq 'UNKNOWN' ? 'selected' : '' } >
                                         ${e:forHtml(specialtyType.specialty)}
                                     </option>
                                 </c:forEach>

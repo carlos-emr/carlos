@@ -167,7 +167,7 @@
                     <c:set value="odd" var="rowclass" scope="page"/>
                 </c:if>
 
-                <li id="${ dContact.id }" class="hovereffect ${ rowclass }">
+                <li id="${e:forHtmlAttribute(dContact.id)}" class="hovereffect ${ rowclass }">
 			
 				<span class="label"> 
 					${e:forHtml(dContact.role)}
@@ -184,7 +184,7 @@
 				</span>
                 </li>
 
-                <table class="healthCareTeamMemberDetailTable" id="healthCareTeamMemberDetail_${ dContact.id }"
+                <table class="healthCareTeamMemberDetailTable" id="healthCareTeamMemberDetail_${e:forHtmlAttribute(dContact.id)}"
                        style="display:none;">
                     <tr>
                         <th class="alignLeft contactName" colspan="2">${e:forHtml(dContact.contactName)}</th>

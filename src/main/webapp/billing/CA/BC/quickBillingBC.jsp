@@ -93,13 +93,13 @@
 
             // prepare the document elements when the DOM is ready.
             // cool moving stuff...
-            if (!${e:forJavaScript(quickBillingBC.isHeaderSet)}) {
+            if (!${quickBillingBC.isHeaderSet}) {
                 $("#apeture").hide();
                 $("#toolBar").hide();
                 $("#inputList").hide();
             }
 
-            if (${e:forJavaScript(quickBillingBC.isHeaderSet)}) {
+            if (${quickBillingBC.isHeaderSet}) {
                 // lock out the header.
                 $("#providers").attr("disabled", "disabled");
                 $("#visitLocation").attr("disabled", "disabled");
@@ -109,7 +109,7 @@
                 $("#ptName").focus();
             }
 
-            if (${e:forJavaScript(not empty requestScope.saved)}) {
+            if (${not empty requestScope.saved}) {
                 $("#saved").slideDown("fast");
             }
 

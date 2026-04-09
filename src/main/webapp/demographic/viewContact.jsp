@@ -156,7 +156,7 @@
                 <td align="right"><b>Postal</b></td>
                 <td>
                     <input type="text" name="contact.postal" value="${e:forHtmlAttribute(contact.postal)}"
-                           size="30 readonly=" readonly"">
+                           size="30" readonly="readonly">
                 </td>
             </tr>
             <tr>
