@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.util;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Set;
@@ -36,6 +37,8 @@ import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 public class OscarDownload extends GenericDownload {
 
@@ -55,8 +58,19 @@ public class OscarDownload extends GenericDownload {
             return;
         }
 
-        String backupfilepath = ((String) session.getAttribute(homepath)) != null ? (String) session.getAttribute(homepath) : "null";
-        if (filename != null && backupfilepath != null && ((String) session.getAttribute("user")) != null) {
+        String backupfilepath = (String) session.getAttribute(homepath);
+        if (filename != null && backupfilepath != null
+                && !backupfilepath.isEmpty()
+                && ((String) session.getAttribute("user")) != null) {
+            // Validate the directory path from session before serving files
+            File downloadDir = new File(backupfilepath).getCanonicalFile();
+            if (!downloadDir.isDirectory()) {
+                res.setContentType("text/html");
+                PrintWriter out = res.getWriter();
+                out.println("<html><body>Invalid download directory.</body></html>");
+                return;
+            }
+            PathValidationUtils.validateExistingPath(downloadDir, downloadDir);
             ServletOutputStream stream = res.getOutputStream();
             transferFile(res, stream, backupfilepath, filename);
             stream.close();

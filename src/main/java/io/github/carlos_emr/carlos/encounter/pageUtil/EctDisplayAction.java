@@ -120,15 +120,19 @@ public class EctDisplayAction extends ActionSupport {
         if (bean == null || request.getParameter("demographicNo") != null) {
             // Validate request parameters before crossing the trust boundary into session storage
             String demographicNoParam = request.getParameter("demographicNo");
-            if (demographicNoParam == null || !demographicNoParam.matches("\\d{1,10}")) {
+            if (demographicNoParam != null && !demographicNoParam.matches("\\d{1,9}")) {
                 throw new IllegalArgumentException("Invalid demographicNo");
+            }
+            // demographicNo is required when creating a new encounter session
+            if (bean == null && demographicNoParam == null) {
+                throw new IllegalArgumentException("Missing required demographicNo for new encounter session");
             }
             String providerNoParam = request.getParameter("providerNo");
             if (providerNoParam != null && !providerNoParam.matches("[a-zA-Z0-9]{1,6}")) {
                 throw new IllegalArgumentException("Invalid providerNo");
             }
             String appointmentNoParam = request.getParameter("appointmentNo");
-            if (appointmentNoParam != null && !appointmentNoParam.matches("\\d{1,10}")) {
+            if (appointmentNoParam != null && !appointmentNoParam.matches("\\d{1,9}")) {
                 throw new IllegalArgumentException("Invalid appointmentNo");
             }
 
@@ -149,6 +153,16 @@ public class EctDisplayAction extends ActionSupport {
                 throw new IllegalArgumentException("Invalid curProviderNo");
             }
             bean.curProviderNo = curProviderNoParam;
+
+            // Reject oversized free-text parameters to prevent session storage abuse
+            for (String paramName : new String[]{"reason", "encType", "userName",
+                    "appointmentDate", "startTime", "status", "date", "source"}) {
+                String val = request.getParameter(paramName);
+                if (val != null && val.length() > 255) {
+                    throw new IllegalArgumentException("Parameter too long: " + paramName);
+                }
+            }
+
             bean.reason = request.getParameter("reason");
             bean.encType = request.getParameter("encType");
             bean.userName = request.getParameter("userName");

@@ -49,7 +49,7 @@ public class ApptUtil {
         obj.setEnd_time(request.getParameter("end_time"));
         obj.setName(request.getParameter("keyword"));
         String demoNo = request.getParameter("demographic_no");
-        if (demoNo != null && !demoNo.matches("\\d{1,10}")) {
+        if (demoNo != null && !demoNo.matches("\\d{1,9}")) {
             throw new IllegalArgumentException("Invalid demographic_no");
         }
         obj.setDemographic_no(demoNo);

@@ -305,7 +305,7 @@ public class EctSaveEncounter2Action extends ActionSupport {
             String apptNoParam = httpservletrequest.getParameter("appointment_no");
             if ("null".equalsIgnoreCase(apptNoParam) || (apptNoParam != null && apptNoParam.isEmpty())) {
                 apptNoParam = null;
-            } else if (apptNoParam != null && !apptNoParam.matches("\\d{1,10}")) {
+            } else if (apptNoParam != null && !apptNoParam.matches("\\d{1,9}")) {
                 throw new IllegalArgumentException("Invalid appointment_no");
             }
             bean.setApptNo(apptNoParam);

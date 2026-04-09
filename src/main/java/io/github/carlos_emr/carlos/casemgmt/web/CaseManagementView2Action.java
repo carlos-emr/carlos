@@ -1991,7 +1991,7 @@ public class CaseManagementView2Action extends ActionSupport {
         if (!fromRequest) {
             demono = (String) request.getSession().getAttribute("casemgmt_DemoNo"); // nosemgrep: tainted-session-from-http-request
         }
-        if (demono == null || !demono.matches("\\d{1,10}")) {
+        if (demono == null || !demono.matches("\\d{1,9}")) {
             throw new IllegalArgumentException("Invalid demographicNo");
         }
         if (fromRequest) {

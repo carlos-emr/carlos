@@ -69,11 +69,11 @@ public final class Billing2Action extends ActionSupport {
             if (request.getParameter("demographic_no") != null &&
                     request.getParameter("appointment_no") != null) {
                 String demoNo = request.getParameter("demographic_no");
-                if (!demoNo.matches("\\d{1,10}")) {
+                if (!demoNo.matches("\\d{1,9}")) {
                     throw new IllegalArgumentException("Invalid demographic_no");
                 }
                 String apptNo = request.getParameter("appointment_no");
-                if (!apptNo.matches("\\d{1,10}")) {
+                if (!apptNo.matches("\\d{1,9}")) {
                     throw new IllegalArgumentException("Invalid appointment_no");
                 }
                 String newWCBClaim = request.getParameter("newWCBClaim");

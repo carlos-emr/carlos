@@ -104,7 +104,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             log.error("EctIncomingEncounter2Action called with null or invalid demographicNo");
             throw new IllegalArgumentException("Invalid or missing demographicNo parameter");
         }
-        if (!demoNo.matches("\\d{1,10}")) {
+        if (!demoNo.matches("\\d{1,9}")) {
             throw new IllegalArgumentException("Invalid demographicNo parameter");
         }
 
@@ -181,14 +181,11 @@ public class EctIncomingEncounter2Action extends ActionSupport {
                 bean.providerNo = (String) request.getSession().getAttribute("user");
             }
 
-            bean.demographicNo = request.getParameter("demographicNo");
-            if (bean.demographicNo != null && !bean.demographicNo.matches("\\d{1,10}")) {
-                throw new IllegalArgumentException("Invalid demographicNo parameter");
-            }
+            bean.demographicNo = demoNo;
             bean.appointmentNo = request.getParameter("appointmentNo");
-            if ("null".equalsIgnoreCase(bean.appointmentNo) || bean.appointmentNo.isEmpty()) {
+            if (bean.appointmentNo == null || "null".equalsIgnoreCase(bean.appointmentNo) || bean.appointmentNo.isEmpty()) {
                 bean.appointmentNo = null;
-            } else if (bean.appointmentNo != null && !bean.appointmentNo.matches("\\d{1,10}")) {
+            } else if (!bean.appointmentNo.matches("\\d{1,9}")) {
                 throw new IllegalArgumentException("Invalid appointmentNo parameter");
             }
             // use this one.
@@ -197,9 +194,21 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             }
 
             bean.curProviderNo = request.getParameter("curProviderNo");
+            if (bean.curProviderNo != null && !bean.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
+                throw new IllegalArgumentException("Invalid curProviderNo parameter");
+            }
             Provider provider = loggedInInfo.getLoggedInProvider();
             if (bean.curProviderNo == null || bean.curProviderNo.trim().length() == 0)
                 bean.curProviderNo = provider.getProviderNo();
+            // Reject oversized free-text parameters to prevent session storage abuse
+            for (String paramName : new String[]{"reason", "reasonCode", "encType", "userName",
+                    "appointmentDate", "startTime", "status", "date", "source"}) {
+                String val = request.getParameter(paramName);
+                if (val != null && val.length() > 255) {
+                    throw new IllegalArgumentException("Parameter too long: " + paramName);
+                }
+            }
+
             bean.reason = request.getParameter("reason");
             bean.reasonCode = request.getParameter("reasonCode");
             bean.encType = request.getParameter("encType");
@@ -209,13 +218,15 @@ public class EctIncomingEncounter2Action extends ActionSupport {
                         + ((String) request.getSession().getAttribute("userlastname"));
             }
 
-
             bean.appointmentDate = request.getParameter("appointmentDate");
             bean.startTime = request.getParameter("startTime");
             bean.status = request.getParameter("status");
             bean.date = request.getParameter("date");
             bean.check = "myCheck";
             bean.oscarMsgID = request.getParameter("msgId");
+            if (bean.oscarMsgID != null && !bean.oscarMsgID.matches("\\d{1,9}")) {
+                throw new IllegalArgumentException("Invalid msgId parameter");
+            }
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
             request.getSession().setAttribute("EctSessionBean", bean);
             request.getSession().setAttribute("eChartID", bean.eChartId);

@@ -155,7 +155,7 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
                 return "error"; 
             }
             
-            if (!demographicNo.matches("\\d{1,10}")) {
+            if (!demographicNo.matches("\\d{1,9}")) {
                 return "error";
             }
 

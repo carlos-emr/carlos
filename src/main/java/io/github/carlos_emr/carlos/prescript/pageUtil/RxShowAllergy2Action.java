@@ -94,7 +94,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
      */
     public String reorder() {
         String demoNoParam = request.getParameter("demographicNo");
-        if (demoNoParam == null || !demoNoParam.matches("\\d{1,10}")) {
+        if (demoNoParam == null || !demoNoParam.matches("\\d{1,9}")) {
             return "failure";
         }
         reorder(request);
@@ -165,7 +165,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
         if (demo_no == null) {
             return "failure";
         }
-        if (!demo_no.matches("\\d{1,10}")) {
+        if (!demo_no.matches("\\d{1,9}")) {
             return "failure";
         }
         // Setup bean
@@ -308,11 +308,11 @@ public final class RxShowAllergy2Action extends ActionSupport {
             throw new IllegalArgumentException("Invalid direction parameter");
         }
         String demographicNo = request.getParameter("demographicNo");
-        if (demographicNo == null || !demographicNo.matches("\\d{1,10}")) {
+        if (demographicNo == null || !demographicNo.matches("\\d{1,9}")) {
             throw new IllegalArgumentException("Invalid demographicNo");
         }
         String allergyIdParam = request.getParameter("allergyId");
-        if (allergyIdParam == null || !allergyIdParam.matches("\\d{1,10}")) {
+        if (allergyIdParam == null || !allergyIdParam.matches("\\d{1,9}")) {
             throw new IllegalArgumentException("Invalid allergyId");
         }
         int allergyId = Integer.parseInt(allergyIdParam);

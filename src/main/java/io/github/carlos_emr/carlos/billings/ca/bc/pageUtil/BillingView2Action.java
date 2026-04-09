@@ -80,15 +80,18 @@ public final class BillingView2Action
         } else {
             BillingViewBean bean = new BillingViewBean();
             String billingNoParam = request.getParameter("billing_no");
-            if (billingNoParam == null || !billingNoParam.matches("\\d{1,10}")) {
+            if (billingNoParam == null || !billingNoParam.matches("\\d{1,9}")) {
                 throw new IllegalArgumentException("Invalid billing_no");
             }
             bean.loadBilling(billingNoParam);
             BillingBillingManager bmanager = new BillingBillingManager();
             ArrayList<BillingItem> billItem = new ArrayList<BillingItem>();
             String[] billingN = request.getParameterValues("billing_no");
+            if (billingN == null) {
+                throw new IllegalArgumentException("Missing billing_no");
+            }
             for (String bn : billingN) {
-                if (bn == null || !bn.matches("\\d{1,10}")) {
+                if (bn == null || !bn.matches("\\d{1,9}")) {
                     throw new IllegalArgumentException("Invalid billing_no");
                 }
             }
