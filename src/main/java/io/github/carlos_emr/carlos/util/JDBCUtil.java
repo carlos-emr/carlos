@@ -46,7 +46,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import io.github.carlos_emr.Misc;
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
@@ -74,8 +74,8 @@ public class JDBCUtil {
             results.appendChild(row);
 
             for (int i = 1; i <= colCount; i++) {
-                String columnName = StringEscapeUtils.escapeXml10(rsmd.getColumnName(i));
-                String value = StringEscapeUtils.escapeXml10(Misc.getString(rs, i));
+                String columnName = Encode.forXml(rsmd.getColumnName(i));
+                String value = Encode.forXml(Misc.getString(rs, i));
 
                 Element node = doc.createElement(columnName);
                 node.appendChild(doc.createTextNode(value));

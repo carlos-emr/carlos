@@ -2255,7 +2255,7 @@
                                                             } else {
                                                             %>
                                                             &#124; <a href=#
-                                                                      onClick='onUnbilled("<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingDeleteWithoutNo.jsp?status=<%=status%>&appointment_no=<%=appointment.getId()%>");return false;'
+                                                                      onClick='onUnbilled("<%= request.getContextPath() %>/billing/CA/<%=prov%>/BillingDeleteWithoutNo.do?status=<%=status%>&appointment_no=<%=appointment.getId()%>");return false;'
                                                                       title="<fmt:message key="global.billingtag"/>">-<fmt:message key="provider.appointmentProviderAdminDay.btnB"/></a>
                                                             <%
                                                                     }

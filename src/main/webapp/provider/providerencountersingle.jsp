@@ -39,6 +39,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Encounter" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@page import="io.github.carlos_emr.SxmlMisc" %>
 <%
     EncounterTemplateDao encounterTemplateDao = SpringUtils.getBean(EncounterTemplateDao.class);
     EncounterDao encounterDao = SpringUtils.getBean(EncounterDao.class);
@@ -67,11 +68,15 @@
 
     String content = "";
     String encounterattachment = "";
+    String xmlContent = "";
+    String xmlUsername = "";
     String temp = "";
     Encounter enc = encounterDao.find(Integer.parseInt(request.getParameter("encounter_no")));
     if (enc != null) {
         content = enc.getContent();
         encounterattachment = enc.getEncounterAttachment();
+        xmlContent = SxmlMisc.getXmlContent(content, "xml_content");
+        xmlUsername = SxmlMisc.getXmlContent(content, "xml_username");
 %>
 <font size="-1"><%=Encode.forHtml(ConversionUtils.toDateString(enc.getEncounterDate()))%> <%=Encode.forHtml(ConversionUtils.toTimeString(enc.getEncounterTime()))%>
     &nbsp;<font color="green"><%=Encode.forHtml(StringUtils.noNull(enc.getSubject()).isEmpty() ? "Unknown" : enc.getSubject())%>
@@ -85,7 +90,7 @@
 <%
     }
 %>
-<table datasrc='#xml_list' width='100%' border='0' BGCOLOR="#EEEEFF">
+<table width='100%' border='0' BGCOLOR="#EEEEFF">
     <tr>
         <td>Attachment: <%
             StringTokenizer st = new StringTokenizer(encounterattachment);
@@ -100,7 +105,7 @@
         %>
         </td>
         <td align='right' width='20%' nowrap>
-            <div datafld='xml_username'></div>
+            <%=Encode.forHtml(xmlUsername)%>
         </td>
     </tr>
 </table>
@@ -116,7 +121,7 @@
 
 
     } else {
-        out.println("<table datasrc='#xml_list' border='0'><tr><td><font color='blue'>Content:</font></td></tr><tr><td><div datafld='xml_content'></td></tr></table>");
+        out.println("<table border='0'><tr><td><font color='blue'>Content:</font></td></tr><tr><td>" + Encode.forHtml(xmlContent) + "</td></tr></table>");
     }
 %>
 

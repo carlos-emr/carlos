@@ -2149,7 +2149,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     }
 
                                     try {
-                                        PathValidationUtils.validateExistingPath(hrmFile, documentDir);
+                                        hrmFile = PathValidationUtils.validateExistingPath(hrmFile, documentDir);
                                     } catch (SecurityException e) {
                                         exportError.add("Error! HRM report file '" + Encode.forHtml(reportFile) + "' is outside the allowed directory. HRM report not exported.");
                                         logger.error("HRM report file path traversal attempt: {}", Encode.forJava(reportFile));
@@ -3686,7 +3686,13 @@ public class DemographicExportAction42Action extends ActionSupport {
         }
 
         // Check whether document is valid; validation stops at first error detected.
-        Validator validator = schema.newValidator();
+        Validator validator;
+        try {
+            validator = XmlUtils.createSecureValidator(schema);
+        } catch (SAXException e) {
+            logger.error("Failed to create secure validator", e);
+            return false;
+        }
         try {
             validator.validate(new DOMSource(doc));
         } catch (SAXException e) {

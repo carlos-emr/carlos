@@ -22,7 +22,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*, io.github.carlos_emr.carlos.appt.*, io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao, io.github.carlos_emr.carlos.commn.model.AppointmentType, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
@@ -46,7 +46,7 @@
         loc = loc + '<%= types.get(j).getLocation() %>' + ',';
         notes = notes + '<%= types.get(j).getNotes() %>' + ',';
         resources = resources + '<%= types.get(j).getResources() %>' + ',';
-        names = names + '<%=StringEscapeUtils.escapeEcmaScript(types.get(j).getName()) %>' + ',';
+        names = names + '<%=Encode.forJavaScript(types.get(j).getName()) %>' + ',';
         <%   } %>
         var durArray = dur.split(",");
         var reasonArray = reason.split(",");

@@ -100,7 +100,8 @@ public class dxResearchUpdate2Action extends ActionSupport {
         forward.append("&quickList=");
 
         String ip = request.getRemoteAddr();
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, "DX", "" + research.getId(), ip, "");
+        String contentId = (research != null) ? String.valueOf(research.getId()) : did;
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, "DX", contentId, ip, ""); // nosemgrep: tainted-session-from-http-request
 
 
         response.sendRedirect(forward.toString());

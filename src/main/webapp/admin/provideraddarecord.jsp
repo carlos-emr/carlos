@@ -61,7 +61,7 @@
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 
-<%@ page import="org.apache.commons.text.StringEscapeUtils,io.github.carlos_emr.carlos.providers.data.ProviderBillCenter" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderBillCenter" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>

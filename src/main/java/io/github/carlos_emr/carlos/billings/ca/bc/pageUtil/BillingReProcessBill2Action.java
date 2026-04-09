@@ -46,6 +46,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -106,13 +107,13 @@ public class BillingReProcessBill2Action extends ActionSupport {
             DemographicData demoD = new DemographicData();
             Demographic demo = demoD.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);
 
-            logger.debug("RETRIEVING Using " + billingmasterNo);
+            logger.debug("RETRIEVING Using {}", LogSanitizer.sanitize(billingmasterNo));
             Billingmaster billingmaster = billingmasterDAO.getBillingMasterByBillingMasterNo(billingmasterNo);
             Billing bill = billingmasterDAO.getBilling(billingmaster.getBillingNo());
 
 
             String billingType = bill.getBillingtype();
-            logger.debug("type " + billingType);
+            logger.debug("type {}", LogSanitizer.sanitize(billingType));
 
 
             BillingFormData billform = new BillingFormData();
@@ -284,7 +285,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 //BillingCodeData bcd = new BillingCodeData();
                 //BillingService billingService = bcd.getBillingCodeByCode(billingServiceCode, new Date());
                 String codePrice = StringUtils.isNullOrEmpty(request.getParameter("billingAmount")) ? (StringUtils.isNullOrEmpty(frm.getBillingAmount()) ? "0.00" : frm.getBillingAmount()) : request.getParameter("billingAmount"); //billingService.getValue();
-                logger.debug("codePrice=" + codePrice + " amount on form " + request.getParameter("billingAmount"));
+                logger.debug("codePrice={} amount on form {}", LogSanitizer.sanitize(codePrice), LogSanitizer.sanitize(request.getParameter("billingAmount")));
 
                 if ("E".equals(payment_mode)) {
                     codePrice = "0.00";
@@ -361,12 +362,12 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 MiscUtils.getLogger().warn("warning", e);
             }
             bill.setProviderNo(providerNo);
-            logger.debug("WHAT IS BILL <ASTER " + billingmaster.getBillingmasterNo());
+            logger.debug("WHAT IS BILL <ASTER {}", LogSanitizer.sanitize(billingmaster.getBillingmasterNo()));
             billingmasterDAO.update(billingmaster);
             billingmasterDAO.update(bill);
 
-            logger.debug("type 2" + bill.getBillingtype());
-            logger.debug("WHAT IS BILL <ASTER2 " + billingmaster.getBillingmasterNo());
+            logger.debug("type 2 {}", LogSanitizer.sanitize(bill.getBillingtype()));
+            logger.debug("WHAT IS BILL <ASTER2 {}", LogSanitizer.sanitize(billingmaster.getBillingmasterNo()));
 
 
             if (!StringUtils.isNullOrEmpty(billingStatus)) {  //What if billing status is null?? the status just doesn't get updated but everything else does??'
@@ -450,7 +451,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
      */
     public String convertDate8Char(String s) {
         String sdate = "00000000", syear = "", smonth = "", sday = "";
-        logger.debug("s=" + s);
+        logger.debug("s={}", LogSanitizer.sanitize(s));
         if (s != null) {
 
             if (s.indexOf("-") != -1) {
@@ -467,13 +468,13 @@ public class BillingReProcessBill2Action extends ActionSupport {
                     sday = "0" + sday;
                 }
 
-                logger.debug("Year" + syear + " Month" + smonth + " Day" + sday);
+                logger.debug("Year{} Month{} Day{}", LogSanitizer.sanitize(syear), LogSanitizer.sanitize(smonth), LogSanitizer.sanitize(sday));
                 sdate = syear + smonth + sday;
 
             } else {
                 sdate = s;
             }
-            logger.debug("sdate:" + sdate);
+            logger.debug("sdate:{}", LogSanitizer.sanitize(sdate));
         } else {
             sdate = "00000000";
 

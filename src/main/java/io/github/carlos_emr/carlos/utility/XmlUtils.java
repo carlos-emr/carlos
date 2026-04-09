@@ -69,6 +69,7 @@ import org.xml.sax.XMLReader;
  * <p>Provides secure XML parser construction via {@link #createSecureSAXBuilder()},
  * {@link #createSecureDocumentBuilderFactory()}, {@link #createSecureSAXParserFactory()},
  * {@link #createSecureTransformerFactory()}, {@link #createSecureSchemaFactory(String)},
+ * {@link #createSecureValidator(javax.xml.validation.Schema)},
  * and {@link #createSecureJaxbSource(InputStream)}. All factory methods restrict external
  * resource access to prevent XXE attacks (CWE-611).
  *
@@ -226,6 +227,11 @@ public final class XmlUtils {
             logger.warn("Could not disable external-parameter-entities on SAXParserFactory", ex);
         }
         try {
+            spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        } catch (ParserConfigurationException | SAXException ex) {
+            logger.warn("Could not enable FEATURE_SECURE_PROCESSING on SAXParserFactory", ex);
+        }
+        try {
             spf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
         } catch (ParserConfigurationException | SAXException ex) {
             logger.warn("Could not disable load-external-dtd on SAXParserFactory", ex);
@@ -261,6 +267,35 @@ public final class XmlUtils {
             logger.warn("Could not restrict ACCESS_EXTERNAL_SCHEMA on SchemaFactory", ex);
         }
         return sf;
+    }
+
+    /**
+     * Creates a {@link javax.xml.validation.Validator} with external access disabled.
+     *
+     * <p>Sets {@code ACCESS_EXTERNAL_DTD} and {@code ACCESS_EXTERNAL_SCHEMA} to empty strings
+     * so that no external DTD or schema resources can be loaded during validation.
+     * Use this factory method instead of {@code schema.newValidator()} throughout the codebase.
+     *
+     * <p>The critical {@code ACCESS_EXTERNAL_DTD} property is required — a
+     * {@link SAXException} is thrown if it cannot be applied so that callers
+     * never receive an unprotected validator. The {@code ACCESS_EXTERNAL_SCHEMA} property
+     * is applied on a best-effort basis; a warning is logged if it cannot be set.
+     *
+     * @param schema the compiled {@link javax.xml.validation.Schema} to create the validator from
+     * @return Validator configured with external-access restrictions
+     * @throws SAXException if the critical ACCESS_EXTERNAL_DTD property cannot be set
+     */
+    public static javax.xml.validation.Validator createSecureValidator(javax.xml.validation.Schema schema) throws SAXException {
+        javax.xml.validation.Validator validator = schema.newValidator();
+        // Critical protection — fail closed if it cannot be applied
+        validator.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        // Defense-in-depth — warn if unavailable
+        try {
+            validator.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+        } catch (SAXException ex) {
+            logger.warn("Could not restrict ACCESS_EXTERNAL_SCHEMA on Validator", ex);
+        }
+        return validator;
     }
 
     /**
