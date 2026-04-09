@@ -190,12 +190,9 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         action.execute();
 
         HttpSession session = mockRequest.getSession();
-        // Verify no attribute was set with a key that looks like an eform_link
-        assertThat(session.getAttributeNames().asIterator())
-            .as("Session should not contain any eform_link attribute when parameter is absent")
-            .toIterable()
-            .noneSatisfy(name ->
-                assertThat(name).matches(".*_\\d+_\\d+_.*"));
+        assertThat(session.getAttributeNames().hasMoreElements())
+            .as("Session should remain empty when eform_link parameter is absent")
+            .isFalse();
     }
 
     @Test
