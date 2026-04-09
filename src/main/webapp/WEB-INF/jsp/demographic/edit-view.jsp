@@ -242,7 +242,7 @@
                                                                         if (key.endsWith("_id")) {
                                                                 %>
                                                                 <input type="hidden" name="<%= key %>"
-                                                                       value="<%=Encode.forHtml(StringUtils.trimToEmpty(demoExt.get(key)))%>"/>
+                                                                       value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(key)))%>"/>
                                                                 <%
                                                                         }
                                                                     }

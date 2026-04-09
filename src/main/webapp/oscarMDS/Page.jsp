@@ -312,7 +312,7 @@
                                    value="<%=result.labType%>"/>
                             <input type="hidden" name="ackStatus" value="<%= result.isMatchedToPatient() %>"/>
                             <input type="hidden" name="patientName"
-                                   value="<%=Encode.forHtml(result.patientName) %>"/>
+                                   value="<%=Encode.forHtmlAttribute(result.patientName) %>"/>
                             <%--                                    <%=result.getHealthNumber() %>--%>
                         </td>
 

@@ -350,7 +350,7 @@
                                     }
                                 %>
                                 <input type="hidden" name="doctorName"
-                                       value="<%= Encode.forHtml(doctorName) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(doctorName) %>"/>
                                 <c:choose>
                                     <c:when test="${empty infirmaryView_programAddress}">
                                         <%
@@ -364,9 +364,9 @@
                                             request.setAttribute("phone", finalPhone);
                                         %>
                                         <input type="hidden" name="clinicName"
-                                               value="<%= Encode.forHtml(clinicTitle.replaceAll("(<br>)","\\\n")) %>"/>
+                                               value="<%= Encode.forHtmlAttribute(clinicTitle.replaceAll("(<br>)","\\\n")) %>"/>
                                         <input type="hidden" name="clinicPhone"
-                                               value="<%= Encode.forHtml(finalPhone) %>"/>
+                                               value="<%= Encode.forHtmlAttribute(finalPhone) %>"/>
                                         <input type="hidden" id="finalFax" name="clinicFax" value=""/>
                                     </c:when>
                                     <c:otherwise>
@@ -393,16 +393,16 @@
                                     </c:otherwise>
                                 </c:choose>
                                 <input type="hidden" name="patientName"
-                                       value="<%= Encode.forHtml(patient.getFirstName())+ " " +Encode.forHtml(patient.getSurname()) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(patient.getFirstName())+ " " +Encode.forHtmlAttribute(patient.getSurname()) %>"/>
                                 <input type="hidden" name="patientDOB"
-                                       value="<%= Encode.forHtml(patientDOBStr) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(patientDOBStr) %>"/>
                                 <input type="hidden" name="pharmaFax" value="<%=pharmaFax%>"/>
                                 <input type="hidden" name="pharmaName" value="<%=pharmaName%>"/>
-                                <input type="hidden" name="pracNo" value="<%= Encode.forHtml(pracNo) %>"/>
+                                <input type="hidden" name="pracNo" value="<%= Encode.forHtmlAttribute(pracNo) %>"/>
                                 <input type="hidden" name="showPatientDOB" value="<%=showPatientDOB%>"/>
                                 <input type="hidden" name="pdfId" id="pdfId" value=""/>
                                 <input type="hidden" name="patientAddress"
-                                       value="<%= Encode.forHtml(patientAddress) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(patientAddress) %>"/>
                                 <%
                                     int check = (patientCity.trim().length() > 0 ? 1 : 0) | (patientProvince.trim().length() > 0 ? 2 : 0);
                                     String patientCityPostal = String.format("%s%s%s %s",
@@ -417,18 +417,18 @@
                                     }
                                 %>
                                 <input type="hidden" name="patientCityPostal"
-                                       value="<%= Encode.forHtml(patientCityPostal)%>"/>
+                                       value="<%= Encode.forHtmlAttribute(patientCityPostal)%>"/>
                                 <input type="hidden" name="patientHIN"
-                                       value="<%= Encode.forHtml(patientHin) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(patientHin) %>"/>
                                 <input type="hidden" name="patientChartNo"
-                                       value="<%=Encode.forHtml(ptChartNo)%>"/>
+                                       value="<%=Encode.forHtmlAttribute(ptChartNo)%>"/>
                                 <input type="hidden" name="bandNumber" value="${ bandNumber }"/>
                                 <input type="hidden" name="patientPhone"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgTel"/>: <%=Encode.forHtml(patientPhone) %>"/>
+                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgTel"/>: <%=Encode.forHtmlAttribute(patientPhone) %>"/>
                                 <input type="hidden" name="rxDate"
-                                       value="<%= Encode.forHtml(RxUtil.DateToString(rxDate, "MMMM d, yyyy")) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(RxUtil.DateToString(rxDate, "MMMM d, yyyy")) %>"/>
                                 <input type="hidden" name="sigDoctorName"
-                                       value="<%= Encode.forHtml(doctorName) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(doctorName) %>"/>
                                 <!--img src="img/prescript.gif" border="0"-->
                             </th>
                             <th valign=top height="100px" id="clinicAddress">
@@ -684,7 +684,7 @@
                         </tr>
 
                         <input type="hidden" name="rx"
-                               value="<%= Encode.forHtml(strRx.replaceAll(";","\\\n")) %>"/>
+                               value="<%= Encode.forHtmlAttribute(strRx.replaceAll(";","\\\n")) %>"/>
                         <input type="hidden" name="rx_no_newlines" value="<%= strRxNoNewLines.toString() %>"/>
                         <input type="hidden" name="additNotes" value=""/>
                         </tbody>

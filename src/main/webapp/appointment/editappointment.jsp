@@ -1248,7 +1248,7 @@
                     </td>
                     <td>
                 <input type="text" readonly name="doctorNo" id="mrp" class="form-control"
-                               value="<%=Encode.forHtml(providerBean.getProperty(doctorNo,""))%>">
+                               value="<%=Encode.forHtmlAttribute(providerBean.getProperty(doctorNo,""))%>">
                     </td>
                 </tr>
                 <tr>

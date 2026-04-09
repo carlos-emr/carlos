@@ -1517,7 +1517,7 @@
                                                                         if (key.endsWith("_id")) {
                                                                 %>
                                                                 <input type="hidden" name="<%= key %>"
-                                                                       value="<%=Encode.forHtml(StringUtils.trimToEmpty(demoExt.get(key)))%>"/>
+                                                                       value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(key)))%>"/>
                                                                 <%
                                                                         }
                                                                     }
@@ -2604,14 +2604,14 @@
                                                         <td align="left"><input type="text"
                                                                                 name="last_name" <%=getDisabled("last_name")%>
                                                                                 size="30"
-                                                                                value="<%=Encode.forHtml(demographic.getLastName())%>"
+                                                                                value="<%=Encode.forHtmlAttribute(demographic.getLastName())%>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formFirstName"/>:
                                                         </b></td>
                                                         <td align="left"><input type="text"
                                                                                 name="first_name" <%=getDisabled("first_name")%>
                                                                                 size="30"
-                                                                                value="<%=Encode.forHtml(demographic.getFirstName())%>"
+                                                                                value="<%=Encode.forHtmlAttribute(demographic.getFirstName())%>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                     </tr>
                                                     <tr>
@@ -2620,7 +2620,7 @@
                                                         <td align="left"><input type="text"
                                                                                 name="middleNames" <%=getDisabled("middleNames")%>
                                                                                 size="30"
-                                                                                value="<%=Encode.forHtml(demographic.getMiddleNames())%>"
+                                                                                value="<%=Encode.forHtmlAttribute(demographic.getMiddleNames())%>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgDemoTitle"/>: </b>
                                                         </td>
@@ -2746,13 +2746,13 @@
                                                         <td align="left"><input type="text"
                                                                                 name="address" <%=getDisabled("address")%>
                                                                                 size="30"
-                                                                                value="<%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getAddress()))%>">
+                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getAddress()))%>">
                                                         </td>
                                                         <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formCity"/>: </b>
                                                         </td>
                                                         <td align="left"><input type="text" name="city"
                                                                                 size="30" <%=getDisabled("city")%>
-                                                                                value="<%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getCity()))%>">
+                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getCity()))%>">
                                                         </td>
                                                     </tr>
 
@@ -3021,13 +3021,13 @@
                                                         <td align="left"><input type="text"
                                                                                 name="residentialAddress" <%=getDisabled("residentialAddress")%>
                                                                                 size="30"
-                                                                                value="<%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getResidentialAddress()))%>">
+                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getResidentialAddress()))%>">
                                                         </td>
                                                         <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialCity"/>: </b>
                                                         </td>
                                                         <td align="left"><input type="text" name="residentialCity"
                                                                                 size="30" <%=getDisabled("residentialCity")%>
-                                                                                value="<%=Encode.forHtml(StringUtils.trimToEmpty(demographic.getResidentialCity()))%>">
+                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getResidentialCity()))%>">
                                                         </td>
                                                     </tr>
 
@@ -3338,7 +3338,7 @@
                                                         </td>
                                                         <td align="left" colspan="3">
                                                             <input type="hidden" name="phoneCommentOrig"
-                                                                   value="<%=Encode.forHtml(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%>"/>
+                                                                   value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%>"/>
                                                             <textarea rows="2" cols="30"
                                                                       name="phoneComment"><%=Encode.forHtml(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%></textarea>
                                                         </td>

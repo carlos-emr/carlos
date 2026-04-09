@@ -156,7 +156,7 @@
                 <label><%=(x + 1)%>
                 </label>
                 <%}%>
-                <input type="hidden" class="btn btn-secondary" name="csv" value="<%=Encode.forHtml(csvList.get(x))%>">
+                <input type="hidden" class="btn btn-secondary" name="csv" value="<%=Encode.forHtmlAttribute(csvList.get(x))%>">
                 <input type="submit" class="btn btn-secondary" name="getCSV" value="Export to CSV">
                 <input type="submit" class="btn btn-secondary" name="getXLS" value="Export to XLS">
             </form>

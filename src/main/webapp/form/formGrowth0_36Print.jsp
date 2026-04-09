@@ -107,7 +107,7 @@
             }
     %>
     <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
-           value="<%=Encode.forHtml(request.getParameter(temp))%>"/>
+           value="<%=Encode.forHtmlAttribute(request.getParameter(temp))%>"/>
     <%
         }
     %>
@@ -133,7 +133,7 @@
             String temp = e.nextElement().toString();
     %>
     <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
-           value="<%=Encode.forHtml(prop.getProperty(temp, ""))%>"/>
+           value="<%=Encode.forHtmlAttribute(prop.getProperty(temp, ""))%>"/>
     <%
         }
     %>

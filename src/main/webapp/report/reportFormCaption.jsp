@@ -122,7 +122,7 @@
                             String action = " Add ";
                             if (strTemp.length > 1) {
                                 fieldName = Encode.forHtml(strTemp[1]);
-                                fieldCaption = Encode.forHtml(strTemp[0].trim());
+                                fieldCaption = Encode.forHtmlAttribute(strTemp[0].trim());
                             }
                             if (fieldCaption.length() > 1) {
                                 color = "gold";

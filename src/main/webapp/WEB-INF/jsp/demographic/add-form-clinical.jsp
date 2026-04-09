@@ -242,7 +242,7 @@
                             </td>
                             <td id="chartNoLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formChartNo"/>:</b></td>
                             <td id="chartNo" align="left"><input type="text" id="chart_no" name="chart_no"
-                                                                 value="<%=Encode.forHtml(chartNoVal)%>">
+                                                                 value="<%=Encode.forHtmlAttribute(chartNoVal)%>">
                             </td>
 
                         </tr>
