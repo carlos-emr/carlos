@@ -455,6 +455,11 @@ var CarlosAjax = (function () {
      */
     function insertContent(element, html, insertion, evalScripts) {
         if (evalScripts) {
+            // CodeQL js/bad-tag-filter: The regex-based script tag extraction below is
+            // flagged by CodeQL as bypassable. This is acceptable because the HTML comes
+            // exclusively from same-origin server AJAX responses (not from user input).
+            // The script extraction is a legacy Prototype.js behavior maintained for
+            // backward compatibility. Long-term: migrate to JSON AJAX responses.
             var scriptPattern = /<script[\s\S]*?>([\s\S]*?)<\/\s*script\s*>/gi;
             var scripts = [];
             var match;
