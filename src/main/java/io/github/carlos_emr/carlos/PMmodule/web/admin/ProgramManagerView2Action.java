@@ -137,7 +137,13 @@ public class ProgramManagerView2Action extends ActionSupport {
             addActionError("Invalid or missing required parameter");
             return ERROR;
         }
-        programId = String.valueOf(Integer.parseInt(programId));
+        try {
+            programId = String.valueOf(Integer.parseInt(programId));
+        } catch (NumberFormatException e) {
+            logger.error("Invalid programId format: {}", LogSanitizer.sanitize(String.valueOf(programId)));
+            addActionError("Invalid or missing required parameter");
+            return ERROR;
+        }
         request.getSession().setAttribute("case_program_id", programId);
 
         if (request.getParameter("newVacancy") != null && "true".equals(request.getParameter("newVacancy")))
