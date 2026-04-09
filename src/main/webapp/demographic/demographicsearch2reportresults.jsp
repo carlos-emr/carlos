@@ -63,9 +63,10 @@
     // caught by startsWith("//"). Backslash bypass (/\) is also rejected explicitly.
     String originalpage = request.getParameter("originalpage");
     if (originalpage == null || originalpage.isEmpty() || !originalpage.startsWith("/") || originalpage.startsWith("//") || originalpage.startsWith("/\\")) {
-        // Include a query delimiter because downstream code appends parameters beginning with '&'.
-        originalpage = request.getContextPath() + "/appointment/addappointment.jsp?";
+        originalpage = request.getContextPath() + "/appointment/addappointment.jsp";
     }
+    // Choose ? or & depending on whether originalpage already has a query string
+    String originalPageSeparator = originalpage.contains("?") ? "&" : "?";
 
 %>
 
@@ -165,7 +166,7 @@
 
     function addName(demographic_no, lastname, firstname, chartno, messageID, doctorNo) {
         fullname = lastname + "," + firstname;
-        document.addform.action = "<%= Encode.forJavaScript(originalpage) %>&demographicNoParam=" + demographic_no + "&demographic_no=" + demographic_no + "&firstNameParam=" + firstname + "&lastNameParam=" + lastname + "&chart_no=" + chartno;
+        document.addform.action = "<%= Encode.forJavaScript(originalpage) %><%= originalPageSeparator %>demographicNoParam=" + demographic_no + "&demographic_no=" + demographic_no + "&firstNameParam=" + firstname + "&lastNameParam=" + lastname + "&chart_no=" + chartno;
         document.addform.submit();
         return true;
     }
