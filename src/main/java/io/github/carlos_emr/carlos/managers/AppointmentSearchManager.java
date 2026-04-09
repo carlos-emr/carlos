@@ -50,7 +50,7 @@ public interface AppointmentSearchManager {
 
     public SearchConfig getProviderSearchConfig(String providerNo);
 
-    public List<TimeSlot> findAppointment(LoggedInInfo loggedInInfo, SearchConfig config, Integer demographicNo, Long appointmentTypeId, Calendar startDate) throws java.lang.ClassNotFoundException, java.lang.InstantiationException, java.lang.IllegalAccessException;
+    public List<TimeSlot> findAppointment(LoggedInInfo loggedInInfo, SearchConfig config, Integer demographicNo, Long appointmentTypeId, Calendar startDate) throws java.lang.ReflectiveOperationException;
 
     public static List<TimeSlot> getAllowedTimesByType(DayWorkSchedule dayWorkSchedule, Character[] codes, String providerNo) {
         ArrayList<TimeSlot> allowedTimesFilteredByType = new ArrayList<TimeSlot>();
