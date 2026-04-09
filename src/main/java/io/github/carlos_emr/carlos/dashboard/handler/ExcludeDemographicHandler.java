@@ -61,7 +61,7 @@ public class ExcludeDemographicHandler {
      * brackets and whitespace. Rejects JSON objects, nested arrays, string values,
      * and script injection payloads.
      */
-    private static final Pattern VALID_INT_ARRAY_PATTERN = Pattern.compile("^\\[?\\s*\\d+(\\s*,\\s*\\d+)*\\s*]?$");
+    private static final Pattern VALID_INT_ARRAY_PATTERN = Pattern.compile("^\\s*\\[?\\s*\\d+(\\s*,\\s*\\d+)*\\s*]?\\s*$");
 
     private static DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
     private DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
