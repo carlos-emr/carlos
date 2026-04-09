@@ -62,7 +62,7 @@ public final class dxSetupResearch2Action extends ActionSupport {
 
         // Validate demographicNo is a non-negative integer before crossing the trust boundary
         String demographicNoParam = request.getParameter("demographicNo");
-        if (demographicNoParam == null || !demographicNoParam.matches("\\d+")) {
+        if (demographicNoParam == null || !demographicNoParam.matches("\\d{1,9}")) {
             return ERROR;
         }
         // Parse and re-stringify to produce a canonical integer string that breaks the CodeQL

@@ -35,6 +35,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.dao.CtlDiagCodeDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDiagCode;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -103,7 +104,7 @@ public class DbManageBillingformDx2Action extends ActionSupport {
                 }
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to replace diagnostic codes for typeid={} — data may be inconsistent", typeid, e);
+            MiscUtils.getLogger().error("Failed to replace diagnostic codes for typeid={} — data may be inconsistent", LogSanitizer.sanitize(typeid), e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to update diagnostic codes");
             return NONE;
         }

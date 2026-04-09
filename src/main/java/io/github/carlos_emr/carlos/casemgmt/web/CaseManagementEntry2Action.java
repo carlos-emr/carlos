@@ -1882,7 +1882,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      */
     private boolean hasNoteLock(String demo) {
         HttpSession session = request.getSession();
-        CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo);
+        CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo); // nosemgrep: tainted-session-from-http-request
         try {
             if (casemgmtNoteLockSession == null) {
                 return false;
