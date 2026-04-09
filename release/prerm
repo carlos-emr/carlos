@@ -30,8 +30,8 @@ elif [ -f /usr/share/tomcat10/bin/version.sh ] ; then
         TOMCAT=tomcat10
 fi
 if [ -z "${TOMCAT}" ]; then
-    echo "ERROR: Neither tomcat10 nor tomcat11 found. Please install one of them." >&2
-    exit 1
+    echo "WARNING: Neither tomcat10 nor tomcat11 found. Skipping Tomcat cleanup." >&2
+    exit 0
 fi
 
 TOMCAT_USER=tomcat
