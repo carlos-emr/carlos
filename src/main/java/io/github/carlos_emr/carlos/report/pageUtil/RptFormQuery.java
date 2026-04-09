@@ -53,16 +53,27 @@ public class RptFormQuery {
     static String VARNAME_FORMAT = "startDate\\d|endDate\\d";
 
     /**
-     * Pattern for valid SQL table identifiers. Allows comma-separated table names
-     * with optional whitespace around commas (e.g. "formBCAR,formBCNewBorn" or
-     * "formBCAR, formBCNewBorn") where each name is a standard SQL identifier.
+     * Pattern for valid SQL table references. Allows comma-separated table names
+     * with optional whitespace around commas, optional schema qualification, and
+     * optional aliases (with or without AS), for example:
+     * "formBCAR",
+     * "schema.formBCAR",
+     * "formBCAR f",
+     * "schema.formBCAR AS f",
+     * "formBCAR f, formBCNewBorn n".
      */
+    private static final String SQL_IDENTIFIER_PATTERN = "[a-zA-Z_][a-zA-Z0-9_]*";
+    private static final String SQL_TABLE_REFERENCE_PATTERN =
+            SQL_IDENTIFIER_PATTERN
+                    + "(\\." + SQL_IDENTIFIER_PATTERN + ")?"
+                    + "(\\s+(?:(?i:as)\\s+)?" + SQL_IDENTIFIER_PATTERN + ")?";
     private static final Pattern VALID_TABLE_NAME_PATTERN = Pattern.compile(
-            "^[a-zA-Z_][a-zA-Z0-9_]*(\\s*,\\s*[a-zA-Z_][a-zA-Z0-9_]*)*$");
+            "^" + SQL_TABLE_REFERENCE_PATTERN + "(\\s*,\\s*" + SQL_TABLE_REFERENCE_PATTERN + ")*$");
 
     /**
-     * Validates that a table name (or comma-separated list of table names) contains
-     * only safe SQL identifier characters. Prevents SQL injection via table name manipulation.
+     * Validates that a table name (or comma-separated list of table references)
+     * contains only supported safe SQL identifier forms. Prevents SQL injection
+     * via table name manipulation while allowing schema-qualified names and aliases.
      *
      * @param tableName the table name string to validate
      * @throws SecurityException if the table name contains invalid characters
