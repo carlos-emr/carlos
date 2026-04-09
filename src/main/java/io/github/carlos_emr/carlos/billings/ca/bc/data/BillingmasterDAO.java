@@ -247,8 +247,9 @@ public class BillingmasterDAO {
             sb.append(" and ( to_days(service_date) < to_days(:endDate)) ");
         }
 
+        String normalizedStatusType = statusType == null ? null : statusType.trim();
         Query query = entityManager.createNativeQuery(sb.toString());
-        query.setParameter("statusType", statusType.trim());
+        query.setParameter("statusType", normalizedStatusType);
 
         if (hasProviderNo) {
             query.setParameter("providerNo", providerNo.trim());
