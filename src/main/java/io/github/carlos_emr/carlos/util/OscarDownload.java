@@ -52,7 +52,6 @@ public class OscarDownload extends GenericDownload {
             if (filename != null && backupfilepath != null && ((String) session.getAttribute("user")) != null) {
                 ServletOutputStream stream = res.getOutputStream();
                 transferFile(res, stream, backupfilepath, filename);
-                stream.close();
             } else {
                 res.setContentType("text/html");
                 PrintWriter out = res.getWriter();
