@@ -476,7 +476,10 @@ function doHtml(value) {
 		// No selection/cursor — append to end of document body.
 		// Sanitize content with DOMPurify when available to mitigate stored-XSS from eform data.
 		var safeValue = (typeof DOMPurify !== 'undefined') ? DOMPurify.sanitize(value) : value;
-		editorDoc.body.innerHTML += safeValue; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+		var appendRange = editorDoc.createRange();
+		appendRange.selectNodeContents(editorDoc.body);
+		var appendFrag = appendRange.createContextualFragment(safeValue);
+		editorDoc.body.appendChild(appendFrag);
 	}
 	// Return focus to the editor iframe so the user can continue typing
 	// immediately after a sidebar button inserts content
