@@ -249,6 +249,7 @@ public class PrivateBillingController extends HttpServlet {
      * @throws ServletException if request forwarding fails
      * @throws IOException if an I/O error occurs during request processing
      */
+    @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         try {
             String forward = "";
