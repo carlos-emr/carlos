@@ -38,6 +38,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -154,6 +155,14 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
                     demographicNo != null ? "present" : "null");
                 return "error"; 
             }
+
+            // Validate demographicNo is numeric before storing in session bean
+            if (!demographicNo.matches("\\d+")) {
+                MiscUtils.getLogger().error("Invalid non-numeric demographic_no: {}", LogSanitizer.sanitize(demographicNo));
+                // Clear any stale session bean to prevent PHI leakage from a previous request
+                request.getSession().removeAttribute("msgSessionBean");
+                return "error";
+            }
             
             if (!demographicNo.matches("\\d{1,9}")) {
                 return "error";
@@ -164,7 +173,8 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
             bean.setUserName(userName);
             bean.setDemographic_no(demographicNo);
 
-            request.getSession().setAttribute("msgSessionBean", bean);
+            // demographicNo validated as numeric; userName is unsanitized — JSPs must use OWASP encoding
+            request.getSession().setAttribute("msgSessionBean", bean); // nosemgrep: tainted-session-from-http-request
             MiscUtils.getLogger().debug("Created new MsgSessionBean for providers: " + providerNo);
         }
 

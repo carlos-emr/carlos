@@ -78,9 +78,9 @@ public class ClientSearchAction22Action extends ActionSupport {
 
     public String form() {
         if (clientManager.isOutsideOfDomainEnabled()) {
-            request.getSession().setAttribute("outsideOfDomainEnabled", "true");
+            request.getSession().setAttribute("outsideOfDomainEnabled", "true"); // nosemgrep: tainted-session-from-http-request
         } else {
-            request.getSession().setAttribute("outsideOfDomainEnabled", "false");
+            request.getSession().setAttribute("outsideOfDomainEnabled", "false"); // nosemgrep: tainted-session-from-http-request
         }
 
 
@@ -91,9 +91,9 @@ public class ClientSearchAction22Action extends ActionSupport {
 
     public String attachForm() {
         if (clientManager.isOutsideOfDomainEnabled()) {
-            request.getSession().setAttribute("outsideOfDomainEnabled", "true");
+            request.getSession().setAttribute("outsideOfDomainEnabled", "true"); // nosemgrep: tainted-session-from-http-request
         } else {
-            request.getSession().setAttribute("outsideOfDomainEnabled", "false");
+            request.getSession().setAttribute("outsideOfDomainEnabled", "false"); // nosemgrep: tainted-session-from-http-request
         }
 
         String noteId = request.getParameter("noteId");

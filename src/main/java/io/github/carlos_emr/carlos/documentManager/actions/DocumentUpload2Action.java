@@ -130,7 +130,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
                 if (queueId != null) {
                     try {
-                        request.getSession().setAttribute("preferredQueue", String.valueOf(Integer.parseInt(queueId.trim())));
+                        request.getSession().setAttribute("preferredQueue", String.valueOf(Integer.parseInt(queueId.trim()))); // nosemgrep: tainted-session-from-http-request
                     } catch (NumberFormatException e) {
                         // Do not store an invalid (non-integer) queue ID in the session (trust boundary protection)
                         logger.warn("Invalid queue ID format — skipping session attribute update");
@@ -178,7 +178,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             }
             newDoc.setNumberOfPages(numberOfPages);
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr()); // nosemgrep: tainted-session-from-http-request
 
             String providerId = request.getParameter("providers");
             if (providerId != null) {
@@ -198,7 +198,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     Integer qid = Integer.parseInt(queueId.trim());
                     Integer did = Integer.parseInt(doc_no.trim());
                     queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-                    request.getSession().setAttribute("preferredQueue", String.valueOf(qid));
+                    request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request
                 }
             }
 

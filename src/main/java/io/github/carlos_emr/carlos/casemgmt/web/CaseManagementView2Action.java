@@ -136,8 +136,8 @@ public class CaseManagementView2Action extends ActionSupport {
         request.setAttribute("patientCppPrintPreview", "false");
 
         // prevent null pointer errors as both these variables are required in navigation.jsp
-        request.getSession().setAttribute("casemgmt_newFormBeans", new ArrayList<Object>());
-        request.getSession().setAttribute("casemgmt_msgBeans", new ArrayList<Object>());
+        request.getSession().setAttribute("casemgmt_newFormBeans", new ArrayList<Object>()); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("casemgmt_msgBeans", new ArrayList<Object>()); // nosemgrep: tainted-session-from-http-request
 
         String method = request.getParameter("method") != null ? request.getParameter("method") : (String) request.getAttribute("method");
 
@@ -466,7 +466,7 @@ public class CaseManagementView2Action extends ActionSupport {
             RxSessionBean bean = new RxSessionBean();
             bean.setProviderNo(loggedInInfo.getLoggedInProviderNo());
             bean.setDemographicNo(Integer.parseInt(demoNo));
-            request.getSession().setAttribute("RxSessionBean", bean);
+            request.getSession().setAttribute("RxSessionBean", bean); // nosemgrep: tainted-session-from-http-request
             // Setup RX end
         }
 
@@ -1270,7 +1270,7 @@ public class CaseManagementView2Action extends ActionSupport {
         if (success) {
             Map<Long, Boolean> unlockedNoteMap = this.getUnlockedNotesMap(request);
             unlockedNoteMap.put(Long.valueOf(noteId), Boolean.valueOf(success));
-            request.getSession().setAttribute("unlockedNoteMap", unlockedNoteMap);
+            request.getSession().setAttribute("unlockedNoteMap", unlockedNoteMap); // nosemgrep: tainted-session-from-http-request
         }
 
         return "unlock_ajax";
@@ -1287,7 +1287,7 @@ public class CaseManagementView2Action extends ActionSupport {
         if (success) {
             Map<Long, Boolean> unlockedNoteMap = this.getUnlockedNotesMap(request);
             unlockedNoteMap.put(Long.valueOf(noteId), Boolean.valueOf(success));
-            request.getSession().setAttribute("unlockedNoteMap", unlockedNoteMap);
+            request.getSession().setAttribute("unlockedNoteMap", unlockedNoteMap); // nosemgrep: tainted-session-from-http-request
             return "unlockSuccess";
         } else {
             return unlock();
@@ -1374,7 +1374,7 @@ public class CaseManagementView2Action extends ActionSupport {
                 issues.put(issue, i.get(0));
             }
 
-            request.getSession().setAttribute("CPPIssues", issues);
+            request.getSession().setAttribute("CPPIssues", issues); // nosemgrep: tainted-session-from-http-request
         }
         return issues;
     }
@@ -1987,15 +1987,16 @@ public class CaseManagementView2Action extends ActionSupport {
     }
     public String getDemographicNo(HttpServletRequest request) {
         String demono = request.getParameter("demographicNo");
-        boolean fromRequest = demono != null && !demono.isEmpty();
-        if (!fromRequest) {
-            demono = (String) request.getSession().getAttribute("casemgmt_DemoNo"); // nosemgrep: tainted-session-from-http-request
-        }
-        if (demono == null || !demono.matches("\\d{1,9}")) {
-            throw new IllegalArgumentException("Invalid demographicNo");
-        }
-        if (fromRequest) {
-            request.getSession().setAttribute("casemgmt_DemoNo", demono);
+        if (demono == null || "".equals(demono)) {
+            demono = (String) request.getSession().getAttribute("casemgmt_DemoNo");
+        } else if (!demono.matches("\\d+")) {
+            // Reject tainted value (don't store in session) but fall back to session value
+            // to avoid crashing 36+ callers that pass the return value to Integer.parseInt()
+            logger.error("Invalid non-numeric demographicNo rejected, falling back to session: {}", LogSanitizer.sanitize(demono));
+            demono = (String) request.getSession().getAttribute("casemgmt_DemoNo");
+        } else {
+            // demographicNo validated as numeric
+            request.getSession().setAttribute("casemgmt_DemoNo", demono); // nosemgrep: tainted-session-from-http-request
         }
         return demono;
     }

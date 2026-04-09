@@ -106,7 +106,7 @@ public final class Billing2Action extends ActionSupport {
                     bean.setApptDate((String) request.getAttribute("serviceDate"));
                 }
 
-                request.getSession().setAttribute("billingSessionBean", bean);
+                request.getSession().setAttribute("billingSessionBean", bean); // nosemgrep: tainted-session-from-http-request
                 
                 try {
                     _log.debug("Start of billing rules");

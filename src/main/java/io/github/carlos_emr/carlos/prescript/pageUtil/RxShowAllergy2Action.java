@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
@@ -102,7 +103,8 @@ public final class RxShowAllergy2Action extends ActionSupport {
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
             RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, demoNoParam);
             if (patient != null) {
-                request.getSession().setAttribute("Patient", patient);
+                // demoNoParam validated as numeric at method entry
+                request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request
             }
             response.sendRedirect(request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + Encode.forUriComponent(demoNoParam));
         } catch (IOException e) {
@@ -188,13 +190,14 @@ public final class RxShowAllergy2Action extends ActionSupport {
             bean.setView(view);
         }
 
-        request.getSession().setAttribute("RxSessionBean", bean);
+        // demographicNo validated via Integer.parseInt(); bean setters use validated values
+        request.getSession().setAttribute("RxSessionBean", bean); // nosemgrep: tainted-session-from-http-request
 
         RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, bean.getDemographicNo());
 
         String forward = request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + Encode.forUriComponent(demo_no);
         if (patient != null) {
-            request.getSession().setAttribute("Patient", patient);
+            request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request
             response.sendRedirect(forward);
         } else {//no records found
             response.sendRedirect("error.html");

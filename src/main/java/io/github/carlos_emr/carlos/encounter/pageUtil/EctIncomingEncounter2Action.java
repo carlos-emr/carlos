@@ -45,6 +45,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.daos.DefaultIssueDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
@@ -97,20 +98,26 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
         String demoNo = request.getParameter("demographicNo");
 
         // Check if demographicNo is null or invalid
         if (demoNo == null || demoNo.trim().isEmpty() || "null".equals(demoNo)) {
             log.error("EctIncomingEncounter2Action called with null or invalid demographicNo");
-            throw new IllegalArgumentException("Invalid or missing demographicNo parameter");
+            return "failure";
         }
         if (!demoNo.matches("\\d{1,9}")) {
             throw new IllegalArgumentException("Invalid demographicNo parameter");
         }
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r",
-                null)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+        // Validate demographicNo is numeric before crossing the trust boundary
+        if (!demoNo.matches("\\d+")) {
+            log.error("EctIncomingEncounter2Action called with non-numeric demographicNo: {}", LogSanitizer.sanitize(demoNo));
+            return "failure";
         }
 
         if (!"true".equals(CarlosProperties.getInstance().getProperty("program_domain.show_echart", "false"))) {
@@ -154,7 +161,8 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             bean.appointmentNo = "0";
             bean.check = "myCheck";
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
-            request.getSession().setAttribute("EctSessionBean", bean);
+            // demographicNo validated as numeric at method entry; other bean fields are unsanitized — consuming JSPs MUST use OWASP encoding
+            request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request
         } else {
             if ("yes".equals(request.getParameter("PEAttach"))) {
                 String selectClientmo = request.getParameter("selectId");
@@ -228,8 +236,9 @@ public class EctIncomingEncounter2Action extends ActionSupport {
                 throw new IllegalArgumentException("Invalid msgId parameter");
             }
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
-            request.getSession().setAttribute("EctSessionBean", bean);
-            request.getSession().setAttribute("eChartID", bean.eChartId);
+            // demographicNo validated as numeric at method entry; other bean fields (reason, encType, userName, etc.) are unsanitized request params — consuming JSPs MUST use OWASP encoding when rendering
+            request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request
+            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request
             if (request.getParameter("source") != null) {
                 bean.source = request.getParameter("source");
             }

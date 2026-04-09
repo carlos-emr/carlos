@@ -261,7 +261,12 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String createGBSLabReq() throws SQLException {
-        Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
+        String demoNoParam = request.getParameter("demographicNo");
+        if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGBSLabReq: {}", LogSanitizer.sanitize(demoNoParam));
+            return null;
+        }
+        Integer demographicNo = Integer.parseInt(demoNoParam);
         String penicillin = request.getParameter("penicillin");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -277,7 +282,7 @@ public class Pregnancy2Action extends ActionSupport {
             } else {
                 p.setProperty("o_otherTests1", "Vaginal Anal GBS");
             }
-            request.getSession().setAttribute("labReq07" + demographicNo, p);
+            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
         } else {
             FrmLabReq10Record lr = new FrmLabReq10Record();
             Properties p = lr.getFormRecord(loggedInInfo, demographicNo, 0);
@@ -288,14 +293,19 @@ public class Pregnancy2Action extends ActionSupport {
             } else {
                 p.setProperty("o_otherTests1", "Vaginal Anal GBS");
             }
-            request.getSession().setAttribute("labReq10" + demographicNo, p);
+            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
         }
 
         return null;
     }
 
     public String createMCVLabReq() throws SQLException {
-        Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
+        String demoNoParam = request.getParameter("demographicNo");
+        if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createMCVLabReq: {}", LogSanitizer.sanitize(demoNoParam));
+            return null;
+        }
+        Integer demographicNo = Integer.parseInt(demoNoParam);
         String ferritin = request.getParameter("ferritin");
         String hbElectrophoresis = request.getParameter("hb_electrophoresis");
 
@@ -313,7 +323,7 @@ public class Pregnancy2Action extends ActionSupport {
             if (hbElectrophoresis != null && hbElectrophoresis.equals("checked")) {
                 p.setProperty("o_otherTests1", "Hb Electrophoresis");
             }
-            request.getSession().setAttribute("labReq07" + demographicNo, p);
+            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
 
         } else {
             FrmLabReq10Record lr = new FrmLabReq10Record();
@@ -326,7 +336,7 @@ public class Pregnancy2Action extends ActionSupport {
             if (hbElectrophoresis != null && hbElectrophoresis.equals("checked")) {
                 p.setProperty("o_otherTests1", "Hb Electrophoresis");
             }
-            request.getSession().setAttribute("labReq10" + demographicNo, p);
+            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
 
         }
 
@@ -437,7 +447,7 @@ public class Pregnancy2Action extends ActionSupport {
             props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
             newID = rec.saveFormRecord(props);
             String ip = request.getRemoteAddr();
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, formClass,
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, formClass, // nosemgrep: tainted-session-from-http-request
                     "" + newID, ip, request.getParameter("demographic_no"));
 
 
@@ -567,7 +577,12 @@ Repeat antibody screen
 1 hour 50 gm glucose screen
      */
     public String createGCTLabReq() throws SQLException {
-        Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
+        String demoNoParam = request.getParameter("demographicNo");
+        if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGCTLabReq: {}", LogSanitizer.sanitize(demoNoParam));
+            return null;
+        }
+        Integer demographicNo = Integer.parseInt(demoNoParam);
         String hb = request.getParameter("hb");
         String urine = request.getParameter("urine");
         String antibody = request.getParameter("antibody");
@@ -595,7 +610,7 @@ Repeat antibody screen
                 p.setProperty("o_otherTests1", "1 Hr 50gm GLUCOSE Screen");
             }
 
-            request.getSession().setAttribute("labReq07" + demographicNo, p);
+            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
         } else {
             FrmLabReq10Record lr = new FrmLabReq10Record();
             Properties p = lr.getFormRecord(loggedInInfo, demographicNo, 0);
@@ -614,13 +629,18 @@ Repeat antibody screen
                 p.setProperty("o_otherTests1", "1 Hr 50gm GLUCOSE Screen");
             }
 
-            request.getSession().setAttribute("labReq10" + demographicNo, p);
+            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
         }
         return null;
     }
 
     public String createGTTLabReq() throws SQLException {
-        Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
+        String demoNoParam = request.getParameter("demographicNo");
+        if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGTTLabReq: {}", LogSanitizer.sanitize(demoNoParam));
+            return null;
+        }
+        Integer demographicNo = Integer.parseInt(demoNoParam);
         String glucose = request.getParameter("glucose");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -634,7 +654,7 @@ Repeat antibody screen
             if (glucose != null && glucose.equals("checked")) {
                 p.setProperty("o_otherTests1", "2 Hr 75gm GLUCOSE Screen");
             }
-            request.getSession().setAttribute("labReq07" + demographicNo, p);
+            request.getSession().setAttribute("labReq07" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
         } else {
             FrmLabReq10Record lr = new FrmLabReq10Record();
             Properties p = lr.getFormRecord(loggedInInfo, demographicNo, 0);
@@ -643,7 +663,7 @@ Repeat antibody screen
             if (glucose != null && glucose.equals("checked")) {
                 p.setProperty("o_otherTests1", "2 Hr 75gm GLUCOSE Screen");
             }
-            request.getSession().setAttribute("labReq10" + demographicNo, p);
+            request.getSession().setAttribute("labReq10" + demographicNo, p); // nosemgrep: tainted-session-from-http-request - demographicNo validated as numeric at method entry
         }
         return null;
     }

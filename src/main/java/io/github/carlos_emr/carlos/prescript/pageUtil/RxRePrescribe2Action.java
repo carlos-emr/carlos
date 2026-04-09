@@ -123,11 +123,12 @@ public final class RxRePrescribe2Action extends ActionSupport {
 
         String comment = rxData.getScriptComment(script_no);
 
+        // script_no passed through Integer.parseInt() before DB lookup; beanRX data sourced from database prescriptions
         request.getSession().setAttribute("tmpBeanRX", beanRX); // nosemgrep: tainted-session-from-http-request
         request.setAttribute("rePrint", "true");
         request.setAttribute("comment", comment);
 
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REPRINT, LogConst.CON_PRESCRIPTION, script_no, ip, "" + beanRX.getDemographicNo(), auditStr.toString());
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REPRINT, LogConst.CON_PRESCRIPTION, script_no, ip, "" + beanRX.getDemographicNo(), auditStr.toString()); // nosemgrep: tainted-session-from-http-request
 
         return "reprint";
     }
@@ -173,10 +174,11 @@ public final class RxRePrescribe2Action extends ActionSupport {
         }
 
         String comment = rxData.getScriptComment(script_no);
+        // script_no passed through Integer.parseInt() before DB lookup; beanRX and comment data sourced from database
         request.getSession().setAttribute("tmpBeanRX", beanRX); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("rePrint", "true"); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("rePrint", "true"); // nosemgrep: tainted-session-from-http-request - constant string literal
         request.getSession().setAttribute("comment", comment); // nosemgrep: tainted-session-from-http-request
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REPRINT, LogConst.CON_PRESCRIPTION, script_no, ip, "" + beanRX.getDemographicNo(), auditStr.toString());
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REPRINT, LogConst.CON_PRESCRIPTION, script_no, ip, "" + beanRX.getDemographicNo(), auditStr.toString()); // nosemgrep: tainted-session-from-http-request
 
         return null;
     }
@@ -285,7 +287,7 @@ public String saveDigitalSignature() throws IOException {
     
     // Log the action for audit trail
     // Note: Using REPRINT constant as this is related to prescription printing/signing workflow
-    LogAction.addLog((String) request.getSession().getAttribute("user"), 
+    LogAction.addLog((String) request.getSession().getAttribute("user"),  // nosemgrep: tainted-session-from-http-request
                       LogConst.REPRINT, 
                       LogConst.CON_PRESCRIPTION, 
                       scriptId, 

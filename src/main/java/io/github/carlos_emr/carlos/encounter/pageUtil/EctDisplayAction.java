@@ -181,8 +181,9 @@ public class EctDisplayAction extends ActionSupport {
             }
             bean.oscarMsgID = msgIdParam;
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
-            request.getSession().setAttribute("EctSessionBean", bean);
-            request.getSession().setAttribute("eChartID", bean.eChartId);
+            // demographicNo and appointmentNo validated as numeric; other bean fields (reason, encType, userName, etc.) are unsanitized request params — consuming JSPs MUST use OWASP encoding when rendering
+            request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request
+            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request
             if (request.getParameter("source") != null) {
                 bean.source = request.getParameter("source");
             }
