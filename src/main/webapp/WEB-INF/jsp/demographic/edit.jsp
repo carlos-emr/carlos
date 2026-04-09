@@ -1429,12 +1429,25 @@
         });
 
         function syncDobParts() {
-            var val = document.getElementById('dob') ? document.getElementById('dob').value : '';
+            var dobEl = document.getElementById('dob');
+            var yearEl = document.getElementById('year_of_birth');
+            var monthEl = document.getElementById('month_of_birth');
+            var dayEl = document.getElementById('date_of_birth');
+            var val = dobEl ? dobEl.value.trim() : '';
+
+            if (!yearEl || !monthEl || !dayEl) {
+                return;
+            }
+
+            yearEl.value = '';
+            monthEl.value = '';
+            dayEl.value = '';
+
             var parts = val.match(/^(\d{4})-(\d{2})-(\d{2})$/);
             if (parts) {
-                document.getElementById('year_of_birth').value  = parts[1];
-                document.getElementById('month_of_birth').value = parts[2];
-                document.getElementById('date_of_birth').value  = parts[3];
+                yearEl.value = parts[1];
+                monthEl.value = parts[2];
+                dayEl.value = parts[3];
             }
         }
 

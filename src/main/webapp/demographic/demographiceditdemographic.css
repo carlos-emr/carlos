@@ -527,17 +527,21 @@ table#editDemographic img[id$="_cal"] {
 
 /* ============================================================
    12c. FIELD-LEVEL VALIDATION — highlight invalid fields
-   :user-invalid (Chrome 119+, Firefox 88+, Safari 16.5+) fires only
-   after the user has actually interacted with the field.
-   Fallback: :invalid:not(:placeholder-shown) approximates the same
-   behaviour in older browsers by suppressing the red border while
-   the placeholder is still visible (field untouched/empty).
+   Rules are split so an unrecognized pseudo-class in one rule
+   does not invalidate the other.
    ============================================================ */
-table#editDemographic tr td input:user-invalid,
-table#editDemographic tr td select:user-invalid,
-table#editDemographic tr td textarea:user-invalid,
+
+/* Fallback for browsers without :user-invalid support */
 table#editDemographic tr td input:invalid:not(:placeholder-shown),
 table#editDemographic tr td textarea:invalid:not(:placeholder-shown) {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+/* Modern browsers: fires only after user interaction */
+table#editDemographic tr td input:user-invalid,
+table#editDemographic tr td select:user-invalid,
+table#editDemographic tr td textarea:user-invalid {
     border-color: #dc3545;
     box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
 }

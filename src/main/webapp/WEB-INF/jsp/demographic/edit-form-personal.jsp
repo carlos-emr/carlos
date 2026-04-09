@@ -226,9 +226,11 @@
     String birthYear = (String) request.getAttribute("birthYear");
     String birthMonth = (String) request.getAttribute("birthMonth");
     String birthDate = (String) request.getAttribute("birthDate");
-    // Build the single DOB display value; treat the "0000-00-00" default as blank
-    String dobDisplay = ("0000".equals(birthYear) || birthYear == null) ? ""
-            : (birthYear + "-" + birthMonth + "-" + birthDate);
+    // Build the single DOB display value; treat "0000" year or "00" month/day as blank
+    boolean hasDob = birthYear != null && !"0000".equals(birthYear)
+            && birthMonth != null && !"00".equals(birthMonth)
+            && birthDate != null && !"00".equals(birthDate);
+    String dobDisplay = hasDob ? (birthYear + "-" + birthMonth + "-" + birthDate) : "";
     DemographicCust demographicCust = (DemographicCust) request.getAttribute("demographicCust");
     
     // providerBean is session-scoped, populated during login
