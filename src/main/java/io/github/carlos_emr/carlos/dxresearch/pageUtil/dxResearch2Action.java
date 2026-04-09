@@ -118,7 +118,7 @@ public class dxResearch2Action extends ActionSupport {
                     dao.save(r);
 
                     String ip = request.getRemoteAddr();
-                    LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, "DX", "" + r.getId(), ip, "");
+                    LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, "DX", "" + r.getId(), ip, ""); // nosemgrep: tainted-session-from-http-request
 
                 }
 
@@ -146,7 +146,7 @@ public class dxResearch2Action extends ActionSupport {
                         dao.persist(dr);
 
                         String ip = request.getRemoteAddr();
-                        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, "DX", "" + dr.getId(), ip, "");
+                        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, "DX", "" + dr.getId(), ip, ""); // nosemgrep: tainted-session-from-http-request
 
                     }
                 }

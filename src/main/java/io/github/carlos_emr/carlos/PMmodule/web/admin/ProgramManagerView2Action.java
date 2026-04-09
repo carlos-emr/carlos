@@ -118,19 +118,26 @@ public class ProgramManagerView2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-                // find the program id
+                // find the program id — check parameter first, then request attribute
+        // (override_restriction() and other internal forwards set id as a request attribute)
         String programId = request.getParameter("id");
+        if (programId == null) {
+            programId = (String) request.getAttribute("id");
+        }
+        // Validate programId is present and numeric before storing in session
+        if (programId == null || programId.isBlank() || !programId.matches("\\d+")) {
+            logger.error("Invalid or missing programId: {}", LogSanitizer.sanitize(String.valueOf(programId)));
+            addActionError("Invalid or missing required parameter");
+            return ERROR;
+        }
 
-        request.getSession().setAttribute("case_program_id", programId);
+        // programId validated as numeric above
+        request.getSession().setAttribute("case_program_id", programId); // nosemgrep: tainted-session-from-http-request
 
         if (request.getParameter("newVacancy") != null && "true".equals(request.getParameter("newVacancy")))
             request.setAttribute("vacancyOrTemplateId", "");
         else
             request.setAttribute("vacancyOrTemplateId", this.getVacancyOrTemplateId());
-
-        if (programId == null) {
-            programId = (String) request.getAttribute("id");
-        }
 
         String demographicNo = request.getParameter("clientId");
 
@@ -281,10 +288,28 @@ public class ProgramManagerView2Action extends ActionSupport {
         String clientId = request.getParameter("clientId");
         String queueId = request.getParameter("queueId");
 
+        // Validate all required numeric IDs before processing
+        if (programId == null || programId.isBlank() || !programId.matches("\\d+")) {
+            logger.error("Invalid or missing programId in admit: {}", LogSanitizer.sanitize(String.valueOf(programId)));
+            addActionError("Invalid or missing required parameter");
+            return ERROR;
+        }
+        if (clientId == null || clientId.isBlank() || !clientId.matches("\\d+")) {
+            logger.error("Invalid or missing clientId in admit: {}", LogSanitizer.sanitize(String.valueOf(clientId)));
+            addActionError("Invalid or missing required parameter");
+            return ERROR;
+        }
+        if (queueId == null || queueId.isBlank() || !queueId.matches("\\d+")) {
+            logger.error("Invalid or missing queueId in admit: {}", LogSanitizer.sanitize(String.valueOf(queueId)));
+            addActionError("Invalid or missing required parameter");
+            return ERROR;
+        }
+
         ProgramQueue queue = programQueueManager.getProgramQueue(queueId);
         Program fullProgram = programManager.getProgram(String.valueOf(programId));
-        String dischargeNotes = request.getParameter("admission.dischargeNotes");
-        String admissionNotes = request.getParameter("admission.admissionNotes");
+        // Truncate free-text notes to prevent oversized session storage (CWE-501 defense-in-depth)
+        String dischargeNotes = truncateNotes(request.getParameter("admission.dischargeNotes"));
+        String admissionNotes = truncateNotes(request.getParameter("admission.admissionNotes"));
         String formattedAdmissionDate = request.getParameter("admissionDate");
         Date admissionDate = DateUtils.toDate(formattedAdmissionDate);
         List<Integer> dependents = clientManager.getDependentsList(Integer.valueOf(clientId));
@@ -310,9 +335,11 @@ public class ProgramManagerView2Action extends ActionSupport {
             // store this for display
             this.setServiceRestriction(e.getRestriction());
 
-            request.getSession().setAttribute("programId", programId);
-            request.getSession().setAttribute("admission.dischargeNotes", dischargeNotes);
-            request.getSession().setAttribute("admission.admissionNotes", admissionNotes);
+            // programId validated as numeric above; notes length-capped via truncateNotes()
+            // and stored for re-display on error — JSPs must use OWASP encoding when rendering
+            request.getSession().setAttribute("programId", programId); // nosemgrep: tainted-session-from-http-request - validated numeric
+            request.getSession().setAttribute("admission.dischargeNotes", dischargeNotes); // nosemgrep: tainted-session-from-http-request - length-capped free-text for re-display
+            request.getSession().setAttribute("admission.admissionNotes", admissionNotes); // nosemgrep: tainted-session-from-http-request - length-capped free-text for re-display
 
             request.setAttribute("id", programId);
 
@@ -675,6 +702,15 @@ public class ProgramManagerView2Action extends ActionSupport {
     @StrutsParameter
     public void setVacancyOrTemplateId(String vacancyOrTemplateId) {
         this.vacancyOrTemplateId = vacancyOrTemplateId;
+    }
+
+    private static final int MAX_NOTES_LENGTH = 2000;
+
+    private static String truncateNotes(String notes) {
+        if (notes == null) {
+            return null;
+        }
+        return notes.length() > MAX_NOTES_LENGTH ? notes.substring(0, MAX_NOTES_LENGTH) : notes;
     }
 
 }
