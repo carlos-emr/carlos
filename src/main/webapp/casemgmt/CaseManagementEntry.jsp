@@ -59,7 +59,7 @@
     <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
     <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/casemgmt.css" type="text/css">
     <script type="text/javascript">
-        var flag =<%=request.getAttribute("change_flag")%>;
+        var flag =<%= request.getAttribute("change_flag") == null ? "null" : Encode.forJavaScript((String)request.getAttribute("change_flag")) %>;
 
         <%
 
@@ -232,12 +232,12 @@
         <input type="hidden" name="chain" id="chain"/>
         <input type="hidden" name="demographicNo" id="demographicNo"/>
         <c:if test="${param.providerNo==null}">
-            <input type="hidden" name="providerNo" value="<%=session.getAttribute("user")%>">
+            <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(StringUtils.noNull((String)session.getAttribute("user")))%>">
         </c:if>
         <c:if test="${param.providerNo!=null}">
             <input type="hidden" name="providerNo" id="providerNo"/>
         </c:if>
-        <input type="hidden" name="caseNote.program_no" value="<%=pId%>"/>
+        <input type="hidden" name="caseNote.program_no" value="<%=Encode.forHtmlAttribute(pId)%>"/>
         <input type="hidden" name="method" value="save"/>
         <c:if test="${param.from=='casemgmt'||requestScope.from=='casemgmt'}">
             <input type="hidden" name="from" value="casemgmt"/>
@@ -434,15 +434,15 @@
                 <c:if test="${param.from=='casemgmt' || requestScope.from=='casemgmt'}">
                     <c:url value="${sessionScope.billing_url}" var="url"/>
                     <caisirole:SecurityAccess accessName="billing" accessType="access"
-                                              providerNo='<%= StringUtils.noNull(request.getParameter("providerNo")) %>'
-                                              demoNo='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>' programId="<%=pId%>">
+                                              providerNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>'
+                                              demoNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("demographicNo"))) %>' programId="<%=pId%>">
                         <tr>
                             <td class="fieldTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.billing"/></td>
 
                             <td class="fieldValue">
-                                ${caseNote.billing_code}
+                                ${e:forHtml(caseNote.billing_code)}
                                 <input type="button" value="add billing"
-                                       onclick="self.open('<%=Encode.forJavaScriptAttribute((String)session.getAttribute("billing_url"))%>','','scrollbars=yes,menubars=no,toolbars=no,resizable=yes');return false;">
+                                       onclick="self.open('<%=Encode.forJavaScriptAttribute(StringUtils.noNull((String)session.getAttribute("billing_url")))%>','','scrollbars=yes,menubars=no,toolbars=no,resizable=yes');return false;">
                             </td>
                         </tr>
                     </caisirole:SecurityAccess>

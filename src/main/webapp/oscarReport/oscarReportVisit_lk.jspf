@@ -102,7 +102,7 @@ if(!authed) {
 <div class="card card-body bg-body-tertiary">
 	<dl class="row">
 		<dt>Clinic</dt>
-		<dd><%=clinic%></dd>
+		<dd><%=Encode.forHtml(clinic)%></dd>
 		<dt>Visits Between</dt>
 		<dd><%=Encode.forHtml(dateBegin)%>
 			and

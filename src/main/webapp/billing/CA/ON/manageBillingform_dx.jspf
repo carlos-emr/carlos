@@ -28,8 +28,10 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.CtlDiagCode" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDiagCodeDao" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
-<form method="post" name="form1" action="dbManageBillingform_dx.jsp">
+<form method="post" name="form1" action="DbManageBillingformDx.do">
 <table width="75%" border="0" cellpadding="3" bgcolor="#9999CC">
 	<tr>
 
@@ -72,7 +74,7 @@ int rCount = 0;
 			<% for(int k=0; k<15;k++){ %>
 			<tr>
 				<td><input type="text" name="diagcode<%=k%>"
-					value="<%=service_code[k]%>" size="10"
+					value="<%= Encode.forHtmlAttribute(StringUtils.noNull(service_code[k])) %>" size="10"
 					style="font-size: 8pt; text-align: right; vertical-align: bottom"></td>
 			</tr>
 			<% } %>
@@ -84,7 +86,7 @@ int rCount = 0;
 			<% for(int k0=15; k0<30;k0++){ %>
 			<tr>
 				<td><input type="text" name="diagcode<%=k0%>"
-					value="<%=service_code[k0]%>" size="10"
+					value="<%= Encode.forHtmlAttribute(StringUtils.noNull(service_code[k0])) %>" size="10"
 					style="font-size: 8pt; text-align: right; vertical-align: bottom"></td>
 			</tr>
 			<% } %>
@@ -96,7 +98,7 @@ int rCount = 0;
 			<% for(int k1=30; k1<45;k1++){ %>
 			<tr>
 				<td><input type="text" name="diagcode<%=k1%>"
-					value="<%=service_code[k1]%>" size="10"
+					value="<%= Encode.forHtmlAttribute(StringUtils.noNull(service_code[k1])) %>" size="10"
 					style="font-size: 8pt; text-align: right; vertical-align: bottom"></td>
 			</tr>
 			<% } %>
@@ -112,7 +114,7 @@ int rCount = 0;
 		<td colspan="3"><input type="submit" name="submit"
 			value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform_service.btnUpdate"/>"><input
 			type="hidden" name="typeid"
-			value="<%=request.getParameter("billingform")%>"></td>
+			value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billingform"))) %>"></td>
 	</tr>
 </table>
 </form>

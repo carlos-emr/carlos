@@ -70,7 +70,7 @@
                         plast = prop.getProperty("last_name", "");
                         pfirst = prop.getProperty("first_name", "");
                 %>
-                <option value="<%=pohipno%>" <%=proNo.equals(pohipno) ? "selected" : ""%>><%=plast%>,<%=pfirst%>
+                <option value="<%=Encode.forHtmlAttribute(pohipno)%>" <%=proNo.equals(pohipno) ? "selected" : ""%>><%=Encode.forHtml(plast)%>,<%=Encode.forHtml(pfirst)%>
                 </option>
                 <%
                     }
@@ -104,21 +104,21 @@
 
         %>
     <tr>
-        <td><%=account%>
+        <td><%=Encode.forHtml(account)%>
         </td>
-        <td><%=demoLast%>
+        <td><%=Encode.forHtml(demoLast)%>
         </td>
-        <td><%=servicedate%>
+        <td><%=Encode.forHtml(servicedate)%>
         </td>
-        <td><%=servicecode%>
+        <td><%=Encode.forHtml(servicecode)%>
         </td>
-        <td><%=serviceno%>
+        <td><%=Encode.forHtml(serviceno)%>
         </td>
-        <td align=right><%=amountsubmit%>
+        <td align=right><%=Encode.forHtml(amountsubmit)%>
         </td>
-        <td align=right><%=amountpay%>
+        <td align=right><%=Encode.forHtml(amountpay)%>
         </td>
-        <td align=right><%=explain%>
+        <td align=right><%=Encode.forHtml(explain)%>
         </td>
     </tr>
 
@@ -155,21 +155,21 @@
                 amountpay = prop.getProperty("amountpay", "");
         %>
         <tr <%=i % 2 == 0 ? "class='myGreen'" : "" %>>
-            <td align="center"><%=account%>
+            <td align="center"><%=Encode.forHtml(account)%>
             </td>
-            <td><%=demoLast%>
+            <td><%=Encode.forHtml(demoLast)%>
             </td>
-            <td align="center"><%=servicedate%>
+            <td align="center"><%=Encode.forHtml(servicedate)%>
             </td>
-            <td align="center"><%=servicecode%>
+            <td align="center"><%=Encode.forHtml(servicecode)%>
             </td>
-            <td align="center"><%=serviceno%>
+            <td align="center"><%=Encode.forHtml(serviceno)%>
             </td>
-            <td align="right"><%=amountsubmit%>
+            <td align="right"><%=Encode.forHtml(amountsubmit)%>
             </td>
-            <td align="right"><%=amountpay%>
+            <td align="right"><%=Encode.forHtml(amountpay)%>
             </td>
-            <td align="right"><%=explain%>
+            <td align="right"><%=Encode.forHtml(explain)%>
             </td>
         </tr>
 

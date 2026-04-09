@@ -42,9 +42,11 @@
     ArrayList frwdProviders = fr.getProviders(providerNo);
 %>
 
-<link rel="stylesheet" type="text/css" href="encounterStyles.css">
 <html>
 <head>
+    <link href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/global.css"/>
+    <link rel="stylesheet" type="text/css" href="encounterStyles.css">
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>Lab Report Forwarding Rules</title>
 
@@ -93,120 +95,97 @@
 </head>
 
 <body>
-<form method="post" name="RULES" action="ForwardingRules.do"><input
-        type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo) %>"> <input
-        type="hidden" name="operation" value="update"> <input
-        type="hidden" name="remProviderNum" value="">
-    <table width="100%" height="100%" border="0">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRow" colspan="9" align="left">
-                <table width="100%">
-                    <tr>
-                        <td align="left"><input type="button"
-                                                value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> "
-                                                onClick="window.close()"></td>
-                        <td align="right"><a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td valign="middle">
-                <center>
-                    <table>
-                        <tr>
-                            <td colspan="2" valign="bottom" class="Header">Current
-                                Forwarding Rules
-                            </td>
-                        </tr>
-                        <tr>
-                            <%
+<div class="container">
+<form method="post" name="RULES" action="ForwardingRules.do">
+    <input type="hidden" name="providerNo" value="<%= Encode.forHtmlAttribute(providerNo) %>">
+    <input type="hidden" name="operation" value="update">
+    <input type="hidden" name="remProviderNum" value="">
 
-                                String status = "N";
-                                if (!fr.isSet(providerNo)) {%>
-                            <td colspan="2" align="center"><font color="red">There
-                                are no forwarding rules set</font></td>
-                            <%
-                            } else {
-                                status = fr.getStatus(providerNo);
-                            %>
-                            <td class="Cell">Incoming lab status:</td>
-                            <td class="Cell"><%= status.equals("N") ? "New" : "Filed" %>
-                            </td>
-                        </tr>
-                        <%if (frwdProviders != null && frwdProviders.size() > 0) {%>
-                        <tr>
-                            <td valign="top" class="Cell">Labs are currently forwarded to:
-                            </td>
-                            <td class="Cell">
-                                <%for (int i = 0; i < frwdProviders.size(); i++) {%> <%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>
-                                <%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %> <a
-                                    href="#"
-                                    onclick="return removeProvider('<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>', '<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %> <%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>')">REMOVE</a>
-                                <br/>
-                                <%}%>
-                            </td>
-                        </tr>
-                        <%} else {%>
-                        <tr>
-                            <td class="Cell" colspan="2"><font color="red">The
-                                incoming labs are not being forwarded</font>
-                            <td>
-                        </tr>
+    <div class="page-header-bar">
+        <h4 class="page-header-title">Lab Report Forwarding Rules</h4>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="window.close();">Back</button>
+    </div>
+
+    <div class="py-3">
+        <%
+            String status = "N";
+            if (!fr.isSet(providerNo)) {
+        %>
+        <%-- No rules set --%>
+        <div class="card mb-3">
+            <div class="card-header fw-bold">Current Forwarding Rules</div>
+            <div class="card-body">
+                <p class="text-danger mb-0">There are no forwarding rules set</p>
+            </div>
+        </div>
+        <%
+            } else {
+                status = fr.getStatus(providerNo);
+        %>
+        <%-- Current rules --%>
+        <div class="card mb-3">
+            <div class="card-header fw-bold">Current Forwarding Rules</div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <strong>Incoming lab status:</strong> <%= status.equals("N") ? "New" : "Filed" %>
+                </div>
+                <%if (frwdProviders != null && frwdProviders.size() > 0) {%>
+                <div class="mb-2">
+                    <strong>Labs are currently forwarded to:</strong>
+                    <ul class="list-unstyled ms-3 mt-1 mb-0">
+                        <%for (int i = 0; i < frwdProviders.size(); i++) {%>
+                        <li>
+                            <%= Encode.forHtml((String) ((ArrayList) frwdProviders.get(i)).get(1)) %>
+                            <%= Encode.forHtml((String) ((ArrayList) frwdProviders.get(i)).get(2)) %>
+                            <a href="#" class="text-danger ms-2" style="font-size:12px;"
+                               onclick="return removeProvider('<%= Encode.forJavaScript((String) ((ArrayList) frwdProviders.get(i)).get(0)) %>', '<%= Encode.forJavaScript((String) ((ArrayList) frwdProviders.get(i)).get(1)) %> <%= Encode.forJavaScript((String) ((ArrayList) frwdProviders.get(i)).get(2)) %>')">Remove</a>
+                        </li>
                         <%}%>
-                        <tr>
-                            <td colspan="2" class="Cell"><input type="submit"
-                                                                value=" Clear Forwarding Rules "
-                                                                onclick="return setActionClear()">
-                            </td>
-                            <%}%>
-                        </tr>
-                        <tr height="10"></tr>
-                        <tr>
-                            <td colspan="2" class="Header">Update Forwarding Rules</td>
-                        </tr>
-                        <tr>
-                            <td class="Cell">Set incoming report status:</td>
-                            <td class="Cell"><input type="radio" name="status" value="N"
-                                <%= status.equals("F") ? "" : "checked" %>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formReportStatusNew"/> <input type="radio"
-                                                                                       name="status"
-                                                                                       value="F" <%= status.equals("F") ? "checked" : "" %>>Filed
-                            </td>
-                        </tr>
-                        <tr>
-                            <td valign="top" class="Cell">Forward incoming reports to the
-                                following physicians:<br/>
-                                (Hold 'Ctrl' to select multiple physicians)
-                            </td>
-                            <td class="Cell"><select multiple name="providerNums" size="10">
-                                <optgroup
-                                        label="&#160&#160Doctors&#160&#160&#160&#160&#160&#160&#160&#160">
-                                    <% ArrayList providers = ProviderData.getProviderList();
-                                        for (int i = 0; i < providers.size(); i++) {
-                                            String prov_no = (String) ((ArrayList) providers.get(i)).get(0);
-                                            if (!providerNo.equals(prov_no) && !frwdProviders.contains(providers.get(i))) {%>
-                                    <option value="<%= prov_no %>"><%= (String) ((ArrayList) providers.get(i)).get(1) %>
-                                        <%= (String) ((ArrayList) providers.get(i)).get(2) %>
-                                    </option>
-                                    <% }
-                                    } %>
-                                </optgroup>
-                            </select></td>
-                        </tr>
+                    </ul>
+                </div>
+                <%} else {%>
+                <p class="text-danger mb-2">The incoming labs are not being forwarded</p>
+                <%}%>
+                <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return setActionClear()">Clear Forwarding Rules</button>
+            </div>
+        </div>
+        <%}%>
 
-                        <tr>
-                            <td colspan="2" class="Cell"><input type="submit"
-                                                                value=" Update Forwarding Rules "
-                                                                onclick="return confirmUpdate()">
-                            </td>
-                        </tr>
-                    </table>
-                </center>
-            </td>
-        </tr>
-    </table>
+        <%-- Update rules --%>
+        <div class="card mb-3">
+            <div class="card-header fw-bold">Update Forwarding Rules</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Set incoming report status:</label>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="status" value="N" id="statusNew" <%= status.equals("F") ? "" : "checked" %>>
+                        <label class="form-check-label" for="statusNew"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formReportStatusNew"/></label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="status" value="F" id="statusFiled" <%= status.equals("F") ? "checked" : "" %>>
+                        <label class="form-check-label" for="statusFiled">Filed</label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Forward incoming reports to the following physicians:</label>
+                    <p class="text-muted" style="font-size:12px;">Hold 'Ctrl' to select multiple physicians</p>
+                    <select multiple name="providerNums" size="10" class="form-select">
+                        <optgroup label="Doctors">
+                            <% ArrayList providers = ProviderData.getProviderList();
+                                for (int i = 0; i < providers.size(); i++) {
+                                    String prov_no = (String) ((ArrayList) providers.get(i)).get(0);
+                                    if (!providerNo.equals(prov_no) && !frwdProviders.contains(providers.get(i))) {%>
+                            <option value="<%= Encode.forHtmlAttribute(prov_no) %>"><%= Encode.forHtml((String) ((ArrayList) providers.get(i)).get(1)) %> <%= Encode.forHtml((String) ((ArrayList) providers.get(i)).get(2)) %></option>
+                            <% }
+                            } %>
+                        </optgroup>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary" onclick="return confirmUpdate()">Update Forwarding Rules</button>
+            </div>
+        </div>
+    </div>
 </form>
+</div><%-- close container --%>
 </body>
 </html>

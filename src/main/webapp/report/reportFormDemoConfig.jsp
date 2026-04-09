@@ -117,7 +117,7 @@
     <center></center>
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#CCCCFF">
-            <td><%=reportName%> Configuration</td>
+            <td><%=Encode.forHtml(reportName)%> Configuration</td>
             <td width="10%" align="right" nowrap><a
                     href="reportFilter.jsp?id=<%= Encode.forUriComponent(reportId) %>">Back to the Report</a></td>
         </tr>
@@ -139,9 +139,10 @@
                                 String color = i % 2 == 0 ? "#EEEEFF" : "";
                                 String captionName = (String) vecTableField.get(i);
                                 if (captionName.matches(strMatchConfig)) continue;
-                                captionName = StringEscapeUtils.escapeHtml4(captionName);
+                                String captionNameAttr = Encode.forHtmlAttribute(captionName);
+                                String captionNameHtml = Encode.forHtml(captionName);
                         %>
-                        <option value="<%=captionName%>"><%=captionName%>
+                        <option value="<%=captionNameAttr%>"><%=captionNameHtml%>
                         </option>
                         <% } %>
                     </select> <br>
@@ -165,9 +166,10 @@
                                                        ondblclick="javascript:onSelField();">
                     <% for (int i = 0; i < vecConfigField.size(); i++) {
                         String captionName = (String) vecConfigField.get(i);
-                        captionName = StringEscapeUtils.escapeHtml4(captionName);
+                        String captionNameAttr = Encode.forHtmlAttribute(captionName);
+                        String captionNameHtml = Encode.forHtml(captionName);
                     %>
-                    <option value="<%=captionName%>"><%=captionName%>
+                    <option value="<%=captionNameAttr%>"><%=captionNameHtml%>
                     </option>
                     <% } %>
                 </select> <br>

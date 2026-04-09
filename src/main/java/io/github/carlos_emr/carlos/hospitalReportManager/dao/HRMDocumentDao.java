@@ -176,7 +176,7 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
 
         sql = appendOrderBy(sql, orderColumn, orderDirection);
 
-        Query query = entityManager.createQuery(sql);
+        Query query = entityManager.createQuery(sql); // NOSONAR javasecurity:S3649 — orderColumn/orderDirection are allowlist-validated via ORDER_COLUMN_HQL map and ASC/DESC ternary
 
         if (providerUnmatched) {
             query.setParameter("pNo", "-1");
@@ -223,7 +223,7 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
 
         sql = appendOrderBy(sql, orderColumn, orderDirection);
 
-        Query query = entityManager.createQuery(sql);
+        Query query = entityManager.createQuery(sql); // NOSONAR javasecurity:S3649 — orderColumn/orderDirection are allowlist-validated via ORDER_COLUMN_HQL map and ASC/DESC ternary
 
         if (providerUnmatched) {
             query.setParameter("pNo", "-1");

@@ -34,6 +34,7 @@
         import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -122,7 +123,7 @@
                 alert("calling addLabToProfile");
                 var url = "<%= request.getContextPath() %>/lab/DisplayLabValue.jsp";
                 var ran_number = Math.round(Math.random() * 1000000);
-                var params = "demographicNo=<%=demographic_no%>&rand=" + ran_number + "&labType=" + labType + "&testName=" + testName;  //hack to get around ie caching the page
+                var params = "demographicNo=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(demographic_no))) %>&rand=" + ran_number + "&labType=" + encodeURIComponent(labType) + "&testName=" + encodeURIComponent(testName);  //hack to get around ie caching the page
                 alert(params);
                 CarlosAjax.updater('dd', url + '?' + params, {
                     method: 'GET',
@@ -145,7 +146,7 @@
 
                 var url = "<%= request.getContextPath() %>/lab/DisplayLabValue.jsp";
                 var ran_number = Math.round(Math.random() * 1000000);
-                var params = "demographicNo=<%=demographic_no%>&rand=" + ran_number + "&labType=" + labType + "&testName=" + testName + "&identCode=" + identCode;  //hack to get around ie caching the page
+                var params = "demographicNo=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(demographic_no))) %>&rand=" + ran_number + "&labType=" + encodeURIComponent(labType) + "&testName=" + encodeURIComponent(testName) + "&identCode=" + encodeURIComponent(identCode);  //hack to get around ie caching the page
                 CarlosAjax.updater(newNode, url, {
                     method: 'POST',
                     parameters: params,
@@ -206,7 +207,7 @@
                                     String identCodeEsc = "";
                                     if (identCode != null)
                                         identCodeEsc = identCode.replaceAll("&", "_amp_");
-                                    String prevNameEsc = org.apache.commons.text.StringEscapeUtils.escapeEcmaScript(prevName);
+                                    String prevNameEsc = Encode.forJavaScript(prevName);
 
                                     if (prevName == null) {
                                         prevName = "";

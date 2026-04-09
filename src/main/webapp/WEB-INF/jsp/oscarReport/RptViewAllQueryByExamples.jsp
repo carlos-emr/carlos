@@ -29,6 +29,34 @@
 
 --%>
 
+<%--
+    RptViewAllQueryByExamples.jsp
+    =============================
+    Purpose: Displays all previously executed queries for the current provider,
+             allowing them to select and save any query as a favourite.
+
+    Features:
+    - Bootstrap 5 / HTML5 compliant layout
+    - OWASP encoding for all user-supplied values
+    - i18n via oscarResources bundle
+    - Date-range filter to narrow query history
+    - "Add to Favourite" button submits selected query to RptByExamplesFavorite.do
+
+    Parameters (set by backing Action):
+    - allQueries  — RptByExampleAllQueryBean containing queryVector of RptByExampleQueryBean
+    - startDate   — Start date filter currently applied (String)
+    - endDate     — End date filter currently applied (String)
+
+    Security:
+    - Requires _report or _admin.reporting read privilege
+    - CSRF token auto-injected by CsrfGuardScriptInjectionFilter
+
+    @since 2001-2002
+--%>
+
+<%@ page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.*" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -44,82 +72,129 @@
     }
 %>
 
-<%@ page import="java.util.*,io.github.carlos_emr.carlos.report.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<fmt:setBundle basename="oscarResources"/>
 
-<link rel="stylesheet" type="text/css"
-      href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
-<html>
+<%
+    Locale requestLocale = request.getLocale();
+    pageContext.setAttribute("requestLanguageTag", requestLocale != null ? requestLocale.toLanguageTag() : "");
+%>
+<!DOCTYPE html>
+<html lang="${requestLanguageTag}">
+<head>
+    <meta charset="UTF-8">
+    <title>
+        <fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> -
+        <fmt:message key="oscarReport.RptByExample.MsgAllQueriesExecuted"/>
+    </title>
 
-    <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgAllQueriesExecuted"/></title>
+    <%@ include file="/includes/global-head.jspf" %>
+    <link rel="stylesheet" type="text/css" media="all"
+          href="${pageContext.request.contextPath}/share/css/extractedFromPages.css">
 
-        <script type="text/javascript">
-            function set(text) {
-                document.forms[1].newQuery.value = text;
-            };
-        </script>
+    <script type="text/javascript">
+        function set(text) {
+            document.getElementById('newQuery').value = text;
+        }
+    </script>
+</head>
+<body>
 
-    </head>
+<div class="container">
 
-    <body vlink="#0000FF" class="BodyStyle">
+    <!-- Alert banner — hidden by default; surfaced via JS on error -->
+    <div id="jsAlertBanner"
+         class="alert alert-danger alert-dismissible"
+         style="display:none"
+         role="alert">
+        <span id="jsAlertText"></span>
+        <button type="button"
+                class="btn-close"
+                onclick="this.closest('.alert').style.display='none'"
+                aria-label="<fmt:message key='button.close'/>"></button>
+    </div>
 
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.CDMReport.msgReport"/></td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <form action="${pageContext.request.contextPath}/oscarReport/RptViewAllQueryByExamples.do" method="post">
-                        <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgAllQueriesExecutedFrom"/>:
-                                <input type="text" name="startDate" value="${startDate}" size="8"/>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgTo"/>
-                                <input type="text" name="endDate" value="${endDate}" size="8"/> <input type="submit"
-                                                                         value="Refresh"/></td>
-                        </tr>
-                    </form>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn" valign="top"></td>
-            <td class="MainTableRightColumn">
-                <table>
-                    <tr class="Header">
-                        <td align="left" width="140"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgDate"/></td>
-                        <td align="left" width="400"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgQuery"/></td>
-                        <td align="left" width="100"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgProvider"/></td>
-                        <td align="left" width="100"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgAddToFavorite"/></td>
-                    </tr>
+    <!-- Page header bar: report label on the left, date-range refresh form on the right -->
+    <div class="page-header-bar d-flex align-items-center justify-content-between py-2 mb-3 border-bottom"
+         id="header">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fas fa-search text-secondary" aria-hidden="true"></i>
+            <span class="fw-semibold"><fmt:message key="oscarReport.CDMReport.msgReport"/></span>
+        </div>
+        <!-- Refresh form: form wraps controls directly — no table needed -->
+        <form action="${pageContext.request.contextPath}/oscarReport/RptViewAllQueryByExamples.do"
+              method="post"
+              class="d-flex align-items-center gap-2">
+            <label for="startDateInput" class="form-label form-label-sm mb-0">
+                <fmt:message key="oscarReport.RptByExample.MsgAllQueriesExecutedFrom"/>:
+            </label>
+            <input type="text" id="startDateInput" name="startDate"
+                   value="${e:forHtmlAttribute(startDate)}"
+                   class="form-control form-control-sm"
+                   style="width:8em"/>
+            <label for="endDateInput" class="form-label form-label-sm mb-0">
+                <fmt:message key="oscarReport.RptByExample.MsgTo"/>
+            </label>
+            <input type="text" id="endDateInput" name="endDate"
+                   value="${e:forHtmlAttribute(endDate)}"
+                   class="form-control form-control-sm"
+                   style="width:8em"/>
+            <button type="submit" class="btn btn-primary btn-sm"><fmt:message key="oscarReport.RptByExample.MsgRefresh"/></button>
+        </form>
+    </div>
 
-                    <form id="favouriteForm" action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite.do" method="post">
-                        <input type="hidden" id="newQuery" name="newQuery" value="error"/>
-                        <c:forEach var="queryInfo" items="${allQueries.queryVector}">
-                            <c:set var="escapedQuery" value="${queryInfo.queryWithEscapeChar}"/>
+    <!-- Main content area -->
+    <div class="bg-light border rounded p-2">
+        <div class="row g-2">
 
-                            <tr class="data">
-                                <td><c:out value="${queryInfo.date}"/></td>
-                                <td><c:out value="${queryInfo.query}"/></td>
-                                <td><c:out value="${queryInfo.providerLastName}"/>, <c:out value="${queryInfo.providerFirstName}"/></td>
-                                <td>
-                                    <input type="button"
-                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.RptByExample.MsgAddToFavorite"/>"
-                                        onclick="set('<c:out value="${escapedQuery}" escapeXml="true"/>'); submit();" />
+            <!-- Left sidebar column (empty, mirrors OSCAR MainTableLeftColumn) -->
+            <div class="col-12 col-md-2"></div>
+
+            <!-- Right content column: all-queries table -->
+            <div class="col-12 col-md-10">
+
+                <!-- favouriteForm wraps the table — correct HTML5 nesting -->
+                <form id="favouriteForm"
+                      action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite.do"
+                      method="post">
+                    <input type="hidden" id="newQuery" name="newQuery" value="error"/>
+
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th scope="col" style="width:140px"><fmt:message key="oscarReport.RptByExample.MsgDate"/></th>
+                                <th scope="col" style="width:400px"><fmt:message key="oscarReport.RptByExample.MsgQuery"/></th>
+                                <th scope="col" style="width:100px"><fmt:message key="oscarReport.RptByExample.MsgProvider"/></th>
+                                <th scope="col" style="width:100px"><fmt:message key="oscarReport.RptByExample.MsgAddToFavorite"/></th>
                             </tr>
-                        </c:forEach>
-                    </form>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
-    </table>
+                        </thead>
+                        <tbody>
+                            <c:forEach var="queryInfo" items="${allQueries.queryVector}">
+                                <tr>
+                                    <td>${e:forHtml(queryInfo.date)}</td>
+                                    <td>${e:forHtml(queryInfo.query)}</td>
+                                    <td>${e:forHtml(queryInfo.providerLastName)}, ${e:forHtml(queryInfo.providerFirstName)}</td>
+                                    <td>
+                                        <input type="button"
+                                               class="btn btn-outline-secondary btn-sm"
+                                               value="<fmt:message key="oscarReport.RptByExample.MsgAddToFavorite"/>"
+                                               onclick="set('${e:forJavaScript(queryInfo.query)}'); document.getElementById('favouriteForm').submit();"/>
+                                    </td>
+                                </tr>
+                            </c:forEach>
+                        </tbody>
+                    </table>
 
-    </body>
+                </form>
+            </div><!-- end right column -->
+
+        </div><!-- end .row -->
+    </div><!-- end .bg-light -->
+
+</div><!-- end .container -->
+
+</body>
 </html>

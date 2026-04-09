@@ -40,6 +40,8 @@ import java.util.Vector;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import io.github.carlos_emr.carlos.utility.XmlUtils;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -202,7 +204,6 @@ public class SimpleXmlRpcClient {
 
     /**
      * Parses the XML-RPC response, extracting the return value or throwing on fault.
-     * XXE protection features are enabled on every parse.
      *
      * @param responseXml String the raw XML body of the HTTP response from the XML-RPC server
      * @return Object the deserialized response value, or null if the response contains no params
@@ -211,10 +212,7 @@ public class SimpleXmlRpcClient {
      */
     private Object parseResponse(String responseXml) throws Exception {
         // Per-call factory — DocumentBuilderFactory is not thread-safe (see class-level doc)
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
 
         Document doc = factory.newDocumentBuilder()
                 .parse(new InputSource(new StringReader(responseXml)));

@@ -40,6 +40,7 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
         if (!"127.0.0.1".equals(remoteAddress)) {
             logger.warn("Unauthorised request made to EFormImageViewForPdfGenerationServlet from address : " + remoteAddress);
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
         }
 
         request.setAttribute("prepareForFax", true);

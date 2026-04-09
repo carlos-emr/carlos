@@ -30,6 +30,8 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
@@ -132,13 +134,14 @@
         }
 
         function selectProviderCustom(p, pn) {
-            opener.document
-        .<%=form%>.
-            elements['<%=elementName%>'].value = pn;
-            opener.document
-        .<%=form%>.
-            elements['<%=elementId%>'].value = p;
+            <%if (form == null || form.isEmpty() || elementName == null || elementName.isEmpty() || elementId == null || elementId.isEmpty()) {%>
+            alert("Error: Missing form configuration. Cannot transfer the selected provider.");
+            return;
+            <%} else {%>
+            opener.document["<%= Encode.forJavaScript(form) %>"].elements["<%= Encode.forJavaScript(elementName) %>"].value = pn;
+            opener.document["<%= Encode.forJavaScript(form) %>"].elements["<%= Encode.forJavaScript(elementId) %>"].value = p;
             self.close();
+            <%}%>
         }
     </SCRIPT>
 </head>
@@ -153,7 +156,7 @@
 
 <table width="100%" border="0">
     <tr>
-        <td align="left"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="receptionist.receptionistfindprovider.keywords"/></i> <%=providername%>
+        <td align="left"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="receptionist.receptionistfindprovider.keywords"/></i> <%= Encode.forHtml(StringUtils.noNull(providername)) %>
         </td>
         <td align="right"><INPUT TYPE="SUBMIT" NAME="displaymode"
                                  VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="receptionist.receptionistfindprovider.btnExit"/>"

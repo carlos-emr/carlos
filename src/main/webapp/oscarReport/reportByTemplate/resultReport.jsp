@@ -35,7 +35,7 @@
 %>
 
 <%@ page
-        import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*,java.sql.*, org.apache.commons.text.StringEscapeUtils" %>
+        import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*,java.sql.*, org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObjectGeneric" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -56,13 +56,13 @@
     <head>
         <title>Report by Template</title>
 
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
               rel="stylesheet">
         <script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
-        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
         <script src="${ pageContext.request.contextPath }/library/DataTables/datatables.min.js"></script><!-- 1.13.4 -->
 
         <script>
@@ -156,7 +156,7 @@
                 <label><%=(x + 1)%>
                 </label>
                 <%}%>
-                <input type="hidden" class="btn btn-secondary" name="csv" value="<%=StringEscapeUtils.escapeHtml4(csvList.get(x))%>">
+                <input type="hidden" class="btn btn-secondary" name="csv" value="<%=Encode.forHtmlAttribute(csvList.get(x))%>">
                 <input type="submit" class="btn btn-secondary" name="getCSV" value="Export to CSV">
                 <input type="submit" class="btn btn-secondary" name="getXLS" value="Export to XLS">
             </form>
@@ -176,7 +176,7 @@
                 <samp style="font-size: 11px;">
                     <%
                         for (int x = 0; x < sqlList.size(); x++) {
-                            out.println((x + 1) + ")" + org.apache.commons.text.StringEscapeUtils.escapeHtml4(sqlList.get(x).trim()));
+                            out.println((x + 1) + ")" + Encode.forHtml(sqlList.get(x).trim()));
                         }
                     %>
                 </samp>

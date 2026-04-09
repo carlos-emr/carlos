@@ -69,12 +69,7 @@
             <result name="success">/demographic/demographicExport.jsp</result>
             <result name="fail">/demographic/demographicExport.jsp</result>
         </action>
-        <action name="demographic/cihiExportOMD4" class="io.github.carlos_emr.carlos.demographic.pageUtil.CihiExport2Action" method="execute">
-            <result name="display">/WEB-INF/jsp/demographic/cihiExport.jsp</result>
-        </action>
-        <action name="demographic/cihiExportPHC_VRS" class="io.github.carlos_emr.carlos.demographic.pageUtil.CihiExportPHC_VRS2Action" method="execute">
-            <result name="display">/WEB-INF/jsp/demographic/cihiExport.jsp</result>
-        </action>
+
         <action name="demographic/eRourkeExport" class="io.github.carlos_emr.carlos.demographic.pageUtil.RourkeExport2Action" method="execute">
             <result name="display">/WEB-INF/jsp/demographic/rourkeExport.jsp</result>
         </action>
