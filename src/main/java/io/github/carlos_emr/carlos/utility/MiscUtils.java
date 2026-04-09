@@ -91,8 +91,17 @@ public final class MiscUtils {
      * Restricts ObjectInputStream deserialization to safe classes only.
      * Allows standard Java types and CARLOS domain objects; rejects everything else
      * to prevent remote code execution via untrusted deserialized data.
+     *
+     * <p>Also enforces resource bounds (depth, references, stream bytes, array length)
+     * to mitigate deserialization bomb (DoS) attacks.
      */
     private static final ObjectInputFilter DESERIALIZATION_FILTER = filterInfo -> {
+        if (filterInfo.depth() > 20 ||
+            filterInfo.references() > 100_000L ||
+            filterInfo.streamBytes() > 10_000_000L ||
+            (filterInfo.arrayLength() >= 0 && filterInfo.arrayLength() > 10_000)) {
+            return ObjectInputFilter.Status.REJECTED;
+        }
         if (filterInfo.serialClass() != null) {
             String name = filterInfo.serialClass().getName();
             if (name.startsWith("java.lang.") ||

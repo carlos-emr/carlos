@@ -63,14 +63,23 @@ public class TraceabilityReportProcessor implements Callable<String> {
 
     /**
      * Restricts deserialization to HashMap and String only, which are the
-     * types written by {@link TraceDataProcessor} for traceability data.
+     * exact types written by {@link TraceDataProcessor} for traceability data
+     * ({@code Map<String, String>}).
+     *
+     * <p>Also enforces resource bounds (depth, references, stream bytes, array length)
+     * to mitigate deserialization bomb (DoS) attacks from uploaded files.
      */
     private static final ObjectInputFilter TRACE_DESERIALIZATION_FILTER = filterInfo -> {
+        if (filterInfo.depth() > 10 ||
+            filterInfo.references() > 500_000L ||
+            filterInfo.streamBytes() > 50_000_000L ||
+            (filterInfo.arrayLength() >= 0 && filterInfo.arrayLength() > 100_000)) {
+            return ObjectInputFilter.Status.REJECTED;
+        }
         if (filterInfo.serialClass() != null) {
             String name = filterInfo.serialClass().getName();
             if (name.equals("java.util.HashMap") ||
-                name.equals("java.lang.String") ||
-                name.equals("java.lang.Integer")) {
+                name.equals("java.lang.String")) {
                 return ObjectInputFilter.Status.ALLOWED;
             }
             return ObjectInputFilter.Status.REJECTED;
