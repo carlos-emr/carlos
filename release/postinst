@@ -36,6 +36,8 @@ if [ -z "${TOMCAT}" ]; then
     exit 1
 fi
 
+TOMCAT_USER=tomcat
+
 C_HOME=/usr/share/${TOMCAT}/
 C_BASE=/var/lib/${TOMCAT}/
 SRC=/var/lib/${PACKAGE}/
