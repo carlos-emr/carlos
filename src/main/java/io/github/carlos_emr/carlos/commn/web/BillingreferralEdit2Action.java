@@ -166,6 +166,8 @@ public class BillingreferralEdit2Action extends ActionSupport {
         request.getSession().setAttribute("billingReferralAdminCheckList", checkedSpecs); // nosemgrep: tainted-session-from-http-request
 
         ArrayNode arr = objectMapper.valueToTree(checkedSpecs);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().print(arr);
 
         return null;

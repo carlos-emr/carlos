@@ -668,7 +668,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         Map<String, String> jsonMap = new HashMap<String, String>();
         jsonMap.put("isNoteEdited", ret);
         ObjectNode json = objectMapper.valueToTree(jsonMap);
-        response.getOutputStream().write(json.toString().getBytes());
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write(json.toString());
         return null;
     }
 
@@ -865,7 +867,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         HashMap<String, Object> hashMap = new HashMap<String, Object>();
         hashMap.put("id", note.getId());
         ObjectNode json = objectMapper.valueToTree(hashMap);
-        response.getOutputStream().write(json.toString().getBytes());
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write(json.toString());
 
         return null;
     }
@@ -1234,6 +1238,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         String f = request.getParameter("forward");
         if (f != null && f.equals("none")) {
+            response.setContentType("text/plain");
+            response.setCharacterEncoding("UTF-8");
             response.getWriter().println(note.getId());
             return null;
         }
@@ -3153,7 +3159,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 json = objectMapper.valueToTree(hashMap);
             }
         }
-        response.getOutputStream().write(json.toString().getBytes());
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write(json.toString());
         return null;
     }
 

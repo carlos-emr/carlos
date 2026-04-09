@@ -140,6 +140,8 @@ public class Pregnancy2Action extends ActionSupport {
             }
         }
         ObjectNode json = objectMapper.valueToTree(new LabelValueBean("formId", String.valueOf(formId)));
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().println(json);
         return null;
     }
@@ -358,6 +360,8 @@ public class Pregnancy2Action extends ActionSupport {
         }
 
         ObjectNode json = objectMapper.valueToTree(new LabelValueBean("allergies", output.toString().trim()));
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().println(json);
         return null;
     }
@@ -387,6 +391,8 @@ public class Pregnancy2Action extends ActionSupport {
         }
 
         ObjectNode json = objectMapper.valueToTree(new LabelValueBean("meds", output.toString().trim()));
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().println(json);
         return null;
     }
@@ -400,6 +406,8 @@ public class Pregnancy2Action extends ActionSupport {
         if (formClass == null || !ALLOWED_PREGNANCY_FORM_CLASSES.contains(formClass)) {
             MiscUtils.getLogger().warn("Invalid form class requested in pregnancy saveFormAjax: {}", LogSanitizer.sanitize(formClass));
             jsonObj = objectMapper.valueToTree(new LabelValueBean("result", "error"));
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
             response.getWriter().print(jsonObj.toString());
             return null;
         }
@@ -460,6 +468,8 @@ public class Pregnancy2Action extends ActionSupport {
 
         }
 
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().print(jsonObj.toString());
 
         return null;
@@ -473,6 +483,8 @@ public class Pregnancy2Action extends ActionSupport {
         List<Measurement> m = md.findByType(Integer.parseInt(demographicNo), type);
 
         ArrayNode json = objectMapper.valueToTree(m);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().print(json.toString());
 
         return null;
@@ -501,6 +513,8 @@ public class Pregnancy2Action extends ActionSupport {
         md.persist(m);
 
         ObjectNode jsonObj = objectMapper.valueToTree(new LabelValueBean("result", "success"));
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().print(jsonObj);
 
         return null;
@@ -539,6 +553,8 @@ public class Pregnancy2Action extends ActionSupport {
             json.add(objectMapper.valueToTree(m.get(0)));
         }
 
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().print(json.toString());
 
         return null;
@@ -686,6 +702,8 @@ Repeat antibody screen
         }
 
         ArrayNode jsonObj = objectMapper.valueToTree(results);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().print(jsonObj);
 
         return null;
@@ -819,6 +837,8 @@ Repeat antibody screen
             l.setProviderName(providerDao.getProviderName(l.getProviderNo()));
         }
         ArrayNode json = objectMapper.valueToTree(results);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().print(json.toString());
         return null;
     }

@@ -270,7 +270,9 @@ public final class RxDeleteRx2Action extends ActionSupport {
             hm.put("drugId", drugId);
             ObjectNode jsonObject = objectMapper.valueToTree(hm);
             MiscUtils.getLogger().debug("jsonObject=" + jsonObject.toString());
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+            response.getWriter().write(jsonObject.toString());
         }
         MiscUtils.getLogger().debug("===========================END DeleteRxOnCloseRxBox RxDeleteRx2Action========================");
         return null;
