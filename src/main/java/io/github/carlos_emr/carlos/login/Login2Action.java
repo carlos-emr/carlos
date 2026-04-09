@@ -926,7 +926,8 @@ public final class Login2Action extends ActionSupport {
             }
             nextPage = null;
         }
-        // nosemgrep: tainted-session-from-http-request -- nextPage validated by RedirectValidationUtils above
+        // nextPage validated by RedirectValidationUtils above
+        // nosemgrep: tainted-session-from-http-request
         request.getSession().setAttribute("nextPage", nextPage);
 
     }
