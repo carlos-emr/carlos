@@ -44,6 +44,16 @@ rules:
       # CR, LF, and all other control characters.
       - pattern: LogSanitizer.sanitize(...)
       - pattern: io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(...)
+      - patterns:
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize;
+              ...
+          - pattern: sanitize(...)
+      - patterns:
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.LogSanitizer.*;
+              ...
+          - pattern: sanitize(...)
       # OWASP Encoder direct usage also neutralizes CRLF.
       - pattern: Encode.forJava(...)
       - pattern: org.owasp.encoder.Encode.forJava(...)
