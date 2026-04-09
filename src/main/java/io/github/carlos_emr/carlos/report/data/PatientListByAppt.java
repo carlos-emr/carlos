@@ -62,7 +62,7 @@ public class PatientListByAppt extends HttpServlet {
      */
     protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
         try {
-            response.setContentType("plain/text");
+            response.setContentType("text/plain; charset=UTF-8");
             response.setHeader("Content-disposition", "attachment; filename=patientlist.txt");
 
             String drNo = request.getParameter("provider_no");
