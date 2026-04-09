@@ -78,10 +78,10 @@
         <!-- Billing upload servlets -->
         <sonar.issue.ignore.multicriteria.pvuBilling.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuBilling.ruleKey>
         <sonar.issue.ignore.multicriteria.pvuBilling.resourceKey>**/billings/**/*.java</sonar.issue.ignore.multicriteria.pvuBilling.resourceKey>
-        <!-- S6549 (path construction) false positive — documentManager files use PathValidationUtils
-             for path sanitization. Package-wide scope is consistent with the S2083 suppressions above. -->
+        <!-- S6549 (path construction) false positive — limit suppression to DocumentUpload2Action
+             so path-construction findings remain visible for other documentManager files. -->
         <sonar.issue.ignore.multicriteria.pvuDocS6549.ruleKey>javasecurity:S6549</sonar.issue.ignore.multicriteria.pvuDocS6549.ruleKey>
-        <sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>**/documentManager/**/*.java</sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>
+        <sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>**/documentManager/**/DocumentUpload2Action.java</sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>
         <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
         <argLine></argLine>
         <!-- Log4j Version -->
