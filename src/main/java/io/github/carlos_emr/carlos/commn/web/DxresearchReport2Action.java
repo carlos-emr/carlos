@@ -47,7 +47,6 @@ import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.dao.MyGroupDao;
 import io.github.carlos_emr.carlos.commn.model.DxRegistedPTInfo;
 import io.github.carlos_emr.carlos.managers.CodingSystemManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -203,16 +202,10 @@ public class DxresearchReport2Action extends ActionSupport {
 
     public String patientRegistedAll() {
 
-        List<String> providerNoList = new ArrayList<String>();
-        String providerNo = request.getParameter("provider_no");
-        if (!isValidProviderNo(providerNo)) {
+        List<String> providerNoList = getValidatedProviderNoList();
+        if (providerNoList == null) {
             return ERROR;
         }
-        if (providerNo.startsWith("_grp_")) {
-            providerNo = providerNo.replaceFirst("_grp_", "");
-            providerNoList = mygroupdao.getGroupDoctors(providerNo);
-        } else
-            providerNoList.add(providerNo);
 
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
@@ -244,15 +237,6 @@ public class DxresearchReport2Action extends ActionSupport {
             patients.add(info);
         }
 
-        String providerNo = request.getParameter("provider_no");
-        if (!isValidProviderNo(providerNo)) {
-            return ERROR;
-        }
-
-        if (providerNo.startsWith("_grp_")) {
-            providerNo = providerNo.replaceFirst("_grp_", "");
-        }
-
         String mode = (String) request.getSession().getAttribute("radiovaluestatus");
 
         OscarDocumentCreator osc = new OscarDocumentCreator();
@@ -272,16 +256,10 @@ public class DxresearchReport2Action extends ActionSupport {
 
     public String patientRegistedDistincted() {
 
-        List<String> providerNoList = new ArrayList<String>();
-        String providerNo = request.getParameter("provider_no");
-        if (!isValidProviderNo(providerNo)) {
+        List<String> providerNoList = getValidatedProviderNoList();
+        if (providerNoList == null) {
             return ERROR;
         }
-        if (providerNo.startsWith("_grp_")) {
-            providerNo = providerNo.replaceFirst("_grp_", "");
-            providerNoList = mygroupdao.getGroupDoctors(providerNo);
-        } else
-            providerNoList.add(providerNo);
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedDistincted(codeSearch, providerNoList);
@@ -306,16 +284,10 @@ public class DxresearchReport2Action extends ActionSupport {
 
     public String patientRegistedDeleted() {
 
-        List<String> providerNoList = new ArrayList<String>();
-        String providerNo = request.getParameter("provider_no");
-        if (!isValidProviderNo(providerNo)) {
+        List<String> providerNoList = getValidatedProviderNoList();
+        if (providerNoList == null) {
             return ERROR;
         }
-        if (providerNo.startsWith("_grp_")) {
-            providerNo = providerNo.replaceFirst("_grp_", "");
-            providerNoList = mygroupdao.getGroupDoctors(providerNo);
-        } else
-            providerNoList.add(providerNo);
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedDeleted(codeSearch, providerNoList);
@@ -330,16 +302,10 @@ public class DxresearchReport2Action extends ActionSupport {
 
     public String patientRegistedActive() {
 
-        List<String> providerNoList = new ArrayList<String>();
-        String providerNo = request.getParameter("provider_no");
-        if (!isValidProviderNo(providerNo)) {
+        List<String> providerNoList = getValidatedProviderNoList();
+        if (providerNoList == null) {
             return ERROR;
         }
-        if (providerNo.startsWith("_grp_")) {
-            providerNo = providerNo.replaceFirst("_grp_", "");
-            providerNoList = mygroupdao.getGroupDoctors(providerNo);
-        } else
-            providerNoList.add(providerNo);
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedActive(codeSearch, providerNoList);
@@ -354,16 +320,10 @@ public class DxresearchReport2Action extends ActionSupport {
 
     public String patientRegistedResolve() {
 
-        List<String> providerNoList = new ArrayList<String>();
-        String providerNo = request.getParameter("provider_no");
-        if (!isValidProviderNo(providerNo)) {
+        List<String> providerNoList = getValidatedProviderNoList();
+        if (providerNoList == null) {
             return ERROR;
         }
-        if (providerNo.startsWith("_grp_")) {
-            providerNo = providerNo.replaceFirst("_grp_", "");
-            providerNoList = mygroupdao.getGroupDoctors(providerNo);
-        } else
-            providerNoList.add(providerNo);
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedResolve(codeSearch, providerNoList);
