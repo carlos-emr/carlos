@@ -316,6 +316,9 @@ function urlencode(str) {
  * @param {string} html - trusted server response HTML
  */
 function setTrustedHtml(el, html) {
+    // Callers: loadDiv(), popLeftColumn(), NavBarObs.load() onFailure handlers only.
+    // Content is either hardcoded error markup ("<h3>Error:</h3>" + HTTP status code)
+    // or same-origin AJAX responses from internal CARLOS JSP endpoints that apply OWASP encoding.
     el.innerHTML = html; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
 }
 

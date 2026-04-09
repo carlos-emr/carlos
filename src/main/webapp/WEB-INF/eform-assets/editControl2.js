@@ -299,15 +299,26 @@ function seteditControlContents(editorname, value){
 	value = jQuery().convertImagePaths(value, cfg_isrc);
 
 	// Sanitize HTML before injecting into the editor to prevent stored-XSS from eform content.
-	// DOMPurify may not be available in all eForm contexts; fall back to unsanitized assignment.
-	var sanitized = (typeof DOMPurify !== 'undefined') ? DOMPurify.sanitize(value) : value;
+	// When DOMPurify is not available, render as plain text to fail closed.
+	if (typeof DOMPurify === 'undefined') {
+		console.warn('editControl2: DOMPurify not loaded — rendering eform content as plain text to prevent XSS.');
+	}
+	var sanitized = (typeof DOMPurify !== 'undefined') ? DOMPurify.sanitize(value) : '';
 
     if (document.designMode) {
 		if (isIE()){
-		    window[editorname].document.body.innerHTML = sanitized; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+		    if (typeof DOMPurify !== 'undefined') {
+		        window[editorname].document.body.innerHTML = sanitized; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+		    } else {
+		        window[editorname].document.body.textContent = value;
+		    }
 		    return
 		} else {
-		    document.getElementById(editorname).contentWindow.document.body.innerHTML = sanitized; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+		    if (typeof DOMPurify !== 'undefined') {
+		        document.getElementById(editorname).contentWindow.document.body.innerHTML = sanitized; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+		    } else {
+		        document.getElementById(editorname).contentWindow.document.body.textContent = value;
+		    }
 		    return
 		}
 	} else {
@@ -474,12 +485,17 @@ function doHtml(value) {
 		sel.addRange(range);
 	} else {
 		// No selection/cursor — append to end of document body.
-		// Sanitize content with DOMPurify when available to mitigate stored-XSS from eform data.
-		var safeValue = (typeof DOMPurify !== 'undefined') ? DOMPurify.sanitize(value) : value;
-		var appendRange = editorDoc.createRange();
-		appendRange.selectNodeContents(editorDoc.body);
-		var appendFrag = appendRange.createContextualFragment(safeValue);
-		editorDoc.body.appendChild(appendFrag);
+		// Sanitize with DOMPurify; fall back to plain text to fail closed.
+		if (typeof DOMPurify !== 'undefined') {
+			var safeValue = DOMPurify.sanitize(value);
+			var appendRange = editorDoc.createRange();
+			appendRange.selectNodeContents(editorDoc.body);
+			var appendFrag = appendRange.createContextualFragment(safeValue);
+			editorDoc.body.appendChild(appendFrag);
+		} else {
+			console.warn('editControl2: DOMPurify not loaded — appending content as plain text to prevent XSS.');
+			editorDoc.body.appendChild(editorDoc.createTextNode(value));
+		}
 	}
 	// Return focus to the editor iframe so the user can continue typing
 	// immediately after a sidebar button inserts content
