@@ -82,7 +82,7 @@ public class EctDisplayContacts2Action extends EctDisplayAction {
             }
 
             String url;
-            Dao.setLeftPopup(height, width, winName, pathview);
+            Dao.setLeftPopup(width, height, winName, pathview);
 
             if ("true".equalsIgnoreCase(healthCareTeamEnabled)) {
                 Dao.setLeftHeading("Health Care Team");
