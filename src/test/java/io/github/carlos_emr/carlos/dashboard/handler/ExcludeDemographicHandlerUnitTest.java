@@ -210,6 +210,7 @@ class ExcludeDemographicHandlerUnitTest {
             Mockito.clearInvocations(mockDao);
             handler.unExcludeDemoIds("1,2,3", "testIndicator");
             verify(mockDao).getDemographicExtByKeyAndValue(anyString(), anyString());
+            verify(mockDao, never()).removeDemographicExt(anyInt());
         }
 
         @Test
