@@ -3,7 +3,7 @@
 # a script file for CARLOS EMR that uninstalls and tweaks the necessary files
 #==================================================================
 # Copyright Peter Hutten-Czapski 2012-26 released under the GPL v2+
-# v 0.1
+# v 0.2
 #==================================================================
 
 # Source debconf library.
@@ -19,23 +19,13 @@ REVISION=1~1
 db_name=oscar_15
 buildDateTime="March 14, 2026"
 
-if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
-        TOMCAT=tomcat10
+if [ -f /usr/share/tomcat11/bin/version.sh ] ; then
+        TOMCAT=tomcat11
         TOMCAT_USER=tomcat
     else
-    if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
-            TOMCAT=tomcat9
+    if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
+            TOMCAT=tomcat10
             TOMCAT_USER=tomcat
-        else
-        if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
-                TOMCAT=tomcat8
-                TOMCAT_USER=tomcat8
-             else
-             if [ -f /usr/share/tomcat7/bin/version.sh ] ; then
-                    TOMCAT=tomcat7
-                    TOMCAT_USER=tomcat7
-             fi
-         fi
      fi
  fi
 C_HOME=/usr/share/${TOMCAT}/
@@ -180,14 +170,24 @@ case "$1" in
     fi
     # Remove ReadWritePaths entries added by the config script to fallback service files
     # (only applies when /etc/systemd/system/tomcat9.service.d/ did not exist at install time)
-    if [ -f /lib/systemd/system/tomcat9.service ] ; then
-        sed -i '/ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//d' /lib/systemd/system/tomcat9.service 2>>$LOG_FILE || true
-        sed -i '/ReadWritePaths=\/tmp\//d' /lib/systemd/system/tomcat9.service 2>>$LOG_FILE || true
+    if [ -f /lib/systemd/system/tomcat10.service ] ; then
+        sed -i '/ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//d' /lib/systemd/system/tomcat10.service 2>>$LOG_FILE || true
+        sed -i '/ReadWritePaths=\/tmp\//d' /lib/systemd/system/tomcat10.service 2>>$LOG_FILE || true
     fi
-    if [ -f /etc/systemd/system/multi-user.target.wants/tomcat9.service ] ; then
-        sed -i '/ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//d' /etc/systemd/system/multi-user.target.wants/tomcat9.service 2>>$LOG_FILE || true
-        sed -i '/ReadWritePaths=\/tmp\//d' /etc/systemd/system/multi-user.target.wants/tomcat9.service 2>>$LOG_FILE || true
+    if [ -f /etc/systemd/system/multi-user.target.wants/tomcat10.service ] ; then
+        sed -i '/ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//d' /etc/systemd/system/multi-user.target.wants/tomcat10.service 2>>$LOG_FILE || true
+        sed -i '/ReadWritePaths=\/tmp\//d' /etc/systemd/system/multi-user.target.wants/tomcat10.service 2>>$LOG_FILE || true
     fi
+
+    if [ -f /lib/systemd/system/tomcat11.service ] ; then
+        sed -i '/ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//d' /lib/systemd/system/tomcat11.service 2>>$LOG_FILE || true
+        sed -i '/ReadWritePaths=\/tmp\//d' /lib/systemd/system/tomcat11.service 2>>$LOG_FILE || true
+    fi
+    if [ -f /etc/systemd/system/multi-user.target.wants/tomcat11.service ] ; then
+        sed -i '/ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//d' /etc/systemd/system/multi-user.target.wants/tomcat11.service 2>>$LOG_FILE || true
+        sed -i '/ReadWritePaths=\/tmp\//d' /etc/systemd/system/multi-user.target.wants/tomcat11.service 2>>$LOG_FILE || true
+    fi
+
     systemctl daemon-reload 2>>$LOG_FILE || true
 
     # remove property files and the oscar schema

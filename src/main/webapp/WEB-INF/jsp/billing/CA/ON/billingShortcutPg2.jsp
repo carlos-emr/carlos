@@ -628,7 +628,7 @@
                 String temp = e.nextElement().toString();
         %>
         <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
-               value="<%=Encode.forHtmlAttribute(request.getParameter(temp))%>">
+               value="<%=Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter(temp)))%>">
         <%
             }
         %>

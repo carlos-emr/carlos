@@ -135,7 +135,7 @@ public final class BillingView2Action
             this.setMessageNotes(bean.getMessageNotes());
             this.setBillStatus(bean.getBillingType());
             this.setPaymentMethod(bean.getPaymentMethod());
-            request.getSession().setAttribute("billingViewBean", bean);
+            request.getSession().setAttribute("billingViewBean", bean); // nosemgrep: tainted-session-from-http-request
             String receipt = request.getParameter("receipt");
             if (receipt != null && receipt.equals("yes")) {
 

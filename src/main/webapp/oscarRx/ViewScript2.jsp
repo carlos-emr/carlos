@@ -144,8 +144,12 @@
                 String appt_no = (String) session.getAttribute("cur_appointment_no");
                 String location = null;
                 if (appt_no != null) {
-                    Appointment result = appointmentDao.find(Integer.parseInt(appt_no));
-                    if (result != null) location = result.getLocation();
+                    try {
+                        Appointment result = appointmentDao.find(Integer.parseInt(appt_no));
+                        if (result != null) location = result.getLocation();
+                    } catch (NumberFormatException e) {
+                        // Malformed appointment number in session — skip location lookup
+                    }
                 }
 
                 RxProviderData.Provider rxprovider = new RxProviderData().getProvider(bean.getProviderNo());
@@ -377,7 +381,7 @@
                         <%--    	 <% if(echartPreferencesMap.getOrDefault("echart_paste_fax_note", false)) {--%>
                         <% String timeStamp = new SimpleDateFormat("dd-MMM-yyyy hh:mm a").format(Calendar.getInstance().getTime()); %>
                         // %>
-                        text = "[Rx faxed to " + '<%= pharmacy!=null?StringEscapeUtils.escapeEcmaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?pharmacy.getFax():""%>';
+                        text = "[Rx faxed to " + '<%= pharmacy!=null?Encode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?pharmacy.getFax():""%>';
 
                         <%--    	 <% if (rxPreferencesMap.getOrDefault("rx_paste_provider_to_echart", false)) { %>--%>
                         text += " prescribed by <%= Encode.forJavaScript(loggedInInfo.getLoggedInProvider().getFormattedName())%>";

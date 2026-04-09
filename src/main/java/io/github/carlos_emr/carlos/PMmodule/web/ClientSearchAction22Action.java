@@ -78,9 +78,9 @@ public class ClientSearchAction22Action extends ActionSupport {
 
     public String form() {
         if (clientManager.isOutsideOfDomainEnabled()) {
-            request.getSession().setAttribute("outsideOfDomainEnabled", "true");
+            request.getSession().setAttribute("outsideOfDomainEnabled", "true"); // nosemgrep: tainted-session-from-http-request
         } else {
-            request.getSession().setAttribute("outsideOfDomainEnabled", "false");
+            request.getSession().setAttribute("outsideOfDomainEnabled", "false"); // nosemgrep: tainted-session-from-http-request
         }
 
 
@@ -91,9 +91,9 @@ public class ClientSearchAction22Action extends ActionSupport {
 
     public String attachForm() {
         if (clientManager.isOutsideOfDomainEnabled()) {
-            request.getSession().setAttribute("outsideOfDomainEnabled", "true");
+            request.getSession().setAttribute("outsideOfDomainEnabled", "true"); // nosemgrep: tainted-session-from-http-request
         } else {
-            request.getSession().setAttribute("outsideOfDomainEnabled", "false");
+            request.getSession().setAttribute("outsideOfDomainEnabled", "false"); // nosemgrep: tainted-session-from-http-request
         }
 
         String noteId = request.getParameter("noteId");
@@ -118,7 +118,7 @@ public class ClientSearchAction22Action extends ActionSupport {
                 CaseManagementNote note = caseManagementNoteDao.getNote(parsedNoteId);
                 if (note != null) {
                     String validatedNoteId = String.valueOf(parsedNoteId);
-                    request.getSession().setAttribute("noteId", validatedNoteId);
+                    request.getSession().setAttribute("noteId", validatedNoteId); // nosemgrep: tainted-session-from-http-request
                     request.setAttribute("noteId", validatedNoteId);
                 } else {
                     logger.warn("Rejected noteId that does not exist in database (trust boundary enforcement) - provider: {}", providerNo);

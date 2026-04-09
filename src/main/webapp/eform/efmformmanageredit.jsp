@@ -63,7 +63,7 @@
     if (curform.get("showLatestFormOnly") == null) curform.put("showLatestFormOnly", false);
     if (curform.get("patientIndependent") == null) curform.put("patientIndependent", false);
 
-    String formHtml = StringEscapeUtils.escapeHtml4((String) curform.get("formHtml"));
+    String formHtml = Encode.forHtml((String) curform.get("formHtml"));
     if (formHtml == null) {
         formHtml = "";
     }

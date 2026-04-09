@@ -29,7 +29,7 @@
 
 --%>
 
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -215,21 +215,21 @@
                                 %>
                                 <b style="font-size:14pt"><%=firstLine %>
                                 </b><br/>
-                                <%=StringEscapeUtils.escapeHtml4(provider.getSpecialty()) %><br/>
+                                <%=Encode.forHtml(provider.getSpecialty()) %><br/>
                                 <br/>
-                                <%=StringEscapeUtils.escapeHtml4(clinic.getClinicAddress()) %><br/>
-                                <%=StringEscapeUtils.escapeHtml4(clinic.getClinicCity()) %>
-                                , <%=StringEscapeUtils.escapeHtml4(clinic.getClinicProvince()) %>  <%=StringEscapeUtils.escapeHtml4(clinic.getClinicPostal()) %>
+                                <%=Encode.forHtml(clinic.getClinicAddress()) %><br/>
+                                <%=Encode.forHtml(clinic.getClinicCity()) %>
+                                , <%=Encode.forHtml(clinic.getClinicProvince()) %>  <%=Encode.forHtml(clinic.getClinicPostal()) %>
                                 <br/>
-                                <%=StringEscapeUtils.escapeHtml4(phone) %><br/>
-                                Fax <%=StringEscapeUtils.escapeHtml4(fax) %> <br/>
+                                <%=Encode.forHtml(phone) %><br/>
+                                Fax <%=Encode.forHtml(fax) %> <br/>
                             </td>
                         </tr>
 
                         <tr> <!-- patient name -->
                             <td colspan="2">
                                 <b>Name</b>: <span
-                                    style="text-decoration: underline;"><%=StringEscapeUtils.escapeHtml4(appt.getName()) %></span>
+                                    style="text-decoration: underline;"><%=Encode.forHtml(appt.getName()) %></span>
                             </td>
                         </tr>
 

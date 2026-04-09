@@ -120,8 +120,8 @@
                             for (int i = 0; i < vecConfigObj.size(); i++) {
                                 String color = i % 2 == 0 ? "trOdd" : "trEven"; //"#EEEEFF" : "";
                                 Properties prop = (Properties) vecConfigObj.get(i);
-                                String fieldName = StringEscapeUtils.escapeHtml4(prop.getProperty("name", ""));
-                                String fieldCaption = StringEscapeUtils.escapeHtml4(prop.getProperty("caption", ""));
+                                String fieldName = Encode.forHtmlAttribute(prop.getProperty("name", ""));
+                                String fieldCaption = Encode.forHtml(prop.getProperty("caption", ""));
                                 String fieldId = prop.getProperty("id", "");
                                 String fieldPosition = prop.getProperty("order_no", "");
                                 String action = " Add ";
