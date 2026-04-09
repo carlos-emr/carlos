@@ -71,6 +71,7 @@ Calendar._formatDate = function (date, fmt) {
     var h  = date.getHours();
     var mi = date.getMinutes();
     var s  = date.getSeconds();
+    var dow = date.getDay();
     return fmt
         .replace(/%Y/g, y)
         .replace(/%y/g, String(y).slice(-2))
@@ -82,7 +83,11 @@ Calendar._formatDate = function (date, fmt) {
         .replace(/%M/g, ("0" + mi).slice(-2))
         .replace(/%S/g, ("0" + s).slice(-2))
         .replace(/%P/g, (h < 12 ? "AM" : "PM"))
-        .replace(/%p/g, (h < 12 ? "am" : "pm"));
+        .replace(/%p/g, (h < 12 ? "am" : "pm"))
+        .replace(/%a/g, (Calendar._SDN[dow] || ""))
+        .replace(/%A/g, (Calendar._DN[dow]  || ""))
+        .replace(/%b/g, (Calendar._SMN[date.getMonth()] || ""))
+        .replace(/%B/g, (Calendar._MN[date.getMonth()]  || ""));
 };
 
 /* ── Calendar.setup() — public entry point ──────────────────────────────── */
