@@ -260,6 +260,8 @@ class DemographicEdit2ActionTest extends CarlosWebTestBase {
         @Mock private ProgramDao mockProgramDao;
         @Mock private OscarLogDao mockOscarLogDao;
 
+        private MockedStatic<LogAction> logActionMock;
+
         private static final String DEMO_NO = "12345";
         private Demographic testDemographic;
 
@@ -267,10 +269,24 @@ class DemographicEdit2ActionTest extends CarlosWebTestBase {
         void setUpHappyPath() {
             MockitoAnnotations.openMocks(this);
 
-            // Register all beans needed for the full execute() happy path.
-            // OscarLogDao must be registered first so that LogAction's static
-            // initializer (SpringUtils.getBean(OscarLogDao.class)) can succeed
-            // when LogAction is loaded by the JVM during the first test run.
+            // Mock LogAction statically so that tests are deterministic regardless
+            // of whether LogAction's static initializer has already run in the JVM.
+            logActionMock = mockStatic(LogAction.class);
+
+            registerSpringBeans();
+            stubDefaultBehaviour();
+
+            allowPrivilege("_demographic", "r");
+            addRequestParameter("demographic_no", DEMO_NO);
+        }
+
+        @AfterEach
+        void tearDownHappyPath() {
+            logActionMock.close();
+        }
+
+        /** Registers all SpringUtils beans needed by execute(). */
+        private void registerSpringBeans() {
             replaceSpringUtilsBean(OscarLogDao.class, mockOscarLogDao);
             replaceSpringUtilsBean(DemographicExtDao.class, mockExtDao);
             replaceSpringUtilsBean(DemographicCustDao.class, mockCustDao);
@@ -290,10 +306,10 @@ class DemographicEdit2ActionTest extends CarlosWebTestBase {
             replaceSpringUtilsBean(DemographicManager.class, mockDemographicManager);
             replaceSpringUtilsBean(ProgramManager.class, mockProgramManager);
             replaceSpringUtilsBean(ProgramDao.class, mockProgramDao);
+        }
 
-            allowPrivilege("_demographic", "r");
-            addRequestParameter("demographic_no", DEMO_NO);
-
+        /** Stubs default return values for DAO/manager calls and creates test fixture. */
+        private void stubDefaultBehaviour() {
             testDemographic = new Demographic();
             testDemographic.setDemographicNo(12345);
             testDemographic.setFirstName("John");
@@ -436,17 +452,15 @@ class DemographicEdit2ActionTest extends CarlosWebTestBase {
         @Test
         @DisplayName("should invoke audit log with provider number and demographic_no on successful load")
         void shouldInvokeAuditLog_onSuccessfulLoad() throws Exception {
-            try (MockedStatic<LogAction> logMock = mockStatic(LogAction.class)) {
-                executeAction(action);
+            executeAction(action);
 
-                logMock.verify(() -> LogAction.addLog(
-                        eq(TEST_PROVIDER),
-                        eq(LogConst.READ),
-                        eq(LogConst.CON_DEMOGRAPHIC),
-                        eq(DEMO_NO),
-                        any(),
-                        eq(DEMO_NO)));
-            }
+            logActionMock.verify(() -> LogAction.addLog(
+                    eq(TEST_PROVIDER),
+                    eq(LogConst.READ),
+                    eq(LogConst.CON_DEMOGRAPHIC),
+                    eq(DEMO_NO),
+                    any(),
+                    eq(DEMO_NO)));
         }
 
         @Test
