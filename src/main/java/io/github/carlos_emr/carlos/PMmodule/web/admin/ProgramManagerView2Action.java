@@ -327,8 +327,17 @@ public class ProgramManagerView2Action extends ActionSupport {
             return view();
         }
 
+        if (programId == null) {
+            logger.warn("Missing or invalid programId received for admission");
+            return view();
+        }
+
         ProgramQueue queue = programQueueManager.getProgramQueue(String.valueOf(queueIdLong));
         Program fullProgram = programManager.getProgram(String.valueOf(programId));
+        if (fullProgram == null) {
+            logger.warn("No program found for programId received for admission: {}", LogSanitizer.sanitize(String.valueOf(programId)));
+            return view();
+        }
         String dischargeNotes = request.getParameter("admission.dischargeNotes");
         String admissionNotes = request.getParameter("admission.admissionNotes");
         String formattedAdmissionDate = request.getParameter("admissionDate");
