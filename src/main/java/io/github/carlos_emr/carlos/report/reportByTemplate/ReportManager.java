@@ -43,6 +43,7 @@ import java.util.UUID;
 import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.input.SAXBuilder;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.jdom2.output.XMLOutputter;
 import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
@@ -120,7 +121,7 @@ public class ReportManager {
 
             if (!paramXML.equals("")) {
                 paramXML = UtilXML.escapeXML(paramXML); //escapes anomalies such as "date >= {mydate}" the '>' character
-                SAXBuilder parser = new SAXBuilder();
+                SAXBuilder parser = XmlUtils.createSecureSAXBuilder(); // NOSONAR java:S2755 — XXE protection applied via XmlUtils.createSecureSAXBuilder()
                 Document doc = parser.build(new java.io.ByteArrayInputStream(paramXML.getBytes()));
                 Element root = doc.getRootElement();
 
@@ -230,7 +231,7 @@ public class ReportManager {
         String xml = getTemplateXml("1");
         if (xml == "") return "Error: Could not save the template file in the database.";
         try {
-            SAXBuilder parser = new SAXBuilder();
+            SAXBuilder parser = XmlUtils.createSecureSAXBuilder(); // NOSONAR java:S2755 — XXE protection applied via XmlUtils.createSecureSAXBuilder()
             xml = UtilXML.escapeXML(xml); //escapes anomalies such as "date >= {mydate}" the '>' character
             //xml = UtilXML.escapeAllXML(xml, "<param-list>");  //escapes all markup in <report> tag, otherwise can't retrieve element.getText()
             Document doc = parser.build(new java.io.ByteArrayInputStream(xml.getBytes()));
@@ -282,17 +283,7 @@ public class ReportManager {
     }
 
     public Document readXml(String xml) throws Exception {
-        SAXBuilder parser = new SAXBuilder();
-        try {
-            parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            parser.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            parser.setExpandEntities(false);
-        } catch (Exception ex) {
-            MiscUtils.getLogger().warn("Could not set feature: " + ex.getMessage());
-        }
-        
+        SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
         xml = UtilXML.escapeXML(xml); //escapes anomalies such as "date >= {mydate}" the '>' character
         //xml  UtilXML.escapeAllXML(xml, "<param-list>");  //escapes all markup in <report> tag, otherwise can't retrieve element.getText()
         Document doc = parser.build(new java.io.ByteArrayInputStream(xml.getBytes()));

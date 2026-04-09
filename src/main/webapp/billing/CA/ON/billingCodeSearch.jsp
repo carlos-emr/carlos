@@ -90,7 +90,7 @@
             <%
             String nameF = request.getParameter("nameF");
             if(nameF != null && nameF.matches("[a-zA-Z_][a-zA-Z0-9_.]*")) {
-                    out.println("self.opener." + nameF + " = File0;");
+                    out.println("self.opener." + Encode.forJavaScript(nameF) + " = File0;");
             } else {
             %>
             self.opener.document.serviceform.xml_other1.value = File0;
@@ -156,16 +156,16 @@
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
                                   size="2">
                 <% if (Dcode.compareTo(xcodeName) == 0 || Dcode.compareTo(xcodeName1) == 0 || Dcode.compareTo(xcodeName2) == 0) { %><input
-                    type="checkbox" name="code_<%=Dcode%>" checked>
-                <%} else {%><input type="checkbox" name="code_<%=Dcode%>">
-                <%}%><%=Dcode%>
+                    type="checkbox" name="code_<%=Encode.forHtmlAttribute(Dcode)%>" checked>
+                <%} else {%><input type="checkbox" name="code_<%=Encode.forHtmlAttribute(Dcode)%>">
+                <%}%><%=Encode.forHtml(Dcode)%>
             </font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><input type="hidden" name="codedesc_<%=Dcode%>"
-                                                  value="<%=Encode.forHtmlAttribute(DcodeDesc)%>"><input type="text" name="<%=Dcode%>"
+                                  size="2"><input type="hidden" name="codedesc_<%=Encode.forHtmlAttribute(Dcode)%>"
+                                                  value="<%=Encode.forHtmlAttribute(DcodeDesc)%>"><input type="text" name="<%=Encode.forHtmlAttribute(Dcode)%>"
                                                                                 value="<%=Encode.forHtmlAttribute(DcodeDesc)%>" size="50"><input
                     type="submit"
-                    name="update" value="update <%=Dcode%>"></font></td>
+                    name="update" value="update <%=Encode.forHtmlAttribute(Dcode)%>"></font></td>
         </tr>
         <%
             }

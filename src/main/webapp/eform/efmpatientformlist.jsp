@@ -84,14 +84,14 @@
             <fmt:message key="eform.showmyform.title"/>
         </title>
 
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet">
 
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
-        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
         <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
         <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
 
@@ -252,18 +252,18 @@
                         <tr>
 
                             <td><a href="#"
-                                   ONCLICK="popupPage('efmshowform_data.jsp?fdid=<%=curform.get("fdid")%>&appointment=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(appointment))%>', '<%="FormP" + i%>'); return false;"
+                                   ONCLICK="popupPage('efmshowform_data.jsp?fdid=<%=Encode.forUriComponent((String) curform.get("fdid"))%>&appointment=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(appointment))%>', '<%="FormP" + i%>'); return false;"
                                    TITLE="<fmt:message key="eform.showmyform.msgViewFrm"/>"
                                    onmouseover="window.status='
                                         <fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=Encode.forHtml((String)curform.get("formName"))%>
                             </a></td>
                             <td><%=Encode.forHtmlContent((String)curform.get("formSubject"))%>
                             </td>
-                            <td><%=curform.get("formDate")%>
+                            <td><%=Encode.forHtml((String) curform.get("formDate"))%>
                             </td>
                             <td>
                                 <form method="post" action="${pageContext.request.contextPath}/eform/removeEForm.do" style="display:inline;">
-                                    <input type="hidden" name="fdid" value="<%=curform.get("fdid")%>"/>
+                                    <input type="hidden" name="fdid" value="<%=Encode.forHtmlAttribute((String) curform.get("fdid"))%>"/>
                                     <input type="hidden" name="group_view" value="<%= Encode.forHtmlAttribute(groupView) %>"/>
                                     <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>"/>
                                     <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>"/>

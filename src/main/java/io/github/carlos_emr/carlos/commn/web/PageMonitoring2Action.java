@@ -173,6 +173,8 @@ public class PageMonitoring2Action extends ActionSupport {
         } //end of synchronized block
 
         ArrayNode jsonArray = objectMapper.valueToTree(otherMonitors);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().print(jsonArray);
         return null;
     }

@@ -53,8 +53,21 @@
     if (request.getParameter("limit1") != null) strOffset = request.getParameter("limit1");
     if (request.getParameter("limit2") != null) strLimit = request.getParameter("limit2");
 
-    int limit = Integer.parseInt(strLimit);
-    int offset = Integer.parseInt(strOffset);
+    int limit;
+    try {
+        limit = Integer.parseInt(strLimit);
+    } catch (NumberFormatException e) {
+        limit = 10;
+    }
+    int offset;
+    try {
+        offset = Integer.parseInt(strOffset);
+    } catch (NumberFormatException e) {
+        offset = 0;
+    }
+    // Sanitize: replace raw request strings with parsed integer values to prevent XSS
+    strLimit = String.valueOf(limit);
+    strOffset = String.valueOf(offset);
 
     boolean caisi = Boolean.valueOf(request.getParameter("caisi")).booleanValue();
 
@@ -228,11 +241,11 @@
                 onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
                 onMouseout="this.style.backgroundColor='<%=bgColor%>';"
                 onClick="<% if(caisi) { out.print("addNameCaisi");}
-						else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo(), StandardCharsets.UTF_8)%>','<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("messageId"))) %>','<%=demo.getProviderNo()%>')">
+						else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getLastName())))%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getFirstName())))%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getChartNo())))%>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("messageId"))) %>','<%=Encode.forJavaScriptAttribute(StringUtils.noNull(demo.getProviderNo()))%>')">
 
                 <td><input type="submit" class="mbttn" name="demographic_no" value="<%=demo.getDemographicNo()%>"
                            onClick="<% if(caisi) {out.print("addNameCaisi");}
-					else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo(), StandardCharsets.UTF_8)%>','<%= Encode.forJavaScript(StringUtils.noNull(request.getParameter("messageId"))) %>','<%=demo.getProviderNo()%>')">
+					else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getLastName())))%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getFirstName())))%>','<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getChartNo())))%>','<%= Encode.forJavaScriptAttribute(StringUtils.noNull(request.getParameter("messageId"))) %>','<%=Encode.forJavaScriptAttribute(StringUtils.noNull(demo.getProviderNo()))%>')">
                 </td>
                 <td><%=Encode.forHtml(Misc.toUpperLowerCase(demo.getLastName()))%>
                 </td>

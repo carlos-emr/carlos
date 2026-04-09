@@ -60,22 +60,42 @@ public final class dxSetupResearch2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_dxresearch)");
         }
 
-        dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
-        String demographicNo = request.getParameter("demographicNo");
+        // Validate demographicNo is a non-negative integer before crossing the trust boundary
+        String demographicNoParam = request.getParameter("demographicNo");
+        if (demographicNoParam == null || !demographicNoParam.matches("\\d{1,9}")) {
+            return ERROR;
+        }
+        // Parse and re-stringify to produce a canonical integer string that breaks the CodeQL
+        // taint chain: CodeQL does not treat regex matching alone as a sanitizer, but passing
+        // through Integer.parseInt() confirms the value is a safe integer before session storage.
+        String demographicNo = String.valueOf(Integer.parseInt(demographicNoParam));
+
+        // Validate providerNo is numeric if supplied from the request
         String providerNo = request.getParameter("providerNo");
+        if (providerNo != null && !providerNo.matches("\\d+")) {
+            return ERROR;
+        }
+
+        // Validate quickList is numeric if supplied and non-empty
         String selectedQuickList = request.getParameter("quickList");
+        if (selectedQuickList == null) {
+            selectedQuickList = "";
+        }
+        if (!selectedQuickList.isEmpty() && !selectedQuickList.matches("\\d+")) {
+            return ERROR;
+        }
+
+        dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
         dxResearchBeanHandler hd = new dxResearchBeanHandler(demographicNo);
 
-        dxQuickListBeanHandler quicklistHd = null;
-        dxQuickListItemsHandler quicklistItemsHd = null;
+        dxQuickListBeanHandler quicklistHd;
+        dxQuickListItemsHandler quicklistItemsHd;
 
         if (providerNo == null) {
             providerNo = loggedInInfo.getLoggedInProviderNo();
         }
-        if (selectedQuickList == null) {
-            selectedQuickList = "";
-        }
-        if (selectedQuickList.equals("")) {
+
+        if (selectedQuickList.isEmpty()) {
             quicklistHd = new dxQuickListBeanHandler(providerNo);
             quicklistItemsHd = new dxQuickListItemsHandler(quicklistHd.getLastUsedQuickList(), providerNo);
         } else {
@@ -84,12 +104,12 @@ public final class dxSetupResearch2Action extends ActionSupport {
         }
 
         HttpSession session = request.getSession();
-        session.setAttribute("codingSystem", codingSys);
-        session.setAttribute("allQuickLists", quicklistHd);
-        session.setAttribute("allQuickListItems", quicklistItemsHd);
-        session.setAttribute("allDiagnostics", hd);
-        session.setAttribute("demographicNo", demographicNo);
-        session.setAttribute("providerNo", providerNo);
+        session.setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("allQuickLists", quicklistHd); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("allQuickListItems", quicklistItemsHd); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("allDiagnostics", hd); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("demographicNo", demographicNo); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("providerNo", providerNo); // nosemgrep: tainted-session-from-http-request
 
         return SUCCESS;
     }

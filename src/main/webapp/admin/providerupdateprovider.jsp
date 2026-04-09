@@ -203,8 +203,8 @@
                     </td>
                     <td>
                                 <% String provider_no = provider.getId(); %>
-                                <%= provider_no %>
-                        <input type="hidden" name="provider_no" value="<%= provider_no %>">
+                                <%= Encode.forHtml(provider_no) %>
+                        <input type="hidden" name="provider_no" value="<%= Encode.forHtmlAttribute(provider_no) %>">
 
                 </tr>
                 <tr>
@@ -239,8 +239,8 @@
                             for (int i = 0; i < sites.size(); i++) {
                         %>
                         <input type="checkbox" name="sites"
-                               value="<%= sites.get(i).getSiteId() %>" <%= psites.contains(sites.get(i))?"checked='checked'":"" %> <%=((!isSiteAccessPrivacy) || siteIDs.contains(sites.get(i).getSiteId()) ? "" : " disabled ") %>>
-                        <%= sites.get(i).getName() %><br/>
+                               value="<%= Encode.forHtmlAttribute(sites.get(i).getSiteId() == null ? "" : String.valueOf(sites.get(i).getSiteId())) %>" <%= psites.contains(sites.get(i))?"checked='checked'":"" %> <%=((!isSiteAccessPrivacy) || siteIDs.contains(sites.get(i).getSiteId()) ? "" : " disabled ") %>>
+                        <%= Encode.forHtmlContent(sites.get(i).getName() == null ? "" : sites.get(i).getName()) %><br/>
                         <%
                             }
                         %>
@@ -272,7 +272,7 @@
                                     <% if ("admin".equals(provider.getProviderType())) { %>
                                     SELECTED <%}%>><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formType.optionAdmin"/></option>
                         </select>
-                        <!--input type="text" name="provider_type" value="<%= provider.getProviderType() %>" maxlength="15" -->
+                        <%-- Removed: unused commented-out provider_type input (XSS vector via stored providerType) --%>
                     </td>
                 </tr>
                 <%
@@ -294,8 +294,8 @@
                     for( ProviderData p : providerL ) {
                         
                     %>
-                        <option value="<%=p.getId()%>"
-                                <%if( provider.getSupervisor() != null &&  provider.getSupervisor().equals(p.getId())){%>SELECTED<%}%>><%=p.getLastName() + ", " + p.getFirstName()%>
+                        <option value="<%=Encode.forHtmlAttribute(p.getId() == null ? "" : p.getId())%>"
+                                <%if( provider.getSupervisor() != null &&  provider.getSupervisor().equals(p.getId())){%>SELECTED<%}%>><%=Encode.forHtmlContent((p.getLastName() == null ? "" : p.getLastName()) + ", " + (p.getFirstName() == null ? "" : p.getFirstName()))%>
                         </option>
 
                                 <%
@@ -461,7 +461,7 @@
                                             }
                                 %>
 
-                                <option value="<%=llItem.getValue()%>" <%=selected %>><%=llItem.getLabel()%>
+                                <option value="<%=Encode.forHtmlAttribute(llItem.getValue() == null ? "" : llItem.getValue())%>" <%=selected %>><%=Encode.forHtmlContent(llItem.getLabel() == null ? "" : llItem.getLabel())%>
                                 </option>
                                 <%
                                     }
@@ -518,7 +518,7 @@
                                         ClinicNbr tempNbr = nbrIter.next();
                                         String valueString = tempNbr.getNbrValue() + " | " + tempNbr.getNbrString();
                                 %>
-                                <option value="<%=tempNbr.getNbrValue()%>" <%=SxmlMisc.getXmlContent(provider.getComments(), "xml_p_nbr").startsWith(tempNbr.getNbrValue()) ? "selected" : ""%>><%=valueString%>
+                                <option value="<%=Encode.forHtmlAttribute(tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue())%>" <%=StringUtils.defaultString(SxmlMisc.getXmlContent(provider.getComments(), "xml_p_nbr")).startsWith(tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue()) ? "selected" : ""%>><%=Encode.forHtmlContent(valueString)%>
                                 </option>
                                 <%}%>
 
@@ -540,8 +540,8 @@
                                     billCode = (String) keys.nextElement();
                                     codeDesc = billCenter.getAllBillCenter().getProperty(billCode);
                             %>
-                            <option value=<%= billCode %>
-                                    <%=currentBillCode.compareTo(billCode) == 0 ? "selected" : ""%>><%= codeDesc%>
+                            <option value="<%= Encode.forHtmlAttribute(billCode) %>"
+                                    <%=currentBillCode.compareTo(billCode) == 0 ? "selected" : ""%>><%= Encode.forHtmlContent(codeDesc)%>
                             </option>
                             <%
                                 }

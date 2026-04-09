@@ -35,6 +35,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.EForm" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%--
@@ -66,7 +67,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%= Encode.forHtml(error) %></li>
             <% } %>
         </ul>
     </div>
@@ -138,8 +139,8 @@
     thisEForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-3.7.1.min.js");
     thisEForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-compat.js");
 
-    thisEForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.3/css/bootstrap.min.css", "all");
-    thisEForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js");
+    thisEForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.8/css/bootstrap.min.css", "all");
+    thisEForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
 
     thisEForm.addCSS(request.getContextPath()+"/css/oscar_alert.css", "all");
     thisEForm.addCSS(request.getContextPath()+"/library/jquery/jquery-ui-1.14.2.min.css", "all");
@@ -155,5 +156,10 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     addHiddenEmailProperties(loggedInInfo, thisEForm, demographic_no);
 
-    out.print(thisEForm.getFormHtml());
+    // EForms are an intentional HTML rendering system — provider-authored templates are
+    // output unencoded. CSP mitigates stored XSS by blocking inline script execution
+    // while allowing external scripts from the same origin that eforms depend on.
+    response.setHeader("Content-Security-Policy", "script-src 'self'; object-src 'none'");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    out.print(thisEForm.getFormHtml()); // CodeQL[java/xss] eform HTML is intentionally unencoded
 %>

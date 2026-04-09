@@ -121,7 +121,7 @@ if(bs.size() == 0) {
 		<TD align="right" width="10%"><b> <font size="2"
 			face="Arial, Helvetica, sans-serif"><%=total%></font></b></TD>
 		<TD align="center" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=reason.compareTo("X")==0?"Bad Debt":reason.compareTo("B")==0?"Submitted to OHIP":reason.compareTo("S")==0?"Settled":"<a href=# onClick='popupPage(700,720, \"billingDeleteNoAppt.jsp?billing_no=" + bId + "&billCode=" +reason+ "&hotclick=0\")'>-B</a>"%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><%=reason.compareTo("X")==0?"Bad Debt":reason.compareTo("B")==0?"Submitted to OHIP":reason.compareTo("S")==0?"Settled":"<a href=# onClick='popupPage(700,720, \"" + request.getContextPath() + "/billing/CA/ON/BillingDeleteNoAppt.do?billing_no=" + bId + "&billCode=" +reason+ "&hotclick=0\")'>-B</a>"%></font></b></TD>
 	</tr>
 
 	<%  
@@ -148,7 +148,7 @@ if(bs.size() == 0) {
 
 
 		<TD align="center" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=reason.compareTo("X")==0?"Bad Debt":reason.compareTo("B")==0?"Submitted to OHIP":reason.compareTo("S")==0?"Settled":"<a href=# onClick='popupPage(700,720, \"billingDeleteNoAppt.jsp?billing_no=" + bId + "&billCode=" +reason+ "&hotclick=0\")'>-B</a>"%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><%=reason.compareTo("X")==0?"Bad Debt":reason.compareTo("B")==0?"Submitted to OHIP":reason.compareTo("S")==0?"Settled":"<a href=# onClick='popupPage(700,720, \"" + request.getContextPath() + "/billing/CA/ON/BillingDeleteNoAppt.do?billing_no=" + bId + "&billCode=" +reason+ "&hotclick=0\")'>-B</a>"%></font></b></TD>
 	</tr>
 
 	<%  

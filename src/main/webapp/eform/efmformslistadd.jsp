@@ -98,14 +98,14 @@ Ontario, Canada
             <fmt:message key="eform.myform.title"/>
         </title>
 
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet">
 
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
-        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
         <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
         <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
 
@@ -244,13 +244,13 @@ Ontario, Canada
                     <tr>
                         <td>
                             <a HREF="#"
-                               ONCLICK="popupPage('efmformadd_data.jsp?fid=<%=curForm.get("fid")%>&demographic_no=<%=Encode.forJavaScriptAttribute(demographic_no)%>&appointment=<%=Encode.forJavaScriptAttribute(appointment)%>','<%=curForm.get("fid") + "_" + Encode.forJavaScriptAttribute(demographic_no) %>'); return true;"
+                               ONCLICK="popupPage('efmformadd_data.jsp?fid=<%=Encode.forUriComponent((String) curForm.get("fid"))%>&demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&appointment=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(appointment))%>','<%=Encode.forJavaScriptAttribute((String) curForm.get("fid")) + "_" + Encode.forJavaScriptAttribute(demographic_no) %>'); return true;"
                                TITLE='Add This eForm' OnMouseOver="window.status='Add This eForm' ; return true">
                                 <%= Encode.forHtmlContent((String) curForm.get("formName")) %>
                             </a></td>
                         <td><%=Encode.forHtmlContent((String) curForm.get("formSubject"))%>
                         </td>
-                        <td><%=curForm.get("formDate")%>
+                        <td><%=Encode.forHtml((String) curForm.get("formDate"))%>
                         </td>
                     </tr>
                     <%

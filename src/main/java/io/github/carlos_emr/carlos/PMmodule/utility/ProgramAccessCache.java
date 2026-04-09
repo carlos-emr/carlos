@@ -44,7 +44,12 @@ public class ProgramAccessCache {
 
 
     public static Map getAccessMap(long programId) {
-        return accessMaps.get(programId + ":AccessMap");
+        Map map = accessMaps.get(programId + ":AccessMap");
+        if (map == null) {
+            setAccessMap(programId);
+            map = accessMaps.get(programId + ":AccessMap");
+        }
+        return map;
     }
 
     public static void setAccessMap(long programId) {

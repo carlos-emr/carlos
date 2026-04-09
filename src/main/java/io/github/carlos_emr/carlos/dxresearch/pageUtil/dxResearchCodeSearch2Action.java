@@ -30,12 +30,16 @@
 
 package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 
+import java.util.Set;
+import java.util.regex.Pattern;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBeanHandler;
@@ -44,6 +48,25 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class dxResearchCodeSearch2Action extends ActionSupport {
+
+    /**
+     * Allowlist of valid coding system identifiers accepted as the {@code codeType}
+     * request parameter. Values outside this set are rejected to prevent trust
+     * boundary violations (CWE-501).
+     */
+    private static final Set<String> ALLOWED_CODE_TYPES = Set.of(
+            "icd9", "icd10", "ichppccode", "SnomedCore", "msp"
+    );
+
+    /**
+     * Pattern that research keyword parameters must match. Permits characters
+     * found in diagnostic codes and short search terms (letters, digits, dots,
+     * hyphens, spaces) and enforces a maximum length to limit the attack surface.
+     * Spaces are allowed because users may search by partial description
+     * (e.g., "diabetes mellitus") in addition to searching by code prefix.
+     */
+    private static final Pattern RESEARCH_CODE_PATTERN = Pattern.compile("^[A-Za-z0-9.\\- ]{0,100}$");
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -56,18 +79,35 @@ public final class dxResearchCodeSearch2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_dxresearch)");
         }
 
-        String[] xml_research = new String[5];
-        xml_research[0] = request.getParameter("xml_research1");
-        xml_research[1] = request.getParameter("xml_research2");
-        xml_research[2] = request.getParameter("xml_research3");
-        xml_research[3] = request.getParameter("xml_research4");
-        xml_research[4] = request.getParameter("xml_research5");
+        // --- Trust boundary: validate codeType against the known-good allowlist ---
         String codeType = request.getParameter("codeType");
+        if (codeType == null || !ALLOWED_CODE_TYPES.contains(codeType)) {
+            MiscUtils.getLogger().warn("dxResearchCodeSearch: rejected invalid codeType from request");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid codeType parameter");
+            return NONE;
+        }
+
+        // --- Trust boundary: sanitize xml_research keywords before use ---
+        String[] xml_research = new String[5];
+        String[] paramNames = {"xml_research1", "xml_research2", "xml_research3", "xml_research4", "xml_research5"};
+        for (int i = 0; i < paramNames.length; i++) {
+            String value = request.getParameter(paramNames[i]);
+            if (value != null && RESEARCH_CODE_PATTERN.matcher(value).matches()) {
+                xml_research[i] = value;
+            } else {
+                // Replace unrecognised input with empty string rather than propagating
+                // potentially malicious data across the trust boundary into session.
+                if (value != null) {
+                    MiscUtils.getLogger().warn("dxResearchCodeSearch: sanitized invalid {} parameter", paramNames[i]);
+                }
+                xml_research[i] = "";
+            }
+        }
 
         dxCodeSearchBeanHandler hd = new dxCodeSearchBeanHandler(codeType, xml_research);
         HttpSession session = request.getSession();
-        session.setAttribute("allMatchedCodes", hd);
-        session.setAttribute("codeType", codeType);
+        session.setAttribute("allMatchedCodes", hd); // nosemgrep: tainted-session-from-http-request
+        session.setAttribute("codeType", codeType); // nosemgrep: tainted-session-from-http-request
 
         return SUCCESS;
     }

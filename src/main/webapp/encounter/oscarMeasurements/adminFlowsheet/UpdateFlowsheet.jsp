@@ -125,7 +125,7 @@ if(scope != null && "clinic".equals(scope)) {
     <head>
         <title>Update Flowsheet <%=Encode.forHtml(flowsheet)%> <oscar:nameage demographicNo="<%=demographic%>"/></title><!--I18n-->
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
 
         <style type="text/css">
@@ -185,8 +185,8 @@ display:inline-block;
                 <%} %>
                 <fieldset width="300px">
                     <input type="hidden" name="updater" value="yes"/>
-                    <input type="hidden" name="prevention_type" value="<%=h2.get("prevention_type")%>"/>
-                    <input type="hidden" name="measurement_type" value="<%=h2.get("measurement_type")%>"/>
+                    <input type="hidden" name="prevention_type" value="<%=Encode.forHtmlAttribute(String.valueOf(h2.get("prevention_type")))%>"/>
+                    <input type="hidden" name="measurement_type" value="<%=Encode.forHtmlAttribute(String.valueOf(h2.get("measurement_type")))%>"/>
 
                     <div class="card card-body bg-body-tertiary">
                         <h4>Measurement Details</h4>
@@ -239,7 +239,7 @@ display:inline-block;
 
                                     <div class="mtype-details">
                                         Text: <br/><input type="text" name="text<%=count%>" length="100"
-                                                          value="<%=e.getText()%>"/>
+                                                          value="<%=Encode.forHtmlAttribute(e.getText())%>"/>
                                     </div>
 
                                <%
@@ -424,9 +424,11 @@ display:inline-block;
                                                 String colour = (String) en.nextElement();
                                         %>
 
-                                        <li style="display:inline;background-color:<%=colourHash.get(colour)%>;">
+                                        <%  String colVal = (String) colourHash.get(colour);
+                                            String safeCol = (colVal != null && colVal.matches("^(#[0-9a-fA-F]{3,6}|[a-zA-Z]{3,20})$")) ? colVal : "#FFFFFF";
+                                        %><li style="display:inline;background-color:<%=safeCol%>;">
                                             <input type="radio" name="col<%=targetCount%>"
-                                                   value="<%=colour%>" <%=s(colour, tc.getIndicationColor())%> ><%=colour%>
+                                                   value="<%=Encode.forHtmlAttribute(colour)%>" <%=s(colour, tc.getIndicationColor())%> ><%=Encode.forHtml(colour)%>
                                             </input>
                                         </li>
                                         <%}%>
@@ -474,9 +476,11 @@ display:inline-block;
                                             while (en.hasMoreElements()) {
                                                 String colour = (String) en.nextElement();
                                         %>
-                                        <li style="display:inline;background-color:<%=colourHash.get(colour)%>;">
+                                        <%  String colVal = (String) colourHash.get(colour);
+                                            String safeCol = (colVal != null && colVal.matches("^(#[0-9a-fA-F]{3,6}|[a-zA-Z]{3,20})$")) ? colVal : "#FFFFFF";
+                                        %><li style="display:inline;background-color:<%=safeCol%>;">
                                             <input type="radio" name="col<%=targetCount%>"
-                                                   value="<%=colour%>"><%=colour%>
+                                                   value="<%=Encode.forHtmlAttribute(colour)%>"><%=Encode.forHtml(colour)%>
                                             </input>
                                         </li>
                                         <%}%>
@@ -489,7 +493,7 @@ display:inline-block;
 
                     <div style="width:100%;text-align:right">
                         <%if (request.getParameter("demographic") == null) { %>
-                        <a href="EditFlowsheet.jsp?flowsheet=<%= Encode.forUriComponent(flowsheet) %><%=htQueryString%><%=scope != null ? "&scope=" + scope : ""%>" class="btn btn-secondary">Cancel</a>
+                        <a href="EditFlowsheet.jsp?flowsheet=<%= Encode.forUriComponent(flowsheet) %><%=htQueryString%><%=scope != null ? "&scope=" + Encode.forUriComponent(scope) : ""%>" class="btn btn-secondary">Cancel</a>
                         <%} else { %>
                         <a href="EditFlowsheet.jsp?flowsheet=<%= Encode.forUriComponent(flowsheet) %>&demographic=<%=Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic))%><%=htQueryString%><%=scope != null ? "&scope=" + Encode.forUriComponent(scope) : ""%>"
                            class="btn btn-secondary">Cancel</a>
@@ -506,10 +510,10 @@ display:inline-block;
 
 
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
 
-    <script src="<%=request.getContextPath() %>/library/jquery/jquery.validate.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery.validate-1.21.0.min.js"></script>
 
 <script>
 $(document).ready(function () {

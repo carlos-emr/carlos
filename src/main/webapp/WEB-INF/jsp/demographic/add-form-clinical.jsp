@@ -3,7 +3,6 @@
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="java.util.Date" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -243,7 +242,7 @@
                             </td>
                             <td id="chartNoLbl" align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formChartNo"/>:</b></td>
                             <td id="chartNo" align="left"><input type="text" id="chart_no" name="chart_no"
-                                                                 value="<%=StringEscapeUtils.escapeHtml4(chartNoVal)%>">
+                                                                 value="<%=Encode.forHtmlAttribute(chartNoVal)%>">
                             </td>
 
                         </tr>

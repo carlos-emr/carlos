@@ -35,7 +35,7 @@ import java.sql.SQLException;
 import java.util.Hashtable;
 import java.util.Vector;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -58,7 +58,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * <p>This is a final utility class with a private constructor to prevent instantiation.
  * All methods are static.</p>
  * 
- * @see StringEscapeUtils for HTML escaping implementation
+ * @see Encode for HTML escaping implementation
  */
 public final class Misc {
 
@@ -84,7 +84,7 @@ public final class Misc {
 
     /**
      * Escapes HTML special characters to prevent XSS attacks.
-     * Uses Apache Commons Text StringEscapeUtils for proper HTML4 escaping.
+     * Uses OWASP Encoder for proper HTML escaping.
      * 
      * <p>Converts characters like &lt;, &gt;, &amp;, &quot;, and ' to their HTML entity equivalents.</p>
      * 
@@ -92,7 +92,7 @@ public final class Misc {
      * @return the HTML-escaped string, safe for output in HTML contexts
      */
     public static String htmlEscape(String s) {
-        return (StringEscapeUtils.escapeHtml4(s));
+        return (Encode.forHtml(s));
 
 //		if (null == S) return S;
 //		int N = S.length();

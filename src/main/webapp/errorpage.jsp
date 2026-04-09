@@ -59,7 +59,7 @@
         <fmt:message key="error.description"/>
     </title>
     <link rel="shortcut icon" href="${e:forUri(pageContext.request.contextPath)}/images/favicon.ico"/>
-    <link rel="stylesheet" href="${e:forUri(pageContext.request.contextPath)}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="${e:forUri(pageContext.request.contextPath)}/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
 
     <style media="all">
 
