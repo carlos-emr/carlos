@@ -183,7 +183,9 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
             bean.demographicNo = request.getParameter("demographicNo");
             bean.appointmentNo = request.getParameter("appointmentNo");
-            if (bean.appointmentNo != null && !bean.appointmentNo.matches("\\d{1,10}")) {
+            if ("null".equalsIgnoreCase(bean.appointmentNo) || "".equals(bean.appointmentNo)) {
+                bean.appointmentNo = null;
+            } else if (bean.appointmentNo != null && !bean.appointmentNo.matches("\\d{1,10}")) {
                 throw new IllegalArgumentException("Invalid appointmentNo parameter");
             }
             // use this one.
