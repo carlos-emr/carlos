@@ -156,15 +156,11 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
                 return "error"; 
             }
 
-            // Validate demographicNo is numeric before storing in session bean
-            if (!demographicNo.matches("\\d+")) {
-                MiscUtils.getLogger().error("Invalid non-numeric demographic_no: {}", LogSanitizer.sanitize(demographicNo));
+            // Validate demographicNo is numeric and bounded before storing in session bean
+            if (!demographicNo.matches("\\d{1,9}")) {
+                MiscUtils.getLogger().error("Invalid demographic_no: {}", LogSanitizer.sanitize(demographicNo));
                 // Clear any stale session bean to prevent PHI leakage from a previous request
                 request.getSession().removeAttribute("msgSessionBean");
-                return "error";
-            }
-            
-            if (!demographicNo.matches("\\d{1,9}")) {
                 return "error";
             }
 

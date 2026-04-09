@@ -190,16 +190,17 @@ public class EctDisplayAction extends ActionSupport {
             bean.check = "myCheck";
             String msgIdParam = request.getParameter("msgId");
             if (msgIdParam != null && !msgIdParam.matches("\\d{1,9}")) {
-                throw new IllegalArgumentException("Invalid msgId");
+                logger.warn("Invalid msgId: {}", LogSanitizer.sanitize(msgIdParam));
+                return "error";
             }
             bean.oscarMsgID = msgIdParam;
+            if (request.getParameter("source") != null) {
+                bean.source = request.getParameter("source");
+            }
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
             // demographicNo and appointmentNo validated as numeric; other bean fields (reason, encType, userName, etc.) are unsanitized request params — consuming JSPs MUST use OWASP encoding when rendering
             request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request
             request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request
-            if (request.getParameter("source") != null) {
-                bean.source = request.getParameter("source");
-            }
 
             request.setAttribute("EctSessionBean", bean);
         }

@@ -38,7 +38,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
-import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 public class OscarDownload extends GenericDownload {
 
@@ -52,6 +52,7 @@ public class OscarDownload extends GenericDownload {
         String homepath = req.getParameter("homepath");
 
         if (homepath == null || !ALLOWED_HOMEPATH_KEYS.contains(homepath)) {
+            MiscUtils.getLogger().warn("OscarDownload rejected invalid homepath key from {}", req.getRemoteAddr());
             res.setContentType("text/html");
             PrintWriter out = res.getWriter();
             out.println("<html><body>Invalid download path key.</body></html>");
@@ -62,15 +63,15 @@ public class OscarDownload extends GenericDownload {
         if (filename != null && backupfilepath != null
                 && !backupfilepath.isEmpty()
                 && ((String) session.getAttribute("user")) != null) {
-            // Validate the directory path from session before serving files
             File downloadDir = new File(backupfilepath).getCanonicalFile();
             if (!downloadDir.isDirectory()) {
+                MiscUtils.getLogger().warn("OscarDownload rejected non-directory path from {}", req.getRemoteAddr());
                 res.setContentType("text/html");
                 PrintWriter out = res.getWriter();
                 out.println("<html><body>Invalid download directory.</body></html>");
                 return;
             }
-            PathValidationUtils.validateExistingPath(downloadDir, downloadDir);
+            // Path traversal protection is enforced by GenericDownload.transferFile() via PathValidationUtils.validatePath(filename, directory)
             ServletOutputStream stream = res.getOutputStream();
             transferFile(res, stream, backupfilepath, filename);
             stream.close();

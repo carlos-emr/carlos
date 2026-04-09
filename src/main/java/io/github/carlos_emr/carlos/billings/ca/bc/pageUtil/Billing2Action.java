@@ -70,11 +70,15 @@ public final class Billing2Action extends ActionSupport {
                     request.getParameter("appointment_no") != null) {
                 String demoNo = request.getParameter("demographic_no");
                 if (!demoNo.matches("\\d{1,9}")) {
-                    throw new IllegalArgumentException("Invalid demographic_no");
+                    _log.warn("Invalid demographic_no rejected");
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
                 }
                 String apptNo = request.getParameter("appointment_no");
                 if (!apptNo.matches("\\d{1,9}")) {
-                    throw new IllegalArgumentException("Invalid appointment_no");
+                    _log.warn("Invalid appointment_no rejected");
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
                 }
                 String newWCBClaim = request.getParameter("newWCBClaim");
                 //If newWCBClaim == 1, this action was invoked from the WCB form
@@ -99,6 +103,7 @@ public final class Billing2Action extends ActionSupport {
                 }
                 bean = new BillingSessionBean();
                 fillBean(request, bean);
+                // Overwrite patientNo and apptNo set by fillBean() with pre-validated values
                 bean.setPatientNo(demoNo);
                 bean.setApptNo(apptNo);
                 if (request.getAttribute("serviceDate") != null) {

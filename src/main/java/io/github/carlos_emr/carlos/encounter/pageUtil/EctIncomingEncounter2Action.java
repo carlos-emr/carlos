@@ -111,12 +111,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             return "failure";
         }
         if (!demoNo.matches("\\d{1,9}")) {
-            throw new IllegalArgumentException("Invalid demographicNo parameter");
-        }
-
-        // Validate demographicNo is numeric before crossing the trust boundary
-        if (!demoNo.matches("\\d+")) {
-            log.error("EctIncomingEncounter2Action called with non-numeric demographicNo: {}", LogSanitizer.sanitize(demoNo));
+            log.error("EctIncomingEncounter2Action called with invalid demographicNo: {}", LogSanitizer.sanitize(demoNo));
             return "failure";
         }
 
@@ -137,13 +132,18 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
         if (request.getParameter("appointmentList") != null) {
             bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-            bean.setUpEncounterPage(loggedInInfo, request.getParameter("appointmentNo"));
+            String apptListNo = request.getParameter("appointmentNo");
+            if (apptListNo != null && !apptListNo.matches("\\d{1,9}")) {
+                log.warn("Invalid non-numeric appointmentNo in appointmentList branch: {}", LogSanitizer.sanitize(apptListNo));
+                return "failure";
+            }
+            bean.setUpEncounterPage(loggedInInfo, apptListNo);
             bean.template = "";
         } else if (request.getParameter("demographicSearch") != null) {
             // Coming in from the demographicSearch page
             bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-            // demographicNo is passed from search screen
-            bean.demographicNo = request.getParameter("demographicNo");
+            // Use pre-validated demoNo (validated at method entry)
+            bean.demographicNo = demoNo;
             // no curProviderNo when viewing eCharts from search screen
             // bean.curProviderNo="";
             // no reason when viewing eChart from search screen
@@ -166,9 +166,15 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         } else {
             if ("yes".equals(request.getParameter("PEAttach"))) {
                 String selectClientmo = request.getParameter("selectId");
-                // save
                 String lastId = request.getParameter("noteId");
-
+                if (selectClientmo == null || !selectClientmo.matches("\\d{1,9}")) {
+                    log.warn("Invalid selectId for PEAttach: {}", LogSanitizer.sanitize(selectClientmo));
+                    return "failure";
+                }
+                if (lastId == null || !lastId.matches("\\d{1,9}")) {
+                    log.warn("Invalid noteId for PEAttach: {}", LogSanitizer.sanitize(lastId));
+                    return "failure";
+                }
                 CaseManagementNote note = caseManagementNoteDao.getNote(Long.parseLong(lastId));
                 note.setId(null);
                 note.setDemographic_no(selectClientmo);
@@ -183,7 +189,8 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
             bean.providerNo = request.getParameter("providerNo");
             if (bean.providerNo != null && !bean.providerNo.matches("[a-zA-Z0-9]{1,6}")) {
-                throw new IllegalArgumentException("Invalid providerNo parameter");
+                log.warn("Invalid providerNo: {}", LogSanitizer.sanitize(bean.providerNo));
+                return "failure";
             }
             if (bean.providerNo == null) {
                 bean.providerNo = (String) request.getSession().getAttribute("user");
@@ -194,7 +201,8 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             if (bean.appointmentNo == null || "null".equalsIgnoreCase(bean.appointmentNo) || bean.appointmentNo.isEmpty()) {
                 bean.appointmentNo = null;
             } else if (!bean.appointmentNo.matches("\\d{1,9}")) {
-                throw new IllegalArgumentException("Invalid appointmentNo parameter");
+                log.warn("Invalid appointmentNo: {}", LogSanitizer.sanitize(bean.appointmentNo));
+                return "failure";
             }
             // use this one.
             if (bean.appointmentNo != null && appointmentNo != null) {
@@ -203,7 +211,8 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
             bean.curProviderNo = request.getParameter("curProviderNo");
             if (bean.curProviderNo != null && !bean.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
-                throw new IllegalArgumentException("Invalid curProviderNo parameter");
+                log.warn("Invalid curProviderNo: {}", LogSanitizer.sanitize(bean.curProviderNo));
+                return "failure";
             }
             Provider provider = loggedInInfo.getLoggedInProvider();
             if (bean.curProviderNo == null || bean.curProviderNo.trim().length() == 0)
@@ -213,7 +222,8 @@ public class EctIncomingEncounter2Action extends ActionSupport {
                     "appointmentDate", "startTime", "status", "date", "source"}) {
                 String val = request.getParameter(paramName);
                 if (val != null && val.length() > 255) {
-                    throw new IllegalArgumentException("Parameter too long: " + paramName);
+                    log.warn("Parameter too long: {}", paramName);
+                    return "failure";
                 }
             }
 
@@ -233,15 +243,16 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             bean.check = "myCheck";
             bean.oscarMsgID = request.getParameter("msgId");
             if (bean.oscarMsgID != null && !bean.oscarMsgID.matches("\\d{1,9}")) {
-                throw new IllegalArgumentException("Invalid msgId parameter");
+                log.warn("Invalid msgId: {}", LogSanitizer.sanitize(bean.oscarMsgID));
+                return "failure";
+            }
+            if (request.getParameter("source") != null) {
+                bean.source = request.getParameter("source");
             }
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
             // demographicNo validated as numeric at method entry; other bean fields (reason, encType, userName, etc.) are unsanitized request params — consuming JSPs MUST use OWASP encoding when rendering
             request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request
             request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request
-            if (request.getParameter("source") != null) {
-                bean.source = request.getParameter("source");
-            }
 
             long notesCount = caseManagementNoteDao.getNotesCountByDemographicId(bean.getDemographicNo());
             if (notesCount == 0

@@ -308,15 +308,18 @@ public final class RxShowAllergy2Action extends ActionSupport {
 
         String direction = request.getParameter("direction");
         if (direction == null || (!"up".equals(direction) && !"down".equals(direction))) {
-            throw new IllegalArgumentException("Invalid direction parameter");
+            MiscUtils.getLogger().warn("Invalid direction parameter for allergy reorder");
+            return;
         }
         String demographicNo = request.getParameter("demographicNo");
         if (demographicNo == null || !demographicNo.matches("\\d{1,9}")) {
-            throw new IllegalArgumentException("Invalid demographicNo");
+            MiscUtils.getLogger().warn("Invalid demographicNo for allergy reorder");
+            return;
         }
         String allergyIdParam = request.getParameter("allergyId");
         if (allergyIdParam == null || !allergyIdParam.matches("\\d{1,9}")) {
-            throw new IllegalArgumentException("Invalid allergyId");
+            MiscUtils.getLogger().warn("Invalid allergyId for allergy reorder");
+            return;
         }
         int allergyId;
         try {

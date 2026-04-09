@@ -287,6 +287,10 @@ public class CaseManagementView2Action extends ActionSupport {
         if (se.getAttribute("userrole") == null) return "expired";
 
         String demoNo = getDemographicNo();
+        if (demoNo == null || !demoNo.matches("\\d{1,9}")) {
+            logger.warn("Invalid demographicNo from Struts parameter: {}", LogSanitizer.sanitize(demoNo));
+            return "error";
+        }
 
         logger.debug("is client in program");
         // need to check to see if the client is in our program domain
@@ -494,11 +498,12 @@ public class CaseManagementView2Action extends ActionSupport {
         se.setAttribute("casemgmt_VlCountry", vLocale.getCountry());
 
         // if we have just saved a note, remove saveNote flag
+        // demoNo validated as numeric above; varName is a safe session key
         String varName = "saveNote" + demoNo;
         Boolean saved = (Boolean) se.getAttribute(varName); // nosemgrep: tainted-session-from-http-request
         if (saved != null && saved == true) {
             request.setAttribute("saveNote", saved);
-            se.removeAttribute(varName); // nosemgrep: tainted-session-from-http-request
+            se.removeAttribute(varName);
         }
         current = System.currentTimeMillis();
 

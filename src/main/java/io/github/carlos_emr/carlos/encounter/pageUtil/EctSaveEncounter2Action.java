@@ -306,7 +306,8 @@ public class EctSaveEncounter2Action extends ActionSupport {
             if ("null".equalsIgnoreCase(apptNoParam) || (apptNoParam != null && apptNoParam.isEmpty())) {
                 apptNoParam = null;
             } else if (apptNoParam != null && !apptNoParam.matches("\\d{1,9}")) {
-                throw new IllegalArgumentException("Invalid appointment_no");
+                log.warn("Invalid appointment_no rejected");
+                return "failure";
             }
             bean.setApptNo(apptNoParam);
             bean.setApptDate(sessionbean.appointmentDate);

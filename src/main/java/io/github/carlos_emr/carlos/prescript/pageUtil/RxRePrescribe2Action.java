@@ -150,7 +150,9 @@ public final class RxRePrescribe2Action extends ActionSupport {
 
         String script_no = request.getParameter("scriptNo");
         if (script_no == null || !script_no.matches("\\d{1,9}")) {
-            throw new IllegalArgumentException("Invalid scriptNo");
+            logger.warn("Invalid scriptNo in reprint2");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
         }
         long parsedScriptNo = Long.parseLong(script_no);
         if (parsedScriptNo > Integer.MAX_VALUE) {
@@ -268,14 +270,18 @@ public String saveDigitalSignature() throws IOException {
     // Extract and validate digital signature ID from request (can be null to remove signature)
     String digitalSignatureIdParam = request.getParameter("digitalSignatureId");
     if (digitalSignatureIdParam != null && !digitalSignatureIdParam.matches("\\d{1,9}")) {
-        throw new IllegalArgumentException("Invalid digitalSignatureId");
+        logger.warn("Invalid digitalSignatureId rejected");
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        return NONE;
     }
     Integer digitalSignatureId = digitalSignatureIdParam == null ? null : Integer.valueOf(digitalSignatureIdParam);
 
     // Extract and validate required script ID parameter
     String scriptId = request.getParameter("scriptId");
     if (scriptId == null || !scriptId.matches("\\d{1,9}")) {
-        throw new IllegalArgumentException("Invalid scriptId");
+        logger.warn("Invalid scriptId rejected");
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        return NONE;
     }
     
     // Capture client IP for audit logging
