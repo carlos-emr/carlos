@@ -52,13 +52,19 @@ import io.github.carlos_emr.CarlosProperties;
  *
  * <h3>Boundary strategy</h3>
  * <ul>
- *   <li>{@code (?:^|\s)} at the start ensures the abbreviation is preceded
- *       by whitespace or is at the start of the string.</li>
- *   <li>{@code (?=\s|$)} at the end ensures the abbreviation is followed
- *       by whitespace or is at the end of the string.</li>
- *   <li>{@code \b} is used only where the abbreviation ends with a letter
- *       (word boundary works correctly for letters).</li>
- *   <li>{@code \d} prefix handles number-adjacent forms like "100I.U."
+ *   <li>{@code (?:^|\s)} is the common leading boundary, ensuring the
+ *       abbreviation is preceded by whitespace or appears at the start of
+ *       the string.</li>
+ *   <li>Trailing matching varies by abbreviation form: {@code (?=[\s/,;:]|$)}
+ *       is used for dot-terminated abbreviations (e.g. {@code I.U.}, {@code C.C.})
+ *       where the token may be followed by punctuation such as {@code /mL} or
+ *       {@code ,}; {@code (?=\s|$)} is used for optional-dot abbreviations;
+ *       {@code \b} is used for letter-ending tokens where a word boundary
+ *       works correctly.</li>
+ *   <li>Some symbol-based patterns ({@code µg}, {@code <}, {@code >},
+ *       {@code @}) intentionally omit explicit boundary assertions when
+ *       they must match adjacent punctuation or symbols.</li>
+ *   <li>{@code \b\d+} prefix handles number-adjacent forms like "100I.U."
  *       or "5CC".</li>
  * </ul>
  *
@@ -76,13 +82,13 @@ public class RxInstructionPolicy {
 
     /** I.U. (international units) — misread as 'IV', causing route error. */
     private static final Pattern[] PATTERNS_IU = compile(
-            "(?:^|\\s)(?i)I\\.U\\.(?=\\s|$)",
-            "\\b\\d+(?i)I\\.U\\.(?=\\s|$)"
+            "(?:^|\\s)(?i)I\\.U\\.(?=[\\s/,;:]|$)",
+            "\\b\\d+(?i)I\\.U\\.(?=[\\s/,;:]|$)"
     );
 
     /** S.C. (subcutaneous, with dots) — confused with SL (sublingual). */
     private static final Pattern[] PATTERNS_SC_DOT = compile(
-            "(?:^|\\s)(?i)S\\.C\\.(?=\\s|$)"
+            "(?:^|\\s)(?i)S\\.C\\.(?=[\\s/,;:]|$)"
     );
 
     /** SC (subcutaneous, no dots) — confused with SL (sublingual). */
@@ -98,8 +104,8 @@ public class RxInstructionPolicy {
 
     /** C.C. (cubic centimeters, with dots) — should use ml/mL. */
     private static final Pattern[] PATTERNS_CC_DOT = compile(
-            "(?:^|\\s)(?i)C\\.C\\.(?=\\s|$)",
-            "\\b\\d+(?i)C\\.C\\.(?=\\s|$)"
+            "(?:^|\\s)(?i)C\\.C\\.(?=[\\s/,;:]|$)",
+            "\\b\\d+(?i)C\\.C\\.(?=[\\s/,;:]|$)"
     );
 
     /** µg (microgram symbol) — misread as mg, causing 1000× overdose. */
@@ -267,13 +273,17 @@ public class RxInstructionPolicy {
      * @param instructions the instruction text to check
      * @param errors       list to which violation messages are added
      * @param violation    the abbreviation that was found (for the error message)
-     * @param replacement  the preferred alternative text
+     * @param replacement  the preferred alternative text; may be {@code null}
      */
     private static void addPolicy(Pattern[] patterns, String instructions, List<String> errors, String violation, String replacement) {
         for (Pattern p : patterns) {
             Matcher m = p.matcher(instructions);
             if (m.find()) {
-                errors.add("Policy Violation: '" + violation + "'\nPlease use: " + replacement);
+                String message = "Policy Violation: '" + violation + "'";
+                if (replacement != null) {
+                    message += "\nPlease use: " + replacement;
+                }
+                errors.add(message);
                 return;
             }
         }
