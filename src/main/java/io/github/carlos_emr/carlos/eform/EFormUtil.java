@@ -727,7 +727,7 @@ public class EFormUtil {
         } else if (deleted.equals("current")) {
             sql = "SELECT * FROM eform, eform_groups where eform.status=1 AND eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
         } else if (deleted.equals("all")) {
-            sql = "SELECT * FROM eform AND eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
+            sql = "SELECT * FROM eform, eform_groups where eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
         }
         ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
         try {

@@ -255,17 +255,15 @@ public class ExtractBean extends Object implements Serializable {
 
                     invCount = 0;
                     // Validate numeric: dbExtract only supports Statement (not PreparedStatement),
-                    // so parameterized queries are not possible. parseInt ensures only a safe
-                    // integer value is concatenated, preventing SQL injection.
+                    // so parameterized queries are not possible. Ensure invNo contains only digits
+                    // before concatenation, while preserving the original value to avoid changing
+                    // invoice semantics such as leading zeros.
                     // TODO: Refactor dbExtract to support PreparedStatement for full parameterization.
-                    int invNoInt;
-                    try {
-                        invNoInt = Integer.parseInt(invNo);
-                    } catch (NumberFormatException e) {
-                        logger.warn("Skipping billing record due to invalid invoice number: {}", invNo, e);
+                    if (invNo == null || !invNo.matches("^[0-9]+$")) {
+                        logger.warn("Skipping billing record due to invalid invoice number: {}", invNo);
                         continue;
                     }
-                    query2 = "select * from billingmaster where billing_no='" + invNoInt + "' and billingstatus='O'";
+                    query2 = "select * from billingmaster where billing_no='" + invNo + "' and billingstatus='O'";
 
                     ResultSet rs2 = dbExt.executeQuery2(query2);
                     while (rs2.next()) {

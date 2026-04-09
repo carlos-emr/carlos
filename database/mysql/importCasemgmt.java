@@ -180,10 +180,14 @@ public class importCasemgmt {
                         insert.close();
                         System.out.println("Checking CAISI role permissions");
                         sql = "Select program_id from program_access where program_id = ?";
-                        PreparedStatement accessCheck = con.prepareStatement(sql);
-                        accessCheck.setString(1, programId);
-                        rs1 = accessCheck.executeQuery();
-                        if( !rs1.next() ) {
+                        boolean hasAccess;
+                        try (PreparedStatement accessCheck = con.prepareStatement(sql)) {
+                            accessCheck.setString(1, programId);
+                            rs1 = accessCheck.executeQuery();
+                            hasAccess = rs1.next();
+                            rs1.close();
+                        }
+                        if( !hasAccess ) {
                             System.out.println("Setting up CAISI role permissions");
                             String id;                        
                             insert = con.prepareStatement("insert into program_access (program_id,access_type_id,all_roles) Values(?,?,false)", PreparedStatement.RETURN_GENERATED_KEYS);
