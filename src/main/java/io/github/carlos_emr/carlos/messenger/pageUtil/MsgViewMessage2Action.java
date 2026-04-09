@@ -240,7 +240,7 @@ public class MsgViewMessage2Action extends ActionSupport {
         request.getSession().setAttribute("viewMessageId", canonicalMessageNo); // nosemgrep: tainted-session-from-http-request
         request.getSession().setAttribute("viewMessageNo", canonicalMessageNo); // nosemgrep: tainted-session-from-http-request
         request.getSession().setAttribute("viewMessagePosition", messagePosition); // nosemgrep: tainted-session-from-http-request
-        request.getSession().setAttribute("from", from);
+        request.getSession().setAttribute("from", from); // nosemgrep: tainted-session-from-http-request -- whitelisted to "encounter"|"messenger"
         request.getSession().setAttribute("providerNo", providerNo);
 
         if (orderBy != null) {

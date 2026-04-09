@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.dao.MyGroupDao;
 import io.github.carlos_emr.carlos.commn.model.DxRegistedPTInfo;
 import io.github.carlos_emr.carlos.managers.CodingSystemManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -202,10 +203,17 @@ public class DxresearchReport2Action extends ActionSupport {
 
     public String patientRegistedAll() {
 
-        List<String> providerNoList = getValidatedProviderNoList();
-        if (providerNoList == null) {
+        List<String> providerNoList = new ArrayList<String>();
+        String providerNo = request.getParameter("provider_no");
+        if (!isValidProviderNo(providerNo)) {
             return ERROR;
         }
+        if (providerNo.startsWith("_grp_")) {
+            providerNo = providerNo.replaceFirst("_grp_", "");
+            providerNoList = mygroupdao.getGroupDoctors(providerNo);
+        } else
+            providerNoList.add(providerNo);
+
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedAll(codeSearch, providerNoList);
@@ -236,6 +244,15 @@ public class DxresearchReport2Action extends ActionSupport {
             patients.add(info);
         }
 
+        String providerNo = request.getParameter("provider_no");
+        if (!isValidProviderNo(providerNo)) {
+            return ERROR;
+        }
+
+        if (providerNo.startsWith("_grp_")) {
+            providerNo = providerNo.replaceFirst("_grp_", "");
+        }
+
         String mode = (String) request.getSession().getAttribute("radiovaluestatus");
 
         OscarDocumentCreator osc = new OscarDocumentCreator();
@@ -255,10 +272,16 @@ public class DxresearchReport2Action extends ActionSupport {
 
     public String patientRegistedDistincted() {
 
-        List<String> providerNoList = getValidatedProviderNoList();
-        if (providerNoList == null) {
+        List<String> providerNoList = new ArrayList<String>();
+        String providerNo = request.getParameter("provider_no");
+        if (!isValidProviderNo(providerNo)) {
             return ERROR;
         }
+        if (providerNo.startsWith("_grp_")) {
+            providerNo = providerNo.replaceFirst("_grp_", "");
+            providerNoList = mygroupdao.getGroupDoctors(providerNo);
+        } else
+            providerNoList.add(providerNo);
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedDistincted(codeSearch, providerNoList);
@@ -283,10 +306,16 @@ public class DxresearchReport2Action extends ActionSupport {
 
     public String patientRegistedDeleted() {
 
-        List<String> providerNoList = getValidatedProviderNoList();
-        if (providerNoList == null) {
+        List<String> providerNoList = new ArrayList<String>();
+        String providerNo = request.getParameter("provider_no");
+        if (!isValidProviderNo(providerNo)) {
             return ERROR;
         }
+        if (providerNo.startsWith("_grp_")) {
+            providerNo = providerNo.replaceFirst("_grp_", "");
+            providerNoList = mygroupdao.getGroupDoctors(providerNo);
+        } else
+            providerNoList.add(providerNo);
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedDeleted(codeSearch, providerNoList);
@@ -301,10 +330,16 @@ public class DxresearchReport2Action extends ActionSupport {
 
     public String patientRegistedActive() {
 
-        List<String> providerNoList = getValidatedProviderNoList();
-        if (providerNoList == null) {
+        List<String> providerNoList = new ArrayList<String>();
+        String providerNo = request.getParameter("provider_no");
+        if (!isValidProviderNo(providerNo)) {
             return ERROR;
         }
+        if (providerNo.startsWith("_grp_")) {
+            providerNo = providerNo.replaceFirst("_grp_", "");
+            providerNoList = mygroupdao.getGroupDoctors(providerNo);
+        } else
+            providerNoList.add(providerNo);
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedActive(codeSearch, providerNoList);
@@ -319,10 +354,16 @@ public class DxresearchReport2Action extends ActionSupport {
 
     public String patientRegistedResolve() {
 
-        List<String> providerNoList = getValidatedProviderNoList();
-        if (providerNoList == null) {
+        List<String> providerNoList = new ArrayList<String>();
+        String providerNo = request.getParameter("provider_no");
+        if (!isValidProviderNo(providerNo)) {
             return ERROR;
         }
+        if (providerNo.startsWith("_grp_")) {
+            providerNo = providerNo.replaceFirst("_grp_", "");
+            providerNoList = mygroupdao.getGroupDoctors(providerNo);
+        } else
+            providerNoList.add(providerNo);
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedResolve(codeSearch, providerNoList);
@@ -342,9 +383,9 @@ public class DxresearchReport2Action extends ActionSupport {
 
         dxQuickListItemsHandler.updatePatientCodeDesc(editingCodeType, editingCodeCode, editingCodeDesc);
 
-        // Store raw value — output encoding is applied at render time in editCodeDesc.jsp
-        // using Encode.forHtmlAttribute() for attribute context (CWE-501)
-        request.getSession().setAttribute("editingCodeDesc", editingCodeDesc); // nosemgrep: tainted-session-from-http-request -- raw value; encoded with Encode.forHtmlAttribute() at render time in editCodeDesc.jsp
+        // Length-limit before storing in session to avoid unbounded session storage; output encoding is applied at render time in the JSP.
+        editingCodeDesc = editingCodeDesc != null && editingCodeDesc.length() > 1000 ? editingCodeDesc.substring(0, 1000) : editingCodeDesc;
+        request.getSession().setAttribute("editingCodeDesc", editingCodeDesc); // nosemgrep: tainted-session-from-http-request -- raw value is stored intentionally and output encoding is applied at render time
 
         return SUCCESS;
     }

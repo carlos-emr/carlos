@@ -25,6 +25,7 @@
 <!DOCTYPE html>
 
 <%@ include file="/taglibs.jsp" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
