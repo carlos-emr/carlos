@@ -220,7 +220,7 @@ public class AddEForm2Action extends ActionSupport {
                 if (eform_link.startsWith(expectedPrefix) && eform_link.length() <= 100) {
                     se.setAttribute(eform_link, fdid);
                 } else {
-                    logger.warn("Invalid eform_link rejected: {}", LogSanitizer.sanitize(eform_link));
+                    logger.warn("Invalid eform_link rejected: {}", LogSanitizer.sanitize(eform_link)); // nosemgrep: crlf-injection-logs-deepsemgrep -- sanitized via LogSanitizer (OWASP Encode.forJava)
                 }
             }
 
