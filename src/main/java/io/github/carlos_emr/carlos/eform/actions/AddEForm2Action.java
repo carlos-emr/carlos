@@ -162,7 +162,7 @@ public class AddEForm2Action extends ActionSupport {
             String lnk = providerNo + "_" + demographic_no + "_" + fid + "_" + name;
             String val = (String) se.getAttribute(lnk); // nosemgrep: tainted-session-from-http-request -- session read, not write
             openerValues.add(val);
-            if (val != null) se.removeAttribute(lnk); // nosemgrep: tainted-session-from-http-request -- session cleanup, not write
+            if (val != null) se.removeAttribute(lnk); // nosemgrep: tainted-session-from-http-request -- session cleanup
         }
 
         //----names parsed
