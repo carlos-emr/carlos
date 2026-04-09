@@ -37,6 +37,7 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.NativeSql;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -79,6 +80,7 @@ public class FormsDao {
         try {
             query.setParameter("demoNo", Integer.parseInt(demographicNo));
         } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Invalid demographicNo for formLabReq07 query: not a number");
             return new ArrayList<>();
         }
         return query.getResultList();
@@ -94,6 +96,7 @@ public class FormsDao {
         try {
             query.setParameter("demoNo", Integer.parseInt(demographicNo));
         } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Invalid demographicNo for formLabReq10 query: not a number");
             return new ArrayList<>();
         }
         return query.getResultList();
