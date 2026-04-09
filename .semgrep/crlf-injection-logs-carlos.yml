@@ -1,0 +1,96 @@
+# Custom Semgrep rule: CRLF Log Injection with LogSanitizer sanitizer
+#
+# Replaces the three built-in CRLF injection rules that generate ~128 false
+# positives across 24 files already protected by LogSanitizer.sanitize():
+#   - java.servlets.security.crlf-injection-logs-deepsemgrep.crlf-injection-logs-deepsemgrep
+#   - java.servlets.security.crlf-injection-logs.crlf-injection-logs
+#   - java.lang.security.audit.crlf-injection-logs.crlf-injection-logs
+#
+# Those built-in rules must be disabled in Semgrep Cloud policy (app.semgrep.dev)
+# so that only this custom rule runs for CRLF log injection detection.
+#
+# See: https://github.com/carlos-emr/carlos/issues/1432
+
+rules:
+  - id: carlos.crlf-injection-logs
+    message: >
+      When data from an untrusted source is put into a logger and not
+      neutralized correctly, an attacker could forge log entries or
+      include malicious content. Use LogSanitizer.sanitize() to escape
+      control characters before logging user-supplied values.
+    severity: ERROR
+    languages: [java]
+    mode: taint
+    metadata:
+      category: security
+      cwe:
+        - "CWE-117: Improper Output Neutralization for Logs"
+      confidence: HIGH
+      references:
+        - https://owasp.org/www-community/attacks/Log_Injection
+
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern: $REQ.$METHOD(...)
+              - metavariable-type:
+                  metavariable: $REQ
+                  type: javax.servlet.http.HttpServletRequest
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: (getParameter|getQueryString|getHeader|getRequestURI|getPathInfo|getCookies|getRemoteAddr)
+          - patterns:
+              - pattern: $REQ.$METHOD(...)
+              - metavariable-type:
+                  metavariable: $REQ
+                  type: jakarta.servlet.http.HttpServletRequest
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: (getParameter|getQueryString|getHeader|getRequestURI|getPathInfo|getCookies|getRemoteAddr)
+
+    pattern-sanitizers:
+      # Qualified class references
+      - pattern: LogSanitizer.sanitize(...)
+      # Fully-qualified name (covers cross-package usage)
+      - pattern: io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(...)
+      # Unqualified static-import usage
+      - patterns:
+          - pattern: sanitize(...)
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.LogSanitizer.*;
+              ...
+      - patterns:
+          - pattern: sanitize(...)
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize;
+              ...
+
+    pattern-sinks:
+      # SLF4J
+      - pattern: (org.slf4j.Logger $LOG).info(...)
+      - pattern: (org.slf4j.Logger $LOG).debug(...)
+      - pattern: (org.slf4j.Logger $LOG).warn(...)
+      - pattern: (org.slf4j.Logger $LOG).error(...)
+      - pattern: (org.slf4j.Logger $LOG).trace(...)
+      # Log4j 2
+      - pattern: (org.apache.logging.log4j.Logger $LOG).info(...)
+      - pattern: (org.apache.logging.log4j.Logger $LOG).debug(...)
+      - pattern: (org.apache.logging.log4j.Logger $LOG).warn(...)
+      - pattern: (org.apache.logging.log4j.Logger $LOG).error(...)
+      - pattern: (org.apache.logging.log4j.Logger $LOG).trace(...)
+      - pattern: (org.apache.logging.log4j.Logger $LOG).fatal(...)
+      # Log4j 1.x (legacy — still used in some integration classes)
+      - pattern: (org.apache.log4j.Logger $LOG).info(...)
+      - pattern: (org.apache.log4j.Logger $LOG).debug(...)
+      - pattern: (org.apache.log4j.Logger $LOG).warn(...)
+      - pattern: (org.apache.log4j.Logger $LOG).error(...)
+      - pattern: (org.apache.log4j.Logger $LOG).trace(...)
+      - pattern: (org.apache.log4j.Logger $LOG).fatal(...)
+      # java.util.logging
+      - pattern: (java.util.logging.Logger $LOG).info(...)
+      - pattern: (java.util.logging.Logger $LOG).warning(...)
+      - pattern: (java.util.logging.Logger $LOG).severe(...)
+      - pattern: (java.util.logging.Logger $LOG).fine(...)
+      - pattern: (java.util.logging.Logger $LOG).finer(...)
+      - pattern: (java.util.logging.Logger $LOG).finest(...)
+      - pattern: (java.util.logging.Logger $LOG).config(...)

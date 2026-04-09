@@ -92,7 +92,6 @@
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
@@ -171,7 +170,6 @@
     boolean caisiEnabled = moduleNames != null && org.apache.commons.lang3.StringUtils.containsIgnoreCase(moduleNames, "Caisi");
     boolean locationEnabled = caisiEnabled && (useProgramLocation != null && useProgramLocation.equals("true"));
 
-    String annotation_display = CaseManagementNoteLink.DISP_APPOINTMENT;
     CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
 
 
@@ -958,7 +956,7 @@
                     </td>
                     <td>
                 <input type="date" class="form-control" name="appointment_date" id="date"
-                               value="<%=bFirstDisp?ConversionUtils.toDateString(appt.getAppointmentDate()):strApptDate%>"
+                               value="<%=Encode.forHtmlAttribute(bFirstDisp?ConversionUtils.toDateString(appt.getAppointmentDate()):strApptDate)%>"
                         >
                     </td>
                 </tr>
@@ -1089,12 +1087,12 @@
                                 StringBuilder sb = new StringBuilder();
                                 for (Site s : sites) {
                                     if (s.getName().equals(loc)) isSiteSelected = true;
-                                    sb.append("<option value=\"").append(s.getName()).append("\" class=\"").append(s.getShortName()).append("\" style=\"background-color: ").append(s.getBgColor()).append("\" ").append(s.getName().equals(loc) ? "selected" : "").append(">").append(s.getName()).append("</option>");
+                                    sb.append("<option value=\"").append(Encode.forHtmlAttribute(s.getName())).append("\" class=\"").append(Encode.forHtmlAttribute(s.getShortName())).append("\" style=\"background-color: ").append(Encode.forCssString(s.getBgColor())).append("\" ").append(s.getName().equals(loc) ? "selected" : "").append(">").append(Encode.forHtml(s.getName())).append("</option>");
                                 }
                                 if (isSiteSelected) {
                                     out.println(sb.toString());
                                 } else {
-                                    out.println("<option value='" + loc + "'>" + loc + "</option>");
+                                    out.println("<option value='" + Encode.forHtmlAttribute(loc) + "'>" + Encode.forHtml(loc) + "</option>");
                                 }
                             %>
 
@@ -1167,8 +1165,8 @@
                     <td>
                 <div class="card">
                     <div class="card-body">
-                        <input type="hidden" class="form-control" name="createDate" value="<%=origDate%>">
-                        <%=dateString1%>
+                        <input type="hidden" class="form-control" name="createDate" value="<%=Encode.forHtmlAttribute(origDate)%>">
+                        <%=Encode.forHtml(dateString1)%>
                     </div>
                 </div>
                     </td>
@@ -1199,12 +1197,12 @@
 
                             if (strEditable != null && strEditable.equalsIgnoreCase("yes")) { %>
 
-                <select name="status" class="form-select" style="background-color:<%=((AppointmentStatus)allStatus.get(curSelect)).getColor()%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
+                <select name="status" class="form-select" style="background-color:<%=Encode.forCssString(((AppointmentStatus)allStatus.get(curSelect)).getColor())%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
                             <% for (int i = 0; i < allStatus.size(); i++) { %>
-                            <option class="<%=((AppointmentStatus)allStatus.get(i)).getStatus()%>"
-                                    style="background-color:<%=((AppointmentStatus)allStatus.get(i)).getColor()%>"
-                                    value="<%=((AppointmentStatus)allStatus.get(i)).getStatus()+signOrVerify%>"
-                                    <%=((AppointmentStatus) allStatus.get(i)).getStatus().equals(statusCode) ? "SELECTED" : ""%>><%=((AppointmentStatus) allStatus.get(i)).getDescription()%>
+                            <option class="<%=Encode.forHtmlAttribute(((AppointmentStatus)allStatus.get(i)).getStatus())%>"
+                                    style="background-color:<%=Encode.forCssString(((AppointmentStatus)allStatus.get(i)).getColor())%>"
+                                    value="<%=Encode.forHtmlAttribute(((AppointmentStatus)allStatus.get(i)).getStatus()+signOrVerify)%>"
+                                    <%=((AppointmentStatus) allStatus.get(i)).getStatus().equals(statusCode) ? "SELECTED" : ""%>><%=Encode.forHtml(((AppointmentStatus) allStatus.get(i)).getDescription())%>
                             </option>
                             <% } %>
                         </select> <%
@@ -1213,7 +1211,7 @@
               	<input type="text" class="form-control" name="status" value="<%= Encode.forHtmlAttribute(statusCode) %>" > <%
                     } else { %>
                 <input type="text" class="form-control" name="status" value="<%= Encode.forHtmlAttribute(statusCode) %>" >
-                <input type="text"  class="form-control" TITLE="Imported Status" value="<%=importedStatus%>" readonly> <%
+                <input type="text"  class="form-control" TITLE="Imported Status" value="<%=Encode.forHtmlAttribute(importedStatus)%>" readonly> <%
                             }
                         }
                     %>
@@ -1272,7 +1270,7 @@
                     </td>
                     <td>
                 <input type="text" name="chart_no" class="form-control"
-                    readonly value="<%=bFirstDisp?StringUtils.trimToEmpty(chartno):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("chart_no")))%>"
+                    readonly value="<%=Encode.forHtmlAttribute(bFirstDisp?StringUtils.trimToEmpty(chartno):io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("chart_no")))%>"
                         >
                     </td>
                 </tr>
@@ -1403,10 +1401,6 @@
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnNoShow"/>"
                            onClick="document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';document.EDITAPPT.submit();">
                     <br>
-                    <a class="btn" href="javascript:void(0);" title="Annotation" aria-label="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=Encode.forUriComponent(annotation_display)%>&amp;table_id=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value) + '&amp;demo=' + encodeURIComponent(document.EDITAPPT.demographic_no.value),'anwin','width=400,height=500');">
-                        <i class="fa-regular fa-comment" aria-hidden="true"></i>
-                    </a>
                     <a class="btn"
                        onClick="window.location='appointmentcontrol.jsp?displaymode=PrintCard&appointment_no=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value)">
                         <i class="fa-solid fa-print"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnPrintCard"/></a>

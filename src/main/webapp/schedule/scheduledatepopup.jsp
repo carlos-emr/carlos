@@ -100,10 +100,10 @@
                             <td bgcolor="#CCFFCC">
                                 <p align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduledatepopup.formDate"/>:</p>
                             </td>
-                            <td bgcolor="#CCFFCC"><%=year%>-<%=month%>-<%=day%>
+                            <td bgcolor="#CCFFCC"><%=Encode.forHtml(year)%>-<%=Encode.forHtml(month)%>-<%=Encode.forHtml(day)%>
                             </td>
                             <input type="hidden" name="date"
-                                   value="<%= Encode.forHtmlAttribute(year) %>-<%=month%>-<%=day%>">
+                                   value="<%= Encode.forHtmlAttribute(year) %>-<%=Encode.forHtmlAttribute(month)%>-<%=Encode.forHtmlAttribute(day)%>">
                         </tr>
                         <tr>
                             <td>
@@ -120,7 +120,7 @@
                                 <div align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduledatepopup.formTemplate"/>:
                                 </div>
                             </td>
-                            <td><!--input type="text" name="hour1" <%=strHour%> --> <select
+                            <td><!--input type="text" name="hour1" <%=Encode.forHtml(strHour)%> --> <select
                                     name="hour">
                                 <%
 
@@ -185,7 +185,7 @@
                                 <div align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduledatepopup.formCreator"/>:
                                 </div>
                             </td>
-                            <td><%=strCreator%>
+                            <td><%=Encode.forHtml(strCreator)%>
                             </td>
                         </tr>
                     </table>

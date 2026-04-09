@@ -159,18 +159,18 @@
                         }
             %>
             <tr bgcolor='<%= yellow ? "yellow" : j%2 == 0 ? (i%2 == 0 ?weakcolor:deepcolor) : (i%2 == 0 ?"white":"#eeeeee")%>'>
-                <td><a href=# onClick="popupPageK('<%=hash + "started"%>','<%=request.getContextPath()
-									+ "/form/forwardshortcutname.do?formname=" + frm.getFormName()
-									+ "&demographic_no=" + demoNo 
+                <td><a href=# onClick="popupPageK('<%=Encode.forJavaScriptAttribute(hash + "started")%>','<%=Encode.forJavaScriptAttribute(request.getContextPath()
+									+ "/form/forwardshortcutname.do?formname=" + Encode.forUriComponent(frm.getFormName())
+									+ "&demographic_no=" + Encode.forUriComponent(demoNo)
 									+ "&formId=" + pfrm.getFormId()
-									+ "&provNo=" + provNo
+									+ "&provNo=" + Encode.forUriComponent(provNo))
 									%>'); return false;">
 
-                    <%=frm.getFormName() + (yellow ? " (current)" : "")%>
+                    <%=Encode.forHtml(frm.getFormName() + (yellow ? " (current)" : ""))%>
                 </a></td>
-                <td align='center'><%=pfrm.getCreated()%>
+                <td align='center'><%=Encode.forHtml(pfrm.getCreated())%>
                 </td>
-                <td align='center'><%=pfrm.getEdited()%>
+                <td align='center'><%=Encode.forHtml(pfrm.getEdited())%>
                 </td>
             </tr>
             <%
@@ -187,14 +187,14 @@
                     if (nLastPage >= 0) {
             %>
             <a
-                    href="formlist.jsp?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formlist.formLastpage"/></a>
+                    href="formlist.jsp?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formlist.formLastpage"/></a>
             |
             <%
                 }
                 if (nItems == intLimit2) {
             %>
             <a
-                    href="formlist.jsp?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>">
+                    href="formlist.jsp?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.formlist.formNextPage"/></a>
             </td>
             </tr>

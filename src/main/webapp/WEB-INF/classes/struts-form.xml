@@ -60,7 +60,7 @@
             <result name="saved">/formBPMH.do?method=fetch</result>
             <result name="success">/form/pharmaForms/formBPMH.jsp</result>
         </action>
-        <action name="formeCARES" class="io.github.carlos_emr.carlos.form.eCARES.EcaresForm2Action">
+        <action name="formeCARES" class="io.github.carlos_emr.carlos.form.ecares.EcaresForm2Action">
             <result name="success">/form/eCARES/formeCARES.jsp</result>
             <result name="tickler">/tickler/ticklerAddWidget.jsp</result>
         </action>

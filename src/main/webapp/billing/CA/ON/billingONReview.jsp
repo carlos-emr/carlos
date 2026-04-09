@@ -570,7 +570,7 @@
 
 <body onload="showtotal(),calculatePayment()">
 
-<form method="post" name="titlesearch" action="billingONSave.jsp" onsubmit="return onSave();">
+<form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/ON/BillingONSave.do" onsubmit="return onSave();">
     <input type="hidden" name="url_back" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("url_back"))) %>">
     <input type="hidden" name="billNo_old" id="billNo_old" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billNo_old"))) %>"/>
     <input type="hidden" name="billStatus_old" id="billStatus_old" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billStatus_old"))) %>"/>
@@ -608,7 +608,15 @@
                                 <tr>
                                     <!--<input type="text" name="checkFlag" id="checkFlag" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("checkFlag"))) %>" />  -->
                                     <td style="white-space:nowrap; width:30%; text-align:center"><b>Service Date</b><br>
-                                        <%= request.getParameter("service_date") != null ? String.join("<br>", java.util.Arrays.stream(request.getParameter("service_date").split("\\n")).map(Encode::forHtml).toArray(String[]::new)) : "" %>
+                                        <%
+                                        if (request.getParameter("service_date") != null) {
+                                            String[] serviceDateLines = request.getParameter("service_date").split("\\n");
+                                            for (int sdi = 0; sdi < serviceDateLines.length; sdi++) {
+                                                if (sdi > 0) out.print("<br>");
+                                                out.print(Encode.forHtml(serviceDateLines[sdi]));
+                                            }
+                                        }
+                                        %>
                                     </td>
                                     <td style="text-align:center; width:33%"><b>Diagnostic Code</b><br>
                                         <%=Encode.forHtml(dxCode)%><br>
@@ -1178,11 +1186,11 @@
                                         payee = payee.trim();
                                         if (payee.length() > 0) {
                                     %>
-                                    <textarea id="payee" name="payee" value="" cols=20 rows=6><%=payee%></textarea></td>
+                                    <textarea id="payee" name="payee" value="" cols=20 rows=6><%=Encode.forHtml(payee)%></textarea></td>
                                     <% } else { %>
-                                <textarea id="payee" name="payee" value="" cols=20 rows=6><%=payeename%></textarea>
+                                <textarea id="payee" name="payee" value="" cols=20 rows=6><%=Encode.forHtml(payeename)%></textarea>
                     </td>
-                    <input type="hidden" name="payeename1" id="payeename1" value="<%=payeename%>"/>
+                    <input type="hidden" name="payeename1" id="payeename1" value="<%=Encode.forHtmlAttribute(payeename)%>"/>
                     <% } %>
                 </tr>
             </table>
@@ -1240,8 +1248,8 @@
                 for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                     String temp = e.nextElement().toString();
             %>
-            <input type="hidden" name="<%= temp %>"
-                   value="<%=StringEscapeUtils.escapeHtml4(request.getParameter(temp))%>"/>
+            <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
+                   value="<%=Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter(temp)))%>"/>
             <%
                 }
 

@@ -239,7 +239,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
                 String s = en.nextElement();
                 if (s.startsWith("monthrange")) {
                     String extrachar = s.replaceAll("monthrange", "").trim();
-                    logger.debug("EXTRA CAH " + extrachar);
+                    logger.debug("EXTRA CAH {}", LogSanitizer.sanitize(extrachar));
 
                     if (request.getParameter("monthrange" + extrachar) != null) {
                         String mRange = request.getParameter("monthrange" + extrachar);
@@ -288,7 +288,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
                 cust.setDemographicNo(demographicNo);
                 cust.setCreateDate(new Date());
 
-                logger.debug("SAVE " + cust);
+                logger.debug("SAVE {}", LogSanitizer.sanitize(String.valueOf(cust)));
 
                 flowSheetCustomizationDao.persist(cust);
 
@@ -308,7 +308,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = validateCustomizationPermissions(scope, demographicNo);
 
-        logger.debug("UPDATING FOR demographic " + demographicNo);
+        logger.debug("UPDATING FOR demographic {}", LogSanitizer.sanitize(demographicNo));
 
         if (request.getParameter("updater") != null) {
             Hashtable<String, String> h = new Hashtable<String, String>();
@@ -335,7 +335,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
                 String s = en.nextElement();
                 if (s.startsWith("strength")) {
                     String extrachar = s.replaceAll("strength", "").trim();
-                    logger.debug("EXTRA CAH " + extrachar);
+                    logger.debug("EXTRA CAH {}", LogSanitizer.sanitize(extrachar));
                     boolean go = true;
                     Recommendation rec = new Recommendation();
                     rec.setStrength(request.getParameter(s));
@@ -367,7 +367,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
                     }
                 } else if (s.startsWith("col")) {
                     String extrachar = s.replaceAll("col", "").trim();
-                    logger.debug("EXTRA CHA " + extrachar);
+                    logger.debug("EXTRA CHA {}", LogSanitizer.sanitize(extrachar));
                     boolean go = true;
                     int targetCount = 1;
                     TargetColour tcolour = new TargetColour();
@@ -416,7 +416,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
             cust.setMeasurement(item.getItemName()); //THIS THE MEASUREMENT TO SET THIS AFTER!
             cust.setProviderNo(providerNo);
 
-            logger.debug("UPDATE " + cust);
+            logger.debug("UPDATE {}", LogSanitizer.sanitize(cust));
 
             flowSheetCustomizationDao.persist(cust);
 
@@ -448,7 +448,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
         cust.setDemographicNo(ctx.demographicNo);
 
         flowSheetCustomizationDao.persist(cust);
-        logger.debug("HIDE " + cust);
+        logger.debug("HIDE {}", LogSanitizer.sanitize(cust));
 
         setResponseAttributes(ctx);
         return SUCCESS;
@@ -522,7 +522,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
                 cust.setArchivedDate(new Date());
                 flowSheetCustomizationDao.merge(cust);
                 logger.info("Reverted UPDATE customization {} for measurement {}",
-                    cust.getId(), ctx.measurement);
+                    cust.getId(), LogSanitizer.sanitize(ctx.measurement));
             }
         }
 
@@ -561,7 +561,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
             cust.setArchivedDate(new Date());
             flowSheetCustomizationDao.merge(cust);
         }
-        logger.debug("archiveMod " + cust);
+        logger.debug("archiveMod {}", LogSanitizer.sanitize(cust));
 
         request.setAttribute("demographic", demographicNo);
         request.setAttribute("flowsheet", flowsheet);

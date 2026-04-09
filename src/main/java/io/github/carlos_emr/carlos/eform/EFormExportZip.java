@@ -231,7 +231,7 @@ public class EFormExportZip {
                 //store temp files on HD
                 File tempFile = new File(imageTempFolderDir, file.getName());
                 // Zip Slip prevention: ensure extracted file stays within the temp extraction directory
-                PathValidationUtils.validateExistingPath(tempFile, imageTempFolderDir);
+                tempFile = PathValidationUtils.validateExistingPath(tempFile, imageTempFolderDir);
                 tempFiles.put(file.getName(), tempFile); //reference so we can find it later
                 FileOutputStream fos = new FileOutputStream(tempFile);
                 inputToOutput(zis, fos);
@@ -264,7 +264,7 @@ public class EFormExportZip {
                 FileInputStream fis = new FileInputStream(tempFile.getValue());
                 File imageFile = new File(ImageUpload2Action.getImageFolder(), tempFile.getKey());
                 // Zip Slip prevention: ensure the image destination stays within the image folder
-                PathValidationUtils.validateExistingPath(imageFile, ImageUpload2Action.getImageFolder());
+                imageFile = PathValidationUtils.validateExistingPath(imageFile, ImageUpload2Action.getImageFolder());
                 if (imageFile.exists()) {
                     errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
                     _log.info("EForm Import: Image with name '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");

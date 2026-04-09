@@ -102,10 +102,8 @@ FOR STAND ALONE USE
     <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet" type="text/css">
     <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css" rel="stylesheet" type="text/css">
 
-    <!-- signature_pad.min.js (Szymon Nowak) was removed from the project.
-         Without it, wet-signature canvas widgets are unavailable in the editor
-         but existing eforms remain functional. Restore the file to re-enable. -->
-    <%-- <script src="<%= request.getContextPath() %>/share/javascript/signature_pad.min.js"></script> --%>
+    <!-- signature_pad.min.js (Szymon Nowak) for wet-signature canvas widgets. -->
+    <script src="<%= request.getContextPath() %>/share/javascript/signature_pad.min.js"></script>
 
     <!-- main calendar program -->
     <script src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
@@ -1465,21 +1463,6 @@ var EFORM_I18N = {
         var OSCAR_EFORM_ENTITY_URL = "../ws/rs/eform/";
         var OSCAR_EFORM_SEARCH_URL = "../ws/rs/eforms/";
 
-        /**
-         * Validates image src URLs using an allowlist to prevent XSS via dangerous URI schemes
-         * (javascript:, data:text/html, etc.). Allows relative paths, http(s) URLs,
-         * data:image/ URIs (used by signature pads), and simple filenames.
-         */
-        function isValidImageSrc(url) {
-            if (!url || typeof url !== 'string') return false;
-            if (/^(\/(?!\/)|\.\/|\.\.\/)/.test(url)) return true;
-            if (/^https?:\/\//i.test(url)) return true;
-            if (/^data:image\//i.test(url)) return true;
-            if (/^[\w][\w.\- ]*$/.test(url)) return true; // simple filename
-            console.error('isValidImageSrc: rejected URL:', url.substring(0, 50));
-            return false;
-        }
-
         /** GLOBAL SCOPE VARIABLES */
         var groupTitle
         var linkTo
@@ -1896,8 +1879,7 @@ var EFORM_I18N = {
 
             // ------- the eforms generated are currently dependent on jQuery ------
             source += "\<script src='../library/jquery/jquery-3.7.1.min.js'\>\<\/script\>"; // present in CARLOS
-            source += "\<script src='../library/jquery/jquery-3.6.4.min.js'\>\<\/script\>"; // present in OSCAR 19 and OPEN OSP
-            source += "\<script src='$\{oscar_javascript_path\}jquery/jquery-2.2.4.min.js'\>\<\/script\>"; // only present in JUNO
+            source += "\<script\>window.jQuery || document.write(\"\\x3cscript src='../library/jquery/jquery-3.6.4.min.js'\\x3e\\x3c\\/script\\x3e\");\<\/script\>";  // present in OSCAR 19 and OPEN OSP
             source += "\<script\>window.jQuery || document.write(\"\\x3cscript src='../js/jquery-1.12.3.js'\\x3e\\x3c\\/script\\x3e\");\<\/script\>"; // present in WELL and others as
             source += "\<script\>window.jQuery || document.write(\"\\x3cscript src='https://code.jquery.com/jquery-3.6.4.min.js' integrity='sha256-oP6HI9z1XaZNBrJURtCoUT5SUnxFr8s3BzRl+cbzUq8=' crossorigin='anonymous'\\x3e\\x3c\\/script\\x3e\");\<\/script\>"; // if all else fails refer to a CND
 
@@ -4676,6 +4658,22 @@ var EFORM_I18N = {
     </script>
 
     <script id="signature_script" class="toSource">
+
+        /**
+         * Validates image src URLs using an allowlist to prevent XSS via dangerous URI schemes
+         * (javascript:, data:text/html, etc.). Allows relative paths, http(s) URLs,
+         * data:image/ URIs (used by signature pads), and simple filenames.
+         */
+        function isValidImageSrc(url) {
+            if (!url || typeof url !== 'string') return false;
+            if (/^(\/(?!\/)|\.\/|\.\.\/)/.test(url)) return true;
+            if (/^https?:\/\//i.test(url)) return true;
+            if (/^data:image\//i.test(url)) return true;
+            if (/^[\w][\w.\- ]*$/.test(url)) return true; // simple filename
+            console.error('isValidImageSrc: rejected URL:', url.substring(0, 50));
+            return false;
+        }
+
         /** this function is run on page load to make signature pads work. */
         $(function() {
             $(".signaturePad").each(function() {

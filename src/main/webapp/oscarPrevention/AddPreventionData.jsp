@@ -138,9 +138,6 @@
     boolean never = false;
     Map<String, String> extraData = new HashMap<String, String>();
     boolean hasImportExtra = false;
-    String annotation_display = CaseManagementNoteLink.DISP_PREV;
-
-
     boolean dhirEnabled = false;
 
     if ("true".equals(CarlosProperties.getInstance().getProperty("dhir.enabled", "false"))) {
@@ -685,12 +682,7 @@
                         <fieldset>
                             <legend><fmt:message key="oscarprevention.addpreventiondata.summary"/></legend>
                             <textarea class="form-control form-control-sm" name="summary" readonly><%=Encode.forHtml(summary != null ? summary : "")%></textarea>
-                            <%if (hasImportExtra) { %>
-                            <a href="javascript:void(0);" title="Extra data from Import"
-                               onclick="window.open('<%= request.getContextPath() %>/annotation/importExtra.jsp?display=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(annotation_display)) %>&amp;table_id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(id != null ? id : "")) %>&amp;demo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no != null ? demographic_no : "")) %>','anwin','width=400,height=250');">
-                                <img src="<%= request.getContextPath() %>/images/notes.gif" align="right" alt="Extra data from Import" height="16"
-                                     width="13" border="0"> </a>
-                            <%} %>
+
                         </fieldset>
                     </div>
                     <% } %>
@@ -985,7 +977,7 @@
                                 <%
                                     for (String lotnr : lotNrList) {
                                 %>
-                                <option value="<%=lotnr%>" <%= (lotnr.equals(lot) ? " selected" : "") %>><%=lotnr%>
+                                <option value="<%=Encode.forHtmlAttribute(lotnr)%>" <%= (lotnr.equals(lot) ? " selected" : "") %>><%=Encode.forHtml(lotnr)%>
                                 </option>
                                 <%}%>
                                 <option value="-1"><fmt:message key="oscarprevention.addpreventiondata.other"/></option>

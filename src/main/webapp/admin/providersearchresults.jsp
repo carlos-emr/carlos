@@ -115,8 +115,21 @@
 
         String searchStatus = ("All".equalsIgnoreCase(request.getParameter("search_status")) ? null : request.getParameter("search_status"));
 
-        int offset = Integer.parseInt(strOffset);
-        int limit = Integer.parseInt(strLimit);
+        int offset;
+        try {
+            offset = Integer.parseInt(strOffset);
+        } catch (NumberFormatException e) {
+            offset = 0;
+        }
+        int limit;
+        try {
+            limit = Integer.parseInt(strLimit);
+        } catch (NumberFormatException e) {
+            limit = 10;
+        }
+        // Sanitize: replace raw request strings with parsed integer values to prevent XSS
+        strOffset = String.valueOf(offset);
+        strLimit = String.valueOf(limit);
     %>
     <body onLoad="setfocus()">
 

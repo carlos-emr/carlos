@@ -213,8 +213,8 @@
                     %>
                     <caisirole:SecurityAccess accessName="prescription Read"
                                             accessType="access"
-                                            providerNo='<%= StringUtils.noNull(request.getParameter("providerNo")) %>'
-                                            demoNo='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>'
+                                            providerNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>'
+                                            demoNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("demographicNo"))) %>'
                                             programId="<%=pId%>">
                         <%
                             if (CaseManagementViewFormBean.tabs[x].equals(selectedTab)) {

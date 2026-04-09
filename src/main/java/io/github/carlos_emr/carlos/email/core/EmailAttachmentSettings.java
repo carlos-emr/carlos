@@ -30,6 +30,8 @@
 package io.github.carlos_emr.carlos.email.core;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Data Transfer Object to encapsulate email attachment settings and IDs.
@@ -60,8 +62,38 @@ public record EmailAttachmentSettings(
     String encryptedMessageEmail,
     String emailPatientChartOption
 ) {
+
+    /** Pre-compiled pattern for ASCII control characters (0x00-0x1F and DEL 0x7F). */
+    private static final Pattern CONTROL_CHARS = Pattern.compile("[\\x00-\\x1f\\x7f]");
+
+    /** Pre-compiled pattern for basic email structure validation (non-backtracking). */
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)+$");
+
+    /** Allowed values for the patient chart email option. */
+    private static final Set<String> VALID_CHART_OPTIONS = Set.of("doNotAddAsNote", "addFullNote");
+
+    /** Maximum length for email password fields. */
+    private static final int MAX_PASSWORD_LENGTH = 128;
+
+    /** Maximum length for email subject field. */
+    private static final int MAX_SUBJECT_LENGTH = 998;
+
+    /** Maximum length for email body field. */
+    private static final int MAX_BODY_LENGTH = 100_000;
+
+    /** Maximum length for sender email address. */
+    private static final int MAX_EMAIL_LENGTH = 254;
+
+    /** Maximum length for encrypted message field. */
+    private static final int MAX_ENCRYPTED_MSG_LENGTH = 100_000;
+
     /**
      * Creates an EmailAttachmentSettings instance from an HTTP request.
+     *
+     * <p>Boolean parameters are validated via {@code "true".equals()} / {@code !"false".equals()}
+     * patterns (safe against arbitrary input). String parameters are sanitized: control characters
+     * are stripped from password/subject fields, email addresses are format-validated, and all
+     * string fields are length-limited to prevent unbounded session storage.</p>
      *
      * @param req The HTTP request containing the parameters.
      * @param fdid The eForm data ID.
@@ -97,13 +129,86 @@ public record EmailAttachmentSettings(
             !"false".equals(req.getParameter("encryptEmailAttachments")),
             "true".equals(req.getParameter("autoSendEmail")),
             "true".equals(req.getParameter("deleteEFormAfterSendingEmail")),
-            req.getParameter("passwordEmail"),
-            req.getParameter("passwordClueEmail"),
-            req.getParameter("senderEmail"),
-            req.getParameter("subjectEmail"),
-            req.getParameter("bodyEmail"),
-            req.getParameter("encryptedMessageEmail"),
-            req.getParameter("emailPatientChartOption")
+            stripControlChars(req.getParameter("passwordEmail"), MAX_PASSWORD_LENGTH),
+            stripControlChars(req.getParameter("passwordClueEmail"), MAX_PASSWORD_LENGTH),
+            sanitizeEmail(req.getParameter("senderEmail")),
+            stripControlChars(req.getParameter("subjectEmail"), MAX_SUBJECT_LENGTH),
+            limitLength(req.getParameter("bodyEmail"), MAX_BODY_LENGTH),
+            limitLength(req.getParameter("encryptedMessageEmail"), MAX_ENCRYPTED_MSG_LENGTH),
+            sanitizeChartOption(req.getParameter("emailPatientChartOption"))
         );
+    }
+
+    /**
+     * Strips ASCII control characters (below 0x20, except space) and limits length.
+     * Used for fields where control characters have no legitimate purpose.
+     *
+     * @param value the raw input, may be null
+     * @param maxLength maximum allowed length
+     * @return sanitized string, or null if input was null
+     */
+    private static String stripControlChars(String value, int maxLength) {
+        if (value == null) {
+            return null;
+        }
+        // Remove ASCII control characters (0x00-0x1F and DEL 0x7F)
+        String cleaned = CONTROL_CHARS.matcher(value).replaceAll("");
+        if (cleaned.length() > maxLength) {
+            cleaned = cleaned.substring(0, maxLength);
+        }
+        return cleaned;
+    }
+
+    /**
+     * Validates an email address has a basic valid structure and limits length.
+     * Returns null for clearly invalid values.
+     *
+     * @param value the raw email input, may be null
+     * @return the email if structurally valid, or null
+     */
+    private static String sanitizeEmail(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        if (value.length() > MAX_EMAIL_LENGTH) {
+            return null;
+        }
+        // Basic structural check: must contain @ with text before and after
+        if (!EMAIL_PATTERN.matcher(value).matches()) {
+            return null;
+        }
+        return value;
+    }
+
+    /**
+     * Limits string length without other transformations.
+     * Used for fields that may contain legitimate HTML or complex content.
+     *
+     * @param value the raw input, may be null
+     * @param maxLength maximum allowed length
+     * @return length-limited string, or null if input was null
+     */
+    private static String limitLength(String value, int maxLength) {
+        if (value == null) {
+            return null;
+        }
+        if (value.length() > maxLength) {
+            return value.substring(0, maxLength);
+        }
+        return value;
+    }
+
+    /**
+     * Validates that the chart option is one of the known allowed values.
+     * Returns null for unrecognized values to prevent unexpected behavior.
+     *
+     * @param value the raw input, may be null
+     * @return the value if it matches a known option, or null otherwise
+     */
+    private static String sanitizeChartOption(String value) {
+        if (value == null) {
+            return null;
+        }
+        return VALID_CHART_OPTIONS.contains(value) ? value : null;
     }
 }
