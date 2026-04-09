@@ -53,7 +53,6 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
 
 <%@ include file="/taglibs.jsp" %>
@@ -171,7 +170,7 @@
                     String bgColor = i.getIndex() % 2 == 0 ? "#EEEEFF" : "ivory";
 
                     String strOnClick;
-                    strOnClick = "selectResult('" + contact.getId() + "','" + StringEscapeUtils.escapeEcmaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
+                    strOnClick = "selectResult('" + contact.getId() + "','" + Encode.forJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
 
                 %>
                 <tr align="center" bgcolor="<%=bgColor%>" align="center"

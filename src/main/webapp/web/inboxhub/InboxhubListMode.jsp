@@ -2,7 +2,7 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <%@ page import="org.apache.logging.log4j.Logger" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

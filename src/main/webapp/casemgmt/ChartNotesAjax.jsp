@@ -51,7 +51,6 @@
 <%@page import="java.util.Enumeration" %>
 <%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.NavBarDisplayDAO" %>
 <%@page import="java.util.Arrays,java.util.Properties,java.util.List,java.util.Set,java.util.ArrayList,java.util.Enumeration,java.util.HashSet,java.util.Iterator,java.text.SimpleDateFormat,java.util.Calendar,java.util.Date,java.text.ParseException" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty,io.github.carlos_emr.carlos.casemgmt.model.*,io.github.carlos_emr.carlos.casemgmt.service.* " %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.*" %>
@@ -319,7 +318,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 }
             }
 
-            noteStr = StringEscapeUtils.escapeHtml4(noteStr);
+            noteStr = Encode.forHtml(noteStr);
             fulltxt = fullTxtFormat.get(pos);
             --pos;
             bgColour = CaseManagementViewAction.getNoteColour(note);
@@ -570,7 +569,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             } else if (note.isInvoice()) {
                 String winName = "invoice" + demographicNo;
                 int hash = Math.abs(winName.hashCode());
-                String url = "popupPage(700,800,'" + hash + "','" + request.getContextPath() + StringEscapeUtils.escapeHtml4(((NoteDisplayNonNote) note).getLinkInfo()) + "'); return false;";
+                String url = "popupPage(700,800,'" + hash + "','" + request.getContextPath() + Encode.forHtml(((NoteDisplayNonNote) note).getLinkInfo()) + "'); return false;";
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
@@ -930,7 +929,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     <%if (!bean.oscarMsg.equals(""))
              {%>
-    document.getElementById(caseNote).value += "\n\n<%=org.apache.commons.text.StringEscapeUtils.escapeEcmaScript(bean.oscarMsg)%>";
+    document.getElementById(caseNote).value += "\n\n<%=Encode.forJavaScript(bean.oscarMsg)%>";
     <%bean.reason = "";
                  bean.oscarMsg = "";
              }
@@ -939,7 +938,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
              {
                  String noteBody = request.getParameter("noteBody");
                  noteBody = noteBody.replaceAll("<br>|<BR>", "\n");%>
-    document.getElementById(caseNote).value += "\n\n<%=org.apache.commons.text.StringEscapeUtils.escapeEcmaScript(noteBody)%>";
+    document.getElementById(caseNote).value += "\n\n<%=Encode.forJavaScript(noteBody)%>";
     <%}
 
              if (found != true)
@@ -986,7 +985,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 			{
 				String encounterTmp = bean.templateNames.get(j);
 				encounterTmp = StringUtils.maxLenString(encounterTmp, MaxLen, TruncLen, ellipses);
-				encounterTmp = org.apache.commons.text.StringEscapeUtils.escapeEcmaScript(encounterTmp);%>
+				encounterTmp = Encode.forJavaScript(encounterTmp);%>
     autoCompleted["<%=encounterTmp%>"] = "ajaxInsertTemplate('<%=encounterTmp%>')";
     autoCompList.push("<%=encounterTmp%>");
     itemColours["<%=encounterTmp%>"] = "99CCCC";
