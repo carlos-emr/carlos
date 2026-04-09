@@ -666,8 +666,16 @@ public class EFormUtil {
                 + "WHERE (eform_data.status=1 AND eform_data.demographic_no=?"
                 + ") OR eform_groups.fid=0 " + "GROUP BY eform_groups.group_name";
         ArrayList<HashMap<String, String>> al = new ArrayList<HashMap<String, String>>();
+        int demographicNo;
         try {
-            ResultSet rs = DBHandler.GetPreSQL(sql, Integer.parseInt(demographic_no));
+            demographicNo = Integer.parseInt(demographic_no);
+        } catch (NumberFormatException nfe) {
+            logger.error("Invalid demographic_no: " + demographic_no, nfe);
+            return al;
+        }
+
+        try {
+            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo);
             while (rs.next()) {
                 HashMap<String, String> curhash = new HashMap<String, String>();
                 curhash.put("groupName", Misc.getString(rs, "group_name"));
