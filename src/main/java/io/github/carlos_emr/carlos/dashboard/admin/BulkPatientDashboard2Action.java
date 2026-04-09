@@ -94,11 +94,17 @@ public class BulkPatientDashboard2Action extends ActionSupport {
     public String excludePatients() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.WRITE, null)) {
+            logger.info("Provider {} does not have write permission on _demographic sec object", getProviderNo(loggedInInfo));
+            return "unauthorized";
+        }
+
         excludeDemographicHandler.setLoggedinInfo(loggedInInfo);
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
-        String patientIdsJson = request.getParameter("patientIds");
+        String patientIdsParam = request.getParameter("patientIds");
         String indicatorIdString = request.getParameter("indicatorId");
 
         int indicatorId;
@@ -112,11 +118,11 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         String indicatorName = excludeDemographicHandler.getDrilldownIdentifier(
                 indicatorId);
 
-        List<Integer> patientIdList = parsePatientIds(patientIdsJson);
+        List<Integer> patientIdList = parsePatientIds(patientIdsParam);
         excludeDemographicHandler.excludeDemoIds(patientIdList, indicatorName);
 
         String subject = "Patient exclusion report.";
-        String message = "Excluded patient demographic_no {" + patientIdsJson +
+        String message = "Excluded patient demographic_no {" + patientIdList +
                 "} from indicator {" + indicatorName + "}";
 
         messageHandler.notifyProvider(
@@ -154,8 +160,8 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String icd9code = getICD9Code(request);
 
-        String patientIdsJson = request.getParameter("patientIds");
-        List<Integer> patientIdList = parsePatientIds(patientIdsJson);
+        String patientIdsParam = request.getParameter("patientIds");
+        List<Integer> patientIdList = parsePatientIds(patientIdsParam);
 
         String ip = request.getRemoteAddr();
         for (int patientId : patientIdList) {
@@ -170,7 +176,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
 
         String subject = "Bulk addition to disease registry report.";
         String message = "Added ICD9 code {" + icd9code +
-                "} to disease registry for patient demographic_no {" + patientIdsJson + "}" +
+                "} to disease registry for patient demographic_no {" + patientIdList + "}" +
                 " with provider no {" + providerNo + "}";
 
         messageHandler.notifyProvider(subject, message, providerNo, null); //patientIdList);
@@ -217,8 +223,8 @@ public class BulkPatientDashboard2Action extends ActionSupport {
 
         demographicPatientStatusRosterStatusHandler.setLoggedinInfo(loggedInInfo);
 
-        String patientIdsJson = request.getParameter("patientIds");
-        List<Integer> patientIdList = parsePatientIds(patientIdsJson);
+        String patientIdsParam = request.getParameter("patientIds");
+        List<Integer> patientIdList = parsePatientIds(patientIdsParam);
 
         String ip = request.getRemoteAddr();
         for (int patientId : patientIdList) {
@@ -227,7 +233,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         }
 
         String subject = "Report on bulk setting of patients to inactive.";
-        String message = "Patient charts with demographic_no(s) {" + patientIdsJson +
+        String message = "Patient charts with demographic_no(s) {" + patientIdList +
                 "} have been set inactive by: " + loggedInInfo.getLoggedInProvider().getFormattedName();
 
         messageHandler.notifyProvider(subject, message, providerNo);
