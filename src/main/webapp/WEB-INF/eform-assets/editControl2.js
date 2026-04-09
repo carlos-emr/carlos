@@ -320,22 +320,22 @@ function seteditControlContents(editorname, value){
 	// Sanitize HTML via centralized helper; null means DOMPurify unavailable → fail closed with textContent.
 	var sanitized = sanitizeHtml(value);
 
-    if (document.designMode === 'on') {
-		if (isIE()){
-		    if (sanitized !== null) {
-		        window[editorname].document.body.innerHTML = sanitized; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
-		    } else {
-		        window[editorname].document.body.textContent = value;
-		    }
-		    return
+	// Get the editor iframe's document — designMode is set on the iframe, not the top-level document
+	var editorDoc;
+	if (isIE()) {
+		editorDoc = window[editorname] ? window[editorname].document : null;
+	} else {
+		var editorIframe = document.getElementById(editorname);
+		editorDoc = editorIframe && editorIframe.contentWindow ? editorIframe.contentWindow.document : null;
+	}
+
+	if (editorDoc && editorDoc.designMode === 'on') {
+		if (sanitized !== null) {
+		    editorDoc.body.innerHTML = sanitized; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
 		} else {
-		    if (sanitized !== null) {
-		        document.getElementById(editorname).contentWindow.document.body.innerHTML = sanitized; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
-		    } else {
-		        document.getElementById(editorname).contentWindow.document.body.textContent = value;
-		    }
-		    return
+		    editorDoc.body.textContent = value;
 		}
+		return
 	} else {
 		// play nice and at least set the value to the <textarea> if document.designMode does not exist
 		document.getElementById(cfg_editorname).value = value;

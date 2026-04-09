@@ -877,7 +877,10 @@ function loadProblems(field_name, value) {
         descLabel.textContent = ' Description: ';
         const descValue = document.createElement('strong');
         descValue.textContent = p.description || 'N/A';
-        listItem.append(codeLabel, codeValue, descLabel, descValue);
+        listItem.appendChild(codeLabel);
+        listItem.appendChild(codeValue);
+        listItem.appendChild(descLabel);
+        listItem.appendChild(descValue);
         listItem.appendChild(document.createTextNode(' Date: ' + p.startdate));
         list.appendChild(listItem)
         if (p.active === false) {
@@ -937,7 +940,8 @@ function loadMedications(field_name, value) {
         rxLabel.textContent = 'Prescription: ';
         const rxValue = document.createElement('strong');
         rxValue.textContent = m.prescription;
-        listItem.append(rxLabel, rxValue);
+        listItem.appendChild(rxLabel);
+        listItem.appendChild(rxValue);
         listItem.appendChild(document.createTextNode(' Date: ' + m.rxDate));
 
         const buttonContainer = document.createElement('div')
