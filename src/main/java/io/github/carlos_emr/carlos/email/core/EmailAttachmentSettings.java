@@ -29,9 +29,15 @@
 
 package io.github.carlos_emr.carlos.email.core;
 
+import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Set;
 import java.util.regex.Pattern;
+
+import java.util.Arrays;
+import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Data Transfer Object to encapsulate email attachment settings and IDs.
@@ -63,32 +69,29 @@ public record EmailAttachmentSettings(
     String emailPatientChartOption
 ) {
 
-    /** Pre-compiled pattern for ASCII control characters (0x00-0x1F and DEL 0x7F). */
-    private static final Pattern CONTROL_CHARS = Pattern.compile("[\\x00-\\x1f\\x7f]");
+    /** Simple email format validation pattern. */
+    private static final Pattern EMAIL_PATTERN =
+        Pattern.compile("^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$");
 
-    /** Pre-compiled pattern for basic email structure validation (non-backtracking). */
-    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)+$");
+    /** Precompiled pattern matching any Unicode line break sequence. */
+    private static final Pattern LINE_BREAK_PATTERN = Pattern.compile("\\R");
 
-    /** Allowed values for the patient chart email option. */
-    private static final Set<String> VALID_CHART_OPTIONS = Set.of("doNotAddAsNote", "addFullNote");
+    /** Precompiled pattern matching Unicode control characters. */
+    private static final Pattern CONTROL_CHARS_PATTERN = Pattern.compile("[\\p{Cntrl}]");
 
-    /** Maximum length for email password fields. */
-    private static final int MAX_PASSWORD_LENGTH = 128;
+    /** Valid values for the patient chart option, derived from {@link ChartDisplayOption} enum. */
+    private static final Set<String> VALID_CHART_OPTIONS = Arrays.stream(ChartDisplayOption.values())
+        .map(ChartDisplayOption::getValue)
+        .collect(Collectors.toUnmodifiableSet());
 
-    /** Maximum length for email subject field. */
-    private static final int MAX_SUBJECT_LENGTH = 998;
-
-    /** Maximum length for email body field. */
-    private static final int MAX_BODY_LENGTH = 100_000;
-
-    /** Maximum length for sender email address. */
     private static final int MAX_EMAIL_LENGTH = 254;
-
-    /** Maximum length for encrypted message field. */
-    private static final int MAX_ENCRYPTED_MSG_LENGTH = 100_000;
+    private static final int MAX_SUBJECT_LENGTH = 200;
+    private static final int MAX_BODY_LENGTH = 10000;
+    private static final int MAX_PASSWORD_LENGTH = 100;
 
     /**
      * Creates an EmailAttachmentSettings instance from an HTTP request.
+     * Validates and sanitizes raw user input parameters before storage.
      *
      * <p>Boolean parameters are validated via {@code "true".equals()} / {@code !"false".equals()}
      * patterns (safe against arbitrary input). String parameters are sanitized: control characters
@@ -129,66 +132,75 @@ public record EmailAttachmentSettings(
             !"false".equals(req.getParameter("encryptEmailAttachments")),
             "true".equals(req.getParameter("autoSendEmail")),
             "true".equals(req.getParameter("deleteEFormAfterSendingEmail")),
-            stripControlChars(req.getParameter("passwordEmail"), MAX_PASSWORD_LENGTH),
-            stripControlChars(req.getParameter("passwordClueEmail"), MAX_PASSWORD_LENGTH),
-            sanitizeEmail(req.getParameter("senderEmail")),
-            stripControlChars(req.getParameter("subjectEmail"), MAX_SUBJECT_LENGTH),
-            limitLength(req.getParameter("bodyEmail"), MAX_BODY_LENGTH),
-            limitLength(req.getParameter("encryptedMessageEmail"), MAX_ENCRYPTED_MSG_LENGTH),
-            sanitizeChartOption(req.getParameter("emailPatientChartOption"))
+            sanitizePassword(req.getParameter("passwordEmail")),
+            sanitizePassword(req.getParameter("passwordClueEmail")),
+            validateEmail(req.getParameter("senderEmail")),
+            sanitizeSubject(req.getParameter("subjectEmail")),
+            truncate(req.getParameter("bodyEmail"), MAX_BODY_LENGTH),
+            truncate(req.getParameter("encryptedMessageEmail"), MAX_BODY_LENGTH),
+            validateChartOption(req.getParameter("emailPatientChartOption"))
         );
     }
 
     /**
-     * Strips ASCII control characters (below 0x20, except space) and limits length.
-     * Used for fields where control characters have no legitimate purpose.
+     * Validates an email address against a simple format pattern and RFC 5321 length limit.
+     * Returns null (fall back to default sender) if the address is invalid or too long.
      *
-     * @param value the raw input, may be null
-     * @param maxLength maximum allowed length
-     * @return sanitized string, or null if input was null
+     * @param email the raw email address from user input
+     * @return the email address if valid, or null if invalid/null/too long
      */
-    private static String stripControlChars(String value, int maxLength) {
-        if (value == null) {
+    static String validateEmail(String email) {
+        if (email == null || email.length() > MAX_EMAIL_LENGTH || !EMAIL_PATTERN.matcher(email).matches()) {
             return null;
         }
-        // Remove ASCII control characters (0x00-0x1F and DEL 0x7F)
-        String cleaned = CONTROL_CHARS.matcher(value).replaceAll("");
-        if (cleaned.length() > maxLength) {
-            cleaned = cleaned.substring(0, maxLength);
-        }
-        return cleaned;
+        return email;
     }
 
     /**
-     * Validates an email address has a basic valid structure and limits length.
-     * Returns null for clearly invalid values.
+     * Sanitizes an email subject line by stripping all Unicode line break sequences
+     * (CR, LF, CRLF, NEL, LS, PS — via {@code \R}) to prevent SMTP header injection,
+     * and truncating to maximum length.
      *
-     * @param value the raw email input, may be null
-     * @return the email if structurally valid, or null
+     * @param subject the raw subject from user input
+     * @return the sanitized subject, or null if input was null
      */
-    private static String sanitizeEmail(String value) {
-        if (value == null || value.isBlank()) {
+    static String sanitizeSubject(String subject) {
+        if (subject == null) {
             return null;
         }
-        if (value.length() > MAX_EMAIL_LENGTH) {
-            return null;
+        subject = LINE_BREAK_PATTERN.matcher(subject).replaceAll("");
+        if (subject.length() > MAX_SUBJECT_LENGTH) {
+            subject = subject.substring(0, MAX_SUBJECT_LENGTH);
         }
-        // Basic structural check: must contain @ with text before and after
-        if (!EMAIL_PATTERN.matcher(value).matches()) {
-            return null;
-        }
-        return value;
+        return subject;
     }
 
     /**
-     * Limits string length without other transformations.
-     * Used for fields that may contain legitimate HTML or complex content.
+     * Sanitizes a password or password clue by stripping control characters
+     * and truncating to maximum length.
      *
-     * @param value the raw input, may be null
-     * @param maxLength maximum allowed length
-     * @return length-limited string, or null if input was null
+     * @param password the raw password/clue from user input
+     * @return the sanitized value, or null if input was null
      */
-    private static String limitLength(String value, int maxLength) {
+    static String sanitizePassword(String password) {
+        if (password == null) {
+            return null;
+        }
+        password = CONTROL_CHARS_PATTERN.matcher(password).replaceAll("");
+        if (password.length() > MAX_PASSWORD_LENGTH) {
+            password = password.substring(0, MAX_PASSWORD_LENGTH);
+        }
+        return password;
+    }
+
+    /**
+     * Truncates a string to the specified maximum length.
+     *
+     * @param value the raw value from user input
+     * @param maxLength the maximum allowed length
+     * @return the truncated value, or null if input was null
+     */
+    static String truncate(String value, int maxLength) {
         if (value == null) {
             return null;
         }
