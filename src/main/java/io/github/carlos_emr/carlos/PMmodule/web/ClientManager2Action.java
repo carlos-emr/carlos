@@ -661,7 +661,8 @@ public class ClientManager2Action extends ActionSupport {
 
     public String remove_joint_admission() {
         String clientId = request.getParameter("dependentClientId");
-        // nosemgrep: tainted-session-from-http-request -- session read (getAttribute), not a write
+        // nosemgrep: tainted-session-from-http-request
+        // Session read via getAttribute("user"), not a session write.
         clientManager.removeJointAdmission(Integer.valueOf(clientId), (String) request.getSession().getAttribute("user"));
         setEditAttributes(request, request.getParameter("clientId"));
         return "edit";
