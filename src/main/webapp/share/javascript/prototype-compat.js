@@ -404,11 +404,12 @@ Prototype.Browser = {
 // NOTE: <script src="..."> tags are stripped but NOT loaded. Response fragments
 // for this use case must use only inline scripts (same as original Prototype behavior).
 //
-// CodeQL js/bad-tag-filter: The regex-based script tag extraction below is flagged
-// by CodeQL as bypassable. This is acceptable because the HTML comes exclusively from
-// same-origin server AJAX responses (not from user input). The script extraction is
-// a legacy Prototype.js behavior maintained for backward compatibility during migration.
-// Long-term, AJAX responses should migrate from HTML-with-scripts to JSON payloads.
+// SECURITY ASSUMPTION: This function only processes trusted same-origin server
+// responses (OWASP-encoded JSP output from internal CARLOS EMR endpoints).
+// The <script> regex extraction is intentional Prototype.js compatibility behavior
+// for AJAX-loaded page fragments — it is NOT a security sanitizer.
+// CodeQL flags this as js/bad-tag-filter; this is a known false positive.
+// See: docs/prototype-to-vanilla-js-migration-plan.md (evalScripts behavior)
 window.carlosExtractAndExecScripts = function (element, html) {
     var scriptPattern = /<script[\s\S]*?>([\s\S]*?)<\/\s*script\s*>/gi;
     var scripts = [];
