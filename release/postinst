@@ -3,7 +3,7 @@
 # a script file for CARLOS EMR that installs and tweaks the necessary files
 #====================================================================
 # Copyright Peter Hutten-Czapski 2012-2026 released under the GPL v2+
-# v 0.2
+# v 0.3
 #====================================================================
 
 #set -e
@@ -661,7 +661,7 @@ else
             if [ -r "$jdir/bin/java" ] ; then
                     JVER=$($jdir/bin/java -version 2>&1 | awk -F '"' '/version/ {print $2}')
                     JVER=$(echo $JVER | sed -e 's/^1\.\([0-9]*\)\(.*\)/\1/; 1q' | sed -e 's/\([0-9]*\)\(.*\)/\1/; 1q' )
-                    if [ "${JVER}" -eq 21 ] || [ "${JVER}" -eq 25 ] ; then 
+                    if [ "${JVER}" -ge 21 ]  ; then 
                             JAVA_HOME="$jdir"
                     fi
             fi
