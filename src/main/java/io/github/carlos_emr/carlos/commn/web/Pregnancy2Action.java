@@ -264,7 +264,7 @@ public class Pregnancy2Action extends ActionSupport {
 
     public String createGBSLabReq() throws SQLException {
         String demoNoParam = request.getParameter("demographicNo");
-        if (demoNoParam == null || !demoNoParam.matches("\\d{1,9}")) {
+        if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
             MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGBSLabReq: {}", LogSanitizer.sanitize(demoNoParam));
             return null;
         }
@@ -303,7 +303,7 @@ public class Pregnancy2Action extends ActionSupport {
 
     public String createMCVLabReq() throws SQLException {
         String demoNoParam = request.getParameter("demographicNo");
-        if (demoNoParam == null || !demoNoParam.matches("\\d{1,9}")) {
+        if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
             MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createMCVLabReq: {}", LogSanitizer.sanitize(demoNoParam));
             return null;
         }
@@ -594,7 +594,7 @@ Repeat antibody screen
      */
     public String createGCTLabReq() throws SQLException {
         String demoNoParam = request.getParameter("demographicNo");
-        if (demoNoParam == null || !demoNoParam.matches("\\d{1,9}")) {
+        if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
             MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGCTLabReq: {}", LogSanitizer.sanitize(demoNoParam));
             return null;
         }
@@ -652,7 +652,7 @@ Repeat antibody screen
 
     public String createGTTLabReq() throws SQLException {
         String demoNoParam = request.getParameter("demographicNo");
-        if (demoNoParam == null || !demoNoParam.matches("\\d{1,9}")) {
+        if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
             MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in createGTTLabReq: {}", LogSanitizer.sanitize(demoNoParam));
             return null;
         }

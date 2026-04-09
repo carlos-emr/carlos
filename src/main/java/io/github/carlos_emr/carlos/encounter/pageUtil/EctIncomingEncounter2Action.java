@@ -110,8 +110,10 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             log.error("EctIncomingEncounter2Action called with null or invalid demographicNo");
             return "failure";
         }
-        if (!demoNo.matches("\\d{1,9}")) {
-            log.error("EctIncomingEncounter2Action called with invalid demographicNo: {}", LogSanitizer.sanitize(demoNo));
+
+        // Validate demographicNo is numeric before crossing the trust boundary
+        if (!demoNo.matches("\\d+")) {
+            log.error("EctIncomingEncounter2Action called with non-numeric demographicNo: {}", LogSanitizer.sanitize(demoNo));
             return "failure";
         }
 
@@ -242,7 +244,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             bean.date = request.getParameter("date");
             bean.check = "myCheck";
             bean.oscarMsgID = request.getParameter("msgId");
-            if (bean.oscarMsgID != null && !bean.oscarMsgID.matches("\\d{1,9}")) {
+            if (bean.oscarMsgID != null && !bean.oscarMsgID.matches("\\d+")) {
                 log.warn("Invalid msgId: {}", LogSanitizer.sanitize(bean.oscarMsgID));
                 return "failure";
             }

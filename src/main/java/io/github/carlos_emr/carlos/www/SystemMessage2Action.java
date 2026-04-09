@@ -81,19 +81,20 @@ public class SystemMessage2Action extends ActionSupport {
         String messageId = request.getParameter("id");
 
         if (messageId != null) {
-            if (!messageId.matches("\\d{1,9}")) {
-                throw new IllegalArgumentException("Invalid message id");
+            int parsedId;
+            try {
+                parsedId = Integer.parseInt(messageId);
+            } catch (NumberFormatException e) {
+                logger.warn("Non-numeric message ID rejected: {}", messageId);
+                return list();
             }
 
-            long parsedMessageId = Long.parseLong(messageId);
-            if (parsedMessageId > Integer.MAX_VALUE) {
-                throw new IllegalArgumentException("Invalid message id");
-            }
+            SystemMessage msg = systemMessageDao.find(parsedId);
 
-            SystemMessage msg = systemMessageDao.find((int) parsedMessageId);
             if (msg == null) {
                 request.getSession().removeAttribute("systemMessageId");
                 addActionMessage(getText("system_message.missing"));
+                request.getSession().removeAttribute("systemMessageId");
                 return list();
             }
             request.getSession().setAttribute("systemMessageId", String.valueOf(msg.getId()));

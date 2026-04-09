@@ -120,67 +120,46 @@ public class EctDisplayAction extends ActionSupport {
         boolean rebuildBean = bean == null || request.getParameter("demographicNo") != null;
 
         // Extract and validate demographicNo early so the privilege check can run before any session mutation
-        String demographicNoParam;
+        String demoNoParam;
         if (rebuildBean) {
-            demographicNoParam = request.getParameter("demographicNo");
-            if (demographicNoParam != null && !demographicNoParam.matches("\\d{1,9}")) {
-                throw new IllegalArgumentException("Invalid demographicNo");
-            }
-            // demographicNo is required when creating a new encounter session
-            if (bean == null && demographicNoParam == null) {
-                throw new IllegalArgumentException("Missing required demographicNo for new encounter session");
+            demoNoParam = request.getParameter("demographicNo");
+            if (demoNoParam != null && !demoNoParam.isEmpty() && !demoNoParam.matches("\\d+")) {
+                logger.warn("Invalid non-numeric demographicNo: {}", LogSanitizer.sanitize(demoNoParam));
+                return "error";
             }
         } else {
-            demographicNoParam = bean.demographicNo;
+            demoNoParam = bean.demographicNo;
         }
 
         // Privilege check BEFORE any session.setAttribute to prevent unauthorized session mutation (CWE-501)
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demographicNoParam)) {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demoNoParam)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
         if (rebuildBean) {
-            // Validate remaining request parameters before crossing the trust boundary into session storage
-            String providerNoParam = request.getParameter("providerNo");
-            if (providerNoParam != null && !providerNoParam.matches("[a-zA-Z0-9]{1,6}")) {
-                throw new IllegalArgumentException("Invalid providerNo");
-            }
-            String appointmentNoParam = request.getParameter("appointmentNo");
-            if (appointmentNoParam != null && !appointmentNoParam.matches("\\d{1,9}")) {
-                throw new IllegalArgumentException("Invalid appointmentNo");
-            }
             bean = new EctSessionBean();
             bean.currentDate = UtilDateUtilities.StringToDate(request.getParameter("curDate"));
 
             if (bean.currentDate == null) {
                 bean.currentDate = new Date();
             }
-            bean.providerNo = providerNoParam;
+            bean.providerNo = request.getParameter("providerNo");
             if (bean.providerNo == null) {
-                bean.providerNo = (String) request.getSession().getAttribute("user"); // nosemgrep: tainted-session-from-http-request
+                bean.providerNo = (String) request.getSession().getAttribute("user");
             }
-            bean.demographicNo = demographicNoParam;
-            bean.appointmentNo = appointmentNoParam;
-            String curProviderNoParam = request.getParameter("curProviderNo");
-            if (curProviderNoParam != null && !curProviderNoParam.matches("[a-zA-Z0-9]{1,6}")) {
-                throw new IllegalArgumentException("Invalid curProviderNo");
+            bean.demographicNo = demoNoParam;
+            String apptNoParam = request.getParameter("appointmentNo");
+            if (apptNoParam != null && !apptNoParam.isEmpty() && !apptNoParam.matches("\\d+")) {
+                logger.warn("Invalid non-numeric appointmentNo: {}", LogSanitizer.sanitize(apptNoParam));
+                return "error";
             }
-            bean.curProviderNo = curProviderNoParam;
-
-            // Reject oversized free-text parameters to prevent session storage abuse
-            for (String paramName : new String[]{"reason", "encType", "userName",
-                    "appointmentDate", "startTime", "status", "date", "source"}) {
-                String val = request.getParameter(paramName);
-                if (val != null && val.length() > 255) {
-                    throw new IllegalArgumentException("Parameter too long: " + paramName);
-                }
-            }
-
+            bean.appointmentNo = apptNoParam;
+            bean.curProviderNo = request.getParameter("curProviderNo");
             bean.reason = request.getParameter("reason");
             bean.encType = request.getParameter("encType");
             bean.userName = request.getParameter("userName");
             if (bean.userName == null) {
-                bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname")); // nosemgrep: tainted-session-from-http-request
+                bean.userName = ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname"));
             }
 
             bean.appointmentDate = request.getParameter("appointmentDate");
@@ -188,19 +167,14 @@ public class EctDisplayAction extends ActionSupport {
             bean.status = request.getParameter("status");
             bean.date = request.getParameter("date");
             bean.check = "myCheck";
-            String msgIdParam = request.getParameter("msgId");
-            if (msgIdParam != null && !msgIdParam.matches("\\d{1,9}")) {
-                logger.warn("Invalid msgId: {}", LogSanitizer.sanitize(msgIdParam));
-                return "error";
-            }
-            bean.oscarMsgID = msgIdParam;
-            if (request.getParameter("source") != null) {
-                bean.source = request.getParameter("source");
-            }
+            bean.oscarMsgID = request.getParameter("msgId");
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
             // demographicNo and appointmentNo validated as numeric; other bean fields (reason, encType, userName, etc.) are unsanitized request params — consuming JSPs MUST use OWASP encoding when rendering
             request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request
             request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request
+            if (request.getParameter("source") != null) {
+                bean.source = request.getParameter("source");
+            }
 
             request.setAttribute("EctSessionBean", bean);
         }
