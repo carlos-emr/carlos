@@ -332,9 +332,10 @@ public class importCasemgmt {
                             note = formatNote(new StringBuffer(rs.getString("encounter")));
                             note = "LAST CHART\n" + note;
                             insert.setString(4, note);
-                            insert.setString(5, note);
-                            insert.setString(6, uuid.toString());
-                            insert.setTimestamp(7, time);
+                            insert.setString(5, programId);
+                            insert.setString(6, note);
+                            insert.setString(7, uuid.toString());
+                            insert.setTimestamp(8, time);
                             
                             if( insert.executeUpdate() != 1 )
                                     throw new SQLException("inserting case note for " + rs.getString("demographicNo") + " failed");
