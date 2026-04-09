@@ -76,7 +76,11 @@ public class FormsDao {
         }
         String sql = "SELECT ID, formCreated, patientName FROM formLabReq07 where demographic_no = :demoNo";
         Query query = entityManager.createNativeQuery(sql);
-        query.setParameter("demoNo", Integer.parseInt(demographicNo));
+        try {
+            query.setParameter("demoNo", Integer.parseInt(demographicNo));
+        } catch (NumberFormatException e) {
+            return new ArrayList<>();
+        }
         return query.getResultList();
     }
 
