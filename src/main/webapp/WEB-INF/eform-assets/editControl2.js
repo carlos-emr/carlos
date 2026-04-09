@@ -135,7 +135,7 @@ var cfg_sepstyle = 'width:6px;height:24px;border: solid 2px #ccccff; background-
  */
 function sanitizeHtml(html, config) {
 	if (typeof DOMPurify !== 'undefined') {
-		return config ? DOMPurify.sanitize(html, config) : DOMPurify.sanitize(html);
+		return DOMPurify.sanitize(html, config);
 	}
 	if (typeof console !== 'undefined' && typeof console.warn === 'function') {
 		console.warn('editControl2: DOMPurify not loaded — caller should use safe fallback to prevent XSS.');
