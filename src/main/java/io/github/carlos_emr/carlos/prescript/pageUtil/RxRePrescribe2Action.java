@@ -151,9 +151,14 @@ public final class RxRePrescribe2Action extends ActionSupport {
         if (script_no == null || !script_no.matches("\\d{1,9}")) {
             throw new IllegalArgumentException("Invalid scriptNo");
         }
+        long parsedScriptNo = Long.parseLong(script_no);
+        if (parsedScriptNo > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Invalid scriptNo");
+        }
+        int scriptNo = (int) parsedScriptNo;
         String ip = request.getRemoteAddr();
         RxPrescriptionData rxData = new RxPrescriptionData();
-        List<Prescription> list = rxData.getPrescriptionsByScriptNo(Integer.parseInt(script_no), sessionBeanRX.getDemographicNo());
+        List<Prescription> list = rxData.getPrescriptionsByScriptNo(scriptNo, sessionBeanRX.getDemographicNo());
         RxPrescriptionData.Prescription p = null;
         StringBuilder auditStr = new StringBuilder();
         for (int idx = 0; idx < list.size(); ++idx) {
