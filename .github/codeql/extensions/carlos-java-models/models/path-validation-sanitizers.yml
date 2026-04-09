@@ -88,8 +88,9 @@ extensions:
       # PathValidationUtils.validateExistingPath. Returns validated File.
       - ["io.github.carlos_emr.carlos.managers", "NioFileManagerImpl", false, "getOscarDocument", "(java.lang.String)", "", "Argument[this]", "ReturnValue", "taint", "manual"]
 
-  # neutralModel entries suppress any auto-generated models for methods that return
-  # a non-reference type (boolean) where no taint flow to ReturnValue is relevant.
+  # neutralModel entries suppress auto-generated/heuristic taint summaries for
+  # guard methods and sanitizer wrappers where no relevant taint flow should be
+  # inferred, including boolean, void, and reference-returning methods.
   - addsTo:
       pack: codeql/java-all
       extensible: neutralModel

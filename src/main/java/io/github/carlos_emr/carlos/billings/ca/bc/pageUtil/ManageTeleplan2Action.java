@@ -259,12 +259,12 @@ public class ManageTeleplan2Action extends ActionSupport {
         try (BufferedReader buff = new BufferedReader(new FileReader(file))) { // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
             while ((line = buff.readLine()) != null) {
                 line = line.trim();
-                if (line != null && line.startsWith("--")) {
+                if (line.startsWith("--")) {
                     start = true;
                     continue;
                 }
                 if (start) {
-                    if (line.trim().equals("")) {
+                    if (line.isEmpty()) {
                         String togo = sb.toString();
                         sb = new StringBuilder();
                         if (!togo.isEmpty()) {
@@ -558,7 +558,7 @@ public class ManageTeleplan2Action extends ActionSupport {
             try (BufferedReader buff = new BufferedReader(new FileReader(file))) { // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
                 while ((line = buff.readLine()) != null) {
 
-                    if (line != null && line.startsWith("ELIG_ON_DOS:")) {
+                    if (line.startsWith("ELIG_ON_DOS:")) {
                         String el = line.substring(12).trim();
                         if (el.equalsIgnoreCase("no")) {
                             request.setAttribute("Result", "Failure");

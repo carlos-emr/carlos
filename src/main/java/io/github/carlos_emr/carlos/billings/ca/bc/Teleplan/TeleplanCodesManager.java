@@ -100,8 +100,8 @@ REM076 **                                                             **
                 if (parse) {
                     String code = line.substring(0, 5);
                     String fee = line.substring(5, 12);
-                    double newDoub = (Double.parseDouble(fee)) / 100;
-                    BigDecimal newPriceDec = new BigDecimal(newDoub).setScale(2, BigDecimal.ROUND_HALF_UP);
+                    long feeInCents = Long.parseLong(fee.trim());
+                    BigDecimal newPriceDec = BigDecimal.valueOf(feeInCents, 2);
                     String desc = line.substring(26, 76);
                     HashMap h = new HashMap();
 
