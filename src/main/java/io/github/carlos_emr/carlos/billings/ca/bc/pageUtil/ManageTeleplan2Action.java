@@ -267,7 +267,7 @@ public class ManageTeleplan2Action extends ActionSupport {
                     if (line.trim().equals("")) {
                         String togo = sb.toString();
                         sb = new StringBuilder();
-                        if (!togo.equals("")) {
+                        if (!togo.isEmpty()) {
                             errorCodes.put(togo.substring(0, 2), togo.substring(4));
                         }
                     } else {
@@ -284,7 +284,7 @@ public class ManageTeleplan2Action extends ActionSupport {
                 togo = togo.substring(0, i);
             }
 
-            if (!togo.equals("")) {
+            if (!togo.isEmpty()) {
                 errorCodes.put(togo.substring(0, 2), togo.substring(4));
             }
         }
