@@ -263,7 +263,7 @@ public class ExtractBean extends Object implements Serializable {
                         logger.warn("Skipping billing record due to invalid invoice number: {}", invNo);
                         continue;
                     }
-                    query2 = "select * from billingmaster where billing_no='" + invNo + "' and billingstatus='O'";
+                    query2 = "select * from billingmaster where billing_no=" + invNo + " and billingstatus='O'";
 
                     ResultSet rs2 = dbExt.executeQuery2(query2);
                     while (rs2.next()) {
