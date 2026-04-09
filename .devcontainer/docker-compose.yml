@@ -9,6 +9,7 @@ services:
       - "18000:8000"
     volumes:
       - m2-volume:/root/.m2
+      - gemini-config:/root/.gemini
       - ..:/workspace:cached
       - ../.devcontainer/db/db_data/:/db-data/
     env_file:
@@ -17,6 +18,8 @@ services:
       LANG: en_US.UTF-8
       LANGUAGE: en_US:en
       TZ: America/Toronto
+      DISPLAY: ":0"
+      OAUTH_CALLBACK_PORT: "13579"
     networks:
       - carlos-network
     depends_on:
@@ -84,6 +87,9 @@ volumes:
     driver: local
 
   m2-volume:
+    driver: local
+
+  gemini-config:
     driver: local
 
 networks:
