@@ -84,7 +84,13 @@ public class RptReportItem {
     public String getReportName(String recordId) throws SQLException {
         String ret = null;
         String sql = "select report_name from reportItem where id = ?";
-        ResultSet rs = DBHelp.searchDBRecord(sql, Integer.parseInt(recordId));
+        int parsedRecordId;
+        try {
+            parsedRecordId = Integer.parseInt(recordId);
+        } catch (NumberFormatException e) {
+            throw new SQLException("Invalid recordId: " + recordId, e);
+        }
+        ResultSet rs = DBHelp.searchDBRecord(sql, parsedRecordId);
         while (rs.next()) {
             ret = DBHelp.getString(rs, "report_name");
         }

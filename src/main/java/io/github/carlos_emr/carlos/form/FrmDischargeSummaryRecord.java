@@ -151,7 +151,7 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
                 while (rs4.next()) {
 
                     String sql5 = "SELECT description from issue where issue_id=?";
-                    ResultSet rs5 = DBHandler.GetPreSQL(sql5, Misc.getString(rs4, "issue_id"));
+                    ResultSet rs5 = DBHandler.GetPreSQL(sql5, rs4.getInt("issue_id"));
                     if (rs5.next()) {
                         if (rs4.isFirst()) {
                             issues.append(Misc.getString(rs5, "description"));
