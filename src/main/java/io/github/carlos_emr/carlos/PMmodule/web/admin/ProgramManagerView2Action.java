@@ -71,6 +71,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import org.owasp.encoder.Encode;
 
 public class ProgramManagerView2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -130,22 +131,13 @@ public class ProgramManagerView2Action extends ActionSupport {
         if (programId == null) {
             programId = (String) request.getAttribute("id");
         }
-        // Validate programId is present and numeric before storing in session
+        // Validate programId is present and numeric before storing in session (CWE-501: Trust Boundary Violation)
         if (programId == null || programId.isBlank() || !programId.matches("\\d+")) {
             logger.error("Invalid or missing programId: {}", LogSanitizer.sanitize(String.valueOf(programId)));
             addActionError("Invalid or missing required parameter");
             return ERROR;
         }
-
-        // Validate programId is numeric before storing in session (CWE-501: Trust Boundary Violation)
-        if (programId != null) {
-            try {
-                programId = String.valueOf(Integer.parseInt(programId));
-            } catch (NumberFormatException e) {
-                logger.warn("Invalid non-numeric program ID received: {}", LogSanitizer.sanitize(programId));
-                programId = null;
-            }
-        }
+        programId = String.valueOf(Integer.parseInt(programId));
         request.getSession().setAttribute("case_program_id", programId);
 
         if (request.getParameter("newVacancy") != null && "true".equals(request.getParameter("newVacancy")))
@@ -371,11 +363,10 @@ public class ProgramManagerView2Action extends ActionSupport {
             // store this for display
             this.setServiceRestriction(e.getRestriction());
 
-            // programId validated as numeric above; notes length-capped via truncateNotes()
-            // and stored for re-display on error — JSPs must use OWASP encoding when rendering
-            request.getSession().setAttribute("programId", programId); // nosemgrep: tainted-session-from-http-request - validated numeric
-            request.getSession().setAttribute("admission.dischargeNotes", dischargeNotes); // nosemgrep: tainted-session-from-http-request - length-capped free-text for re-display
-            request.getSession().setAttribute("admission.admissionNotes", admissionNotes); // nosemgrep: tainted-session-from-http-request - length-capped free-text for re-display
+            // programId validated as numeric above; sanitize notes before session storage (CWE-501)
+            request.getSession().setAttribute("programId", programId);
+            request.getSession().setAttribute("admission.dischargeNotes", Encode.forHtml(truncateNotes(dischargeNotes)));
+            request.getSession().setAttribute("admission.admissionNotes", Encode.forHtml(truncateNotes(admissionNotes)));
 
             request.setAttribute("id", programId);
 
