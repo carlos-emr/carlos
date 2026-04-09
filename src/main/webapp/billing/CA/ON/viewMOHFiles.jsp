@@ -41,11 +41,12 @@
     <script LANGUAGE="JavaScript">
         function viewMOHFile(anchor) {
             var filename = anchor.dataset.filename;
+            var decodedFilename = decodeURIComponent(filename.replace(/\+/g, "%20"));
             var form = document.getElementById("form");
             document.getElementById("filename").value = filename;
-            var fileType = decodeURIComponent(filename).substring(0, 1).toUpperCase();
-            if (decodeURIComponent(filename).substring(decodeURIComponent(filename).length - 4).toLowerCase() == ".zip") {
-                alert("Please unzip " + decodeURIComponent(filename) + " before processing.");
+            var fileType = decodedFilename.substring(0, 1).toUpperCase();
+            if (decodedFilename.substring(decodedFilename.length - 4).toLowerCase() == ".zip") {
+                alert("Please unzip " + decodedFilename + " before processing.");
                 location.href = "<%= request.getContextPath() %>/billing/CA/ON/viewMOHFiles.jsp";
                 return;
             } else if (fileType == "P" || fileType == "S") {
