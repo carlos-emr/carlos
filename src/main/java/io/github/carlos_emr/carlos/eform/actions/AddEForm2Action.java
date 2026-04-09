@@ -86,7 +86,7 @@ public class AddEForm2Action extends ActionSupport {
      * (see {@link io.github.carlos_emr.carlos.eform.EFormLoader#getOpenEform}).</p>
      */
     static final Pattern EFORM_LINK_PATTERN = Pattern.compile(
-            "^[a-zA-Z0-9]{1,6}_-?\\d{1,10}_\\d{1,10}_[a-zA-Z0-9_.-]{1,50}$");
+            "^[a-zA-Z0-9]{1,6}_(-1|\\d{1,10})_\\d{1,10}_[a-zA-Z0-9_.-]{1,50}$");
 
     /**
      * Validates an eform_link value against the expected key format.
