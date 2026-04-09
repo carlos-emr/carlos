@@ -66,7 +66,7 @@ public final class Billing2Action extends ActionSupport {
             response.sendRedirect(newURL);
             return NONE;
         } else {
-            if (request.getParameter("demographic_no") != null &
+            if (request.getParameter("demographic_no") != null &&
                     request.getParameter("appointment_no") != null) {
                 String demoNo = request.getParameter("demographic_no");
                 if (!demoNo.matches("\\d{1,10}")) {

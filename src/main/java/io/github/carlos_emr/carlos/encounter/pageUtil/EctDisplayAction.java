@@ -138,13 +138,17 @@ public class EctDisplayAction extends ActionSupport {
             if (bean.currentDate == null) {
                 bean.currentDate = new Date();
             }
-            bean.providerNo = request.getParameter("providerNo");
+            bean.providerNo = providerNoParam;
             if (bean.providerNo == null) {
                 bean.providerNo = (String) request.getSession().getAttribute("user"); // nosemgrep: tainted-session-from-http-request
             }
-            bean.demographicNo = request.getParameter("demographicNo");
-            bean.appointmentNo = request.getParameter("appointmentNo");
-            bean.curProviderNo = request.getParameter("curProviderNo");
+            bean.demographicNo = demographicNoParam;
+            bean.appointmentNo = appointmentNoParam;
+            String curProviderNoParam = request.getParameter("curProviderNo");
+            if (curProviderNoParam != null && !curProviderNoParam.matches("[a-zA-Z0-9]{1,6}")) {
+                throw new IllegalArgumentException("Invalid curProviderNo");
+            }
+            bean.curProviderNo = curProviderNoParam;
             bean.reason = request.getParameter("reason");
             bean.encType = request.getParameter("encType");
             bean.userName = request.getParameter("userName");
@@ -157,7 +161,11 @@ public class EctDisplayAction extends ActionSupport {
             bean.status = request.getParameter("status");
             bean.date = request.getParameter("date");
             bean.check = "myCheck";
-            bean.oscarMsgID = request.getParameter("msgId");
+            String msgIdParam = request.getParameter("msgId");
+            if (msgIdParam != null && !msgIdParam.matches("\\d{1,9}")) {
+                throw new IllegalArgumentException("Invalid msgId");
+            }
+            bean.oscarMsgID = msgIdParam;
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
             request.getSession().setAttribute("EctSessionBean", bean);
             request.getSession().setAttribute("eChartID", bean.eChartId);

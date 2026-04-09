@@ -148,7 +148,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
         beanRX.setProviderNo(sessionBeanRX.getProviderNo());
 
         String script_no = request.getParameter("scriptNo");
-        if (script_no == null || !script_no.matches("\\d{1,10}")) {
+        if (script_no == null || !script_no.matches("\\d{1,9}")) {
             throw new IllegalArgumentException("Invalid scriptNo");
         }
         String ip = request.getRemoteAddr();

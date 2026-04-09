@@ -52,6 +52,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import org.owasp.encoder.Encode;
 
 /**
  * Struts 2 action for displaying and managing patient allergies.
@@ -94,7 +95,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
     public String reorder() {
         String demoNoParam = request.getParameter("demographicNo");
         if (demoNoParam == null || !demoNoParam.matches("\\d{1,10}")) {
-            throw new IllegalArgumentException("Invalid demographicNo");
+            return "failure";
         }
         reorder(request);
         try {
@@ -103,7 +104,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
             if (patient != null) {
                 request.getSession().setAttribute("Patient", patient);
             }
-            response.sendRedirect(request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + demoNoParam);
+            response.sendRedirect(request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + Encode.forUriComponent(demoNoParam));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -191,7 +192,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
 
         RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, bean.getDemographicNo());
 
-        String forward = request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + demo_no;
+        String forward = request.getContextPath() + "/oscarRx/ShowAllergies2.jsp?demographicNo=" + Encode.forUriComponent(demo_no);
         if (patient != null) {
             request.getSession().setAttribute("Patient", patient);
             response.sendRedirect(forward);

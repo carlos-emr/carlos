@@ -1987,13 +1987,15 @@ public class CaseManagementView2Action extends ActionSupport {
     }
     public String getDemographicNo(HttpServletRequest request) {
         String demono = request.getParameter("demographicNo");
-        if (demono == null || "".equals(demono)) {
+        boolean fromRequest = demono != null && !demono.isEmpty();
+        if (!fromRequest) {
             demono = (String) request.getSession().getAttribute("casemgmt_DemoNo"); // nosemgrep: tainted-session-from-http-request
-        } else {
-            request.getSession().setAttribute("casemgmt_DemoNo", demono);
         }
         if (demono == null || !demono.matches("\\d{1,10}")) {
             throw new IllegalArgumentException("Invalid demographicNo");
+        }
+        if (fromRequest) {
+            request.getSession().setAttribute("casemgmt_DemoNo", demono);
         }
         return demono;
     }
