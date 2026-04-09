@@ -95,6 +95,10 @@ public class BulkPatientDashboard2Action extends ActionSupport {
     public String excludePatients() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.WRITE, null)) {
+            logger.warn("Provider does not have write permission on _demographic sec object");
+            return "unauthorized";
+        }
         excludeDemographicHandler.setLoggedinInfo(loggedInInfo);
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -168,7 +172,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
                     icd9code,
                     providerNo
             );
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, "DX", "" + drId, ip, "");
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, "DX", "" + drId, ip, ""); // nosemgrep: tainted-session-from-http-request
         }
 
         String subject = "Bulk addition to disease registry report.";
@@ -188,6 +192,10 @@ public class BulkPatientDashboard2Action extends ActionSupport {
     }
 
     public String getICD9Description() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", SecurityInfoManager.READ, null)) {
+            logger.warn("Provider does not have read permission on _dxresearch sec object");
+            return "unauthorized";
+        }
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 

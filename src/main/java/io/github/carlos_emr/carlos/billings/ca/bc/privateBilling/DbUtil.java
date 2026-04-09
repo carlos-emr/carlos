@@ -5,7 +5,10 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import org.apache.logging.log4j.Logger;
+
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /*
  * Author: Charles Liu <charles.liu@nondfa.com>
@@ -13,6 +16,7 @@ import io.github.carlos_emr.CarlosProperties;
  * Date: December 6, 2018
  */
 public class DbUtil {
+    private static final Logger log = MiscUtils.getLogger();
 
     private static Connection connection = null;
 
@@ -29,7 +33,7 @@ public class DbUtil {
                 String db_password = oscarVariables.getProperty("db_password");
                 connection = DriverManager.getConnection(db_url, db_username, db_password);
             } catch (SQLException e) {
-                e.printStackTrace();
+                log.error("Failed to establish database connection", e);
             }
             return connection;
         }

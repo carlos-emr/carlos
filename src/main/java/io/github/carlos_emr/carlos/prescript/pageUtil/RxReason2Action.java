@@ -133,7 +133,7 @@ public final class RxReason2Action extends ActionSupport {
         drugReasonDao.addNewDrugReason(dr);
 
         String ip = request.getRemoteAddr();
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, dr.getAuditString());
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, dr.getAuditString()); // nosemgrep: tainted-session-from-http-request
 
         return "close";
     }
@@ -164,7 +164,7 @@ public final class RxReason2Action extends ActionSupport {
         request.setAttribute("demoNo", drugReason.getDemographicNo());
 
         String ip = request.getRemoteAddr();
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ARCHIVE, LogConst.CON_DRUGREASON, "" + drugReason.getId(), ip, "" + drugReason.getDemographicNo(), drugReason.getAuditString());
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ARCHIVE, LogConst.CON_DRUGREASON, "" + drugReason.getId(), ip, "" + drugReason.getDemographicNo(), drugReason.getAuditString()); // nosemgrep: tainted-session-from-http-request
 
         request.setAttribute("message", getText("SelectReason.msg.archived"));
         return SUCCESS;

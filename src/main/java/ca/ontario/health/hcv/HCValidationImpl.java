@@ -102,7 +102,7 @@ public class HCValidationImpl implements HCValidation
             return _return;
         }
         catch (final Exception ex) {
-            ex.printStackTrace();
+            HCValidationImpl.LOG.log(java.util.logging.Level.SEVERE, "Failed to validate health card", ex);
             throw new RuntimeException(ex);
         }
     }

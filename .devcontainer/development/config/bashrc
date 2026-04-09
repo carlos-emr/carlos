@@ -50,6 +50,9 @@ if [ -t 1 ]; then
     echo "========================================="
     echo "  Type 'help-dev' for commands reference"
     echo "  Type 'make help' for build options"
+    echo "-----------------------------------------"
+    echo "  AI: claude | copilot | gemini | aider"
+    echo "  copilot --model claude-opus-4-6"
     echo "========================================="
     echo ""
 fi

@@ -39,7 +39,6 @@
         import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO,io.github.carlos_emr.carlos.commn.model.Dxresearch,io.github.carlos_emr.carlos.commn.dao.Icd9Dao,io.github.carlos_emr.carlos.commn.model.Icd9" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
     CodingSystemManager codingSystemManager = SpringUtils.getBean(CodingSystemManager.class);
@@ -289,7 +288,7 @@
                                                 String descr = codingSystemManager.getCodeDescription(drugReason.getCodingSystem(), drugReason.getCode());
                                                 descr = org.apache.commons.lang3.StringUtils.trimToEmpty(descr);
                                             %>
-                                            <%=StringEscapeUtils.escapeHtml4(descr) %>
+                                            <%=Encode.forHtml(descr) %>
                                         </td>
                                         <td><%=drugReason.getComments() %>
                                         </td>

@@ -183,6 +183,26 @@ class WLSetupDisplayPatientWaitingList2ActionTest extends CarlosWebTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.ERROR);
         }
+
+        @Test
+        @DisplayName("should return ERROR when demographic_no is zero")
+        void shouldReturnError_whenDemographicNoIsZero() throws Exception {
+            addRequestParameter("demographic_no", "0");
+
+            String result = executeAction(action);
+
+            assertThat(result).isEqualTo(ActionSupport.ERROR);
+        }
+
+        @Test
+        @DisplayName("should return ERROR when demographic_no is negative")
+        void shouldReturnError_whenDemographicNoIsNegative() throws Exception {
+            addRequestParameter("demographic_no", "-1");
+
+            String result = executeAction(action);
+
+            assertThat(result).isEqualTo(ActionSupport.ERROR);
+        }
     }
 
     // -------------------------------------------------------------------------

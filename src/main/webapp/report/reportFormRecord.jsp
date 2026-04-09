@@ -15,7 +15,7 @@
 <%@ page errorPage="/errorpage.jsp"
          import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.login.*" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
 <%
     boolean bDeletedList = false;

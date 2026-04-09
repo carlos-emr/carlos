@@ -49,6 +49,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -143,7 +144,7 @@ public class MEDITECHHandler implements MessageHandler {
         NodeList messages = null;
 
         List<String> hl7BodyList = null;
-        DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+        DocumentBuilderFactory docFactory = XmlUtils.createSecureDocumentBuilderFactory();
 
         DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
         Document doc = docBuilder.parse(hl7Body);
@@ -227,7 +228,7 @@ public class MEDITECHHandler implements MessageHandler {
         // Check if the file is within the allowed base directory or temp directory
         boolean isValidPath = false;
         try {
-            PathValidationUtils.validateExistingPath(file, basePath.toFile());
+            file = PathValidationUtils.validateExistingPath(file, basePath.toFile());
             isValidPath = true;
         } catch (SecurityException e) {
             // Try allowed temp directories as fallback

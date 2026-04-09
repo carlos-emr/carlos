@@ -155,6 +155,8 @@ public class ERefer2Action extends ActionSupport {
         EReferAttachmentDao eReferAttachmentDao = SpringUtils.getBean(EReferAttachmentDao.class);
         eReferAttachmentDao.persist(eReferAttachment);
 
+        response.setContentType("text/plain");
+        response.setCharacterEncoding("UTF-8");
         try (PrintWriter writer = response.getWriter()) {
             writer.write(eReferAttachment.getId().toString());
         } catch (IOException e) {

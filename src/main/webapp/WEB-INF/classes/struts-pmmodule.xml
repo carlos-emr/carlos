@@ -62,6 +62,7 @@
 
         <action name="PMmodule/ProgramManagerView" class="io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramManagerView2Action" method="execute">
             <result name="view">page.pmm.admin.view</result>
+            <result name="error">/errorpage.jsp</result>
             <result name="service_restriction_error">page.pmm.program.service_restriction_error</result>
         </action>
 

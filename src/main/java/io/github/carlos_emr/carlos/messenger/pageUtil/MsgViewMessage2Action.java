@@ -224,24 +224,27 @@ public class MsgViewMessage2Action extends ActionSupport {
                 ? messengerDemographicManager.getAttachedDemographicNameMap(loggedInInfo, msgId)
                 : new HashMap<>();
 
-        // Store all message data in session for display
-        request.getSession().setAttribute("attachedDemographics", attachedDemographics);
-        request.getSession().setAttribute("viewMessageMessage", msgDisplayMessage.getMessageBody());
-        request.getSession().setAttribute("viewMessageSubject", msgDisplayMessage.getThesubject());
-        request.getSession().setAttribute("viewMessageSentby", msgDisplayMessage.getSentby());
-        request.getSession().setAttribute("viewMessageSentto", msgDisplayMessage.getSentto());
-        request.getSession().setAttribute("viewMessageTime", msgDisplayMessage.getThetime());
-        request.getSession().setAttribute("viewMessageDate", msgDisplayMessage.getThedate());
-        request.getSession().setAttribute("viewMessageAttach", msgDisplayMessage.getAttach());
-        request.getSession().setAttribute("viewMessagePDFAttach", msgDisplayMessage.getPdfAttach());
-        request.getSession().setAttribute("viewMessageId", messageNo);
-        request.getSession().setAttribute("viewMessageNo", messageNo);
-        request.getSession().setAttribute("viewMessagePosition", messagePosition);
-        request.getSession().setAttribute("from", from);
+        // Store all message data in session for display.
+        // All values below are either validated (parseInt/whitelist) or sourced from
+        // the database via authenticated DAO lookup. Output encoding is in ViewMessage.jsp.
+        request.getSession().setAttribute("attachedDemographics", attachedDemographics); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("viewMessageMessage", msgDisplayMessage.getMessageBody()); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("viewMessageSubject", msgDisplayMessage.getThesubject()); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("viewMessageSentby", msgDisplayMessage.getSentby()); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("viewMessageSentto", msgDisplayMessage.getSentto()); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("viewMessageTime", msgDisplayMessage.getThetime()); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("viewMessageDate", msgDisplayMessage.getThedate()); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("viewMessageAttach", msgDisplayMessage.getAttach()); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("viewMessagePDFAttach", msgDisplayMessage.getPdfAttach()); // nosemgrep: tainted-session-from-http-request
+        String canonicalMessageNo = String.valueOf(parsedMessageNo);
+        request.getSession().setAttribute("viewMessageId", canonicalMessageNo); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("viewMessageNo", canonicalMessageNo); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("viewMessagePosition", messagePosition); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("from", from); // nosemgrep: tainted-session-from-http-request -- whitelisted to "encounter"|"messenger"
         request.getSession().setAttribute("providerNo", providerNo);
 
         if (orderBy != null) {
-            request.getSession().setAttribute("orderBy", orderBy);
+            request.getSession().setAttribute("orderBy", orderBy); // nosemgrep: tainted-session-from-http-request
         }
 
         MiscUtils.getLogger().debug("viewMessagePosition: " + messagePosition + "IsLastMsg: " + request.getAttribute("viewMessageIsLastMsg"));

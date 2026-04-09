@@ -1,6 +1,6 @@
 function mod10CheckCalDig(dig) {
     var ret = dig * 2 + "";
-    if (ret.length == 2) ret = eval(ret.charAt(0) * 1 + ret.charAt(1) * 1);
+    if (ret.length == 2) ret = Number(ret.charAt(0)) + Number(ret.charAt(1));
 
     return ret;
 }
@@ -18,7 +18,7 @@ function mod10Check(hinNum) {
     }
 
     for (i = 0; i < hinNum.length - 1; i++) {
-        sum = eval(sum * 1 + hChar[i] * 1);
+        sum = Number(sum) + Number(hChar[i]);
     }
 
     var calDigit = 10 - ("" + sum).charAt(("" + sum).length - 1);

@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
@@ -152,7 +152,7 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                                             + "&formId=latest" + "');");
 
                             key = StringUtils.maxLenString(fullTitle, MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + "(" + serviceDateStr + ")";
-                            key = StringEscapeUtils.escapeEcmaScript(key);
+                            key = Encode.forJavaScript(key);
 
                             // auto completion arrays and colour code are set
                             js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompList.push('" + key + "'); autoCompleted['" + key + "'] = \"" + url + "\";";
@@ -179,7 +179,7 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                         Dao.addPopUpUrl(url.toString());
                         key = StringUtils.maxLenString(encounterForm.getFormName(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + " (new)";
                         Dao.addPopUpText(encounterForm.getFormName());
-                        key = StringEscapeUtils.escapeEcmaScript(key);
+                        key = Encode.forJavaScript(key);
 
                         // auto completion arrays and colour code are set
                         js = "itemColours['" + key + "'] = '" + BGCOLOUR + "'; autoCompList.push('" + key + "'); autoCompleted['" + key + "'] = \"" + url + ";\";";
