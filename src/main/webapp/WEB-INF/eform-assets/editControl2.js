@@ -301,7 +301,9 @@ function seteditControlContents(editorname, value){
 	// Sanitize HTML before injecting into the editor to prevent stored-XSS from eform content.
 	// When DOMPurify is not available, render as plain text to fail closed.
 	if (typeof DOMPurify === 'undefined') {
-		console.warn('editControl2: DOMPurify not loaded — rendering eform content as plain text to prevent XSS.');
+		if (typeof console !== 'undefined' && console.warn) {
+			console.warn('editControl2: DOMPurify not loaded — rendering eform content as plain text to prevent XSS.');
+		}
 	}
 	var sanitized = (typeof DOMPurify !== 'undefined') ? DOMPurify.sanitize(value) : '';
 
