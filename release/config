@@ -258,39 +258,7 @@ else
                 systemctl daemon-reload
          fi
 fi
-
-if [ ! -d "/etc/systemd/system/${TOMCAT}.service.d" ] ; then
-	if [ -f /lib/systemd/system/${TOMCAT}.service ] ; then
-        	#test to see if entry present already
-                if grep -Fq "${BASE_DOCUMENT_DIR}/" /lib/systemd/system/${TOMCAT}.service ; then
-			echo "Tomcat already has read write on ${BASE_DOCUMENT_DIR}/"
-                else
-                	# Remove stale legacy path if present
-                        sed -i '/ReadWritePaths=\/var\/lib\/OscarDocument\//d' /lib/systemd/system/${TOMCAT}.service 2>>$LOG_FILE || true
-                        sed -i "/ReadWritePaths=\/var\/log\/${TOMCAT}\//a ReadWritePaths=${BASE_DOCUMENT_DIR}/" /lib/systemd/system/${TOMCAT}.service
-                        grep -qF "ReadWritePaths=/tmp/" /lib/systemd/system/${TOMCAT}.service || sed -i "/ReadWritePaths=\/var\/log\/${TOMCAT}\//a ReadWritePaths=\/tmp\/" /lib/systemd/system/${TOMCAT}.service
-						echo "Edited ${TOMCAT}.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp/"
-                        echo "Edited /lib/systemd/system/${TOMCAT}.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp/" >>$LOG_FILE
-                        systemctl daemon-reload
-                 fi
-	fi
-fi
-if [ -f /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service ] ; then
-	#test to see if entry present already
-	if grep -Fq "${BASE_DOCUMENT_DIR}/" /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service ; then
-        	# in Ubuntu this file is actually a link to tomcatX.service
-                echo "Tomcat already has read write on ${BASE_DOCUMENT_DIR}/ with an entry in ${TOMCAT}.service" >>$LOG_FILE
-        else
-                # Remove stale legacy path if present
-                sed -i '/ReadWritePaths=\/var\/lib\/OscarDocument\//d' /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service 2>>$LOG_FILE || true
-                sed -i "/ReadWritePaths=\/var\/log\/${TOMCAT}\//a ReadWritePaths=${BASE_DOCUMENT_DIR}/" /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service
-                grep -qF "ReadWritePaths=/tmp/" /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service || sed -i "/ReadWritePaths=\/var\/log\/${TOMCAT}\//a ReadWritePaths=\/tmp\/" /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service
-                echo "Edited tomcatX.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp"
-                echo "Edited /etc/systemd/system/multi-user.target.wants/${TOMCAT}.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp" >>$LOG_FILE
-                systemctl daemon-reload
-	fi
-fi
-                        
+                   
 
 #GEOIP=$(curl --silent -f http://freegeoip.net/csv/ |  tr -d '"')
 #echo GEOIP=$GEOIP >>$LOG_FILE
