@@ -244,8 +244,8 @@ if [ -d "/etc/systemd/system/${TOMCAT}.service.d" ] ; then
         echo "Created /etc/systemd/system/${TOMCAT}.service.d/override.conf so that ${TOMCAT} read and write on ${BASE_DOCUMENT_DIR}" >>$LOG_FILE
         echo "Allowing ${TOMCAT} read and write on ${BASE_DOCUMENT_DIR}/ and /tmp/ by override"
         	systemctl daemon-reload
-else
-	#test to see if the ReadWritePaths entry is already present
+	else
+		#test to see if the ReadWritePaths entry is already present
         if grep -Fq "ReadWritePaths=${BASE_DOCUMENT_DIR}/" /etc/systemd/system/${TOMCAT}.service.d/override.conf ; then
         	echo "Tomcat already has an override set, not modified"
         else
@@ -257,8 +257,8 @@ else
                 echo "Added Tomcat read and write on ${BASE_DOCUMENT_DIR}/ and /tmp/ to existing override /etc/systemd/system/${TOMCAT}.service.d/override.conf"  >>$LOG_FILE
                 systemctl daemon-reload
          fi
-fi
-                   
+	fi
+fi                   
 
 #GEOIP=$(curl --silent -f http://freegeoip.net/csv/ |  tr -d '"')
 #echo GEOIP=$GEOIP >>$LOG_FILE
