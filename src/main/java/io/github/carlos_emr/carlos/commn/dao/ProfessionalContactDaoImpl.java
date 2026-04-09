@@ -185,35 +185,48 @@ public class ProfessionalContactDaoImpl extends AbstractDaoImpl<ProfessionalCont
         StringBuilder validatedOrderBy = new StringBuilder();
         String[] orderByParts = orderBy.split(",");
 
-        for (int i = 0; i < orderByParts.length; i++) {
-            String part = orderByParts[i].trim();
-            if (part.isEmpty()) continue;
-
-            if (part.startsWith("c.")) {
-                part = part.substring(2);
+        for (String rawPart : orderByParts) {
+            String part = rawPart == null ? "" : rawPart.trim();
+            if (part.isEmpty()) {
+                continue;
             }
 
-            String[] columnAndOrder = part.split("\\s+");
-            String column = columnAndOrder[0];
-            String sortOrder = "";
-
-            if (columnAndOrder.length > 1) {
-                String order = columnAndOrder[1].toUpperCase();
-                if ("ASC".equals(order) || "DESC".equals(order)) {
-                    sortOrder = " " + order;
-                }
+            if (part.regionMatches(true, 0, "c.", 0, 2)) {
+                part = part.substring(2).trim();
             }
 
+            String[] tokens = part.split("\\s+");
+            if (tokens.length == 0 || tokens[0].isEmpty()) {
+                continue;
+            }
+            if (tokens.length > 2) {
+                String truncated = part.length() > 50 ? part.substring(0, 50) : part;
+                throw new IllegalArgumentException("Invalid sort clause: " + truncated);
+            }
+
+            String column = tokens[0];
             String safeColumn = VALID_ORDER_BY_COLUMNS.get(column);
             if (safeColumn == null) {
                 String truncated = column.length() > 50 ? column.substring(0, 50) : column;
                 throw new IllegalArgumentException("Invalid sort column: " + truncated);
             }
 
-            if (i > 0) {
+            String direction = "";
+            if (tokens.length == 2) {
+                if ("ASC".equalsIgnoreCase(tokens[1])) {
+                    direction = " ASC";
+                } else if ("DESC".equalsIgnoreCase(tokens[1])) {
+                    direction = " DESC";
+                } else {
+                    String truncated = tokens[1].length() > 50 ? tokens[1].substring(0, 50) : tokens[1];
+                    throw new IllegalArgumentException("Invalid sort direction: " + truncated);
+                }
+            }
+
+            if (validatedOrderBy.length() > 0) {
                 validatedOrderBy.append(", ");
             }
-            validatedOrderBy.append("c.").append(safeColumn).append(sortOrder);
+            validatedOrderBy.append("c.").append(safeColumn).append(direction);
         }
 
         return validatedOrderBy.length() > 0 ? validatedOrderBy.toString() : "c.lastName, c.firstName";
