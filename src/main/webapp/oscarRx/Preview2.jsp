@@ -34,8 +34,6 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData, io.github.carlos_emr.carlos.providers.data.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.data.*" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-
 <%@ page import="io.github.carlos_emr.*,
                  java.lang.*,
                  java.util.Date,
@@ -352,7 +350,7 @@
                                     }
                                 %>
                                 <input type="hidden" name="doctorName"
-                                       value="<%= StringEscapeUtils.escapeHtml4(doctorName) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(doctorName) %>"/>
                                 <c:choose>
                                     <c:when test="${empty infirmaryView_programAddress}">
                                         <%
@@ -366,9 +364,9 @@
                                             request.setAttribute("phone", finalPhone);
                                         %>
                                         <input type="hidden" name="clinicName"
-                                               value="<%= StringEscapeUtils.escapeHtml4(clinicTitle.replaceAll("(<br>)","\\\n")) %>"/>
+                                               value="<%= Encode.forHtmlAttribute(clinicTitle.replaceAll("(<br>)","\\\n")) %>"/>
                                         <input type="hidden" name="clinicPhone"
-                                               value="<%= StringEscapeUtils.escapeHtml4(finalPhone) %>"/>
+                                               value="<%= Encode.forHtmlAttribute(finalPhone) %>"/>
                                         <input type="hidden" id="finalFax" name="clinicFax" value=""/>
                                     </c:when>
                                     <c:otherwise>
@@ -395,16 +393,16 @@
                                     </c:otherwise>
                                 </c:choose>
                                 <input type="hidden" name="patientName"
-                                       value="<%= StringEscapeUtils.escapeHtml4(patient.getFirstName())+ " " +StringEscapeUtils.escapeHtml4(patient.getSurname()) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(patient.getFirstName())+ " " +Encode.forHtmlAttribute(patient.getSurname()) %>"/>
                                 <input type="hidden" name="patientDOB"
-                                       value="<%= StringEscapeUtils.escapeHtml4(patientDOBStr) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(patientDOBStr) %>"/>
                                 <input type="hidden" name="pharmaFax" value="<%=pharmaFax%>"/>
                                 <input type="hidden" name="pharmaName" value="<%=pharmaName%>"/>
-                                <input type="hidden" name="pracNo" value="<%= StringEscapeUtils.escapeHtml4(pracNo) %>"/>
+                                <input type="hidden" name="pracNo" value="<%= Encode.forHtmlAttribute(pracNo) %>"/>
                                 <input type="hidden" name="showPatientDOB" value="<%=showPatientDOB%>"/>
                                 <input type="hidden" name="pdfId" id="pdfId" value=""/>
                                 <input type="hidden" name="patientAddress"
-                                       value="<%= StringEscapeUtils.escapeHtml4(patientAddress) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(patientAddress) %>"/>
                                 <%
                                     int check = (patientCity.trim().length() > 0 ? 1 : 0) | (patientProvince.trim().length() > 0 ? 2 : 0);
                                     String patientCityPostal = String.format("%s%s%s %s",
@@ -419,18 +417,18 @@
                                     }
                                 %>
                                 <input type="hidden" name="patientCityPostal"
-                                       value="<%= StringEscapeUtils.escapeHtml4(patientCityPostal)%>"/>
+                                       value="<%= Encode.forHtmlAttribute(patientCityPostal)%>"/>
                                 <input type="hidden" name="patientHIN"
-                                       value="<%= StringEscapeUtils.escapeHtml4(patientHin) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(patientHin) %>"/>
                                 <input type="hidden" name="patientChartNo"
-                                       value="<%=StringEscapeUtils.escapeHtml4(ptChartNo)%>"/>
+                                       value="<%=Encode.forHtmlAttribute(ptChartNo)%>"/>
                                 <input type="hidden" name="bandNumber" value="${ bandNumber }"/>
                                 <input type="hidden" name="patientPhone"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgTel"/>: <%=StringEscapeUtils.escapeHtml4(patientPhone) %>"/>
+                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="RxPreview.msgTel"/>: <%=Encode.forHtmlAttribute(patientPhone) %>"/>
                                 <input type="hidden" name="rxDate"
-                                       value="<%= StringEscapeUtils.escapeHtml4(RxUtil.DateToString(rxDate, "MMMM d, yyyy")) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(RxUtil.DateToString(rxDate, "MMMM d, yyyy")) %>"/>
                                 <input type="hidden" name="sigDoctorName"
-                                       value="<%= StringEscapeUtils.escapeHtml4(doctorName) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(doctorName) %>"/>
                                 <!--img src="img/prescript.gif" border="0"-->
                             </th>
                             <th valign=top height="100px" id="clinicAddress">
@@ -505,7 +503,7 @@
                         <tr>
                             <th colspan=2 valign=top height="75px">
 								<span style="float: left">
-									<%= Encode.forHtmlContent(patient.getFirstName()) %> <%= Encode.forHtmlContent(patient.getSurname()) %> <%if (showPatientDOB) {%><br>DOB:<%= Encode.forHtmlContent(StringEscapeUtils.escapeHtml4(patientDOBStr)) %> <%}%><br>
+									<%= Encode.forHtmlContent(patient.getFirstName()) %> <%= Encode.forHtmlContent(patient.getSurname()) %> <%if (showPatientDOB) {%><br>DOB:<%= Encode.forHtmlContent(patientDOBStr) %> <%}%><br>
 										<%= Encode.forHtmlContent(patientAddress) %><br>
 										<%= Encode.forHtmlContent(patientCityPostal) %><br>
 										<%= Encode.forHtmlContent(patientPhone) %><br>
@@ -686,7 +684,7 @@
                         </tr>
 
                         <input type="hidden" name="rx"
-                               value="<%= StringEscapeUtils.escapeHtml4(strRx.replaceAll(";","\\\n")) %>"/>
+                               value="<%= Encode.forHtmlAttribute(strRx.replaceAll(";","\\\n")) %>"/>
                         <input type="hidden" name="rx_no_newlines" value="<%= strRxNoNewLines.toString() %>"/>
                         <input type="hidden" name="additNotes" value=""/>
                         </tbody>

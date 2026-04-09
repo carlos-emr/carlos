@@ -52,7 +52,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

@@ -14,7 +14,6 @@
 %>
 
 <%@ page errorPage="/errorpage.jsp" import="java.util.*" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%
@@ -109,7 +108,7 @@
             }
     %>
     <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
-           value="<%=StringEscapeUtils.escapeHtml4(request.getParameter(temp))%>"/>
+           value="<%=Encode.forHtmlAttribute(request.getParameter(temp))%>"/>
     <%
         }
     %>
@@ -135,7 +134,7 @@
             String temp = e.nextElement().toString();
     %>
     <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
-           value="<%=StringEscapeUtils.escapeHtml4(prop.getProperty(temp, ""))%>"/>
+           value="<%=Encode.forHtmlAttribute(prop.getProperty(temp, ""))%>"/>
     <%
         }
     %>

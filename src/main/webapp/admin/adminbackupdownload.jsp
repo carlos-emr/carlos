@@ -36,7 +36,7 @@
       java.io.*,
       java.net.*,
       org.apache.commons.io.FileUtils,
-      org.apache.commons.text.StringEscapeUtils,
+      org.owasp.encoder.Encode,
       io.github.carlos_emr.CarlosProperties,
       io.github.carlos_emr.carlos.util.FileSortByDate
 " %>
@@ -138,7 +138,7 @@
                   }
 
                   // 2) XSS-safe name
-                  String safeName = StringEscapeUtils.escapeHtml4(name);
+                  String safeName = Encode.forHtml(name);
 
                   String encoded = URLEncoder.encode(name, "UTF-8");
                   long bytes = f.length();
