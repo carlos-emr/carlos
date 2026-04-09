@@ -68,6 +68,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private MockedStatic<EFormUtil> eFormUtilMock;
     private MockedStatic<EFormLoader> eFormLoaderMock;
+    private AutoCloseable mockitoMocks;
 
     @Mock private SecurityInfoManager mockSecurityInfoManager;
     @Mock private EformDataManager mockEformDataManager;
@@ -80,7 +81,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        mockitoMocks = MockitoAnnotations.openMocks(this);
 
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
@@ -122,12 +123,6 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         eFormLoaderMock.when(EFormLoader::getInstance).thenReturn(mock(EFormLoader.class));
         eFormLoaderMock.when(EFormLoader::getOpener).thenReturn("oscarOPEN=");
 
-        // Register Spring beans with explicit mock instances (overrides auto-created ones)
-        registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
-        registerMock(EformDataManager.class, mockEformDataManager);
-        registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
-        registerMock(EmailManager.class, mockEmailManager);
-
         // Allow eform write privilege
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq("w"), isNull()))
             .thenReturn(true);
@@ -144,11 +139,12 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         if (eFormLoaderMock != null) eFormLoaderMock.close();
         if (eFormUtilMock != null) eFormUtilMock.close();
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
+        if (mockitoMocks != null) mockitoMocks.close();
     }
 
     @Test
@@ -186,13 +182,27 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
     void shouldNotWriteToSession_whenEformLinkIsAbsent() {
         // No eform_link parameter set
 
+        // Capture session attribute names before execute
+        HttpSession session = mockRequest.getSession();
+        java.util.Set<String> attrsBefore = new java.util.HashSet<>();
+        java.util.Enumeration<String> namesBefore = session.getAttributeNames();
+        while (namesBefore.hasMoreElements()) {
+            attrsBefore.add(namesBefore.nextElement());
+        }
+
         AddEForm2Action action = new AddEForm2Action();
         action.execute();
 
-        HttpSession session = mockRequest.getSession();
-        assertThat(session.getAttributeNames().hasMoreElements())
-            .as("Session should remain empty when eform_link parameter is absent")
-            .isFalse();
+        // Capture session attribute names after execute
+        java.util.Set<String> attrsAfter = new java.util.HashSet<>();
+        java.util.Enumeration<String> namesAfter = session.getAttributeNames();
+        while (namesAfter.hasMoreElements()) {
+            attrsAfter.add(namesAfter.nextElement());
+        }
+
+        assertThat(attrsAfter)
+            .as("No new session attributes should be added when eform_link parameter is absent")
+            .isEqualTo(attrsBefore);
     }
 
     @Test

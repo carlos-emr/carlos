@@ -91,7 +91,7 @@ public class AddEForm2Action extends ActionSupport {
      * Validates an eform_link value against the expected key format.
      *
      * <p>Returns the value unchanged if it matches the expected format, or {@code null}
-     * if the value is invalid or null. Invalid values are logged at WARN level.</p>
+     * if the value is invalid or null. Non-null invalid values are logged at WARN level.</p>
      *
      * @param eformLink the raw eform_link parameter value (may be null)
      * @return the validated eform_link, or null if invalid
@@ -196,7 +196,7 @@ public class AddEForm2Action extends ActionSupport {
                 openerValues.add(null);
                 continue;
             }
-            String val = (String) se.getAttribute(lnk);
+            String val = (String) se.getAttribute(lnk); // nosemgrep: tainted-session-from-http-request -- key is validated by validateEformLink()
             openerValues.add(val);
             if (val != null) se.removeAttribute(lnk); // nosemgrep: tainted-session-from-http-request -- session cleanup
         }
