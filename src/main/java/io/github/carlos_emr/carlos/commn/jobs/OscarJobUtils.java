@@ -142,7 +142,10 @@ public class OscarJobUtils {
             throw new SecurityException("Job class outside allowed package: "
                     + LogSanitizer.sanitize(jobClassName));
         }
-        OscarRunnable oscarRunnableInstance = (OscarRunnable) Class.forName(jobClassName).newInstance();
+        OscarRunnable oscarRunnableInstance = Class.forName(jobClassName)
+                .asSubclass(OscarRunnable.class)
+                .getDeclaredConstructor()
+                .newInstance();
 
         Security security = new Security();
         security.setSecurityNo(0);
