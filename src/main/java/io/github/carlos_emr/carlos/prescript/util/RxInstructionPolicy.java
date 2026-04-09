@@ -116,7 +116,7 @@ public class RxInstructionPolicy {
 
     /** A.S. (auris sinistra, left ear) — easily confused with A.D./A.U. */
     private static final Pattern[] PATTERNS_AS = compile(
-            "(?:^|\\s)(?i)A\\.?S\\.?(?=\\s|$)"
+            "(?:^|\\s)(?i)(?:A\\.S\\.?|A\\.?S\\.)(?=\\s|$)"
     );
 
     /** A.D. (auris dextra, right ear) — easily confused with A.S./A.U. */
