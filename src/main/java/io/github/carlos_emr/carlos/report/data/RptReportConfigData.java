@@ -135,7 +135,13 @@ public class RptReportConfigData {
         Vector ret = new Vector();
         String sql = "select * from reportConfig where report_id=? and save = ?"
                 + " order by order_no, id";
-        ResultSet rs = DBHelp.searchDBRecord(sql, Integer.parseInt(reportId), saveAs);
+        int parsedReportId;
+        try {
+            parsedReportId = Integer.parseInt(reportId);
+        } catch (NumberFormatException e) {
+            return ret;
+        }
+        ResultSet rs = DBHelp.searchDBRecord(sql, parsedReportId, saveAs);
         while (rs.next()) {
 
             if (DBHelp.getString(rs, "name").matches(RptTableShadowFieldConst.fieldName)) {
