@@ -30,7 +30,9 @@
 package io.github.carlos_emr.carlos.report.data;
 
 import java.io.IOException;
-import java.io.PrintStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 import jakarta.servlet.ServletException;
@@ -78,26 +80,28 @@ public class PatientListByAppt extends HttpServlet {
 
             OscarAppointmentDao dao = SpringUtils.getBean(OscarAppointmentDao.class);
 
-            PrintStream ps = new PrintStream(response.getOutputStream());
+            try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(
+                    response.getOutputStream(), StandardCharsets.UTF_8), true)) {
 
-            for (Object[] o : dao.findPatientAppointments(drNo, from, to)) {
-                Demographic d = (Demographic) o[0];
-                Appointment a = (Appointment) o[1];
-                Provider p = (Provider) o[2];
+                for (Object[] o : dao.findPatientAppointments(drNo, from, to)) {
+                    Demographic d = (Demographic) o[0];
+                    Appointment a = (Appointment) o[1];
+                    Provider p = (Provider) o[2];
 
-                ps.print(d.getLastName() + ",");
-                ps.print(d.getFirstName() + ",");
-                ps.print(d.getPhone() + ",");
-                ps.print(d.getPhone2() + ",");
-                ps.print(ConversionUtils.toTimeString(a.getStartTime()) + ",");
-                ps.print(ConversionUtils.toDateString(a.getAppointmentDate()) + ",");
-                ps.print(a.getType().replaceAll("\r\n", "") + ",");
-                ps.print(p.getFirstName() + " ");
-                ps.print(p.getLastName() + ",");
-                ps.print(a.getLocation());
-                ps.print("\n");
+                    pw.print(d.getLastName() + ",");
+                    pw.print(d.getFirstName() + ",");
+                    pw.print(d.getPhone() + ",");
+                    pw.print(d.getPhone2() + ",");
+                    pw.print(ConversionUtils.toTimeString(a.getStartTime()) + ",");
+                    pw.print(ConversionUtils.toDateString(a.getAppointmentDate()) + ",");
+                    pw.print(a.getType().replaceAll("\r\n", "") + ",");
+                    pw.print(p.getFirstName() + " ");
+                    pw.print(p.getLastName() + ",");
+                    pw.print(a.getLocation());
+                    pw.print("\n");
+                }
+                pw.println("");
             }
-            ps.println("");
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
