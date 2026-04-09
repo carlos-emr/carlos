@@ -47,6 +47,7 @@ public class HashAudit extends AbstractModel<Integer> {
 
     public final static String NOTE = "enc";
     public final static String ALGORITHM = "MD5";
+    private static final HexFormat HEX_FORMAT = HexFormat.of();
 
 
     @Id
@@ -122,7 +123,7 @@ public class HashAudit extends AbstractModel<Integer> {
             MessageDigest digest = MessageDigest.getInstance(ALGORITHM);
             digest.update(input);
             byte[] bHash = digest.digest();
-            setSignature(HexFormat.of().formatHex(bHash));
+            setSignature(HEX_FORMAT.formatHex(bHash));
         } catch (NoSuchAlgorithmException e) {
             MiscUtils.getLogger().error("Error", e);
         }
