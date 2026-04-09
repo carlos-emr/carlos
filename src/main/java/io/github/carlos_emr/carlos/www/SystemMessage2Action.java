@@ -73,8 +73,13 @@ public class SystemMessage2Action extends ActionSupport {
             if (!messageId.matches("\\d{1,9}")) {
                 throw new IllegalArgumentException("Invalid message id");
             }
-            SystemMessage msg = systemMessageDao.find(Integer.parseInt(messageId));
 
+            long parsedMessageId = Long.parseLong(messageId);
+            if (parsedMessageId > Integer.MAX_VALUE) {
+                throw new IllegalArgumentException("Invalid message id");
+            }
+
+            SystemMessage msg = systemMessageDao.find((int) parsedMessageId);
             if (msg == null) {
                 addActionMessage(getText("system_message.missing"));
                 return list();

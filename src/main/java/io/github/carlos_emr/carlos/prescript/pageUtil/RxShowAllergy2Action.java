@@ -315,7 +315,16 @@ public final class RxShowAllergy2Action extends ActionSupport {
         if (allergyIdParam == null || !allergyIdParam.matches("\\d{1,9}")) {
             throw new IllegalArgumentException("Invalid allergyId");
         }
-        int allergyId = Integer.parseInt(allergyIdParam);
+        int allergyId;
+        try {
+            long parsedAllergyId = Long.parseLong(allergyIdParam);
+            if (parsedAllergyId > Integer.MAX_VALUE) {
+                throw new IllegalArgumentException("Invalid allergyId");
+            }
+            allergyId = (int) parsedAllergyId;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid allergyId", e);
+        }
         try {
             Allergy[] allergies = RxPatientData.getPatient(loggedInInfo, demographicNo).getActiveAllergies();
             for (int x = 0; x < allergies.length; x++) {
