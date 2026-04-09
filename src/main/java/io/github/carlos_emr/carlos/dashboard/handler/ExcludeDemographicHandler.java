@@ -198,8 +198,13 @@ public class ExcludeDemographicHandler {
 
         String[] tokens = stripped.split(",");
         List<Integer> result = new ArrayList<>(tokens.length);
-        for (String token : tokens) {
-            result.add(Integer.parseInt(token.strip()));
+        try {
+            for (String token : tokens) {
+                result.add(Integer.parseInt(token.strip()));
+            }
+        } catch (NumberFormatException e) {
+            logger.warn("Integer overflow in array input: {}", LogSanitizer.sanitize(input));
+            return List.of();
         }
         return result;
     }

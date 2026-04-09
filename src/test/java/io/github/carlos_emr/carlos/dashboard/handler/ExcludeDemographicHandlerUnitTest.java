@@ -190,6 +190,14 @@ class ExcludeDemographicHandlerUnitTest {
             handler.excludeDemoIds(" 1 , 2 , 3 ", "testIndicator");
             verify(mockDao, times(3)).addKey(anyString(), anyInt(), anyString(), anyString());
         }
+
+        @Test
+        @DisplayName("should reject integer overflow values gracefully")
+        void shouldRejectIntegerOverflow() {
+            Mockito.clearInvocations(mockDao);
+            handler.excludeDemoIds("99999999999999999999", "testIndicator");
+            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+        }
     }
 
     @Nested
