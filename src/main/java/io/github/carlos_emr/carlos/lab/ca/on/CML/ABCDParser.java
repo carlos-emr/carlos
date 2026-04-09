@@ -154,6 +154,7 @@ public class ABCDParser {
 
         int count = 0;
         try {
+            int[] countHolder = new int[] { 0 };
 
             if (CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
                 sql = "select demographic_no from demographic where hin=? and "
@@ -161,19 +162,8 @@ public class ABCDParser {
                         + " month_of_birth like ? and "
                         + " date_of_birth like ? and "
                         + " sex like ? ";
-                try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                    pstmt.setString(1, hinMod);
-                    pstmt.setString(2, dobYear);
-                    pstmt.setString(3, dobMonth);
-                    pstmt.setString(4, dobDay);
-                    pstmt.setString(5, sex + "%");
-                    try (ResultSet rs = pstmt.executeQuery()) {
-                        while (rs.next()) {
-                            count++;
-                            demo = Misc.getString(rs, "demographic_no");
-                        }
-                    }
-                }
+                demo = executePatientLookup(conn, sql, countHolder,
+                        hinMod, dobYear, dobMonth, dobDay, sex + "%");
             } else {
                 sql = "select demographic_no from demographic where hin=? and "
                         + " last_name like ? and "
@@ -182,22 +172,12 @@ public class ABCDParser {
                         + " month_of_birth like ? and "
                         + " date_of_birth like ? and "
                         + " sex like ? ";
-                try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                    pstmt.setString(1, hinMod);
-                    pstmt.setString(2, lastName.substring(0, 1) + "%");
-                    pstmt.setString(3, firstName.substring(0, 1) + "%");
-                    pstmt.setString(4, dobYear);
-                    pstmt.setString(5, dobMonth);
-                    pstmt.setString(6, dobDay);
-                    pstmt.setString(7, sex + "%");
-                    try (ResultSet rs = pstmt.executeQuery()) {
-                        while (rs.next()) {
-                            count++;
-                            demo = Misc.getString(rs, "demographic_no");
-                        }
-                    }
-                }
+                demo = executePatientLookup(conn, sql, countHolder,
+                        hinMod, lastName.substring(0, 1) + "%",
+                        firstName.substring(0, 1) + "%",
+                        dobYear, dobMonth, dobDay, sex + "%");
             }
+            count = countHolder[0];
         } catch (SQLException sqlE) {
             MiscUtils.getLogger().error("Error", sqlE);
         }
@@ -216,6 +196,26 @@ public class ABCDParser {
 
     }
     /////
+
+    /**
+     * Executes a parameterized patient lookup query and returns the demographic_no.
+     * Counts matching rows via the provided countHolder array (single-element int array).
+     */
+    private static String executePatientLookup(Connection conn, String sql, int[] countHolder, String... params) throws SQLException {
+        String demo = "0";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            for (int i = 0; i < params.length; i++) {
+                pstmt.setString(i + 1, params[i]);
+            }
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    countHolder[0]++;
+                    demo = Misc.getString(rs, "demographic_no");
+                }
+            }
+        }
+        return demo;
+    }
 
 
     private HashMap<String, String> getProviderHash(Connection conn) {

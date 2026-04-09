@@ -231,30 +231,34 @@ public class BillingmasterDAO {
                 + "from billing b, "
                 + " billingmaster bm where b.billing_no= bm.billing_no and bm.billingstatus = :statusType");
 
-        if (providerNo != null && !providerNo.trim().equalsIgnoreCase("all")) {
+        boolean hasProviderNo = providerNo != null && !providerNo.trim().equalsIgnoreCase("all");
+        boolean hasStartDate = startDate != null && !startDate.trim().isEmpty();
+        boolean hasEndDate = endDate != null && !endDate.trim().isEmpty();
+
+        if (hasProviderNo) {
             sb.append(" and b.provider_no = :providerNo");
         }
 
-        if (startDate != null && !startDate.trim().equalsIgnoreCase("")) {
+        if (hasStartDate) {
             sb.append(" and ( to_days(service_date) > to_days(:startDate)) ");
         }
 
-        if (endDate != null && !endDate.trim().equalsIgnoreCase("")) {
+        if (hasEndDate) {
             sb.append(" and ( to_days(service_date) < to_days(:endDate)) ");
         }
 
         Query query = entityManager.createNativeQuery(sb.toString());
         query.setParameter("statusType", statusType.trim());
 
-        if (providerNo != null && !providerNo.trim().equalsIgnoreCase("all")) {
+        if (hasProviderNo) {
             query.setParameter("providerNo", providerNo.trim());
         }
 
-        if (startDate != null && !startDate.trim().equalsIgnoreCase("")) {
+        if (hasStartDate) {
             query.setParameter("startDate", startDate.trim());
         }
 
-        if (endDate != null && !endDate.trim().equalsIgnoreCase("")) {
+        if (hasEndDate) {
             query.setParameter("endDate", endDate.trim());
         }
 
