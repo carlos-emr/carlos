@@ -67,4 +67,4 @@ rules:
           - pattern: (org.slf4j.Logger $LOG).$METHOD(...)
           - metavariable-regex:
               metavariable: $METHOD
-              regex: ^(trace|debug|info|warn|error|fatal|log)$
+              regex: ^(trace|debug|info|warn|error)$
