@@ -461,7 +461,7 @@
                 // CARLOS targets ES5+ browsers; this polyfill block is only entered
                 // when window.JSON is missing (pre-IE8) which is unsupported.
                 if (typeof JSON === 'undefined' || typeof JSON.parse !== 'function') {
-                    throw new Error('JSON.parse is required; CARLOS does not support pre-ES5 browsers');
+                    throw new Error('JSON.parse is required; pre-ES5 browsers are not supported');
                 }
                 j = JSON.parse(text);
 
