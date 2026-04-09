@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="org.apache.logging.log4j.Logger,io.github.carlos_emr.carlos.commn.dao.OscarLogDao,io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -56,6 +57,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <jsp:include page="/images/spinner.jsp" flush="true"/>
 <script>
     const contextPath = "<e:forJavaScript value='${pageContext.request.contextPath}' />";
+    const inboxSearchLabel = "<fmt:message key='inboxhub.form.search'/>";
 
     /**
      * Toggles the inbox search sidebar between collapsed (hidden) and expanded.
@@ -67,10 +69,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         var toggle = document.getElementById('inbox-sidebar-toggle');
         if (sidebar.style.display === 'none') {
             sidebar.style.display = '';
-            toggle.textContent = '\u25C0 Search';
+            toggle.textContent = '\u25C0 ' + inboxSearchLabel;
         } else {
             sidebar.style.display = 'none';
-            toggle.textContent = '\u25B6 Search';
+            toggle.textContent = '\u25B6 ' + inboxSearchLabel;
         }
     }
 </script>
@@ -79,15 +81,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     <div class="row">
         <nav class="inbox-topbar">
             <jsp:include page="InboxhubTopbar.jsp"/>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="if (window.opener) { window.close(); } else { window.history.back(); }" style="margin-left:auto;">Close</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="if (window.opener) { window.close(); } else { window.history.back(); }" style="margin-left:auto;"><fmt:message key="global.btnClose"/></button>
         </nav>
     </div>
     <div class="row flex-nowrap">
         <%-- Collapsible search sidebar: collapsed by default, toggles via the narrow strip --%>
         <div id="inbox-sidebar-toggle" class="px-0" onclick="toggleInboxSidebar()"
-             title="Toggle search panel"
+             title="<fmt:message key='inboxhub.form.search'/>"
              style="width:20px;cursor:pointer;background:#e9ecef;display:flex;align-items:center;justify-content:center;border-right:1px solid #ccc;flex-shrink:0;writing-mode:vertical-rl;font-size:11px;color:#666;user-select:none;">
-            &#9654; Search
+            &#9654; <fmt:message key="inboxhub.form.search"/>
         </div>
         <div id="inbox-sidebar" class="col-auto px-0 m-1" style="display:none;">
             <div class="bg-light text-dark inbox-form" style="display: inline-block;">

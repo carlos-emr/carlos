@@ -439,6 +439,15 @@ var CarlosAjax = (function () {
 
     /**
      * Insert HTML content into an element, optionally running scripts.
+     *
+     * SECURITY ASSUMPTION: The html parameter contains trusted same-origin server
+     * responses (OWASP-encoded JSP output from internal CARLOS EMR endpoints).
+     * The script regex extraction is intentional Prototype.js compatibility behavior
+     * for AJAX-loaded page fragments — it is NOT a security sanitizer.
+     * CodeQL flags this as js/bad-tag-filter and js/incomplete-multi-character-sanitization;
+     * these are known false positives for this use case.
+     * See: docs/prototype-to-vanilla-js-migration-plan.md (evalScripts behavior)
+     *
      * @param {HTMLElement} element - Target element
      * @param {string} html - HTML content to insert
      * @param {string} [insertion] - Position: 'bottom', 'top', 'before', 'after'

@@ -144,8 +144,12 @@
                 String appt_no = (String) session.getAttribute("cur_appointment_no");
                 String location = null;
                 if (appt_no != null) {
-                    Appointment result = appointmentDao.find(Integer.parseInt(appt_no));
-                    if (result != null) location = result.getLocation();
+                    try {
+                        Appointment result = appointmentDao.find(Integer.parseInt(appt_no));
+                        if (result != null) location = result.getLocation();
+                    } catch (NumberFormatException e) {
+                        // Malformed appointment number in session — skip location lookup
+                    }
                 }
 
                 RxProviderData.Provider rxprovider = new RxProviderData().getProvider(bean.getProviderNo());
