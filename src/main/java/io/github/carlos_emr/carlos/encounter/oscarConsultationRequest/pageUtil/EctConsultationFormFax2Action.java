@@ -229,7 +229,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 
                     // delete the source file to save some disc space
                     if (count == (faxRecipients.size() - 1)) {
-                        PathValidationUtils.validateExistingPath(faxPdf.toFile(), new File(NioFileManager.DOCUMENT_DIRECTORY));
+                        faxPdf = PathValidationUtils.validateExistingPath(faxPdf.toFile(), new File(NioFileManager.DOCUMENT_DIRECTORY)).toPath();
                         Files.deleteIfExists(faxPdf);
                     }
                 }

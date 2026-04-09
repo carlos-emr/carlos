@@ -45,9 +45,11 @@
         <action name="encounter/MeasurementData" class="io.github.carlos_emr.carlos.measurements.web.MeasurementData2Action"/>
         <action name="oscarResearch/oscarDxResearch/setupDxResearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxSetupResearch2Action">
             <result name="success">/oscarResearch/oscarDxResearch/dxResearch.jsp</result>
+            <result name="error">/errorpage.jsp</result>
         </action>
         <action name="oscarResearch/dxresearch/setupDxResearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxSetupResearch2Action">
             <result name="success">/oscarResearch/oscarDxResearch/dxResearch.jsp</result>
+            <result name="error">/errorpage.jsp</result>
         </action>
         <action name="oscarResearch/oscarDxResearch/dxResearch" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearch2Action">
             <result name="codeSearch">/oscarResearch/oscarDxResearch/dxcodeSearch.do</result>

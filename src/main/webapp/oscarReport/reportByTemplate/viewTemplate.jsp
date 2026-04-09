@@ -34,7 +34,7 @@
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
-<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.*, org.apache.commons.text.StringEscapeUtils, org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.*, org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -85,7 +85,7 @@
     <%}%>
 
     <div class="xmlBorderDiv">
-        <pre style="font-size: 11px;"><%=StringEscapeUtils.escapeHtml4(xml)%></pre>
+        <pre style="font-size: 11px;"><%=Encode.forHtml(xml)%></pre>
     </div>
 
     <div id="viewTemplateActions" class="form-actions noprint">

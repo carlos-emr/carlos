@@ -55,6 +55,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.documentManager.EDoc;
@@ -62,6 +63,8 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.eform.APExecute;
 import io.github.carlos_emr.carlos.prevention.reports.FollowupManagement;
 import io.github.carlos_emr.carlos.report.data.ManageLetters;
+
+import java.io.File;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -91,6 +94,17 @@ public class GeneratePatientLetters2Action extends ActionSupport {
         String[] demos = request.getParameterValues("demos");
         String id = request.getParameter("reportLetter");
         String providerNo = (String) request.getSession().getAttribute("user");
+
+        // Validate all demographic numbers are strictly numeric to prevent path traversal
+        // via crafted values flowing into the generated filename.
+        if (demos != null) {
+            for (String demo : demos) {
+                if (demo == null || !demo.matches("\\d+")) {
+                    log.warn("Invalid non-numeric demographic number rejected: {}", LogSanitizer.sanitize(demo));
+                    throw new SecurityException("Invalid demographic number");
+                }
+            }
+        }
 
         if (log.isTraceEnabled()) {
             if (demos == null) {
@@ -166,7 +180,12 @@ public class GeneratePatientLetters2Action extends ActionSupport {
                 }
 
                 fileName = newDoc.getFileName();
-                String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "/" + fileName;
+                File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+                File validatedFile = PathValidationUtils.validatePath(fileName, documentDir);
+                // Sync the EDoc filename with the validated (sanitized) name so the DB
+                // record matches the actual file on disk.
+                newDoc.setFileName(validatedFile.getName());
+                String savePath = validatedFile.getPath();
                 if (log.isTraceEnabled()) {
                     log.trace("writing report to disk for file {}", LogSanitizer.sanitize(fileName));
                 }

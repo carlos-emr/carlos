@@ -610,7 +610,7 @@ public class Util {
                     return false;
                 }
 
-                FileInputStream fin = new FileInputStream(f.getAbsolutePath());
+                FileInputStream fin = new FileInputStream(f.getAbsolutePath()); // codeql[java/path-injection] — validated by isPathWithinDirectory (PathValidationUtils) guard above
 
                 String dir = dirs.get(x);
 

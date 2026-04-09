@@ -59,7 +59,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
+
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
 <%@page import="io.github.carlos_emr.CarlosProperties,io.github.carlos_emr.carlos.log.*" %>
@@ -1129,7 +1129,7 @@ function renderRxStage() {
                             					%>
                             						<tr>
                             							<td><%=formatter.format(note.getCreate_date()) %></td>
-                                                    <td><%=StringEscapeUtils.escapeHtml4(str)%>
+                                                    <td><%=Encode.forHtml(str)%>
                                                     </td>
                             						</tr>
                             					<% 

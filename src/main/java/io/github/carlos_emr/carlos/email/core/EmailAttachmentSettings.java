@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.email.core;
 
 import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 import java.util.Arrays;
 import java.util.Set;
@@ -90,6 +92,11 @@ public record EmailAttachmentSettings(
     /**
      * Creates an EmailAttachmentSettings instance from an HTTP request.
      * Validates and sanitizes raw user input parameters before storage.
+     *
+     * <p>Boolean parameters are validated via {@code "true".equals()} / {@code !"false".equals()}
+     * patterns (safe against arbitrary input). String parameters are sanitized: control characters
+     * are stripped from password/subject fields, email addresses are format-validated, and all
+     * string fields are length-limited to prevent unbounded session storage.</p>
      *
      * @param req The HTTP request containing the parameters.
      * @param fdid The eForm data ID.
@@ -204,15 +211,16 @@ public record EmailAttachmentSettings(
     }
 
     /**
-     * Validates the patient chart option against the known set of valid values.
+     * Validates that the chart option is one of the known allowed values.
+     * Returns null for unrecognized values to prevent unexpected behavior.
      *
-     * @param option the raw chart option from user input
-     * @return the option if valid, or null if invalid/null
+     * @param value the raw input, may be null
+     * @return the value if it matches a known option, or null otherwise
      */
-    static String validateChartOption(String option) {
-        if (option == null || !VALID_CHART_OPTIONS.contains(option)) {
+    private static String sanitizeChartOption(String value) {
+        if (value == null) {
             return null;
         }
-        return option;
+        return VALID_CHART_OPTIONS.contains(value) ? value : null;
     }
 }
