@@ -171,7 +171,9 @@ public class AddEditDocument2Action extends ActionSupport {
         try {
             docNoInt = Integer.parseInt(doc_no.trim());
         } catch (NumberFormatException e) {
-            MiscUtils.getLogger().error("Non-numeric document ID returned from addDocumentSQL");
+            MiscUtils.getLogger().error(
+                    "Non-numeric document ID returned from addDocumentSQL: '" + String.valueOf(doc_no) + "'",
+                    e);
             response.sendError(500, "Invalid document ID");
             return null;
         }
