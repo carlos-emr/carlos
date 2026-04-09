@@ -67,12 +67,10 @@ class DxDaoAllowlistUnitTest {
     private DxDaoImpl dao;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         dao = new DxDaoImpl();
-        // Inject mock EntityManager via reflection (entityManager field is in AbstractDaoImpl)
-        java.lang.reflect.Field field = AbstractDaoImpl.class.getDeclaredField("entityManager");
-        field.setAccessible(true);
-        field.set(dao, mockEntityManager);
+        // entityManager is a protected field on AbstractDaoImpl — same-package access
+        dao.entityManager = mockEntityManager;
     }
 
     @Nested
@@ -155,6 +153,20 @@ class DxDaoAllowlistUnitTest {
 
             assertThat(result).isEqualTo("Test description");
             verify(mockEntityManager).createNativeQuery(anyString());
+        }
+
+        @ParameterizedTest(name = "findCodingSystemDescription(keywords) accepts \"{0}\"")
+        @ValueSource(strings = {"icd9", "icd10", "ichppccode", "SnomedCore", "msp"})
+        @DisplayName("should execute parameterized query for valid coding system in findCodingSystemDescription(keywords)")
+        void shouldExecuteQuery_whenValidCodingSystemForKeywords(String validSystem) {
+            when(mockEntityManager.createNativeQuery(anyString())).thenReturn(mockQuery);
+            when(mockQuery.getResultList()).thenReturn(List.of());
+
+            dao.findCodingSystemDescription(validSystem, new String[]{"diabetes"});
+
+            verify(mockEntityManager).createNativeQuery(anyString());
+            verify(mockQuery).setParameter(1, "%diabetes%");
+            verify(mockQuery).setParameter(2, "%diabetes%");
         }
     }
 }
