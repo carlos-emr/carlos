@@ -1,7 +1,7 @@
 #!/bin/sh
 #==================================================================
 # Copyright Peter Hutten-Czapski 2012-26 released under the GPL v2+
-# v 0.2
+# v 0.3
 #==================================================================
 
 set -e
@@ -223,8 +223,6 @@ if [ "${TOMCAT}" = "tomcat10" ] ; then
 	# TODO
 	# may need to relocate wars from default directories
 	:
-fi
-
 fi
 
 # add carlos directory structure to the paths that tomcat9 can read and write to
