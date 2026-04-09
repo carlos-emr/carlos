@@ -93,6 +93,8 @@ public class DemographicExtService2Action extends ActionSupport {
         LogAction.addLog(providerNo, "write", id.toString(), value);
 
         String json = objectMapper.writeValueAsString(new LabelValueBean("id", String.valueOf(id)));
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().println(json);
         return null;
     }

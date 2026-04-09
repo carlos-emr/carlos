@@ -31,6 +31,7 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.CtlBillingType" %>
@@ -91,7 +92,7 @@
                                  onclick="manageBillType(bill_servicetype.value, billtype_old.value, billtype_new.value);"><br>
             </p>
             <p><input type="button" value="Delete Billing Form"
-                      onclick="onUnbilled('dbManageBillingform_delete.jsp?servicetype=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(type_id))%>');"></p>
+                      onclick="onUnbilled('<%=Encode.forJavaScript(type_id)%>');">
             <p><input type="button" value="Cancel"
                       onclick="showManageType(false);"></p>
         </td>
