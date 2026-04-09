@@ -259,15 +259,14 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         String sqlQuery = "select distinct d.demographic_no,d.first_name,d.last_name,"
             + "(select count(*) from admission a where client_id=d.demographic_no and admission_status='current' and program_id=:programId and admission_date<=:admissionDate)"
             + " as is_active from admission a,demographic d where a.client_id=d.demographic_no"
-            + " and (d.patient_status='AC' or d.patient_status='' or d.patient_status=null)"
-            + " and program_id=:programId2"
+            + " and (d.patient_status='AC' or d.patient_status='' or d.patient_status is null)"
+            + " and program_id=:programId"
             + " and (d.anonymous is null or d.anonymous != 'one-time-anonymous') ORDER BY d.last_name,d.first_name";
         Session session = currentSession();
 
         NativeQuery q = session.createNativeQuery(sqlQuery);
         q.setParameter("programId", programId);
         q.setParameter("admissionDate", dt);
-        q.setParameter("programId2", programId);
         q.addScalar("d.demographic_no");
         q.addScalar("d.first_name");
         q.addScalar("d.last_name");

@@ -92,7 +92,6 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
     }
 
     @Override
-    // nosemgrep: formatted-sql-string — table/column names from internal LookupTableDef config, values bound via DBPreparedHandler
     public List LoadCodeList(String tableId, boolean activeOnly, String parentCode, String code, String codeDesc) {
         String pCd = parentCode;
         if ("USR".equals(tableId))
@@ -195,7 +194,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         ArrayList<LookupCodeValue> list = new ArrayList<LookupCodeValue>();
 
         try {
-            ResultSet rs = db.queryResults(sSQL, pars);
+            ResultSet rs = db.queryResults(sSQL, pars); // nosemgrep: formatted-sql-string — table/column names from internal LookupTableDef config, values bound via DBPreparedHandler
             while (rs.next()) {
                 LookupCodeValue lv = new LookupCodeValue();
                 lv.setPrefix(tableId);

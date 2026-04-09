@@ -360,9 +360,10 @@ public final class MessageUploader {
         String sqlSearchOn = "ohip_no";
 
         if (search_on != null && search_on.length() > 0) {
-            // Whitelist column name to prevent SQL injection
-            if (VALID_SEARCH_COLUMNS.contains(search_on)) {
-                sqlSearchOn = search_on;
+            // Whitelist column name to prevent SQL injection (normalize before checking)
+            String normalized = search_on.trim().toLowerCase(java.util.Locale.ROOT);
+            if (VALID_SEARCH_COLUMNS.contains(normalized)) {
+                sqlSearchOn = normalized;
             }
         }
 

@@ -381,7 +381,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                     vecSpecCaption.add(propSpecSelect.getProperty(temp[i].trim()));
                     sql = "select demographic_no,value from demographicExt where key_val=? and demographic_no in (";
                     sql += strDemoNo + ") order by date_time desc limit 1"; // nosemgrep: tainted-sql-from-http-request — strDemoNo is built from prop.getProperty("demographic_no") on DB query results (line 377)
-                    ResultSet rs = DBHelp.searchDBRecord(sql, temp[i]);
+                    ResultSet rs = DBHelp.searchDBRecord(sql, temp[i].trim());
                     while (rs.next()) {
                         propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
                     }
@@ -410,7 +410,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                     sql = "select demographic_no,value from demographicExt where key_val=? and demographic_no in (";
                     sql += subFormDemoNo + ") order by date_time desc limit 1"; // nosemgrep: tainted-sql-from-http-request — subFormDemoNo built from rs.getInt() (line 403), always integer
                     MiscUtils.getLogger().debug(" demographic and demographicExt: " + sql);
-                    rs = DBHelp.searchDBRecord(sql, temp[i]);
+                    rs = DBHelp.searchDBRecord(sql, temp[i].trim());
                     while (rs.next()) {
                         propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
                     }
@@ -529,7 +529,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                     vecSpecCaption.add(propSpecSelect.getProperty(temp[i].trim()));
                     sql = "select demographic_no,value from demographicExt where key_val=? and demographic_no in (";
                     sql += strDemoNo + ") order by date_time "; // nosemgrep: tainted-sql-from-http-request — strDemoNo is built from prop.getProperty("demographic_no") on DB query results (line 525)
-                    rs = DBHelp.searchDBRecord(sql, temp[i]);
+                    rs = DBHelp.searchDBRecord(sql, temp[i].trim());
                     while (rs.next()) {
                         propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
                     }
@@ -558,7 +558,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                     vecSpecCaption.add(propSpecSelect.getProperty(temp[i].trim()));
                     sql = "select demographic_no,value from demographicExt where key_val=? and demographic_no in (";
                     sql += subFormDemoNo + ") order by date_time desc limit 1"; // nosemgrep: tainted-sql-from-http-request — subFormDemoNo built from rs.getInt() (line 553), always integer
-                    rs = DBHelp.searchDBRecord(sql, temp[i]);
+                    rs = DBHelp.searchDBRecord(sql, temp[i].trim());
                     while (rs.next()) {
                         propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
                     }

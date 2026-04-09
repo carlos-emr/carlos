@@ -161,19 +161,19 @@ public class ABCDParser {
                         + " month_of_birth like ? and "
                         + " date_of_birth like ? and "
                         + " sex like ? ";
-                PreparedStatement pstmt = conn.prepareStatement(sql);
-                pstmt.setString(1, hinMod);
-                pstmt.setString(2, dobYear);
-                pstmt.setString(3, dobMonth);
-                pstmt.setString(4, dobDay);
-                pstmt.setString(5, sex + "%");
-                ResultSet rs = pstmt.executeQuery();
-                while (rs.next()) {
-                    count++;
-                    demo = Misc.getString(rs, "demographic_no");
+                try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                    pstmt.setString(1, hinMod);
+                    pstmt.setString(2, dobYear);
+                    pstmt.setString(3, dobMonth);
+                    pstmt.setString(4, dobDay);
+                    pstmt.setString(5, sex + "%");
+                    try (ResultSet rs = pstmt.executeQuery()) {
+                        while (rs.next()) {
+                            count++;
+                            demo = Misc.getString(rs, "demographic_no");
+                        }
+                    }
                 }
-                rs.close();
-                pstmt.close();
             } else {
                 sql = "select demographic_no from demographic where hin=? and "
                         + " last_name like ? and "
@@ -182,21 +182,21 @@ public class ABCDParser {
                         + " month_of_birth like ? and "
                         + " date_of_birth like ? and "
                         + " sex like ? ";
-                PreparedStatement pstmt = conn.prepareStatement(sql);
-                pstmt.setString(1, hinMod);
-                pstmt.setString(2, lastName.substring(0, 1) + "%");
-                pstmt.setString(3, firstName.substring(0, 1) + "%");
-                pstmt.setString(4, dobYear);
-                pstmt.setString(5, dobMonth);
-                pstmt.setString(6, dobDay);
-                pstmt.setString(7, sex + "%");
-                ResultSet rs = pstmt.executeQuery();
-                while (rs.next()) {
-                    count++;
-                    demo = Misc.getString(rs, "demographic_no");
+                try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                    pstmt.setString(1, hinMod);
+                    pstmt.setString(2, lastName.substring(0, 1) + "%");
+                    pstmt.setString(3, firstName.substring(0, 1) + "%");
+                    pstmt.setString(4, dobYear);
+                    pstmt.setString(5, dobMonth);
+                    pstmt.setString(6, dobDay);
+                    pstmt.setString(7, sex + "%");
+                    try (ResultSet rs = pstmt.executeQuery()) {
+                        while (rs.next()) {
+                            count++;
+                            demo = Misc.getString(rs, "demographic_no");
+                        }
+                    }
                 }
-                rs.close();
-                pstmt.close();
             }
         } catch (SQLException sqlE) {
             MiscUtils.getLogger().error("Error", sqlE);

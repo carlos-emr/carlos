@@ -232,7 +232,7 @@ public class BillingmasterDAO {
                 + " billingmaster bm where b.billing_no= bm.billing_no and bm.billingstatus = :statusType");
 
         if (providerNo != null && !providerNo.trim().equalsIgnoreCase("all")) {
-            sb.append(" and provider_no = :providerNo");
+            sb.append(" and b.provider_no = :providerNo");
         }
 
         if (startDate != null && !startDate.trim().equalsIgnoreCase("")) {
@@ -244,18 +244,18 @@ public class BillingmasterDAO {
         }
 
         Query query = entityManager.createNativeQuery(sb.toString());
-        query.setParameter("statusType", statusType);
+        query.setParameter("statusType", statusType.trim());
 
         if (providerNo != null && !providerNo.trim().equalsIgnoreCase("all")) {
-            query.setParameter("providerNo", providerNo);
+            query.setParameter("providerNo", providerNo.trim());
         }
 
         if (startDate != null && !startDate.trim().equalsIgnoreCase("")) {
-            query.setParameter("startDate", startDate);
+            query.setParameter("startDate", startDate.trim());
         }
 
         if (endDate != null && !endDate.trim().equalsIgnoreCase("")) {
-            query.setParameter("endDate", endDate);
+            query.setParameter("endDate", endDate.trim());
         }
 
         return query.getResultList();
