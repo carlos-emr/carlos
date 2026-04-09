@@ -118,7 +118,6 @@ public class EctDisplayDecisionSupportAlerts2Action extends EctDisplayAction {
                         key = StringUtils.maxLenString(dsConsequence.getText(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES);
                         item.setLinkTitle(dsGuideline.getTitle());
                         Dao.addAutoCompleteItem(key, url, BGCOLOUR);
-                        url += "return false;";
                         item.setURL(url);
                         String strTitle = StringUtils.maxLenString(dsGuideline.getTitle(), MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
                         item.setTitle(strTitle);
