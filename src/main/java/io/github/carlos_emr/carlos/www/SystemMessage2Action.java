@@ -33,8 +33,13 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.apache.logging.log4j.Logger;
+
 import io.github.carlos_emr.carlos.commn.dao.SystemMessageDao;
 import io.github.carlos_emr.carlos.commn.model.SystemMessage;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -45,10 +50,16 @@ public class SystemMessage2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private static Logger logger = MiscUtils.getLogger();
 
     private SystemMessageDao systemMessageDao = SpringUtils.getBean(SystemMessageDao.class);
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
         String mtd = request.getParameter("method");
         if ("edit".equals(mtd)) {
             return edit();
@@ -81,10 +92,11 @@ public class SystemMessage2Action extends ActionSupport {
 
             SystemMessage msg = systemMessageDao.find((int) parsedMessageId);
             if (msg == null) {
+                request.getSession().removeAttribute("systemMessageId");
                 addActionMessage(getText("system_message.missing"));
                 return list();
             }
-            request.getSession().setAttribute("systemMessageId", messageId);
+            request.getSession().setAttribute("systemMessageId", String.valueOf(msg.getId()));
         } else {
             request.getSession().setAttribute("systemMessageId", "");
         }
@@ -98,14 +110,23 @@ public class SystemMessage2Action extends ActionSupport {
         msg.setCreationDate(new Date());
         int messageId = 0;
         String messageId_str = (String) request.getSession().getAttribute("systemMessageId");
-        if (messageId_str != null && messageId_str != "") {
-            messageId = Integer.valueOf(messageId_str).intValue();
+        if (messageId_str != null && !messageId_str.isEmpty()) {
+            try {
+                messageId = Integer.valueOf(messageId_str).intValue();
+            } catch (NumberFormatException e) {
+                logger.warn("Non-numeric session message ID rejected: {}", messageId_str);
+                return list();
+            }
         }
 
-        if (messageId > 0 || (msg.getId() != null && msg.getId().intValue() > 0)) {
+        if (messageId > 0) {
             msg.setId(messageId);
             systemMessageDao.merge(msg);
         } else {
+            // New message: ensure attacker cannot set ID via @StrutsParameter POST
+            if (msg.getId() != null && msg.getId() > 0) {
+                msg.setId(null);
+            }
             systemMessageDao.persist(msg);
         }
 
