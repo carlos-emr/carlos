@@ -36,7 +36,13 @@
         }
     },
 
-    "forwardPorts": [8080, 8000, 3306, 3000],
+    "forwardPorts": [8080, 8000, 3306, 3000, 13579],
+    "portsAttributes": {
+        "13579": {
+            "label": "Gemini OAuth Callback",
+            "onAutoForward": "notify"
+        }
+    },
     "containerUser": "root",
     "remoteUser": "root"
 }
