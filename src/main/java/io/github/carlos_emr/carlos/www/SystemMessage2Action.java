@@ -94,6 +94,7 @@ public class SystemMessage2Action extends ActionSupport {
             if (msg == null) {
                 request.getSession().removeAttribute("systemMessageId");
                 addActionMessage(getText("system_message.missing"));
+                request.getSession().removeAttribute("systemMessageId");
                 return list();
             }
             request.getSession().setAttribute("systemMessageId", String.valueOf(msg.getId()));
