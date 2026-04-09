@@ -99,6 +99,8 @@ public final class Billing2Action extends ActionSupport {
                 }
                 bean = new BillingSessionBean();
                 fillBean(request, bean);
+                bean.setPatientNo(demoNo);
+                bean.setApptNo(apptNo);
                 if (request.getAttribute("serviceDate") != null) {
                     MiscUtils.getLogger().debug("service Date set to the appointment Date" + (String) request.getAttribute("serviceDate"));
                     bean.setApptDate((String) request.getAttribute("serviceDate"));
@@ -108,7 +110,7 @@ public final class Billing2Action extends ActionSupport {
                 
                 try {
                     _log.debug("Start of billing rules");
-                    List<DSConsequence> list = BillingGuidelines.getInstance().evaluateAndGetConsequences(loggedInInfo, request.getParameter("demographic_no"), (String) request.getSession().getAttribute("user")); // nosemgrep: tainted-session-from-http-request
+                    List<DSConsequence> list = BillingGuidelines.getInstance().evaluateAndGetConsequences(loggedInInfo, demoNo, (String) request.getSession().getAttribute("user")); // nosemgrep: tainted-session-from-http-request
 
                     for (DSConsequence dscon : list) {
                         _log.debug("DSTEXT " + dscon.getText());

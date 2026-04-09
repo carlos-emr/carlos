@@ -182,6 +182,9 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             }
 
             bean.demographicNo = request.getParameter("demographicNo");
+            if (bean.demographicNo != null && !bean.demographicNo.matches("\\d{1,10}")) {
+                throw new IllegalArgumentException("Invalid demographicNo parameter");
+            }
             bean.appointmentNo = request.getParameter("appointmentNo");
             if ("null".equalsIgnoreCase(bean.appointmentNo) || "".equals(bean.appointmentNo)) {
                 bean.appointmentNo = null;

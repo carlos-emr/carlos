@@ -92,13 +92,13 @@ public final class RxShowAllergy2Action extends ActionSupport {
      * @throws RuntimeException if redirect fails
      */
     public String reorder() {
+        String demoNoParam = request.getParameter("demographicNo");
+        if (demoNoParam == null || !demoNoParam.matches("\\d{1,10}")) {
+            throw new IllegalArgumentException("Invalid demographicNo");
+        }
         reorder(request);
         try {
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-            String demoNoParam = request.getParameter("demographicNo");
-            if (demoNoParam == null || !demoNoParam.matches("\\d{1,10}")) {
-                throw new IllegalArgumentException("Invalid demographicNo");
-            }
             RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, demoNoParam);
             if (patient != null) {
                 request.getSession().setAttribute("Patient", patient);
@@ -303,8 +303,18 @@ public final class RxShowAllergy2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         String direction = request.getParameter("direction");
+        if (direction == null || (!"up".equals(direction) && !"down".equals(direction))) {
+            throw new IllegalArgumentException("Invalid direction parameter");
+        }
         String demographicNo = request.getParameter("demographicNo");
-        int allergyId = Integer.parseInt(request.getParameter("allergyId"));
+        if (demographicNo == null || !demographicNo.matches("\\d{1,10}")) {
+            throw new IllegalArgumentException("Invalid demographicNo");
+        }
+        String allergyIdParam = request.getParameter("allergyId");
+        if (allergyIdParam == null || !allergyIdParam.matches("\\d{1,10}")) {
+            throw new IllegalArgumentException("Invalid allergyId");
+        }
+        int allergyId = Integer.parseInt(allergyIdParam);
         try {
             Allergy[] allergies = RxPatientData.getPatient(loggedInInfo, demographicNo).getActiveAllergies();
             for (int x = 0; x < allergies.length; x++) {
