@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -46,22 +47,18 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 public class ExcludeDemographicHandler {
 
     private static Logger logger = MiscUtils.getLogger();
-    private ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * Allowlist pattern for input validation preventing JSON injection attacks.
-     * Accepts only digit sequences separated by commas with optional surrounding
-     * brackets and whitespace. Rejects JSON objects, nested arrays, string values,
-     * and script injection payloads.
+     * Allowlist pattern for input validation preventing injection attacks.
+     * Accepts only digit sequences separated by commas, either bare or wrapped
+     * in matched brackets, with optional whitespace. Rejects JSON objects, nested
+     * arrays, string values, mismatched brackets, and script injection payloads.
      */
-    private static final Pattern VALID_INT_ARRAY_PATTERN = Pattern.compile("^\\s*\\[?\\s*\\d+(\\s*,\\s*\\d+)*\\s*]?\\s*$");
+    private static final Pattern VALID_INT_ARRAY_PATTERN = Pattern.compile(
+            "^\\s*(?:\\[\\s*\\d+(?:\\s*,\\s*\\d+)*\\s*]|\\d+(?:\\s*,\\s*\\d+)*)\\s*$");
 
     private static DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
     private DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
@@ -162,8 +159,8 @@ public class ExcludeDemographicHandler {
         List<DemographicExt> allProviderDemoExts = demographicExtDao.getDemographicExtByKeyAndValue(excludeIndicator, indicatorName);
         logger.debug("unExcludeDemoIds (json): {} matching extensions for template {}", allProviderDemoExts, indicatorName);
         for (DemographicExt e : allProviderDemoExts) {
-            // remove exclusion if provider_no matches or is null and the demographic_no matches
-            if (e.getProviderNo().equals(providerNo) && demoIds.contains(e.getDemographicNo())) {
+            // remove exclusion if provider_no matches (or both are null) and the demographic_no matches
+            if (Objects.equals(e.getProviderNo(), providerNo) && demoIds.contains(e.getDemographicNo())) {
                 demographicExtDao.removeDemographicExt(e.getId());
                 logger.info("demo: {} unexcluded from indicatorTemplate {}", e.getDemographicNo(), indicatorName);
             }
@@ -173,40 +170,38 @@ public class ExcludeDemographicHandler {
     /**
      * Parses a comma-separated string of integers (optionally wrapped in brackets)
      * into a list of integers. Validates input against an allowlist pattern that
-     * permits only digits, commas, whitespace, and brackets — preventing JSON
-     * injection from user-controlled data.
+     * permits only digits, commas, whitespace, and brackets — preventing injection
+     * from user-controlled data. Uses simple CSV splitting instead of JSON parsing
+     * since only integer values are needed.
      *
-     * @param jsonString String containing comma-separated integers, e.g. "1,2,3" or "[1,2,3]"
+     * @param input String containing comma-separated integers, e.g. "1,2,3" or "[1,2,3]"
      * @return List of parsed integers, or an empty list if input is null, empty, or invalid
      */
-    private List<Integer> parseIntegerArray(String jsonString) {
-        if (jsonString == null || jsonString.isEmpty()) {
+    private List<Integer> parseIntegerArray(String input) {
+        if (input == null || input.isEmpty()) {
             return List.of();
         }
 
-        if (!VALID_INT_ARRAY_PATTERN.matcher(jsonString).matches()) {
-            logger.warn("Rejected invalid integer array input: {}", LogSanitizer.sanitize(jsonString));
+        if (!VALID_INT_ARRAY_PATTERN.matcher(input).matches()) {
+            logger.warn("Rejected invalid integer array input: {}", LogSanitizer.sanitize(input));
             return List.of();
         }
 
-        if (!jsonString.startsWith("[")) {
-            jsonString = "[" + jsonString;
+        // Strip surrounding brackets and whitespace
+        String stripped = input.strip();
+        if (stripped.startsWith("[")) {
+            stripped = stripped.substring(1);
         }
-        if (!jsonString.endsWith("]")) {
-            jsonString = jsonString + "]";
+        if (stripped.endsWith("]")) {
+            stripped = stripped.substring(0, stripped.length() - 1);
         }
 
-        try {
-            ArrayNode jsonArray = (ArrayNode) objectMapper.readTree(jsonString);
-            List<Integer> result = new ArrayList<>(jsonArray.size());
-            for (JsonNode node : jsonArray) {
-                result.add(node.asInt());
-            }
-            return result;
-        } catch (Exception e) {
-            logger.error("Failed to parse integer array: {}", LogSanitizer.sanitize(jsonString), e);
-            return List.of();
+        String[] tokens = stripped.split(",");
+        List<Integer> result = new ArrayList<>(tokens.length);
+        for (String token : tokens) {
+            result.add(Integer.parseInt(token.strip()));
         }
+        return result;
     }
 
     public LoggedInInfo getLoggedinInfo() {
