@@ -73,9 +73,6 @@ public class CaseManagementLinkTag extends TagSupport {
         try {
             StringBuilder builder = new StringBuilder();
 
-            builder.append(req.getScheme()).append("://");
-            builder.append(req.getServerName()).append(":");
-            builder.append(req.getServerPort());
             builder.append(req.getContextPath()).append("/");
 
             builder.append("encounter/IncomingEncounter.do").append("?");
