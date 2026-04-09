@@ -276,12 +276,17 @@ public class importCasemgmt {
                        
                         pstmt.close();
 
-                        PreparedStatement pstmt2 = con.prepareStatement("select id from casemgmt_issue where demographic_no = ? and issue_id = ?");
-                        PreparedStatement pstmt3 = con.prepareStatement("insert into casemgmt_issue (demographic_no,issue_id, program_id,type,update_date) values(?,?,?,'nurse',now())",PreparedStatement.RETURN_GENERATED_KEYS);
-                        PreparedStatement pstmt4 = con.prepareStatement("insert into casemgmt_note (update_date, demographic_no, provider_no, note,  signed, signing_provider_no, include_issue_innote, program_no, " +
-                                "reporter_caisi_role, reporter_program_team, history, password, locked, uuid, observation_date) Values(?,?,?,?,true,'000000'," +
-                                "false,?,'1','0',?,'','0',?,?)", PreparedStatement.RETURN_GENERATED_KEYS);
-                        PreparedStatement pstmt5 = con.prepareStatement("insert into casemgmt_issue_notes (id, note_id) Values(?,?)");
+                        PreparedStatement pstmt2 = null;
+                        PreparedStatement pstmt3 = null;
+                        PreparedStatement pstmt4 = null;
+                        PreparedStatement pstmt5 = null;
+                        try {
+                            pstmt2 = con.prepareStatement("select id from casemgmt_issue where demographic_no = ? and issue_id = ?");
+                            pstmt3 = con.prepareStatement("insert into casemgmt_issue (demographic_no,issue_id, program_id,type,update_date) values(?,?,?,'nurse',now())",PreparedStatement.RETURN_GENERATED_KEYS);
+                            pstmt4 = con.prepareStatement("insert into casemgmt_note (update_date, demographic_no, provider_no, note,  signed, signing_provider_no, include_issue_innote, program_no, " +
+                                    "reporter_caisi_role, reporter_program_team, history, password, locked, uuid, observation_date) Values(?,?,?,?,true,'000000'," +
+                                    "false,?,'1','0',?,'','0',?,?)", PreparedStatement.RETURN_GENERATED_KEYS);
+                            pstmt5 = con.prepareStatement("insert into casemgmt_issue_notes (id, note_id) Values(?,?)");
                         
                         
                         sql = "select * from eChart e left join (select max(eChartId) eChartId from eChart where subject != 'SPLIT CHART' group by demographicNo) " + 
@@ -596,6 +601,20 @@ public class importCasemgmt {
 			System.out.println("DB ERROR: " + e.getMessage());
 			e.printStackTrace();
 		}
+                        } finally {
+                            if (pstmt5 != null) {
+                                try { pstmt5.close(); } catch (SQLException e) { }
+                            }
+                            if (pstmt4 != null) {
+                                try { pstmt4.close(); } catch (SQLException e) { }
+                            }
+                            if (pstmt3 != null) {
+                                try { pstmt3.close(); } catch (SQLException e) { }
+                            }
+                            if (pstmt2 != null) {
+                                try { pstmt2.close(); } catch (SQLException e) { }
+                            }
+                        }
 	}
         
          public static String formatNote(StringBuffer note) {
