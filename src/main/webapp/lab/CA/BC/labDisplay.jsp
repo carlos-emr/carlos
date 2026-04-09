@@ -105,8 +105,11 @@
     <input type="hidden" name="labType" value="BCP"/>
     <%
         String safeSegmentIdBCP = null;
+        String segmentIdParamBCP = StringUtils.noNull(request.getParameter("segmentID")).trim();
         try {
-            safeSegmentIdBCP = Integer.toString(Integer.parseInt(StringUtils.noNull(request.getParameter("segmentID"))));
+            if (!segmentIdParamBCP.isEmpty()) {
+                safeSegmentIdBCP = Long.toString(Long.parseLong(segmentIdParamBCP));
+            }
         } catch (NumberFormatException e) {
             safeSegmentIdBCP = null;
         }
