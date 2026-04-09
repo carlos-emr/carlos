@@ -54,9 +54,11 @@ public class RptFormQuery {
 
     /**
      * Pattern for valid SQL table identifiers. Allows comma-separated table names
-     * (e.g. "formBCAR,formBCNewBorn") where each name is a standard SQL identifier.
+     * with optional whitespace around commas (e.g. "formBCAR,formBCNewBorn" or
+     * "formBCAR, formBCNewBorn") where each name is a standard SQL identifier.
      */
-    private static final Pattern VALID_TABLE_NAME_PATTERN = Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*(,[a-zA-Z_][a-zA-Z0-9_]*)*$");
+    private static final Pattern VALID_TABLE_NAME_PATTERN = Pattern.compile(
+            "^[a-zA-Z_][a-zA-Z0-9_]*(\\s*,\\s*[a-zA-Z_][a-zA-Z0-9_]*)*$");
 
     /**
      * Validates that a table name (or comma-separated list of table names) contains
