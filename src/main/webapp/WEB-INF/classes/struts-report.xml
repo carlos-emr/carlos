@@ -159,5 +159,13 @@
         </action>
         <action name="appointment/printAppointmentReceiptAction" class="io.github.carlos_emr.carlos.report.pageUtil.PrintAppointmentReceipt2Action"/>
 
+        <!-- Migrated db*-prefixed JSP controllers: reports -->
+        <action name="oscarReport/DbManageProvider" class="io.github.carlos_emr.carlos.report.pageUtil.DbManageProvider2Action">
+            <result name="success">/WEB-INF/jsp/oscarReport/dbManageProvider.jsp</result>
+        </action>
+        <action name="oscarReport/DbReportAgeSex" class="io.github.carlos_emr.carlos.report.pageUtil.DbReportAgeSex2Action">
+            <result name="success">/oscarReport/oscarReportAgeSex.jsp</result>
+        </action>
+
     </package>
 </struts>
