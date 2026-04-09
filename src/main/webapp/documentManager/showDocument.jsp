@@ -434,7 +434,6 @@
     %>
     <form name="acknowledgeForm_<%=docId%>" id="acknowledgeForm_<%=docId%>" onsubmit="<%=Encode.forHtmlAttribute(ackFunc)%>" method="post"
           action="javascript:void(0);">
-        <input type="hidden" name="CSRF-TOKEN" value="">
         <input type="hidden" name="segmentID" value="<%=Encode.forHtmlAttribute(docId)%>">
         <input type="hidden" name="multiID" value="<%=Encode.forHtmlAttribute(docId)%>">
         <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(providerNo)%>">
