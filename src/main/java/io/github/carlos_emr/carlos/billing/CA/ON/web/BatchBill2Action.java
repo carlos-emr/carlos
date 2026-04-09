@@ -236,11 +236,12 @@ public class BatchBill2Action extends ActionSupport {
             addActionError("Missing required parameter: createdate");
             return "error";
         }
+        final String createdDateFormat = "yyyy/MM/dd HH:mm:ss";
         Date date;
         try {
-            date = DateUtils.parseDate(createdDate, new String[]{"yyyy/MM/dd HH:mm:ss"});
+            date = DateUtils.parseDate(createdDate, new String[]{createdDateFormat});
         } catch (ParseException e) {
-            addActionError("Invalid date format for createdate");
+            addActionError("Invalid date format for createdate. Expected format: " + createdDateFormat);
             return "error";
         }
         Timestamp created = new Timestamp(date.getTime());
