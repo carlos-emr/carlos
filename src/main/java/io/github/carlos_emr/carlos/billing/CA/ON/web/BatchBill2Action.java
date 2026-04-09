@@ -216,7 +216,7 @@ public class BatchBill2Action extends ActionSupport {
             addActionError("Missing required parameter: demographic_no");
             return "error";
         }
-        Integer demographicNo;
+        int demographicNo;
         try {
             demographicNo = Integer.parseInt(demographicNoParam.trim());
         } catch (NumberFormatException e) {
