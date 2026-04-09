@@ -636,7 +636,7 @@ Repeat antibody screen
         if (demoNoParam == null || !demoNoParam.matches("\\d{1,10}")) {
             return null;
         }
-        Integer demographicNo = Integer.parseInt(demoNoParam);
+        int demographicNo = Integer.parseInt(demoNoParam);
         String glucose = request.getParameter("glucose");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
