@@ -1463,21 +1463,6 @@ var EFORM_I18N = {
         var OSCAR_EFORM_ENTITY_URL = "../ws/rs/eform/";
         var OSCAR_EFORM_SEARCH_URL = "../ws/rs/eforms/";
 
-        /**
-         * Validates image src URLs using an allowlist to prevent XSS via dangerous URI schemes
-         * (javascript:, data:text/html, etc.). Allows relative paths, http(s) URLs,
-         * data:image/ URIs (used by signature pads), and simple filenames.
-         */
-        function isValidImageSrc(url) {
-            if (!url || typeof url !== 'string') return false;
-            if (/^(\/(?!\/)|\.\/|\.\.\/)/.test(url)) return true;
-            if (/^https?:\/\//i.test(url)) return true;
-            if (/^data:image\//i.test(url)) return true;
-            if (/^[\w][\w.\- ]*$/.test(url)) return true; // simple filename
-            console.error('isValidImageSrc: rejected URL:', url.substring(0, 50));
-            return false;
-        }
-
         /** GLOBAL SCOPE VARIABLES */
         var groupTitle
         var linkTo
@@ -2148,15 +2133,6 @@ var EFORM_I18N = {
             $element.addClass("gen-droppable");
         }
 
-        function isValidImageSrc(src) {
-          return new Promise((resolve) => {
-            const img = new Image();        
-            img.onload = () => resolve(true);
-            img.onerror = () => resolve(false);
-            img.src = src;
-          });
-        }
-
         function makeSignatureCanvas($element) {
 
             var $canvasFrame = $element.children(".canvas_frame");
@@ -2409,7 +2385,7 @@ var EFORM_I18N = {
                         name: id
                     });
                 });
-                ($newDraggable);
+                makeSignatureCanvas($newDraggable);
             }
             setNoborderStyle($newDraggable.find(XBOX_INPUT_SELECTOR), xboxBordersVisibleState);
             setNoborderStyle($newDraggable.find(TEXT_INPUT_SELECTOR), textBordersVisibleState);
@@ -2846,7 +2822,7 @@ var EFORM_I18N = {
             $pages.find(TEXT_INPUT_SELECTOR).parent().append(createInputOverrideDiv());
             $pages.find(".signature_data").parent().append(createInputOverrideDiv());
             $pages.find(".signaturePad").each(function() {
-                ($(this));
+                makeSignatureCanvas($(this));
             });
 
             setNoborderStyle($pages.find(XBOX_INPUT_SELECTOR), xboxBordersVisibleState);
@@ -4683,15 +4659,19 @@ var EFORM_I18N = {
 
     <script id="signature_script" class="toSource">
 
-        function isValidImageSrc(src) {
-          return new Promise((resolve) => {
-            const img = new Image();
-        
-            img.onload = () => resolve(true);
-            img.onerror = () => resolve(false);
-        
-            img.src = src;
-          });
+        /**
+         * Validates image src URLs using an allowlist to prevent XSS via dangerous URI schemes
+         * (javascript:, data:text/html, etc.). Allows relative paths, http(s) URLs,
+         * data:image/ URIs (used by signature pads), and simple filenames.
+         */
+        function isValidImageSrc(url) {
+            if (!url || typeof url !== 'string') return false;
+            if (/^(\/(?!\/)|\.\/|\.\.\/)/.test(url)) return true;
+            if (/^https?:\/\//i.test(url)) return true;
+            if (/^data:image\//i.test(url)) return true;
+            if (/^[\w][\w.\- ]*$/.test(url)) return true; // simple filename
+            console.error('isValidImageSrc: rejected URL:', url.substring(0, 50));
+            return false;
         }
 
         /** this function is run on page load to make signature pads work. */
