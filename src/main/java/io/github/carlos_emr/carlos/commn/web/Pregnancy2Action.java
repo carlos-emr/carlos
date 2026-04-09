@@ -579,7 +579,7 @@ Repeat antibody screen
         if (demoNoParam == null || !demoNoParam.matches("\\d{1,10}")) {
             return null;
         }
-        Integer demographicNo = Integer.parseInt(demoNoParam);
+        int demographicNo = Integer.parseInt(demoNoParam);
         String hb = request.getParameter("hb");
         String urine = request.getParameter("urine");
         String antibody = request.getParameter("antibody");
