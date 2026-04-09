@@ -29,10 +29,13 @@
 
 package io.github.carlos_emr.carlos.email.core;
 
+import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.util.Arrays;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Data Transfer Object to encapsulate email attachment settings and IDs.
@@ -68,9 +71,18 @@ public record EmailAttachmentSettings(
     private static final Pattern EMAIL_PATTERN =
         Pattern.compile("^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$");
 
-    /** Valid values for the patient chart option (from {@code ChartDisplayOption} enum). */
-    private static final Set<String> VALID_CHART_OPTIONS = Set.of("doNotAddAsNote", "addFullNote");
+    /** Precompiled pattern matching any Unicode line break sequence. */
+    private static final Pattern LINE_BREAK_PATTERN = Pattern.compile("\\R");
 
+    /** Precompiled pattern matching Unicode control characters. */
+    private static final Pattern CONTROL_CHARS_PATTERN = Pattern.compile("[\\p{Cntrl}]");
+
+    /** Valid values for the patient chart option, derived from {@link ChartDisplayOption} enum. */
+    private static final Set<String> VALID_CHART_OPTIONS = Arrays.stream(ChartDisplayOption.values())
+        .map(ChartDisplayOption::getValue)
+        .collect(Collectors.toUnmodifiableSet());
+
+    private static final int MAX_EMAIL_LENGTH = 254;
     private static final int MAX_SUBJECT_LENGTH = 200;
     private static final int MAX_BODY_LENGTH = 10000;
     private static final int MAX_PASSWORD_LENGTH = 100;
@@ -124,14 +136,14 @@ public record EmailAttachmentSettings(
     }
 
     /**
-     * Validates an email address against a simple format pattern.
-     * Returns null (fall back to default sender) if the address is invalid.
+     * Validates an email address against a simple format pattern and RFC 5321 length limit.
+     * Returns null (fall back to default sender) if the address is invalid or too long.
      *
      * @param email the raw email address from user input
-     * @return the email address if valid, or null if invalid/null
+     * @return the email address if valid, or null if invalid/null/too long
      */
     static String validateEmail(String email) {
-        if (email == null || !EMAIL_PATTERN.matcher(email).matches()) {
+        if (email == null || email.length() > MAX_EMAIL_LENGTH || !EMAIL_PATTERN.matcher(email).matches()) {
             return null;
         }
         return email;
@@ -149,7 +161,7 @@ public record EmailAttachmentSettings(
         if (subject == null) {
             return null;
         }
-        subject = subject.replaceAll("\\R", "");
+        subject = LINE_BREAK_PATTERN.matcher(subject).replaceAll("");
         if (subject.length() > MAX_SUBJECT_LENGTH) {
             subject = subject.substring(0, MAX_SUBJECT_LENGTH);
         }
@@ -167,7 +179,7 @@ public record EmailAttachmentSettings(
         if (password == null) {
             return null;
         }
-        password = password.replaceAll("[\\p{Cntrl}]", "");
+        password = CONTROL_CHARS_PATTERN.matcher(password).replaceAll("");
         if (password.length() > MAX_PASSWORD_LENGTH) {
             password = password.substring(0, MAX_PASSWORD_LENGTH);
         }

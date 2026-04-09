@@ -91,6 +91,24 @@ class EmailAttachmentSettingsTest {
         void shouldReturnNull_whenContainsAngleBrackets() {
             assertThat(EmailAttachmentSettings.validateEmail("<script>@example.com")).isNull();
         }
+
+        @Test
+        @DisplayName("should return null when exceeding RFC 5321 length limit")
+        void shouldReturnNull_whenExceedingMaxLength() {
+            String longLocal = "a".repeat(245);
+            String longEmail = longLocal + "@example.com";
+            assertThat(longEmail.length()).isGreaterThan(254);
+            assertThat(EmailAttachmentSettings.validateEmail(longEmail)).isNull();
+        }
+
+        @Test
+        @DisplayName("should return email when at RFC 5321 length limit")
+        void shouldReturnEmail_whenAtMaxLength() {
+            String local = "a".repeat(241);
+            String email = local + "@example.com";
+            assertThat(email.length()).isEqualTo(254);
+            assertThat(EmailAttachmentSettings.validateEmail(email)).isEqualTo(email);
+        }
     }
 
     @Nested
