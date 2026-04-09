@@ -135,6 +135,7 @@ public class AppointmentSearchManagerImpl implements AppointmentSearchManager {
         return searchConfig;
     }
 
+    @Override
     public List<TimeSlot> findAppointment(LoggedInInfo loggedInInfo, SearchConfig config, Integer demographicNo, Long appointmentTypeId, Calendar startDate) throws java.lang.ReflectiveOperationException {
         List<TimeSlot> appointments = new ArrayList<TimeSlot>();
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
