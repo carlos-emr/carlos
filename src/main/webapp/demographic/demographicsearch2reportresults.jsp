@@ -63,7 +63,8 @@
     // caught by startsWith("//"). Backslash bypass (/\) is also rejected explicitly.
     String originalpage = request.getParameter("originalpage");
     if (originalpage == null || originalpage.isEmpty() || !originalpage.startsWith("/") || originalpage.startsWith("//") || originalpage.startsWith("/\\")) {
-        originalpage = request.getContextPath() + "/appointment/addappointment.jsp";
+        // Include a query delimiter because downstream code appends parameters beginning with '&'.
+        originalpage = request.getContextPath() + "/appointment/addappointment.jsp?";
     }
 
 %>
