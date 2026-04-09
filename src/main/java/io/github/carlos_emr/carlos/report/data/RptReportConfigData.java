@@ -145,7 +145,7 @@ public class RptReportConfigData {
         try {
             parsedReportId = Integer.parseInt(reportId);
         } catch (NumberFormatException e) {
-            return ret;
+            throw new SQLException("Invalid reportId: " + reportId, e);
         }
         ResultSet rs = DBHelp.searchDBRecord(sql, parsedReportId, saveAs);
         while (rs.next()) {

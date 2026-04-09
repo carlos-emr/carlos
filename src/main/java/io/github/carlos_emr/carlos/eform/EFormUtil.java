@@ -809,8 +809,15 @@ public class EFormUtil {
             sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.patient_independent=0 AND eform_data.demographic_no=? AND eform_data.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
         }
         ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
+        int demographicNo;
         try {
-            ResultSet rs = DBHandler.GetPreSQL(sql, Integer.parseInt(demographic_no), groupName);
+            demographicNo = Integer.parseInt(demographic_no);
+        } catch (NumberFormatException nfe) {
+            logger.error("Invalid demographic_no: " + demographic_no, nfe);
+            return results;
+        }
+        try {
+            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo, groupName);
             while (rs.next()) {
                 // filter eform by role type
                 if (rsGetString(rs, "roleType") != null && !rsGetString(rs, "roleType").equals("") && !rsGetString(rs, "roleType").equals("null")) {
