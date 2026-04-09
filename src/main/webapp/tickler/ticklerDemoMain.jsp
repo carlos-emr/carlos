@@ -783,7 +783,7 @@
         </table>
     </form>
 
-    <form name="ticklerform" method="post" action="dbTicklerDemoMain.jsp">
+    <form name="ticklerform" method="post" action="DbTicklerDemoMain.do">
         <table bgcolor=#666699 border=0 cellspacing=0 width=100%>
 
             <tr>

@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * @author wrighd
@@ -75,18 +76,26 @@ public class PrintLabs2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_lab)");
         }
 
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, request.getParameter("segmentID"), request.getRemoteAddr(), "");
+        String segmentID = request.getParameter("segmentID");
+        if (segmentID == null || !segmentID.matches("\\d+")) {
+            logger.warn("PrintLabs2Action called with invalid segmentID: {}", LogSanitizer.sanitize(segmentID));
+            return "error";
+        }
+
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr(), ""); // nosemgrep: tainted-session-from-http-request - segmentID validated as numeric above
 
         try {
-            MessageHandler handler = Factory.getHandler(request.getParameter("segmentID"));
+            MessageHandler handler = Factory.getHandler(segmentID);
+            // Sanitize patient name for Content-Disposition header to prevent header injection (CRLF, quotes)
+            String safeName = handler.getPatientName().replaceAll("[\\r\\n\"\\\\]", "").replaceAll("\\s", "_");
             if (handler.getHeaders().get(0).equals("CELLPATHR")) {//if it is a VIHA RTF lab
                 response.setContentType("text/rtf");  //octet-stream
-                response.setHeader("Content-Disposition", "attachment; filename=\"" + handler.getPatientName().replaceAll("\\s", "_") + "_LabReport.rtf\"");
+                response.setHeader("Content-Disposition", "attachment; filename=\"" + safeName + "_LabReport.rtf\"");
                 LabPDFCreator pdf = new LabPDFCreator(request, response.getOutputStream());
                 pdf.printRtf();
             } else {
                 response.setContentType("application/pdf");  //octet-stream
-                response.setHeader("Content-Disposition", "attachment; filename=\"" + handler.getPatientName().replaceAll("\\s", "_") + "_LabReport.pdf\"");
+                response.setHeader("Content-Disposition", "attachment; filename=\"" + safeName + "_LabReport.pdf\"");
 
                 //first write to a file
                 File f = File.createTempFile("labReport", ".pdf");

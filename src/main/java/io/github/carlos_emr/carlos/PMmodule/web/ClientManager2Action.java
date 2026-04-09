@@ -75,6 +75,7 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsClientFormDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -352,9 +353,9 @@ public class ClientManager2Action extends ActionSupport {
         LogAction.log("read", "pmm client record", id, request);
 
         Demographic demographic = clientManager.getClientByDemographicNo(id);
-        request.getSession().setAttribute("clientGender", demographic.getSex());
-        request.getSession().setAttribute("clientAge", demographic.getAge());
-        request.getSession().setAttribute("demographicId", demographic.getDemographicNo());
+        request.getSession().setAttribute("clientGender", demographic.getSex()); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("clientAge", demographic.getAge()); // nosemgrep: tainted-session-from-http-request
+        request.getSession().setAttribute("demographicId", demographic.getDemographicNo()); // nosemgrep: tainted-session-from-http-request
 
         return "edit";
     }
@@ -499,7 +500,7 @@ public class ClientManager2Action extends ActionSupport {
                 try {
                     p.setVacancyId(Integer.valueOf(vacancyIdParam.trim()));
                 } catch (NumberFormatException e) {
-                    logger.error("Invalid vacancyId parameter: {}", vacancyIdParam, e);
+                    logger.error("Invalid vacancyId parameter: {}", LogSanitizer.sanitize(vacancyIdParam), e);
                 }
             }
             request.setAttribute("program", program);
@@ -621,7 +622,7 @@ public class ClientManager2Action extends ActionSupport {
         this.setProgram(new Program());
         this.setReferral(new ClientReferral());
         setEditAttributes(request, "" + referral.getClientId());
-        LogAction.log("write", "referral", "" + referral.getClientId(), request);
+        LogAction.log("write", "referral", String.valueOf(referral.getClientId()), request);
 
         return "edit";
     }

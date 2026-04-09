@@ -7,18 +7,18 @@
 #   - java.servlets.security.crlf-injection-logs.crlf-injection-logs
 #   - java.lang.security.audit.crlf-injection-logs.crlf-injection-logs
 #
-# Those three built-in rules MUST be disabled in the Semgrep Cloud policy
-# dashboard (app.semgrep.dev → Policies) to avoid duplicate alerts.
+# Those built-in rules must be disabled in Semgrep Cloud policy (app.semgrep.dev)
+# so that only this custom rule runs for CRLF log injection detection.
 #
-# See: .semgrep/README.md for maintenance instructions.
+# See: https://github.com/carlos-emr/carlos/issues/1432
 
 rules:
   - id: carlos.crlf-injection-logs
-    message: >-
+    message: >
       When data from an untrusted source is put into a logger and not
       neutralized correctly, an attacker could forge log entries or
-      include malicious content. Use LogSanitizer.sanitize() to
-      neutralize user-controlled values before logging.
+      include malicious content. Use LogSanitizer.sanitize() to escape
+      control characters before logging user-supplied values.
     severity: ERROR
     languages: [java]
     mode: taint

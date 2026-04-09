@@ -228,7 +228,7 @@
                     <%} else { %>
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="onUnbilled('<%=bsurl%>/billing/CA/<%=province%>/billingDeleteWithoutNo.jsp?appointment_no=<%=bean.appointmentNo%>');return false;">Billing</a>
+                               onClick="onUnbilled('<%=bsurl%>/billing/CA/<%=province%>/BillingDeleteWithoutNo.do?appointment_no=<%=bean.appointmentNo%>');return false;">Billing</a>
                         </td>
                     </tr>
                     <%} %>

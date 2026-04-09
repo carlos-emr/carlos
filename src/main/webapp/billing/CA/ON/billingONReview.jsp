@@ -570,7 +570,7 @@
 
 <body onload="showtotal(),calculatePayment()">
 
-<form method="post" name="titlesearch" action="billingONSave.jsp" onsubmit="return onSave();">
+<form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/ON/BillingONSave.do" onsubmit="return onSave();">
     <input type="hidden" name="url_back" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("url_back"))) %>">
     <input type="hidden" name="billNo_old" id="billNo_old" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billNo_old"))) %>"/>
     <input type="hidden" name="billStatus_old" id="billStatus_old" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("billStatus_old"))) %>"/>
@@ -1249,7 +1249,7 @@
                     String temp = e.nextElement().toString();
             %>
             <input type="hidden" name="<%= Encode.forHtmlAttribute(temp) %>"
-                   value="<%=Encode.forHtmlAttribute(request.getParameter(temp))%>"/>
+                   value="<%=Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter(temp)))%>"/>
             <%
                 }
 
